@@ -6,35 +6,28 @@ import { LoginCard } from "@/components/login/login-card";
 import { SignupCard } from "@/components/signup/signup-card";
 
 type AuthView = "login" | "signup" | "forgot";
-type FlipDirection = "forward" | "back";
+type SlideDirection = "forward" | "back";
 
 export function LoginModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
-  const [isFlipping, setIsFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<FlipDirection>("forward");
-  const modalContentRef = useRef<HTMLDivElement | null>(null);
-  const contentSwapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flipEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isSwitching, setIsSwitching] = useState(false);
+  const [slideDirection, setSlideDirection] = useState<SlideDirection>("forward");
+
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const swapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const resetModalScroll = () => {
-    const modalContent = modalContentRef.current;
-
-    if (modalContent) {
-      modalContent.scrollTop = 0;
-    }
-
-    const formScrollArea = modalContent?.querySelector<HTMLElement>(".auth-inner-scroll");
-
-    if (formScrollArea) {
-      formScrollArea.scrollTop = 0;
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
     }
   };
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsOpen(false);
+        close();
       }
     };
 
@@ -45,8 +38,12 @@ export function LoginModal() {
       if (trigger) {
         event.preventDefault();
         setAuthView("login");
-        setIsFlipping(false);
+        setIsSwitching(false);
         setIsOpen(true);
+
+        requestAnimationFrame(() => {
+          resetModalScroll();
+        });
       }
     };
 
@@ -69,12 +66,12 @@ export function LoginModal() {
 
   useEffect(() => {
     return () => {
-      if (contentSwapTimerRef.current) {
-        clearTimeout(contentSwapTimerRef.current);
+      if (swapTimerRef.current) {
+        clearTimeout(swapTimerRef.current);
       }
 
-      if (flipEndTimerRef.current) {
-        clearTimeout(flipEndTimerRef.current);
+      if (finishTimerRef.current) {
+        clearTimeout(finishTimerRef.current);
       }
     };
   }, []);
@@ -86,40 +83,47 @@ export function LoginModal() {
   const close = () => {
     setIsOpen(false);
     setAuthView("login");
-    setIsFlipping(false);
+    setIsSwitching(false);
 
-    if (contentSwapTimerRef.current) {
-      clearTimeout(contentSwapTimerRef.current);
-      contentSwapTimerRef.current = null;
+    if (swapTimerRef.current) {
+      clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = null;
     }
 
-    if (flipEndTimerRef.current) {
-      clearTimeout(flipEndTimerRef.current);
-      flipEndTimerRef.current = null;
+    if (finishTimerRef.current) {
+      clearTimeout(finishTimerRef.current);
+      finishTimerRef.current = null;
     }
   };
 
   const switchAuthView = (nextView: AuthView) => {
-    if (isFlipping || nextView === authView) {
+    if (isSwitching || nextView === authView) {
       return;
     }
 
     resetModalScroll();
-    setFlipDirection(nextView === "login" ? "back" : "forward");
-    setIsFlipping(true);
 
-    contentSwapTimerRef.current = setTimeout(() => {
+    const nextDirection: SlideDirection = nextView === "login" ? "back" : "forward";
+    setSlideDirection(nextDirection);
+    setIsSwitching(true);
+
+    swapTimerRef.current = setTimeout(() => {
       setAuthView(nextView);
+
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 260);
+    }, 180);
 
-    flipEndTimerRef.current = setTimeout(() => {
-      setIsFlipping(false);
-      contentSwapTimerRef.current = null;
-      flipEndTimerRef.current = null;
-    }, 620);
+    finishTimerRef.current = setTimeout(() => {
+      setIsSwitching(false);
+      swapTimerRef.current = null;
+      finishTimerRef.current = null;
+
+      requestAnimationFrame(() => {
+        resetModalScroll();
+      });
+    }, 420);
   };
 
   const closeOnOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -128,19 +132,33 @@ export function LoginModal() {
     }
   };
 
+  const contentClassName = [
+    "auth-slide-page",
+    isSwitching ? "is-switching" : "",
+    isSwitching && slideDirection === "forward" ? "is-switching-forward" : "",
+    isSwitching && slideDirection === "back" ? "is-switching-back" : "",
+    !isSwitching && slideDirection === "forward" ? "is-entered-forward" : "",
+    !isSwitching && slideDirection === "back" ? "is-entered-back" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
       className="fixed inset-0 z-9999 flex items-center justify-center overflow-hidden bg-[rgba(15,23,42,0.58)] p-4 text-[#0b1433] backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby={
-        authView === "login" ? "login-modal-title" : authView === "signup" ? "signup-modal-title" : "forgot-password-modal-title"
+        authView === "login"
+          ? "login-modal-title"
+          : authView === "signup"
+            ? "signup-modal-title"
+            : "forgot-password-modal-title"
       }
       onMouseDown={closeOnOverlayClick}
     >
       <div
-        ref={modalContentRef}
-        className="login-modal-content auth-flip-stage relative max-h-[90vh] w-[min(1100px,95vw)] overflow-y-auto overflow-x-hidden rounded-4xl shadow-[0_30px_90px_rgba(15,23,42,0.32)]"
+        className="relative max-h-[90vh] w-[min(1100px,95vw)] overflow-hidden rounded-4xl shadow-[0_30px_90px_rgba(15,23,42,0.32)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
@@ -155,21 +173,22 @@ export function LoginModal() {
         </button>
 
         <div
-          className={`auth-flip-page ${
-            isFlipping ? (flipDirection === "forward" ? "is-flipping-forward" : "is-flipping-back") : ""
-          }`}
+          ref={scrollContainerRef}
+          className="login-modal-content max-h-[90vh] overflow-y-auto overflow-x-hidden"
         >
-          {authView === "login" ? (
-            <LoginCard
-              compact
-              onSignupClick={() => switchAuthView("signup")}
-              onForgotPasswordClick={() => switchAuthView("forgot")}
-            />
-          ) : authView === "signup" ? (
-            <SignupCard compact onLoginClick={() => switchAuthView("login")} />
-          ) : (
-            <ForgotPasswordCard compact onBackToLogin={() => switchAuthView("login")} />
-          )}
+          <div className={contentClassName}>
+            {authView === "login" ? (
+              <LoginCard
+                compact
+                onSignupClick={() => switchAuthView("signup")}
+                onForgotPasswordClick={() => switchAuthView("forgot")}
+              />
+            ) : authView === "signup" ? (
+              <SignupCard compact onLoginClick={() => switchAuthView("login")} />
+            ) : (
+              <ForgotPasswordCard compact onBackToLogin={() => switchAuthView("login")} />
+            )}
+          </div>
         </div>
       </div>
     </div>

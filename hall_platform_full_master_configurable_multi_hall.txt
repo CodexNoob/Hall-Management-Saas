@@ -1,0 +1,6051 @@
+BELZ / STERLING SIMCHA HALLS PLATFORM
+FULL STRUCTURE MASTER TEXT
+FUNCTIONS > INTEGRATIONS > CONNECTIONS > FRONTEND LAYOUT > VISUALS > BUTTONS > POPUPS > FLOWS
+
+
+BELZ / STERLING SIMCHA HALLS PLATFORM
+COMPLETE BUILD SPEC FOR CODEX / CLAUDE CODE
+TECHNICAL IMPLEMENTATION LAYER ADDED
+STACK > DATABASE > AUTH > API > INTEGRATIONS > STORAGE > DEPLOYMENT > BUILD PHASES > TESTS
+
+
+============================================================
+0. TECHNICAL IMPLEMENTATION SPEC
+============================================================
+
+Project Goal
+> Build a real production-ready web platform
+> Not only a frontend mockup
+> Not only static HTML
+> Must support real data
+> Must support users and permissions
+> Must support event booking
+> Must support kitchen dashboard operations
+> Must support menu/package/add-on management
+> Must support payment email flow
+> Must support Google Calendar sync
+> Must support PDF kitchen sheet generation
+> Must support file uploads
+> Must support activity logs
+> Must support future scaling
+
+Primary Build Rule
+> Build in phases
+> Do not build all features at once
+> Do not skip database design
+> Do not hardcode business data permanently
+> Do not duplicate logic across pages
+> Do not create separate routes for popups
+> Use shared components
+> Use shared services
+> Use clean typed data models
+> Keep UI boxy
+> No rounded corners
+> No emoji icons
+> Use modern line-art SVG icons
+
+
+============================================================
+0.1 RECOMMENDED TECH STACK
+============================================================
+
+Frontend Framework
+> Next.js
+   > App Router
+   > TypeScript
+   > React Server Components where useful
+   > Client components for modals, tabs, dashboards, forms
+> Reason
+   > Clean routing
+   > Works well with Vercel
+   > Supports API routes
+   > Supports server-side secure integrations
+   > Good for Codex / Claude Code workflows
+
+Frontend Language
+> TypeScript
+   > Required
+   > All entities typed
+   > All API responses typed
+   > All form data typed
+   > All service outputs typed
+
+Styling
+> Tailwind CSS
+   > Use design tokens
+   > Use custom theme colors
+   > Force box-style geometry
+   > No rounded classes
+   > No emoji icons
+> CSS Variables
+   > Store brand colors
+   > Store status colors
+   > Store spacing rules
+> Component Styling Rule
+   > All components must use square corners
+   > No rounded-md
+   > No rounded-lg
+   > No rounded-full
+   > No border-radius
+   > If Tailwind is used, avoid all rounded utilities
+
+Icon System
+> Custom inline SVG line-art icons
+   > Section icons
+   > Action icons
+   > Notification icon
+   > Calendar icon
+   > Kitchen icon
+   > Event icon
+   > Menu icon
+   > Settings icon
+> Rules
+   > No emoji icons
+   > No cartoon icons
+   > Thin stroke
+   > Square stroke caps
+   > Miter joins
+   > Consistent stroke width
+
+Backend
+> Next.js Route Handlers
+   > /app/api/*
+> Server Actions
+   > Optional for safe form actions
+> Reason
+   > Same project frontend/backend
+   > Easy deployment to Vercel
+   > Secure server-side API keys
+   > Good enough for this platform
+
+Database
+> PostgreSQL
+> Recommended Provider
+   > Supabase Postgres
+   > Or Neon Postgres
+> ORM
+   > Prisma
+> Reason
+   > Strong relational data
+   > Events connect to halls, menu items, workers, packages, users
+   > Good for reports/search/filtering
+   > Works well with Vercel
+
+Authentication
+> Recommended
+   > Supabase Auth
+   > Or NextAuth/Auth.js with Google OAuth
+> Login Type
+   > Google login preferred
+   > Email/password optional
+> User Role Source
+   > Internal users table
+   > Do not rely only on Google account role
+> Permission Storage
+   > user_access table
+   > Permission booleans
+   > Allowed hall IDs
+   > Role name
+
+File Storage
+> Recommended
+   > Supabase Storage
+   > Or S3-compatible storage
+> Used For
+   > Uploaded layout/paper PDF
+   > Uploaded layout/paper image
+   > Generated kitchen sheet PDFs
+   > Optional email attachments
+> Storage Buckets
+   > event-layouts
+   > generated-pdfs
+   > public-assets
+> File Access
+   > Private by default
+   > Signed URLs for downloads/previews
+   > Admin/user permission checked before access
+
+PDF Generation
+> Recommended Library
+   > pdf-lib
+> Optional Support
+   > @react-pdf/renderer for first page layout
+   > sharp for image conversion/normalization if needed
+> PDF Rules
+   > Page 1 generated kitchen sheet
+   > Page 2+ uploaded PDF/image pages
+   > Letter size 8.5 x 11
+   > Portrait
+   > No browser print
+   > No iframe
+   > No about:blank
+   > No viewer UI
+
+Email Sending
+> Gmail API
+> Auth
+   > Google OAuth
+   > Stored refresh token encrypted
+> Sender
+   > Connected Gmail account
+> Used For
+   > Payment emails
+   > Test emails
+   > Optional kitchen notifications
+> Must Not Use
+   > Random platform default email
+   > Unbranded sender
+
+Google Calendar
+> Google Calendar API
+> Auth
+   > Google OAuth
+   > Stored refresh token encrypted
+> Used For
+   > Create calendar event
+   > Update same calendar event
+   > Delete/cancel same calendar event
+> Duplicate Prevention
+   > Store google_calendar_event_id on event record
+   > If ID exists, update existing Google event
+   > Never create duplicate Google event on edit
+
+Payments
+> Cardknox Link
+   > https://secure.cardknox.com/belzcheiderevents
+> Flow Type
+   > External payment page
+   > Manual confirmation popup
+> Optional Future Upgrade
+   > Cardknox webhook
+   > Automatic payment confirmation
+> Current Required Flow
+   > Staff opens card payment link
+   > Staff confirms payment result
+   > App updates event/payment status
+
+Deployment
+> Vercel
+> Environments
+   > Development
+   > Preview
+   > Production
+> Required
+   > Environment variables
+   > Database migration command
+   > Seed script
+   > Build command
+   > Typecheck command
+   > Test command
+
+
+============================================================
+0.2 PACKAGE / LIBRARY REQUIREMENTS
+============================================================
+
+Core Packages
+> next
+> react
+> react-dom
+> typescript
+
+Database
+> prisma
+> @prisma/client
+
+Auth
+> @supabase/supabase-js
+> Or next-auth / @auth/core if using Auth.js
+
+Forms
+> react-hook-form
+> zod
+> @hookform/resolvers
+
+Dates
+> date-fns
+> Optional
+   > hebcal or kosher-zmanim / Hebrew date utility
+> Requirement
+   > Calendar must show Hebrew date
+
+PDF
+> pdf-lib
+> Optional
+   > @react-pdf/renderer
+   > sharp
+
+Google APIs
+> googleapis
+> Required Scopes
+   > Gmail send
+   > Google Calendar events
+
+Email Template
+> React email optional
+> Or server-rendered HTML string
+
+State / Data Fetching
+> TanStack Query optional
+> Or Next.js server fetching + client refresh
+> Recommended for dashboard
+   > TanStack Query
+
+UI Helpers
+> clsx
+> tailwind-merge if Tailwind is used
+
+Testing
+> vitest
+> @testing-library/react
+> playwright
+> eslint
+> prettier
+
+
+============================================================
+0.3 ENVIRONMENT VARIABLES
+============================================================
+
+Database
+> DATABASE_URL
+   > PostgreSQL connection string
+
+Application
+> NEXT_PUBLIC_APP_URL
+   > Production app URL
+> NODE_ENV
+   > development / production
+
+Supabase
+> NEXT_PUBLIC_SUPABASE_URL
+> NEXT_PUBLIC_SUPABASE_ANON_KEY
+> SUPABASE_SERVICE_ROLE_KEY
+> SUPABASE_STORAGE_BUCKET_LAYOUTS
+> SUPABASE_STORAGE_BUCKET_PDFS
+
+Auth / Google OAuth
+> GOOGLE_CLIENT_ID
+> GOOGLE_CLIENT_SECRET
+> GOOGLE_REDIRECT_URI
+
+Gmail
+> GMAIL_SENDER_EMAIL
+> GMAIL_ENCRYPTED_REFRESH_TOKEN
+> GMAIL_ALLOWED_SENDER_DOMAIN
+
+Google Calendar
+> GOOGLE_CALENDAR_ID
+> GOOGLE_CALENDAR_ENCRYPTED_REFRESH_TOKEN
+
+Security
+> ENCRYPTION_KEY
+   > Used to encrypt OAuth refresh tokens
+> SESSION_SECRET
+   > Auth/session signing secret
+
+Payments
+> CARDKNOX_PAYMENT_LINK
+   > https://secure.cardknox.com/belzcheiderevents
+
+Feature Flags
+> ENABLE_GOOGLE_CALENDAR_SYNC
+> ENABLE_GMAIL_PAYMENT_EMAILS
+> ENABLE_PDF_GENERATION
+> ENABLE_SCHOOL_CYCLES
+
+Logging
+> LOG_LEVEL
+
+
+============================================================
+0.4 DATABASE SCHEMA / TABLES
+============================================================
+
+Database Rules
+> Use PostgreSQL
+> Use Prisma migrations
+> Use foreign keys where appropriate
+> Use soft delete for important records where possible
+> Use created_at and updated_at on all main tables
+> Use indexes for date, hall, status, and search-heavy fields
+> Do not store payment card data
+> Do not store client credit card numbers
+> Store only payment status, amount due, and send logs
+
+Table: users
+> Purpose
+   > Authenticated platform users
+> Fields
+   > id UUID primary key
+   > name text
+   > email text unique required
+   > role text required
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: user_access
+> Purpose
+   > Permissions and hall access
+> Fields
+   > id UUID primary key
+   > user_id UUID references users(id)
+   > can_view_home boolean default true
+   > can_view_calendar boolean default false
+   > can_create_booking boolean default false
+   > can_view_event_manager boolean default false
+   > can_view_kitchen_dashboard boolean default false
+   > can_view_menu boolean default false
+   > can_edit_menu boolean default false
+   > can_view_settings boolean default false
+   > can_edit_settings boolean default false
+   > can_assign_workers boolean default false
+   > can_update_kitchen_status boolean default false
+   > can_add_kitchen_events boolean default false
+   > can_manage_school_schedule boolean default false
+   > can_see_school_events boolean default false
+   > can_see_simcha_events boolean default true
+   > can_view_payment_info boolean default false
+   > can_send_payment_email boolean default false
+   > can_use_nice_home_background boolean default false
+   > allowed_hall_ids text[] default empty
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: halls
+> Purpose
+   > Halls and rooms
+> Fields
+   > id UUID primary key
+   > name text required
+   > is_active boolean default true
+   > is_bookable boolean default true
+   > base_price numeric nullable
+   > per_couple_price numeric nullable
+   > member_base_price numeric nullable
+   > member_per_couple_price numeric nullable
+   > connected_hall_ids text[] default empty
+   > shared_menu_enabled boolean default false
+   > allowed_menu_item_ids text[] default empty
+   > color text nullable
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: event_types
+> Purpose
+   > Event type settings
+> Fields
+   > id UUID primary key
+   > name text required
+   > is_active boolean default true
+   > valid_days int[] nullable
+      > 0 Sunday
+      > 1 Monday
+      > 2 Tuesday
+      > 3 Wednesday
+      > 4 Thursday
+      > 5 Friday
+      > 6 Saturday
+   > is_shabbos_sheva_brachos boolean default false
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: events
+> Purpose
+   > Main event/booking records
+> Fields
+   > id UUID primary key
+   > client_name text required
+   > phone text required
+   > email text nullable
+   > event_date date required
+   > hall_id UUID references halls(id)
+   > hall_name text nullable
+   > event_type_id UUID references event_types(id)
+   > event_type text nullable
+   > event_status text required
+      > On Hold
+      > Confirmed
+   > payment_status text nullable
+      > Deposit Paid
+      > Paid Partially
+      > Paid in Full
+   > package_id UUID nullable references packages(id)
+   > package_name text nullable
+   > couples_count integer default 0
+   > men_count integer default 0
+   > ladies_count integer default 0
+   > boys_count integer default 0
+   > girls_count integer default 0
+   > kids_count integer default 0
+   > waiters_count integer default 0
+   > setup_time text nullable
+   > washing_time text nullable
+   > tablecloth_id UUID nullable
+   > tablecloth_name text nullable
+   > notes text nullable
+   > davening_note text nullable
+   > side_boxes jsonb nullable
+   > menu_item_ids text[] default empty
+   > drink_item_ids text[] default empty
+   > add_on_ids text[] default empty
+   > is_member_rate boolean default false
+   > member_shul_name text nullable
+   > regular_price_total numeric nullable
+   > member_price_total numeric nullable
+   > final_total numeric nullable
+   > amount_due numeric nullable
+   > layout_file_url text nullable
+   > layout_file_type text nullable
+      > pdf
+      > image
+   > shabbos_setup jsonb nullable
+   > shared_menu_source_event_id UUID nullable
+   > google_calendar_event_id text nullable
+   > google_sync_status text nullable
+   > google_last_synced_at timestamp nullable
+   > google_sync_error text nullable
+   > created_by UUID nullable references users(id)
+   > updated_by UUID nullable references users(id)
+   > deleted boolean default false
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: menu_items
+> Purpose
+   > Food/drink/menu library
+> Fields
+   > id UUID primary key
+   > name text required
+   > category text nullable
+   > usage_type text required
+      > School
+      > Simcha
+      > Both
+   > kosher_type text nullable
+      > Milchig
+      > Fleishig
+      > Parve
+   > counting_rules jsonb nullable
+   > notes text nullable
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: packages
+> Purpose
+   > Event packages
+> Fields
+   > id UUID primary key
+   > name text required
+   > hall_ids text[] default empty
+   > event_type_ids text[] default empty
+   > regular_price numeric nullable
+   > member_price numeric nullable
+   > included_menu_item_ids text[] default empty
+   > included_drink_item_ids text[] default empty
+   > notes text nullable
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: add_ons
+> Purpose
+   > Optional add-ons
+> Fields
+   > id UUID primary key
+   > name text required
+   > price numeric nullable
+   > pricing_type text required
+      > Flat Fee
+      > Per Couple
+      > Per Item
+   > hall_ids text[] default empty
+   > is_kitchen_visible boolean default false
+   > notes text nullable
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: kitchen_workers
+> Purpose
+   > Kitchen worker list
+> Fields
+   > id UUID primary key
+   > name text required
+   > color text nullable
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: kitchen_item_statuses
+> Purpose
+   > Per-event item status/worker assignment
+> Fields
+   > id UUID primary key
+   > event_id UUID references events(id)
+   > menu_item_id UUID references menu_items(id)
+   > status text required
+      > Pending
+      > In Progress
+      > Complete
+   > assigned_worker_id UUID nullable references kitchen_workers(id)
+   > updated_by UUID nullable references users(id)
+   > created_at timestamp
+   > updated_at timestamp
+> Unique Constraint
+   > event_id + menu_item_id
+
+Table: kitchen_notifications
+> Purpose
+   > Kitchen alerts
+> Fields
+   > id UUID primary key
+   > event_id UUID nullable references events(id)
+   > notification_type text required
+   > event_date date nullable
+   > hall_or_room text nullable
+   > event_type text nullable
+   > message text required
+   > old_value jsonb nullable
+   > new_value jsonb nullable
+   > changed_by UUID nullable references users(id)
+   > requires_acknowledgment boolean default true
+   > acknowledged_by UUID nullable references users(id)
+   > acknowledged_at timestamp nullable
+   > email_sent boolean default false
+   > email_sent_at timestamp nullable
+   > created_at timestamp
+
+Table: school_cycles
+> Purpose
+   > Lunch/supper cycles
+> Fields
+   > id UUID primary key
+   > cycle_name text required
+   > cycle_type text required
+      > Lunch
+      > Supper
+   > start_date date nullable
+   > end_date date nullable
+   > days jsonb required
+   > created_by UUID nullable references users(id)
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: member_shuls
+> Purpose
+   > Member shul list
+> Fields
+   > id UUID primary key
+   > name text unique required
+   > created_from_booking boolean default false
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: payment_settings
+> Purpose
+   > Payment/email settings
+> Fields
+   > id UUID primary key
+   > payment_link text required
+   > connected_gmail_account text nullable
+   > payment_email_subject text nullable
+   > payment_email_html_template text nullable
+   > send_from_google_enabled boolean default false
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: tablecloth_options
+> Purpose
+   > Tablecloth choices
+> Fields
+   > id UUID primary key
+   > name text required
+   > color_or_description text nullable
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: menu_categories
+> Purpose
+   > Menu item categories
+> Fields
+   > id UUID primary key
+   > name text unique required
+   > is_active boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: holiday_blocked_dates
+> Purpose
+   > Blocked calendar dates
+> Fields
+   > id UUID primary key
+   > start_date date required
+   > end_date date required
+   > label text required
+   > reason text nullable
+   > is_blocked boolean default true
+   > created_at timestamp
+   > updated_at timestamp
+
+Table: activity_logs
+> Purpose
+   > Audit trail
+> Fields
+   > id UUID primary key
+   > event_id UUID nullable references events(id)
+   > user_id UUID nullable references users(id)
+   > user_name text nullable
+   > action_type text required
+   > message text required
+   > old_value jsonb nullable
+   > new_value jsonb nullable
+   > created_at timestamp
+
+Table: generated_pdfs
+> Purpose
+   > Track generated PDF files
+> Fields
+   > id UUID primary key
+   > event_id UUID references events(id)
+   > file_url text required
+   > file_name text required
+   > generated_by UUID nullable references users(id)
+   > created_at timestamp
+
+Table: email_logs
+> Purpose
+   > Track sent emails
+> Fields
+   > id UUID primary key
+   > event_id UUID nullable references events(id)
+   > email_type text required
+      > Payment Email
+      > Test Email
+      > Kitchen Notification
+   > to_email text required
+   > from_email text nullable
+   > subject text nullable
+   > status text required
+      > Sent
+      > Failed
+   > error_message text nullable
+   > sent_by UUID nullable references users(id)
+   > created_at timestamp
+
+
+============================================================
+0.5 DATABASE INDEXES
+============================================================
+
+events
+> Index event_date
+> Index hall_id
+> Index event_status
+> Index payment_status
+> Index client_name
+> Index phone
+> Index deleted
+> Composite index event_date + hall_id
+> Composite index event_date + event_status
+
+kitchen_item_statuses
+> Index event_id
+> Index menu_item_id
+> Index assigned_worker_id
+> Composite unique event_id + menu_item_id
+
+kitchen_notifications
+> Index event_id
+> Index acknowledged_at
+> Index created_at
+
+activity_logs
+> Index event_id
+> Index user_id
+> Index created_at
+
+menu_items
+> Index usage_type
+> Index kosher_type
+> Index category
+> Index is_active
+
+halls
+> Index is_active
+> Index is_bookable
+
+
+============================================================
+0.6 AUTHENTICATION / PERMISSION RULES
+============================================================
+
+Login
+> User opens app
+> User must authenticate
+> Recommended login method
+   > Google login
+> After login
+   > Match email to users table
+   > Load user_access record
+   > Load allowed halls
+   > Load permissions
+> If user not found
+   > Show access denied
+   > Message
+      > Your account is not set up. Please contact admin.
+> If user inactive
+   > Block access
+   > Message
+      > Your account is disabled. Please contact admin.
+
+Admin Rules
+> Admin sees all pages
+> Admin sees all halls
+> Admin sees school and simcha events
+> Admin can edit settings
+> Admin can create/edit/delete events
+> Admin can assign workers
+> Admin can view payment info
+> Admin can send payment emails
+
+Hall Secretary Rules
+> Can view calendar if allowed
+> Can create booking if allowed
+> Can view event manager if allowed
+> Can edit events if allowed
+> Can view assigned halls only unless allowed all
+> Can send payment emails only if allowed
+> Can view payment information only if allowed
+
+Kitchen Admin Rules
+> Can view kitchen dashboard
+> Can assign workers
+> Can update kitchen item statuses
+> Can view simcha/school events depending permissions
+> Cannot view payment totals unless specifically allowed
+
+Kitchen Worker Rules
+> Can view kitchen dashboard if allowed
+> Can update item status if allowed
+> Can only see assigned/allowed halls if restricted
+> Cannot see payment totals
+> Cannot edit event financials
+> Cannot access settings unless explicitly allowed
+
+School Manager Rules
+> Can manage school cycles if allowed
+> Can view kitchen dashboard if allowed
+> Can see school events
+> Can edit school schedule
+> Cannot manage payment settings unless admin
+
+Permission Enforcement
+> Enforce permissions on frontend
+> Enforce permissions again in API routes
+> Never rely only on hidden buttons
+> API must reject unauthorized actions
+> Every protected API route checks current user
+> Every event query filters by allowed halls and event category if needed
+
+
+============================================================
+0.7 API ROUTE MAP
+============================================================
+
+Authentication / Current User
+> GET /api/me
+   > Returns current user
+   > Returns role
+   > Returns permissions
+   > Returns allowed halls
+
+Events
+> GET /api/events
+   > Query params
+      > date_from
+      > date_to
+      > hall_id
+      > event_status
+      > payment_status
+      > event_type
+      > search
+      > include_deleted
+   > Permission checked
+   > Hall access filtered
+> POST /api/events
+   > Creates event
+   > Validates booking
+   > Checks hall availability
+   > Applies shared menu logic
+   > Calculates pricing
+   > Creates Google Calendar event if enabled
+   > Creates activity log
+   > Creates kitchen notification if needed
+> GET /api/events/:id
+   > Returns event detail
+   > Permission checked
+> PATCH /api/events/:id
+   > Updates event
+   > Revalidates date/hall if changed
+   > Updates Google Calendar event if enabled
+   > Creates kitchen notification if relevant
+   > Creates activity log
+> DELETE /api/events/:id
+   > Soft deletes or deletes event
+   > Deletes/cancels Google Calendar event if enabled
+   > Creates activity log
+
+Hall Availability
+> GET /api/availability
+   > Query params
+      > date
+      > editing_event_id optional
+   > Returns availability for every hall
+   > Returns full date status
+   > Returns On Hold warnings
+   > Returns connected hall notices
+
+Halls
+> GET /api/halls
+> POST /api/halls
+> PATCH /api/halls/:id
+> DELETE /api/halls/:id
+
+Event Types
+> GET /api/event-types
+> POST /api/event-types
+> PATCH /api/event-types/:id
+> DELETE /api/event-types/:id
+
+Menu Items
+> GET /api/menu-items
+   > Query params
+      > usage_type
+      > kosher_type
+      > category
+      > hall_id
+      > search
+> POST /api/menu-items
+> PATCH /api/menu-items/:id
+> DELETE /api/menu-items/:id
+
+Packages
+> GET /api/packages
+> POST /api/packages
+> PATCH /api/packages/:id
+> DELETE /api/packages/:id
+
+Add-ons
+> GET /api/add-ons
+> POST /api/add-ons
+> PATCH /api/add-ons/:id
+> DELETE /api/add-ons/:id
+
+Hall Menu Items
+> GET /api/halls/:id/menu-items
+> PATCH /api/halls/:id/menu-items
+   > Saves allowed_menu_item_ids
+
+Kitchen Dashboard
+> GET /api/kitchen/events
+   > Query params
+      > view
+         > today
+         > week
+         > four-weeks
+      > date
+      > worker_id
+      > status
+      > hall_id
+   > Returns kitchen-visible events
+   > Returns menu items
+   > Returns quantities
+   > Returns worker assignments
+   > Returns item statuses
+> PATCH /api/kitchen/item-status
+   > Updates item status
+   > Logs activity
+> PATCH /api/kitchen/assign-worker
+   > Assigns worker
+   > Changes worker
+   > Unassigns worker
+   > Logs activity
+> POST /api/kitchen/quick-event
+   > Creates quick kitchen event if allowed
+
+Kitchen Workers
+> GET /api/kitchen-workers
+> POST /api/kitchen-workers
+> PATCH /api/kitchen-workers/:id
+> DELETE /api/kitchen-workers/:id
+
+Kitchen Notifications
+> GET /api/kitchen-notifications
+> PATCH /api/kitchen-notifications/:id/acknowledge
+> POST /api/kitchen-notifications/test optional
+
+School Cycles
+> GET /api/school-cycles
+> POST /api/school-cycles
+> PATCH /api/school-cycles/:id
+> POST /api/school-cycles/:id/apply
+> POST /api/school-cycles/:id/replace
+   > Lunch replaces lunch only
+   > Supper replaces supper only
+
+Payment
+> POST /api/payment/mark-successful
+> POST /api/payment/place-on-hold
+> POST /api/payment/cash-check
+> POST /api/payment/send-email
+
+Gmail
+> POST /api/gmail/send-payment-email
+> POST /api/gmail/send-test-email
+> GET /api/gmail/status
+
+Google Calendar
+> POST /api/google-calendar/sync-event
+> POST /api/google-calendar/test-sync
+> DELETE /api/google-calendar/events/:googleEventId
+> GET /api/google-calendar/status
+
+PDF
+> POST /api/pdf/kitchen-sheet/:eventId
+   > Generates merged PDF
+   > Saves file
+   > Returns file URL
+> GET /api/pdf/kitchen-sheet/:pdfId
+   > Returns signed download URL
+
+File Uploads
+> POST /api/uploads/layout
+   > Accept PDF/image
+   > Store file
+   > Return file URL/type
+> DELETE /api/uploads/layout
+   > Remove file reference
+   > Delete from storage if safe
+
+Settings
+> GET /api/settings/payment
+> PATCH /api/settings/payment
+> GET /api/settings/tablecloths
+> POST /api/settings/tablecloths
+> PATCH /api/settings/tablecloths/:id
+> DELETE /api/settings/tablecloths/:id
+> GET /api/settings/member-shuls
+> POST /api/settings/member-shuls
+> PATCH /api/settings/member-shuls/:id
+> DELETE /api/settings/member-shuls/:id
+> GET /api/settings/blocked-dates
+> POST /api/settings/blocked-dates
+> PATCH /api/settings/blocked-dates/:id
+> DELETE /api/settings/blocked-dates/:id
+
+Activity Logs
+> GET /api/activity-logs
+   > Query params
+      > event_id
+      > user_id
+      > action_type
+
+
+============================================================
+0.8 CORE SERVICES / BUSINESS LOGIC
+============================================================
+
+availabilityService
+> getEventDate(event)
+> getEventStatus(event)
+> getHallId(event)
+> getEventType(event)
+> getHallAvailability(date, halls, events, editingEventId)
+> getFullDateStatus(date, halls, events)
+> getOnHoldWarning(hall, date, events)
+> getConnectedHallNotice(hall, date, events)
+> preventConfirmedDoubleBooking()
+> applySharedMenuRule()
+
+pricingService
+> calculatePackagePrice()
+> calculateAddOns()
+> calculateRegularTotal()
+> calculateMemberTotal()
+> calculateFinalTotal()
+> validateMemberRate()
+> calculateAmountDue()
+
+permissionService
+> getCurrentUserAccess()
+> canViewRoute()
+> canCreateBooking()
+> canEditEvent()
+> canDeleteEvent()
+> canAssignWorker()
+> canUpdateKitchenStatus()
+> canViewPaymentInfo()
+> filterEventsByPermission()
+> filterHallsByPermission()
+
+kitchenService
+> getKitchenEvents()
+> calculateMenuQuantities()
+> applyCountingRules()
+> updateItemStatus()
+> assignWorker()
+> unassignWorker()
+> createKitchenNotification()
+
+menuService
+> filterMenuItemsByHall()
+> filterMenuItemsByUsageType()
+> filterMenuItemsByEventType()
+> getAllowedHallMenuItems()
+> saveHallMenuItems()
+
+gmailService
+> getGmailClient()
+> renderPaymentEmailHtml()
+> sendPaymentEmail()
+> sendTestEmail()
+> logEmailResult()
+
+googleCalendarService
+> getCalendarClient()
+> createGoogleEvent()
+> updateGoogleEvent()
+> deleteGoogleEvent()
+> syncEvent()
+> preventDuplicateGoogleEvents()
+> formatGoogleCalendarDescription()
+
+pdfService
+> generateKitchenSheetFirstPage()
+> appendUploadedPdf()
+> appendUploadedImage()
+> mergePdf()
+> saveGeneratedPdf()
+> returnDownloadUrl()
+
+fileStorageService
+> uploadLayoutFile()
+> validateFileType()
+> createSignedUrl()
+> deleteFile()
+> getFileMetadata()
+
+activityLogService
+> logAction()
+> logEventCreated()
+> logEventUpdated()
+> logEventDeleted()
+> logPaymentEmailSent()
+> logWorkerAssigned()
+> logKitchenStatusChanged()
+> logPdfGenerated()
+
+schoolCycleService
+> saveCycle()
+> loadPreviousCycle()
+> applyCycle()
+> replaceLunchOnly()
+> replaceSupperOnly()
+> generateSchoolKitchenEvents()
+
+
+============================================================
+0.9 FRONTEND IMPLEMENTATION RULES
+============================================================
+
+Routes
+> Use clean routes only
+   > /
+   > /kitchen
+   > /calendar
+   > /events
+   > /menu
+   > /settings
+> Do not create routes for modals
+> Modals open on top of existing pages
+> Tabs stay within route
+
+Components
+> Use shared components
+> Do not copy buttons
+> Do not copy status badge code
+> Do not copy modal code
+> Do not copy event cards
+> Do not copy worker picker logic
+> Do not copy availability logic
+
+State Management
+> Server data from API
+> Client state for open modals/tabs
+> Use query invalidation after save/delete
+> Do not clear whole event cache after deleting one event
+> Refresh affected queries only
+
+Calendar State
+> currentMonth
+> selectedDate
+> filters
+> bookingModalOpen
+> eventDetailModalOpen
+> selectedEvent
+
+Kitchen State
+> view
+   > today
+   > week
+   > four-weeks
+> search
+> workerFilter
+> statusFilter
+> selectedWorkerItem
+> workerPickerOpen
+
+Event Manager State
+> search
+> dateRange
+> hallFilter
+> eventStatusFilter
+> paymentStatusFilter
+> selectedEvent
+> activeModal
+
+Menu State
+> activeTab
+> search
+> filters
+> selectedHall
+> selectedMenuItems
+
+Settings State
+> activeSection
+> selectedRecord
+> editModalOpen
+> formState
+
+Error Handling
+> Every API error shows clear toast
+> Validation errors show near field
+> Integration errors show helpful message
+> Google sync error does not block local save
+> Gmail email error does not crash event flow
+> PDF error shows retry message
+
+Loading States
+> Page loading skeleton
+> Button loading state
+> Modal save loading state
+> API error state
+> Empty state
+
+
+============================================================
+0.10 GOOGLE CALENDAR IMPLEMENTATION DETAILS
+============================================================
+
+Required Google Scopes
+> https://www.googleapis.com/auth/calendar.events
+
+Calendar Event Title Format
+> [Status] Client Name - Event Type - Hall
+
+Example
+> [Confirmed] Friedman Wedding - Wedding - Sterling Hall
+> [On Hold] Weiss Family - Sheva Brachos - Nachlas Yehuda Room 1
+
+Calendar Event Description
+> Client name
+> Phone
+> Email
+> Hall
+> Event type
+> Event status
+> Payment status if allowed internally
+> Counts
+> Notes
+> Internal app event ID
+
+Calendar Event Dates
+> All-day event or timed event depending setup
+> If setup time exists, use timed event
+> If no time exists, create all-day event
+
+Sync Rules
+> On create
+   > Create Google Calendar event
+   > Save google_calendar_event_id
+   > Set google_sync_status = Synced
+> On update
+   > If google_calendar_event_id exists
+      > Update same Google event
+   > If missing
+      > Create new Google event
+      > Save ID
+> On delete
+   > If google_calendar_event_id exists
+      > Delete/cancel Google event
+> On error
+   > Save local event anyway
+   > Set google_sync_status = Sync Error
+   > Save google_sync_error
+   > Show toast
+      > Google Calendar sync failed. The event was saved locally.
+
+
+============================================================
+0.11 GMAIL IMPLEMENTATION DETAILS
+============================================================
+
+Required Gmail Scope
+> https://www.googleapis.com/auth/gmail.send
+
+Payment Email HTML
+> Header
+   > Belz / Sterling Simcha Halls
+> Body
+   > Greeting
+   > Event details
+   > Amount due
+   > Pay Now button
+   > Fallback link
+   > Footer
+> Button Link
+   > Cardknox payment link
+> Sender
+   > Connected Gmail account
+> Subject Default
+   > Payment Link for Your Event
+
+Send Payment Email Flow
+> User clicks Send Email to Pay
+> App validates event has email
+> App renders HTML template
+> App sends through Gmail API
+> App creates email log
+> App creates activity log
+> App shows success toast
+
+Send Test Email Flow
+> Admin opens Payment Settings
+> Click Send Test Email
+> App sends test to configured/admin email
+> Shows success/error result
+
+Failure
+> Save failed email log
+> Show message
+   > Payment email could not be sent. Please check the connected Google account and try again.
+
+
+============================================================
+0.12 PDF IMPLEMENTATION DETAILS
+============================================================
+
+Kitchen Sheet Page
+> Size
+   > Letter 8.5 x 11
+> Orientation
+   > Portrait
+> Style
+   > Clean catering paper
+   > Black text
+   > White background
+   > No app UI
+   > No browser header/footer
+> Includes
+   > Event name
+   > Date
+   > Hall
+   > Event type
+   > Event status
+   > Counts
+   > Setup time
+   > Washing time
+   > Waiters
+   > Tablecloth
+   > Menu items
+   > Quantity calculations
+   > Add-ons if kitchen-visible
+   > Notes
+   > Davening note
+   > Side boxes
+   > Shabbos meal breakdown if applicable
+
+Uploaded PDF Handling
+> Fetch uploaded PDF
+> Load with pdf-lib
+> Copy all pages
+> Append after kitchen sheet page
+
+Uploaded Image Handling
+> Fetch image
+> Convert/insert as page
+> Fit to letter page
+> Preserve aspect ratio
+> Center on page
+
+Generated PDF Storage
+> Save generated PDF to generated-pdfs bucket
+> Create generated_pdfs record
+> Return signed URL or file download URL
+
+PDF Errors
+> If upload cannot be read
+   > Show error
+> If PDF generation fails
+   > Show message
+      > PDF could not be generated. Please try again.
+
+
+============================================================
+0.13 FILE STORAGE IMPLEMENTATION DETAILS
+============================================================
+
+Buckets
+> event-layouts
+   > Uploaded layout/paper files
+> generated-pdfs
+   > Generated kitchen sheets
+> public-assets
+   > App/logo/static images if needed
+
+Accepted Upload Types
+> application/pdf
+> image/png
+> image/jpeg
+> image/webp
+
+Upload Rules
+> Max file size should be configured
+> Validate file type server-side
+> Store original file name
+> Store file type
+> Store file URL/reference on event
+> Support replace upload
+> Support remove upload
+
+Security
+> Files private by default
+> Use signed URLs
+> Check user permission before returning file URL
+
+
+============================================================
+0.14 DEPLOYMENT PLAN
+============================================================
+
+Development
+> Local Next.js app
+> Local .env
+> Prisma migrations
+> Seed test data
+> Run dev server
+
+Preview
+> Vercel preview deployment
+> Preview database or shared staging database
+> Test integrations in sandbox mode
+> Use preview Google OAuth redirect URL
+
+Production
+> Vercel production deployment
+> Production database
+> Production environment variables
+> Production Google OAuth redirect URL
+> Production storage buckets
+> Production Cardknox link
+
+Deployment Commands
+> npm install
+> npm run lint
+> npm run typecheck
+> npm run test
+> npx prisma migrate deploy
+> npm run build
+> npm run start
+
+Required Scripts
+> dev
+> build
+> start
+> lint
+> typecheck
+> test
+> test:e2e
+> db:migrate
+> db:seed
+
+
+============================================================
+0.15 SEED DATA REQUIREMENTS
+============================================================
+
+Seed Admin User
+> Name
+   > Aron Graus
+> Email
+   > aron@luxkitchens.com
+> Role
+   > Admin
+> Permissions
+   > All permissions enabled
+
+Seed Halls
+> Sterling Hall
+> Nachlas Yehuda Room 1
+> Nachlas Yehuda Room 2
+> Connected Relationship
+   > Room 1 connected to Room 2
+   > Room 2 connected to Room 1
+   > Shared menu enabled
+
+Seed Event Types
+> Wedding
+> Vort
+> Bar Mitzvah
+> Shabbos Sheva Brachos
+   > Valid Friday/Saturday only
+
+Seed Payment Settings
+> Cardknox Link
+   > https://secure.cardknox.com/belzcheiderevents
+
+Seed Kitchen Workers
+> Miriam
+> Yossi
+> Chaim
+> Rivky
+
+Seed Menu Items
+> Potato Kugel
+> Chicken Soup
+> Fish Platters
+> Cold Drinks
+> Milk
+> Rolls
+
+Seed Packages
+> Wedding Premium
+> Sheva Brachos
+> Vort Basic
+
+Seed Add-ons
+> Extra Waiter
+> Additional Drinks
+> Premium Tablecloth
+
+Seed Test Events
+> Confirmed wedding
+> On Hold Sheva Brachos
+> Connected hall shared-menu example
+> School lunch example
+
+
+============================================================
+0.16 BUILD PHASES FOR CODEX / CLAUDE CODE
+============================================================
+
+Phase 1: Project Setup
+> Create Next.js TypeScript app
+> Add Tailwind
+> Add boxy design system
+> Add custom SVG line-art icons
+> Create clean route structure
+> Create shared layout
+> Create reusable Button, Modal, Badge, Toast components
+> No integrations yet
+> No database writes yet
+
+Phase 2: Static Frontend Pages
+> Build Home
+> Build Kitchen Dashboard static views
+> Build Event Calendar static month view
+> Build Event Manager static list
+> Build Menu tabs
+> Build Settings sections
+> Build all modals
+> Build all popups
+> Build all visual states
+> Keep boxy/no rounded/no emojis
+
+Phase 3: Database + Prisma
+> Add Prisma schema
+> Add migrations
+> Add seed data
+> Connect PostgreSQL
+> Add typed data models
+> Add basic API routes
+
+Phase 4: Auth + Permissions
+> Add login
+> Add users table connection
+> Add user_access permissions
+> Protect routes
+> Protect API routes
+> Hide/show cards and buttons based on permissions
+> Filter events by allowed halls
+
+Phase 5: Events + Calendar
+> Connect Event Calendar to real events
+> Connect Event Manager to real events
+> Implement create booking
+> Implement edit event
+> Implement delete event
+> Implement event detail modal
+> Implement safe cache updates
+
+Phase 6: Hall Availability Engine
+> Build central availabilityService
+> Block confirmed hall
+> Show On Hold warning
+> Show connected hall notice
+> Show Full tag only when all halls confirmed
+> Reuse helper everywhere
+
+Phase 7: Menu / Packages / Add-ons
+> Connect Menu Items CRUD
+> Connect Packages CRUD
+> Connect Add-ons CRUD
+> Connect Hall Menu Items
+> Filter Change Menu modal by hall permissions
+
+Phase 8: Kitchen Dashboard
+> Connect kitchen events
+> Calculate quantities
+> Apply counting rules
+> Assign workers
+> Change workers
+> Unassign workers
+> Update item status
+> Add kitchen notifications
+
+Phase 9: School Cycles
+> Build Lunch Cycle
+> Build Supper Cycle
+> Apply cycle
+> Replace Lunch only
+> Replace Supper only
+> Show school events on kitchen dashboard
+
+Phase 10: Payment Email
+> Add payment settings
+> Add Gmail integration
+> Send payment email
+> Send test email
+> Log email result
+
+Phase 11: Google Calendar Sync
+> Add Google OAuth/calendar client
+> Create Google event on booking
+> Update same Google event on edit
+> Delete Google event on delete
+> Prevent duplicates
+> Show sync status/error
+
+Phase 12: File Upload + PDF
+> Add file upload
+> Store uploaded layout/paper
+> Generate kitchen sheet PDF
+> Append uploaded PDF pages
+> Append uploaded image pages
+> Store generated PDF
+> Return download link
+
+Phase 13: Activity Log
+> Log major actions
+> Show recent event activity if supported
+> Add activity log API
+
+Phase 14: Final QA + Polish
+> Run full QA checklist
+> Test roles
+> Test permissions
+> Test calendar
+> Test booking
+> Test kitchen
+> Test integrations
+> Test PDF
+> Fix styling
+> Confirm no rounded corners
+> Confirm no emoji icons
+> Confirm no console errors
+
+
+============================================================
+0.17 TESTING REQUIREMENTS
+============================================================
+
+Unit Tests
+> availabilityService
+   > Confirmed hall blocked
+   > On Hold warning
+   > Connected hall allowed
+   > Full only when all active halls confirmed
+> pricingService
+   > Regular price
+   > Member price
+   > Missing member shul blocked
+   > Add-ons calculation
+> permissionService
+   > Admin access
+   > Hall Secretary access
+   > Kitchen Worker hidden payment info
+   > Hall access filtering
+> kitchenService
+   > Quantity calculations
+   > Worker assignment
+   > Status updates
+> menuService
+   > Hall menu filtering
+   > School-only disabled
+> pdfService
+   > Generate first page
+   > Append uploaded PDF
+   > Append uploaded image
+
+Integration Tests
+> Create event
+> Edit event
+> Delete event
+> Send payment email mock
+> Google Calendar sync mock
+> Generate PDF
+> Apply school cycle
+> Replace lunch only
+> Replace supper only
+
+E2E Tests
+> Admin logs in and sees all pages
+> Hall Secretary creates booking
+> Calendar Full tag works
+> On Hold warning appears
+> Connected hall notice appears
+> Event Manager edit works
+> Kitchen worker assigns item
+> Kitchen worker marks item complete
+> Payment email flow works with mock
+> PDF generation flow works
+> Settings user permission changes affect UI
+
+Visual QA
+> No emoji icons
+> No rounded corners
+> Box-style layout
+> Status colors readable
+> Hover states readable
+> Calendar does not use full red day overlay
+> Kitchen dashboard does not show payment totals
+> Buttons have clear hierarchy
+> Modals have square shape
+
+Security Tests
+> Unauthenticated user blocked
+> Unauthorized API action blocked
+> Kitchen Worker cannot access payment API
+> Hall-restricted user cannot see other halls
+> File URL requires permission
+> Google/Gmail tokens not exposed to frontend
+> Service role key not exposed to frontend
+
+
+============================================================
+0.18 CODEX / CLAUDE CODE EXECUTION INSTRUCTIONS
+============================================================
+
+Instruction To Coding Agent
+> Read the full specification before coding
+> Do not build everything in one step
+> First create implementation plan
+> Then build Phase 1 only
+> Wait for review before continuing phases
+> Keep files organized by feature
+> Use TypeScript
+> Use clean routes
+> Use shared components
+> Use shared services
+> Use Prisma schema
+> Do not duplicate hall availability logic
+> Do not hardcode final data except seed data
+> Do not create emoji icons
+> Do not use rounded corners
+> Do not create routes for modals
+> Do not expose API secrets to frontend
+> Do not store credit card data
+> Do not create duplicate Google Calendar events
+
+First Task For Coding Agent
+> Create project structure
+> Add routes
+> Add boxy visual system
+> Add shared components
+> Add static pages
+> Add sample seed-like mock data only for frontend preview
+> Do not connect Gmail yet
+> Do not connect Google Calendar yet
+> Do not connect PDF yet
+> Do not connect production database yet unless Phase 3 is approved
+
+Second Task For Coding Agent
+> Create database schema
+> Add Prisma
+> Add seed data
+> Add typed API route structure
+
+Third Task For Coding Agent
+> Connect real event/hall/menu data
+> Add booking and availability
+
+Review Checkpoint After Every Phase
+> What files were created
+> What files were changed
+> What features work
+> What is still mock data
+> What tests were run
+> What errors remain
+
+
+============================================================
+0.19 ACCEPTANCE CRITERIA FOR REAL BUILD
+============================================================
+
+Production Ready Only When
+> Users can log in
+> Permissions work
+> Admin can manage users
+> Halls can be managed
+> Calendar loads real events
+> Booking saves real events
+> Hall availability works everywhere
+> Connected hall shared menu works
+> On Hold warning works
+> Full tag works correctly
+> Event Manager edits real events
+> Kitchen Dashboard shows real kitchen data
+> Worker assignment persists
+> Item status persists
+> Menu CRUD works
+> Packages CRUD works
+> Add-ons CRUD works
+> Hall Menu Items works
+> School Lunch/Supper cycles work separately
+> Payment email sends from Gmail
+> Google Calendar sync prevents duplicates
+> PDF generation creates one merged PDF
+> File uploads work
+> Activity logs record actions
+> No payment info appears to kitchen workers
+> No emoji icons remain
+> No rounded corners remain
+> All major flows pass QA
+> App deploys to Vercel
+> Environment variables documented
+> Known limitations documented
+
+
+
+============================================================
+1. PLATFORM FUNCTIONS / SYSTEM MODULES
+============================================================
+
+Event Booking System
+> Function
+   > Create new hall booking
+   > Save event as On Hold
+   > Save event as Confirmed
+   > Track payment status separately
+   > Validate client information
+   > Validate hall availability
+   > Apply connected hall shared-menu rules
+   > Apply member-rate rules
+   > Apply Shabbos Sheva Brachos date rules
+> Connected To
+   > Event Calendar
+   > Event Manager
+   > Kitchen Dashboard
+   > Menu system
+   > Packages
+   > Add-ons
+   > Hall availability engine
+   > Payment system
+   > Google Calendar sync
+   > Activity log
+   > Kitchen notifications
+> Data Created / Updated
+   > Event record
+   > Client name
+   > Phone
+   > Email
+   > Event date
+   > Hall / room
+   > Event type
+   > Event status
+   > Payment status
+   > Package
+   > Counts
+   > Member rate
+   > Member shul
+   > Add-ons
+   > Menu items
+   > Notes
+   > Google calendar event ID
+   > Created by / updated by
+
+Hall Availability Engine
+> Function
+   > Check all active bookable halls
+   > Detect confirmed bookings
+   > Detect On Hold bookings
+   > Detect connected hall relationships
+   > Detect shared-menu rules
+   > Detect full date status
+   > Prevent same hall double booking
+   > Allow connected hall booking when exact hall is available
+   > Lock shared menu if connected hall rule applies
+> Used By
+   > Event Calendar
+   > Booking modal
+   > Event edit modal
+   > Event detail modal
+   > Event Manager
+   > Full tag
+   > On Hold warning
+   > Connected hall notice
+> Inputs
+   > Selected date
+   > Hall list
+   > Event list
+   > Existing event ID when editing
+   > Hall connection settings
+> Outputs
+   > Available
+   > Confirmed booked
+   > On Hold warning
+   > Connected shared menu
+   > Warning event
+   > Disabled reason
+   > Full date status
+
+Event Calendar System
+> Function
+   > Show month view
+   > Show English date
+   > Show Hebrew date
+   > Show event cards
+   > Show plus icon for available dates
+   > Show Full tag only when all active bookable halls are confirmed
+   > Open booking modal from date
+   > Open event detail modal from event card
+   > Filter by hall
+   > Filter by event type
+   > Filter by status
+> Connected To
+   > Event data
+   > Hall availability engine
+   > Booking system
+   > Event detail modal
+   > Permission system
+   > Google Calendar sync status
+> Visual Output
+   > Month grid
+   > Day boxes
+   > Event chips
+   > On Hold status
+   > Confirmed status
+   > Full tag
+   > Plus button
+   > Hebrew date
+
+Event Manager System
+> Function
+   > Search events
+   > Filter events
+   > View event details
+   > Edit event
+   > Delete event
+   > Change event status
+   > Change payment status
+   > Send payment email
+   > Open payment flow
+   > Change menu
+   > Customize event
+   > Open Shabbos Sheva Brachos setup
+   > Print / save kitchen sheet
+   > View Google sync status
+   > View activity log
+> Connected To
+   > Event data
+   > Booking system
+   > Payment system
+   > Gmail integration
+   > Google Calendar sync
+   > Menu system
+   > Add-ons
+   > Customize event data
+   > PDF generation
+   > Activity log
+   > Kitchen notifications
+   > Permission system
+> Visual Output
+   > Event rows/cards
+   > Search bar
+   > Filter bar
+   > Status badges
+   > Payment badges
+   > Quick action buttons
+   > Event detail modal
+   > Edit modal
+   > Payment modal
+   > Menu modal
+   > Customize modal
+   > Delete confirmation
+
+Kitchen Dashboard System
+> Function
+   > Show Today view
+   > Show This Week view
+   > Show 4 Weeks view
+   > Show events for kitchen preparation
+   > Show event status
+   > Show On Hold events clearly
+   > Show menu items
+   > Show quantities
+   > Show counting rules
+   > Assign workers
+   > Change workers
+   > Unassign workers
+   > Update item status
+   > Show kitchen-visible add-ons
+   > Show school lunch/supper events
+   > Show kitchen notifications
+   > Acknowledge notifications
+   > Add quick kitchen event if allowed
+> Connected To
+   > Event data
+   > Menu system
+   > Counting rules
+   > Kitchen workers
+   > Kitchen item statuses
+   > School cycle system
+   > Add-ons
+   > Kitchen notifications
+   > Permission system
+> Visual Output
+   > Date/time header
+   > Today / This Week / 4 Weeks tabs
+   > Event cards
+   > Kitchen item rows
+   > Quantity pills
+   > Worker assignment areas
+   > Status pills
+   > Notification panel
+   > No payment information
+
+Kitchen Worker Assignment System
+> Function
+   > Assign worker to item
+   > Change assigned worker
+   > Unassign worker
+   > Show worker color
+   > Show worker name
+   > Save worker assignment
+   > Trigger activity log
+> Connected To
+   > Kitchen Dashboard
+   > Kitchen worker settings
+   > Kitchen item status data
+   > Activity log
+> Popup
+   > Worker Picker popup
+> Popup Details
+   > Worker list
+   > Worker color
+   > Current worker checked
+   > Select worker
+   > Unassign worker
+   > Cancel
+
+Kitchen Item Status System
+> Function
+   > Track item status
+   > Pending
+   > In Progress
+   > Complete
+   > Click to advance status
+   > Optional reset if allowed
+   > Save status update
+   > Trigger activity log
+> Connected To
+   > Kitchen Dashboard
+   > Kitchen worker assignment
+   > Kitchen item rows
+   > Activity log
+> Visual Output
+   > Pending neutral badge
+   > In Progress orange badge
+   > Complete green badge
+
+Kitchen Notifications System
+> Function
+   > Create notification when kitchen-relevant event changes
+   > Show unread notification count
+   > Show notification panel
+   > View event from notification
+   > Acknowledge notification
+   > Optionally send notification email if enabled
+> Triggers
+   > Menu changed
+   > Date changed
+   > Hall changed
+   > Portions/couples changed
+   > Add-on added
+   > Add-on removed
+   > Shabbos setup changed
+   > Sudden event added
+   > School cycle applied
+> Connected To
+   > Kitchen Dashboard
+   > Event Manager
+   > Booking system
+   > Customize event modal
+   > Menu system
+   > School cycle system
+   > Activity log
+   > Optional Gmail/email notification
+> Visual Output
+   > Notification bell
+   > Badge count
+   > Notification panel
+   > View Event button
+   > Acknowledge button
+
+Menu System
+> Function
+   > Create menu item
+   > Edit menu item
+   > Delete menu item
+   > Set menu item category
+   > Set usage type
+   > Set kosher type
+   > Set counting rules
+   > Set active/inactive
+   > Filter menu items
+   > Search menu items
+> Connected To
+   > Booking system
+   > Event Manager
+   > Change Menu modal
+   > Kitchen Dashboard
+   > Hall Menu Items
+   > Packages
+   > School cycles
+   > PDF kitchen sheet
+> Data
+   > Menu item name
+   > Category
+   > Usage Type
+   > Kosher Type
+   > Counting rules
+   > Notes
+   > Active status
+
+Package System
+> Function
+   > Create package
+   > Edit package
+   > Delete package
+   > Assign package to halls
+   > Assign package to event types
+   > Set regular price
+   > Set member price
+   > Include menu items
+   > Include drinks
+   > Activate/deactivate package
+> Connected To
+   > Booking system
+   > Pricing engine
+   > Menu system
+   > Event detail
+   > Event Manager
+> Data
+   > Package name
+   > Hall applicability
+   > Event type applicability
+   > Regular price
+   > Member price
+   > Included menu items
+   > Included drink items
+   > Notes
+   > Active status
+
+Add-ons System
+> Function
+   > Create add-on
+   > Edit add-on
+   > Delete add-on
+   > Set pricing type
+   > Set hall applicability
+   > Set kitchen-visible status
+   > Select add-ons in booking
+   > Select add-ons in customize event
+   > Show kitchen-visible add-ons on Kitchen Dashboard
+> Connected To
+   > Booking system
+   > Event Manager
+   > Customize event modal
+   > Pricing engine
+   > Kitchen Dashboard
+   > Kitchen notifications
+> Data
+   > Add-on name
+   > Price
+   > Pricing type
+   > Hall applicability
+   > Kitchen-visible yes/no
+   > Notes
+   > Active status
+
+Hall Menu Items System
+> Function
+   > Select hall
+   > Show allowed menu item list
+   > Select menu items
+   > Unselect menu items
+   > Save allowed items for hall
+   > Disable school-only items
+   > Limit Change Menu modal based on hall
+> Connected To
+   > Halls settings
+   > Menu items
+   > Booking system
+   > Change Menu modal
+   > Kitchen Dashboard
+> Visual Output
+   > Selected green border
+   > Unselected box
+   > Disabled faded box
+   > Hall dropdown
+
+Pricing Engine
+> Function
+   > Calculate regular pricing
+   > Calculate member pricing
+   > Calculate add-ons
+   > Calculate package total
+   > Calculate final total
+   > Calculate amount due
+   > Block member pricing if shul missing
+> Connected To
+   > Booking system
+   > Event Manager
+   > Payment flow
+   > Payment email
+   > Packages
+   > Add-ons
+   > Member shuls
+> Data
+   > Regular price
+   > Member price
+   > Add-on price
+   > Final total
+   > Amount due
+
+Member Rate System
+> Function
+   > Toggle member rate
+   > Require member shul
+   > Apply member pricing
+   > Add new shul from booking
+   > Save shul to Member Shuls settings
+> Connected To
+   > Booking system
+   > Pricing engine
+   > Event Manager
+   > Member Shuls settings
+   > Payment email
+> Validation
+   > If Member Rate is ON, Member Shul is required
+
+Payment System
+> Function
+   > Open credit card payment link
+   > Track card payment result
+   > Mark payment successful
+   > Place event on hold after failed/no payment
+   > Try different card
+   > Select cash/check
+   > Send payment email
+   > Track payment status
+> Payment Status Values
+   > Deposit Paid
+   > Paid Partially
+   > Paid in Full
+> Connected To
+   > Event Manager
+   > Booking modal
+   > Payment email/Gmail integration
+   > Cardknox link
+   > Event status
+   > Payment status
+   > Activity log
+> Important Rule
+   > Event Status and Payment Status are separate
+
+Cardknox Integration
+> Function
+   > Open payment link
+   > Allow client/staff to process card externally
+   > Ask staff if payment was successful
+> Link
+   > https://secure.cardknox.com/belzcheiderevents
+> Connected To
+   > Booking payment step
+   > Event Manager payment flow
+   > Payment Result popup
+> Payment Result Popup
+   > Payment Successful
+   > Place on Hold
+   > Try Different Card
+
+Gmail Payment Email Integration
+> Function
+   > Send payment email from connected Gmail account
+   > Use HTML email template
+   > Include event details
+   > Include amount due
+   > Include Pay Now button
+   > Include fallback payment link
+   > Send test email from settings
+   > Track email send status
+> Connected To
+   > Event Manager
+   > Booking payment step
+   > Payment settings
+   > Gmail connected account
+   > Activity log
+> Email Status
+   > Not Sent
+   > Sent
+   > Failed
+> Error State
+   > Payment email could not be sent. Please check the connected Google account and try again.
+
+Google Calendar Sync Integration
+> Function
+   > Create Google Calendar event when app event is created
+   > Update same Google Calendar event when app event changes
+   > Update Google event when status/payment changes
+   > Delete/cancel Google Calendar event when app event is deleted
+   > Prevent duplicate Google Calendar events
+   > Store google_calendar_event_id
+   > Track sync status
+   > Show sync error
+> Connected To
+   > Booking system
+   > Event Manager
+   > Event detail modal
+   > Delete event flow
+   > Settings / Google Calendar Sync
+   > Activity log
+> Sync Status Values
+   > Not Synced
+   > Synced
+   > Sync Pending
+   > Sync Error
+> Duplicate Prevention
+   > Always reuse google_calendar_event_id
+   > Never create a second Google event if an ID already exists
+
+PDF Kitchen Sheet System
+> Function
+   > Generate kitchen sheet PDF
+   > Include event details
+   > Include setup details
+   > Include menu items
+   > Include quantities
+   > Include counting rules
+   > Include Shabbos meal breakdown when applicable
+   > Include davening notes
+   > Include side boxes
+   > Include uploaded layout/paper
+   > Merge uploaded PDF pages
+   > Convert uploaded image into PDF page
+   > Produce one clean final PDF
+> Connected To
+   > Event Manager
+   > Event Detail modal
+   > Customize Event modal
+   > Menu system
+   > Add-ons
+   > Uploaded files
+   > Shabbos Sheva Brachos setup
+   > Activity log
+> PDF Rule
+   > Page 1 = generated kitchen sheet
+   > Page 2+ = uploaded PDF/image pages
+   > No iframe
+   > No browser headers
+   > No about:blank
+   > No viewer scrollbars
+
+File Upload System
+> Function
+   > Upload layout/paper
+   > Accept PDF
+   > Accept image
+   > Replace upload
+   > Remove upload
+   > Save file reference
+   > Reopen event and preserve upload
+   > Add upload to PDF output
+> Connected To
+   > Customize Event modal
+   > Event detail modal
+   > PDF kitchen sheet system
+> Valid File Types
+   > PDF
+   > Image
+
+Shabbos Sheva Brachos System
+> Function
+   > Show setup button only for Shabbos Sheva Brachos
+   > Allow only Friday and Shabbos/Saturday
+   > Save Friday night meal counts
+   > Save Shabbos morning meal counts
+   > Validate meal counts
+   > Send kitchen notification when changed
+   > Include setup in PDF
+> Connected To
+   > Booking modal
+   > Event Manager
+   > Event detail modal
+   > Kitchen Dashboard
+   > Kitchen notifications
+   > PDF kitchen sheet
+> Invalid Days
+   > Sunday
+   > Monday
+   > Tuesday
+   > Wednesday
+   > Thursday
+
+School Lunch / Supper Cycle System
+> Function
+   > Create lunch cycle
+   > Create supper cycle
+   > Save cycle
+   > Load previous cycle
+   > Load previous cycle with changes
+   > Apply cycle
+   > Replace existing school events
+   > Keep lunch and supper separate
+   > Generate kitchen dashboard events
+   > Add food items
+   > Remove food items
+   > Add drinks
+   > Remove drinks
+> Connected To
+   > Settings
+   > Kitchen Dashboard
+   > Menu system
+   > School event data
+   > Kitchen notifications
+   > Activity log
+> Rule
+   > Lunch replacement only replaces Lunch
+   > Supper replacement only replaces Supper
+
+Permission System
+> Function
+   > Control page access
+   > Control button visibility
+   > Control hall access
+   > Control event category visibility
+   > Hide payment information from kitchen workers
+   > Control who can create bookings
+   > Control who can edit events
+   > Control who can delete events
+   > Control who can assign workers
+   > Control who can update kitchen status
+   > Control who can manage settings
+> Connected To
+   > Home
+   > Kitchen Dashboard
+   > Event Calendar
+   > Event Manager
+   > Menu
+   > Settings
+   > Event data
+   > Hall data
+   > User access settings
+> Roles
+   > Admin
+   > Hall Secretary
+   > Event Manager
+   > Kitchen Admin
+   > Kitchen Worker
+   > School Manager
+
+Activity Log / Audit Trail
+> Function
+   > Record important changes
+   > Track user
+   > Track old value
+   > Track new value
+   > Track date/time
+   > Show recent activity if supported
+> Logged Actions
+   > Booking created
+   > Event edited
+   > Event deleted
+   > Status changed
+   > Payment status changed
+   > Payment email sent
+   > Menu changed
+   > Add-on added
+   > Add-on removed
+   > Worker assigned
+   > Worker unassigned
+   > Kitchen item status changed
+   > PDF generated
+   > Google sync success
+   > Google sync failure
+   > School cycle applied
+   > School cycle replaced
+   > Member rate applied
+   > Shul added
+> Connected To
+   > Event Manager
+   > Event Detail modal
+   > Kitchen Dashboard
+   > Booking system
+   > Settings
+   > Integrations
+
+Search / Filter System
+> Function
+   > Search events
+   > Search clients
+   > Search phone numbers
+   > Search menu items
+   > Filter events
+   > Filter menu items
+   > Filter kitchen dashboard
+   > Clear filters
+> Connected To
+   > Event Manager
+   > Calendar
+   > Kitchen Dashboard
+   > Menu
+> Filters
+   > Date range
+   > Hall
+   > Event type
+   > Event status
+   > Payment status
+   > Worker
+   > Kitchen item status
+   > Menu category
+   > Usage type
+   > Kosher type
+
+
+============================================================
+2. SYSTEM DATA CONNECTIONS
+============================================================
+
+Event Record
+> Connected To
+   > Home summaries
+   > Event Calendar
+   > Event Manager
+   > Kitchen Dashboard
+   > Google Calendar
+   > Gmail payment email
+   > PDF kitchen sheet
+   > Activity log
+   > Kitchen notifications
+> Fields
+   > id
+   > client_name
+   > phone
+   > email
+   > event_date
+   > hall_id
+   > hall_name
+   > event_type
+   > event_status
+   > payment_status
+   > package_id
+   > package_name
+   > couples_count
+   > men_count
+   > ladies_count
+   > boys_count
+   > girls_count
+   > kids_count
+   > waiters_count
+   > setup_time
+   > washing_time
+   > tablecloth_id
+   > notes
+   > davening_note
+   > side_boxes
+   > menu_item_ids
+   > drink_item_ids
+   > add_on_ids
+   > is_member_rate
+   > member_shul_name
+   > regular_price_total
+   > member_price_total
+   > final_total
+   > amount_due
+   > layout_file_url
+   > layout_file_type
+   > shabbos_setup
+   > shared_menu_source_event_id
+   > google_calendar_event_id
+   > google_sync_status
+   > google_last_synced_at
+   > google_sync_error
+   > created_by
+   > created_at
+   > updated_by
+   > updated_at
+
+Hall Record
+> Connected To
+   > Booking modal
+   > Calendar availability
+   > Event Manager filters
+   > Hall Menu Items
+   > Settings
+   > Permission system
+> Fields
+   > id
+   > name
+   > is_active
+   > is_bookable
+   > base_price
+   > per_couple_price
+   > member_base_price
+   > member_per_couple_price
+   > connected_hall_ids
+   > shared_menu_enabled
+   > allowed_menu_item_ids
+   > color
+
+Menu Item Record
+> Connected To
+   > Menu tab
+   > Packages
+   > Hall Menu Items
+   > Change Menu modal
+   > Kitchen Dashboard
+   > PDF kitchen sheet
+   > School cycles
+> Fields
+   > id
+   > name
+   > category
+   > usage_type
+   > kosher_type
+   > counting_rules
+   > notes
+   > is_active
+
+Package Record
+> Connected To
+   > Booking modal
+   > Pricing engine
+   > Event Manager
+   > Menu system
+> Fields
+   > id
+   > name
+   > hall_ids
+   > event_types
+   > regular_price
+   > member_price
+   > included_menu_item_ids
+   > included_drink_item_ids
+   > notes
+   > is_active
+
+Add-on Record
+> Connected To
+   > Booking modal
+   > Customize Event modal
+   > Event detail
+   > Pricing engine
+   > Kitchen Dashboard if kitchen-visible
+> Fields
+   > id
+   > name
+   > price
+   > pricing_type
+   > hall_ids
+   > is_kitchen_visible
+   > notes
+   > is_active
+
+Kitchen Worker Record
+> Connected To
+   > Kitchen Dashboard
+   > Worker Picker popup
+   > Kitchen Workers settings
+   > Activity log
+> Fields
+   > id
+   > name
+   > color
+   > is_active
+
+Kitchen Item Status Record
+> Connected To
+   > Kitchen Dashboard
+   > Worker assignment
+   > Activity log
+> Fields
+   > id
+   > event_id
+   > menu_item_id
+   > status
+   > assigned_worker_id
+   > updated_by
+   > updated_at
+
+School Cycle Record
+> Connected To
+   > Settings
+   > Kitchen Dashboard
+   > Menu system
+   > Kitchen notifications
+> Fields
+   > id
+   > cycle_name
+   > cycle_type
+   > start_date
+   > end_date
+   > days
+   > created_by
+   > created_at
+   > updated_at
+
+User Access Record
+> Connected To
+   > Home card visibility
+   > Route permissions
+   > Button permissions
+   > Hall visibility
+   > Kitchen access
+   > Payment visibility
+> Fields
+   > id
+   > name
+   > email
+   > role
+   > permissions
+   > allowed_hall_ids
+   > can_view_calendar
+   > can_view_event_manager
+   > can_view_kitchen_dashboard
+   > can_view_menu
+   > can_view_settings
+   > can_create_booking
+   > can_edit_event
+   > can_delete_event
+   > can_assign_workers
+   > can_update_kitchen_status
+   > can_view_payment_info
+   > can_manage_school_schedule
+   > can_see_school_events
+   > can_see_simcha_events
+
+
+============================================================
+3. GLOBAL VISUAL / UX SYSTEM
+============================================================
+
+Overall Visual Direction
+> Style
+   > Modern
+   > Sophisticated
+   > High-end
+   > Premium operations dashboard
+   > Sharp
+   > Box-style
+   > Clean
+   > Professional
+> Geometry
+   > Boxy only
+   > No rounded corners
+   > No pill-rounded shapes
+   > No soft bubbly shapes
+   > Square cards
+   > Square buttons
+   > Square modals
+   > Sharp grid system
+   > Thin rectangular dividers
+> Icons
+   > No emojis
+   > Modern line-art SVG icons
+   > Thin stroke
+   > Square stroke ends
+   > Minimal
+   > Custom icon per section
+   > No cartoon icons
+> Impression
+   > Luxury control center
+   > Modern event operations system
+   > Clean hospitality management platform
+   > Strong and elegant
+   > Not playful
+   > Not childish
+   > Not generic admin template
+
+Global Colors
+> Deep Navy
+   > #0F172A
+   > Main headers
+   > Primary buttons
+   > Strong text
+> Soft Charcoal
+   > #1E293B
+   > Body text
+   > Card headings
+> Warm Gold
+   > #B9974D
+   > Accent
+   > Important buttons
+   > Active indicators
+> Gold Dark
+   > #9C7D37
+   > Hover
+   > Deeper accent
+> Champagne
+   > #E7D8B1
+   > Soft highlights
+> Warm Background
+   > #F7F4ED
+   > App background
+> Kitchen Background
+   > #E7E3DA
+   > Kitchen dashboard background
+> Card White
+   > #FFFFFF
+   > Cards
+   > Forms
+   > Modals
+> Soft Border
+   > #E5E0D6
+   > Borders
+   > Inputs
+   > Tables
+> Muted Text
+   > #64748B
+   > Labels
+   > Secondary text
+> Light Slate
+   > #F1F5F9
+   > Filter backgrounds
+   > Neutral panels
+
+Status Colors
+> Confirmed
+   > Background #E7F7EE
+   > Text #147A3E
+   > Border #BFE8D0
+> On Hold
+   > Background #FFF3DD
+   > Text #9A5A00
+   > Border #F4C46B
+> Full / Danger
+   > Background #FDECEC
+   > Text #B42318
+   > Border #F5B5B0
+> In Progress
+   > Background #FFF4E5
+   > Text #B45309
+   > Border #FDBA74
+> Pending
+   > Background #F1F5F9
+   > Text #475569
+   > Border #CBD5E1
+> Info
+   > Background #EAF1FF
+   > Text #1D4ED8
+   > Border #BFD3FF
+
+Typography
+> Style
+   > Modern sans-serif
+   > Clean
+   > Professional
+   > Strong readable hierarchy
+> Page Titles
+   > Large
+   > Deep navy
+   > Strong weight
+   > Tight letter spacing
+> Section Titles
+   > Medium
+   > Semi-bold
+   > Soft charcoal
+> Labels
+   > Small
+   > Muted
+   > Medium weight
+   > Slight uppercase optional
+> Buttons
+   > Medium weight
+   > Clear
+   > Not oversized
+> Badges
+   > Small
+   > Bold
+   > Sharp rectangular badge
+
+Global Shape Rules
+> Cards
+   > Square corners
+   > Thin border
+   > Subtle structured shadow
+> Buttons
+   > Square corners
+   > Clear hover
+> Inputs
+   > Square corners
+   > Thin border
+   > Gold/navy focus
+> Modals
+   > Square corners
+   > Deep shadow
+   > Dark overlay
+> Calendar Day Boxes
+   > Square corners
+   > Thin border
+> Status Badges
+   > Rectangular
+   > No pill radius
+> Worker Indicators
+   > Small square/line color mark
+   > Worker name visible
+
+Hover / Interaction Rules
+> Hover
+   > Slight lift
+   > Slight shadow
+   > No playful bounce
+> Click
+   > Immediate pressed state
+> Modal Open
+   > Subtle fade
+> Toast
+   > Slide/fade in
+> Status Update
+   > Instant visual change
+> Worker Assignment
+   > Popup opens
+   > Selection saves immediately
+> Calendar Month Change
+   > Smooth but fast
+
+
+============================================================
+4. CLEAN ROUTE MAP
+============================================================
+
+/
+> Home
+
+/kitchen
+> Kitchen Dashboard
+   > Today
+   > This Week
+   > 4 Weeks
+
+/calendar
+> Event Calendar
+   > Booking Modal
+   > Event Detail Modal
+
+/events
+> Event Manager
+   > Event Detail Modal
+   > Edit Event Modal
+   > Customize Event Modal
+   > Change Menu Modal
+   > Shabbos Setup Modal
+   > Payment Flow
+   > PDF Flow
+
+/menu
+> Menu
+   > Menu Items
+   > Packages
+   > Add-ons
+   > Hall Menu Items
+
+/settings
+> Settings
+   > Halls
+   > Event Types
+   > User Access
+   > Member Shuls
+   > Payment Settings
+   > Kitchen Workers
+   > Tablecloth Options
+   > Menu Categories
+   > Holiday / Blocked Dates
+   > School Cycles
+   > Google Calendar Sync
+
+Do Not Make Routes For
+> Assign Worker popup
+> Delete confirmation
+> Status confirmation
+> Payment result popup
+> Worker list popup
+> Upload layout popup
+> Toast
+> Full warning popup
+> Connected hall notice
+> On Hold warning
+
+
+============================================================
+5. HOME PAGE LAYOUT
+============================================================
+
+Home
+> Route
+   > /
+> Purpose
+   > Main launch screen
+   > High-level platform entry
+   > Quick summaries
+   > Navigation to main sections
+> Layout
+   > Full page dashboard
+   > Box-style grid
+   > Sharp cards
+   > No rounded corners
+   > Modern line-art section icons
+> Header
+   > Platform name
+   > User/account area
+   > Notification bell if allowed
+   > Main action button
+      > New Booking
+> Cards
+   > Kitchen Dashboard
+      > Icon
+         > Modern line-art utensils / operations mark
+      > Summary
+         > Today events count
+         > Pending kitchen items count
+         > Completed kitchen items count
+      > Click
+         > Navigate to /kitchen
+   > Event Calendar
+      > Icon
+         > Modern line-art calendar mark
+      > Summary
+         > Today bookings count
+         > This week bookings count
+         > On Hold count
+      > Click
+         > Navigate to /calendar
+   > Event Manager
+      > Icon
+         > Modern line-art document/list mark
+      > Summary
+         > Upcoming events count
+         > Confirmed events count
+         > On Hold events count
+      > Click
+         > Navigate to /events
+   > Menu
+      > Icon
+         > Modern line-art menu/book mark
+      > Summary
+         > Menu items count
+         > Packages count
+         > Add-ons count
+      > Click
+         > Navigate to /menu
+   > Settings
+      > Icon
+         > Modern line-art settings/gear mark
+      > Summary
+         > Halls count
+         > Users count
+         > Workers count
+      > Click
+         > Navigate to /settings
+> Functions
+   > Click card
+      > Navigate to section
+   > Click New Booking
+      > Open Booking modal
+   > Permission check
+      > Show allowed cards only
+   > No allowed cards
+      > Show no-access message
+> Visuals
+   > Warm background
+   > Square white cards
+   > Deep navy titles
+   > Gold accents
+   > Thin borders
+   > Sharp line-art icons
+   > No emojis
+   > No rounded corners
+
+
+============================================================
+6. KITCHEN DASHBOARD LAYOUT
+============================================================
+
+Kitchen Dashboard
+> Route
+   > /kitchen
+> Purpose
+   > Main kitchen working screen
+   > Worker assignment
+   > Kitchen item progress
+   > Event prep visibility
+> Layout
+   > One route
+   > Three tabs
+      > Today
+      > This Week
+      > 4 Weeks
+   > Square event cards
+   > Square item rows
+   > No payment information
+> Header
+   > Main Menu button
+      > Navigate to Home
+   > Page title
+      > Kitchen Dashboard
+   > Date & time block
+      > Month
+      > Day
+      > Year
+      > 12-hour digital clock
+   > Tabs
+      > Today
+      > This Week
+      > 4 Weeks
+   > Search
+      > Event name
+      > Hall
+      > Item
+      > Worker
+   > Filters
+      > Worker
+      > Item status
+      > Event status
+      > Hall
+   > Notification bell
+      > Opens kitchen notification panel
+
+Kitchen Dashboard > Today
+> Today's events list
+   > Event card
+      > Event name
+      > Event date
+      > Hall / room
+      > Event type
+      > Event status badge
+      > Portions / couples
+      > Notes
+      > Menu item rows
+      > Add-ons if kitchen-visible
+> Event Card Functions
+   > Expand event details
+   > Collapse event details
+   > View notes
+   > Assign workers
+   > Update item status
+> Event Card Visuals
+   > Square card
+   > White background
+   > Thin border
+   > Left status stripe
+   > Confirmed green stripe
+   > On Hold orange stripe
+   > Sharp status badge
+
+Kitchen Dashboard > This Week
+> Events grouped by day
+   > Day heading
+      > Weekday name
+      > Date
+      > Hebrew date if available
+   > Event cards
+      > Event name
+      > Hall
+      > Event status
+      > Portions/couples
+      > Pending count
+      > In Progress count
+      > Complete count
+
+Kitchen Dashboard > 4 Weeks
+> Events grouped by week
+   > Week heading
+   > Day groups
+   > Event cards
+   > Progress summary
+      > Pending count
+      > In Progress count
+      > Complete count
+      > On Hold count
+
+Kitchen Item Row
+> Layout
+   > Item name
+   > Quantity
+   > Counting rule
+   > Worker assigned
+   > Status
+   > Action area
+> Quantity
+   > Amount needed
+   > Unit
+   > Per count
+   > Basis
+      > Couples
+      > Portions
+> Worker Area
+   > Worker color marker
+   > Worker name
+   > Unassigned state
+   > Clickable area
+> Status Area
+   > Pending
+   > In Progress
+   > Complete
+> Functions
+   > Click worker area
+      > Open Worker Picker popup
+   > Select worker
+      > Assign worker to item
+   > Click again
+      > Change or unassign worker
+   > Click status
+      > Pending to In Progress
+      > In Progress to Complete
+      > Optional reset if allowed
+> Visuals
+   > Square row
+   > Light background
+   > Thin border
+   > Worker color marker
+   > Rectangular status badge
+
+Worker Picker Popup
+> Opens From
+   > Kitchen item worker area
+> Layout
+   > Popup title
+      > Assign Worker
+   > Worker list
+      > Worker row
+         > Worker color marker
+         > Worker name
+         > Selected check mark
+   > Footer
+      > Unassign Worker
+      > Cancel
+> Functions
+   > Select worker
+      > Assign selected worker
+      > Close popup
+      > Toast: Worker assigned.
+   > Change worker
+      > Replace current worker
+      > Close popup
+      > Toast: Worker updated.
+   > Unassign worker
+      > Remove worker
+      > Close popup
+      > Toast: Worker unassigned.
+   > Cancel
+      > No changes
+      > Close popup
+> Visuals
+   > Square popup
+   > White background
+   > Thin border
+   > Worker rows square
+   > No emojis
+   > No rounded corners
+
+Kitchen Notifications Panel
+> Opens From
+   > Notification bell
+> Layout
+   > Notification list
+   > Notification cards
+      > Event name
+      > Change type
+      > Message
+      > Date/time
+      > Changed by
+   > Buttons
+      > View Event
+      > Acknowledge
+      > Close
+> Functions
+   > View Event
+      > Open event details
+   > Acknowledge
+      > Mark notification read
+   > Close
+      > Close panel
+> Visuals
+   > Square panel
+   > Badge count
+   > Unread highlight
+   > Muted read notifications
+
+
+============================================================
+7. EVENT CALENDAR LAYOUT
+============================================================
+
+Event Calendar
+> Route
+   > /calendar
+> Purpose
+   > Month availability
+   > Start booking
+   > View events by date
+> Layout
+   > Month grid
+   > Sunday first
+   > Square day boxes
+   > English date
+   > Hebrew date
+   > Event chips
+   > Plus / Full area
+> Header
+   > Main Menu button
+      > Navigate to Home
+   > Previous Month button
+   > Current Month / Year
+   > Next Month button
+   > Today button
+   > Filters
+      > Hall
+      > Event type
+      > Event status
+> Day Box
+   > English date top left
+   > Hebrew date top right
+   > Events list
+   > Plus icon if available
+   > Full tag if full
+> Day Box Functions
+   > Click plus
+      > Open Booking modal
+      > Pre-fill selected date
+   > Click event chip
+      > Open Event Detail modal
+   > Click Full tag
+      > Show Fully Booked popup
+> Full Tag
+   > Appears when
+      > All active bookable halls have Confirmed events
+   > Does not appear when
+      > Only On Hold events exist
+      > Some halls remain available
+   > Visual
+      > Rectangular red tag
+      > Text: Full
+      > Replaces plus only
+      > Does not cover whole day
+> Event Chip
+   > Shows
+      > Client/event name
+      > Hall
+      > Status
+   > Functions
+      > Click to open Event Detail modal
+   > Visuals
+      > Confirmed green chip
+      > On Hold orange chip
+      > Square corners
+> Plus Icon
+   > Visual
+      > Square button
+      > Modern line plus
+      > Gold background
+   > Function
+      > Open Booking modal
+
+
+============================================================
+8. BOOKING MODAL LAYOUT
+============================================================
+
+Booking Modal
+> Opens From
+   > Calendar plus icon
+   > Home New Booking button
+   > Event Manager Add Event button
+> Layout
+   > Square modal
+   > Step-by-step flow
+   > Step indicator
+   > Form sections
+   > Footer buttons
+> Step 1: Client
+   > Client name
+   > Phone
+   > Email
+> Step 2: Date and Hall
+   > Event date
+   > Hall dropdown
+   > Hall availability state
+   > On Hold warning
+   > Connected hall notice
+> Step 3: Event Type and Package
+   > Event type
+   > Package
+> Step 4: Counts and Member Rate
+   > Couples
+   > Men
+   > Ladies
+   > Boys
+   > Girls
+   > Kids
+   > Member Rate switch
+   > Member Shul
+> Step 5: Add-ons and Notes
+   > Add-ons
+   > General notes
+> Step 6: Payment / Hold / Confirm
+   > Credit Card
+   > Cash/Check
+   > Send Email to Pay
+   > Place on Hold
+   > Save Booking
+> Buttons
+   > Back
+   > Next
+   > Save Booking
+   > Cancel
+   > Credit Card
+   > Cash/Check
+   > Send Email to Pay
+   > Place on Hold
+> Functions
+   > Validate phone
+   > Validate hall
+   > Validate event type
+   > Validate member shul when member rate is on
+   > Block confirmed hall
+   > Warn for On Hold hall
+   > Show connected hall notice
+   > Calculate price
+   > Save event
+   > Sync to Google Calendar
+   > Trigger kitchen notification if needed
+   > Log activity
+> Visuals
+   > Square modal
+   > Square step boxes
+   > Square inputs
+   > On Hold orange warning
+   > Connected hall blue notice
+   > Red validation errors
+   > No rounded corners
+   > No emojis
+
+
+============================================================
+9. EVENT MANAGER LAYOUT
+============================================================
+
+Event Manager
+> Route
+   > /events
+> Purpose
+   > Office control center
+   > Search
+   > Filters
+   > Event actions
+   > Payments
+   > Menu
+   > Setup
+   > PDF
+> Header
+   > Main Menu button
+      > Navigate to Home
+   > Page title
+      > Event Manager
+   > Add Event button
+      > Opens Booking modal
+> Filter Bar
+   > Search client name
+   > Search phone
+   > Date range
+   > Hall
+   > Event type
+   > Event Status
+   > Payment Status
+   > On Hold only
+   > Confirmed only
+   > Clear filters
+> Event Row/Card
+   > Client name / Event name
+   > Date
+   > Hall
+   > Event type
+   > Phone
+   > Event Status badge
+   > Payment Status badge
+   > Member Shul if applicable
+   > Quick action buttons
+> Event Row Actions
+   > View Details
+      > Open Event Detail modal
+   > Edit
+      > Open Edit Event modal
+   > Change Status
+      > Open Status Confirmation popup
+   > Pay for Event
+      > Open Payment Flow
+   > Send Payment Email
+      > Send Gmail payment email
+   > Change Menu
+      > Open Change Menu modal
+   > Customize
+      > Open Customize Event modal
+   > Setup
+      > Open Shabbos Sheva Brachos Setup modal
+      > Show only if event type matches
+   > Print / Save Kitchen Sheet
+      > Generate PDF
+   > Delete
+      > Open Delete Confirmation popup
+> Visuals
+   > Square event rows
+   > Thin borders
+   > Sharp badges
+   > Box-style action buttons
+   > Gold important actions
+   > Red delete outline
+   > No rounded corners
+   > No emojis
+
+
+============================================================
+10. EVENT DETAIL MODAL
+============================================================
+
+Event Detail Modal
+> Opens From
+   > Calendar event chip
+   > Event Manager View Details
+   > Kitchen notification View Event
+> Layout
+   > Square modal
+   > Header
+   > Details sections
+   > Footer action buttons
+> Details
+   > Event name
+   > Client name
+   > Phone
+   > Email
+   > Date
+   > Hall
+   > Event type
+   > Event Status
+   > Payment Status
+   > Package
+   > Counts
+   > Member Rate
+   > Member Shul
+   > Add-ons
+   > Menu
+   > Notes
+   > Setup time
+   > Washing time
+   > Tablecloth
+   > Layout attachment
+   > Google sync status
+   > Recent activity if supported
+> Buttons
+   > Close
+   > Edit
+   > Save
+   > Cancel
+   > Delete
+   > Change Status
+   > Pay for Event
+   > Send Payment Email
+   > Change Menu
+   > Customize
+   > Setup
+   > Print / Save Kitchen Sheet
+> Functions
+   > View full event
+   > Edit event
+   > Save event
+   > Delete event
+   > Change status
+   > Change payment status
+   > Send payment email
+   > Change menu
+   > Customize event
+   > Open Shabbos setup
+   > Generate PDF
+   > Show sync status
+> Visuals
+   > Square modal
+   > Section boxes
+   > Sharp badges
+   > Box-style buttons
+
+
+============================================================
+11. EDIT EVENT MODAL
+============================================================
+
+Edit Event Modal
+> Opens From
+   > Event Manager Edit
+   > Event Detail Edit
+> Fields
+   > Client name
+   > Phone
+   > Email
+   > Date
+   > Hall
+   > Event type
+   > Package
+   > Couples
+   > Men
+   > Ladies
+   > Boys
+   > Girls
+   > Kids
+   > Member Rate
+   > Member Shul
+   > Notes
+   > Event Status
+   > Payment Status
+> Buttons
+   > Save
+   > Cancel
+> Functions
+   > Validate fields
+   > Recalculate hall availability
+   > Apply connected hall logic
+   > Update event
+   > Update Google Calendar event
+   > Trigger kitchen notification if kitchen-relevant fields changed
+   > Log activity
+> Visuals
+   > Square modal
+   > Square fields
+   > No rounded corners
+
+
+============================================================
+12. CHANGE MENU MODAL
+============================================================
+
+Change Menu Modal
+> Opens From
+   > Event Manager
+   > Event Detail modal
+> Layout
+   > Current selected menu
+   > Available allowed items
+   > Drinks
+   > Add-ons
+   > Shared menu notice if connected hall applies
+> Fields
+   > Menu item selection
+   > Drink item selection
+   > Add-on selection
+> Buttons
+   > Save Menu
+   > Cancel
+> Functions
+   > Filter menu items by hall
+   > Filter menu items by event type
+   > Lock menu if shared menu applies
+   > Add menu item
+   > Remove menu item
+   > Add drink
+   > Remove drink
+   > Save menu
+   > Trigger kitchen notification
+   > Update PDF data
+   > Log activity
+> Visuals
+   > Square item boxes
+   > Selected green border
+   > Unselected white box
+   > Disabled gray faded box
+   > Connected hall blue notice
+
+
+============================================================
+13. CUSTOMIZE EVENT MODAL
+============================================================
+
+Customize Event Modal
+> Opens From
+   > Event Manager Customize
+   > Event Detail Customize
+> Fields
+   > Setup time
+   > Washing time
+   > Waiters
+   > Men
+   > Ladies
+   > Boys
+   > Girls
+   > Couples
+   > Kids
+   > Tablecloth
+   > Layout description
+   > Davening note
+   > Side boxes
+   > General notes
+   > Uploaded layout/paper
+   > Add-ons
+> Buttons
+   > Save
+   > Cancel
+   > Upload Layout/Paper
+   > Replace Layout/Paper
+   > Remove Layout/Paper
+   > Add Side Box
+   > Remove Side Box
+   > Print / Save Kitchen Sheet
+> Functions
+   > Save setup
+   > Save notes
+   > Save side boxes
+   > Upload PDF
+   > Upload image
+   > Replace upload
+   > Remove upload
+   > Generate PDF
+   > Trigger kitchen notification if relevant
+   > Log activity
+> Visuals
+   > Square modal
+   > Square upload box
+   > Dashed border upload area
+   > Box-style side boxes
+
+
+============================================================
+14. SHABBOS SHEVA BRACHOS SETUP MODAL
+============================================================
+
+Shabbos Sheva Brachos Setup Modal
+> Opens From
+   > Event Manager Setup
+   > Event Detail Setup
+> Visible When
+   > Event type = Shabbos Sheva Brachos
+> Valid Days
+   > Friday
+   > Shabbos/Saturday
+> Friday Night Meal
+   > Couples
+   > Kids
+   > Men
+   > Ladies
+   > Boys
+   > Girls
+   > Notes
+> Shabbos Morning Meal
+   > Couples
+   > Kids
+   > Men
+   > Ladies
+   > Boys
+   > Girls
+   > Notes
+> Buttons
+   > Save Setup
+   > Cancel
+   > Add Note
+   > Remove Note
+> Functions
+   > Validate day
+   > Validate meal counts
+   > Save meal breakdown
+   > Trigger kitchen notification
+   > Include in Kitchen Dashboard
+   > Include in PDF
+   > Log activity
+> Visuals
+   > Square modal
+   > Square meal cards
+   > Clear meal sections
+
+
+============================================================
+15. PAYMENT FLOW
+============================================================
+
+Payment Flow
+> Opens From
+   > Booking modal
+   > Event Manager
+   > Event Detail modal
+> Options
+   > Credit Card
+   > Cash/Check
+   > Send Email to Pay
+   > Place on Hold
+> Credit Card
+   > Open Cardknox link
+   > Show Payment Result popup
+> Cash/Check
+   > Select payment status
+   > Save payment status
+> Send Email to Pay
+   > Validate email exists
+   > Send Gmail HTML payment email
+   > Save email send status
+> Place on Hold
+   > Event Status = On Hold
+   > Payment Status stays separate
+> Payment Result Popup
+   > Message
+      > Was payment successful?
+   > Buttons
+      > Payment Successful
+      > Place on Hold
+      > Try Different Card
+> Functions
+   > Update event status
+   > Update payment status
+   > Send payment email
+   > Open external payment link
+   > Log payment activity
+   > Update Google Calendar event if needed
+> Visuals
+   > Square modal
+   > Gold payment button
+   > Navy confirm button
+   > Red/neutral warning buttons
+
+
+============================================================
+16. MENU PAGE LAYOUT
+============================================================
+
+Menu
+> Route
+   > /menu
+> Purpose
+   > Manage menu library
+   > Manage packages
+   > Manage add-ons
+   > Manage hall menu item permissions
+> Layout
+   > One route
+   > Tabs
+      > Menu Items
+      > Packages
+      > Add-ons
+      > Hall Menu Items
+> Header
+   > Main Menu button
+   > Page title
+   > Add button
+
+Menu > Menu Items
+> Search
+> Filters
+   > Category
+   > Usage Type
+      > School
+      > Simcha
+      > Both
+   > Kosher Type
+      > Milchig
+      > Fleishig
+      > Parve
+   > Active status
+> Menu item list
+   > Name
+   > Category
+   > Usage type
+   > Kosher type
+   > Counting rule
+   > Active status
+   > Edit
+   > Delete
+> Add/Edit Form
+   > Name
+   > Category
+   > Usage Type
+   > Kosher Type
+   > Counting Rules
+      > Quantity number
+      > Quantity unit
+      > Per number
+      > Basis
+   > Notes
+   > Active
+> Buttons
+   > Add Menu Item
+   > Edit
+   > Delete
+   > Save
+   > Cancel
+   > Add Counting Rule
+   > Remove Counting Rule
+   > Search
+   > Filter
+
+Menu > Packages
+> Package list
+   > Package name
+   > Hall applicability
+   > Event type applicability
+   > Regular price
+   > Member price
+   > Included menu items
+   > Included drinks
+   > Notes
+   > Active status
+> Add/Edit Form
+   > Package name
+   > Halls
+   > Event types
+   > Regular price
+   > Member price
+   > Included menu items
+   > Included drinks
+   > Notes
+   > Active
+> Buttons
+   > Add Package
+   > Edit Package
+   > Delete Package
+   > Save Package
+   > Cancel
+
+Menu > Add-ons
+> Add-on list
+   > Add-on name
+   > Price
+   > Pricing type
+   > Hall applicability
+   > Kitchen-visible badge
+   > Notes
+   > Active status
+> Add/Edit Form
+   > Add-on name
+   > Price
+   > Pricing type
+      > Flat Fee
+      > Per Couple
+      > Per Item
+   > Hall applicability
+   > Kitchen-visible
+   > Notes
+   > Active
+> Buttons
+   > Add Add-on
+   > Edit Add-on
+   > Delete Add-on
+   > Save
+   > Cancel
+
+Menu > Hall Menu Items
+> Select Hall
+   > Hall dropdown
+> Menu item grid/list
+   > Item name
+   > Category
+   > Usage type
+   > Kosher type
+   > Selected state
+   > Disabled state
+> Rules
+   > Simcha items selectable
+   > Both items selectable
+   > School-only items disabled
+> Buttons
+   > Select Hall
+   > Select Item
+   > Unselect Item
+   > Save Hall Menu Items
+   > Back
+   > Search/Filter
+> Visuals
+   > Selected item green border
+   > Unselected item white box
+   > Disabled item faded
+   > Square boxes only
+
+
+============================================================
+17. SETTINGS PAGE LAYOUT
+============================================================
+
+Settings
+> Route
+   > /settings
+> Purpose
+   > Admin configuration
+   > System settings
+   > Permissions
+   > Integrations
+> Layout
+   > Sidebar or tabs
+   > Square content panels
+   > No rounded corners
+> Sections
+   > Halls
+   > Event Types
+   > User Access
+   > Member Shuls
+   > Payment Settings
+   > Kitchen Workers
+   > Tablecloth Options
+   > Menu Categories
+   > Holiday / Blocked Dates
+   > School Cycles
+   > Google Calendar Sync
+
+Settings > Halls
+> Hall list
+   > Hall name
+   > Active status
+   > Bookable status
+   > Base price
+   > Per couple price
+   > Member base price
+   > Member per couple price
+   > Connected halls
+   > Shared menu enabled
+> Add/Edit Form
+   > Hall name
+   > Active switch
+   > Bookable switch
+   > Base price
+   > Per couple price
+   > Member base price
+   > Member per couple price
+   > Connected hall selection
+   > Shared menu enabled switch
+   > Allowed menu items
+> Buttons
+   > Add Hall
+   > Edit Hall
+   > Delete Hall
+   > Save Hall
+   > Cancel
+
+Settings > Event Types
+> Event type list
+   > Event type name
+   > Active status
+   > Valid days
+   > Special rules
+> Add/Edit Form
+   > Name
+   > Active
+   > Valid days
+   > Shabbos Sheva Brachos restriction if applicable
+> Buttons
+   > Add Event Type
+   > Edit Event Type
+   > Delete Event Type
+   > Save
+   > Cancel
+
+Settings > User Access
+> User list
+   > Name
+   > Email
+   > Role
+   > Permissions summary
+   > Hall access summary
+> Add/Edit Form
+   > Name
+   > Email
+   > Role
+   > Permission switches
+      > View Home
+      > View Calendar
+      > Create Booking
+      > View Event Manager
+      > View Kitchen Dashboard
+      > Assign Workers
+      > Update Kitchen Status
+      > View Menu
+      > Edit Menu
+      > View Settings
+      > Manage School Schedule
+      > See School Events
+      > See Simcha Events
+      > View Payment Info
+   > Hall access checkboxes
+   > Nice home background switch
+> Buttons
+   > Add User
+   > Edit User
+   > Delete User
+   > Save User
+   > Cancel
+
+Settings > Member Shuls
+> Shul list
+   > Shul name
+   > Created from booking indicator
+> Add/Edit Form
+   > Shul name
+> Buttons
+   > Add Shul
+   > Edit Shul
+   > Delete Shul
+   > Save
+   > Cancel
+
+Settings > Payment Settings
+> Fields
+   > Cardknox payment link
+   > Connected Gmail account
+   > Payment email subject
+   > Payment email HTML template
+   > Send from Google enabled switch
+> Buttons
+   > Save Payment Settings
+   > Send Test Email
+> Connected To
+   > Gmail payment email
+   > Booking modal
+   > Event Manager payment flow
+
+Settings > Kitchen Workers
+> Worker list
+   > Worker name
+   > Worker color
+   > Active status
+> Add/Edit Form
+   > Worker name
+   > Worker color
+   > Active switch
+> Buttons
+   > Add Worker
+   > Edit Worker
+   > Delete Worker
+   > Save
+   > Cancel
+> Connected To
+   > Kitchen Dashboard Worker Picker
+
+Settings > Tablecloth Options
+> Tablecloth list
+   > Name
+   > Color/description
+   > Active status
+> Add/Edit Form
+   > Name
+   > Color/description
+   > Active
+> Buttons
+   > Add Tablecloth
+   > Edit Tablecloth
+   > Delete Tablecloth
+   > Save
+   > Cancel
+> Connected To
+   > Customize Event modal
+   > PDF kitchen sheet
+
+Settings > Menu Categories
+> Category list
+   > Category name
+   > Active status
+> Buttons
+   > Add Category
+   > Edit Category
+   > Delete Category
+   > Save
+   > Cancel
+> Connected To
+   > Menu Items
+
+Settings > Holiday / Blocked Dates
+> Blocked date list
+   > Start date
+   > End date
+   > Label
+   > Reason
+   > Blocked status
+> Add/Edit Form
+   > Start date
+   > End date
+   > Label
+   > Reason
+   > Blocked switch
+> Buttons
+   > Add Blocked Date
+   > Edit Blocked Date
+   > Delete Blocked Date
+   > Save
+   > Cancel
+> Connected To
+   > Calendar
+   > Booking modal
+
+Settings > School Cycles
+> Tabs
+   > Lunch Cycle
+   > Supper Cycle
+> Lunch Cycle
+   > Day
+   > Date
+   > Portions
+   > Food items
+   > Drinks
+   > Notes
+> Supper Cycle
+   > Day
+   > Date
+   > Portions
+   > Food items
+   > Drinks
+   > Notes
+> Buttons
+   > Save Cycle
+   > Load Previous Cycle
+   > Previous With Changes
+   > Apply Cycle
+   > Replace Existing Events
+   > Edit Day
+   > Add Item
+   > Remove Item
+   > Add Drink
+   > Remove Drink
+> Connected To
+   > Kitchen Dashboard
+   > Menu system
+   > Kitchen notifications
+
+Settings > Google Calendar Sync
+> Fields
+   > Sync enabled
+   > Connected calendar
+   > Last sync status
+   > Last synced time
+   > Sync error if any
+> Buttons
+   > Connect Calendar
+   > Test Sync
+   > Save Settings
+> Connected To
+   > Google Calendar sync integration
+   > Event creation
+   > Event update
+   > Event delete
+
+
+============================================================
+18. GLOBAL POPUPS / WARNINGS / TOASTS
+============================================================
+
+Delete Event
+> Message
+   > Are you sure you want to delete this event?
+> Buttons
+   > Delete Event
+   > Cancel
+> Function
+   > Delete only selected event
+   > Do not clear entire calendar
+   > Update Google Calendar if synced
+   > Log activity
+
+Change Status
+> Message
+   > Are you sure you want to change this event status to [new status]?
+> Buttons
+   > Yes, Change Status
+   > Cancel
+> Function
+   > Change event status only
+   > Keep payment status separate
+
+Delete Hall
+> Message
+   > Are you sure you want to delete this hall?
+> Buttons
+   > Delete Hall
+   > Cancel
+
+Delete User
+> Message
+   > Are you sure you want to delete this user?
+> Buttons
+   > Delete User
+   > Cancel
+
+Delete Menu Item
+> Message
+   > Are you sure you want to delete this menu item?
+> Buttons
+   > Delete Menu Item
+   > Cancel
+
+Delete Package
+> Message
+   > Are you sure you want to delete this package?
+> Buttons
+   > Delete Package
+   > Cancel
+
+Delete Add-on
+> Message
+   > Are you sure you want to delete this add-on?
+> Buttons
+   > Delete Add-on
+   > Cancel
+
+Delete Kitchen Worker
+> Message
+   > Are you sure you want to delete this kitchen worker?
+> Buttons
+   > Delete Kitchen Worker
+   > Cancel
+
+Delete Shul
+> Message
+   > Are you sure you want to delete this shul?
+> Buttons
+   > Delete Shul
+   > Cancel
+
+Replace School Cycle
+> Message
+   > This will replace existing school events for the selected month and add the new school menu events to the kitchen dashboard.
+> Buttons
+   > Replace Existing Events
+   > Cancel
+> Rule
+   > Lunch replaces lunch only
+   > Supper replaces supper only
+
+On Hold Hall Warning
+> Message
+   > Warning: This hall is currently on hold for [client name]. Please reach out to [client name] at [phone number] to confirm if they still want to keep this date on hold before booking it for someone else.
+> Visual
+   > Orange rectangular warning box
+
+Connected Hall Notice
+> Message
+   > This hall is connected to [other hall name]. The menu for this event will use the shared menu from the existing event.
+> Visual
+   > Blue rectangular info box
+
+Fully Booked
+> Message
+   > This date is fully booked. No halls are available.
+> Visual
+   > Red rectangular popup/tag
+
+Payment Result
+> Message
+   > Was payment successful?
+> Buttons
+   > Payment Successful
+   > Place on Hold
+   > Try Different Card
+
+Missing Member Shul
+> Message
+   > Please select or enter the member shul to apply member pricing.
+
+Invalid Phone
+> Message
+   > Phone number must be at least 10 digits.
+
+Email Success
+> Message
+   > Payment email sent successfully.
+
+Email Error
+> Message
+   > Payment email could not be sent. Please check the connected Google account and try again.
+
+PDF Error
+> Message
+   > PDF could not be generated. Please try again.
+
+Google Sync Error
+> Message
+   > Google Calendar sync failed. The event was saved locally.
+
+Save Success
+> Message
+   > Saved successfully.
+
+Event Updated
+> Message
+   > Event updated.
+
+Event Deleted
+> Message
+   > Event deleted.
+
+Booking Saved
+> Message
+   > Booking saved successfully.
+
+School Cycle Applied
+> Message
+   > School cycle applied successfully.
+
+
+============================================================
+19. GLOBAL VALIDATIONS
+============================================================
+
+Client Name
+> Required for hall events
+
+Phone
+> Required
+> Minimum 10 digits/characters
+> Error
+   > Phone number must be at least 10 digits.
+
+Date
+> Required
+
+Hall
+> Required for simcha events
+> Confirmed booked hall not selectable
+> On Hold hall selectable only with warning
+
+Event Type
+> Required
+> Shabbos Sheva Brachos only Friday/Shabbos
+
+Member Shul
+> Required when Member Rate is ON
+
+Package
+> Required if event type/package rules require it
+
+Payment Status
+> Required when marking payment made
+
+Email
+> Required when sending payment email
+
+Menu Item Name
+> Required
+
+Package Name
+> Required
+
+Add-on Name
+> Required
+
+Hall Name
+> Required
+
+User Email
+> Required for user
+
+Worker Name
+> Required
+
+School Cycle Day
+> Portions/menu required depending schedule rules
+
+PDF Upload
+> Must be PDF or image
+
+
+============================================================
+20. GLOBAL BUTTON INVENTORY
+============================================================
+
+Home
+> Kitchen Dashboard card
+> Event Calendar card
+> Event Manager card
+> Menu card
+> Settings card
+> New Booking
+> Notification bell
+> User/account
+
+Kitchen Dashboard
+> Main Menu
+> Today
+> This Week
+> 4 Weeks
+> Search
+> Worker Filter
+> Status Filter
+> Event Status Filter
+> Hall Filter
+> Notification Bell
+> Add Kitchen Event
+> Save Quick Event
+> Cancel Quick Event
+> Assign Worker
+> Change Worker
+> Unassign Worker
+> Item Status Click
+> View Event
+> Acknowledge
+
+Event Calendar
+> Main Menu
+> Previous Month
+> Next Month
+> Today
+> Hall Filter
+> Event Type Filter
+> Status Filter
+> Plus Icon
+> Full Tag
+> Event Chip
+
+Booking Modal
+> Back
+> Next
+> Save Booking
+> Cancel
+> Credit Card
+> Cash/Check
+> Send Email to Pay
+> Place on Hold
+
+Event Manager
+> Main Menu
+> Add Event
+> Search
+> Filters
+> Clear Filters
+> View Details
+> Edit
+> Change Status
+> Pay for Event
+> Send Payment Email
+> Change Menu
+> Customize
+> Setup
+> Print / Save Kitchen Sheet
+> Delete
+
+Event Detail Modal
+> Close
+> Edit
+> Save
+> Cancel
+> Delete
+> Change Status
+> Pay for Event
+> Send Payment Email
+> Change Menu
+> Customize
+> Setup
+> Print / Save Kitchen Sheet
+
+Customize Event Modal
+> Save
+> Cancel
+> Upload Layout/Paper
+> Replace Layout/Paper
+> Remove Layout/Paper
+> Add Side Box
+> Remove Side Box
+> Print / Save Kitchen Sheet
+
+Change Menu Modal
+> Save Menu
+> Cancel
+> Select Item
+> Unselect Item
+> Add Drink
+> Remove Drink
+
+Payment Flow
+> Credit Card
+> Cash/Check
+> Send Email to Pay
+> Place on Hold
+> Payment Successful
+> Try Different Card
+
+Menu
+> Menu Items tab
+> Packages tab
+> Add-ons tab
+> Hall Menu Items tab
+> Add Menu Item
+> Edit Menu Item
+> Delete Menu Item
+> Save
+> Cancel
+> Add Counting Rule
+> Remove Counting Rule
+> Add Package
+> Edit Package
+> Delete Package
+> Save Package
+> Add Add-on
+> Edit Add-on
+> Delete Add-on
+> Save Hall Menu Items
+
+Settings
+> Halls tab
+> Event Types tab
+> User Access tab
+> Member Shuls tab
+> Payment Settings tab
+> Kitchen Workers tab
+> Tablecloth Options tab
+> Menu Categories tab
+> Holiday / Blocked Dates tab
+> School Cycles tab
+> Google Calendar Sync tab
+> Add
+> Edit
+> Delete
+> Save
+> Cancel
+> Send Test Email
+> Connect Calendar
+> Test Sync
+> Save Settings
+> Apply Cycle
+> Replace Existing Events
+
+
+============================================================
+21. COMPONENT STRUCTURE
+============================================================
+
+Shared Components
+> Button
+   > Primary
+   > Secondary
+   > Gold
+   > Danger
+   > Danger Outline
+   > Ghost
+   > Icon
+> Status Badge
+   > Confirmed
+   > On Hold
+   > Deposit Paid
+   > Paid Partially
+   > Paid in Full
+   > Pending
+   > In Progress
+   > Complete
+   > Synced
+   > Sync Error
+> Modal
+   > Header
+   > Body
+   > Footer
+   > Close button
+> Confirm Dialog
+   > Message
+   > Confirm button
+   > Cancel button
+> Toast
+   > Success
+   > Error
+   > Warning
+   > Info
+> Page Header
+   > Main Menu button
+   > Page title
+   > Subtitle
+   > Main action button
+> Filter Bar
+   > Search
+   > Date range
+   > Dropdown filters
+   > Clear filters
+> Event Card
+   > Calendar event chip
+   > Event manager row/card
+   > Kitchen event card
+> Kitchen Item Row
+   > Item name
+   > Quantity
+   > Worker
+   > Status
+> Worker Picker
+   > Worker list
+   > Current selection
+   > Select
+   > Unassign
+   > Cancel
+> Calendar Day
+   > Date
+   > Hebrew date
+   > Events
+   > Plus
+   > Full
+> Form Field
+   > Text input
+   > Select
+   > Checkbox
+   > Switch
+   > Date input
+   > Number input
+   > Textarea
+> File Upload
+   > Upload
+   > Replace
+   > Remove
+   > File preview
+
+
+============================================================
+22. DEVELOPMENT STRUCTURE
+============================================================
+
+src/
+> app/
+   > routes/
+      > Home.jsx
+      > KitchenDashboard.jsx
+      > EventCalendar.jsx
+      > EventManager.jsx
+      > Menu.jsx
+      > Settings.jsx
+
+> features/
+   > events/
+      > EventCard.jsx
+      > EventDetailModal.jsx
+      > BookingModal.jsx
+      > EditEventModal.jsx
+      > CustomizeEventModal.jsx
+      > ChangeMenuModal.jsx
+      > ShabbosSetupModal.jsx
+      > PaymentFlow.jsx
+      > eventHelpers.js
+      > eventApi.js
+
+   > kitchen/
+      > KitchenDashboardHeader.jsx
+      > KitchenEventCard.jsx
+      > KitchenItemRow.jsx
+      > WorkerPicker.jsx
+      > KitchenNotificationsPanel.jsx
+      > kitchenHelpers.js
+
+   > calendar/
+      > CalendarGrid.jsx
+      > CalendarDay.jsx
+      > calendarHelpers.js
+
+   > menu/
+      > MenuItems.jsx
+      > Packages.jsx
+      > AddOns.jsx
+      > HallMenuItems.jsx
+      > menuHelpers.js
+
+   > settings/
+      > HallsSettings.jsx
+      > EventTypesSettings.jsx
+      > UsersSettings.jsx
+      > MemberShulsSettings.jsx
+      > PaymentSettings.jsx
+      > KitchenWorkersSettings.jsx
+      > TableclothOptionsSettings.jsx
+      > MenuCategoriesSettings.jsx
+      > BlockedDatesSettings.jsx
+      > SchoolCyclesSettings.jsx
+      > GoogleCalendarSettings.jsx
+
+   > shared/
+      > Button.jsx
+      > Modal.jsx
+      > ConfirmDialog.jsx
+      > Toast.jsx
+      > StatusBadge.jsx
+      > PageHeader.jsx
+      > FilterBar.jsx
+      > FormField.jsx
+      > FileUpload.jsx
+      > LineArtIcon.jsx
+
+> services/
+   > availabilityService.js
+   > pricingService.js
+   > permissionService.js
+   > googleCalendarService.js
+   > gmailService.js
+   > pdfService.js
+   > activityLogService.js
+   > kitchenNotificationService.js
+
+> styles/
+   > theme.css
+   > layout.css
+   > components.css
+   > boxy-visual-system.css
+
+
+============================================================
+23. FINAL FUNCTIONAL CONNECTION MAP
+============================================================
+
+Create Booking
+> Saves event
+> Updates Calendar
+> Updates Event Manager
+> Updates Kitchen Dashboard if kitchen-relevant
+> Sends to Google Calendar if sync enabled
+> Logs activity
+> Applies hall availability
+> Applies member pricing
+> Applies menu/package/add-ons
+
+Edit Event
+> Updates event record
+> Recalculates availability
+> Updates Calendar
+> Updates Event Manager
+> Updates Kitchen Dashboard
+> Updates Google Calendar
+> Triggers kitchen notification if relevant
+> Logs activity
+
+Delete Event
+> Confirms delete
+> Deletes selected event only
+> Updates Calendar
+> Updates Event Manager
+> Updates Kitchen Dashboard
+> Deletes/cancels Google Calendar event
+> Logs activity
+> Does not clear all events
+
+Change Menu
+> Updates menu item IDs
+> Updates Kitchen Dashboard item list
+> Updates PDF kitchen sheet
+> Triggers kitchen notification
+> Logs activity
+
+Customize Event
+> Updates setup data
+> Updates PDF data
+> Updates Kitchen Dashboard if kitchen-relevant
+> Triggers kitchen notification
+> Logs activity
+
+Assign Worker
+> Updates kitchen item status record
+> Shows worker name/color
+> Updates Kitchen Dashboard
+> Logs activity
+
+Update Kitchen Item Status
+> Updates kitchen item status
+> Updates visual badge
+> Logs activity
+
+Send Payment Email
+> Uses connected Gmail
+> Sends HTML email
+> Includes payment link
+> Updates email status
+> Logs activity
+
+Payment Successful
+> Updates payment status
+> Confirms event if appropriate
+> Updates Event Manager
+> Updates Calendar badge if needed
+> Updates Google Calendar if needed
+> Logs activity
+
+Google Sync
+> Creates event on booking
+> Updates same event on edit
+> Deletes same event on delete
+> Reuses google_calendar_event_id
+> Shows sync status/error
+
+Generate PDF
+> Creates page 1 kitchen sheet
+> Appends uploaded PDF/image pages
+> Saves/prints one clean PDF
+> Logs activity
+
+Apply School Cycle
+> Generates school kitchen events
+> Keeps Lunch and Supper separate
+> Updates Kitchen Dashboard
+> Triggers kitchen notification
+> Logs activity
+
+
+============================================================
+24. FINAL VISUAL BUILD RULES
+============================================================
+
+Must Use
+> Box-style layout
+> Square cards
+> Square buttons
+> Square modals
+> Square inputs
+> Square badges
+> Thin borders
+> Modern line-art icons
+> Deep navy
+> Warm gold
+> Warm neutral background
+> Soft status colors
+> Structured shadows
+> Clean spacing
+
+Must Not Use
+> Emoji icons
+> Rounded corners
+> Pill-shaped buttons
+> Bubble cards
+> Cartoon icons
+> Random bright colors
+> Harsh default tables
+> Browser-default looking forms
+> Heavy gradients
+> Overly playful animations
+> Full red calendar day blocks
+> Payment information on Kitchen Dashboard
+> Separate routes for popups
+
+
+============================================================
+25. FINAL QA CHECKLIST
+============================================================
+
+Global
+> Every route loads
+> Every tab switches
+> Every modal opens
+> Every modal closes
+> Every toast appears
+> Every button has readable hover state
+> No emoji icons remain
+> No rounded corners remain
+> Permissions hide/show correctly
+
+Home
+> Cards navigate correctly
+> Summaries show
+> New Booking opens modal
+
+Kitchen Dashboard
+> Today tab works
+> This Week tab works
+> 4 Weeks tab works
+> Worker picker works
+> Assign worker works
+> Change worker works
+> Unassign worker works
+> Status click works
+> On Hold badge is obvious
+> Payment info hidden
+
+Calendar
+> Month displays
+> Hebrew dates display
+> Plus opens booking
+> Full tag displays only when all halls confirmed
+> On Hold does not make date full
+> Event chip opens detail modal
+
+Booking
+> Phone validation works
+> Hall availability works
+> Confirmed hall blocked
+> On Hold warning appears
+> Connected hall notice appears
+> Member shul required for member rate
+> Save booking persists
+
+Event Manager
+> Search works
+> Filters work
+> View details works
+> Edit works
+> Delete confirms
+> Status confirms
+> Payment flow works
+> Change menu works
+> Customize works
+> Print PDF works
+
+Menu
+> Menu tabs work
+> Menu item CRUD works
+> Package CRUD works
+> Add-on CRUD works
+> Hall menu item selected border works
+
+Settings
+> Sections work
+> Halls save
+> Users save
+> Workers save
+> Payment settings save
+> Test email works
+> School cycle apply works
+> Google sync test works
+
+Integrations
+> Gmail sends payment email
+> Google Calendar creates event
+> Google Calendar updates same event
+> Google Calendar deletes same event
+> No duplicate Google events
+> PDF generates one merged file
+> Uploaded PDF/image appends correctly
+
+END OF FULL STRUCTURE MASTER TEXT
+
+
+
+============================================================
+NEW GLOBAL UPDATE: CONFIGURABLE MULTI-HALL PLATFORM
+============================================================
+
+Core Change
+> The system must not be hardcoded for one specific hall
+> The system must work as a default platform for any hall / simcha hall / event hall / kitchen operation
+> Belz / Sterling should be treated as one configured example, not as the built-in default
+> Every organization can customize the platform from Settings
+> Default setup starts with Hall 1 and Hall 2
+> Admin can add more halls
+> Admin can rename halls
+> Admin can deactivate halls
+> Admin can customize hall behavior
+> Admin can customize user types
+> Admin can control access to every feature
+> New users are created by email
+> New users are assigned to a saved user type / role
+> The selected user type automatically applies the saved access setup
+> Individual users can still be customized if permission override is enabled
+
+Default Platform
+> Platform Name
+   > Hall Management Platform
+> Default Halls
+   > Hall 1
+   > Hall 2
+> Default Admin Role
+   > Admin
+> Default UI
+   > Box-style modern luxury
+   > No rounded corners
+   > No emoji icons
+   > Modern line-art SVG icons
+> Main Routes
+   > /
+   > /kitchen
+   > /calendar
+   > /events
+   > /menu
+   > /settings
+
+
+============================================================
+SETTINGS > PLATFORM SETTINGS
+============================================================
+
+Platform Settings
+> Purpose
+   > Customize platform identity
+   > Customize default branding
+   > Customize visual theme
+   > Customize general app behavior
+   > Make the app usable by any hall/company
+> Fields
+   > Platform Name
+      > Default: Hall Management Platform
+      > Used in app header
+      > Used in browser title
+      > Used in emails
+      > Used in PDFs
+   > Organization / Company Name
+      > Used for legal/business display
+   > Short Display Name
+      > Used where space is limited
+   > Logo Upload
+      > PNG
+      > SVG
+      > JPG
+      > WebP
+      > Used in app header
+      > Used in emails if enabled
+      > Used in PDFs if enabled
+   > Favicon Upload
+      > Used in browser tab
+   > Primary Color
+      > Default #0F172A
+   > Accent Color
+      > Default #B9974D
+   > Background Color
+      > Default #F7F4ED
+   > Kitchen Dashboard Background
+      > Default #E7E3DA
+   > Theme Mode
+      > Boxy Luxury
+      > Minimal Office
+      > High Contrast
+   > Timezone
+   > Clock Format
+      > 12-hour
+      > 24-hour
+   > Date Format
+   > Hebrew Date Display
+      > On / Off
+   > US Holidays Display
+      > On / Off
+   > Jewish Holidays Display
+      > On / Off
+   > Default Calendar Start Day
+      > Sunday
+      > Monday
+   > Default Payment Link
+   > Default Gmail Sender Name
+   > Default PDF Header Name
+   > Default PDF Logo
+      > Platform logo
+      > Separate PDF logo
+      > No logo
+   > Default Kitchen Sheet Footer
+   > Support / Admin Contact Email
+> Buttons
+   > Save Platform Settings
+   > Upload Logo
+   > Remove Logo
+   > Upload Favicon
+   > Remove Favicon
+   > Reset Theme to Default
+   > Preview Branding
+   > Save
+   > Cancel
+> Functions
+   > Save platform identity
+   > Update app header
+   > Update browser title
+   > Update Home page
+   > Update payment email branding
+   > Update PDF branding
+   > Update calendar/date defaults
+   > Update theme colors
+   > Store defaults for the whole organization
+> Visuals
+   > Box-style settings panels
+   > Brand preview
+   > Header preview
+   > PDF preview
+   > Email preview
+   > Square inputs
+   > Square buttons
+   > No rounded corners
+   > No emoji icons
+
+
+============================================================
+DEFAULT HALL SETUP
+============================================================
+
+New Installation
+> Automatically creates
+   > Hall 1
+   > Hall 2
+> Hall 1 Default
+   > Active
+   > Bookable
+   > Show on Calendar
+   > Show on Kitchen Dashboard
+   > No connected hall by default
+   > No shared menu by default
+   > Uses platform default payment link
+   > Uses platform default Google Calendar unless changed
+   > Uses platform default PDF layout unless changed
+> Hall 2 Default
+   > Active
+   > Bookable
+   > Show on Calendar
+   > Show on Kitchen Dashboard
+   > No connected hall by default
+   > No shared menu by default
+   > Uses platform default payment link
+   > Uses platform default Google Calendar unless changed
+   > Uses platform default PDF layout unless changed
+> Admin Options
+   > Rename Hall 1
+   > Rename Hall 2
+   > Add more halls
+   > Duplicate hall settings
+   > Deactivate hall
+   > Delete hall if safe
+   > Reset hall to platform defaults
+
+
+============================================================
+SETTINGS > HALLS / HALL PERFORMANCE SETTINGS
+============================================================
+
+Halls Settings
+> Purpose
+   > Manage all halls/rooms
+   > Customize how each hall behaves
+   > Customize booking rules per hall
+   > Customize pricing per hall
+   > Customize menu permissions per hall
+   > Customize kitchen behavior per hall
+   > Customize PDF/payment/calendar behavior per hall
+> Hall List
+   > Hall name
+   > Active status
+   > Bookable status
+   > Show on Calendar
+   > Show on Kitchen Dashboard
+   > Connected halls
+   > Shared menu status
+   > Pricing status
+   > Integration status
+> Add/Edit Hall
+   > Basic
+      > Hall Name
+      > Internal Name
+      > Display Name
+      > Hall Description
+      > Active switch
+      > Bookable switch
+      > Show on Calendar switch
+      > Show on Kitchen Dashboard switch
+      > Sort Order
+      > Hall Color
+   > Booking Rules
+      > Allow bookings
+      > Allow On Hold
+      > Allow Confirmed
+      > Allow same-day booking
+      > Minimum advance booking time
+      > Maximum future booking range
+      > Booking requires package
+      > Booking requires deposit
+      > Booking requires payment status
+      > Booking requires client email
+      > Phone required
+      > Minimum phone digits
+   > Availability Rules
+      > One event per night
+      > Multiple events per day allowed
+      > Morning / afternoon / night slots
+      > Full-day booking mode
+      > Custom time-slot mode
+      > Blocked days
+      > Holiday booking allowed
+   > Connected Hall Rules
+      > Connected halls selector
+      > Shared menu enabled
+      > First booking controls menu
+      > Second booking uses source menu
+      > Second booking may have separate pricing
+      > Show connected hall notice
+   > Pricing Defaults
+      > Base price
+      > Per couple price
+      > Per portion price
+      > Member base price
+      > Member per couple price
+      > Default deposit amount
+      > Default deposit percent
+      > Tax / fee label
+      > Tax / fee percent
+   > Package Defaults
+      > Default package
+      > Allowed packages
+      > Require package selection
+      > Auto-assign package by event type
+   > Menu Defaults
+      > Allowed menu items
+      > Default menu items
+      > Allowed drink items
+      > Default drink items
+      > Allow custom menu
+      > Lock menu after confirmation
+   > Add-on Defaults
+      > Allowed add-ons
+      > Default add-ons
+      > Kitchen-visible add-ons
+   > Kitchen Defaults
+      > Show hall on Kitchen Dashboard
+      > Show event name
+      > Show client name on kitchen dashboard yes/no
+      > Show notes
+      > Show On Hold events
+      > Require worker assignment
+      > Allow kitchen item status updates
+   > PDF Defaults
+      > Include hall name on PDF
+      > Include hall-specific notes
+      > Include hall-specific footer
+      > Hall PDF header override
+   > Google Calendar Defaults
+      > Use platform calendar
+      > Use hall-specific calendar
+      > Hall Google Calendar ID
+      > Sync On Hold events
+      > Sync Confirmed events
+   > Payment Defaults
+      > Use platform payment link
+      > Hall-specific payment link
+      > Payment email template override
+   > Notification Defaults
+      > Notify kitchen when booking created
+      > Notify kitchen when menu changed
+      > Notify office when On Hold created
+      > Notify admin when deleted
+> Buttons
+   > Add Hall
+   > Edit Hall
+   > Duplicate Hall
+   > Deactivate Hall
+   > Delete Hall
+   > Save Hall
+   > Cancel
+   > Reset Hall to Platform Defaults
+   > Save as Hall Default Template
+
+
+============================================================
+SETTINGS > USER TYPES / ROLE TEMPLATES
+============================================================
+
+User Types
+> Purpose
+   > Create reusable role templates
+   > Save a full access setup once
+   > Reuse that access setup for new users
+   > Let each organization define its own roles
+   > Make user creation fast and consistent
+> Default User Types
+   > Admin
+   > Hall Manager
+   > Hall Secretary
+   > Event Manager
+   > Kitchen Admin
+   > Kitchen Worker
+   > School Manager
+   > Read Only
+> User Type List
+   > User type name
+   > Description
+   > Active status
+   > Number of permissions enabled
+   > Number of users using this type
+   > Default type indicator
+> Add/Edit User Type
+   > User Type Name
+   > Description
+   > Active switch
+   > Default role switch
+   > Permission Template
+      > Home permissions
+      > Kitchen permissions
+      > Calendar permissions
+      > Booking permissions
+      > Event Manager permissions
+      > Menu permissions
+      > Settings permissions
+      > Payment permissions
+      > Gmail permissions
+      > Google Calendar permissions
+      > PDF permissions
+      > File upload permissions
+      > School cycle permissions
+      > Report/export permissions
+   > Hall Access Defaults
+      > All halls
+      > Selected halls
+      > No halls
+   > Event Type Defaults
+      > Simcha events
+      > School events
+      > Both
+   > Payment Visibility Default
+      > Visible
+      > Hidden
+> Buttons
+   > Add User Type
+   > Edit User Type
+   > Duplicate User Type
+   > Delete User Type
+   > Save User Type
+   > Cancel
+   > Reset to Default Permissions
+   > Select All Permissions
+   > Clear All Permissions
+   > Preview User Type
+> Functions
+   > Create custom user type
+   > Select exact access
+   > Save user type
+   > Apply user type to new users
+   > Apply user type to existing users
+   > Duplicate user type
+   > Deactivate user type
+   > Prevent deleting user type while users are assigned unless reassigned
+> User Type Creation Flow
+   > Settings
+      > User Types
+         > Add User Type
+            > Enter User Type Name
+            > Enter Description
+            > Select access permissions
+            > Select default hall access
+            > Select school/simcha event access
+            > Save User Type
+               > Creates saved permission template
+               > User type appears in Add User role dropdown
+> User Type Editing Flow
+   > Select user type
+   > Edit permissions
+   > Save changes
+      > Option 1: Apply only to future users
+      > Option 2: Apply to all users with this user type
+      > Option 3: Ask before applying to existing users
+> User Type Delete Flow
+   > Click Delete User Type
+      > If no users assigned
+         > Confirm delete
+         > Delete user type
+      > If users assigned
+         > Show warning
+         > Require reassignment
+         > Then deactivate/delete
+
+
+============================================================
+SETTINGS > USER ACCESS / USERS
+============================================================
+
+User Access
+> Purpose
+   > Add users by email
+   > Select saved user type / role
+   > Automatically apply saved role access
+   > Override individual user permissions if needed
+   > Restrict by hall
+   > Restrict by school/simcha event type
+> User List
+   > Name
+   > Email
+   > User Type / Role
+   > Active status
+   > Hall access summary
+   > Permission override indicator
+   > Last login
+> Add New User Flow
+   > Click Add User
+   > Fields
+      > Name
+      > Email
+      > User Type / Role dropdown
+         > Admin
+         > Hall Manager
+         > Hall Secretary
+         > Event Manager
+         > Kitchen Admin
+         > Kitchen Worker
+         > School Manager
+         > Read Only
+         > Custom saved user types
+      > Hall Access
+         > Use role default
+         > All halls
+         > Selected halls
+         > No halls
+      > Event Access
+         > Use role default
+         > Simcha only
+         > School only
+         > Both
+      > Permission Override
+         > Off by default
+         > If on, show full permission matrix
+      > Send invite email
+         > On / Off
+   > Save User
+      > Creates user record
+      > Applies user type permission template
+      > Applies hall access
+      > Sends invite if enabled
+> Edit User Flow
+   > Select user
+   > Edit name/email
+   > Change user type
+      > Automatically loads that user type permissions
+      > Ask:
+         > Replace current permissions with selected role defaults?
+         > Keep custom overrides?
+   > Edit hall access
+   > Edit individual permissions if override enabled
+   > Save user
+> Buttons
+   > Add User
+   > Edit User
+   > Delete User
+   > Deactivate User
+   > Save User
+   > Cancel
+   > Resend Invite
+   > Apply Role Defaults
+   > Enable Permission Override
+   > Disable Permission Override
+
+
+============================================================
+SETTINGS > FEATURE ACCESS CONTROL
+============================================================
+
+Feature Access Control
+> Purpose
+   > Every feature can be allowed or blocked per user type
+   > Every feature can be allowed or blocked per individual user if override is enabled
+   > Frontend hides unauthorized pages/buttons
+   > Backend rejects unauthorized API actions
+> Permission Style
+   > Feature group
+   > Feature action
+   > Access switch
+> Standard Actions
+   > View
+   > Create
+   > Edit
+   > Delete
+   > Manage
+   > Send
+   > Print
+   > Export
+   > Override
+
+Feature Groups
+> Home
+   > View Home
+   > View Kitchen Dashboard card
+   > View Event Calendar card
+   > View Event Manager card
+   > View Menu card
+   > View Settings card
+   > View summaries
+   > Use New Booking button
+> Kitchen Dashboard
+   > View Kitchen Dashboard
+   > View Today
+   > View This Week
+   > View 4 Weeks
+   > View kitchen notifications
+   > Acknowledge notifications
+   > Add quick kitchen event
+   > Assign worker
+   > Change worker
+   > Unassign worker
+   > Update item status
+   > Reset item status
+   > View On Hold events
+   > View school events
+   > View simcha events
+   > View only assigned items
+   > View all kitchen items
+   > View allowed halls only
+> Event Calendar
+   > View Calendar
+   > View all halls
+   > View allowed halls only
+   > View event cards
+   > Open event detail
+   > Click plus icon
+   > Create booking
+   > View On Hold events
+   > View Confirmed events
+   > View Full tag
+   > Use calendar filters
+> Booking
+   > Create booking
+   > Edit booking
+   > Save On Hold
+   > Save Confirmed
+   > Select payment method
+   > Use Credit Card flow
+   > Use Cash/Check flow
+   > Send Email to Pay
+   > Apply member rate
+   > Add member shul
+   > Add add-ons
+   > Add notes
+   > Override hall warnings
+   > Override connected hall menu lock
+   > Override holiday blocked dates
+   > Override full date block
+   > Delete booking
+> Event Manager
+   > View Event Manager
+   > Search events
+   > Filter events
+   > View event details
+   > Edit event
+   > Delete event
+   > Change event status
+   > Change payment status
+   > Send payment email
+   > Open payment flow
+   > Change menu
+   > Customize event
+   > Upload layout/paper
+   > Remove layout/paper
+   > Print / Save Kitchen Sheet
+   > View activity log
+   > View Google sync status
+   > Manually resync Google Calendar
+   > View payment information
+   > View amount due
+   > View member rate
+> Menu
+   > View Menu
+   > View Menu Items
+   > Add Menu Item
+   > Edit Menu Item
+   > Delete Menu Item
+   > View Packages
+   > Add Package
+   > Edit Package
+   > Delete Package
+   > View Add-ons
+   > Add Add-on
+   > Edit Add-on
+   > Delete Add-on
+   > View Hall Menu Items
+   > Edit Hall Menu Items
+   > Save Hall Menu Items
+   > Manage menu categories
+> Settings
+   > View Settings
+   > View Platform Settings
+   > Edit Platform Settings
+   > View Halls
+   > Add Hall
+   > Edit Hall
+   > Delete Hall
+   > View User Access
+   > Add User
+   > Edit User
+   > Delete User
+   > View User Types
+   > Add User Type
+   > Edit User Type
+   > Delete User Type
+   > View Payment Settings
+   > Edit Payment Settings
+   > View Kitchen Workers
+   > Add Kitchen Worker
+   > Edit Kitchen Worker
+   > Delete Kitchen Worker
+   > View School Cycles
+   > Manage School Cycles
+   > View Google Calendar Settings
+   > Edit Google Calendar Settings
+> Payments / Gmail
+   > View payment status
+   > Change payment status
+   > View amount due
+   > Send payment email
+   > Send test email
+   > Edit email template
+   > Edit Gmail sender
+   > Use payment link
+   > Override payment requirement
+> Google Calendar
+   > View sync status
+   > Connect Google Calendar
+   > Test sync
+   > Manual resync
+   > Edit calendar ID
+   > Delete synced Google event
+   > View sync errors
+> PDF / File Upload
+   > Generate PDF
+   > Preview PDF
+   > Download PDF
+   > Upload layout/paper
+   > Replace layout/paper
+   > Remove layout/paper
+   > View uploaded layout/paper
+   > Edit PDF settings
+> School Cycles
+   > View school cycles
+   > Edit lunch cycle
+   > Edit supper cycle
+   > Apply cycle
+   > Replace existing school events
+   > Load previous cycle
+   > Add school menu item
+   > Remove school menu item
+   > Add drink
+   > Remove drink
+> Reports / Export
+   > View reports
+   > Export events
+   > Export kitchen schedule
+   > Export payment report
+   > Export menu list
+   > Export user list
+
+
+============================================================
+DATABASE / TECHNICAL ADDITIONS
+============================================================
+
+New Table: platform_settings
+> id UUID primary key
+> platform_name text required default 'Hall Management Platform'
+> organization_name text nullable
+> short_display_name text nullable
+> logo_url text nullable
+> favicon_url text nullable
+> theme_mode text default 'Boxy Luxury'
+> primary_color text default '#0F172A'
+> accent_color text default '#B9974D'
+> background_color text default '#F7F4ED'
+> kitchen_background_color text default '#E7E3DA'
+> timezone text nullable
+> clock_format text default '12-hour'
+> date_format text default 'Month day, year'
+> hebrew_date_enabled boolean default true
+> us_holidays_enabled boolean default true
+> jewish_holidays_enabled boolean default true
+> default_calendar_start_day text default 'Sunday'
+> default_payment_link text nullable
+> default_gmail_sender_name text nullable
+> default_pdf_header_name text nullable
+> default_pdf_logo_url text nullable
+> default_kitchen_sheet_footer text nullable
+> support_email text nullable
+> created_at timestamp
+> updated_at timestamp
+
+New Table: user_types
+> id UUID primary key
+> name text required
+> description text nullable
+> is_active boolean default true
+> is_system_default boolean default false
+> is_default_for_new_users boolean default false
+> permissions jsonb required
+> default_hall_access_mode text default 'selected'
+   > all
+   > selected
+   > none
+> default_allowed_hall_ids text[] default empty
+> default_event_access text default 'simcha'
+   > simcha
+   > school
+   > both
+> default_payment_visibility boolean default false
+> created_at timestamp
+> updated_at timestamp
+
+Updated Table: users
+> Add user_type_id UUID nullable references user_types(id)
+> Add permission_override_enabled boolean default false
+> Add custom_permissions jsonb nullable
+> Add invite_sent_at timestamp nullable
+> Add last_login_at timestamp nullable
+> Add is_active boolean default true
+
+Updated Table: user_access
+> Add source_user_type_id UUID nullable
+> Add uses_role_defaults boolean default true
+> Add custom_permission_overrides jsonb nullable
+> Add feature_access jsonb nullable
+
+Updated Table: halls
+> Add internal_name text nullable
+> Add display_name text nullable
+> Add description text nullable
+> Add show_on_calendar boolean default true
+> Add show_on_kitchen_dashboard boolean default true
+> Add sort_order integer default 0
+> Add booking_rules jsonb nullable
+> Add availability_rules jsonb nullable
+> Add pricing_defaults jsonb nullable
+> Add package_defaults jsonb nullable
+> Add menu_defaults jsonb nullable
+> Add add_on_defaults jsonb nullable
+> Add kitchen_defaults jsonb nullable
+> Add pdf_defaults jsonb nullable
+> Add google_calendar_defaults jsonb nullable
+> Add payment_defaults jsonb nullable
+> Add notification_defaults jsonb nullable
+
+
+============================================================
+API ROUTE ADDITIONS
+============================================================
+
+Platform Settings
+> GET /api/platform-settings
+> PATCH /api/platform-settings
+> POST /api/platform-settings/logo
+> DELETE /api/platform-settings/logo
+> POST /api/platform-settings/favicon
+> DELETE /api/platform-settings/favicon
+
+User Types
+> GET /api/user-types
+> POST /api/user-types
+> GET /api/user-types/:id
+> PATCH /api/user-types/:id
+> DELETE /api/user-types/:id
+> POST /api/user-types/:id/duplicate
+> POST /api/user-types/:id/apply-to-users
+
+Users
+> GET /api/users
+> POST /api/users
+   > Creates user by email
+   > Applies selected user type
+   > Applies hall access
+   > Sends invite if enabled
+> PATCH /api/users/:id
+> DELETE /api/users/:id
+> POST /api/users/:id/resend-invite
+> POST /api/users/:id/apply-role-defaults
+
+Feature Access
+> GET /api/feature-access
+> GET /api/feature-access/matrix
+> PATCH /api/feature-access/user-type/:id
+> PATCH /api/feature-access/user/:id
+
+Hall Defaults
+> GET /api/hall-defaults
+> PATCH /api/hall-defaults
+> POST /api/halls/:id/reset-to-defaults
+> POST /api/halls/:id/duplicate
+
+
+============================================================
+PERMISSION SERVICE UPDATE
+============================================================
+
+permissionService
+> getCurrentUser()
+> getCurrentUserType()
+> getRoleTemplatePermissions(userTypeId)
+> getUserEffectivePermissions(userId)
+   > If permission_override_enabled = false
+      > Use user type permissions
+   > If permission_override_enabled = true
+      > Merge user type permissions with custom overrides
+> canAccessFeature(user, featureKey, action)
+> canAccessRoute(user, route)
+> canAccessHall(user, hallId)
+> canAccessEventCategory(user, category)
+> canUseIntegration(user, integrationKey)
+> canViewPaymentInfo(user)
+> canManageUserTypes(user)
+> canEditPlatformSettings(user)
+> applyUserTypeToUser(userId, userTypeId)
+> applyUserTypeDefaultsToExistingUsers(userTypeId)
+> buildFeatureAccessMatrix()
+> filterNavigationByPermissions()
+> filterButtonsByPermissions()
+> filterApiActionByPermissions()
+
+Feature Key Examples
+> home.view
+> home.new_booking
+> kitchen.view
+> kitchen.assign_worker
+> kitchen.update_status
+> calendar.view
+> calendar.create_booking
+> booking.create
+> booking.save_confirmed
+> booking.save_on_hold
+> events.view
+> events.edit
+> events.delete
+> events.change_status
+> events.change_payment_status
+> menu.view
+> menu.edit_items
+> settings.view
+> settings.platform.edit
+> settings.halls.edit
+> settings.user_types.manage
+> settings.users.manage
+> payments.view
+> payments.send_email
+> gmail.send_payment_email
+> google_calendar.sync
+> pdf.generate
+> uploads.manage
+> school_cycles.manage
+> reports.export
+
+
+============================================================
+UPDATED BUILD PHASES
+============================================================
+
+Phase 1A: Configurable Platform Settings
+> Remove hardcoded Belz/Sterling naming from defaults
+> Add platform_settings model
+> Add Platform Settings UI
+> Add dynamic platform name
+> Add configurable logo
+> Add configurable colors
+> Add configurable date/time settings
+> Add default Hall Management Platform name
+> Keep box-style UI
+
+Phase 1B: Default Halls
+> Seed Hall 1
+> Seed Hall 2
+> Add rename hall
+> Add add more halls
+> Add deactivate hall
+> Add duplicate hall settings
+> Add reset hall defaults
+
+Phase 1C: User Types / Role Templates
+> Add user_types model
+> Add User Types settings page
+> Add full permission matrix
+> Add default role templates
+> Add create/edit/duplicate/delete user type
+> Add save user type
+> Add apply user type to users
+
+Phase 1D: User Access Flow
+> Add user by email
+> Select user type / role
+> Auto-apply permissions
+> Add hall access selection
+> Add event access selection
+> Add permission override option
+> Add resend invite
+
+Phase 1E: Feature Access Enforcement
+> Define all feature keys
+> Add frontend access checks
+> Add backend access checks
+> Hide unauthorized buttons
+> Reject unauthorized API calls
+
+Phase 1F: Hall Performance Settings
+> Add booking rules
+> Add availability rules
+> Add pricing defaults
+> Add package defaults
+> Add menu defaults
+> Add kitchen defaults
+> Add PDF defaults
+> Add Google Calendar defaults
+> Add payment defaults
+> Add notification defaults
+
+
+============================================================
+UPDATED ACCEPTANCE CRITERIA
+============================================================
+
+Configurable Platform
+> Platform name can be changed
+> App header updates with platform name
+> Browser title updates with platform name
+> Emails use configured platform name
+> PDFs use configured platform name
+> Logo can be uploaded
+> Logo can be removed
+> Theme colors can be changed
+> Default Hall 1 and Hall 2 exist
+> Hall 1 and Hall 2 can be renamed
+> More halls can be added
+> Halls can be deactivated
+> Each hall has customizable settings
+> Hall settings can be duplicated
+> Hall settings can be reset to defaults
+> No Belz/Sterling text is hardcoded unless configured by admin
+
+User Types
+> Admin can create user type
+> Admin can select exact access
+> Admin can save user type
+> Saved user type appears in Add User role dropdown
+> Admin can duplicate user type
+> Admin can edit user type
+> Admin can apply changes to existing users
+> Admin cannot delete a user type with users assigned unless they are reassigned or the type is deactivated
+
+User Access
+> Admin can add user by email
+> Admin can select user type
+> Selected user type automatically applies permissions
+> Admin can override individual user permissions
+> Admin can restrict user to selected halls
+> Admin can restrict user to school/simcha events
+> Admin can deactivate user
+> Frontend hides unauthorized pages and buttons
+> Backend blocks unauthorized API actions
+
+Feature Access
+> Every main page can be enabled/disabled per user type
+> Every major button can be enabled/disabled per user type
+> Every integration can be enabled/disabled per user type
+> Kitchen worker cannot see payment info unless explicitly allowed
+> User without Settings access cannot open Settings
+> User without delete access cannot delete
+> User without Gmail access cannot send payment emails
+> User without Google Calendar access cannot edit sync settings
+> User without PDF access cannot generate PDFs
+> User without hall access cannot see that hall's events
+
