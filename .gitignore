@@ -1,0 +1,12 @@
+.next
+node_modules
+dist
+coverage
+playwright-report
+test-results
+.env
+.env*.local
+*.tsbuildinfo
+*.log
+screen-recording.mp4
+video-thumb.png

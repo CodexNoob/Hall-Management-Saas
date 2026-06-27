@@ -1,0 +1,595 @@
+@import "tailwindcss";
+
+:root {
+  --color-canvas: #f6f5f0;
+  --color-surface: #ffffff;
+  --color-ink: #1d2528;
+  --color-muted: #647174;
+  --color-line: #c7d0cc;
+  --color-brand: #0f766e;
+  --color-brand-strong: #134e4a;
+  --color-accent: #b8860b;
+  --color-danger: #b42318;
+  --color-warning: #b54708;
+  --color-success: #027a48;
+  --spacing-page: clamp(16px, 3vw, 40px);
+  --control-height: 40px;
+}
+
+@theme inline {
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-ink: var(--color-ink);
+  --color-muted: var(--color-muted);
+  --color-line: var(--color-line);
+  --color-brand: var(--color-brand);
+  --color-brand-strong: var(--color-brand-strong);
+  --color-accent: var(--color-accent);
+  --color-danger: var(--color-danger);
+  --color-warning: var(--color-warning);
+  --color-success: var(--color-success);
+  --font-sans: var(--font-inter);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 92px;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+section[id] {
+  scroll-margin-top: 92px;
+}
+
+button,
+input,
+select,
+textarea {
+  border-radius: 0;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+svg {
+  flex: none;
+}
+
+.contact-modal-content {
+  -ms-overflow-style: none;
+}
+
+.contact-modal-content::-webkit-scrollbar,
+.login-modal-content::-webkit-scrollbar {
+  display: none;
+}
+
+.login-modal-content {
+  -ms-overflow-style: none;
+}
+
+.ai-chat-trigger,
+.modal-round {
+  border-radius: 9999px;
+}
+
+.modal-control {
+  border-radius: 12px;
+}
+
+.login-field,
+.login-button,
+.login-social {
+  border-radius: 14px;
+}
+
+.login-icon-button {
+  border-radius: 9999px;
+}
+
+.login-checkbox {
+  border-radius: 6px;
+}
+
+.navbar-login-button {
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.navbar-login-button:hover {
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+@keyframes saasFadeDown {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes saasFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes saasFadeRightScale {
+  from {
+    opacity: 0;
+    transform: translateX(36px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes saasFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes saasGlowPulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes saasScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes saasFlipUp {
+  from {
+    opacity: 0;
+    transform: translateY(35px) rotateX(75deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+  }
+}
+
+@keyframes saasZoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.saas-animate-navbar {
+  animation: saasFadeDown 860ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.saas-animate-up {
+  animation: saasFadeUp 920ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.saas-fade-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 760ms cubic-bezier(0.22, 1, 0.36, 1), transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.saas-fade-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.saas-animate-dashboard {
+  animation: saasFadeRightScale 1080ms cubic-bezier(0.22, 1, 0.36, 1) 520ms both,
+    saasFloat 6.4s ease-in-out 1.6s infinite;
+}
+
+.saas-animate-glow {
+  animation: saasGlowPulse 7.4s ease-in-out infinite;
+}
+
+.saas-feature-glow {
+  animation: saasGlowPulse 7s ease-in-out infinite;
+}
+
+.saas-benefit-glow {
+  animation: saasGlowPulse 7.2s ease-in-out infinite;
+}
+
+.saas-pricing-glow {
+  animation: saasGlowPulse 7.4s ease-in-out infinite;
+}
+
+.saas-popular-badge {
+  animation: saasGlowPulse 6.8s ease-in-out infinite;
+}
+
+.saas-scale-in {
+  animation: saasScaleIn 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.saas-scale-reveal {
+  opacity: 0;
+  transform: scale(0.92);
+  transform-origin: center;
+  transition: opacity 680ms cubic-bezier(0.22, 1, 0.36, 1), transform 680ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.saas-scale-reveal.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.saas-flip-stage {
+  perspective: 1200px;
+}
+
+.saas-flip-reveal {
+  opacity: 0;
+  transform: translateY(28px) rotateX(55deg);
+  transform-origin: top center;
+  backface-visibility: hidden;
+  transition: opacity 780ms cubic-bezier(0.22, 1, 0.36, 1), transform 780ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.saas-flip-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) rotateX(0deg);
+}
+
+.saas-zoom-reveal {
+  opacity: 0;
+  transform: scale(0.96) translateY(24px);
+  transform-origin: center;
+  transition: opacity 820ms cubic-bezier(0.22, 1, 0.36, 1), transform 820ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform, opacity;
+}
+
+.saas-zoom-reveal.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+.saas-delay-100 {
+  animation-delay: 130ms;
+  transition-delay: 130ms;
+}
+
+.saas-delay-180 {
+  animation-delay: 230ms;
+  transition-delay: 230ms;
+}
+
+.saas-delay-260 {
+  animation-delay: 330ms;
+  transition-delay: 330ms;
+}
+
+.saas-delay-340 {
+  animation-delay: 430ms;
+  transition-delay: 430ms;
+}
+
+.saas-delay-420 {
+  animation-delay: 530ms;
+  transition-delay: 530ms;
+}
+
+.saas-delay-520 {
+  animation-delay: 650ms;
+  transition-delay: 650ms;
+}
+
+.saas-delay-640 {
+  animation-delay: 790ms;
+  transition-delay: 790ms;
+}
+
+.saas-delay-760 {
+  animation-delay: 930ms;
+  transition-delay: 930ms;
+}
+
+.saas-delay-880 {
+  animation-delay: 1070ms;
+  transition-delay: 1070ms;
+}
+
+.saas-delay-1000 {
+  animation-delay: 1210ms;
+  transition-delay: 1210ms;
+}
+
+.saas-delay-1120 {
+  animation-delay: 1350ms;
+  transition-delay: 1350ms;
+}
+
+.saas-delay-1240 {
+  animation-delay: 1490ms;
+  transition-delay: 1490ms;
+}
+
+.saas-delay-1360 {
+  animation-delay: 1630ms;
+  transition-delay: 1630ms;
+}
+
+.saas-fade-reveal:not(.is-visible),
+.saas-flip-reveal:not(.is-visible),
+.saas-scale-reveal:not(.is-visible),
+.saas-zoom-reveal:not(.is-visible) {
+  transition-delay: 0ms;
+}
+
+.saas-slide-delay-120 {
+  transition-delay: 160ms, 160ms, 0ms, 0ms;
+}
+
+.saas-slide-delay-260 {
+  transition-delay: 340ms, 340ms, 0ms, 0ms;
+}
+
+.saas-slide-delay-400 {
+  transition-delay: 520ms, 520ms, 0ms, 0ms;
+}
+
+.saas-pricing-slide-reveal:not(.is-visible) {
+  transition-delay: 0ms, 0ms, 0ms, 0ms;
+}
+
+.saas-feature-card {
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
+}
+
+.saas-feature-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 48px rgba(49, 85, 255, 0.14);
+}
+
+.saas-feature-icon {
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, background 340ms ease, color 340ms ease;
+}
+
+.saas-feature-card:hover .saas-feature-icon {
+  transform: scale(1.06);
+  box-shadow: 0 16px 32px rgba(79, 70, 255, 0.22);
+}
+
+.saas-benefit-card {
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
+}
+
+.saas-benefit-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 24px 48px rgba(49, 85, 255, 0.14);
+}
+
+.saas-benefit-visual {
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease;
+}
+
+.saas-benefit-card:hover .saas-benefit-visual {
+  transform: scale(1.06);
+  box-shadow: 0 18px 38px rgba(79, 70, 255, 0.2);
+}
+
+.saas-pricing-card {
+  transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
+}
+
+.saas-pricing-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 26px 52px rgba(49, 85, 255, 0.14);
+}
+
+.saas-pricing-slide-reveal {
+  opacity: 0;
+  transition: opacity 850ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 850ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
+  will-change: transform, opacity;
+}
+
+.saas-pricing-slide-reveal.from-left {
+  transform: translateX(-35px);
+}
+
+.saas-pricing-slide-reveal.from-bottom {
+  transform: translateY(35px);
+}
+
+.saas-pricing-slide-reveal.from-right {
+  transform: translateX(35px);
+}
+
+.saas-pricing-slide-reveal.is-visible {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.saas-pricing-slide-reveal.is-visible:hover {
+  transform: translateY(-6px);
+}
+
+.saas-pricing-card.is-recommended {
+  animation: saasPricingGlow 7s ease-in-out infinite;
+}
+
+.saas-pricing-card.is-recommended.saas-flip-reveal.is-visible {
+  animation: saasFlipUp 860ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    saasPricingGlow 7s ease-in-out 1050ms infinite;
+}
+
+.saas-pricing-button {
+  overflow: hidden;
+  position: relative;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease, filter 320ms ease, background 320ms ease;
+}
+
+.saas-pricing-button:hover {
+  transform: translateY(-3px);
+}
+
+.saas-pricing-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(255, 255, 255, 0.24) 45%, transparent 72%);
+  transform: translateX(-140%);
+  transition: transform 920ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.saas-pricing-button:hover::after {
+  transform: translateX(140%);
+}
+
+@keyframes saasPricingGlow {
+  0%,
+  100% {
+    box-shadow: 0 28px 56px rgba(49, 85, 255, 0.16);
+  }
+  50% {
+    box-shadow: 0 30px 64px rgba(113, 56, 245, 0.24);
+  }
+}
+
+.saas-hover-lift {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease, border-color 320ms ease, filter 320ms ease;
+}
+
+.saas-hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 36px rgba(49, 85, 255, 0.18);
+}
+
+.saas-nav-link {
+  position: relative;
+}
+
+.saas-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -10px;
+  height: 2px;
+  background: linear-gradient(90deg, #3155ff, #7138f5);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.saas-nav-link:hover::after,
+.saas-nav-link.is-active::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saas-animate-navbar,
+  .saas-animate-up,
+  .saas-fade-reveal.is-visible,
+  .saas-animate-dashboard,
+  .saas-animate-glow,
+  .saas-feature-glow,
+  .saas-benefit-glow,
+  .saas-pricing-glow,
+  .saas-popular-badge,
+  .saas-pricing-card.is-recommended,
+  .saas-scale-in,
+  .saas-scale-reveal.is-visible,
+  .saas-flip-reveal.is-visible,
+  .saas-zoom-reveal.is-visible {
+    animation: none;
+  }
+
+  .saas-hover-lift,
+  .saas-nav-link::after,
+  .saas-fade-reveal,
+  .saas-feature-card,
+  .saas-feature-icon,
+  .saas-benefit-card,
+  .saas-benefit-visual,
+  .saas-pricing-card,
+  .saas-pricing-slide-reveal,
+  .saas-pricing-button,
+  .saas-pricing-button::after,
+  .saas-scale-reveal,
+  .saas-fade-reveal,
+  .saas-flip-reveal,
+  .saas-zoom-reveal {
+    transition: none;
+  }
+
+  .saas-scale-reveal,
+  .saas-fade-reveal,
+  .saas-flip-reveal,
+  .saas-pricing-slide-reveal,
+  .saas-zoom-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .saas-hover-lift:hover,
+  .saas-feature-card:hover,
+  .saas-feature-card:hover .saas-feature-icon,
+  .saas-benefit-card:hover,
+  .saas-benefit-card:hover .saas-benefit-visual,
+  .saas-pricing-card:hover,
+  .saas-pricing-slide-reveal.is-visible:hover,
+  .saas-pricing-button:hover {
+    transform: none;
+  }
+}

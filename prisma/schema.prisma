@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventStatus {
+  DRAFT
+  CONFIRMED
+  KITCHEN_REVIEW
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  DEPOSIT_PAID
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum FileKind {
+  EVENT_LAYOUT
+  GENERATED_PDF
+  PUBLIC_ASSET
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String
+  googleSub     String?      @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  access        UserAccess?
+  eventsCreated Event[]      @relation("EventCreatedBy")
+  payments      Payment[]
+}
+
+model UserAccess {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  roleName            String
+  canManageUsers      Boolean  @default(false)
+  canManageEvents     Boolean  @default(false)
+  canManageMenus      Boolean  @default(false)
+  canManagePayments   Boolean  @default(false)
+  canGeneratePdfs     Boolean  @default(false)
+  canSyncCalendar     Boolean  @default(false)
+  allowedHallIds      String[] @default([])
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Hall {
+  id        String   @id @default(cuid())
+  name      String
+  capacity  Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  events    Event[]
+}
+
+model EventPackage {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  basePrice   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  events      Event[]
+}
+
+model MenuItem {
+  id          String          @id @default(cuid())
+  name        String
+  category    String
+  description String?
+  active      Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  eventItems  EventMenuItem[]
+}
+
+model Event {
+  id                    String          @id @default(cuid())
+  name                  String
+  customerName          String
+  customerEmail         String?
+  customerPhone         String?
+  guestCount            Int
+  startsAt              DateTime
+  endsAt                DateTime
+  status                EventStatus     @default(DRAFT)
+  paymentStatus         PaymentStatus   @default(UNPAID)
+  googleCalendarEventId String?
+  notes                 String?
+  hallId                String
+  packageId             String?
+  createdById           String
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  hall                  Hall            @relation(fields: [hallId], references: [id])
+  package               EventPackage?   @relation(fields: [packageId], references: [id])
+  createdBy             User            @relation("EventCreatedBy", fields: [createdById], references: [id])
+  menuItems             EventMenuItem[]
+  files                 EventFile[]
+  payments              Payment[]
+  workers               EventWorker[]
+
+  @@index([hallId, startsAt])
+  @@index([status, startsAt])
+}
+
+model EventMenuItem {
+  id         String   @id @default(cuid())
+  eventId    String
+  menuItemId String
+  quantity   Int?
+  note       String?
+  event      Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@unique([eventId, menuItemId])
+}
+
+model Worker {
+  id        String        @id @default(cuid())
+  name      String
+  role      String
+  phone     String?
+  active    Boolean       @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  events    EventWorker[]
+}
+
+model EventWorker {
+  id        String   @id @default(cuid())
+  eventId   String
+  workerId  String
+  shiftName String?
+  startsAt  DateTime?
+  endsAt    DateTime?
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  worker    Worker   @relation(fields: [workerId], references: [id])
+
+  @@unique([eventId, workerId])
+}
+
+model EventFile {
+  id        String   @id @default(cuid())
+  eventId   String
+  kind      FileKind
+  bucket    String
+  path      String
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  eventId           String
+  amountCents       Int
+  status            PaymentStatus
+  provider          String        @default("cardknox")
+  externalReference String?
+  note              String?
+  confirmedById     String
+  createdAt         DateTime      @default(now())
+  event             Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  confirmedBy       User          @relation(fields: [confirmedById], references: [id])
+
+  @@index([eventId, createdAt])
+}
