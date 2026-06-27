@@ -173,7 +173,12 @@ function SignupIllustration() {
   );
 }
 
-export function SignupCard() {
+type SignupCardProps = {
+  compact?: boolean;
+  onLoginClick?: () => void;
+};
+
+export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
@@ -216,31 +221,46 @@ export function SignupCard() {
 
   return (
     <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#3155ff]/12 backdrop-blur-xl lg:grid-cols-2">
-      <div className="relative overflow-hidden bg-linear-to-br from-white via-[#f7f6ff] to-[#e7f0ff] p-8 sm:p-10 lg:p-14">
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#f7f6ff] to-[#e7f0ff] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#c9d7ff]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#d4c2ff]/80 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#c8dcff]/75 blur-2xl" />
+        <div className="pointer-events-none absolute bottom-16 left-10 hidden grid-cols-8 gap-3 opacity-25 sm:grid">
+          {Array.from({ length: 48 }).map((_, index) => (
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#7138f5]" />
+          ))}
+        </div>
+        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#9fb8ff] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+          <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
+        </svg>
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
             <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#3155ff]" />
           ))}
         </div>
 
-        <div className="relative">
-          <Link href="/" aria-label="Back to Hall Management SaaS home">
-            <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-auto w-64 max-w-full object-contain" />
-          </Link>
+        <div className={`relative ${compact ? "lg:sticky lg:top-0 lg:flex lg:min-h-[calc(90vh-80px)] lg:flex-col lg:justify-between lg:gap-6" : ""}`}>
+          <div>
+            <Link href="/" aria-label="Back to Hall Management SaaS home">
+              <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-auto w-64 max-w-full object-contain" />
+            </Link>
 
-          <p className="mt-10 text-base font-black text-[#3155ff]">Welcome! 👋</p>
-          <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#09122f] sm:text-5xl">
-            Create your account
-          </h1>
-          <p className="mt-5 max-w-md text-lg leading-8 text-[#52607d]">
-            Get started with powerful tools to manage hall bookings, events, payments, and operations-all in one place.
-          </p>
+            <p className="mt-10 text-base font-black text-[#3155ff]">
+              Welcome! <span aria-hidden="true">&#128075;</span>
+            </p>
+            <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#09122f] sm:text-5xl">
+              Create your account
+            </h1>
+            <p className="mt-5 max-w-md text-lg leading-8 text-[#52607d]">
+              Get started with powerful tools to manage hall bookings, events, payments, and operations&mdash;all in one place.
+            </p>
+          </div>
 
-          <SignupIllustration />
+          <div className={compact ? "lg:-my-3" : ""}>
+            <SignupIllustration />
+          </div>
 
-          <div className="mt-10 flex items-center gap-4">
+          <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#3155ff]/10">
               <ShieldIcon />
             </div>
@@ -252,9 +272,9 @@ export function SignupCard() {
         </div>
       </div>
 
-      <div className="bg-white p-8 sm:p-10 lg:p-14">
+      <div className={`order-1 bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
         <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-          <h2 className="text-4xl font-black tracking-tight text-[#09122f]">Sign Up</h2>
+          <h2 id="signup-modal-title" className="text-4xl font-black tracking-tight text-[#09122f]">Sign Up</h2>
           <p className="mt-4 text-lg text-[#52607d]">Set up your account to get started</p>
 
           <form className="mt-8" onSubmit={submit}>
@@ -407,9 +427,15 @@ export function SignupCard() {
 
             <p className="mt-9 text-center text-base text-[#52607d]">
               Already have an account?{" "}
-              <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/events/new">
-                Login
-              </Link>
+              {onLoginClick ? (
+                <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onLoginClick}>
+                  Login
+                </button>
+              ) : (
+                <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/events/new">
+                  Login
+                </Link>
+              )}
             </p>
           </form>
         </div>

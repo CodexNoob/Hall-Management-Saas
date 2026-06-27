@@ -16,21 +16,6 @@
   --control-height: 40px;
 }
 
-@theme inline {
-  --color-canvas: var(--color-canvas);
-  --color-surface: var(--color-surface);
-  --color-ink: var(--color-ink);
-  --color-muted: var(--color-muted);
-  --color-line: var(--color-line);
-  --color-brand: var(--color-brand);
-  --color-brand-strong: var(--color-brand-strong);
-  --color-accent: var(--color-accent);
-  --color-danger: var(--color-danger);
-  --color-warning: var(--color-warning);
-  --color-success: var(--color-success);
-  --font-sans: var(--font-inter);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -120,6 +105,63 @@ svg {
 
 .navbar-login-button:hover {
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.auth-flip-stage {
+  perspective: 1600px;
+}
+
+.auth-flip-page {
+  backface-visibility: hidden;
+  transform-origin: center;
+  transform-style: preserve-3d;
+  will-change: transform, opacity;
+}
+
+.auth-flip-page.is-flipping-forward {
+  animation: authPageFlipForward 620ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.auth-flip-page.is-flipping-back {
+  animation: authPageFlipBack 620ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+@keyframes authPageFlipForward {
+  0% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+  48% {
+    opacity: 0.45;
+    transform: rotateY(-82deg) translateX(-18px);
+  }
+  52% {
+    opacity: 0.45;
+    transform: rotateY(82deg) translateX(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+}
+
+@keyframes authPageFlipBack {
+  0% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
+  48% {
+    opacity: 0.45;
+    transform: rotateY(82deg) translateX(18px);
+  }
+  52% {
+    opacity: 0.45;
+    transform: rotateY(-82deg) translateX(-18px);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg) translateX(0);
+  }
 }
 
 @keyframes saasFadeDown {
@@ -537,7 +579,57 @@ svg {
   transform: scaleX(1);
 }
 
+@media (max-width: 767px) {
+  .auth-flip-page.is-flipping-forward {
+    animation: authPageSlideForward 520ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  .auth-flip-page.is-flipping-back {
+    animation: authPageSlideBack 520ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+}
+
+@keyframes authPageSlideForward {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+  51% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes authPageSlideBack {
+  0% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  50% {
+    opacity: 0;
+    transform: translateX(26px);
+  }
+  51% {
+    opacity: 0;
+    transform: translateX(-26px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .auth-flip-page.is-flipping-forward,
+  .auth-flip-page.is-flipping-back,
   .saas-animate-navbar,
   .saas-animate-up,
   .saas-fade-reveal.is-visible,

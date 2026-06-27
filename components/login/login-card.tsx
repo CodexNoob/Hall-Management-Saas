@@ -138,9 +138,11 @@ function DashboardIllustration() {
 
 type LoginCardProps = {
   compact?: boolean;
+  onSignupClick?: () => void;
+  onForgotPasswordClick?: () => void;
 };
 
-export function LoginCard({ compact = false }: LoginCardProps) {
+export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClick }: LoginCardProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -257,9 +259,15 @@ export function LoginCard({ compact = false }: LoginCardProps) {
                     />
                     Remember me
                   </label>
-                  <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="#forgot-password">
-                    Forgot password?
-                  </Link>
+                  {onForgotPasswordClick ? (
+                    <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onForgotPasswordClick}>
+                      Forgot password?
+                    </button>
+                  ) : (
+                    <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/forgot-password">
+                      Forgot password?
+                    </Link>
+                  )}
                 </div>
 
                 {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
@@ -288,9 +296,15 @@ export function LoginCard({ compact = false }: LoginCardProps) {
 
                 <p className="mt-10 text-center text-base text-[#52607d]">
                   Don&apos;t have an account?{" "}
-                  <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/signup">
-                    Sign Up Now
-                  </Link>
+                  {onSignupClick ? (
+                    <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onSignupClick}>
+                      Sign Up Now
+                    </button>
+                  ) : (
+                    <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/signup">
+                      Sign Up Now
+                    </Link>
+                  )}
                 </p>
               </form>
             </div>

@@ -98,7 +98,7 @@ export function FeaturesSection() {
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
-      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-[36rem] -translate-x-1/2 rounded-full bg-[#eff3ff] blur-3xl" />
+      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-xl -translate-x-1/2 rounded-full bg-[#eff3ff] blur-3xl" />
       <div className="saas-feature-glow absolute -right-32 top-32 h-72 w-72 rounded-full bg-[#f1eaff] opacity-60 blur-3xl" />
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
