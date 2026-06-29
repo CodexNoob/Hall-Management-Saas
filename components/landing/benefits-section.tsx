@@ -78,7 +78,7 @@ export function BenefitsSection() {
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div id="benefits" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-xs font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Benefits</p>
+          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Benefits</p>
           <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
             Run Smarter. Save More. Grow Faster.
           </h2>
@@ -92,7 +92,9 @@ export function BenefitsSection() {
           {benefits.map((benefit, index) => (
             <article
               key={benefit.title}
-              className={`saas-flip-reveal saas-benefit-card group rounded-3xl border border-[#e4e9f7] bg-white/90 p-6 shadow-sm shadow-[#3155ff]/5 backdrop-blur hover:border-[#7062ff] ${isSectionVisible ? "is-visible" : ""} ${
+              className={`saas-benefit-slide-reveal saas-benefit-card group rounded-3xl border border-[#e4e9f7] bg-white/90 p-6 shadow-sm shadow-[#3155ff]/5 backdrop-blur hover:border-[#7062ff] ${
+                benefit.title === "Save Time" ? "from-left" : benefit.title === "Grow Revenue" ? "from-right" : "from-bottom"
+              } ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0 ? "saas-delay-260" : index === 1 ? "saas-delay-340" : index === 2 ? "saas-delay-420" : "saas-delay-520"
               }`}
             >

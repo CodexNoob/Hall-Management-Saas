@@ -112,8 +112,8 @@ svg {
   transform: translateX(0) scale(1);
   transform-origin: center;
   transition:
-    opacity 420ms cubic-bezier(0.4, 0, 0.2, 1),
-    transform 420ms cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 170ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 170ms cubic-bezier(0.4, 0, 0.2, 1);
   will-change: opacity, transform;
 }
 
@@ -128,11 +128,11 @@ svg {
 }
 
 .auth-slide-page.is-entered-forward {
-  animation: authSlideInForward 420ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: authSlideInForward 170ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 .auth-slide-page.is-entered-back {
-  animation: authSlideInBack 420ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: authSlideInBack 170ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
 @keyframes authSlideInForward {
@@ -426,6 +426,42 @@ svg {
   transition-delay: 0ms, 0ms, 0ms, 0ms;
 }
 
+.saas-benefit-slide-reveal:not(.is-visible) {
+  transition-delay: 0ms, 0ms, 0ms, 0ms;
+}
+
+.saas-feature-slide-reveal:not(.is-visible) {
+  transition-delay: 0ms, 0ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-100 {
+  transition-delay: 100ms, 100ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-200 {
+  transition-delay: 200ms, 200ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-300 {
+  transition-delay: 300ms, 300ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-400 {
+  transition-delay: 400ms, 400ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-500 {
+  transition-delay: 500ms, 500ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-600 {
+  transition-delay: 600ms, 600ms, 0ms, 0ms;
+}
+
+.saas-feature-delay-700 {
+  transition-delay: 700ms, 700ms, 0ms, 0ms;
+}
+
 .saas-feature-card {
   transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
 }
@@ -444,6 +480,23 @@ svg {
   box-shadow: 0 16px 32px rgba(79, 70, 255, 0.22);
 }
 
+.saas-feature-slide-reveal {
+  opacity: 0;
+  transform: translateY(40px) scale(0.96);
+  transition: opacity 720ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 720ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 340ms ease, border-color 340ms ease;
+  will-change: transform, opacity;
+}
+
+.saas-feature-slide-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.saas-feature-slide-reveal.is-visible:hover {
+  transform: translateY(-6px) scale(1);
+}
+
 .saas-benefit-card {
   transition: transform 340ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 340ms ease, border-color 340ms ease;
 }
@@ -460,6 +513,34 @@ svg {
 .saas-benefit-card:hover .saas-benefit-visual {
   transform: scale(1.06);
   box-shadow: 0 18px 38px rgba(79, 70, 255, 0.2);
+}
+
+.saas-benefit-slide-reveal {
+  opacity: 0;
+  transition: opacity 760ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 760ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 340ms ease, border-color 340ms ease;
+  will-change: transform, opacity;
+}
+
+.saas-benefit-slide-reveal.from-left {
+  transform: translateX(-60px);
+}
+
+.saas-benefit-slide-reveal.from-bottom {
+  transform: translateY(60px);
+}
+
+.saas-benefit-slide-reveal.from-right {
+  transform: translateX(60px);
+}
+
+.saas-benefit-slide-reveal.is-visible {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+.saas-benefit-slide-reveal.is-visible:hover {
+  transform: translateY(-6px);
 }
 
 .saas-pricing-card {
@@ -597,8 +678,10 @@ svg {
   .saas-nav-link::after,
   .saas-fade-reveal,
   .saas-feature-card,
+  .saas-feature-slide-reveal,
   .saas-feature-icon,
   .saas-benefit-card,
+  .saas-benefit-slide-reveal,
   .saas-benefit-visual,
   .saas-pricing-card,
   .saas-pricing-slide-reveal,
@@ -619,6 +702,8 @@ svg {
   .saas-scale-reveal,
   .saas-fade-reveal,
   .saas-flip-reveal,
+  .saas-feature-slide-reveal,
+  .saas-benefit-slide-reveal,
   .saas-pricing-slide-reveal,
   .saas-zoom-reveal {
     opacity: 1;
@@ -627,8 +712,10 @@ svg {
 
   .saas-hover-lift:hover,
   .saas-feature-card:hover,
+  .saas-feature-slide-reveal.is-visible:hover,
   .saas-feature-card:hover .saas-feature-icon,
   .saas-benefit-card:hover,
+  .saas-benefit-slide-reveal.is-visible:hover,
   .saas-benefit-card:hover .saas-benefit-visual,
   .saas-pricing-card:hover,
   .saas-pricing-slide-reveal.is-visible:hover,

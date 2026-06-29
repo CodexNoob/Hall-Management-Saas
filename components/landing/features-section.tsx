@@ -103,7 +103,7 @@ export function FeaturesSection() {
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div id="features" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-xs font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
+          <p className={`saas-flip-reveal text-lg font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
           <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
             Everything You Need to Run Your Venue Seamlessly
           </h2>
@@ -117,22 +117,22 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <article
               key={feature.title}
-              className={`saas-flip-reveal saas-feature-card group rounded-3xl border border-[#e4e9f7] bg-white p-6 shadow-sm shadow-[#3155ff]/5 hover:border-[#7062ff] ${isSectionVisible ? "is-visible" : ""} ${
+              className={`saas-feature-slide-reveal saas-feature-card group rounded-3xl border border-[#e4e9f7] bg-white p-6 shadow-sm shadow-[#3155ff]/5 hover:border-[#7062ff] ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0
-                  ? "saas-delay-260"
+                  ? ""
                   : index === 1
-                    ? "saas-delay-340"
+                    ? "saas-feature-delay-100"
                     : index === 2
-                      ? "saas-delay-420"
+                      ? "saas-feature-delay-200"
                       : index === 3
-                        ? "saas-delay-520"
+                        ? "saas-feature-delay-300"
                         : index === 4
-                          ? "saas-delay-640"
+                          ? "saas-feature-delay-400"
                           : index === 5
-                            ? "saas-delay-760"
+                            ? "saas-feature-delay-500"
                             : index === 6
-                              ? "saas-delay-880"
-                              : "saas-delay-1000"
+                              ? "saas-feature-delay-600"
+                              : "saas-feature-delay-700"
               }`}
             >
               <FeatureIcon>{feature.icon}</FeatureIcon>

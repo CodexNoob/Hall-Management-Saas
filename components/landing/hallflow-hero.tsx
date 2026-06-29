@@ -51,7 +51,7 @@ export function HallFlowHero() {
         className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 lg:min-h-[calc(100vh-80px)] lg:grid-cols-[0.9fr_1.1fr] lg:py-20"
       >
         <div>
-          <div className="saas-animate-up mb-6 inline-flex rounded-full border border-[#dfe5ff] bg-white/75 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-[#3155ff] shadow-sm">
+          <div className="saas-animate-up mb-6 inline-flex rounded-full border border-[#dfe5ff] bg-white/75 px-4 py-2 text-xl font-black uppercase tracking-[0.2em] text-[#3155ff] shadow-sm">
             Hall Management SaaS
           </div>
 

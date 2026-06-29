@@ -66,7 +66,7 @@ export function PricingSection() {
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div ref={pricingHeaderRef} id="pricing" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-xs font-black uppercase tracking-[0.24em] text-[#3155ff] ${isPricingHeaderVisible ? "is-visible" : ""}`}>Pricing</p>
+          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#3155ff] ${isPricingHeaderVisible ? "is-visible" : ""}`}>Pricing</p>
           <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isPricingHeaderVisible ? "is-visible" : ""}`}>
             Simple, Transparent Pricing
           </h2>

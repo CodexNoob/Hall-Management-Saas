@@ -113,7 +113,7 @@ export function LoginModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 180);
+    }, 50);
 
     finishTimerRef.current = setTimeout(() => {
       setIsSwitching(false);
@@ -123,7 +123,7 @@ export function LoginModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 420);
+    }, 170);
   };
 
   const closeOnOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
