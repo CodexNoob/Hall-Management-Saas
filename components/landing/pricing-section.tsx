@@ -19,7 +19,7 @@ const plans: PricingPlan[] = [
     price: "$149",
     billingNote: "Billed annually",
     features: ["Up to 2 Halls", "Unlimited Bookings", "Calendar & Scheduling", "Client Management", "Invoicing & Payments", "Email Support"],
-    buttonLabel: "Start Free Trial"
+    buttonLabel: "Get Started"
   },
   {
     name: "Professional",
@@ -27,7 +27,7 @@ const plans: PricingPlan[] = [
     price: "$299",
     billingNote: "Billed annually",
     features: ["Up to 10 Halls", "All Starter Features", "Staff Management", "Reports & Analytics", "PDF Contracts", "Priority Support"],
-    buttonLabel: "Start Free Trial",
+    buttonLabel: "Get Started",
     highlighted: true
   },
   {
@@ -36,7 +36,7 @@ const plans: PricingPlan[] = [
     price: "$599",
     billingNote: "Billed annually",
     features: ["Unlimited Halls", "All Professional Features", "Advanced Analytics", "API Access", "Dedicated Account Manager", "24/7 Premium Support"],
-    buttonLabel: "Contact Sales"
+    buttonLabel: "Get Started"
   }
 ];
 

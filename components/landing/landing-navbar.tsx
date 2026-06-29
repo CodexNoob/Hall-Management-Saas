@@ -74,7 +74,7 @@ export function LandingNavbar() {
           >
             Login
           </button>
-          <a className="saas-hover-lift rounded-xl bg-linear-to-r from-[#3155ff] to-[#7138f5] px-6 py-3 text-sm font-bold text-white shadow-lg shadow-[#5436ff]/25" href="#demo">
+          <a className="saas-hover-lift rounded-xl bg-linear-to-r from-[#3155ff] to-[#7138f5] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#5436ff]/25" href="#demo">
             Free Trial
           </a>
         </div>

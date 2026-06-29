@@ -66,7 +66,7 @@ export function HallFlowHero() {
           </p>
 
           <div className="saas-animate-up saas-delay-260 mt-9 flex flex-col gap-4 sm:flex-row">
-            <a className="saas-hover-lift inline-flex h-13 items-center justify-center rounded-xl bg-linear-to-r from-[#3155ff] to-[#7138f5] px-7 text-sm font-black text-white shadow-xl shadow-[#5436ff]/25" href="#trial">
+            <a className="saas-hover-lift inline-flex h-13 items-center justify-center rounded-xl bg-linear-to-r from-[#3155ff] to-[#7138f5] px-7 text-sm font-black text-white! shadow-xl shadow-[#5436ff]/25" href="#trial">
               Start Free Trial
             </a>
             <a className="saas-hover-lift inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-[#d5dbef] bg-white px-7 text-sm font-black text-[#111936] shadow-sm" href="#demo">

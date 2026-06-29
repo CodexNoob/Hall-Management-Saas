@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function EmailIcon() {
   return (
@@ -109,8 +110,9 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!email.trim()) {
@@ -119,8 +121,28 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
       return;
     }
 
+    setIsSubmitting(true);
     setError("");
-    setSuccess("Reset link sent. Please check your email.");
+    setSuccess("");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo
+      });
+
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      setSuccess("Reset link sent. Please check your email.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to send reset link.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -199,9 +221,13 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
-            <button className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl" type="submit">
+            <button
+              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              type="submit"
+              disabled={isSubmitting}
+            >
               <SendIcon />
-              Send Reset Link
+              {isSubmitting ? "Sending..." : "Send Reset Link"}
             </button>
 
             <div className="my-10 flex items-center gap-5 text-sm font-medium text-[#8290ad]">

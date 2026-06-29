@@ -3,6 +3,9 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function UserIcon() {
   return (
@@ -179,6 +182,7 @@ type SignupCardProps = {
 };
 
 export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
@@ -192,13 +196,17 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
     acceptedTerms: false
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
 
   const updateField = (name: keyof typeof form, value: string | boolean) => {
     setForm((current) => ({ ...current, [name]: value }));
     setError("");
+    setSuccess("");
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.venue.trim() || !form.password.trim() || !form.confirmPassword.trim()) {
@@ -216,7 +224,56 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
       return;
     }
 
+    setIsSubmitting(true);
     setError("");
+    setSuccess("");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: form.email.trim(),
+        password: form.password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: {
+            full_name: form.fullName.trim(),
+            phone: `${form.countryCode} ${form.phone.trim()}`,
+            venue_name: form.venue.trim()
+          }
+        }
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      if (data.session?.access_token) {
+        await syncSignedInUser(data.session.access_token);
+        router.push("/events/new");
+        router.refresh();
+        return;
+      }
+
+      setSuccess("Account created. Please check your email to confirm your account.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to create your account.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const signInWithProvider = async (provider: "google" | "azure") => {
+    setOauthProvider(provider);
+    setError("");
+    setSuccess("");
+
+    try {
+      await signInWithOAuthProvider(provider);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to start social login.");
+      setOauthProvider(null);
+    }
   };
 
   return (
@@ -402,10 +459,15 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
             </label>
 
             {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
+            {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
-            <button className="login-button mt-7 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl" type="submit">
+            <button
+              className="login-button mt-7 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              type="submit"
+              disabled={isSubmitting}
+            >
               <ArrowLoginIcon />
-              Sign Up
+              {isSubmitting ? "Creating account..." : "Sign Up"}
             </button>
 
             <div className="my-8 flex items-center gap-5 text-sm font-medium text-[#8290ad]">
@@ -415,13 +477,23 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
             </div>
 
             <div className="space-y-4">
-              <button className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff]" type="button">
+              <button
+                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                type="button"
+                disabled={oauthProvider !== null}
+                onClick={() => signInWithProvider("google")}
+              >
                 <GoogleIcon />
-                Continue with Google
+                {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
               </button>
-              <button className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff]" type="button">
+              <button
+                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                type="button"
+                disabled={oauthProvider !== null}
+                onClick={() => signInWithProvider("azure")}
+              >
                 <MicrosoftIcon />
-                Continue with Microsoft
+                {oauthProvider === "azure" ? "Opening Microsoft..." : "Continue with Microsoft"}
               </button>
             </div>
 

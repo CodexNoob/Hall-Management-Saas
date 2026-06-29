@@ -3,6 +3,9 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function EmailIcon() {
   return (
@@ -143,13 +146,16 @@ type LoginCardProps = {
 };
 
 export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClick }: LoginCardProps) {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!email.trim() || !password.trim()) {
@@ -157,7 +163,44 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
       return;
     }
 
+    setIsSubmitting(true);
     setError("");
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password
+      });
+
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      if (data.session?.access_token) {
+        await syncSignedInUser(data.session.access_token);
+      }
+
+      router.push("/events/new");
+      router.refresh();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const signInWithProvider = async (provider: "google" | "azure") => {
+    setOauthProvider(provider);
+    setError("");
+
+    try {
+      await signInWithOAuthProvider(provider);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Unable to start social login.");
+      setOauthProvider(null);
+    }
   };
 
   return (
@@ -272,9 +315,13 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
 
                 {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
 
-                <button className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl`} type="submit">
+                <button
+                  className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70`}
+                  type="submit"
+                  disabled={isSubmitting}
+                >
                   <ArrowLoginIcon />
-                  Login
+                  {isSubmitting ? "Logging in..." : "Login"}
                 </button>
 
                 <div className={`${compact ? "my-8" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#8290ad]`}>
@@ -284,13 +331,23 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                 </div>
 
                 <div className="space-y-4">
-                  <button className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff]" type="button">
+                  <button
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                    type="button"
+                    disabled={oauthProvider !== null}
+                    onClick={() => signInWithProvider("google")}
+                  >
                     <GoogleIcon />
-                    Continue with Google
+                    {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
                   </button>
-                  <button className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff]" type="button">
+                  <button
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                    type="button"
+                    disabled={oauthProvider !== null}
+                    onClick={() => signInWithProvider("azure")}
+                  >
                     <MicrosoftIcon />
-                    Continue with Microsoft
+                    {oauthProvider === "azure" ? "Opening Microsoft..." : "Continue with Microsoft"}
                   </button>
                 </div>
 

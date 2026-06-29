@@ -21,6 +21,7 @@
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
     "@prisma/client": "^6.10.1",
+    "@supabase/server": "^1.2.0",
     "@supabase/supabase-js": "^2.50.2",
     "@tanstack/react-query": "^5.81.5",
     "clsx": "^2.1.1",
@@ -48,7 +49,7 @@
     "jsdom": "^26.1.0",
     "playwright": "^1.53.1",
     "prettier": "^3.6.0",
-    "prisma": "^6.10.1",
+    "prisma": "^6.19.3",
     "tailwindcss": "^4.1.10",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
