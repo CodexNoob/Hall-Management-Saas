@@ -25,7 +25,7 @@ export default function AuthCallbackPage() {
         await syncSignedInUser(data.session.access_token);
 
         if (isMounted) {
-          router.replace("/events/new");
+          router.replace("/dashboard");
           router.refresh();
         }
       } catch (error) {
@@ -43,11 +43,11 @@ export default function AuthCallbackPage() {
   }, [router]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-linear-to-br from-white via-[#f8f7ff] to-[#edf4ff] px-6 text-center text-[#09122f]">
-      <section className="max-w-md rounded-4xl border border-white/80 bg-white/85 p-8 shadow-2xl shadow-[#3155ff]/12 backdrop-blur">
+    <main className="flex min-h-screen items-center justify-center bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-6 text-center text-[#0F172A]">
+      <section className="max-w-md rounded-4xl border border-white/80 bg-white/85 p-8 shadow-2xl shadow-[#B9974D]/12 backdrop-blur">
         <h1 className="text-3xl font-black">Hall Management SaaS</h1>
-        <p className="mt-4 text-base font-semibold text-[#52607d]">{message}</p>
-        <Link className="mt-8 inline-flex rounded-2xl bg-linear-to-r from-[#3155ff] to-[#7138f5] px-6 py-3 font-black text-white" href="/">
+        <p className="mt-4 text-base font-semibold text-[#64748B]">{message}</p>
+        <Link className="mt-8 inline-flex rounded-2xl bg-linear-to-r from-[#B9974D] to-[#0F172A] px-6 py-3 font-black text-white" href="/">
           Back to Home
         </Link>
       </section>

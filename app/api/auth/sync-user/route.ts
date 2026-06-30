@@ -34,26 +34,48 @@ export async function POST(request: NextRequest) {
         : typeof metadata.name === "string" && metadata.name.trim()
           ? metadata.name.trim()
           : data.user.email.split("@")[0];
+    const phone = typeof metadata.phone === "string" && metadata.phone.trim() ? metadata.phone.trim() : null;
+    const venueName =
+      typeof metadata.venue_name === "string" && metadata.venue_name.trim() ? metadata.venue_name.trim() : null;
 
     const user = await prisma.user.upsert({
       where: { email: data.user.email },
       update: {
         name,
-        googleSub: data.user.app_metadata.provider === "google" ? data.user.id : undefined
+        phone,
+        venueName,
+        isActive: true
       },
       create: {
         email: data.user.email,
         name,
-        googleSub: data.user.app_metadata.provider === "google" ? data.user.id : undefined,
+        phone,
+        venueName,
+        role: "user",
         access: {
           create: {
-            roleName: "user",
-            canManageEvents: true
+            canViewHome: true,
+            canViewCalendar: true,
+            canCreateBooking: true,
+            canViewEventManager: true,
+            canViewKitchenDashboard: true,
+            canViewMenu: true
           }
         }
       },
-      include: {
-        access: true
+    });
+
+    const access = await prisma.userAccess.upsert({
+      where: { userId: user.id },
+      update: {},
+      create: {
+        userId: user.id,
+        canViewHome: true,
+        canViewCalendar: true,
+        canCreateBooking: true,
+        canViewEventManager: true,
+        canViewKitchenDashboard: true,
+        canViewMenu: true
       }
     });
 
@@ -62,8 +84,11 @@ export async function POST(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.name,
-        roleName: user.access?.roleName ?? "user"
-      }
+        phone: user.phone,
+        venueName: user.venueName,
+        role: user.role
+      },
+      access
     });
   } catch (error) {
     return NextResponse.json(

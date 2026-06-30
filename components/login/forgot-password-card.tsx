@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function EmailIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -15,7 +15,7 @@ function EmailIcon() {
 
 function ShieldIcon() {
   return (
-    <svg className="h-7 w-7 text-[#3155ff]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-7 w-7 text-[#B9974D]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -49,13 +49,13 @@ function ExternalLinkIcon() {
 function ResetIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
-      <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#c7d8ff]/65 blur-3xl" />
-      <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#d9c7ff]/70 blur-3xl" />
+      <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
+      <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#B9974D]/70 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-107.5">
-        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#3155ff]/20">
+        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#B9974D]/20">
           <div className="grid h-full grid-cols-[92px_1fr]">
-            <div className="bg-linear-to-b from-[#3155ff] to-[#7138f5] p-4">
+            <div className="bg-linear-to-b from-[#B9974D] to-[#0F172A] p-4">
               <div className="h-3 w-14 rounded-full bg-white/80" />
               <div className="mt-7 space-y-3">
                 <span className="block h-3 w-14 rounded-full bg-white/50" />
@@ -64,35 +64,35 @@ function ResetIllustration() {
               </div>
             </div>
             <div className="p-5">
-              <div className="h-12 rounded-2xl bg-[#eef3ff]" />
+              <div className="h-12 rounded-2xl bg-[#F7F4ED]" />
               <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="h-20 rounded-2xl bg-[#f4f0ff]" />
-                <div className="h-20 rounded-2xl bg-[#eef3ff]" />
+                <div className="h-20 rounded-2xl bg-[#F7F4ED]" />
+                <div className="h-20 rounded-2xl bg-[#F7F4ED]" />
               </div>
-              <div className="mt-4 h-14 rounded-2xl bg-white shadow-inner shadow-[#3155ff]/10" />
+              <div className="mt-4 h-14 rounded-2xl bg-white shadow-inner shadow-[#B9974D]/10" />
             </div>
           </div>
         </div>
 
-        <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#3155ff] to-[#8b37f6] text-white shadow-2xl shadow-[#3155ff]/30">
+        <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#B9974D] to-[#0F172A] text-white shadow-2xl shadow-[#B9974D]/30">
           <LockIcon />
         </div>
 
-        <div className="absolute -right-2 top-28 w-32 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#7138f5]/15 backdrop-blur">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#f4f0ff] text-[#4f46ff]">
+        <div className="absolute -right-2 top-28 w-32 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7F4ED] text-[#B9974D]">
             <EmailIcon />
           </div>
-          <p className="text-xs font-black text-[#52607d]">Reset Link</p>
-          <p className="mt-2 h-2 w-20 rounded-full bg-[#dce5ff]" />
+          <p className="text-xs font-black text-[#64748B]">Reset Link</p>
+          <p className="mt-2 h-2 w-20 rounded-full bg-[#E5E0D6]" />
         </div>
 
-        <div className="absolute bottom-8 right-20 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#4f46ff] shadow-xl shadow-[#3155ff]/15">
+        <div className="absolute bottom-8 right-20 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#B9974D] shadow-xl shadow-[#B9974D]/15">
           <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
-        <svg className="absolute right-8 top-14 h-24 w-24 text-[#7138f5]" viewBox="0 0 120 120" fill="none" aria-hidden="true">
+        <svg className="absolute right-8 top-14 h-24 w-24 text-[#0F172A]" viewBox="0 0 120 120" fill="none" aria-hidden="true">
           <path d="M16 96c35-10 8-46 48-54" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" strokeLinecap="round" opacity="0.45" />
           <path d="m70 35 28-13-12 29-5-13z" fill="currentColor" opacity="0.75" />
         </svg>
@@ -146,43 +146,43 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#3155ff]/12 backdrop-blur-xl lg:grid-cols-2">
-      <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#f7f6ff] to-[#e7f0ff] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#c9d7ff]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#d4c2ff]/80 blur-2xl" />
+    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
+      <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
+        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#3155ff]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#B9974D]" />
           ))}
         </div>
-        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#9fb8ff] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#B9974D] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
         </svg>
 
         <div className="relative">
           <Link href="/" aria-label="Back to Hall Management SaaS home">
-            <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-auto w-64 max-w-full object-contain" />
+            <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
           </Link>
 
-          <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#3155ff]`}>
+          <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>
             No worries! <span aria-hidden="true">&#128075;</span>
           </p>
-          <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#09122f] sm:text-5xl">
+          <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
             Recover your account
           </h1>
-          <p className="mt-5 max-w-md text-lg leading-8 text-[#52607d]">
+          <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
             Enter your email address and we&apos;ll send you a secure link to reset your password.
           </p>
 
           <ResetIllustration />
 
           <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#3155ff]/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#B9974D]/10">
               <ShieldIcon />
             </div>
             <div>
-              <p className="font-black text-[#09122f]">Your security is our priority.</p>
-              <p className="mt-1 text-sm font-medium text-[#52607d]">We use industry-standard encryption to keep your data safe.</p>
+              <p className="font-black text-[#0F172A]">Your security is our priority.</p>
+              <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption to keep your data safe.</p>
             </div>
           </div>
         </div>
@@ -190,18 +190,20 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
       <div className={`bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-16"}`}>
         <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-          <h2 id="forgot-password-modal-title" className="text-4xl font-black tracking-tight text-[#09122f]">Forgot Password</h2>
-          <p className="mt-4 max-w-md text-lg leading-8 text-[#52607d]">Enter your email address and we will send you a reset link.</p>
+          <h2 id="forgot-password-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Forgot Password</h2>
+          <p className="mt-4 max-w-md text-lg leading-8 text-[#64748B]">Enter your email address and we will send you a reset link.</p>
 
           <form className={compact ? "mt-10" : "mt-12"} onSubmit={submit}>
-            <label className="text-base font-bold text-[#09122f]" htmlFor="forgotEmail">
+            <label className="text-base font-bold text-[#0F172A]" htmlFor="forgotEmail">
               Email Address
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <EmailIcon />
               <input
                 id="forgotEmail"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="email"
+                autoComplete="email"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your email address"
                 type="email"
                 value={email}
@@ -214,7 +216,6 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             </div>
 
             <div className="mt-7 flex gap-4 text-base font-bold leading-7 text-[#65718d]">
-              <ShieldIcon />
               <p>We&apos;ll send a secure password reset link to this email address.</p>
             </div>
 
@@ -222,7 +223,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#B9974D] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
               type="submit"
               disabled={isSubmitting}
             >
@@ -230,27 +231,27 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               {isSubmitting ? "Sending..." : "Send Reset Link"}
             </button>
 
-            <div className="my-10 flex items-center gap-5 text-sm font-medium text-[#8290ad]">
-              <span className="h-px flex-1 bg-[#dbe2ef]" />
+            <div className="my-10 flex items-center gap-5 text-sm font-medium text-[#64748B]">
+              <span className="h-px flex-1 bg-[#E5E0D6]" />
               or
-              <span className="h-px flex-1 bg-[#dbe2ef]" />
+              <span className="h-px flex-1 bg-[#E5E0D6]" />
             </div>
 
             {onBackToLogin ? (
-              <button className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onBackToLogin}>
-                <span aria-hidden="true">&larr;</span>
+              <button className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onBackToLogin}>
+                <span aria-hidden="true"></span>
                 Back to Login
               </button>
             ) : (
-              <Link className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#4f2cff] transition hover:text-[#3155ff]" href="/">
-                <span aria-hidden="true">&larr;</span>
+              <Link className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#B9974D] transition hover:text-[#B9974D]" href="/">
+                <span aria-hidden="true"></span>
                 Back to Login
               </Link>
             )}
 
-            <p className="mt-14 flex items-center justify-center gap-2 text-base text-[#52607d]">
+            <p className="mt-14 flex items-center justify-center gap-2 text-base text-[#64748B]">
               Need help?{" "}
-              <Link className="inline-flex items-center gap-2 font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="#support">
+              <Link className="inline-flex items-center gap-2 font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="#support">
                 Contact support
                 <ExternalLinkIcon />
               </Link>

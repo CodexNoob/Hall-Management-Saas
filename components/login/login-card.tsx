@@ -9,7 +9,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function EmailIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -17,7 +17,7 @@ function EmailIcon() {
 
 function LockIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6zM12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -50,7 +50,7 @@ function ArrowLoginIcon() {
 
 function ShieldIcon() {
   return (
-    <svg className="h-7 w-7 text-[#3155ff]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-7 w-7 text-[#B9974D]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -82,18 +82,18 @@ function MicrosoftIcon() {
 function DashboardIllustration() {
   return (
     <div className="relative mt-10 min-h-75 overflow-hidden lg:mt-12">
-      <div className="absolute bottom-0 left-2 h-44 w-44 rounded-full bg-[#c7d8ff]/65 blur-3xl" />
-      <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#d9c7ff]/70 blur-3xl" />
+      <div className="absolute bottom-0 left-2 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
+      <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#B9974D]/70 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-107.5">
-        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#3155ff]/20">
-          <div className="flex h-10 items-center gap-2 border-b border-[#eef2ff] bg-[#fbfcff] px-4">
+        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#B9974D]/20">
+          <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] bg-[#FFFFFF] px-4">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#ffbf4d]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#32d583]" />
           </div>
           <div className="grid h-[calc(100%-40px)] grid-cols-[95px_1fr]">
-            <div className="bg-linear-to-b from-[#3155ff] to-[#7138f5] p-4">
+            <div className="bg-linear-to-b from-[#B9974D] to-[#0F172A] p-4">
               <div className="h-3 w-14 rounded-full bg-white/80" />
               <div className="mt-6 space-y-3">
                 <div className="h-3 w-16 rounded-full bg-white/50" />
@@ -104,34 +104,34 @@ function DashboardIllustration() {
             </div>
             <div className="p-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="h-14 rounded-2xl bg-[#eef3ff]" />
-                <div className="h-14 rounded-2xl bg-[#f4f0ff]" />
-                <div className="h-14 rounded-2xl bg-[#eef3ff]" />
+                <div className="h-14 rounded-2xl bg-[#F7F4ED]" />
+                <div className="h-14 rounded-2xl bg-[#F7F4ED]" />
+                <div className="h-14 rounded-2xl bg-[#F7F4ED]" />
               </div>
               <div className="mt-5 grid grid-cols-[1fr_72px] gap-4">
-                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#3155ff]/10">
-                  <svg className="h-full w-full p-4 text-[#3155ff]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
+                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#B9974D]/10">
+                  <svg className="h-full w-full p-4 text-[#B9974D]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
                     <path d="M8 64c22-42 42-10 62-38 16-22 39 18 82-12" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
                   </svg>
                 </div>
-                <div className="h-24 rounded-2xl bg-[#f5f3ff] p-3">
-                  <div className="h-full rounded-full border-10 border-[#7138f5] border-l-[#d9d0ff]" />
+                <div className="h-24 rounded-2xl bg-[#F7F4ED] p-3">
+                  <div className="h-full rounded-full border-10 border-[#0F172A] border-l-[#E5E0D6]" />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#7138f5]/15 backdrop-blur">
-          <div className="mb-3 h-3 w-20 rounded-full bg-[#3155ff]/30" />
+        <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
+          <div className="mb-3 h-3 w-20 rounded-full bg-[#B9974D]/30" />
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: 9 }).map((_, index) => (
-              <span key={index} className="h-5 rounded-md bg-[#eef3ff]" />
+              <span key={index} className="h-5 rounded-md bg-[#F7F4ED]" />
             ))}
           </div>
         </div>
 
-        <div className="absolute bottom-5 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#3155ff] to-[#8b37f6] text-white shadow-2xl shadow-[#3155ff]/30">
+        <div className="absolute bottom-5 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#B9974D] to-[#0F172A] text-white shadow-2xl shadow-[#B9974D]/30">
           <LockIcon />
         </div>
       </div>
@@ -182,7 +182,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
         await syncSignedInUser(data.session.access_token);
       }
 
-      router.push("/events/new");
+      router.push("/dashboard");
       router.refresh();
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to sign in. Please try again.");
@@ -204,38 +204,38 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
   };
 
   return (
-        <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#3155ff]/12 backdrop-blur-xl lg:grid-cols-2">
-          <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#f7f6ff] to-[#e7f0ff] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
-            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#c9d7ff]/80 blur-2xl" />
-            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#d4c2ff]/80 blur-2xl" />
+        <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
+          <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
+            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
               {Array.from({ length: 36 }).map((_, index) => (
-                <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#3155ff]" />
+                <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#B9974D]" />
               ))}
             </div>
 
             <div className="relative">
               <Link href="/" aria-label="Back to Hall Management SaaS home">
-                <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-auto w-64 max-w-full object-contain" />
+                <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
               </Link>
 
-              <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#3155ff]`}>Welcome Back!</p>
-              <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#09122f] sm:text-5xl">
+              <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>Welcome Back!</p>
+              <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
                 Login to your account
               </h1>
-              <p className="mt-5 max-w-md text-lg leading-8 text-[#52607d]">
+              <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
                 Access your dashboard to manage bookings, events, payments, and hall operations all in one place.
               </p>
 
               {!compact ? <DashboardIllustration /> : <div className="hidden lg:block"><DashboardIllustration /></div>}
 
               <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#3155ff]/10">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#B9974D]/10">
                   <ShieldIcon />
                 </div>
                 <div>
-                  <p className="font-black text-[#09122f]">Your data is secure with us.</p>
-                  <p className="mt-1 text-sm font-medium text-[#52607d]">We use industry-standard encryption.</p>
+                  <p className="font-black text-[#0F172A]">Your data is secure with us.</p>
+                  <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption.</p>
                 </div>
               </div>
             </div>
@@ -243,18 +243,20 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
 
           <div className={`bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-16"}`}>
             <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-              <h2 id="login-modal-title" className="text-4xl font-black tracking-tight text-[#09122f]">Login</h2>
-              <p className="mt-4 text-lg text-[#52607d]">Enter your credentials to continue</p>
+              <h2 id="login-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Login</h2>
+              <p className="mt-4 text-lg text-[#64748B]">Enter your credentials to continue</p>
 
               <form className={compact ? "mt-8" : "mt-10"} onSubmit={submit}>
-                <label className="text-base font-bold text-[#09122f]" htmlFor="email">
+                <label className="text-base font-bold text-[#0F172A]" htmlFor="email">
                   Email Address
                 </label>
-                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
                   <EmailIcon />
                   <input
                     id="email"
-                    className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                    name="email"
+                    autoComplete="email"
+                    className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                     placeholder="Enter your email address"
                     type="email"
                     value={email}
@@ -265,14 +267,16 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                   />
                 </div>
 
-                <label className={`${compact ? "mt-5" : "mt-7"} block text-base font-bold text-[#09122f]`} htmlFor="password">
+                <label className={`${compact ? "mt-5" : "mt-7"} block text-base font-bold text-[#0F172A]`} htmlFor="password">
                   Password
                 </label>
-                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
                   <LockIcon />
                   <input
                     id="password"
-                    className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                    name="password"
+                    autoComplete="current-password"
+                    className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                     placeholder="Enter your password"
                     type={showPassword ? "text" : "password"}
                     value={password}
@@ -282,7 +286,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                     }}
                   />
                   <button
-                    className="login-icon-button text-[#8290ad] transition hover:text-[#3155ff]"
+                    className="login-icon-button text-[#64748B] transition hover:text-[#B9974D]"
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
@@ -292,10 +296,10 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
-                  <label className="flex cursor-pointer items-center gap-3 text-base font-medium text-[#52607d]" htmlFor="remember">
+                  <label className="flex cursor-pointer items-center gap-3 text-base font-medium text-[#64748B]" htmlFor="remember">
                     <input
                       id="remember"
-                      className="login-checkbox h-5 w-5 border border-[#cfd7e8] accent-[#3155ff]"
+                      className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#B9974D]"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(event) => setRememberMe(event.target.checked)}
@@ -303,11 +307,11 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                     Remember me
                   </label>
                   {onForgotPasswordClick ? (
-                    <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onForgotPasswordClick}>
+                    <button className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onForgotPasswordClick}>
                       Forgot password?
                     </button>
                   ) : (
-                    <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/forgot-password">
+                    <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/forgot-password">
                       Forgot password?
                     </Link>
                   )}
@@ -316,7 +320,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                 {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
 
                 <button
-                  className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70`}
+                  className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#B9974D] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70`}
                   type="submit"
                   disabled={isSubmitting}
                 >
@@ -324,15 +328,15 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                   {isSubmitting ? "Logging in..." : "Login"}
                 </button>
 
-                <div className={`${compact ? "my-8" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#8290ad]`}>
-                  <span className="h-px flex-1 bg-[#dbe2ef]" />
+                <div className={`${compact ? "my-8" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
+                  <span className="h-px flex-1 bg-[#E5E0D6]" />
                   or continue with
-                  <span className="h-px flex-1 bg-[#dbe2ef]" />
+                  <span className="h-px flex-1 bg-[#E5E0D6]" />
                 </div>
 
                 <div className="space-y-4">
                   <button
-                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                     type="button"
                     disabled={oauthProvider !== null}
                     onClick={() => signInWithProvider("google")}
@@ -341,7 +345,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                     {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
                   </button>
                   <button
-                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                     type="button"
                     disabled={oauthProvider !== null}
                     onClick={() => signInWithProvider("azure")}
@@ -351,14 +355,14 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                   </button>
                 </div>
 
-                <p className="mt-10 text-center text-base text-[#52607d]">
+                <p className="mt-10 text-center text-base text-[#64748B]">
                   Don&apos;t have an account?{" "}
                   {onSignupClick ? (
-                    <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onSignupClick}>
+                    <button className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onSignupClick}>
                       Sign Up Now
                     </button>
                   ) : (
-                    <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/signup">
+                    <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/signup">
                       Sign Up Now
                     </Link>
                   )}

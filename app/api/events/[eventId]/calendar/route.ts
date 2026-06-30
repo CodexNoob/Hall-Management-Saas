@@ -14,10 +14,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ev
   }
 
   const result = await upsertGoogleCalendarEvent({
-    title: event.name,
+    title: `${event.clientName} ${event.eventType ?? "Event"}`,
     description: event.notes ?? undefined,
-    startsAt: event.startsAt,
-    endsAt: event.endsAt,
+    startsAt: event.eventDate,
+    endsAt: new Date(event.eventDate.getTime() + 4 * 60 * 60 * 1000),
     location: event.hall.name,
     googleCalendarEventId: event.googleCalendarEventId
   });
@@ -25,7 +25,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ev
   if (!result.skipped && result.eventId && result.eventId !== event.googleCalendarEventId) {
     await prisma.event.update({
       where: { id: event.id },
-      data: { googleCalendarEventId: result.eventId }
+      data: {
+        googleCalendarEventId: result.eventId,
+        googleSyncStatus: "Synced",
+        googleLastSyncedAt: new Date(),
+        googleSyncError: null
+      }
     });
   }
 

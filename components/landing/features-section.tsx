@@ -12,7 +12,7 @@ type FeatureCard = {
 
 function FeatureIcon({ children }: { children: ReactNode }) {
   return (
-    <div className="saas-feature-icon flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#eef3ff] to-[#f1eaff] text-[#4f46ff] transition-colors duration-300 group-hover:from-[#3155ff] group-hover:to-[#7b2cff] group-hover:text-white">
+    <div className="saas-feature-icon flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#F7F4ED] to-[#F7F4ED] text-[#B9974D] transition-colors duration-300 group-hover:from-[#B9974D] group-hover:to-[#0F172A] group-hover:text-white">
       <span className="[&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-current [&_svg]:stroke-2">{children}</span>
     </div>
   );
@@ -98,16 +98,16 @@ export function FeaturesSection() {
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
-      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-xl -translate-x-1/2 rounded-full bg-[#eff3ff] blur-3xl" />
-      <div className="saas-feature-glow absolute -right-32 top-32 h-72 w-72 rounded-full bg-[#f1eaff] opacity-60 blur-3xl" />
+      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-xl -translate-x-1/2 rounded-full bg-[#B9974D]/12 blur-3xl" />
+      <div className="saas-feature-glow absolute -right-32 top-32 h-72 w-72 rounded-full bg-[#F7F4ED] opacity-60 blur-3xl" />
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div id="features" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-lg font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
-          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal text-lg font-black uppercase tracking-[0.24em] text-[#B9974D] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
+          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
             Everything You Need to Run Your Venue Seamlessly
           </h2>
-          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-2xl text-base leading-7 text-[#53607d] sm:text-lg ${isSectionVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-2xl text-base leading-7 text-[#64748B] sm:text-lg ${isSectionVisible ? "is-visible" : ""}`}>
             Manage bookings, events, payments, clients, staff, and reports from one centralized platform built for modern hall
             operations.
           </p>
@@ -117,7 +117,7 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <article
               key={feature.title}
-              className={`saas-feature-slide-reveal saas-feature-card group rounded-3xl border border-[#e4e9f7] bg-white p-6 shadow-sm shadow-[#3155ff]/5 hover:border-[#7062ff] ${isSectionVisible ? "is-visible" : ""} ${
+              className={`saas-feature-slide-reveal saas-feature-card group rounded-3xl border border-[#E5E0D6] bg-white p-6 shadow-sm shadow-[#B9974D]/5 hover:border-[#B9974D] ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0
                   ? ""
                   : index === 1
@@ -136,8 +136,8 @@ export function FeaturesSection() {
               }`}
             >
               <FeatureIcon>{feature.icon}</FeatureIcon>
-              <h3 className="mt-6 text-lg font-black text-[#10172f]">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-[#53607d]">{feature.description}</p>
+              <h3 className="mt-6 text-lg font-black text-[#0F172A]">{feature.title}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#64748B]">{feature.description}</p>
             </article>
           ))}
         </div>

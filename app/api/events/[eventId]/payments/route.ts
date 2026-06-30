@@ -10,31 +10,37 @@ const confirmationSchema = z.object({
 });
 
 const paymentStatusByResult = {
-  paid: "PAID",
-  failed: "FAILED",
-  cancelled: "CANCELLED"
+  paid: "Paid in Full",
+  failed: "Paid Partially",
+  cancelled: "Paid Partially"
 } as const;
 
 export async function POST(request: Request, { params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const input = confirmationSchema.parse(await request.json());
 
-  const payment = await prisma.payment.create({
-    data: {
-      eventId,
-      amountCents: input.amountCents,
-      status: paymentStatusByResult[input.result],
-      confirmedById: input.confirmedByUserId,
-      note: input.note
-    }
-  });
-
-  await prisma.event.update({
+  const event = await prisma.event.update({
     where: { id: eventId },
     data: {
-      paymentStatus: payment.status
+      paymentStatus: paymentStatusByResult[input.result],
+      amountDue: input.result === "paid" ? 0 : undefined,
+      updatedById: input.confirmedByUserId
     }
   });
 
-  return NextResponse.json({ payment }, { status: 201 });
+  const activityLog = await prisma.activityLog.create({
+    data: {
+      eventId,
+      userId: input.confirmedByUserId,
+      actionType: "Payment Confirmation",
+      message: `Payment marked ${input.result}.`,
+      newValue: {
+        amountCents: input.amountCents,
+        result: input.result,
+        note: input.note
+      }
+    }
+  });
+
+  return NextResponse.json({ event, activityLog }, { status: 201 });
 }

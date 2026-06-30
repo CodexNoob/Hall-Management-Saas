@@ -44,7 +44,7 @@ function CheckIcon({ highlighted }: { highlighted?: boolean }) {
   return (
     <span
       className={`mt-0.5 flex h-5 w-5 items-center justify-center rounded-full ${
-        highlighted ? "bg-[#eef3ff] text-[#4f46ff]" : "bg-[#ecfdf3] text-[#138a4f]"
+        highlighted ? "bg-[#F7F4ED] text-[#B9974D]" : "bg-[#ecfdf3] text-[#138a4f]"
       }`}
     >
       <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -60,17 +60,17 @@ export function PricingSection() {
   const [trialCtaRef, isTrialCtaVisible] = useDelayedInView<HTMLDivElement>({ threshold: 0.22 });
 
   return (
-    <section className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
-      <div className="saas-pricing-glow absolute left-1/2 top-8 h-64 w-2xl -translate-x-1/2 rounded-full bg-[#eef3ff] blur-3xl" />
-      <div className="saas-pricing-glow absolute bottom-0 right-0 h-72 w-72 rounded-full bg-[#f0e7ff] blur-3xl" />
+    <section className="relative overflow-hidden bg-[#F7F4ED] px-5 py-24 sm:px-8 lg:py-28">
+      <div className="saas-pricing-glow absolute left-1/2 top-8 h-64 w-2xl -translate-x-1/2 rounded-full bg-[#F7F4ED] blur-3xl" />
+      <div className="saas-pricing-glow absolute bottom-0 right-0 h-72 w-72 rounded-full bg-[#0F172A]/10 blur-3xl" />
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div ref={pricingHeaderRef} id="pricing" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#3155ff] ${isPricingHeaderVisible ? "is-visible" : ""}`}>Pricing</p>
-          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isPricingHeaderVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#B9974D] ${isPricingHeaderVisible ? "is-visible" : ""}`}>Pricing</p>
+          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl lg:text-5xl ${isPricingHeaderVisible ? "is-visible" : ""}`}>
             Simple, Transparent Pricing
           </h2>
-          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-2xl text-base leading-7 text-[#53607d] sm:text-lg ${isPricingHeaderVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-2xl text-base leading-7 text-[#64748B] sm:text-lg ${isPricingHeaderVisible ? "is-visible" : ""}`}>
             Choose the right plan for your venue. Start small, upgrade anytime, and manage your hall operations with
             confidence.
           </p>
@@ -86,32 +86,32 @@ export function PricingSection() {
                 isPricingCardsVisible ? "is-visible" : ""
               } group relative flex flex-col rounded-3xl bg-white p-6 ${
                 plan.highlighted
-                  ? "is-recommended border border-[#6657ff] shadow-2xl shadow-[#3155ff]/18 lg:-mt-4"
-                  : "border border-[#e4e9f7] shadow-sm shadow-[#3155ff]/5 hover:border-[#7062ff] hover:shadow-2xl hover:shadow-[#3155ff]/12"
+                  ? "is-recommended border border-[#B9974D] shadow-2xl shadow-[#B9974D]/18 lg:-mt-4"
+                  : "border border-[#E5E0D6] shadow-sm shadow-[#B9974D]/5 hover:border-[#B9974D] hover:shadow-2xl hover:shadow-[#B9974D]/12"
               }`}
             >
               {plan.highlighted ? (
-                <div className="saas-popular-badge absolute left-5 right-5 top-0 -translate-y-1/2 rounded-full bg-linear-to-r from-[#3155ff] to-[#7b2cff] px-4 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-[#5436ff]/25">
+                <div className="saas-popular-badge absolute left-5 right-5 top-0 -translate-y-1/2 rounded-full bg-linear-to-r from-[#B9974D] to-[#0F172A] px-4 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-[#0F172A]/25">
                   Most Popular
                 </div>
               ) : null}
 
               <div className={plan.highlighted ? "pt-5" : ""}>
-                <h3 className="text-xl font-black text-[#10172f]">{plan.name}</h3>
-                <p className="mt-2 text-sm font-semibold text-[#53607d]">{plan.description}</p>
+                <h3 className="text-xl font-black text-[#0F172A]">{plan.name}</h3>
+                <p className="mt-2 text-sm font-semibold text-[#64748B]">{plan.description}</p>
 
                 <div className="mt-7 flex items-end gap-2">
-                  <p className="text-5xl font-black tracking-tight text-[#10172f]">{plan.price}</p>
-                  <p className="pb-2 text-sm font-bold text-[#53607d]">/month</p>
+                  <p className="text-5xl font-black tracking-tight text-[#0F172A]">{plan.price}</p>
+                  <p className="pb-2 text-sm font-bold text-[#64748B]">/month</p>
                 </div>
-                <p className="mt-1 text-sm text-[#6b7692]">{plan.billingNote}</p>
+                <p className="mt-1 text-sm text-[#64748B]">{plan.billingNote}</p>
               </div>
 
               <ul className="mt-7 space-y-3">
                 {plan.features.map((feature, featureIndex) => (
                   <li
                     key={feature}
-                    className={`saas-fade-reveal flex gap-3 text-sm font-semibold leading-6 text-[#34405f] ${isPricingCardsVisible ? "is-visible" : ""} ${
+                    className={`saas-fade-reveal flex gap-3 text-sm font-semibold leading-6 text-[#1E293B] ${isPricingCardsVisible ? "is-visible" : ""} ${
                       featureIndex === 0
                         ? "saas-delay-520"
                         : featureIndex === 1
@@ -134,8 +134,8 @@ export function PricingSection() {
               <a
                 className={`saas-pricing-button mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl text-sm font-black transition duration-300 ${
                   plan.highlighted
-                    ? "bg-linear-to-r from-[#892fd3] to-[#456ef7] text-white shadow-lg shadow-[#5436ff]/25 hover:brightness-110"
-                    : "border border-[#cd62ff] bg-white text-[#584ff7] hover:bg-[#f5f7ff] hover:brightness-105"
+                    ? "bg-[#B9974D] text-white shadow-lg shadow-[#0F172A]/15 hover:bg-[#9C7D37]"
+                    : "border border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#B9974D] hover:bg-[#F7F4ED] hover:brightness-105"
                 }`}
                 href={plan.name === "Enterprise" ? "#pricing" : "#trial"}
               >
@@ -147,12 +147,12 @@ export function PricingSection() {
 
         <div
           ref={trialCtaRef}
-          className={`saas-zoom-reveal relative mx-auto mt-16 max-w-7xl overflow-hidden rounded-4xl bg-linear-to-r from-[#2138a8] to-[#5f31ca] px-6 py-16 text-center text-white shadow-2xl shadow-[#3155ff]/25 sm:px-12 lg:px-20 ${
+          className={`saas-zoom-reveal relative mx-auto mt-16 max-w-7xl overflow-hidden rounded-4xl bg-linear-to-r from-[#0F172A] to-[#243551] px-6 py-16 text-center text-white shadow-2xl shadow-[#B9974D]/25 sm:px-12 lg:px-20 ${
             isTrialCtaVisible ? "is-visible" : ""
           }`}
         >
           <div className="absolute -left-20 top-10 h-48 w-96 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute right-0 top-0 h-72 w-72 rounded-full bg-[#8b37f6]/35 blur-3xl" />
+          <div className="absolute right-0 top-0 h-72 w-72 rounded-full bg-[#0F172A]/35 blur-3xl" />
           <svg className="pointer-events-none absolute left-0 top-20 hidden h-48 w-136 opacity-35 md:block" viewBox="0 0 560 200" fill="none" aria-hidden="true">
             <path d="M0 112C78 64 118 128 188 86C268 38 324 122 402 82C460 52 510 46 560 68" stroke="white" strokeWidth="1.5" />
             <path d="M0 146C74 94 132 152 210 112C284 74 338 156 424 108C474 80 516 78 560 94" stroke="white" strokeWidth="1.5" />
@@ -183,10 +183,10 @@ export function PricingSection() {
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#3f6ae2] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:brightness-110" href="#trial">
+              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#B9974D] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:bg-[#9C7D37]" href="#trial">
                 Book a Demo
               </a>
-              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-black px-8 text-sm font-black text-black shadow-lg shadow-black/10 transition hover:brightness-105" type="button" data-contact-modal>
+              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-white px-8 text-sm font-black text-black! shadow-lg shadow-black/10 transition hover:brightness-105" type="button" data-contact-modal>
                 Contact us
               </a>
             </div>

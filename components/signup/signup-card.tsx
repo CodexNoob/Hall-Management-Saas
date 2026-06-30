@@ -9,7 +9,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function UserIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -17,7 +17,7 @@ function UserIcon() {
 
 function EmailIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -25,7 +25,7 @@ function EmailIcon() {
 
 function PhoneIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M7 4 4.5 6.5c-.6.6-.7 1.5-.3 2.3 2.3 4.8 6.2 8.7 11 11 .8.4 1.7.3 2.3-.3L20 17l-4-3-2 2c-2.5-1.1-4.5-3.1-5.6-5.6l2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -33,7 +33,7 @@ function PhoneIcon() {
 
 function BuildingIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 21h16M6 21V7l6-3 6 3v14M9 10h2M13 10h2M9 14h2M13 14h2M9 18h2M13 18h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -41,7 +41,7 @@ function BuildingIcon() {
 
 function LockIcon() {
   return (
-    <svg className="h-5 w-5 text-[#8290ad]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6zM12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -72,7 +72,7 @@ function ArrowLoginIcon() {
 
 function ShieldIcon() {
   return (
-    <svg className="h-7 w-7 text-[#3155ff]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-7 w-7 text-[#B9974D]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -104,21 +104,21 @@ function MicrosoftIcon() {
 function SignupIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
-      <div className="absolute bottom-0 left-2 h-48 w-48 rounded-full bg-[#c7d8ff]/70 blur-3xl" />
-      <div className="absolute right-2 top-4 h-44 w-44 rounded-full bg-[#d9c7ff]/75 blur-3xl" />
+      <div className="absolute bottom-0 left-2 h-48 w-48 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
+      <div className="absolute right-2 top-4 h-44 w-44 rounded-full bg-[#B9974D]/75 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-107.5">
-        <div className="relative mx-auto h-60 w-[88%] rotate-[-4deg] overflow-hidden rounded-4xl border border-white/80 bg-white shadow-2xl shadow-[#3155ff]/20">
-          <div className="flex h-11 items-center justify-between border-b border-[#eef2ff] bg-[#fbfcff] px-5">
+        <div className="relative mx-auto h-60 w-[88%] rotate-[-4deg] overflow-hidden rounded-4xl border border-white/80 bg-white shadow-2xl shadow-[#B9974D]/20">
+          <div className="flex h-11 items-center justify-between border-b border-[#E5E0D6] bg-[#FFFFFF] px-5">
             <div className="flex gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
               <span className="h-2.5 w-2.5 rounded-full bg-[#ffbf4d]" />
               <span className="h-2.5 w-2.5 rounded-full bg-[#32d583]" />
             </div>
-            <span className="h-3 w-20 rounded-full bg-[#dce5ff]" />
+            <span className="h-3 w-20 rounded-full bg-[#E5E0D6]" />
           </div>
           <div className="grid h-[calc(100%-44px)] grid-cols-[98px_1fr]">
-            <div className="bg-linear-to-b from-[#3155ff] to-[#7138f5] p-4">
+            <div className="bg-linear-to-b from-[#B9974D] to-[#0F172A] p-4">
               <div className="h-4 w-16 rounded-full bg-white/80" />
               <div className="mt-6 space-y-3.5">
                 <div className="h-3 w-16 rounded-full bg-white/55" />
@@ -129,46 +129,46 @@ function SignupIllustration() {
             </div>
             <div className="p-4">
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-2xl bg-[#eef3ff] p-3">
-                  <p className="h-2 w-12 rounded-full bg-[#3155ff]/25" />
-                  <p className="mt-3 text-lg font-black text-[#09122f]">128</p>
+                <div className="rounded-2xl bg-[#F7F4ED] p-3">
+                  <p className="h-2 w-12 rounded-full bg-[#B9974D]/25" />
+                  <p className="mt-3 text-lg font-black text-[#0F172A]">128</p>
                 </div>
-                <div className="rounded-2xl bg-[#f4f0ff] p-3">
-                  <p className="h-2 w-14 rounded-full bg-[#7138f5]/25" />
-                  <p className="mt-3 text-lg font-black text-[#09122f]">$24k</p>
+                <div className="rounded-2xl bg-[#F7F4ED] p-3">
+                  <p className="h-2 w-14 rounded-full bg-[#0F172A]/25" />
+                  <p className="mt-3 text-lg font-black text-[#0F172A]">$24k</p>
                 </div>
-                <div className="rounded-2xl bg-[#eef3ff] p-3">
-                  <p className="h-2 w-12 rounded-full bg-[#3155ff]/25" />
-                  <p className="mt-3 text-lg font-black text-[#09122f]">92%</p>
+                <div className="rounded-2xl bg-[#F7F4ED] p-3">
+                  <p className="h-2 w-12 rounded-full bg-[#B9974D]/25" />
+                  <p className="mt-3 text-lg font-black text-[#0F172A]">92%</p>
                 </div>
               </div>
               <div className="mt-5 grid grid-cols-[1fr_78px] gap-4">
-                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#3155ff]/10">
-                  <svg className="h-full w-full p-4 text-[#3155ff]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
+                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#B9974D]/10">
+                  <svg className="h-full w-full p-4 text-[#B9974D]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
                     <path d="M8 64c18-34 34-12 52-34 18-22 35 17 52-2 12-13 24-18 40-14" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
                   </svg>
                 </div>
-                <div className="h-24 rounded-2xl bg-[#f5f3ff] p-3">
-                  <div className="h-full rounded-full border-10 border-[#7138f5] border-l-[#d9d0ff]" />
+                <div className="h-24 rounded-2xl bg-[#F7F4ED] p-3">
+                  <div className="h-full rounded-full border-10 border-[#0F172A] border-l-[#E5E0D6]" />
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="absolute -left-3 bottom-16 w-34 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#3155ff]/15 backdrop-blur">
-          <p className="text-xs font-black text-[#52607d]">Next Booking</p>
-          <p className="mt-2 text-sm font-black text-[#09122f]">Wedding Event</p>
-          <p className="mt-1 text-xs font-bold text-[#52607d]">May 22, 2026</p>
+        <div className="absolute -left-3 bottom-16 w-34 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#B9974D]/15 backdrop-blur">
+          <p className="text-xs font-black text-[#64748B]">Next Booking</p>
+          <p className="mt-2 text-sm font-black text-[#0F172A]">Wedding Event</p>
+          <p className="mt-1 text-xs font-bold text-[#64748B]">May 22, 2026</p>
         </div>
 
-        <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#7138f5]/15 backdrop-blur">
-          <p className="text-xs font-black text-[#52607d]">Revenue</p>
-          <p className="mt-2 text-lg font-black text-[#09122f]">$125,000</p>
+        <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
+          <p className="text-xs font-black text-[#64748B]">Revenue</p>
+          <p className="mt-2 text-lg font-black text-[#0F172A]">$125,000</p>
           <p className="mt-1 text-xs font-black text-[#16a34a]">+16.5%</p>
         </div>
 
-        <div className="absolute bottom-0 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#3155ff] to-[#8b37f6] text-white shadow-2xl shadow-[#3155ff]/30">
+        <div className="absolute bottom-0 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#B9974D] to-[#0F172A] text-white shadow-2xl shadow-[#B9974D]/30">
           <ShieldIcon />
         </div>
       </div>
@@ -250,7 +250,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
 
       if (data.session?.access_token) {
         await syncSignedInUser(data.session.access_token);
-        router.push("/events/new");
+        router.push("/dashboard");
         router.refresh();
         return;
       }
@@ -277,38 +277,38 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
   };
 
   return (
-    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#3155ff]/12 backdrop-blur-xl lg:grid-cols-2">
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#f7f6ff] to-[#e7f0ff] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#c9d7ff]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#d4c2ff]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#c8dcff]/75 blur-2xl" />
+    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
+        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#E7E3DA]/75 blur-2xl" />
         <div className="pointer-events-none absolute bottom-16 left-10 hidden grid-cols-8 gap-3 opacity-25 sm:grid">
           {Array.from({ length: 48 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#7138f5]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#0F172A]" />
           ))}
         </div>
-        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#9fb8ff] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#B9974D] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
         </svg>
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#3155ff]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#B9974D]" />
           ))}
         </div>
 
         <div className={`relative ${compact ? "lg:sticky lg:top-0 lg:flex lg:min-h-[calc(90vh-80px)] lg:flex-col lg:justify-between lg:gap-6" : ""}`}>
           <div>
             <Link href="/" aria-label="Back to Hall Management SaaS home">
-              <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-auto w-64 max-w-full object-contain" />
+              <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
             </Link>
 
-            <p className="mt-10 text-base font-black text-[#3155ff]">
+            <p className="mt-10 text-base font-black text-[#B9974D]">
               Welcome! <span aria-hidden="true">&#128075;</span>
             </p>
-            <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#09122f] sm:text-5xl">
+            <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
               Create your account
             </h1>
-            <p className="mt-5 max-w-md text-lg leading-8 text-[#52607d]">
+            <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
               Get started with powerful tools to manage hall bookings, events, payments, and operations&mdash;all in one place.
             </p>
           </div>
@@ -318,12 +318,12 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
           </div>
 
           <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#3155ff]/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#B9974D]/10">
               <ShieldIcon />
             </div>
             <div>
-              <p className="font-black text-[#09122f]">Your data is secure with us.</p>
-              <p className="mt-1 text-sm font-medium text-[#52607d]">We use industry-standard encryption and best security practices.</p>
+              <p className="font-black text-[#0F172A]">Your data is secure with us.</p>
+              <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption and best security practices.</p>
             </div>
           </div>
         </div>
@@ -331,32 +331,36 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
 
       <div className={`order-1 bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
         <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-          <h2 id="signup-modal-title" className="text-4xl font-black tracking-tight text-[#09122f]">Sign Up</h2>
-          <p className="mt-4 text-lg text-[#52607d]">Set up your account to get started</p>
+          <h2 id="signup-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Sign Up</h2>
+          <p className="mt-4 text-lg text-[#64748B]">Set up your account to get started</p>
 
           <form className="mt-8" onSubmit={submit}>
-            <label className="text-base font-bold text-[#09122f]" htmlFor="fullName">
+            <label className="text-base font-bold text-[#0F172A]" htmlFor="fullName">
               Full Name
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <UserIcon />
               <input
                 id="fullName"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="fullName"
+                autoComplete="name"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your full name"
                 value={form.fullName}
                 onChange={(event) => updateField("fullName", event.target.value)}
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#09122f]" htmlFor="signupEmail">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="signupEmail">
               Email Address
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <EmailIcon />
               <input
                 id="signupEmail"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="email"
+                autoComplete="email"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your email address"
                 type="email"
                 value={form.email}
@@ -364,16 +368,19 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#09122f]" htmlFor="phone">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="phone">
               Phone Number
             </label>
-            <div className="login-field mt-3 flex h-14 overflow-hidden border border-[#cfd7e8] bg-white transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <div className="flex items-center px-4">
                 <PhoneIcon />
               </div>
               <select
+                id="countryCode"
+                name="countryCode"
+                autoComplete="tel-country-code"
                 aria-label="Country code"
-                className="h-full border-x border-[#dbe2ef] bg-white px-3 text-base font-bold text-[#09122f] outline-none"
+                className="h-full border-x border-[#E5E0D6] bg-white px-3 text-base font-bold text-[#0F172A] outline-none"
                 value={form.countryCode}
                 onChange={(event) => updateField("countryCode", event.target.value)}
               >
@@ -384,7 +391,9 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               </select>
               <input
                 id="phone"
-                className="min-w-0 flex-1 bg-transparent px-4 text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="phone"
+                autoComplete="tel-national"
+                className="min-w-0 flex-1 bg-transparent px-4 text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your phone number"
                 type="tel"
                 value={form.phone}
@@ -392,67 +401,73 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#09122f]" htmlFor="venue">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="venue">
               Company or Venue Name
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <BuildingIcon />
               <input
                 id="venue"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="organization"
+                autoComplete="organization"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your company or venue name"
                 value={form.venue}
                 onChange={(event) => updateField("venue", event.target.value)}
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#09122f]" htmlFor="signupPassword">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="signupPassword">
               Password
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <LockIcon />
               <input
                 id="signupPassword"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="newPassword"
+                autoComplete="new-password"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Create a password"
                 type={showPassword ? "text" : "password"}
                 value={form.password}
                 onChange={(event) => updateField("password", event.target.value)}
               />
-              <button className="login-icon-button text-[#8290ad] transition hover:text-[#3155ff]" type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>
+              <button className="login-icon-button text-[#64748B] transition hover:text-[#B9974D]" type="button" onClick={() => setShowPassword((current) => !current)} aria-label={showPassword ? "Hide password" : "Show password"}>
                 <EyeIcon isVisible={showPassword} />
               </button>
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#09122f]" htmlFor="confirmPassword">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="confirmPassword">
               Confirm Password
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#cfd7e8] bg-white px-4 transition focus-within:border-[#3155ff] focus-within:shadow-[0_0_0_4px_rgba(49,85,255,0.12)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <LockIcon />
               <input
                 id="confirmPassword"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#09122f] outline-none placeholder:text-[#9aa5ba]"
+                name="confirmPassword"
+                autoComplete="new-password"
+                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Confirm your password"
                 type={showConfirmPassword ? "text" : "password"}
                 value={form.confirmPassword}
                 onChange={(event) => updateField("confirmPassword", event.target.value)}
               />
-              <button className="login-icon-button text-[#8290ad] transition hover:text-[#3155ff]" type="button" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
+              <button className="login-icon-button text-[#64748B] transition hover:text-[#B9974D]" type="button" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
                 <EyeIcon isVisible={showConfirmPassword} />
               </button>
             </div>
 
-            <label className="mt-6 flex cursor-pointer items-center gap-3 text-base font-medium text-[#52607d]" htmlFor="terms">
+            <label className="mt-6 flex cursor-pointer items-center gap-3 text-base font-medium text-[#64748B]" htmlFor="terms">
               <input
                 id="terms"
-                className="login-checkbox h-5 w-5 border border-[#cfd7e8] accent-[#3155ff]"
+                className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#B9974D]"
                 type="checkbox"
                 checked={form.acceptedTerms}
                 onChange={(event) => updateField("acceptedTerms", event.target.checked)}
               />
               <span>
                 I agree to the{" "}
-                <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="#terms">
+                <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="#terms">
                   Terms & Privacy Policy
                 </Link>
               </span>
@@ -462,7 +477,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-7 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#0e4cff] to-[#8b37f6] text-lg font-black text-white shadow-xl shadow-[#5436ff]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              className="login-button mt-7 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#B9974D] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
               type="submit"
               disabled={isSubmitting}
             >
@@ -470,15 +485,15 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               {isSubmitting ? "Creating account..." : "Sign Up"}
             </button>
 
-            <div className="my-8 flex items-center gap-5 text-sm font-medium text-[#8290ad]">
-              <span className="h-px flex-1 bg-[#dbe2ef]" />
+            <div className="my-8 flex items-center gap-5 text-sm font-medium text-[#64748B]">
+              <span className="h-px flex-1 bg-[#E5E0D6]" />
               or continue with
-              <span className="h-px flex-1 bg-[#dbe2ef]" />
+              <span className="h-px flex-1 bg-[#E5E0D6]" />
             </div>
 
             <div className="space-y-4">
               <button
-                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                 type="button"
                 disabled={oauthProvider !== null}
                 onClick={() => signInWithProvider("google")}
@@ -487,7 +502,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
                 {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
               </button>
               <button
-                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#d2d9e8] bg-white text-base font-bold text-[#09122f] transition hover:border-[#3155ff] hover:bg-[#f8faff] disabled:cursor-not-allowed disabled:opacity-70"
+                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                 type="button"
                 disabled={oauthProvider !== null}
                 onClick={() => signInWithProvider("azure")}
@@ -497,14 +512,14 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               </button>
             </div>
 
-            <p className="mt-9 text-center text-base text-[#52607d]">
+            <p className="mt-9 text-center text-base text-[#64748B]">
               Already have an account?{" "}
               {onLoginClick ? (
-                <button className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" type="button" onClick={onLoginClick}>
+                <button className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onLoginClick}>
                   Login
                 </button>
               ) : (
-                <Link className="font-bold text-[#4f2cff] transition hover:text-[#3155ff]" href="/events/new">
+                <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/dashboard">
                   Login
                 </Link>
               )}

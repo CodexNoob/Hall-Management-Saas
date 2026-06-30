@@ -13,7 +13,7 @@ type BenefitCard = {
 
 function BenefitVisual({ children }: { children: ReactNode }) {
   return (
-    <div className="saas-benefit-visual flex h-24 items-center justify-center rounded-3xl bg-linear-to-br from-[#eef3ff] via-white to-[#f0eaff] text-[#4f46ff] transition-transform duration-300 group-hover:scale-[1.04]">
+    <div className="saas-benefit-visual flex h-24 items-center justify-center rounded-3xl bg-linear-to-br from-[#F7F4ED] via-white to-[#F7F4ED] text-[#B9974D] transition-transform duration-300 group-hover:scale-[1.04]">
       <span className="[&_svg]:h-16 [&_svg]:w-16 [&_svg]:stroke-current [&_svg]:stroke-2">{children}</span>
     </div>
   );
@@ -72,17 +72,17 @@ export function BenefitsSection() {
   const [sectionRef, isSectionVisible] = useDelayedInView<HTMLElement>();
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-linear-to-b from-white to-[#f8faff] px-5 py-24 sm:px-8 lg:py-28">
-      <div className="saas-benefit-glow absolute -left-32 top-12 h-72 w-72 rounded-full bg-[#e8efff] blur-3xl" />
-      <div className="saas-benefit-glow absolute -right-28 bottom-0 h-80 w-80 rounded-full bg-[#f0e7ff] blur-3xl" />
+    <section ref={sectionRef} className="relative overflow-hidden bg-linear-to-b from-white to-[#F7F4ED] px-5 py-24 sm:px-8 lg:py-28">
+      <div className="saas-benefit-glow absolute -left-32 top-12 h-72 w-72 rounded-full bg-[#B9974D]/12 blur-3xl" />
+      <div className="saas-benefit-glow absolute -right-28 bottom-0 h-80 w-80 rounded-full bg-[#0F172A]/8 blur-3xl" />
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div id="benefits" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#3155ff] ${isSectionVisible ? "is-visible" : ""}`}>Benefits</p>
-          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#10172f] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal text-xl font-black uppercase tracking-[0.24em] text-[#B9974D] ${isSectionVisible ? "is-visible" : ""}`}>Benefits</p>
+          <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
             Run Smarter. Save More. Grow Faster.
           </h2>
-          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-3xl text-base leading-7 text-[#53607d] sm:text-lg ${isSectionVisible ? "is-visible" : ""}`}>
+          <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-3xl text-base leading-7 text-[#64748B] sm:text-lg ${isSectionVisible ? "is-visible" : ""}`}>
             Hall Management SaaS helps venue owners reduce manual work, avoid booking mistakes, improve client experience, and
             grow revenue with better control over daily operations.
           </p>
@@ -92,17 +92,17 @@ export function BenefitsSection() {
           {benefits.map((benefit, index) => (
             <article
               key={benefit.title}
-              className={`saas-benefit-slide-reveal saas-benefit-card group rounded-3xl border border-[#e4e9f7] bg-white/90 p-6 shadow-sm shadow-[#3155ff]/5 backdrop-blur hover:border-[#7062ff] ${
+              className={`saas-benefit-slide-reveal saas-benefit-card group rounded-3xl border border-[#E5E0D6] bg-white/90 p-6 shadow-sm shadow-[#B9974D]/5 backdrop-blur hover:border-[#B9974D] ${
                 benefit.title === "Save Time" ? "from-left" : benefit.title === "Grow Revenue" ? "from-right" : "from-bottom"
               } ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0 ? "saas-delay-260" : index === 1 ? "saas-delay-340" : index === 2 ? "saas-delay-420" : "saas-delay-520"
               }`}
             >
               <BenefitVisual>{benefit.icon}</BenefitVisual>
-              <h3 className="mt-6 text-xl font-black text-[#10172f]">{benefit.title}</h3>
-              <p className="mt-3 min-h-24 text-sm leading-6 text-[#53607d]">{benefit.description}</p>
+              <h3 className="mt-6 text-xl font-black text-[#0F172A]">{benefit.title}</h3>
+              <p className="mt-3 min-h-24 text-sm leading-6 text-[#64748B]">{benefit.description}</p>
               <div
-                className={`saas-scale-reveal mt-6 inline-flex rounded-2xl border border-[#ccefdc] bg-linear-to-r from-[#ecfdf3] to-[#f7fbff] px-4 py-3 text-sm font-black text-[#138a4f] ${isSectionVisible ? "is-visible" : ""} ${
+                className={`saas-scale-reveal mt-6 inline-flex rounded-2xl border border-[#E5E0D6] bg-linear-to-r from-[#F7F4ED] to-white px-4 py-3 text-sm font-black text-[#9C7D37] ${isSectionVisible ? "is-visible" : ""} ${
                   index === 0 ? "saas-delay-420" : index === 1 ? "saas-delay-520" : index === 2 ? "saas-delay-640" : "saas-delay-760"
                 }`}
               >

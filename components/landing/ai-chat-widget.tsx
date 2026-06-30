@@ -59,8 +59,8 @@ export function AiChatWidget() {
   return (
     <div className="fixed bottom-6 right-6 z-30">
       {isOpen ? (
-        <section className="w-[min(calc(100vw-32px),360px)] border border-[var(--color-line)] bg-white shadow-[8px_8px_0_#d9d6ff]">
-          <div className="flex items-center justify-between border-b border-[var(--color-line)] bg-black px-4 py-3 text-white">
+        <section className="w-[min(calc(100vw-32px),360px)] border border-(--color-line) bg-white shadow-[8px_8px_0_#d9d6ff]">
+          <div className="flex items-center justify-between border-b border-(--color-line) bg-black px-4 py-3 text-white">
             <div>
               <p className="text-sm font-black">Hall AI</p>
               <p className="text-xs text-[#d8d8d8]">Online assistant</p>
@@ -75,7 +75,7 @@ export function AiChatWidget() {
               <div
                 key={`${message.role}-${index}`}
                 className={`border p-3 text-sm leading-5 ${
-                  message.role === "assistant" ? "mr-8 border-[var(--color-line)] bg-[#f7f7f7]" : "ml-8 border-[#b8923a] bg-[#fff8e8]"
+                  message.role === "assistant" ? "mr-8 border-(--color-line) bg-[#f7f7f7]" : "ml-8 border-[#b8923a] bg-[#fff8e8]"
                 }`}
               >
                 {message.text}
@@ -83,9 +83,11 @@ export function AiChatWidget() {
             ))}
           </div>
 
-          <div className="flex border-t border-[var(--color-line)] p-3">
+          <div className="flex border-t border-(--color-line) p-3">
             <input
-              className="h-10 min-w-0 flex-1 border border-[var(--color-line)] px-3 text-sm"
+              id="hall-ai-message"
+              name="hallAiMessage"
+              className="h-10 min-w-0 flex-1 border border-(--color-line) px-3 text-sm"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => {

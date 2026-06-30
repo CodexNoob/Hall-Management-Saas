@@ -162,7 +162,7 @@ export function LoginModal() {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
-          className="modal-round absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center border border-[#dbe1ee] bg-white text-[#10172f] shadow-md shadow-[#10172f]/10 transition hover:scale-105 hover:bg-[#f8fafc]"
+          className="modal-round absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center border border-[#E5E0D6] bg-white text-[#0F172A] shadow-md shadow-[#0F172A]/10 transition hover:scale-105 hover:bg-[#F7F4ED]"
           type="button"
           aria-label="Close login modal"
           onClick={close}

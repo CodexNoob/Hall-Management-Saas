@@ -25,12 +25,19 @@ const companyLinks = [
 
 function FooterBrandIcon() {
   return (
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-[#1187ff] to-[#8b37f6] shadow-xl shadow-[#3155ff]/30">
-      <svg className="h-10 w-10" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-        <path d="M7 31V15L20 7l13 8v16" stroke="white" strokeWidth="2.5" strokeLinejoin="round" />
-        <path d="M15 31V20h10v11M7 31h26" stroke="white" strokeWidth="2.5" strokeLinejoin="round" />
-        <path d="M18 24h4" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+    <div className="flex items-center gap-3" aria-label="Hall Management SaaS">
+      <svg className="h-16 w-18 shrink-0" viewBox="0 0 90 76" fill="none" aria-hidden="true">
+        <path d="M10 68h70" stroke="#B9974D" strokeWidth="4" strokeLinecap="square" />
+        <path d="M14 66V30L45 12l31 18v36" stroke="#B9974D" strokeWidth="5" strokeLinejoin="miter" />
+        <path d="M23 66V43h44v23" stroke="#F7F4ED" strokeWidth="5" strokeLinejoin="miter" />
+        <path d="M31 66V52M45 66V52M59 66V52" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
+        <path d="M24 35h42" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
+        <path d="M34 30h22" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
       </svg>
+      <div className="leading-none">
+        <p className="text-2xl font-black tracking-tight text-white sm:text-3xl">Hall Management</p>
+        <p className="mt-1 text-3xl font-black tracking-tight text-[#B9974D] sm:text-4xl">SaaS</p>
+      </div>
     </div>
   );
 }
@@ -59,14 +66,6 @@ function ArrowIcon() {
   );
 }
 
-function ShieldIcon() {
-  return (
-    <svg className="h-6 w-6 text-[#8b6cff]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 function SocialIcon({ type }: { type: "facebook" | "linkedin" | "instagram" }) {
   const icons = {
@@ -92,7 +91,7 @@ function SocialIcon({ type }: { type: "facebook" | "linkedin" | "instagram" }) {
 
   return (
     <a
-      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#2f8cff] transition duration-300 hover:-translate-y-1 hover:border-[#7b2cff] hover:bg-[#3155ff]/20 hover:text-white hover:shadow-lg hover:shadow-[#3155ff]/20"
+      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#B9974D] transition duration-300 hover:-translate-y-1 hover:border-[#B9974D] hover:bg-[#B9974D]/20 hover:text-white hover:shadow-lg hover:shadow-[#B9974D]/20"
       href="#home"
       aria-label={type}
     >
@@ -112,8 +111,8 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
       <ul className="mt-8 space-y-5">
         {links.map((link) => (
           <li key={link.label}>
-            <a className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#4f9cff]" href={link.href}>
-              <span className="text-[#2f8cff]">
+            <a className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#B9974D]" href={link.href}>
+              <span className="text-[#B9974D]">
                 <ChevronIcon />
               </span>
               {link.label}
@@ -143,17 +142,13 @@ export function LandingFooter() {
 
   return (
     <footer className="relative overflow-hidden bg-[#061126] text-white" data-site-footer>
-      <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#1187ff]/15 blur-3xl" />
-      <div className="absolute -right-24 top-0 h-72 w-72 rounded-full bg-[#8b37f6]/20 blur-3xl" />
+      <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#B9974D]/15 blur-3xl" />
+      <div className="absolute -right-24 top-0 h-72 w-72 rounded-full bg-[#0F172A]/20 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
         <div className="grid gap-10 lg:grid-cols-[1.35fr_0.85fr_0.9fr_0.9fr_1.25fr]">
           <div>
             <FooterBrandIcon />
-            <h2 className="mt-5 text-2xl font-black tracking-tight text-white">
-              Hall Management{" "}
-              <span className="bg-linear-to-r from-[#1187ff] to-[#8b37f6] bg-clip-text text-transparent">SaaS</span>
-            </h2>
             <p className="mt-6 max-w-xs text-lg leading-8 text-[#aeb8d1]">
               The all-in-one hall management software to simplify bookings, operations, payments, and growth.
             </p>
@@ -193,13 +188,13 @@ export function LandingFooter() {
                 />
               </div>
               <button
-                className="group mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-linear-to-r from-[#1187ff] to-[#8b37f6] text-base font-black text-white shadow-lg shadow-[#3155ff]/20 transition hover:brightness-110"
+                className="group mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#B9974D] text-base font-black text-white shadow-lg shadow-[#B9974D]/20 transition hover:bg-[#9C7D37]"
                 type="submit"
               >
                 Subscribe
                 <ArrowIcon />
               </button>
-              {message ? <p className="mt-4 text-sm font-semibold text-[#9ec5ff]">{message}</p> : null}
+              {message ? <p className="mt-4 text-sm font-semibold text-[#B9974D]">{message}</p> : null}
             </form>
           </div>
         </div>
@@ -207,7 +202,6 @@ export function LandingFooter() {
 
       <div className="relative border-t border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-5 py-7 text-center text-base text-[#aeb8d1] sm:px-8">
-          <ShieldIcon />
           <p>© 2026 Hall Management SaaS. All rights reserved.</p>
         </div>
       </div>
