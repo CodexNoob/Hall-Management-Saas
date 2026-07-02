@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Image from "next/image";
 
 const quickLinks = [
   { label: "Home", href: "#home" },
@@ -25,20 +26,14 @@ const companyLinks = [
 
 function FooterBrandIcon() {
   return (
-    <div className="flex items-center gap-3" aria-label="Hall Management SaaS">
-      <svg className="h-16 w-18 shrink-0" viewBox="0 0 90 76" fill="none" aria-hidden="true">
-        <path d="M10 68h70" stroke="#B9974D" strokeWidth="4" strokeLinecap="square" />
-        <path d="M14 66V30L45 12l31 18v36" stroke="#B9974D" strokeWidth="5" strokeLinejoin="miter" />
-        <path d="M23 66V43h44v23" stroke="#F7F4ED" strokeWidth="5" strokeLinejoin="miter" />
-        <path d="M31 66V52M45 66V52M59 66V52" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
-        <path d="M24 35h42" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
-        <path d="M34 30h22" stroke="#F7F4ED" strokeWidth="5" strokeLinecap="square" />
-      </svg>
-      <div className="leading-none">
-        <p className="text-2xl font-black tracking-tight text-white sm:text-3xl">Hall Management</p>
-        <p className="mt-1 text-3xl font-black tracking-tight text-[#B9974D] sm:text-4xl">SaaS</p>
-      </div>
-    </div>
+    <Image
+      src="/Footer-logo.png"
+      alt="Hall Management SaaS"
+      width={720}
+      height={220}
+      unoptimized
+      className="h-auto w-64 max-w-full object-contain"
+    />
   );
 }
 

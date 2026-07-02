@@ -31,11 +31,11 @@ type DashboardCard = {
   title: string;
   description: string;
   variant: "gradient" | "light";
-  icon: "settings" | "hall" | "kitchen" | "calendar" | "event" | "menu" | "sliders";
+  icon: "settings" | "hall" | "kitchen" | "calendar" | "event" | "dining" | "map" | "menu" | "sliders";
   route?: string;
   pills: Array<{
     label: string;
-    icon?: "tag" | "globe" | "check" | "plus" | "calendar" | "clock" | "user" | "bolt" | "box" | "matrix";
+    icon?: "tag" | "globe" | "check" | "plus" | "calendar" | "clock" | "user" | "bolt" | "box" | "matrix" | "file" | "hall";
   }>;
 };
 
@@ -95,6 +95,31 @@ const secondaryCards: DashboardCard[] = [
       { label: "Quick Actions", icon: "bolt" }
     ]
   },
+  {
+    title: "Dining Manager",
+    description: "Select an event, adjust hall layout, seating, waiter counts, and prepare the dining sheet.",
+    variant: "light",
+    icon: "dining",
+    route: "/dashboard/dining-manager",
+    pills: [
+      { label: "Event layout", icon: "matrix" },
+      { label: "Dining sheet", icon: "file" }
+    ]
+  },
+  {
+    title: "Hall Room Map",
+    description: "Build default hall layouts with movable, resizable, and rotatable room objects.",
+    variant: "light",
+    icon: "map",
+    route: "/dashboard/hall-room-map",
+    pills: [
+      { label: "Layout editor", icon: "matrix" },
+      { label: "Hall presets", icon: "hall" }
+    ]
+  }
+];
+
+const bottomCards: DashboardCard[] = [
   {
     title: "Menu",
     description: "Menu items, packages, add-ons, and hall menu item access.",
@@ -173,6 +198,25 @@ function DashboardIcon({ name, className = "h-8 w-8" }: { name: DashboardCard["i
     );
   }
 
+  if (name === "dining") {
+    return (
+      <svg {...common}>
+        <path d="M5 10h14M7 10v9M17 10v9M9 5v5M15 5v5" />
+        <path d="M8 5a2 2 0 0 0-2 2v3M16 5a2 2 0 0 1 2 2v3M9 19h6" />
+      </svg>
+    );
+  }
+
+  if (name === "map") {
+    return (
+      <svg {...common}>
+        <path d="M4 5h16v14H4Z" />
+        <path d="M9 5v14M15 5v14M4 11h5M15 13h5" />
+        <path d="M6.5 8h.01M17.5 16h.01" />
+      </svg>
+    );
+  }
+
   if (name === "menu") {
     return (
       <svg {...common}>
@@ -211,7 +255,9 @@ function PillIcon({ name }: { name: NonNullable<DashboardCard["pills"][number]["
     user: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />,
     bolt: <path d="m13 2-8 12h6l-1 8 9-13h-6Z" />,
     box: <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9ZM4 7.5l8 4.5 8-4.5M12 12v9" />,
-    matrix: <path d="M4 5h5v5H4ZM15 5h5v5h-5ZM4 15h5v5H4ZM15 15h5v5h-5" />
+    matrix: <path d="M4 5h5v5H4ZM15 5h5v5h-5ZM4 15h5v5H4ZM15 15h5v5h-5" />,
+    file: <path d="M6 3h9l3 3v15H6Z M15 3v4h4M9 12h6M9 16h4" />,
+    hall: <path d="M4 20h16M6 20V9l6-4 6 4v11M9 20v-6h6v6" />
   };
 
   return <svg {...common}>{paths[name]}</svg>;
@@ -235,54 +281,36 @@ function TopbarIconButton({ children, label, badge }: { children: ReactNode; lab
 }
 
 function FeatureCard({ card, className = "" }: { card: DashboardCard; className?: string }) {
-  const isGradient = card.variant === "gradient";
   const router = useRouter();
 
   return (
     <button
-      className={`group min-h-0 w-full min-w-0 rounded-3xl border p-5 text-left transition duration-300 hover:-translate-y-1 sm:rounded-4xl sm:p-6 lg:min-h-65 lg:p-7 ${
-        isGradient
-          ? "relative overflow-hidden border-transparent bg-linear-to-br from-[#0F172A] to-[#243551] text-white shadow-2xl shadow-[#0F172A]/18"
-          : "border-[#E5E0D6] bg-white/92 text-[#0F172A] shadow-xl shadow-[#B9974D]/7 hover:border-[#B9974D] hover:shadow-2xl hover:shadow-[#B9974D]/13"
-      } ${className}`}
+      className={`dashboard-gradient-card group min-h-0 w-full min-w-0 overflow-hidden text-left shadow-xl shadow-[#0F172A]/8 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#0F172A]/12 lg:min-h-65 ${className}`}
       type="button"
       onClick={() => (card.route ? router.push(card.route as Parameters<typeof router.push>[0]) : console.log(`${card.title} clicked`))}
     >
-      {isGradient ? (
-        <>
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-white/12 blur-2xl" />
-          <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-80 rounded-[50%] bg-[#B9974D]/20 blur-xl" />
-          <svg className="pointer-events-none absolute bottom-0 right-0 h-44 w-full text-white/10" viewBox="0 0 500 160" fill="none" aria-hidden="true">
-            <path d="M0 142c92-74 146 30 238-45 96-78 154 2 262-67" stroke="currentColor" strokeWidth="1" />
-            <path d="M0 118c92-74 146 30 238-45 96-78 154 2 262-67" stroke="currentColor" strokeWidth="1" />
-            <path d="M0 94c92-74 146 30 238-45 96-78 154 2 262-67" stroke="currentColor" strokeWidth="1" />
-          </svg>
-        </>
-      ) : null}
+      <div className="relative z-1 flex h-full flex-col overflow-hidden p-5 text-[#0F172A] sm:p-5 lg:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#B9974D]/8 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 left-0 h-44 w-56 rounded-full bg-[#16C7C4]/8 blur-3xl" />
 
-      <div className="relative">
-        <div
-          className={`flex h-13 w-13 items-center justify-center rounded-full sm:h-16 sm:w-16 lg:h-20 lg:w-20 ${
-            isGradient ? "bg-white/12 text-[#B9974D] shadow-lg shadow-black/10" : "bg-[#F7F4ED] text-[#B9974D]"
-          }`}
-        >
-          <DashboardIcon name={card.icon} className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8" />
+        <div className="relative flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[linear-gradient(135deg,#EEF7FF,#F7F4ED)] text-[#B9974D] shadow-sm shadow-[#0F172A]/5 sm:h-13 sm:w-13 lg:h-14 lg:w-14">
+            <DashboardIcon name={card.icon} className="h-5 w-5 sm:h-6 sm:w-6" />
+          </div>
+          <h3 className="min-w-0 overflow-wrap-anywhere text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">
+            {card.title}
+          </h3>
         </div>
 
-        <h3 className={`mt-5 overflow-wrap-anywhere text-xl font-black tracking-tight sm:mt-6 sm:text-2xl ${isGradient ? "text-white" : "text-[#0F172A]"}`}>
-          {card.title}
-        </h3>
-        <p className={`mt-3 max-w-md text-sm leading-7 sm:mt-4 sm:text-base sm:leading-8 ${isGradient ? "text-white/88" : "text-[#64748B]"}`}>
+        <p className="relative mt-3 max-w-md text-sm leading-6 text-[#64748B] sm:mt-4">
           {card.description}
         </p>
 
-        <div className="mt-5 flex flex-wrap gap-3 sm:mt-7 sm:gap-4">
+        <div className="relative mt-4 flex flex-wrap gap-2.5 sm:mt-5 sm:gap-3">
           {card.pills.map((pill) => (
             <span
               key={pill.label}
-              className={`inline-flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black sm:gap-3 sm:px-4 sm:py-3 sm:text-sm ${
-                isGradient ? "border-white/10 bg-white/16 text-white" : "border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]"
-              }`}
+              className="inline-flex min-w-0 items-center gap-2 rounded-xl border border-[#9DD8D1] bg-white/80 px-3 py-2 text-xs font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 sm:px-3.5 sm:py-2.5"
             >
               {pill.icon ? <PillIcon name={pill.icon} /> : null}
               {pill.label}
@@ -311,10 +339,10 @@ export function DashboardShell({ user }: DashboardShellProps) {
     <main className="min-h-screen overflow-x-hidden text-[#0F172A] [background:linear-gradient(135deg,rgba(185,151,77,0.13),transparent_34%),linear-gradient(315deg,rgba(15,23,42,0.08),transparent_32%),#F7F4ED]">
       <header className="sticky top-0 z-30 border-b border-[#E5E0D6] bg-white/92 backdrop-blur-xl">
         <div className="mx-auto flex min-h-18 max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:gap-5 sm:px-8 lg:px-12">
-          <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-11 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
+          <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-16 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
 
           <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-            <button
+           {/*  <button
               className="hidden items-center gap-3 rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-black text-white transition hover:bg-[#243551] md:inline-flex"
               type="button"
             >
@@ -322,7 +350,7 @@ export function DashboardShell({ user }: DashboardShellProps) {
                 <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               Dashboard
-            </button>
+            </button> */}
 
             <TopbarIconButton label="Notifications" badge="3">
               <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
@@ -390,15 +418,21 @@ export function DashboardShell({ user }: DashboardShellProps) {
             </button>
           </div>
 
-          <div className="mt-6 grid min-w-0 gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[1.08fr_1fr_0.7fr] xl:gap-6">
+          <div className="mt-6 grid min-w-0 gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-3 xl:gap-6">
             {mainCards.map((card) => (
-              <FeatureCard key={card.title} card={card} />
+              <FeatureCard key={card.title} card={card} className="lg:min-h-58" />
             ))}
           </div>
 
           <div className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5 md:grid-cols-2 xl:mt-6 xl:grid-cols-4 xl:gap-6">
             {secondaryCards.map((card) => (
-              <FeatureCard key={card.title} card={card} />
+              <FeatureCard key={card.title} card={card} className="lg:min-h-52" />
+            ))}
+          </div>
+
+          <div className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5 lg:grid-cols-2 xl:mt-6 xl:gap-6">
+            {bottomCards.map((card) => (
+              <FeatureCard key={card.title} card={card} className="lg:min-h-44" />
             ))}
           </div>
         </div>

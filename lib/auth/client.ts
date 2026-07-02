@@ -44,6 +44,7 @@ export type SyncSignedInUserResponse = {
 };
 
 const SYNCED_USER_CACHE_KEY = "hms.syncedUser";
+const SYNC_TIMEOUT_MS = 12000;
 
 function isSyncSignedInUserResponse(value: unknown): value is SyncSignedInUserResponse {
   if (!value || typeof value !== "object") {
@@ -59,7 +60,9 @@ export function cacheSyncedUser(syncData: SyncSignedInUserResponse) {
     return;
   }
 
-  window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, JSON.stringify(syncData));
+  const payload = JSON.stringify(syncData);
+  window.localStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
+  window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
 }
 
 export function getCachedSyncedUser() {
@@ -67,7 +70,7 @@ export function getCachedSyncedUser() {
     return null;
   }
 
-  const rawSyncData = window.sessionStorage.getItem(SYNCED_USER_CACHE_KEY);
+  const rawSyncData = window.localStorage.getItem(SYNCED_USER_CACHE_KEY) ?? window.sessionStorage.getItem(SYNCED_USER_CACHE_KEY);
 
   if (!rawSyncData) {
     return null;
@@ -87,16 +90,21 @@ export function clearCachedSyncedUser() {
     return;
   }
 
+  window.localStorage.removeItem(SYNCED_USER_CACHE_KEY);
   window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
 }
 
 export async function syncSignedInUser(accessToken: string) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+
   const response = await fetch("/api/auth/sync-user", {
     method: "POST",
+    signal: controller.signal,
     headers: {
       Authorization: `Bearer ${accessToken}`
     }
-  });
+  }).finally(() => window.clearTimeout(timeoutId));
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
