@@ -1,24 +1,24 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { clearCachedSyncedUser, type SyncedUser, type SyncedUserAccess } from "@/lib/auth/client";
+import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
+import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
 
 type DashboardShellProps = {
   user: SyncedUser;
   access: SyncedUserAccess;
 };
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "U";
-}
+type ScheduleRow = {
+  time: string;
+  event: string;
+  details: string;
+  room: string;
+  owner: string;
+  status: "Confirmed" | "Menu review" | "On hold" | "Balance due";
+  next: string;
+};
 
 function formatRole(role: string) {
   return role
@@ -27,413 +27,151 @@ function formatRole(role: string) {
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(" ");
 }
-type DashboardCard = {
-  title: string;
-  description: string;
-  variant: "gradient" | "light";
-  icon: "settings" | "hall" | "kitchen" | "calendar" | "event" | "dining" | "map" | "menu" | "sliders";
-  route?: string;
-  pills: Array<{
-    label: string;
-    icon?: "tag" | "globe" | "check" | "plus" | "calendar" | "clock" | "user" | "bolt" | "box" | "matrix" | "file" | "hall";
-  }>;
-};
 
-const mainCards: DashboardCard[] = [
+const kpis = [
+  { label: "Events today", value: "6", description: "3 confirmed, 2 in setup, 1 on hold" },
+  { label: "Open balance", value: "$18.7k", description: "Includes two retainers due" }
+];
+
+const scheduleRows: ScheduleRow[] = [
   {
-    title: "Platform Settings",
-    description: "Rename the platform, upload logo, control colors, date/time, PDF branding, email branding, and default settings.",
-    variant: "gradient",
-    icon: "settings",
-    route: "/dashboard/settings",
-    pills: [
-      { label: "White-label ready", icon: "tag" },
-      { label: "Dynamic branding", icon: "globe" }
-    ]
+    time: "5:30 PM",
+    event: "Rosenberg Bar Mitzvah",
+    details: "240 portions",
+    room: "Grand Hall",
+    owner: "M. Mandelbaum",
+    status: "Confirmed",
+    next: "Dining setup 4:45 PM"
   },
   {
-    title: "Hall 1 / Hall 2 Defaults",
-    description: "Every new setup starts with Hall 1 and Hall 2. Rename them, add more halls, and customize each hall's behavior.",
-    variant: "gradient",
-    icon: "hall",
-    pills: [
-      { label: "Hall 1 active", icon: "check" },
-      { label: "Hall 2 active", icon: "check" },
-      { label: "Add more", icon: "plus" }
-    ]
+    time: "6:15 PM",
+    event: "Klein Sheva Brachos",
+    details: "96 couples",
+    room: "Nachlas Yehuda A",
+    owner: "Y. Waldman",
+    status: "Menu review",
+    next: "Kitchen quantities"
   },
   {
-    title: "Kitchen Dashboard",
-    description: "Today, This Week, 4 Weeks, worker assignment, item status, and kitchen notifications.",
-    variant: "light",
-    icon: "kitchen",
-    pills: [
-      { label: "4 Today", icon: "calendar" },
-      { label: "18 Pending", icon: "clock" }
-    ]
+    time: "7:00 PM",
+    event: "Levy Lchaim",
+    details: "160 portions",
+    room: "Terrace Room",
+    owner: "J. Klein",
+    status: "On hold",
+    next: "Retainer payment"
+  },
+  {
+    time: "8:30 PM",
+    event: "Friedman Dinner",
+    details: "72 couples",
+    room: "Small Hall",
+    owner: "M. Mandelbaum",
+    status: "Balance due",
+    next: "Billing follow-up"
   }
 ];
 
-const secondaryCards: DashboardCard[] = [
-  {
-    title: "Event Calendar",
-    description: "Month view, Hebrew dates, Full tag, On Hold, plus booking, and event details.",
-    variant: "light",
-    icon: "calendar",
-    pills: [
-      { label: "2 Holds", icon: "calendar" },
-      { label: "9 This Week", icon: "user" }
-    ]
-  },
-  {
-    title: "Event Manager",
-    description: "Search, edit, payment, menu, customize, PDF, and status control.",
-    variant: "light",
-    icon: "event",
-    pills: [
-      { label: "37 Events", icon: "calendar" },
-      { label: "Quick Actions", icon: "bolt" }
-    ]
-  },
-  {
-    title: "Dining Manager",
-    description: "Select an event, adjust hall layout, seating, waiter counts, and prepare the dining sheet.",
-    variant: "light",
-    icon: "dining",
-    route: "/dashboard/dining-manager",
-    pills: [
-      { label: "Event layout", icon: "matrix" },
-      { label: "Dining sheet", icon: "file" }
-    ]
-  },
-  {
-    title: "Hall Room Map",
-    description: "Build default hall layouts with movable, resizable, and rotatable room objects.",
-    variant: "light",
-    icon: "map",
-    route: "/dashboard/hall-room-map",
-    pills: [
-      { label: "Layout editor", icon: "matrix" },
-      { label: "Hall presets", icon: "hall" }
-    ]
-  }
-];
-
-const bottomCards: DashboardCard[] = [
-  {
-    title: "Menu",
-    description: "Menu items, packages, add-ons, and hall menu item access.",
-    variant: "light",
-    icon: "menu",
-    pills: [
-      { label: "86 Items", icon: "calendar" },
-      { label: "12 Packages", icon: "box" }
-    ]
-  },
-  {
-    title: "Settings",
-    description: "Platform, halls, user types, user access, feature access, integrations, and school cycles.",
-    variant: "light",
-    icon: "sliders",
-    pills: [
-      { label: "Role Templates", icon: "matrix" },
-      { label: "Feature Matrix", icon: "matrix" }
-    ]
-  }
-];
-
-function DashboardIcon({ name, className = "h-8 w-8" }: { name: DashboardCard["icon"]; className?: string }) {
-  const common = {
-    className,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 1.9,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true
+function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
+  const classes = {
+    Confirmed: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
+    "Menu review": "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]",
+    "On hold": "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+    "Balance due": "border-[#FCA5A5] bg-[#FEF2F2] text-[#DC2626]"
   };
 
-  if (name === "settings") {
-    return (
-      <svg {...common}>
-        <path d="M12 8.4a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z" />
-        <path d="M19.4 15a8.2 8.2 0 0 0 .1-1.2 8.2 8.2 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a8.8 8.8 0 0 0-2-1.2L14.6 5h-4.1L10 7.4a8.8 8.8 0 0 0-2 1.2l-2.4-1-2 3.5 2 1.5a8.2 8.2 0 0 0-.1 1.2 8.2 8.2 0 0 0 .1 1.2l-2 1.5 2 3.5 2.4-1a8.8 8.8 0 0 0 2 1.2l.5 2.4h4.1l.5-2.4a8.8 8.8 0 0 0 2-1.2l2.4 1 2-3.5Z" />
-      </svg>
-    );
-  }
-
-  if (name === "hall") {
-    return (
-      <svg {...common}>
-        <path d="M4 20h16M6 20V9l6-4 6 4v11" />
-        <path d="M9 20v-6h6v6M9 11h6M7 9h10" />
-      </svg>
-    );
-  }
-
-  if (name === "kitchen") {
-    return (
-      <svg {...common}>
-        <path d="M8 4v5M12 4v5M16 4v5M7 9h10l-1 11H8Z" />
-        <path d="M5 13H3v3h3M19 13h2v3h-3" />
-      </svg>
-    );
-  }
-
-  if (name === "calendar") {
-    return (
-      <svg {...common}>
-        <path d="M4 6h16v14H4ZM8 3v5M16 3v5M4 11h16M8 15h3M14 15h2" />
-      </svg>
-    );
-  }
-
-  if (name === "event") {
-    return (
-      <svg {...common}>
-        <path d="M6 3h9l3 3v15H6Z" />
-        <path d="M15 3v4h4M9 11h6M9 15h6M9 18h3" />
-      </svg>
-    );
-  }
-
-  if (name === "dining") {
-    return (
-      <svg {...common}>
-        <path d="M5 10h14M7 10v9M17 10v9M9 5v5M15 5v5" />
-        <path d="M8 5a2 2 0 0 0-2 2v3M16 5a2 2 0 0 1 2 2v3M9 19h6" />
-      </svg>
-    );
-  }
-
-  if (name === "map") {
-    return (
-      <svg {...common}>
-        <path d="M4 5h16v14H4Z" />
-        <path d="M9 5v14M15 5v14M4 11h5M15 13h5" />
-        <path d="M6.5 8h.01M17.5 16h.01" />
-      </svg>
-    );
-  }
-
-  if (name === "menu") {
-    return (
-      <svg {...common}>
-        <path d="M7 3v18M11 3v7a4 4 0 0 1-8 0V3M17 3v18M17 3c2 1.5 3 4 3 7v2h-3" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...common}>
-      <path d="M4 7h7M15 7h5M4 17h5M13 17h7M9 4v6M15 14v6" />
-      <path d="M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM15 20a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-    </svg>
-  );
-}
-
-function PillIcon({ name }: { name: NonNullable<DashboardCard["pills"][number]["icon"]> }) {
-  const common = {
-    className: "h-4 w-4",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true
-  };
-
-  const paths: Record<typeof name, ReactNode> = {
-    tag: <path d="M20 12 12 20 4 12V4h8Z M8 8h.01" />,
-    globe: <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />,
-    check: <path d="M20 6 9 17l-5-5" />,
-    plus: <path d="M12 5v14M5 12h14" />,
-    calendar: <path d="M4 6h16v14H4ZM8 3v5M16 3v5M4 11h16" />,
-    clock: <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2" />,
-    user: <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" />,
-    bolt: <path d="m13 2-8 12h6l-1 8 9-13h-6Z" />,
-    box: <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9ZM4 7.5l8 4.5 8-4.5M12 12v9" />,
-    matrix: <path d="M4 5h5v5H4ZM15 5h5v5h-5ZM4 15h5v5H4ZM15 15h5v5h-5" />,
-    file: <path d="M6 3h9l3 3v15H6Z M15 3v4h4M9 12h6M9 16h4" />,
-    hall: <path d="M4 20h16M6 20V9l6-4 6 4v11M9 20v-6h6v6" />
-  };
-
-  return <svg {...common}>{paths[name]}</svg>;
-}
-
-function TopbarIconButton({ children, label, badge }: { children: ReactNode; label: string; badge?: string }) {
-  return (
-    <button
-      className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E0D6] bg-white text-[#64748B] shadow-sm shadow-[#B9974D]/5 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:text-[#B9974D] hover:shadow-lg hover:shadow-[#B9974D]/10 sm:h-12 sm:w-12"
-      type="button"
-      aria-label={label}
-    >
-      {children}
-      {badge ? (
-        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-linear-to-r from-[#B9974D] to-[#0F172A] px-1.5 text-xs font-black text-white">
-          {badge}
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
-function FeatureCard({ card, className = "" }: { card: DashboardCard; className?: string }) {
-  const router = useRouter();
-
-  return (
-    <button
-      className={`dashboard-gradient-card group min-h-0 w-full min-w-0 overflow-hidden text-left shadow-xl shadow-[#0F172A]/8 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-[#0F172A]/12 lg:min-h-65 ${className}`}
-      type="button"
-      onClick={() => (card.route ? router.push(card.route as Parameters<typeof router.push>[0]) : console.log(`${card.title} clicked`))}
-    >
-      <div className="relative z-1 flex h-full flex-col overflow-hidden p-5 text-[#0F172A] sm:p-5 lg:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#B9974D]/8 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 left-0 h-44 w-56 rounded-full bg-[#16C7C4]/8 blur-3xl" />
-
-        <div className="relative flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[linear-gradient(135deg,#EEF7FF,#F7F4ED)] text-[#B9974D] shadow-sm shadow-[#0F172A]/5 sm:h-13 sm:w-13 lg:h-14 lg:w-14">
-            <DashboardIcon name={card.icon} className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
-          <h3 className="min-w-0 overflow-wrap-anywhere text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">
-            {card.title}
-          </h3>
-        </div>
-
-        <p className="relative mt-3 max-w-md text-sm leading-6 text-[#64748B] sm:mt-4">
-          {card.description}
-        </p>
-
-        <div className="relative mt-4 flex flex-wrap gap-2.5 sm:mt-5 sm:gap-3">
-          {card.pills.map((pill) => (
-            <span
-              key={pill.label}
-              className="inline-flex min-w-0 items-center gap-2 rounded-xl border border-[#9DD8D1] bg-white/80 px-3 py-2 text-xs font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 sm:px-3.5 sm:py-2.5"
-            >
-              {pill.icon ? <PillIcon name={pill.icon} /> : null}
-              {pill.label}
-            </span>
-          ))}
-        </div>
-      </div>
-    </button>
-  );
+  return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${classes[status]}`}>{status}</span>;
 }
 
 export function DashboardShell({ user }: DashboardShellProps) {
   const router = useRouter();
-  const initials = getInitials(user.name);
   const roleLabel = formatRole(user.role);
 
-  const logout = async () => {
-    const supabase = createSupabaseBrowserClient();
-    clearCachedSyncedUser();
-    await supabase.auth.signOut();
-    router.replace("/");
-    router.refresh();
-  };
-
   return (
-    <main className="min-h-screen overflow-x-hidden text-[#0F172A] [background:linear-gradient(135deg,rgba(185,151,77,0.13),transparent_34%),linear-gradient(315deg,rgba(15,23,42,0.08),transparent_32%),#F7F4ED]">
-      <header className="sticky top-0 z-30 border-b border-[#E5E0D6] bg-white/92 backdrop-blur-xl">
-        <div className="mx-auto flex min-h-18 max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:gap-5 sm:px-8 lg:px-12">
-          <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-16 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
+    <main className="min-h-screen bg-[#F4F2EE] text-[#111827]">
+      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Dashboard" />
 
-          <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-           {/*  <button
-              className="hidden items-center gap-3 rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-black text-white transition hover:bg-[#243551] md:inline-flex"
-              type="button"
-            >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              Dashboard
-            </button> */}
+      <section className="dashboard-shell-main min-h-screen lg:pl-70">
+        <DashboardTopbar
+          title="Dashboard"
+          subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
+          onNewBooking={() => console.log("New booking clicked")}
+        />
 
-            <TopbarIconButton label="Notifications" badge="3">
-              <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                <path d="M6 10a6 6 0 0 1 12 0v5l2 3H4l2-3Z" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M10 21h4" strokeLinecap="round" />
-              </svg>
-            </TopbarIconButton>
-
-            <TopbarIconButton label="Help">
-              <svg className="h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden="true">
-                <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-                <path d="M9.8 9a2.4 2.4 0 0 1 4.4 1.3c0 1.8-2.2 2-2.2 3.7M12 17h.01" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </TopbarIconButton>
-
-            <button
-              className="flex items-center gap-3 rounded-3xl px-2 py-1 transition hover:bg-[#F7F4ED] sm:pl-3 sm:pr-4"
-              type="button"
-              onClick={logout}
-              title="Sign out"
-            >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#B9974D] to-[#E7E3DA] text-base font-black text-[#0F172A] sm:h-12 sm:w-12 sm:text-lg">
-                {initials}
-              </span>
-              <span className="hidden text-left sm:block">
-                <span className="block text-sm font-black text-[#0F172A]">{user.name}</span>
-                <span className="block text-xs font-semibold text-[#64748B]">{roleLabel}</span>
-              </span>
-              <svg className="hidden h-4 w-4 text-[#64748B] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
+        <div className="px-4 py-6 sm:px-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            {kpis.map((kpi) => (
+              <article key={kpi.label} className="rounded-2xl border border-[#D8DEE8] bg-white p-5 shadow-sm shadow-[#0F172A]/4">
+                <p className="text-sm font-black text-[#64748B]">{kpi.label}</p>
+                <p className="mt-4 text-3xl font-black tracking-tight text-[#111827]">{kpi.value}</p>
+                <p className="mt-3 text-sm font-medium text-[#64748B]">{kpi.description}</p>
+              </article>
+            ))}
           </div>
-        </div>
-      </header>
 
-      <section className="relative overflow-hidden px-4 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-9">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
-        <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#B9974D]/12 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 top-20 h-96 w-96 rounded-full bg-[#0F172A]/10 blur-3xl" />
-        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#B9974D]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
-          {Array.from({ length: 9 }).map((_, index) => (
-            <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
-          ))}
-        </svg>
+          <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
+            <section className="overflow-hidden rounded-2xl border border-[#D8DEE8] bg-white shadow-sm shadow-[#0F172A]/4">
+              <div className="flex flex-col gap-4 border-b border-[#D8DEE8] p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-black text-[#111827]">Operating schedule</h2>
+                  <p className="mt-1 text-sm font-medium text-[#64748B]">Live work list for office, kitchen, and dining room managers.</p>
+                </div>
+                <button className="h-10 rounded-xl border border-[#CBD5E1] bg-white px-4 text-sm font-black text-[#0F172A] transition hover:bg-[#F7F4ED]" type="button" onClick={() => router.push("/dashboard/event-manager")}>
+                  Open events
+                </button>
+              </div>
 
-        <div className="relative mx-auto max-w-[1600px]">
-          <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <p className="overflow-wrap-anywhere text-base font-black text-[#B9974D] sm:text-xl">Welcome back, {user.name}!</p>
-              <h1 className="mt-3 overflow-wrap-anywhere text-3xl font-black tracking-tight text-[#0F172A] sm:mt-4 sm:text-5xl lg:text-6xl">Hall Management Platform</h1>
-              <p className="mt-4 max-w-4xl text-sm leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
-                Default multi-hall operations platform with configurable platform name, Hall 1 / Hall 2 defaults, hall performance
-                settings, user types, and feature-by-feature access control.
-              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full table-fixed text-left">
+                  <thead className="border-b border-[#D8DEE8] bg-[#F8FAFC] text-xs font-black uppercase tracking-[0.04em] text-[#64748B]">
+                    <tr>
+                      <th className="w-[10%] px-4 py-4">Time</th>
+                      <th className="w-[23%] px-4 py-4">Event</th>
+                      <th className="w-[17%] px-4 py-4">Room</th>
+                      <th className="w-[16%] px-4 py-4">Owner</th>
+                      <th className="w-[15%] px-4 py-4">Status</th>
+                      <th className="w-[19%] px-4 py-4">Next item</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#D8DEE8]">
+                    {scheduleRows.map((row) => (
+                      <tr key={`${row.time}-${row.event}`} className="align-middle">
+                        <td className="px-4 py-4 text-sm font-semibold text-[#111827]">{row.time}</td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-black text-[#111827]">{row.event}</p>
+                          <p className="mt-1 text-sm font-medium text-[#64748B]">{row.details}</p>
+                        </td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.room}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.owner}</td>
+                        <td className="px-4 py-4"><StatusBadge status={row.status} /></td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.next}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <div className="space-y-5">
+              <section className="overflow-hidden rounded-2xl border border-[#D8DEE8] bg-white shadow-sm shadow-[#0F172A]/4">
+                <div className="border-b border-[#D8DEE8] p-5">
+                  <h2 className="text-base font-black text-[#111827]">Attention needed</h2>
+                  <p className="mt-1 text-xs font-medium text-[#64748B]">Issues blocking a clean operating day.</p>
+                </div>
+                <div className="space-y-2.5 p-4">
+                  <div className="rounded-xl border border-[#F5C37B] bg-[#FFF8E8] p-3 text-xs leading-5 text-[#92400E]">
+                    <strong>Nachlas Yehuda menu lock:</strong> Second room booking must follow the first menu for the night.
+                  </div>
+                  <div className="rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-xs leading-5 text-[#991B1B]">
+                    <strong>Friedman Dinner:</strong> Final balance remains open. Event starts 8:30 PM.
+                  </div>
+                  <div className="rounded-xl border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-xs leading-5 text-[#1E3A8A]">
+                    <strong>Vendor delivery:</strong> Linen order for Grand Hall marked ready, not received.
+                  </div>
+                </div>
+              </section>
+
             </div>
-
-            <button
-              className="inline-flex h-12 w-full shrink-0 items-center justify-center gap-3 rounded-2xl bg-[#B9974D] px-6 text-base font-black text-white shadow-2xl shadow-[#0F172A]/15 transition hover:-translate-y-1 hover:bg-[#9C7D37] sm:h-14 sm:w-auto sm:px-8 sm:text-lg lg:h-16"
-              type="button"
-              onClick={() => console.log("New Booking clicked")}
-            >
-              <span className="text-2xl font-light leading-none sm:text-3xl">+</span>
-              New Booking
-            </button>
-          </div>
-
-          <div className="mt-6 grid min-w-0 gap-4 sm:mt-8 sm:gap-5 lg:grid-cols-3 xl:gap-6">
-            {mainCards.map((card) => (
-              <FeatureCard key={card.title} card={card} className="lg:min-h-58" />
-            ))}
-          </div>
-
-          <div className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5 md:grid-cols-2 xl:mt-6 xl:grid-cols-4 xl:gap-6">
-            {secondaryCards.map((card) => (
-              <FeatureCard key={card.title} card={card} className="lg:min-h-52" />
-            ))}
-          </div>
-
-          <div className="mt-4 grid min-w-0 gap-4 sm:mt-5 sm:gap-5 lg:grid-cols-2 xl:mt-6 xl:gap-6">
-            {bottomCards.map((card) => (
-              <FeatureCard key={card.title} card={card} className="lg:min-h-44" />
-            ))}
           </div>
         </div>
       </section>

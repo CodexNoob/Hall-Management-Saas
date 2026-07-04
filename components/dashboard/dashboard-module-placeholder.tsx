@@ -68,7 +68,7 @@ export function DashboardModulePlaceholder({ title, description }: DashboardModu
             type="button"
             onClick={() => router.push("/dashboard")}
           >
-            Dashboard
+            Main Menu
           </button>
         </div>
       </header>

@@ -56,7 +56,6 @@ button,
 input,
 select,
 textarea {
-  border-radius: 0;
   font: inherit;
 }
 
@@ -141,6 +140,51 @@ svg {
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
+}
+
+.dashboard-shell-main {
+  transition: padding-left 300ms ease-in-out;
+}
+
+.dashboard-topbar-brand {
+  width: 17.5rem;
+  transition:
+    width 300ms ease-in-out,
+    padding 300ms ease-in-out;
+}
+
+.dashboard-topbar-logo {
+  transition:
+    opacity 200ms ease-in-out,
+    transform 300ms ease-in-out;
+}
+
+@media (min-width: 1024px) {
+  html[data-dashboard-sidebar="expanded"] .dashboard-shell-main {
+    padding-left: 17.5rem !important;
+  }
+
+  html[data-dashboard-sidebar="collapsed"] .dashboard-shell-main {
+    padding-left: 4.5rem !important;
+  }
+
+  html[data-dashboard-sidebar="expanded"] .dashboard-topbar-brand {
+    width: 17.5rem;
+  }
+
+  html[data-dashboard-sidebar="collapsed"] .dashboard-topbar-brand {
+    width: 4.5rem;
+    gap: 0;
+    justify-content: flex-start;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  html[data-dashboard-sidebar="collapsed"] .dashboard-topbar-logo {
+    width: 0;
+    opacity: 0;
+    transform: translateX(-8px);
+  }
 }
 
 @media (min-width: 640px) {

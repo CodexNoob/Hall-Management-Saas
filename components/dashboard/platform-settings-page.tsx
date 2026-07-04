@@ -341,13 +341,13 @@ function TextField({
 function PermissionToggle({ enabled }: { enabled: boolean }) {
   return (
     <span
-      className={`relative inline-flex h-7 w-12 items-center rounded-full border p-1 transition ${
+      className={`relative inline-flex h-5.5 w-10 items-center rounded-full border p-0.5 transition ${
         enabled ? "border-[#0F172A] bg-[#0F172A]" : "border-[#D9D9D4] bg-[#E7E3DA]"
       }`}
       aria-label={enabled ? "Enabled" : "Disabled"}
       title={enabled ? "Enabled" : "Disabled"}
     >
-      <span className={`h-5 w-5 rounded-full bg-white shadow-sm transition ${enabled ? "translate-x-5" : "translate-x-0"}`} />
+      <span className={`h-4.5 w-4.5 rounded-full bg-white shadow-sm transition ${enabled ? "translate-x-4.5" : "translate-x-0"}`} />
     </span>
   );
 }
@@ -426,46 +426,46 @@ function FeatureAccessSettingsPanel() {
 
   return (
     <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-      <div className="relative z-1 p-6 sm:p-8 lg:p-10">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
-              <LineIcon name="key" className="h-8 w-8" />
+      <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+              <LineIcon name="key" className="h-5 w-5" />
             </span>
-            <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Feature Access Control</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Feature Access Control</h2>
           </div>
 
           <button
-            className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl bg-[#0F172A] px-6 text-base font-black text-white shadow-xl shadow-[#0F172A]/15 transition hover:-translate-y-0.5 hover:bg-[#243551]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#243551]"
             type="button"
           >
-            <LineIcon name="lock" className="h-5 w-5 text-[#B9974D]" />
+            <LineIcon name="lock" className="h-3.5 w-3.5 text-[#B9974D]" />
             Save Feature Access
           </button>
         </div>
 
-        <div className="mt-7 max-w-xl">
-          <TextField label="" value="Admin" type="select" />
+        <div className="mt-4 max-w-sm">
+          <TextField label="" value="Admin" type="select" compact />
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <button className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl border border-[#CBD5E1] bg-white px-5 text-sm font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
-            <LineIcon name="check" className="h-5 w-5" />
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+            <LineIcon name="check" className="h-3.5 w-3.5" />
             Select All
           </button>
-          <button className="inline-flex h-12 items-center justify-center gap-3 rounded-2xl border border-[#CBD5E1] bg-white px-5 text-sm font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
-            <LineIcon name="x" className="h-5 w-5" />
+          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+            <LineIcon name="x" className="h-3.5 w-3.5" />
             Clear All
           </button>
         </div>
 
-        <div className="mt-4 overflow-x-auto pb-2">
-          <div className="min-w-245">
-            <div className="grid grid-cols-[minmax(320px,1.8fr)_repeat(5,minmax(112px,1fr))] items-center gap-4 border-b border-[#E5E0D6] px-4 py-4 text-sm font-black text-[#64748B]">
+        <div className="mt-3 overflow-x-auto pb-2">
+          <div className="min-w-220">
+            <div className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 border-b border-[#E5E0D6] px-3 py-3 text-xs font-black text-[#64748B]">
               <span>Feature</span>
               {permissionColumns.map((column) => (
-                <span key={column.key} className="inline-flex items-center justify-center gap-2">
-                  <LineIcon name={column.icon} className="h-4 w-4" />
+                <span key={column.key} className="inline-flex items-center justify-center gap-1.5">
+                  <LineIcon name={column.icon} className="h-3.5 w-3.5" />
                   {column.label}
                 </span>
               ))}
@@ -475,15 +475,15 @@ function FeatureAccessSettingsPanel() {
               {featureAccessRows.map((feature) => (
                 <article
                   key={feature.name}
-                  className="grid grid-cols-[minmax(320px,1.8fr)_repeat(5,minmax(112px,1fr))] items-center gap-4 rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] px-4 py-3 shadow-sm shadow-[#0F172A]/4"
+                  className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 rounded-xl border border-[#E5E0D6] bg-[#FFFEFB] px-3 py-2.5 shadow-sm shadow-[#0F172A]/4"
                 >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-sm shadow-[#0F172A]/5 ${feature.iconClassName}`}>
-                      <LineIcon name={feature.icon} className="h-6 w-6" />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-sm shadow-[#0F172A]/5 ${feature.iconClassName}`}>
+                      <LineIcon name={feature.icon} className="h-4.5 w-4.5" />
                     </span>
                     <span className="min-w-0">
-                      <h3 className="truncate text-base font-black text-[#0F172A]">{feature.name}</h3>
-                      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{feature.description}</p>
+                      <h3 className="truncate text-sm font-black text-[#0F172A]">{feature.name}</h3>
+                      <p className="mt-0.5 truncate text-[11px] font-semibold text-[#64748B]">{feature.description}</p>
                     </span>
                   </div>
 
@@ -505,17 +505,23 @@ function FeatureAccessSettingsPanel() {
 function IconField({
   label,
   value,
-  icon
+  icon,
+  compact = false
 }: {
   label: string;
   value: string;
   icon: "link" | "mail" | "file";
+  compact?: boolean;
 }) {
   return (
     <label className="block min-w-0">
-      <span className="text-sm font-black text-[#0F172A]">{label}</span>
-      <span className="mt-3 flex h-15 items-center gap-4 rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] px-5 text-base font-semibold text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition focus-within:border-[#16C7C4] focus-within:shadow-[0_0_0_4px_rgba(22,199,196,0.14)]">
-        <LineIcon name={icon} className="h-6 w-6 shrink-0 text-[#64748B]" />
+      <span className={compact ? "text-[11px] font-black text-[#0F172A]" : "text-sm font-black text-[#0F172A]"}>{label}</span>
+      <span
+        className={`flex items-center rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] font-semibold text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition focus-within:border-[#16C7C4] focus-within:shadow-[0_0_0_4px_rgba(22,199,196,0.14)] ${
+          compact ? "mt-1.5 h-9 gap-2 px-3 text-xs" : "mt-3 h-15 gap-4 px-5 text-base"
+        }`}
+      >
+        <LineIcon name={icon} className={`${compact ? "h-4 w-4" : "h-6 w-6"} shrink-0 text-[#64748B]`} />
         <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} />
       </span>
     </label>
@@ -525,44 +531,44 @@ function IconField({
 function PaymentsGmailSettingsPanel() {
   return (
     <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-      <div className="relative z-1 p-6 sm:p-8 lg:p-10">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
-              <LineIcon name="mail" className="h-8 w-8" />
+      <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+              <LineIcon name="mail" className="h-5 w-5" />
             </span>
-            <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Payments / Gmail</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Payments / Gmail</h2>
           </div>
 
           <button
-            className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl bg-[#0F172A] px-6 text-base font-black text-white shadow-xl shadow-[#0F172A]/15 transition hover:-translate-y-0.5 hover:bg-[#243551]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#243551]"
             type="button"
           >
-            <LineIcon name="save" className="h-5 w-5 text-[#B9974D]" />
+            <LineIcon name="save" className="h-3.5 w-3.5 text-[#B9974D]" />
             Save
           </button>
         </div>
 
-        <div className="mt-9 grid gap-7 lg:grid-cols-2">
-          <IconField label="Default Payment Link" value="https://secure.cardknox.com/belzcheiderevents" icon="link" />
-          <IconField label="Connected Gmail Sender" value="payments@example.com" icon="mail" />
-          <IconField label="Payment Email Subject" value="Payment Link for Your Event" icon="file" />
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <IconField label="Default Payment Link" value="https://secure.cardknox.com/belzcheiderevents" icon="link" compact />
+          <IconField label="Connected Gmail Sender" value="payments@example.com" icon="mail" compact />
+          <IconField label="Payment Email Subject" value="Payment Link for Your Event" icon="file" compact />
 
           <div className="block min-w-0">
-            <span className="text-sm font-black text-[#0F172A]">Send Test Email</span>
+            <span className="text-[11px] font-black text-[#0F172A]">Send Test Email</span>
             <button
-              className="mt-3 inline-flex h-15 w-full items-center justify-center gap-4 rounded-2xl border border-[#0F172A] bg-white px-6 text-base font-black text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:bg-[#EEF7FF] lg:w-auto lg:min-w-72"
+              className="mt-1.5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#0F172A] bg-white px-4 text-xs font-black text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:bg-[#EEF7FF] lg:w-auto lg:min-w-56"
               type="button"
             >
-              <LineIcon name="send" className="h-6 w-6" />
+              <LineIcon name="send" className="h-4 w-4" />
               Send Test Email
             </button>
           </div>
         </div>
 
-        <div className="mt-9 flex gap-4 rounded-2xl border border-[#BBD7FF] bg-[#EEF7FF] p-5 text-[#0B4EA2]">
-          <LineIcon name="info" className="mt-0.5 h-6 w-6 shrink-0" />
-          <p className="text-sm font-semibold leading-7 sm:text-base">
+        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+          <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+          <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             Payment links and Gmail sender settings are used when sending payment emails to clients.
           </p>
         </div>
@@ -604,35 +610,35 @@ function GoogleCalendarSettingsPanel() {
 
   return (
     <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-      <div className="relative z-1 p-6 sm:p-8 lg:p-10">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
-              <LineIcon name="calendar" className="h-8 w-8" />
+      <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+              <LineIcon name="calendar" className="h-5 w-5" />
             </span>
-            <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Google Calendar</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Google Calendar</h2>
           </div>
 
           <button
-            className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl bg-[#B9974D] px-6 text-base font-black text-white shadow-xl shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#B9974D] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
             type="button"
           >
-            <LineIcon name="sync" />
+            <LineIcon name="sync" className="h-3.5 w-3.5" />
             Test Sync
           </button>
         </div>
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {calendarCards.map((card) => (
-            <article key={card.title} className="flex min-h-72 flex-col rounded-3xl border border-[#E5E0D6] bg-[#FFFEFB] p-7 shadow-lg shadow-[#0F172A]/5">
-              <span className={`flex h-18 w-18 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${card.iconClassName}`}>
-                <LineIcon name={card.icon} className="h-9 w-9" />
+            <article key={card.title} className="flex min-h-48 flex-col rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-4 shadow-md shadow-[#0F172A]/4">
+              <span className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${card.iconClassName}`}>
+                <LineIcon name={card.icon} className="h-6 w-6" />
               </span>
-              <h3 className="mt-7 text-2xl font-black tracking-tight text-[#0F172A]">{card.title}</h3>
-              <p className="mt-4 text-base font-semibold leading-8 text-[#64748B]">{card.description}</p>
-              <div className="mt-auto pt-7">
-                <span className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-black ${card.badgeClassName}`}>
-                  <LineIcon name={card.badgeIcon} className="h-4 w-4" />
+              <h3 className="mt-4 text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{card.title}</h3>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{card.description}</p>
+              <div className="mt-auto pt-4">
+                <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black ${card.badgeClassName}`}>
+                  <LineIcon name={card.badgeIcon} className="h-3 w-3" />
                   {card.badge}
                 </span>
               </div>
@@ -640,9 +646,9 @@ function GoogleCalendarSettingsPanel() {
           ))}
         </div>
 
-        <div className="mt-7 flex gap-4 rounded-2xl border border-[#BBD7FF] bg-[#EEF7FF] p-5 text-[#0B4EA2]">
-          <LineIcon name="info" className="mt-0.5 h-6 w-6 shrink-0" />
-          <p className="text-sm font-semibold leading-7 sm:text-base">
+        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+          <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+          <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             Google Calendar sync keeps your bookings and events in sync across the platform. Use Test Sync to verify your connection at any time.
           </p>
         </div>
@@ -760,46 +766,46 @@ function UserTypesSettingsPanel() {
 function UserAccessSettingsPanel() {
   return (
     <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-      <div className="relative z-1 p-6 sm:p-8 lg:p-10">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
-              <LineIcon name="shield" className="h-8 w-8" />
+      <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+              <LineIcon name="shield" className="h-5 w-5" />
             </span>
-            <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">User Access</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">User Access</h2>
           </div>
 
           <button
-            className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl bg-[#B9974D] px-6 text-base font-black text-white shadow-xl shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#B9974D] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
             type="button"
           >
-            <LineIcon name="plus" />
+            <LineIcon name="plus" className="h-3.5 w-3.5" />
             Add User by Email
           </button>
         </div>
 
-        <div className="mt-7 space-y-5">
+        <div className="mt-4 space-y-3">
           {userAccessRows.map((row) => (
             <article
               key={row.email}
-              className="rounded-3xl border border-[#E5E0D6] bg-[#FFFEFB] p-5 shadow-lg shadow-[#0F172A]/5 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:shadow-xl hover:shadow-[#0F172A]/8 sm:p-6"
+              className="rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-3.5 shadow-md shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:shadow-lg hover:shadow-[#0F172A]/7 sm:p-4"
             >
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex min-w-0 items-start gap-4 sm:items-center sm:gap-5">
-                  <span className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${row.iconClassName}`}>
-                    <LineIcon name={row.icon} className="h-8 w-8" />
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:items-center">
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${row.iconClassName}`}>
+                    <LineIcon name={row.icon} className="h-5 w-5" />
                   </span>
 
                   <span className="min-w-0">
-                    <h3 className="text-2xl font-black tracking-tight text-[#0F172A]">{row.name}</h3>
-                    <p className="mt-1 text-base font-semibold leading-7 text-[#64748B]">{row.email}</p>
+                    <h3 className="text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{row.name}</h3>
+                    <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{row.email}</p>
                   </span>
                 </div>
 
-                <div className="flex flex-wrap gap-3 xl:justify-end">
+                <div className="flex flex-wrap gap-2 xl:justify-end">
                   {row.badges.map((badge) => (
-                    <span key={badge.label} className={`inline-flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-black ${badge.className}`}>
-                      <LineIcon name={badge.icon} className="h-4 w-4" />
+                    <span key={badge.label} className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black ${badge.className}`}>
+                      <LineIcon name={badge.icon} className="h-3 w-3" />
                       {badge.label}
                     </span>
                   ))}
@@ -811,14 +817,14 @@ function UserAccessSettingsPanel() {
                     return (
                       <button
                         key={action}
-                        className={`inline-flex h-11 items-center gap-2 rounded-2xl border bg-white px-4 text-sm font-black transition ${
+                        className={`inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-[11px] font-black transition ${
                           isDeactivate
                             ? "border-[#FDA4A4] text-[#DC2626] hover:bg-[#FEF2F2]"
                             : "border-[#CBD5E1] text-[#0F172A] hover:border-[#9DD8D1] hover:bg-[#EEF7FF]"
                         }`}
                         type="button"
                       >
-                        <LineIcon name={isDeactivate ? "trash" : isResend ? "send" : "edit"} className="h-4 w-4" />
+                        <LineIcon name={isDeactivate ? "trash" : isResend ? "send" : "edit"} className="h-3 w-3" />
                         {action}
                       </button>
                     );
@@ -829,9 +835,9 @@ function UserAccessSettingsPanel() {
           ))}
         </div>
 
-        <div className="mt-7 flex gap-4 rounded-2xl border border-[#BBD7FF] bg-[#EEF7FF] p-5 text-[#0B4EA2]">
-          <LineIcon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
-          <p className="text-sm font-semibold leading-7 sm:text-base">
+        <div className="mt-4 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+          <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
+          <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             When adding a user, select a saved user type. The saved access setup is applied automatically. Individual overrides are optional.
           </p>
         </div>
@@ -923,7 +929,7 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
           <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
             <button className="hidden items-center gap-3 rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#243551] md:inline-flex" type="button" onClick={() => router.push("/dashboard")}>
               <LineIcon name="home" />
-              Dashboard
+              Main Menu
             </button>
             <TopbarIconButton label="Notifications" badge="3"><LineIcon name="bell" className="h-5 w-5 sm:h-6 sm:w-6" /></TopbarIconButton>
             <TopbarIconButton label="Help"><LineIcon name="help" className="h-5 w-5 sm:h-6 sm:w-6" /></TopbarIconButton>
@@ -941,7 +947,7 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
         </div>
       </header>
 
-      <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
+      <section className="relative overflow-hidden px-4 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-18 lg:px-12 lg:pt-20">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
         <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#B9974D]/12 blur-3xl" />
         <div className="pointer-events-none absolute -right-24 top-20 h-96 w-96 rounded-full bg-[#0F172A]/10 blur-3xl" />
@@ -952,12 +958,12 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
         </svg>
 
         <div className="relative mx-auto max-w-[1600px]">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
               <p className="text-sm font-black uppercase tracking-[0.32em] text-[#B9974D]">
                 Route / Settings
               </p>
-              <h1 className="mt-4 text-4xl font-black tracking-tight text-[#0F172A] sm:text-5xl lg:text-6xl">
+              <h1 className="mt-4 text-[clamp(2.5rem,5vw,4rem)] font-black leading-[1.05] tracking-tight text-[#0F172A]">
                 {activeSection.pageTitle}
               </h1>
               <p className="mt-5 max-w-4xl text-base leading-8 text-[#64748B] sm:text-lg">
@@ -966,48 +972,34 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
                   : "Configure the entire platform: name, halls, user types, user access, feature access, integrations, and defaults."}
               </p>
             </div>
-            <div className="flex flex-col gap-4 sm:flex-row">
-              {!isPlatformSettingsView ? (
-                <button
-                  className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-[#0F172A] px-7 text-base font-black text-white shadow-xl shadow-[#0F172A]/15 transition hover:-translate-y-0.5 hover:bg-[#243551]"
-                  type="button"
-                  onClick={() => router.push("/dashboard")}
-                >
-                  <LineIcon name="grid" />
-                  Main Menu
-                </button>
-              ) : (
-                <>
-                  <button className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl border border-[#9DD8D1] bg-white px-6 text-base font-black text-[#0B6F81] shadow-lg shadow-[#0F172A]/6 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:text-[#9C7D37]" type="button" onClick={() => router.push("/dashboard")}>
-                    <LineIcon name="back" />
-                    Back to Dashboard
-                  </button>
-                  <button className="inline-flex h-14 items-center justify-center gap-3 rounded-2xl bg-[#B9974D] px-6 text-base font-black text-white shadow-2xl shadow-[#0F172A]/15 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]" type="button">
-                    <LineIcon name="save" />
-                    Save Platform Settings
-                  </button>
-                </>
-              )}
-            </div>
+            <button
+              className="inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-[#0F172A] px-5 text-sm font-black text-white shadow-lg shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#243551] sm:h-13 sm:px-6"
+              type="button"
+              onClick={() => router.push("/dashboard")}
+            >
+              <LineIcon name="grid" className="h-4.5 w-4.5 text-[#F7F4ED]" />
+              Main Menu
+            </button>
           </div>
 
-          <div className={`mt-10 grid gap-6 ${!isPlatformSettingsView ? "lg:grid-cols-[330px_minmax(0,1fr)]" : "lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_470px]"}`}>
+          <div className={`mt-8 grid items-start gap-6 ${!isPlatformSettingsView ? "lg:grid-cols-[330px_minmax(0,1fr)]" : "lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_470px]"}`}>
             <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-              <nav className="relative z-1 space-y-3 p-5">
+              <nav className="relative z-1 space-y-2.5 p-4">
                 {SETTINGS_SECTIONS.map((section) => {
                   const isActive = section.id === activeSectionId;
                   return (
                     <button
                       key={section.id}
-                      className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-sm font-black transition ${
+                      className={`relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-left text-sm font-black transition ${
                         isActive
-                          ? "border border-l-4 border-[#9DD8D1] border-l-[#1D6BFF] bg-[#F7F4ED] text-[#0F172A] shadow-sm shadow-[#0F172A]/5"
-                          : "border border-transparent bg-transparent text-[#64748B] hover:border-[#E5E0D6] hover:bg-[#F7F4ED] hover:text-[#B9974D]"
+                          ? "border border-[#DDEAF3] bg-[#F8F4EA] text-[#0F172A] shadow-sm shadow-[#0F172A]/5"
+                          : "border border-transparent bg-transparent text-[#64748B] hover:border-[#E5E0D6] hover:bg-[#F7F4ED] hover:text-[#0F172A]"
                       }`}
                       type="button"
                       onClick={() => handleSettingsSectionChange(section)}
                     >
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${isActive ? "bg-white text-[#B9974D]" : "bg-[#F7F4ED] text-[#64748B]"}`}>
+                      {isActive ? <span className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[#1D6BFF]" /> : null}
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${isActive ? "border-[#E5E0D6] bg-white text-[#B9974D]" : "border-transparent bg-[#F7F4ED] text-[#64748B]"}`}>
                         <LineIcon name={section.icon} className="h-4.5 w-4.5" />
                       </span>
                       <span className="min-w-0 truncate">{section.label}</span>
@@ -1048,9 +1040,25 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
             ) : (
               <>
             <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
-              <div className="relative z-1 p-6 sm:p-8">
-                <h2 className="text-3xl font-black tracking-tight text-[#0F172A]">Platform Settings</h2>
-                <div className="mt-7 grid gap-6 md:grid-cols-2">
+              <div className="relative z-1 p-5 sm:p-6 lg:p-7">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D] shadow-sm shadow-[#0F172A]/5">
+                      <LineIcon name="gear" className="h-6 w-6" />
+                    </span>
+                    <h2 className="text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">Platform Settings</h2>
+                  </div>
+
+                  <button
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#B9974D] px-3.5 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+                    type="button"
+                  >
+                    <LineIcon name="save" className="h-4 w-4" />
+                    Save Platform Settings
+                  </button>
+                </div>
+
+                <div className="mt-6 grid gap-x-6 gap-y-4 md:grid-cols-2">
                   <TextField label="Platform Name" value="Hall Management Platform" />
                   <TextField label="Organization Name" value="Default Hall Organization" />
                   <TextField label="Short Display Name" value="Hall Platform" />
@@ -1061,18 +1069,18 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
                   <TextField label="Accent Color" value="#B9974D" swatchClassName="bg-[#B9974D]" />
                 </div>
 
-                <div className="mt-8 border-t border-[#E5E0D6] pt-7">
+                <div className="mt-6 border-t border-[#E5E0D6] pt-5">
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <button className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl border border-[#9DD8D1] bg-white px-5 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:text-[#9C7D37]" type="button">
-                      <LineIcon name="upload" />
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#9DD8D1] bg-white px-4 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:bg-[#F8F4EA] hover:text-[#9C7D37]" type="button">
+                      <LineIcon name="upload" className="h-4.5 w-4.5" />
                       Upload Logo
                     </button>
-                    <button className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl border border-[#9DD8D1] bg-white px-5 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:text-[#9C7D37]" type="button">
-                      <LineIcon name="upload" />
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#9DD8D1] bg-white px-4 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:bg-[#F8F4EA] hover:text-[#9C7D37]" type="button">
+                      <LineIcon name="upload" className="h-4.5 w-4.5" />
                       Upload Favicon
                     </button>
-                    <button className="inline-flex h-13 items-center justify-center gap-3 rounded-2xl border border-[#ffb8b8] bg-white px-5 text-sm font-black text-[#ef2020] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:bg-[#fff7f7]" type="button">
-                      <LineIcon name="trash" />
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#FCA5A5] bg-white px-4 text-sm font-black text-[#DC2626] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:bg-[#FEF2F2]" type="button">
+                      <LineIcon name="trash" className="h-4.5 w-4.5" />
                       Reset Theme
                     </button>
                   </div>
@@ -1081,25 +1089,30 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
             </section>
 
             <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8 lg:col-span-2 2xl:col-span-1">
-              <div className="relative z-1 p-6 sm:p-8">
-                <h2 className="text-3xl font-black tracking-tight text-[#0F172A]">Brand Preview</h2>
-                <p className="mt-5 text-base leading-8 text-[#64748B]">
-                  This preview shows how the platform name and logo area will appear in the app, PDFs, and emails.
+              <div className="relative z-1 p-5 sm:p-6 lg:p-7">
+                <div className="flex min-w-0 items-center gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48] shadow-sm shadow-[#0F172A]/5">
+                    <LineIcon name="eye" className="h-6 w-6" />
+                  </span>
+                  <h2 className="text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">Brand Preview</h2>
+                </div>
+                <p className="mt-5 text-sm font-semibold leading-7 text-[#64748B]">
+                  This preview shows how your brand will appear across the platform.
                 </p>
 
-                <div className="mt-8 flex min-h-48 items-center justify-center rounded-3xl border border-[#E5E0D6] bg-linear-to-br from-[#F7F4ED] to-[#F1F5F9] p-6 shadow-inner shadow-[#0F172A]/4">
+                <div className="mt-6 flex min-h-52 items-center justify-center rounded-2xl border border-[#E5E0D6] bg-linear-to-br from-[#FFFEFB] to-[#F7F4ED] p-6 shadow-inner shadow-[#0F172A]/4">
                   <div className="flex max-w-full flex-col items-center justify-center text-center">
-                    <Image src="/hms-logo-header.png" alt="Hall Management SaaS logo" width={1160} height={300} unoptimized className="h-auto w-60 max-w-full object-contain sm:w-72" />
-                    <p className="mt-3 text-sm font-semibold leading-5 text-[#64748B] sm:text-base">
+                    <Image src="/hms-logo-header.png" alt="Hall Management SaaS logo" width={1160} height={300} unoptimized className="h-auto w-56 max-w-full object-contain sm:w-68" />
+                    <p className="mt-8 text-base font-black leading-6 text-[#0F172A]">
                       Default Hall Organization
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-7 flex gap-4 rounded-2xl border border-[#9DD8D1] bg-[#EEF7FF] p-5 text-[#0B6F81]">
+                <div className="mt-6 flex gap-3 rounded-2xl border border-[#BBD7FF] bg-[#EEF7FF] p-4 text-[#0B4EA2]">
                   <LineIcon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
-                  <p className="text-sm font-semibold leading-7">
-                    Platform name, colors, logo, PDF header, and email header are controlled from this section.
+                  <p className="text-sm font-bold leading-7">
+                    Platform name, colors, logo, PDF header, and email header are all controlled from this section.
                   </p>
                 </div>
               </div>
