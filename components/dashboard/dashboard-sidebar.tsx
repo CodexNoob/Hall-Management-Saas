@@ -220,6 +220,16 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
     );
   }, [isCollapsed]);
 
+  useEffect(() => {
+    const routes = Array.from(
+      new Set(sidebarSections.flatMap((section) => section.items.map((item) => item.route)).filter((route): route is string => Boolean(route)))
+    );
+
+    routes.forEach((route) => {
+      router.prefetch(route as Parameters<typeof router.prefetch>[0]);
+    });
+  }, [router]);
+
   const logout = async () => {
     if (onLogout) {
       onLogout();
@@ -236,7 +246,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
   return (
     <aside
       className={`app-sidebar fixed bottom-0 left-0 top-20 z-40 hidden overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] lg:flex lg:flex-col sidebar-will-change-width ${
-        isSidebarTransitionReady ? "transition-[width] duration-300 ease-in-out" : "transition-none"
+        isSidebarTransitionReady ? "transition-[width] duration-150 ease-in-out" : "transition-none"
       } ${
         isCollapsed ? "w-18" : "w-64"
       }`}

@@ -49,7 +49,7 @@ function LineIcon({ name, className = "h-4 w-4" }: { name: IconName; className?:
 function TopAction({ icon, label, tone = "outline" }: { icon?: IconName; label: string; tone?: "outline" | "primary" }) {
   return (
     <button
-      className={`inline-flex h-10 items-center justify-center gap-2 rounded-lg border px-4 text-sm font-black transition hover:-translate-y-0.5 ${
+      className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-black transition hover:-translate-y-0.5 ${
         tone === "primary"
           ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md shadow-[#1f4d73]/15"
           : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
@@ -94,19 +94,7 @@ function Pill({ children, tone = "blue" }: { children: ReactNode; tone?: "blue" 
 function BillingHeader({ activeTab, setActiveTab }: { activeTab: BillingTab; setActiveTab: (tab: BillingTab) => void }) {
   return (
     <header className="border-b border-[#d8dde5] bg-white">
-      <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-xl font-black text-[#17202a]">Billing</h1>
-          <p className="text-sm font-medium text-[#6a7483]">Transactions, invoices, event billing, payments, and financial dashboard.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <TopAction icon="upload" label="Import bank file" />
-          <TopAction icon="settings" label="Invoice settings" />
-          <TopAction icon="plus" label="New invoice" tone="primary" />
-        </div>
-      </div>
-
-      <nav className="flex flex-wrap gap-1 px-4">
+      <nav className="flex flex-wrap gap-1 px-4 pt-3">
         {tabs.map((tab) => (
           <button
             key={tab}
@@ -480,10 +468,24 @@ export function BillingPage() {
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
-      <DashboardTopbar title="Billing" subtitle="Transactions, invoices, event billing, payments, and financial dashboard." />
-      <section className="min-h-[calc(100vh-5rem)] bg-[#fbfcfd]">
-        <BillingHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-        <BillingContent activeTab={activeTab} setActiveTab={setActiveTab} openModal={() => setIsModalOpen(true)} />
+      <DashboardTopbar
+        title="Billing"
+        subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
+        actionsSlot={
+          <>
+            <TopAction icon="upload" label="Import bank file" />
+            <TopAction icon="settings" label="Invoice settings" />
+            <TopAction icon="plus" label="New invoice" tone="primary" />
+          </>
+        }
+      />
+      <section className="h-[calc(100vh-5rem)] bg-[#fbfcfd]">
+        <div className="flex h-full flex-col">
+          <BillingHeader activeTab={activeTab} setActiveTab={setActiveTab} />
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <BillingContent activeTab={activeTab} setActiveTab={setActiveTab} openModal={() => setIsModalOpen(true)} />
+          </div>
+        </div>
       </section>
       {isModalOpen ? <PendingTransactionModal onClose={() => setIsModalOpen(false)} /> : null}
     </div>

@@ -7,6 +7,7 @@ type DashboardTopbarProps = {
   title: string;
   subtitle?: string;
   onNewBooking?: () => void;
+  actionsSlot?: ReactNode;
   rightSlot?: ReactNode;
 };
 
@@ -78,7 +79,7 @@ export function DashboardTopbarBrand() {
   };
 
   return (
-    <div className="dashboard-topbar-brand fixed left-0 top-0 z-[60] flex min-h-20 shrink-0 items-center justify-between gap-3 border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
+    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex min-h-20 shrink-0 items-center justify-between gap-3 border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
       <Image
         src="/hms-logo-header.png"
         alt="Hall Management SaaS"
@@ -90,51 +91,52 @@ export function DashboardTopbarBrand() {
       />
 
       <button
-        className={`dashboard-sidebar-toggle group relative flex shrink-0 items-center justify-center overflow-hidden transition hover:-translate-y-0.5 ${
+        className={`dashboard-sidebar-toggle group relative flex shrink-0 items-center justify-center overflow-hidden transition hover:-translate-y-0.5 focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
           isSidebarCollapsed
             ? "h-11 w-11 rounded-xl border border-transparent bg-transparent shadow-none hover:border-[#d8dde5] hover:bg-[#eef4fa] hover:shadow-sm"
-            : "h-9 w-9 rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+            : "h-9 w-9 rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm hover:bg-[#eef4fa]"
         }`}
         type="button"
         onClick={toggleSidebar}
         aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {isSidebarCollapsed ? (
-          <>
-            <Image
-              src="/logo.png"
-              alt=""
-              width={44}
-              height={44}
-              unoptimized
-              className="h-11 w-11 object-contain transition-opacity duration-200 group-hover:opacity-0"
-            />
-            <Image
-              src="/sidebar-right.png"
-              alt=""
-              width={24}
-              height={24}
-              unoptimized
-              className="absolute h-5 w-5 object-contain opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-            />
-          </>
-        ) : (
-          <Image
-            src="/sidebar-left.png"
-            alt=""
-            width={20}
-            height={20}
-            unoptimized
-            className="h-5 w-5 object-contain"
-          />
-        )}
+        <Image
+          src="/logo.png"
+          alt=""
+          width={44}
+          height={44}
+          unoptimized
+          className={`absolute h-11 w-11 object-contain transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 ${
+            isSidebarCollapsed ? "scale-100 opacity-100" : "scale-95 opacity-0"
+          }`}
+        />
+        <Image
+          src="/sidebar-right.png"
+          alt=""
+          width={24}
+          height={24}
+          unoptimized
+          className={`absolute h-5 w-5 object-contain transition-[opacity,transform] duration-90 ease-in-out ${
+            isSidebarCollapsed ? "scale-100 opacity-0 group-hover:opacity-100" : "scale-95 opacity-0"
+          }`}
+        />
+        <Image
+          src="/sidebar-left.png"
+          alt=""
+          width={20}
+          height={20}
+          unoptimized
+          className={`absolute h-5 w-5 object-contain transition-[opacity,transform] duration-70 ease-in-out ${
+            isSidebarCollapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"
+          }`}
+        />
       </button>
     </div>
   );
 }
 
-export function DashboardTopbar({ title, subtitle, onNewBooking, rightSlot }: DashboardTopbarProps) {
+export function DashboardTopbar({ title, subtitle, onNewBooking, actionsSlot, rightSlot }: DashboardTopbarProps) {
   return (
     <>
       <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
@@ -152,21 +154,25 @@ export function DashboardTopbar({ title, subtitle, onNewBooking, rightSlot }: Da
                 <span className="truncate">Search events, clients, invoices</span>
               </div>
 
-              <button
-                type="button"
-                className="h-11 rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
-              >
-                Today notes
-              </button>
+              {actionsSlot ?? (
+                <>
+                  <button
+                    type="button"
+                    className="h-11 rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+                  >
+                    Today notes
+                  </button>
 
-              <button
-                type="button"
-                onClick={onNewBooking}
-                className="flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
-              >
-                <TopbarIcon name="plus" />
-                New booking
-              </button>
+                  <button
+                    type="button"
+                    onClick={onNewBooking}
+                    className="flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
+                  >
+                    <TopbarIcon name="plus" />
+                    New booking
+                  </button>
+                </>
+              )}
 
               {rightSlot}
             </div>

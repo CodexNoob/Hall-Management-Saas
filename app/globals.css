@@ -151,28 +151,28 @@ svg {
 }
 
 .dashboard-shell-main {
-  transition: padding-left 300ms ease-in-out;
+  transition: padding-left 150ms ease-in-out;
   will-change: padding-left;
 }
 
 .dashboard-topbar-brand {
   width: 16rem;
   transition:
-    width 300ms ease-in-out,
-    padding 300ms ease-in-out;
+    width 150ms ease-in-out,
+    padding 150ms ease-in-out;
   will-change: width, padding;
 }
 
 .dashboard-topbar-content {
   left: 16rem;
-  transition: left 300ms ease-in-out;
+  transition: left 150ms ease-in-out;
   will-change: left;
 }
 
 .dashboard-topbar-logo {
   transition:
-    opacity 200ms ease-in-out,
-    transform 300ms ease-in-out;
+    opacity 60ms ease-in-out,
+    transform 110ms ease-in-out;
   will-change: opacity, transform;
 }
 

@@ -158,8 +158,99 @@ export function DashboardShell({}: DashboardShellProps) {
                 </div>
               </section>
 
+              <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+                <div className="border-b border-[#d8dde5] p-5">
+                  <h2 className="text-base font-black text-[#17202a]">Quick actions</h2>
+                </div>
+
+                <div className="grid gap-4 p-4 sm:grid-cols-2">
+                  <button
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+                    type="button"
+                    onClick={() => router.push("/dashboard/events/new")}
+                  >
+                    Book event
+                  </button>
+
+                  <button
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+                    type="button"
+                    onClick={() => router.push("/dashboard/kitchen")}
+                  >
+                    Kitchen board
+                  </button>
+
+                  <button
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+                    type="button"
+                    onClick={() => router.push("/dashboard/billing")}
+                  >
+                    Open billing
+                  </button>
+
+                  <button
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+                    type="button"
+                    onClick={() => router.push("/dashboard/dining-manager")}
+                  >
+                    Dining sheets
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
+
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              {
+                eyebrow: "Live",
+                title: "Kitchen",
+                description: "Menu production, quantities, workers, and completion status.",
+                metric: "34 items active",
+                route: "/dashboard/kitchen",
+              },
+              {
+                eyebrow: "Booking",
+                title: "Calendar",
+                description: "Month view with room availability and closed-date rules.",
+                metric: "8 bookings this week",
+                route: "/dashboard/calendar",
+              },
+              {
+                eyebrow: "Manage",
+                title: "Events",
+                description: "Full event file: client, menu, dining, staff, vendors, files.",
+                metric: "27 open files",
+                route: "/dashboard/events",
+              },
+              {
+                eyebrow: "Office",
+                title: "Billing",
+                description: "Retainers, invoices, payment links, and balances due.",
+                metric: "$18.7k open",
+                route: "/dashboard/billing",
+              },
+              {
+                eyebrow: "Admin",
+                title: "Settings",
+                description: "Hall rules, menus, users, templates, and pricing.",
+                metric: "11 sections",
+                route: "/dashboard/settings",
+              },
+            ].map((item) => (
+              <button
+                key={item.title}
+                className="min-h-38 rounded-2xl border border-[#d8dde5] bg-white p-4 text-left shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:bg-[#fbfcfd] hover:shadow-md"
+                type="button"
+                onClick={() => router.push(item.route as Parameters<typeof router.push>[0])}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a7483]">{item.eyebrow}</p>
+                <h3 className="mt-3 text-lg font-black text-[#17202a]">{item.title}</h3>
+                <p className="mt-2 text-sm font-medium leading-6 text-[#6a7483]">{item.description}</p>
+                <p className="mt-4 text-sm font-black text-[#1f4d73]">{item.metric}</p>
+              </button>
+            ))}
+          </section>
       </div>
     </div>
   );

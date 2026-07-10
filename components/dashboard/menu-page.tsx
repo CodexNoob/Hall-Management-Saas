@@ -2,13 +2,12 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
-type IconName = "home" | "bell" | "help" | "grid" | "chevron" | "plus" | "serving" | "users" | "leaf" | "edit" | "trash";
+type IconName = "box" | "chevron" | "dollar" | "document" | "filter" | "plus";
 
-function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
+function LineIcon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
   const common = {
     className,
     viewBox: "0 0 24 24",
@@ -17,59 +16,269 @@ function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?:
     strokeWidth: 2,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    "aria-hidden": true
+    "aria-hidden": true,
   };
 
   const paths: Record<IconName, ReactNode> = {
-    home: <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z" />,
-    bell: <><path d="M6 10a6 6 0 0 1 12 0v5l2 3H4l2-3Z" /><path d="M10 21h4" /></>,
-    help: <><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" /><path d="M9.8 9a2.4 2.4 0 0 1 4.4 1.3c0 1.8-2.2 2-2.2 3.7M12 17h.01" /></>,
-    grid: <><path d="M4 4h6v6H4ZM14 4h6v6h-6ZM4 14h6v6H4ZM14 14h6v6h-6Z" /></>,
-    chevron: <path d="m6 9 6 6 6-6" />,
+    box: <><path d="m21 8-9-5-9 5 9 5Z" /><path d="M3 8v8l9 5 9-5V8M12 13v8" /></>,
+    chevron: <path d="m9 18 6-6-6-6" />,
+    dollar: <><path d="M12 2v20" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6" /></>,
+    document: <><path d="M6 3h12v18H6Z" /><path d="M9 8h6M9 12h6M9 16h4" /></>,
+    filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
     plus: <path d="M12 5v14M5 12h14" />,
-    serving: <><path d="M5 17h14" /><path d="M7 17a5 5 0 0 1 10 0" /><path d="M12 8v2" /><path d="M8.5 6.5c1.4 1.3-.8 2.4.7 3.7M12 5.5c1.4 1.3-.8 2.4.7 3.7M15.5 6.5c1.4 1.3-.8 2.4.7 3.7" /></>,
-    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9" /></>,
-    leaf: <><path d="M20 5c-7.5 0-12 4.5-12 12" /><path d="M20 5c0 7.5-4.5 12-12 12" /><path d="M8 17c-2.5-2.5-2.5-6 0-8s6-2.5 8 0" /></>,
-    edit: <><path d="m14 5 5 5L9 20H4v-5Z" /><path d="m12 7 5 5" /></>,
-    trash: <><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" /></>
   };
 
   return <svg {...common}>{paths[name]}</svg>;
 }
 
-function MenuBadge({ icon, label, tone }: { icon: "users" | "leaf"; label: string; tone: "blue" | "green" }) {
-  const classes = {
-    blue: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
-    green: "border-[#146c43] bg-[#eef4fa] text-[#146c43]"
-  };
+const tabs = [
+  { label: "Menu Library", icon: "document" },
+  { label: "Packages", icon: "box" },
+  { label: "Buffet Menu", icon: "document" },
+  { label: "Plated Menu", icon: "document" },
+  { label: "Add-ons", icon: "dollar" },
+] satisfies Array<{ label: string; icon: IconName }>;
 
+const menuItems = [
+  { name: "Challah rolls", category: "Appetizer" },
+  { name: "Dips platter", category: "Appetizer" },
+  { name: "Chicken soup", category: "Soup" },
+  { name: "Braised short ribs", category: "Main" },
+  { name: "Grilled chicken", category: "Main" },
+  { name: "Salmon platter", category: "Main" },
+  { name: "Potato kugel", category: "Side" },
+  { name: "Roasted vegetables", category: "Side" },
+  { name: "Soda package", category: "Drink" },
+  { name: "Coffee station", category: "Drink" },
+  { name: "Dessert cups", category: "Dessert" },
+  { name: "Sweet table", category: "Dessert" },
+];
+
+const packages = [
+  { name: "Standard Dinner", type: "Dinner", summary: "8 Buffet/Plated items", price: "$9,500.00" },
+  { name: "Gold Dinner", type: "Dinner", summary: "7 Buffet/Plated items", price: "$12,500.00" },
+  { name: "Dairy Buffet", type: "Dairy", summary: "5 Buffet/Plated items", price: "$7,800.00" },
+  { name: "Shabbos Package", type: "Shabbos", summary: "9 Buffet/Plated items", price: "$14,200.00" },
+];
+
+const packageItems = [
+  { name: "Challah rolls", mode: "Buffet", rule: "1 roll per 1 people", price: "$0.00" },
+  { name: "Dips platter", mode: "Buffet", rule: "1 set per 1 tables", price: "$0.00" },
+  { name: "Chicken soup", mode: "Plated", rule: "1 bowl per 1 people", price: "$0.00" },
+  { name: "Grilled chicken", mode: "Plated", rule: "1 plate per 1 people", price: "$0.00" },
+  { name: "Potato kugel", mode: "Buffet", rule: "1 tray per 30 people", price: "$0.00" },
+  { name: "Roasted vegetables", mode: "Plated", rule: "1 portion per 1 people", price: "$0.00" },
+  { name: "Soda package", mode: "Buffet", rule: "1 bottle per 8 people", price: "$0.00" },
+  { name: "Dessert cups", mode: "Plated", rule: "1 cup per 1 people", price: "$0.00" },
+];
+
+const packageAddItems = [
+  { name: "Grilled chicken", category: "Buffet", rule: "1 tray per 30 people", price: "$0.00" },
+  { name: "Challah rolls", category: "Plated", rule: "1 roll per 1 people", price: "$0.00" },
+];
+
+const buffetSections = [
+  {
+    title: "Appetizers",
+    items: [
+      { name: "Challah rolls", category: "Buffet", rule: "1 roll per 1 people", price: "$0.00" },
+      { name: "Dips platter", category: "Buffet", rule: "1 set per 1 tables", price: "$0.00" },
+    ],
+  },
+  { title: "Soups", items: [] },
+  {
+    title: "Mains",
+    items: [
+      { name: "Grilled chicken", category: "Buffet", rule: "1 tray per 30 people", price: "$0.00" },
+    ],
+  },
+  {
+    title: "Sides",
+    items: [
+      { name: "Potato kugel", category: "Buffet", rule: "1 tray per 30 people", price: "$0.00" },
+    ],
+  },
+  {
+    title: "Drinks",
+    items: [
+      { name: "Soda package", category: "Buffet", rule: "1 bottle per 8 people", price: "$0.00" },
+    ],
+  },
+  { title: "Desserts", items: [] },
+  { title: "Other", items: [] },
+];
+
+const platedSections = [
+  { title: "Appetizers", items: [] },
+  {
+    title: "Soups",
+    items: [
+      { name: "Chicken soup", category: "Plated", rule: "1 bowl per 1 people", price: "$0.00" },
+    ],
+  },
+  {
+    title: "Mains",
+    items: [
+      { name: "Grilled chicken", category: "Plated", rule: "1 plate per 1 people", price: "$0.00" },
+      { name: "Roasted vegetables", category: "Plated", rule: "1 portion per 1 people", price: "$0.00" },
+    ],
+  },
+  { title: "Sides", items: [] },
+  { title: "Drinks", items: [] },
+  {
+    title: "Desserts",
+    items: [
+      { name: "Dessert cups", category: "Plated", rule: "1 cup per 1 people", price: "$0.00" },
+    ],
+  },
+  { title: "Other", items: [] },
+];
+
+const addOns = [
+  {
+    name: "Coffee station",
+    description: "1 station per 1 event - Optional coffee and tea station",
+    price: "$350.00",
+    tag: "Parve",
+  },
+  {
+    name: "Sweet table",
+    description: "1 display per 1 event - Optional sweet table display",
+    price: "$900.00",
+    tag: "Parve",
+  },
+];
+
+const categories = [
+  { label: "All", count: 12 },
+  { label: "Appetizer", count: 2 },
+  { label: "Soup", count: 1 },
+  { label: "Main", count: 3 },
+  { label: "Side", count: 2 },
+  { label: "Drink", count: 2 },
+  { label: "Dessert", count: 2 },
+  { label: "More", count: 0 },
+];
+
+function MenuItemCard({ category, name }: { category: string; name: string }) {
   return (
-    <span className={`inline-flex h-11 items-center gap-2 rounded-xl border px-5 text-sm font-black ${classes[tone]}`}>
-      <LineIcon name={icon} className="h-5 w-5" />
-      {label}
-    </span>
+    <article className="flex h-50 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <div className="flex w-full flex-col">
+        <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">{category}</span>
+          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
+            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          </span>
+        </div>
+        <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] px-3 text-center text-sm font-black leading-4 text-[#17202a]">
+          {name}
+        </div>
+      </div>
+    </article>
   );
 }
 
-function ActionButton({ icon, label, tone }: { icon: "edit" | "trash"; label: string; tone: "outline" | "danger" }) {
-  const classes = {
-    outline: "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]",
-    danger: "border-[#a62b24] bg-white text-[#a62b24] hover:bg-[#fbfcfd]"
-  };
-
+function AddItemCard() {
   return (
-    <button className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-5 text-sm font-black transition hover:-translate-y-0.5 ${classes[tone]}`} type="button">
-      <LineIcon name={icon} className="h-5 w-5" />
-      {label}
+    <button className="flex h-50 overflow-hidden rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] text-[#17202a]" type="button">
+      <div className="flex w-full flex-col">
+        <div className="flex flex-1 items-center justify-center">
+          <span className="flex h-18 w-18 items-center justify-center rounded-xl border border-dashed border-[#b9c2cf] bg-white">
+            <LineIcon name="plus" className="h-5 w-5" />
+          </span>
+        </div>
+        <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] text-sm font-black">Add item</div>
+      </div>
     </button>
   );
 }
 
-const tabs = ["Menu Items", "Packages", "Add-ons", "Hall Menu Items"];
+function PackageAddCard({ category, name, rule, price }: { category: string; name: string; rule: string; price: string }) {
+  return (
+    <article className="flex h-50 w-38 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <div className="flex w-full flex-col">
+        <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">{category}</span>
+          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
+            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          </span>
+        </div>
+        <div className="flex h-16 flex-col items-center justify-center border-t border-[#d8dde5] px-2 text-center">
+          <p className="text-sm font-black leading-4 text-[#17202a]">{name}</p>
+          <p className="mt-1 text-xs leading-4 text-[#6a7483]">{rule}</p>
+          <p className="text-xs leading-4 text-[#6a7483]">{price}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MenuRuleCard({ category, name, rule, price }: { category: string; name: string; rule: string; price: string }) {
+  return (
+    <article className="flex h-50 w-38 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <div className="flex w-full flex-col">
+        <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">{category}</span>
+          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
+            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          </span>
+        </div>
+        <div className="flex h-16 flex-col items-center justify-center border-t border-[#d8dde5] px-2 text-center">
+          <p className="text-sm font-black leading-4 text-[#17202a]">{name}</p>
+          <p className="mt-1 text-xs leading-4 text-[#6a7483]">{rule}</p>
+          <p className="text-xs leading-4 text-[#6a7483]">{price}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MenuRuleSection({ title, items }: { title: string; items: Array<{ name: string; category: string; rule: string; price: string }> }) {
+  return (
+    <section className="min-h-21 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <header className="flex h-10 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
+        <h3 className="text-sm font-black text-[#17202a]">{title}</h3>
+        <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#1f4d73]">{items.length} items</span>
+      </header>
+      {items.length ? (
+        <div className="flex flex-col gap-10 p-3">
+          {items.map((item) => (
+            <MenuRuleCard key={`${title}-${item.name}`} category={item.category} name={item.name} rule={item.rule} price={item.price} />
+          ))}
+        </div>
+      ) : (
+        <p className="px-3 py-4 text-xs text-[#516174]">No items in this section yet.</p>
+      )}
+    </section>
+  );
+}
+
+function AddOnCard({ name, description, price, tag }: { name: string; description: string; price: string; tag: string }) {
+  return (
+    <article className="flex min-h-25 rounded-lg border border-[#d8dde5] bg-white p-3">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="flex h-18 w-18 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
+          <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-black text-[#17202a]">{name}</h3>
+          <p className="mt-1 max-w-48 text-xs leading-4 text-[#516174]">{description}</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#1f4d73]">{price}</span>
+            <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#17202a]">{tag}</span>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
 
 export function MenuPage() {
   const router = useRouter();
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
+  const [activeTab, setActiveTab] = useState("Menu Library");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedPackage, setSelectedPackage] = useState(packages[0].name);
 
   useEffect(() => {
     let isMounted = true;
@@ -114,76 +323,268 @@ export function MenuPage() {
     return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
+  const visibleItems = selectedCategory === "All" ? menuItems : menuItems.filter((item) => item.category === selectedCategory);
+  const activePackage = packages.find((item) => item.name === selectedPackage) ?? packages[0];
+  const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
+  const ruleSections = activeTab === "Plated Menu" ? platedSections : buffetSections;
+  const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
+
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
-      <DashboardTopbar
-        title="Menu"
-      />
-
-      <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#fbfcfd]/70 to-transparent" />
-        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#1f4d73]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
-          {Array.from({ length: 9 }).map((_, index) => (
-            <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
-          ))}
-        </svg>
-
-        <div className="relative mx-auto max-w-[1600px]">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#1f4d73]">Route / Menu</p>
-              <p className="mt-5 max-w-5xl text-base leading-8 text-[#6a7483] sm:text-lg">
-                Menu, packages, add-ons, and hall menu permissions can be configured per organization and per hall.
-              </p>
-            </div>
+    <div className="flex flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+      <div className="shrink-0 bg-white">
+        <header className="flex min-h-16 flex-col gap-3 border-b border-[#d8dde5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-lg font-black leading-6 text-[#17202a]">Menu</h1>
+            <p className="mt-1 text-xs text-[#6a7483]">Menu library, packages, buffet, plated and add-ons.</p>
           </div>
+          <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+              type="button"
+            >
+              <LineIcon name="plus" className="h-4 w-4" />
+              New library item
+            </button>
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#1f4d73] bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
+              type="button"
+            >
+              <LineIcon name="box" className="h-4 w-4" />
+              New package
+            </button>
+          </div>
+        </header>
 
-          <section className="dashboard-gradient-card mt-8 overflow-hidden shadow-xl shadow-[#17202a]/8">
-            <div className="relative z-1 space-y-7 p-5 sm:p-6 lg:p-7">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap gap-3">
-                  {tabs.map((tab, index) => (
+        <nav className="flex min-h-12 shrink-0 flex-wrap gap-2 overflow-hidden border-b border-[#d8dde5] px-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.label}
+              className={`inline-flex h-12 shrink-0 items-center gap-2 border-b-3 px-2 text-sm font-black ${
+                activeTab === tab.label ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
+              }`}
+              type="button"
+              onClick={() => setActiveTab(tab.label)}
+            >
+              <LineIcon name={tab.icon} className="h-4 w-4 text-[#516174]" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      <main className="p-3">
+        {activeTab === "Packages" ? (
+          <div className="grid items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
+            <aside className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+              <header className="flex h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
+                <div className="flex items-center gap-2">
+                  <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
+                  <h2 className="text-sm font-black text-[#17202a]">Packages</h2>
+                </div>
+                <button className="inline-flex h-8 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                  New
+                </button>
+              </header>
+
+              <div className="space-y-2 p-3">
+                {packages.map((item) => {
+                  const isActive = selectedPackage === item.name;
+
+                  return (
                     <button
-                      key={tab}
-                      className={`h-14 rounded-xl border px-6 text-base font-black shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 ${index === 0 ? "border-[#1f4d73] bg-[#1f4d73] text-white" : "border-[#d8dde5] bg-white text-[#17202a] hover:border-[#1f4d73]"}`}
+                      key={item.name}
+                      className={`flex h-14 w-full items-center gap-3 overflow-hidden rounded-lg border px-3 text-left ${
+                        isActive ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5] bg-white hover:bg-[#eef4fa]"
+                      }`}
                       type="button"
+                      onClick={() => setSelectedPackage(item.name)}
                     >
-                      {tab}
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
+                        <LineIcon name="box" className="h-4 w-4" />
+                      </span>
+                      <span className="grid min-w-0 flex-1 gap-0.5">
+                        <span className="truncate text-sm font-black leading-4 text-[#17202a]">{item.name}</span>
+                        <span className="truncate text-xs leading-4 text-[#6a7483]">{item.type} - {item.summary}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-1.5 py-1 text-[10px] font-black leading-none text-[#1f4d73]">{item.price}</span>
                     </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
+                <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
+                      <h2 className="truncate text-sm font-black text-[#17202a]">{activePackage.name}</h2>
+                    </div>
+                    <p className="mt-1 text-xs text-[#6a7483]">{activePackage.type} - Base {activePackage.price} - $95.00 per couple</p>
+                  </div>
+                  <button className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" type="button">
+                    Edit package
+                  </button>
+                </header>
+
+                <div className="space-y-2 p-3">
+                  {packageItems.map((item) => (
+                    <article key={`${activePackage.name}-${item.name}`} className="flex min-h-14 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-black text-[#17202a]">{item.name}</h3>
+                        <p className="mt-0.5 text-xs text-[#516174]">{item.mode} - {item.rule} - {item.price}</p>
+                      </div>
+                      <span className="w-22 shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73]">{item.mode}</span>
+                      <button className="shrink-0 rounded-md border border-[#f0b4ae] bg-white px-2 py-1 text-xs font-black text-[#a62b24] hover:bg-[#fff5f4]" type="button">
+                        Remove
+                      </button>
+                    </article>
                   ))}
                 </div>
 
-                <button className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#1f4d73] px-7 text-base font-black text-white shadow-xl shadow-[#1f4d73]/20 transition hover:-translate-y-0.5 hover:bg-[#9a5b00]" type="button">
-                  <LineIcon name="plus" />
-                  Add
-                </button>
-              </div>
-
-              <article className="flex flex-col gap-5 rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-lg shadow-[#17202a]/5 xl:flex-row xl:items-center">
-                <div className="flex min-w-0 flex-1 items-start gap-5 sm:items-center">
-                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
-                    <LineIcon name="serving" className="h-10 w-10" />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 className="text-2xl font-black tracking-tight text-[#17202a]">Potato Kugel</h2>
-                    <p className="mt-3 text-base font-semibold text-[#6a7483]">Side Dish&nbsp; · &nbsp;Simcha</p>
+                <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+                  <header className="flex h-11 items-center border-b border-[#d8dde5] px-3">
+                    <h3 className="text-sm font-black text-[#17202a]">Add Buffet or Plated items</h3>
+                  </header>
+                  <div className="flex flex-wrap gap-3 p-3">
+                    {packageAddItems.map((item) => (
+                      <PackageAddCard key={item.name} category={item.category} name={item.name} rule={item.rule} price={item.price} />
+                    ))}
                   </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        ) : isRuleMenu ? (
+          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
+              <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <LineIcon name="document" className="h-4 w-4 text-[#17202a]" />
+                    <h2 className="text-sm font-black text-[#17202a]">{activeTab}</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-[#6a7483]">Select a Menu Library item, then add the rule and price.</p>
                 </div>
+                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                  Add {ruleMode} item
+                </button>
+              </header>
 
-                <div className="flex flex-wrap gap-4 xl:min-w-110 xl:justify-start">
-                  <MenuBadge icon="users" label="1 pan / 25 couples" tone="blue" />
-                  <MenuBadge icon="leaf" label="Fleishig" tone="green" />
-                </div>
-
-                <div className="flex flex-wrap gap-4 xl:justify-end">
-                  <ActionButton icon="edit" label="Edit" tone="outline" />
-                  <ActionButton icon="trash" label="Delete" tone="danger" />
-                </div>
-              </article>
+              <div className="grid items-start gap-3 p-3 md:grid-cols-2 2xl:grid-cols-4">
+                {ruleSections.map((section) => (
+                  <MenuRuleSection key={`${activeTab}-${section.title}`} title={section.title} items={section.items} />
+                ))}
+              </div>
             </div>
           </section>
+        ) : activeTab === "Add-ons" ? (
+          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <LineIcon name="dollar" className="h-4 w-4 text-[#17202a]" />
+                  <h2 className="text-sm font-black text-[#17202a]">Add-ons</h2>
+                </div>
+                <p className="mt-1 text-xs text-[#6a7483]">Separate add-on items. Add-ons are not pulled from Buffet Menu or Plated Menu.</p>
+              </div>
+              <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                New add-on
+              </button>
+            </header>
+
+            <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)]">
+              {addOns.map((item) => (
+                <AddOnCard key={item.name} name={item.name} description={item.description} price={item.price} tag={item.tag} />
+              ))}
+            </div>
+          </section>
+        ) : (
+        <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
+              <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <LineIcon name="document" className="h-4 w-4 text-[#17202a]" />
+                    <h1 className="text-sm font-black text-[#17202a]">Menu Library</h1>
+                  </div>
+                  <p className="mt-1 text-xs text-[#6a7483]">Base food items only. No rules, no prices, no hall usage.</p>
+                </div>
+                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                  New item
+                </button>
+              </header>
+
+              <div className="border-b border-[#d8dde5] p-3">
+                <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_150px_140px]">
+                  <input
+                    className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73]"
+                    placeholder="Search menu items"
+                    type="search"
+                  />
+                  <select
+                    className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]"
+                    value={selectedCategory}
+                    onChange={(event) => setSelectedCategory(event.target.value)}
+                  >
+                    {categories.map((category) => (
+                      <option key={category.label} value={category.label}>
+                        {category.label}
+                      </option>
+                    ))}
+                  </select>
+                  <select className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]" defaultValue="All">
+                    <option>All</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                {visibleItems.map((item) => (
+                  <MenuItemCard key={item.name} category={item.category} name={item.name} />
+                ))}
+                <AddItemCard />
+              </div>
+            </div>
+          </section>
+
+          <aside className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
+              <LineIcon name="filter" className="h-4 w-4 text-[#17202a]" />
+              <h2 className="text-sm font-black text-[#17202a]">Categories</h2>
+            </header>
+
+            <div className="space-y-2 p-3">
+              {categories.map((category) => {
+                const isActive = selectedCategory === category.label;
+
+                return (
+                  <button
+                    key={category.label}
+                    className={`flex h-13.5 w-full items-center gap-3 rounded-lg border px-3 text-left ${
+                      isActive ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5] bg-white hover:bg-[#eef4fa]"
+                    }`}
+                    type="button"
+                    onClick={() => setSelectedCategory(category.label)}
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
+                      <LineIcon name="document" className="h-4 w-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="text-sm font-black text-[#17202a]">{category.label}</span>
+                      <span className="ml-0.5 text-xs text-[#6a7483]">{category.count} items</span>
+                    </span>
+                    <LineIcon name="chevron" className="h-4 w-4 shrink-0 text-[#17202a]" />
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
         </div>
-      </section>
+        )}
+      </main>
     </div>
   );
 }
