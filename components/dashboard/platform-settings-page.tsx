@@ -111,30 +111,30 @@ const userTypes = [
     name: "Admin",
     description: "All permissions enabled",
     icon: "shield" as const,
-    iconClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+    iconClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
     badges: [
-      { label: "System Default", icon: "check" as const, className: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]" },
-      { label: "All Halls", icon: "hall" as const, className: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]" }
+      { label: "System Default", icon: "check" as const, className: "border-[#146c43] bg-[#eef4fa] text-[#146c43]" },
+      { label: "All Halls", icon: "hall" as const, className: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]" }
     ]
   },
   {
     name: "Hall Secretary",
     description: "Calendar, booking, event manager, payment email",
     icon: "users" as const,
-    iconClassName: "border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]",
+    iconClassName: "border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]",
     badges: [
-      { label: "Template", icon: "clipboard" as const, className: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]" },
-      { label: "Selected Halls", icon: "hall" as const, className: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]" }
+      { label: "Template", icon: "clipboard" as const, className: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]" },
+      { label: "Selected Halls", icon: "hall" as const, className: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]" }
     ]
   },
   {
     name: "Kitchen Worker",
     description: "Kitchen dashboard only, no payment visibility",
     icon: "kitchen" as const,
-    iconClassName: "border-[#FED7AA] bg-[#FFF4E8] text-[#D97706]",
+    iconClassName: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
     badges: [
-      { label: "Template", icon: "clipboard" as const, className: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]" },
-      { label: "No Payment Info", icon: "info" as const, className: "border-[#FDBA74] bg-[#FFF7ED] text-[#C2410C]" }
+      { label: "Template", icon: "clipboard" as const, className: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]" },
+      { label: "No Payment Info", icon: "info" as const, className: "border-[#9a5b00] bg-[#fbfcfd] text-[#a62b24]" }
     ]
   }
 ];
@@ -144,10 +144,10 @@ const userAccessRows = [
     name: "Admin User",
     email: "admin@example.com",
     icon: "users" as const,
-    iconClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+    iconClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
     badges: [
-      { label: "Admin", icon: "shield" as const, className: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]" },
-      { label: "All Halls", icon: "hall" as const, className: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]" }
+      { label: "Admin", icon: "shield" as const, className: "border-[#146c43] bg-[#eef4fa] text-[#146c43]" },
+      { label: "All Halls", icon: "hall" as const, className: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]" }
     ],
     actions: ["Edit", "Resend Invite"] as const
   },
@@ -155,10 +155,10 @@ const userAccessRows = [
     name: "Kitchen Staff",
     email: "kitchen@example.com",
     icon: "kitchen" as const,
-    iconClassName: "border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]",
+    iconClassName: "border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]",
     badges: [
-      { label: "Kitchen Worker", icon: "users" as const, className: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]" },
-      { label: "Hall 1 + Hall 2", icon: "hall" as const, className: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]" }
+      { label: "Kitchen Worker", icon: "users" as const, className: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]" },
+      { label: "Hall 1 + Hall 2", icon: "hall" as const, className: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]" }
     ],
     actions: ["Edit", "Deactivate"] as const
   }
@@ -169,56 +169,56 @@ const featureAccessRows = [
     name: "Home",
     description: "Cards, summaries, new booking button",
     icon: "home" as const,
-    iconClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+    iconClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
     permissions: { view: true, create: true, edit: false, delete: false, manage: false }
   },
   {
     name: "Kitchen Dashboard",
     description: "Today, week, workers, item statuses",
     icon: "kitchen" as const,
-    iconClassName: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B9974D]",
+    iconClassName: "border-[#9a5b00] bg-[#fbfcfd] text-[#1f4d73]",
     permissions: { view: true, create: false, edit: true, delete: false, manage: false }
   },
   {
     name: "Event Calendar",
     description: "Month view, plus booking, event details",
     icon: "calendar" as const,
-    iconClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+    iconClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
     permissions: { view: true, create: true, edit: false, delete: false, manage: false }
   },
   {
     name: "Event Manager",
     description: "Search, edit, status, payment, PDF",
     icon: "users" as const,
-    iconClassName: "border-[#DDD6FE] bg-[#F4F0FF] text-[#6D5DF6]",
+    iconClassName: "border-[#b9c2cf] bg-[#fbfcfd] text-[#1f4d73]",
     permissions: { view: true, create: false, edit: true, delete: false, manage: false }
   },
   {
     name: "Menu",
     description: "Menu items, packages, add-ons",
     icon: "utensils" as const,
-    iconClassName: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B9974D]",
+    iconClassName: "border-[#9a5b00] bg-[#fbfcfd] text-[#1f4d73]",
     permissions: { view: true, create: false, edit: false, delete: false, manage: false }
   },
   {
     name: "Settings",
     description: "Platform, halls, users, user types",
     icon: "gear" as const,
-    iconClassName: "border-[#CBD5E1] bg-[#F1F5F9] text-[#64748B]",
+    iconClassName: "border-[#b9c2cf] bg-[#fbfcfd] text-[#6a7483]",
     permissions: { view: false, create: false, edit: false, delete: false, manage: false }
   },
   {
     name: "Payments / Gmail",
     description: "Payment status, payment emails, sender settings",
     icon: "mail" as const,
-    iconClassName: "border-[#BBF7D0] bg-[#ECFDF5] text-[#027A48]",
+    iconClassName: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
     permissions: { view: true, create: false, edit: false, delete: false, manage: false }
   },
   {
     name: "PDF / Uploads",
     description: "Generate PDFs, upload layout/paper",
     icon: "file" as const,
-    iconClassName: "border-[#DDD6FE] bg-[#F4F0FF] text-[#6D5DF6]",
+    iconClassName: "border-[#b9c2cf] bg-[#fbfcfd] text-[#1f4d73]",
     permissions: { view: true, create: true, edit: true, delete: false, manage: false }
   }
 ];
@@ -294,9 +294,9 @@ function LineIcon({ name, className = "h-5 w-5" }: { name: SettingsSection["icon
 
 function TopbarIconButton({ children, label, badge }: { children: React.ReactNode; label: string; badge?: string }) {
   return (
-    <button className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#E5E0D6] bg-white text-[#64748B] shadow-sm shadow-[#B9974D]/5 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:text-[#B9974D] sm:h-12 sm:w-12" type="button" aria-label={label}>
+    <button className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#d8dde5] bg-white text-[#6a7483] shadow-sm shadow-[#1f4d73]/5 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:text-[#1f4d73] sm:h-12 sm:w-12" type="button" aria-label={label}>
       {children}
-      {badge ? <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-linear-to-r from-[#B9974D] to-[#0F172A] px-1.5 text-xs font-black text-white">{badge}</span> : null}
+      {badge ? <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-linear-to-r from-[#1f4d73] to-[#17202a] px-1.5 text-xs font-black text-white">{badge}</span> : null}
     </button>
   );
 }
@@ -316,9 +316,9 @@ function TextField({
 }) {
   return (
     <label className="block min-w-0">
-      <span className={compact ? "text-[11px] font-black text-[#0F172A]" : "text-sm font-black text-[#0F172A]"}>{label}</span>
+      <span className={compact ? "text-[11px] font-black text-[#17202a]" : "text-sm font-black text-[#17202a]"}>{label}</span>
       <span
-        className={`flex items-center rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] font-semibold text-[#1E293B] shadow-sm shadow-[#0F172A]/4 transition focus-within:border-[#16C7C4] focus-within:shadow-[0_0_0_4px_rgba(22,199,196,0.14)] ${
+        className={`flex items-center rounded-2xl border border-[#d8dde5] bg-[#ffffff] font-semibold text-[#17202a] shadow-sm shadow-[#17202a]/4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${
           compact ? "mt-1.5 h-8 gap-2 px-2.5 text-xs" : "mt-3 h-13 gap-3 px-4 text-base"
         }`}
       >
@@ -326,7 +326,7 @@ function TextField({
         {type === "select" ? (
           <>
             <span className="min-w-0 flex-1 truncate">{value}</span>
-            <svg className={`${compact ? "h-3 w-3" : "h-4 w-4"} shrink-0 text-[#64748B]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <svg className={`${compact ? "h-3 w-3" : "h-4 w-4"} shrink-0 text-[#6a7483]`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </>
@@ -342,7 +342,7 @@ function PermissionToggle({ enabled }: { enabled: boolean }) {
   return (
     <span
       className={`relative inline-flex h-5.5 w-10 items-center rounded-full border p-0.5 transition ${
-        enabled ? "border-[#0F172A] bg-[#0F172A]" : "border-[#D9D9D4] bg-[#E7E3DA]"
+        enabled ? "border-[#1f4d73] bg-[#1f4d73]" : "border-[#d8dde5] bg-[#fbfcfd]"
       }`}
       aria-label={enabled ? "Enabled" : "Disabled"}
       title={enabled ? "Enabled" : "Disabled"}
@@ -354,12 +354,12 @@ function PermissionToggle({ enabled }: { enabled: boolean }) {
 
 function HallsSettingsPanel() {
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-4 sm:p-5 lg:p-6">
         <div className="flex flex-col gap-3.5 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">Halls</h2>
+          <h2 className="text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">Halls</h2>
           <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#B9974D] px-4 text-xs font-black text-white shadow-lg shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#1f4d73] px-4 text-xs font-black text-white shadow-lg shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
             <LineIcon name="plus" className="h-4 w-4" />
@@ -371,37 +371,37 @@ function HallsSettingsPanel() {
           {halls.map((hall) => (
             <article
               key={hall.name}
-              className="rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-3.5 shadow-md shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:shadow-lg hover:shadow-[#0F172A]/7 sm:p-4"
+              className="rounded-2xl border border-[#d8dde5] bg-[#ffffff] p-3.5 shadow-md shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#b9c2cf] hover:shadow-lg hover:shadow-[#17202a]/7 sm:p-4"
             >
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:items-center">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D] shadow-sm shadow-[#0F172A]/5">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73] shadow-sm shadow-[#17202a]/5">
                     <LineIcon name="hall" className="h-5 w-5" />
                   </span>
 
                   <span className="min-w-0">
-                    <h3 className="text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{hall.name}</h3>
-                    <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{hall.description}</p>
+                    <h3 className="text-base font-black tracking-tight text-[#17202a] sm:text-lg">{hall.name}</h3>
+                    <p className="mt-0.5 text-xs font-semibold leading-5 text-[#6a7483] sm:text-sm">{hall.description}</p>
                   </span>
                 </div>
 
                 <div className="flex flex-wrap gap-2 xl:justify-end">
-                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#A7F3D0] bg-[#ECFDF5] px-2.5 text-[11px] font-black text-[#027A48]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#027A48]" />
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#146c43] bg-[#eef4fa] px-2.5 text-[11px] font-black text-[#146c43]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#146c43]" />
                     Active
                   </span>
 
-                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] px-2.5 text-[11px] font-black text-[#1D6BFF]">
+                  <span className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-[#eef4fa] px-2.5 text-[11px] font-black text-[#1f4d73]">
                     <LineIcon name="calendar" className="h-3 w-3" />
                     Calendar + Kitchen
                   </span>
 
-                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
                     <LineIcon name="edit" className="h-3 w-3" />
                     Edit
                   </button>
 
-                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
                     <LineIcon name="copy" className="h-3 w-3" />
                     Duplicate
                   </button>
@@ -425,21 +425,21 @@ function FeatureAccessSettingsPanel() {
   ];
 
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
               <LineIcon name="key" className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Feature Access Control</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">Feature Access Control</h2>
           </div>
 
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#243551]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
-            <LineIcon name="lock" className="h-3.5 w-3.5 text-[#B9974D]" />
+            <LineIcon name="lock" className="h-3.5 w-3.5 text-[#1f4d73]" />
             Save Feature Access
           </button>
         </div>
@@ -449,11 +449,11 @@ function FeatureAccessSettingsPanel() {
         </div>
 
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-3 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
             <LineIcon name="check" className="h-3.5 w-3.5" />
             Select All
           </button>
-          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-3 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+          <button className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-3 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
             <LineIcon name="x" className="h-3.5 w-3.5" />
             Clear All
           </button>
@@ -461,7 +461,7 @@ function FeatureAccessSettingsPanel() {
 
         <div className="mt-3 overflow-x-auto pb-2">
           <div className="min-w-220">
-            <div className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 border-b border-[#E5E0D6] px-3 py-3 text-xs font-black text-[#64748B]">
+            <div className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 border-b border-[#d8dde5] px-3 py-3 text-xs font-black text-[#6a7483]">
               <span>Feature</span>
               {permissionColumns.map((column) => (
                 <span key={column.key} className="inline-flex items-center justify-center gap-1.5">
@@ -475,15 +475,15 @@ function FeatureAccessSettingsPanel() {
               {featureAccessRows.map((feature) => (
                 <article
                   key={feature.name}
-                  className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 rounded-xl border border-[#E5E0D6] bg-[#FFFEFB] px-3 py-2.5 shadow-sm shadow-[#0F172A]/4"
+                  className="grid grid-cols-[minmax(280px,1.8fr)_repeat(5,minmax(96px,1fr))] items-center gap-3 rounded-xl border border-[#d8dde5] bg-[#ffffff] px-3 py-2.5 shadow-sm shadow-[#17202a]/4"
                 >
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-sm shadow-[#0F172A]/5 ${feature.iconClassName}`}>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border shadow-sm shadow-[#17202a]/5 ${feature.iconClassName}`}>
                       <LineIcon name={feature.icon} className="h-4.5 w-4.5" />
                     </span>
                     <span className="min-w-0">
-                      <h3 className="truncate text-sm font-black text-[#0F172A]">{feature.name}</h3>
-                      <p className="mt-0.5 truncate text-[11px] font-semibold text-[#64748B]">{feature.description}</p>
+                      <h3 className="truncate text-sm font-black text-[#17202a]">{feature.name}</h3>
+                      <p className="mt-0.5 truncate text-[11px] font-semibold text-[#6a7483]">{feature.description}</p>
                     </span>
                   </div>
 
@@ -515,13 +515,13 @@ function IconField({
 }) {
   return (
     <label className="block min-w-0">
-      <span className={compact ? "text-[11px] font-black text-[#0F172A]" : "text-sm font-black text-[#0F172A]"}>{label}</span>
+      <span className={compact ? "text-[11px] font-black text-[#17202a]" : "text-sm font-black text-[#17202a]"}>{label}</span>
       <span
-        className={`flex items-center rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] font-semibold text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition focus-within:border-[#16C7C4] focus-within:shadow-[0_0_0_4px_rgba(22,199,196,0.14)] ${
+        className={`flex items-center rounded-2xl border border-[#d8dde5] bg-[#ffffff] font-semibold text-[#17202a] shadow-sm shadow-[#17202a]/4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${
           compact ? "mt-1.5 h-9 gap-2 px-3 text-xs" : "mt-3 h-15 gap-4 px-5 text-base"
         }`}
       >
-        <LineIcon name={icon} className={`${compact ? "h-4 w-4" : "h-6 w-6"} shrink-0 text-[#64748B]`} />
+        <LineIcon name={icon} className={`${compact ? "h-4 w-4" : "h-6 w-6"} shrink-0 text-[#6a7483]`} />
         <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} />
       </span>
     </label>
@@ -530,21 +530,21 @@ function IconField({
 
 function PaymentsGmailSettingsPanel() {
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
               <LineIcon name="mail" className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Payments / Gmail</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">Payments / Gmail</h2>
           </div>
 
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#243551]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
-            <LineIcon name="save" className="h-3.5 w-3.5 text-[#B9974D]" />
+            <LineIcon name="save" className="h-3.5 w-3.5 text-[#1f4d73]" />
             Save
           </button>
         </div>
@@ -555,9 +555,9 @@ function PaymentsGmailSettingsPanel() {
           <IconField label="Payment Email Subject" value="Payment Link for Your Event" icon="file" compact />
 
           <div className="block min-w-0">
-            <span className="text-[11px] font-black text-[#0F172A]">Send Test Email</span>
+            <span className="text-[11px] font-black text-[#17202a]">Send Test Email</span>
             <button
-              className="mt-1.5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#0F172A] bg-white px-4 text-xs font-black text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:bg-[#EEF7FF] lg:w-auto lg:min-w-56"
+              className="mt-1.5 inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl border border-[#1f4d73] bg-white px-4 text-xs font-black text-[#1f4d73] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#b9c2cf] hover:bg-[#eef4fa] lg:w-auto lg:min-w-56"
               type="button"
             >
               <LineIcon name="send" className="h-4 w-4" />
@@ -566,7 +566,7 @@ function PaymentsGmailSettingsPanel() {
           </div>
         </div>
 
-        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#b9c2cf] bg-[#eef4fa] p-3 text-[#1f4d73]">
           <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             Payment links and Gmail sender settings are used when sending payment emails to clients.
@@ -583,44 +583,44 @@ function GoogleCalendarSettingsPanel() {
       title: "Platform Calendar",
       description: "Default calendar for all halls unless a hall-specific calendar is set.",
       icon: "calendar" as const,
-      iconClassName: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
+      iconClassName: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
       badge: "Connected",
       badgeIcon: "check" as const,
-      badgeClassName: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]"
+      badgeClassName: "border-[#146c43] bg-[#eef4fa] text-[#146c43]"
     },
     {
       title: "Hall-Specific Calendar",
       description: "Each hall can use its own Google Calendar ID.",
       icon: "hall" as const,
-      iconClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
+      iconClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
       badge: "Optional",
       badgeIcon: "info" as const,
-      badgeClassName: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]"
+      badgeClassName: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]"
     },
     {
       title: "Duplicate Prevention",
       description: "Uses google_calendar_event_id.",
       icon: "shield" as const,
-      iconClassName: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
+      iconClassName: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
       badge: "Active",
       badgeIcon: "shield" as const,
-      badgeClassName: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]"
+      badgeClassName: "border-[#146c43] bg-[#eef4fa] text-[#146c43]"
     }
   ];
 
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
               <LineIcon name="calendar" className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Google Calendar</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">Google Calendar</h2>
           </div>
 
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#B9974D] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
             <LineIcon name="sync" className="h-3.5 w-3.5" />
@@ -630,12 +630,12 @@ function GoogleCalendarSettingsPanel() {
 
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           {calendarCards.map((card) => (
-            <article key={card.title} className="flex min-h-48 flex-col rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-4 shadow-md shadow-[#0F172A]/4">
-              <span className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${card.iconClassName}`}>
+            <article key={card.title} className="flex min-h-48 flex-col rounded-2xl border border-[#d8dde5] bg-[#ffffff] p-4 shadow-md shadow-[#17202a]/4">
+              <span className={`flex h-12 w-12 items-center justify-center rounded-full border shadow-sm shadow-[#17202a]/5 ${card.iconClassName}`}>
                 <LineIcon name={card.icon} className="h-6 w-6" />
               </span>
-              <h3 className="mt-4 text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{card.title}</h3>
-              <p className="mt-2 text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{card.description}</p>
+              <h3 className="mt-4 text-base font-black tracking-tight text-[#17202a] sm:text-lg">{card.title}</h3>
+              <p className="mt-2 text-xs font-semibold leading-5 text-[#6a7483] sm:text-sm">{card.description}</p>
               <div className="mt-auto pt-4">
                 <span className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black ${card.badgeClassName}`}>
                   <LineIcon name={card.badgeIcon} className="h-3 w-3" />
@@ -646,7 +646,7 @@ function GoogleCalendarSettingsPanel() {
           ))}
         </div>
 
-        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+        <div className="mt-5 flex gap-2.5 rounded-lg border border-[#b9c2cf] bg-[#eef4fa] p-3 text-[#1f4d73]">
           <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             Google Calendar sync keeps your bookings and events in sync across the platform. Use Test Sync to verify your connection at any time.
@@ -659,15 +659,15 @@ function GoogleCalendarSettingsPanel() {
 
 function HallPerformanceSettingsPanel() {
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">Hall Performance Settings</h2>
+          <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">Hall Performance Settings</h2>
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#0F172A] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#243551]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
-            <LineIcon name="save" className="h-3.5 w-3.5 text-[#B9974D]" />
+            <LineIcon name="save" className="h-3.5 w-3.5 text-[#1f4d73]" />
             Save Hall Defaults
           </button>
         </div>
@@ -685,7 +685,7 @@ function HallPerformanceSettingsPanel() {
           <TextField label="Google Calendar" value="Use platform calendar" type="select" compact />
         </div>
 
-        <div className="mt-4 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+        <div className="mt-4 flex gap-2.5 rounded-lg border border-[#b9c2cf] bg-[#eef4fa] p-3 text-[#1f4d73]">
           <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             Each hall can have its own booking rules, availability rules, pricing, menu defaults, kitchen defaults, PDF defaults,
@@ -699,18 +699,18 @@ function HallPerformanceSettingsPanel() {
 
 function UserTypesSettingsPanel() {
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]">
               <LineIcon name="users" className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">User Types / Role Templates</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">User Types / Role Templates</h2>
           </div>
 
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#B9974D] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
             <LineIcon name="plus" className="h-3.5 w-3.5" />
@@ -722,17 +722,17 @@ function UserTypesSettingsPanel() {
           {userTypes.map((userType) => (
             <article
               key={userType.name}
-              className="rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-3.5 shadow-md shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:shadow-lg hover:shadow-[#0F172A]/7 sm:p-4"
+              className="rounded-2xl border border-[#d8dde5] bg-[#ffffff] p-3.5 shadow-md shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#b9c2cf] hover:shadow-lg hover:shadow-[#17202a]/7 sm:p-4"
             >
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:items-center">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${userType.iconClassName}`}>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#17202a]/5 ${userType.iconClassName}`}>
                     <LineIcon name={userType.icon} className="h-5 w-5" />
                   </span>
 
                   <span className="min-w-0">
-                    <h3 className="text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{userType.name}</h3>
-                    <p className="mt-0.5 max-w-md text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{userType.description}</p>
+                    <h3 className="text-base font-black tracking-tight text-[#17202a] sm:text-lg">{userType.name}</h3>
+                    <p className="mt-0.5 max-w-md text-xs font-semibold leading-5 text-[#6a7483] sm:text-sm">{userType.description}</p>
                   </span>
                 </div>
 
@@ -744,12 +744,12 @@ function UserTypesSettingsPanel() {
                     </span>
                   ))}
 
-                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
                     <LineIcon name="edit" className="h-3 w-3" />
                     Edit
                   </button>
 
-                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 text-[11px] font-black text-[#0F172A] transition hover:border-[#9DD8D1] hover:bg-[#EEF7FF]" type="button">
+                  <button className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] transition hover:border-[#b9c2cf] hover:bg-[#eef4fa]" type="button">
                     <LineIcon name="copy" className="h-3 w-3" />
                     Duplicate
                   </button>
@@ -765,18 +765,18 @@ function UserTypesSettingsPanel() {
 
 function UserAccessSettingsPanel() {
   return (
-    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+    <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
       <div className="relative z-1 p-3.5 sm:p-4 lg:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
               <LineIcon name="shield" className="h-5 w-5" />
             </span>
-            <h2 className="text-lg font-black tracking-tight text-[#0F172A] sm:text-xl">User Access</h2>
+            <h2 className="text-lg font-black tracking-tight text-[#17202a] sm:text-xl">User Access</h2>
           </div>
 
           <button
-            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#B9974D] px-3 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
             type="button"
           >
             <LineIcon name="plus" className="h-3.5 w-3.5" />
@@ -788,17 +788,17 @@ function UserAccessSettingsPanel() {
           {userAccessRows.map((row) => (
             <article
               key={row.email}
-              className="rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-3.5 shadow-md shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#9DD8D1] hover:shadow-lg hover:shadow-[#0F172A]/7 sm:p-4"
+              className="rounded-2xl border border-[#d8dde5] bg-[#ffffff] p-3.5 shadow-md shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#b9c2cf] hover:shadow-lg hover:shadow-[#17202a]/7 sm:p-4"
             >
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:items-center">
-                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#0F172A]/5 ${row.iconClassName}`}>
+                  <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border shadow-sm shadow-[#17202a]/5 ${row.iconClassName}`}>
                     <LineIcon name={row.icon} className="h-5 w-5" />
                   </span>
 
                   <span className="min-w-0">
-                    <h3 className="text-base font-black tracking-tight text-[#0F172A] sm:text-lg">{row.name}</h3>
-                    <p className="mt-0.5 text-xs font-semibold leading-5 text-[#64748B] sm:text-sm">{row.email}</p>
+                    <h3 className="text-base font-black tracking-tight text-[#17202a] sm:text-lg">{row.name}</h3>
+                    <p className="mt-0.5 text-xs font-semibold leading-5 text-[#6a7483] sm:text-sm">{row.email}</p>
                   </span>
                 </div>
 
@@ -819,8 +819,8 @@ function UserAccessSettingsPanel() {
                         key={action}
                         className={`inline-flex h-8 items-center gap-1.5 rounded-lg border bg-white px-2.5 text-[11px] font-black transition ${
                           isDeactivate
-                            ? "border-[#FDA4A4] text-[#DC2626] hover:bg-[#FEF2F2]"
-                            : "border-[#CBD5E1] text-[#0F172A] hover:border-[#9DD8D1] hover:bg-[#EEF7FF]"
+                            ? "border-[#a62b24] text-[#a62b24] hover:bg-[#fbfcfd]"
+                            : "border-[#b9c2cf] text-[#17202a] hover:border-[#b9c2cf] hover:bg-[#eef4fa]"
                         }`}
                         type="button"
                       >
@@ -835,7 +835,7 @@ function UserAccessSettingsPanel() {
           ))}
         </div>
 
-        <div className="mt-4 flex gap-2.5 rounded-lg border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-[#0B4EA2]">
+        <div className="mt-4 flex gap-2.5 rounded-lg border border-[#b9c2cf] bg-[#eef4fa] p-3 text-[#1f4d73]">
           <LineIcon name="info" className="mt-0.5 h-4 w-4 shrink-0" />
           <p className="text-[11px] font-semibold leading-5 sm:text-xs">
             When adding a user, select a saved user type. The saved access setup is applied automatically. Individual overrides are optional.
@@ -893,7 +893,7 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
   if (!syncData) {
     return (
       <main
-        className="min-h-screen bg-[#F7F4ED]"
+        className="min-h-screen bg-[#f5f6f8]"
         aria-busy="true"
         aria-label="Loading platform settings"
       />
@@ -922,24 +922,24 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden text-[#0F172A] [background:linear-gradient(135deg,rgba(185,151,77,0.13),transparent_34%),linear-gradient(315deg,rgba(15,23,42,0.08),transparent_32%),#F7F4ED]">
-      <header className="sticky top-0 z-30 border-b border-[#E5E0D6] bg-white/92 backdrop-blur-xl">
+    <main className="min-h-screen overflow-x-hidden text-[#17202a] [background:linear-gradient(135deg,rgba(31,77,115,0.10),transparent_34%),linear-gradient(315deg,rgba(21,52,79,0.08),transparent_32%),#f5f6f8]">
+      <header className="sticky top-0 z-30 border-b border-[#d8dde5] bg-white/92 backdrop-blur-xl">
         <div className="mx-auto flex min-h-18 max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:gap-5 sm:px-8 lg:px-12">
           <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-11 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
           <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
-            <button className="hidden items-center gap-3 rounded-2xl bg-[#0F172A] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#243551] md:inline-flex" type="button" onClick={() => router.push("/dashboard")}>
+            <button className="hidden items-center gap-3 rounded-2xl bg-[#1f4d73] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#17202a]/12 transition hover:-translate-y-0.5 hover:bg-[#15344f] md:inline-flex" type="button" onClick={() => router.push("/dashboard")}>
               <LineIcon name="home" />
               Main Menu
             </button>
             <TopbarIconButton label="Notifications" badge="3"><LineIcon name="bell" className="h-5 w-5 sm:h-6 sm:w-6" /></TopbarIconButton>
             <TopbarIconButton label="Help"><LineIcon name="help" className="h-5 w-5 sm:h-6 sm:w-6" /></TopbarIconButton>
-            <button className="flex items-center gap-3 rounded-3xl px-2 py-1 transition hover:bg-[#F7F4ED] sm:pl-3 sm:pr-4" type="button">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#B9974D] to-[#E7E3DA] text-base font-black text-[#0F172A] sm:h-12 sm:w-12 sm:text-lg">{initials}</span>
+            <button className="flex items-center gap-3 rounded-3xl px-2 py-1 transition hover:bg-[#eef4fa] sm:pl-3 sm:pr-4" type="button">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#fbfcfd] text-base font-black text-[#17202a] sm:h-12 sm:w-12 sm:text-lg">{initials}</span>
               <span className="hidden text-left sm:block">
-                <span className="block text-sm font-black text-[#0F172A]">{user.name}</span>
-                <span className="block text-xs font-semibold text-[#64748B]">{roleLabel}</span>
+                <span className="block text-sm font-black text-[#17202a]">{user.name}</span>
+                <span className="block text-xs font-semibold text-[#6a7483]">{roleLabel}</span>
               </span>
-              <svg className="hidden h-4 w-4 text-[#64748B] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <svg className="hidden h-4 w-4 text-[#6a7483] sm:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
@@ -948,10 +948,10 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
       </header>
 
       <section className="relative overflow-hidden px-4 pb-10 pt-16 sm:px-8 sm:pb-12 sm:pt-18 lg:px-12 lg:pt-20">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
-        <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#B9974D]/12 blur-3xl" />
-        <div className="pointer-events-none absolute -right-24 top-20 h-96 w-96 rounded-full bg-[#0F172A]/10 blur-3xl" />
-        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#B9974D]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#fbfcfd]/70 to-transparent" />
+        <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#1f4d73]/12 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 top-20 h-96 w-96 rounded-full bg-[#17202a]/10 blur-3xl" />
+        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#1f4d73]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
           {Array.from({ length: 9 }).map((_, index) => (
             <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
           ))}
@@ -960,30 +960,30 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
         <div className="relative mx-auto max-w-[1600px]">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#B9974D]">
+              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#1f4d73]">
                 Route / Settings
               </p>
-              <h1 className="mt-4 text-[clamp(2.5rem,5vw,4rem)] font-black leading-[1.05] tracking-tight text-[#0F172A]">
+              <h1 className="mt-4 text-[clamp(2.5rem,5vw,4rem)] font-black leading-[1.05] tracking-tight text-[#17202a]">
                 {activeSection.pageTitle}
               </h1>
-              <p className="mt-5 max-w-4xl text-base leading-8 text-[#64748B] sm:text-lg">
+              <p className="mt-5 max-w-4xl text-base leading-8 text-[#6a7483] sm:text-lg">
                 {isPlatformSettingsView
                   ? "Configure your platform branding, halls, user access, integrations, and default system settings."
                   : "Configure the entire platform: name, halls, user types, user access, feature access, integrations, and defaults."}
               </p>
             </div>
             <button
-              className="inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-[#0F172A] px-5 text-sm font-black text-white shadow-lg shadow-[#0F172A]/12 transition hover:-translate-y-0.5 hover:bg-[#243551] sm:h-13 sm:px-6"
+              className="inline-flex h-12 shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-[#1f4d73] px-5 text-sm font-black text-white shadow-lg shadow-[#17202a]/12 transition hover:-translate-y-0.5 hover:bg-[#15344f] sm:h-13 sm:px-6"
               type="button"
               onClick={() => router.push("/dashboard")}
             >
-              <LineIcon name="grid" className="h-4.5 w-4.5 text-[#F7F4ED]" />
+              <LineIcon name="grid" className="h-4.5 w-4.5 text-[#f5f6f8]" />
               Main Menu
             </button>
           </div>
 
           <div className={`mt-8 grid items-start gap-6 ${!isPlatformSettingsView ? "lg:grid-cols-[330px_minmax(0,1fr)]" : "lg:grid-cols-[280px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)_470px]"}`}>
-            <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+            <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
               <nav className="relative z-1 space-y-2.5 p-4">
                 {SETTINGS_SECTIONS.map((section) => {
                   const isActive = section.id === activeSectionId;
@@ -992,14 +992,14 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
                       key={section.id}
                       className={`relative flex w-full items-center gap-3 overflow-hidden rounded-2xl px-3.5 py-3 text-left text-sm font-black transition ${
                         isActive
-                          ? "border border-[#DDEAF3] bg-[#F8F4EA] text-[#0F172A] shadow-sm shadow-[#0F172A]/5"
-                          : "border border-transparent bg-transparent text-[#64748B] hover:border-[#E5E0D6] hover:bg-[#F7F4ED] hover:text-[#0F172A]"
+                          ? "border border-[#eef4fa] bg-[#eef4fa] text-[#17202a] shadow-sm shadow-[#17202a]/5"
+                          : "border border-transparent bg-transparent text-[#6a7483] hover:border-[#d8dde5] hover:bg-[#eef4fa] hover:text-[#17202a]"
                       }`}
                       type="button"
                       onClick={() => handleSettingsSectionChange(section)}
                     >
-                      {isActive ? <span className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[#1D6BFF]" /> : null}
-                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${isActive ? "border-[#E5E0D6] bg-white text-[#B9974D]" : "border-transparent bg-[#F7F4ED] text-[#64748B]"}`}>
+                      {isActive ? <span className="absolute bottom-3 left-0 top-3 w-1 rounded-r-full bg-[#1f4d73]" /> : null}
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${isActive ? "border-[#d8dde5] bg-white text-[#1f4d73]" : "border-transparent bg-[#f5f6f8] text-[#6a7483]"}`}>
                         <LineIcon name={section.icon} className="h-4.5 w-4.5" />
                       </span>
                       <span className="min-w-0 truncate">{section.label}</span>
@@ -1039,18 +1039,18 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
               </div>
             ) : (
               <>
-            <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8">
+            <section className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8">
               <div className="relative z-1 p-5 sm:p-6 lg:p-7">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-4">
-                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D] shadow-sm shadow-[#0F172A]/5">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73] shadow-sm shadow-[#17202a]/5">
                       <LineIcon name="gear" className="h-6 w-6" />
                     </span>
-                    <h2 className="text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">Platform Settings</h2>
+                    <h2 className="text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">Platform Settings</h2>
                   </div>
 
                   <button
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#B9974D] px-3.5 text-[11px] font-black text-white shadow-md shadow-[#0F172A]/10 transition hover:-translate-y-0.5 hover:bg-[#9C7D37]"
+                    className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#1f4d73] px-3.5 text-[11px] font-black text-white shadow-md shadow-[#17202a]/10 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
                     type="button"
                   >
                     <LineIcon name="save" className="h-4 w-4" />
@@ -1065,21 +1065,21 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
                   <TextField label="Timezone" value="America/New_York" type="select" />
                   <TextField label="Clock Format" value="12-hour" type="select" />
                   <TextField label="Calendar Start Day" value="Sunday" type="select" />
-                  <TextField label="Primary Color" value="#0F172A" swatchClassName="bg-[#0F172A]" />
-                  <TextField label="Accent Color" value="#B9974D" swatchClassName="bg-[#B9974D]" />
+                  <TextField label="Primary Color" value="#1f4d73" swatchClassName="bg-[#1f4d73]" />
+                  <TextField label="Accent Color" value="#1f4d73" swatchClassName="bg-[#1f4d73]" />
                 </div>
 
-                <div className="mt-6 border-t border-[#E5E0D6] pt-5">
+                <div className="mt-6 border-t border-[#d8dde5] pt-5">
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#9DD8D1] bg-white px-4 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:bg-[#F8F4EA] hover:text-[#9C7D37]" type="button">
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#1f4d73] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:bg-[#eef4fa] hover:text-[#15344f]" type="button">
                       <LineIcon name="upload" className="h-4.5 w-4.5" />
                       Upload Logo
                     </button>
-                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#9DD8D1] bg-white px-4 text-sm font-black text-[#0B6F81] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D] hover:bg-[#F8F4EA] hover:text-[#9C7D37]" type="button">
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#1f4d73] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:bg-[#eef4fa] hover:text-[#15344f]" type="button">
                       <LineIcon name="upload" className="h-4.5 w-4.5" />
                       Upload Favicon
                     </button>
-                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#FCA5A5] bg-white px-4 text-sm font-black text-[#DC2626] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:bg-[#FEF2F2]" type="button">
+                    <button className="inline-flex h-11 items-center justify-center gap-2.5 rounded-2xl border border-[#a62b24] bg-white px-4 text-sm font-black text-[#a62b24] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:bg-[#fbfcfd]" type="button">
                       <LineIcon name="trash" className="h-4.5 w-4.5" />
                       Reset Theme
                     </button>
@@ -1088,28 +1088,28 @@ export function PlatformSettingsPage({ initialActiveItem = "Platform Settings" }
               </div>
             </section>
 
-            <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#0F172A]/8 lg:col-span-2 2xl:col-span-1">
+            <aside className="dashboard-gradient-card overflow-hidden shadow-xl shadow-[#17202a]/8 lg:col-span-2 2xl:col-span-1">
               <div className="relative z-1 p-5 sm:p-6 lg:p-7">
                 <div className="flex min-w-0 items-center gap-4">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48] shadow-sm shadow-[#0F172A]/5">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#146c43] bg-[#eef4fa] text-[#146c43] shadow-sm shadow-[#17202a]/5">
                     <LineIcon name="eye" className="h-6 w-6" />
                   </span>
-                  <h2 className="text-xl font-black tracking-tight text-[#0F172A] sm:text-2xl">Brand Preview</h2>
+                  <h2 className="text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">Brand Preview</h2>
                 </div>
-                <p className="mt-5 text-sm font-semibold leading-7 text-[#64748B]">
+                <p className="mt-5 text-sm font-semibold leading-7 text-[#6a7483]">
                   This preview shows how your brand will appear across the platform.
                 </p>
 
-                <div className="mt-6 flex min-h-52 items-center justify-center rounded-2xl border border-[#E5E0D6] bg-linear-to-br from-[#FFFEFB] to-[#F7F4ED] p-6 shadow-inner shadow-[#0F172A]/4">
+                <div className="mt-6 flex min-h-52 items-center justify-center rounded-2xl border border-[#d8dde5] bg-linear-to-br from-[#ffffff] to-[#f5f6f8] p-6 shadow-inner shadow-[#17202a]/4">
                   <div className="flex max-w-full flex-col items-center justify-center text-center">
                     <Image src="/hms-logo-header.png" alt="Hall Management SaaS logo" width={1160} height={300} unoptimized className="h-auto w-56 max-w-full object-contain sm:w-68" />
-                    <p className="mt-8 text-base font-black leading-6 text-[#0F172A]">
+                    <p className="mt-8 text-base font-black leading-6 text-[#17202a]">
                       Default Hall Organization
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-6 flex gap-3 rounded-2xl border border-[#BBD7FF] bg-[#EEF7FF] p-4 text-[#0B4EA2]">
+                <div className="mt-6 flex gap-3 rounded-2xl border border-[#b9c2cf] bg-[#eef4fa] p-4 text-[#1f4d73]">
                   <LineIcon name="info" className="mt-0.5 h-5 w-5 shrink-0" />
                   <p className="text-sm font-bold leading-7">
                     Platform name, colors, logo, PDF header, and email header are all controlled from this section.

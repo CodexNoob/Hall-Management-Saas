@@ -64,7 +64,7 @@ export function DashboardAuthGuard() {
   if (!syncData) {
     return (
       <main
-        className="min-h-screen bg-[#F7F4ED]"
+        className="min-h-screen bg-[#f5f6f8]"
         aria-busy="true"
         aria-label={status}
       />

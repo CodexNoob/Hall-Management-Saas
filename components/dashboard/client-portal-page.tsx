@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import {
   clearCachedSyncedUser,
@@ -13,14 +12,6 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type IconName = "portal" | "calendar" | "file" | "payment" | "message" | "link" | "plus" | "check";
-
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const common = {
@@ -95,22 +86,22 @@ function StatCard({
   description: string;
 }) {
   return (
-    <article className="rounded-2xl border border-[#D8DEE8] bg-white p-5 shadow-sm shadow-[#0F172A]/4">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#F7F4ED] text-[#B9974D]">
+    <article className="rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-sm shadow-[#17202a]/4">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f5f6f8] text-[#1f4d73]">
         <LineIcon name={icon} />
       </div>
-      <p className="mt-5 text-sm font-black text-[#64748B]">{label}</p>
-      <p className="mt-3 text-3xl font-black tracking-tight text-[#0F172A]">{value}</p>
-      <p className="mt-2 text-sm font-medium text-[#64748B]">{description}</p>
+      <p className="mt-5 text-sm font-black text-[#6a7483]">{label}</p>
+      <p className="mt-3 text-3xl font-black tracking-tight text-[#17202a]">{value}</p>
+      <p className="mt-2 text-sm font-medium text-[#6a7483]">{description}</p>
     </article>
   );
 }
 
 function PortalBadge({ children, tone }: { children: ReactNode; tone: "green" | "blue" | "gold" }) {
   const classes = {
-    green: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
-    blue: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
-    gold: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]",
+    green: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
+    blue: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
+    gold: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
   };
 
   return (
@@ -164,31 +155,25 @@ export function ClientPortalPage() {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#F7F4ED]" aria-busy="true" />;
+    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const user = syncData.user;
-  const roleLabel = formatRole(user.role);
-
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F7F4ED] text-[#0F172A]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Client Portal" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Client Portal"
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar
-          title="Client Portal"
-        />
-
-        <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
+      <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#fbfcfd]/70 to-transparent" />
 
           <div className="relative mx-auto max-w-[1600px]">
             <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <p className="text-sm font-black uppercase tracking-[0.32em] text-[#B9974D]">
+                <p className="text-sm font-black uppercase tracking-[0.32em] text-[#1f4d73]">
                   Route / Client Portal
                 </p>
-                <p className="mt-5 max-w-4xl text-base leading-8 text-[#64748B] sm:text-lg">
+                <p className="mt-5 max-w-4xl text-base leading-8 text-[#6a7483] sm:text-lg">
                   Give clients a clean portal to review event details, payment status, shared documents,
                   and booking messages.
                 </p>
@@ -197,7 +182,7 @@ export function ClientPortalPage() {
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  className="inline-flex h-12 items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-5 text-sm font-black text-[#0F172A] shadow-sm transition hover:bg-[#F7F4ED]"
+                  className="inline-flex h-12 items-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-black text-[#17202a] shadow-sm transition hover:bg-[#eef4fa]"
                 >
                   <LineIcon name="link" className="h-4 w-4" />
                   Copy portal link
@@ -205,7 +190,7 @@ export function ClientPortalPage() {
 
                 <button
                   type="button"
-                  className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#B9974D] px-5 text-sm font-black text-white shadow-lg shadow-[#B9974D]/20 transition hover:-translate-y-0.5 hover:bg-[#A98537]"
+                  className="inline-flex h-12 items-center gap-2 rounded-xl bg-[#1f4d73] px-5 text-sm font-black text-white shadow-lg shadow-[#1f4d73]/20 transition hover:-translate-y-0.5 hover:bg-[#9a5b00]"
                 >
                   <LineIcon name="plus" className="h-4 w-4" />
                   Invite client
@@ -219,12 +204,12 @@ export function ClientPortalPage() {
               <StatCard icon="message" label="Unread messages" value="3" description="Client questions to review" />
             </div>
 
-            <section className="dashboard-gradient-card mt-6 overflow-hidden shadow-xl shadow-[#0F172A]/8">
+            <section className="dashboard-gradient-card mt-6 overflow-hidden shadow-xl shadow-[#17202a]/8">
               <div className="relative z-1 p-5 sm:p-6 lg:p-7">
-                <div className="flex flex-col gap-3 border-b border-[#E5E0D6] pb-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-b border-[#d8dde5] pb-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">Client Access</h2>
-                    <p className="mt-1 text-sm font-medium text-[#64748B]">
+                    <h2 className="text-2xl font-black tracking-tight text-[#17202a]">Client Access</h2>
+                    <p className="mt-1 text-sm font-medium text-[#6a7483]">
                       Review active portal invitations and shared booking workspaces.
                     </p>
                   </div>
@@ -249,16 +234,16 @@ export function ClientPortalPage() {
                   ].map((client) => (
                     <article
                       key={client.name}
-                      className="flex flex-col gap-4 rounded-2xl border border-[#E5E0D6] bg-white p-5 shadow-sm shadow-[#0F172A]/4 xl:flex-row xl:items-center"
+                      className="flex flex-col gap-4 rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-sm shadow-[#17202a]/4 xl:flex-row xl:items-center"
                     >
                       <div className="flex min-w-0 flex-1 items-center gap-4">
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#F7F4ED] text-[#B9974D]">
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#f5f6f8] text-[#1f4d73]">
                           <LineIcon name="portal" />
                         </span>
                         <div className="min-w-0">
-                          <h3 className="truncate text-lg font-black text-[#0F172A]">{client.name}</h3>
-                          <p className="mt-1 text-sm font-semibold text-[#64748B]">{client.event}</p>
-                          <p className="mt-1 text-xs font-bold uppercase tracking-[0.08em] text-[#94A3B8]">{client.date}</p>
+                          <h3 className="truncate text-lg font-black text-[#17202a]">{client.name}</h3>
+                          <p className="mt-1 text-sm font-semibold text-[#6a7483]">{client.event}</p>
+                          <p className="mt-1 text-xs font-bold uppercase tracking-[0.08em] text-[#6a7483]">{client.date}</p>
                         </div>
                       </div>
 
@@ -270,14 +255,14 @@ export function ClientPortalPage() {
                       <div className="flex flex-wrap gap-3 xl:justify-end">
                         <button
                           type="button"
-                          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-4 text-sm font-black text-[#0F172A] transition hover:bg-[#F7F4ED]"
+                          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
                         >
                           <LineIcon name="message" className="h-4 w-4" />
                           Message
                         </button>
                         <button
                           type="button"
-                          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0F172A] px-4 text-sm font-black text-white transition hover:bg-[#17233A]"
+                          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white transition hover:bg-[#15344f]"
                         >
                           <LineIcon name="check" className="h-4 w-4" />
                           Open portal
@@ -289,8 +274,7 @@ export function ClientPortalPage() {
               </div>
             </section>
           </div>
-        </section>
       </section>
-    </main>
+    </div>
   );
 }

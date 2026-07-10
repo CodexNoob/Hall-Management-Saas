@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
 
@@ -19,14 +18,6 @@ type ScheduleRow = {
   status: "Confirmed" | "Menu review" | "On hold" | "Balance due";
   next: string;
 };
-
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 const kpis = [
   { label: "Events today", value: "6", description: "3 confirmed, 2 in setup, 1 on hold" },
@@ -74,56 +65,52 @@ const scheduleRows: ScheduleRow[] = [
 
 function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
   const classes = {
-    Confirmed: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
-    "Menu review": "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]",
-    "On hold": "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
-    "Balance due": "border-[#FCA5A5] bg-[#FEF2F2] text-[#DC2626]"
+    Confirmed: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
+    "Menu review": "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
+    "On hold": "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
+    "Balance due": "border-[#a62b24] bg-[#fbfcfd] text-[#a62b24]"
   };
 
   return <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${classes[status]}`}>{status}</span>;
 }
 
-export function DashboardShell({ user }: DashboardShellProps) {
+export function DashboardShell({}: DashboardShellProps) {
   const router = useRouter();
-  const roleLabel = formatRole(user.role);
 
   return (
-    <main className="min-h-screen bg-[#F4F2EE] text-[#111827]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Dashboard" />
+    <div className="min-h-screen bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Dashboard"
+        subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
+        onNewBooking={() => console.log("New booking clicked")}
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar
-          title="Dashboard"
-          subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
-          onNewBooking={() => console.log("New booking clicked")}
-        />
-
-        <div className="px-4 py-6 sm:px-6">
+      <div className="px-4 py-6 sm:px-6">
           <div className="grid gap-4 md:grid-cols-2">
             {kpis.map((kpi) => (
-              <article key={kpi.label} className="rounded-2xl border border-[#D8DEE8] bg-white p-5 shadow-sm shadow-[#0F172A]/4">
-                <p className="text-sm font-black text-[#64748B]">{kpi.label}</p>
-                <p className="mt-4 text-3xl font-black tracking-tight text-[#111827]">{kpi.value}</p>
-                <p className="mt-3 text-sm font-medium text-[#64748B]">{kpi.description}</p>
+              <article key={kpi.label} className="rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-sm shadow-[#17202a]/4">
+                <p className="text-sm font-black text-[#6a7483]">{kpi.label}</p>
+                <p className="mt-4 text-3xl font-black tracking-tight text-[#17202a]">{kpi.value}</p>
+                <p className="mt-3 text-sm font-medium text-[#6a7483]">{kpi.description}</p>
               </article>
             ))}
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
-            <section className="overflow-hidden rounded-2xl border border-[#D8DEE8] bg-white shadow-sm shadow-[#0F172A]/4">
-              <div className="flex flex-col gap-4 border-b border-[#D8DEE8] p-5 sm:flex-row sm:items-center sm:justify-between">
+            <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+              <div className="flex flex-col gap-4 border-b border-[#d8dde5] p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-[#111827]">Operating schedule</h2>
-                  <p className="mt-1 text-sm font-medium text-[#64748B]">Live work list for office, kitchen, and dining room managers.</p>
+                  <h2 className="text-lg font-black text-[#17202a]">Operating schedule</h2>
+                  <p className="mt-1 text-sm font-medium text-[#6a7483]">Live work list for office, kitchen, and dining room managers.</p>
                 </div>
-                <button className="h-10 rounded-xl border border-[#CBD5E1] bg-white px-4 text-sm font-black text-[#0F172A] transition hover:bg-[#F7F4ED]" type="button" onClick={() => router.push("/dashboard/event-manager")}>
+                <button className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]" type="button" onClick={() => router.push("/dashboard/event-manager")}>
                   Open events
                 </button>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed text-left">
-                  <thead className="border-b border-[#D8DEE8] bg-[#F8FAFC] text-xs font-black uppercase tracking-[0.04em] text-[#64748B]">
+                  <thead className="border-b border-[#d8dde5] bg-[#fbfcfd] text-xs font-black uppercase tracking-[0.04em] text-[#6a7483]">
                     <tr>
                       <th className="w-[10%] px-4 py-4">Time</th>
                       <th className="w-[23%] px-4 py-4">Event</th>
@@ -133,18 +120,18 @@ export function DashboardShell({ user }: DashboardShellProps) {
                       <th className="w-[19%] px-4 py-4">Next item</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#D8DEE8]">
+                  <tbody className="divide-y divide-[#d8dde5]">
                     {scheduleRows.map((row) => (
                       <tr key={`${row.time}-${row.event}`} className="align-middle">
-                        <td className="px-4 py-4 text-sm font-semibold text-[#111827]">{row.time}</td>
+                        <td className="px-4 py-4 text-sm font-semibold text-[#17202a]">{row.time}</td>
                         <td className="px-4 py-4">
-                          <p className="text-sm font-black text-[#111827]">{row.event}</p>
-                          <p className="mt-1 text-sm font-medium text-[#64748B]">{row.details}</p>
+                          <p className="text-sm font-black text-[#17202a]">{row.event}</p>
+                          <p className="mt-1 text-sm font-medium text-[#6a7483]">{row.details}</p>
                         </td>
-                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.room}</td>
-                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.owner}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">{row.room}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">{row.owner}</td>
                         <td className="px-4 py-4"><StatusBadge status={row.status} /></td>
-                        <td className="px-4 py-4 text-sm font-medium text-[#111827]">{row.next}</td>
+                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">{row.next}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -153,19 +140,19 @@ export function DashboardShell({ user }: DashboardShellProps) {
             </section>
 
             <div className="space-y-5">
-              <section className="overflow-hidden rounded-2xl border border-[#D8DEE8] bg-white shadow-sm shadow-[#0F172A]/4">
-                <div className="border-b border-[#D8DEE8] p-5">
-                  <h2 className="text-base font-black text-[#111827]">Attention needed</h2>
-                  <p className="mt-1 text-xs font-medium text-[#64748B]">Issues blocking a clean operating day.</p>
+              <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+                <div className="border-b border-[#d8dde5] p-5">
+                  <h2 className="text-base font-black text-[#17202a]">Attention needed</h2>
+                  <p className="mt-1 text-xs font-medium text-[#6a7483]">Issues blocking a clean operating day.</p>
                 </div>
                 <div className="space-y-2.5 p-4">
-                  <div className="rounded-xl border border-[#F5C37B] bg-[#FFF8E8] p-3 text-xs leading-5 text-[#92400E]">
+                  <div className="rounded-xl border border-[#9a5b00] bg-[#fbfcfd] p-3 text-xs leading-5 text-[#9a5b00]">
                     <strong>Nachlas Yehuda menu lock:</strong> Second room booking must follow the first menu for the night.
                   </div>
-                  <div className="rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3 text-xs leading-5 text-[#991B1B]">
+                  <div className="rounded-xl border border-[#a62b24] bg-[#fbfcfd] p-3 text-xs leading-5 text-[#a62b24]">
                     <strong>Friedman Dinner:</strong> Final balance remains open. Event starts 8:30 PM.
                   </div>
-                  <div className="rounded-xl border border-[#BBD7FF] bg-[#EEF7FF] p-3 text-xs leading-5 text-[#1E3A8A]">
+                  <div className="rounded-xl border border-[#b9c2cf] bg-[#eef4fa] p-3 text-xs leading-5 text-[#1f4d73]">
                     <strong>Vendor delivery:</strong> Linen order for Grand Hall marked ready, not received.
                   </div>
                 </div>
@@ -173,8 +160,7 @@ export function DashboardShell({ user }: DashboardShellProps) {
 
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --navy: #0f172a;
-  --navy-light: #243551;
-  --gold: #b9974d;
-  --gold-dark: #9c7d37;
-  --cream-bg: #f7f4ed;
-  --kitchen-bg: #e7e3da;
+  --navy: #1f4d73;
+  --navy-light: #15344f;
+  --gold: #1f4d73;
+  --gold-dark: #15344f;
+  --cream-bg: #f5f6f8;
+  --kitchen-bg: #fbfcfd;
   --white-card: #ffffff;
-  --border: #e5e0d6;
-  --charcoal-text: #1e293b;
-  --muted-text: #64748b;
-  --slate-light: #f1f5f9;
+  --border: #d8dde5;
+  --charcoal-text: #17202a;
+  --muted-text: #6a7483;
+  --slate-light: #fbfcfd;
   --color-canvas: var(--cream-bg);
   --color-surface: var(--white-card);
   --color-ink: var(--charcoal-text);
@@ -20,9 +20,9 @@
   --color-brand: var(--navy);
   --color-brand-strong: var(--navy-light);
   --color-accent: var(--gold);
-  --color-danger: #b42318;
-  --color-warning: #b54708;
-  --color-success: #027a48;
+  --color-danger: #a62b24;
+  --color-warning: #9a5b00;
+  --color-success: #146c43;
   --spacing-page: clamp(16px, 3vw, 40px);
   --control-height: 40px;
 }
@@ -110,11 +110,11 @@ svg {
 
 .navbar-login-button {
   border-radius: 14px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 18px rgba(23, 32, 42, 0.08);
 }
 
 .navbar-login-button:hover {
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 12px 24px rgba(23, 32, 42, 0.12);
 }
 
 .dashboard-gradient-card {
@@ -130,7 +130,7 @@ svg {
   z-index: 0;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, #1d6bff, #16c7c4, #8acb4a, #b9974d);
+  background: linear-gradient(135deg, #d8dde5, #eef4fa, #b9c2cf);
   pointer-events: none;
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
@@ -142,26 +142,43 @@ svg {
   mask-composite: exclude;
 }
 
+.app-sidebar {
+  will-change: width;
+}
+
+.sidebar-will-change-width {
+  will-change: width;
+}
+
 .dashboard-shell-main {
   transition: padding-left 300ms ease-in-out;
+  will-change: padding-left;
 }
 
 .dashboard-topbar-brand {
-  width: 17.5rem;
+  width: 16rem;
   transition:
     width 300ms ease-in-out,
     padding 300ms ease-in-out;
+  will-change: width, padding;
+}
+
+.dashboard-topbar-content {
+  left: 16rem;
+  transition: left 300ms ease-in-out;
+  will-change: left;
 }
 
 .dashboard-topbar-logo {
   transition:
     opacity 200ms ease-in-out,
     transform 300ms ease-in-out;
+  will-change: opacity, transform;
 }
 
 @media (min-width: 1024px) {
   html[data-dashboard-sidebar="expanded"] .dashboard-shell-main {
-    padding-left: 17.5rem !important;
+    padding-left: 16rem !important;
   }
 
   html[data-dashboard-sidebar="collapsed"] .dashboard-shell-main {
@@ -169,7 +186,11 @@ svg {
   }
 
   html[data-dashboard-sidebar="expanded"] .dashboard-topbar-brand {
-    width: 17.5rem;
+    width: 16rem;
+  }
+
+  html[data-dashboard-sidebar="expanded"] .dashboard-topbar-content {
+    left: 16rem;
   }
 
   html[data-dashboard-sidebar="collapsed"] .dashboard-topbar-brand {
@@ -184,6 +205,10 @@ svg {
     width: 0;
     opacity: 0;
     transform: translateX(-8px);
+  }
+
+  html[data-dashboard-sidebar="collapsed"] .dashboard-topbar-content {
+    left: 4.5rem;
   }
 }
 
@@ -554,7 +579,7 @@ svg {
 
 .saas-feature-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 24px 48px rgba(23, 32, 42, 0.12);
 }
 
 .saas-feature-icon {
@@ -563,7 +588,7 @@ svg {
 
 .saas-feature-card:hover .saas-feature-icon {
   transform: scale(1.06);
-  box-shadow: 0 16px 32px rgba(185, 151, 77, 0.22);
+  box-shadow: 0 16px 32px rgba(31, 77, 115, 0.22);
 }
 
 .saas-feature-slide-reveal {
@@ -589,7 +614,7 @@ svg {
 
 .saas-benefit-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 24px 48px rgba(23, 32, 42, 0.12);
 }
 
 .saas-benefit-visual {
@@ -598,7 +623,7 @@ svg {
 
 .saas-benefit-card:hover .saas-benefit-visual {
   transform: scale(1.06);
-  box-shadow: 0 18px 38px rgba(185, 151, 77, 0.20);
+  box-shadow: 0 18px 38px rgba(31, 77, 115, 0.20);
 }
 
 .saas-benefit-slide-reveal {
@@ -635,7 +660,7 @@ svg {
 
 .saas-pricing-card:hover {
   transform: translateY(-6px);
-  box-shadow: 0 26px 52px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 26px 52px rgba(23, 32, 42, 0.12);
 }
 
 .saas-pricing-slide-reveal {
@@ -701,10 +726,10 @@ svg {
 @keyframes saasPricingGlow {
   0%,
   100% {
-    box-shadow: 0 28px 56px rgba(15, 23, 42, 0.14);
+    box-shadow: 0 28px 56px rgba(23, 32, 42, 0.14);
   }
   50% {
-    box-shadow: 0 30px 64px rgba(185, 151, 77, 0.22);
+    box-shadow: 0 30px 64px rgba(31, 77, 115, 0.22);
   }
 }
 
@@ -714,7 +739,7 @@ svg {
 
 .saas-hover-lift:hover {
   transform: translateY(-3px);
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 18px 36px rgba(23, 32, 42, 0.16);
 }
 
 .saas-nav-link {

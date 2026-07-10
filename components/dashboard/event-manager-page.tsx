@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -36,14 +35,6 @@ type IconName =
   | "check"
   | "pause"
   | "menu";
-
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const common = {
@@ -83,8 +74,8 @@ function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?:
 
 function SearchField() {
   return (
-    <div className="flex h-14 min-w-0 items-center gap-3 rounded-xl border border-[#E5E0D6] bg-[#FFFEFB] px-5 text-sm font-semibold text-[#64748B] shadow-sm shadow-[#0F172A]/4">
-      <LineIcon name="search" className="h-6 w-6 shrink-0 text-[#0F172A]" />
+    <div className="flex h-14 min-w-0 items-center gap-3 rounded-xl border border-[#d8dde5] bg-[#ffffff] px-5 text-sm font-semibold text-[#6a7483] shadow-sm shadow-[#17202a]/4">
+      <LineIcon name="search" className="h-6 w-6 shrink-0 text-[#17202a]" />
       <span className="truncate">Search client name or phone...</span>
     </div>
   );
@@ -92,22 +83,22 @@ function SearchField() {
 
 function FilterSelect({ icon, label }: { icon: "hall" | "list" | "card"; label: string }) {
   return (
-    <button className="flex h-14 min-w-0 items-center gap-3 rounded-xl border border-[#E5E0D6] bg-[#FFFEFB] px-4 text-left text-sm font-bold text-[#475569] shadow-sm shadow-[#0F172A]/4 transition hover:border-[#B9974D]/70 hover:bg-white" type="button">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F7F4ED] text-[#64748B]">
+    <button className="flex h-14 min-w-0 items-center gap-3 rounded-xl border border-[#d8dde5] bg-[#ffffff] px-4 text-left text-sm font-bold text-[#6a7483] shadow-sm shadow-[#17202a]/4 transition hover:border-[#1f4d73]/70 hover:bg-white" type="button">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f5f6f8] text-[#6a7483]">
         <LineIcon name={icon} className="h-5 w-5" />
       </span>
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <LineIcon name="chevron" className="h-4 w-4 shrink-0 text-[#0F172A]" />
+      <LineIcon name="chevron" className="h-4 w-4 shrink-0 text-[#17202a]" />
     </button>
   );
 }
 
 function StatusBadge({ label, tone, icon }: { label: string; tone: BadgeTone; icon: IconName }) {
   const classes = {
-    green: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
-    blue: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
-    gold: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]",
-    gray: "border-[#D9D9D4] bg-[#F1F5F9] text-[#475569]"
+    green: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
+    blue: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
+    gold: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
+    gray: "border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]"
   };
 
   return (
@@ -120,10 +111,10 @@ function StatusBadge({ label, tone, icon }: { label: string; tone: BadgeTone; ic
 
 function ActionButton({ label, tone, icon }: { label: string; tone: ButtonTone; icon: IconName }) {
   const classes = {
-    outline: "border-[#0F172A]/35 bg-white text-[#0F172A] hover:bg-[#F7F4ED]",
-    gold: "border-[#B9974D] bg-[#B9974D] text-white shadow-lg shadow-[#B9974D]/18 hover:bg-[#A98537]",
-    navy: "border-[#0F172A] bg-[#0F172A] text-white shadow-lg shadow-[#0F172A]/14 hover:bg-[#243551]",
-    danger: "border-[#FCA5A5] bg-white text-[#DC2626] hover:bg-[#FEF2F2]"
+    outline: "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]",
+    gold: "border-[#1f4d73] bg-[#1f4d73] text-white shadow-lg shadow-[#1f4d73]/18 hover:bg-[#9a5b00]",
+    navy: "border-[#1f4d73] bg-[#1f4d73] text-white shadow-lg shadow-[#1f4d73]/14 hover:bg-[#15344f]",
+    danger: "border-[#a62b24] bg-white text-[#a62b24] hover:bg-[#fbfcfd]"
   };
 
   return (
@@ -136,14 +127,14 @@ function ActionButton({ label, tone, icon }: { label: string; tone: ButtonTone; 
 
 function EventRowCard({ event }: { event: EventRow }) {
   return (
-    <article className="flex flex-col gap-5 rounded-2xl border border-[#E5E0D6] bg-white p-5 shadow-lg shadow-[#0F172A]/5 xl:flex-row xl:items-center">
+    <article className="flex flex-col gap-5 rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-lg shadow-[#17202a]/5 xl:flex-row xl:items-center">
       <div className="flex min-w-0 flex-1 items-start gap-5 sm:items-center">
-        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+        <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
           <LineIcon name="calendar" className="h-8 w-8" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-xl font-black tracking-tight text-[#0F172A]">{event.title}</h2>
-          <p className="mt-2 text-sm font-semibold text-[#64748B]">{event.details}</p>
+          <h2 className="text-xl font-black tracking-tight text-[#17202a]">{event.title}</h2>
+          <p className="mt-2 text-sm font-semibold text-[#6a7483]">{event.details}</p>
         </div>
       </div>
 
@@ -238,44 +229,38 @@ export function EventManagerPage() {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#F7F4ED]" aria-busy="true" />;
+    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const user = syncData.user;
-  const roleLabel = formatRole(user.role);
-
   return (
-    <main className="min-h-screen bg-[#F7F4ED] text-[#0F172A]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Events" />
+    <div className="min-h-screen bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Event Manager"
+        onNewBooking={() => router.push("/dashboard/events")}
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar
-          title="Event Manager"
-          onNewBooking={() => router.push("/dashboard/events")}
-        />
-
-        <div className="px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
-          <div className="rounded-[28px] border border-[#D8DEE8] bg-white p-5 shadow-sm shadow-[#0F172A]/4 sm:p-6 lg:p-7">
+      <div className="px-4 py-8 sm:px-8 lg:px-12 lg:py-10">
+          <div className="rounded-[28px] border border-[#d8dde5] bg-white p-5 shadow-sm shadow-[#17202a]/4 sm:p-6 lg:p-7">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0">
-                <p className="text-sm font-black uppercase tracking-[0.28em] text-[#B9974D]">Route / Events</p>
-                <p className="mt-3 max-w-4xl text-sm leading-7 text-[#64748B] sm:text-base">
+                <p className="text-sm font-black uppercase tracking-[0.28em] text-[#1f4d73]">Route / Events</p>
+                <p className="mt-3 max-w-4xl text-sm leading-7 text-[#6a7483] sm:text-base">
                   Manage bookings, statuses, payments, and hall visibility from one place. <br />
                   Buttons and event visibility are controlled by user type permissions and hall access.
                 </p>
               </div>
               <div className="flex flex-col gap-3 sm:flex-row">
-                <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-[#B9974D] px-5 text-sm font-black text-white shadow-lg shadow-[#B9974D]/20 transition hover:-translate-y-0.5 hover:bg-[#A98537]" type="button">
+                <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-[#1f4d73] px-5 text-sm font-black text-white shadow-lg shadow-[#1f4d73]/20 transition hover:-translate-y-0.5 hover:bg-[#9a5b00]" type="button">
                   <LineIcon name="plus" />
                   Add Event
                 </button>
               </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-[#E5E0D6] bg-[#FFFEFB] p-5 shadow-sm shadow-[#0F172A]/4">
+            <div className="mt-6 rounded-2xl border border-[#d8dde5] bg-[#ffffff] p-5 shadow-sm shadow-[#17202a]/4">
               <div className="grid gap-4 xl:grid-cols-[minmax(320px,0.8fr)_auto] xl:items-start">
                 <SearchField />
-                <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl border border-[#0F172A]/35 bg-white px-5 text-sm font-black text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:bg-[#F7F4ED]" type="button">
+                <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-black text-[#17202a] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:bg-[#eef4fa]" type="button">
                   <LineIcon name="sliders" />
                   Clear Filters
                 </button>
@@ -294,8 +279,7 @@ export function EventManagerPage() {
               ))}
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

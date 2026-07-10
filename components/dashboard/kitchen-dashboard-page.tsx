@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
+
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -79,14 +79,6 @@ const fourWeekDays = [
   ["Sutarday", "Jul 25"]
 ];
 
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const common = {
     className,
@@ -128,12 +120,12 @@ function SegmentedTabs({ activeView, setActiveView }: { activeView: KitchenView;
   ];
 
   return (
-    <div className="inline-flex w-full overflow-hidden rounded-xl border border-[#D8DEE8] bg-white shadow-sm shadow-[#0F172A]/4 sm:w-130">
+    <div className="inline-flex w-full overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4 sm:w-130">
       {tabs.map((tab) => (
         <button
           key={tab.value}
           className={`h-13 flex-1 px-5 text-base font-bold transition ${
-            activeView === tab.value ? "bg-[#E8B642] text-[#0F172A] shadow-inner" : "border-l border-[#D8DEE8] text-[#0F172A] hover:bg-[#F7F4ED]"
+            activeView === tab.value ? "bg-[#1f4d73] text-white shadow-inner" : "border-l border-[#d8dde5] text-[#17202a] hover:bg-[#eef4fa]"
           }`}
           type="button"
           onClick={() => setActiveView(tab.value)}
@@ -148,12 +140,12 @@ function SegmentedTabs({ activeView, setActiveView }: { activeView: KitchenView;
 function DateInfoCards({ range, time }: { range: string; time: string }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row">
-      <div className="flex h-17 min-w-80 items-center gap-4 rounded-xl border border-[#D8DEE8] bg-white px-7 text-base font-black text-[#0F172A] shadow-sm shadow-[#0F172A]/4">
-        <LineIcon name="calendar" className="h-5 w-5 text-[#B9974D]" />
+      <div className="flex h-17 min-w-80 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white px-7 text-base font-black text-[#17202a] shadow-sm shadow-[#17202a]/4">
+        <LineIcon name="calendar" className="h-5 w-5 text-[#1f4d73]" />
         {range}
       </div>
-      <div className="flex h-17 min-w-54 items-center gap-4 rounded-xl border border-[#D8DEE8] bg-white px-7 text-base font-black text-[#E8A900] shadow-sm shadow-[#0F172A]/4">
-        <LineIcon name="clock" className="h-5 w-5 text-[#B9974D]" />
+      <div className="flex h-17 min-w-54 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white px-7 text-base font-black text-[#9a5b00] shadow-sm shadow-[#17202a]/4">
+        <LineIcon name="clock" className="h-5 w-5 text-[#1f4d73]" />
         {time}
       </div>
     </div>
@@ -164,10 +156,10 @@ function ViewNavigationButtons() {
   return (
     <div className="flex flex-wrap gap-3">
       {["Previous", "Current", "Next"].map((label, index) => (
-        <button key={label} className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#D8DEE8] bg-white px-4 text-sm font-black text-[#0F172A] shadow-sm transition hover:bg-[#F7F4ED]" type="button">
-          {index === 0 ? "←" : null}
+        <button key={label} className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#17202a] shadow-sm transition hover:bg-[#eef4fa]" type="button">
+          {index === 0 ? "?" : null}
           {label}
-          {index === 2 ? "→" : null}
+          {index === 2 ? "?" : null}
         </button>
       ))}
     </div>
@@ -177,22 +169,22 @@ function ViewNavigationButtons() {
 function TodayKitchenView() {
   return (
     <div className="space-y-6">
-      <button className="flex h-19.5 w-full items-center gap-5 rounded-2xl border border-dashed border-[#AAB4C3] bg-white/75 px-9 text-lg font-semibold text-[#64748B] transition hover:border-[#B9974D] hover:bg-[#FFF8E8]" type="button">
+      <button className="flex h-19.5 w-full items-center gap-5 rounded-2xl border border-dashed border-[#b9c2cf] bg-white/75 px-9 text-lg font-semibold text-[#6a7483] transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]" type="button">
         <LineIcon name="plus" className="h-5 w-5" />
         Add Kitchen Event
       </button>
 
-      <section className="rounded-2xl border border-[#B6E5E5] border-l-4 border-l-[#16A6A6] bg-[#EFFFFF] px-8 py-11 shadow-xl shadow-[#0F172A]/7">
+      <section className="rounded-2xl border border-[#d8dde5] border-l-4 border-l-[#1f4d73] bg-[#fbfcfd] px-8 py-11 shadow-xl shadow-[#17202a]/7">
         <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
           <div>
-            <p className="text-base font-black uppercase tracking-[0.12em] text-[#0F766E]">KITA TES</p>
-            <h2 className="mt-4 text-[42px] font-black tracking-tight text-[#0F172A]">100 portions</h2>
-            <span className="mt-3 inline-flex rounded-lg border border-[#E9B8FF] bg-[#FBECFF] px-3 py-1 text-xs font-black text-[#9333EA]">Kitchen Add</span>
-            <p className="mt-4 text-sm font-black uppercase tracking-[0.08em] text-[#64748B]">No menu assigned</p>
-            <div className="mt-4 rounded-lg border border-[#F5C37B] bg-[#FFF8E8] px-5 py-3 text-sm font-black text-[#A16000]">
+            <p className="text-base font-black uppercase tracking-[0.12em] text-[#1f4d73]">KITA TES</p>
+            <h2 className="mt-4 text-[42px] font-black tracking-tight text-[#17202a]">100 portions</h2>
+            <span className="mt-3 inline-flex rounded-lg border border-[#b9c2cf] bg-[#fbfcfd] px-3 py-1 text-xs font-black text-[#1f4d73]">Kitchen Add</span>
+            <p className="mt-4 text-sm font-black uppercase tracking-[0.08em] text-[#6a7483]">No menu assigned</p>
+            <div className="mt-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] px-5 py-3 text-sm font-black text-[#9a5b00]">
               Needs it ready for 2:00pm
             </div>
-            <button className="mt-4 inline-flex h-11 items-center gap-2 rounded-lg border border-[#FCA5A5] bg-white px-4 text-sm font-black text-[#DC2626] transition hover:bg-[#FEF2F2]" type="button">
+            <button className="mt-4 inline-flex h-11 items-center gap-2 rounded-lg border border-[#a62b24] bg-white px-4 text-sm font-black text-[#a62b24] transition hover:bg-[#fbfcfd]" type="button">
               <LineIcon name="trash" className="h-4 w-4" />
               Delete Event
             </button>
@@ -200,10 +192,10 @@ function TodayKitchenView() {
 
           <div className="flex flex-wrap items-center gap-5 lg:justify-center">
             {todayItems.map((item) => (
-              <article key={item.title} className="flex min-h-50 w-35 flex-col justify-center rounded-xl border border-[#D8DEE8] bg-white p-5 text-center shadow-lg shadow-[#0F172A]/7">
-                <LineIcon name={item.icon} className="mx-auto h-7 w-7 text-[#B9974D]" />
-                <h3 className="mt-4 text-lg font-black leading-5 text-[#0F172A]">{item.title}</h3>
-                <div className="mt-5 border-t border-[#E5E0D6] pt-3 text-xs font-black text-[#64748B]">{item.units}</div>
+              <article key={item.title} className="flex min-h-50 w-35 flex-col justify-center rounded-xl border border-[#d8dde5] bg-white p-5 text-center shadow-lg shadow-[#17202a]/7">
+                <LineIcon name={item.icon} className="mx-auto h-7 w-7 text-[#1f4d73]" />
+                <h3 className="mt-4 text-lg font-black leading-5 text-[#17202a]">{item.title}</h3>
+                <div className="mt-5 border-t border-[#d8dde5] pt-3 text-xs font-black text-[#6a7483]">{item.units}</div>
               </article>
             ))}
           </div>
@@ -215,7 +207,7 @@ function TodayKitchenView() {
 
 function EmptyDay() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center text-[#94A3B8]">
+    <div className="flex flex-1 flex-col items-center justify-center text-center text-[#6a7483]">
       <LineIcon name="calendar" className="h-6 w-6" />
       <p className="mt-2 text-xs font-semibold">No events</p>
     </div>
@@ -224,10 +216,10 @@ function EmptyDay() {
 
 function KitchenEventMini({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={`rounded-lg border border-[#A5E1DE] bg-[#EFFFFF] text-[#0F766E] shadow-sm ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}>
+    <div className={`rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73] shadow-sm ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}>
       <p className="font-black uppercase tracking-[0.04em]">KITA TES</p>
-      <p className="mt-1 font-black text-[#0F172A]">100 portions</p>
-      <p className="mt-1 font-semibold text-[#64748B]">No menu</p>
+      <p className="mt-1 font-black text-[#17202a]">100 portions</p>
+      <p className="mt-1 font-semibold text-[#6a7483]">No menu</p>
     </div>
   );
 }
@@ -240,17 +232,17 @@ function WeekKitchenView() {
           {weekDays.map((day) => (
             <article
               key={day.date}
-              className={`flex min-h-108 flex-col rounded-2xl border p-4 shadow-sm shadow-[#0F172A]/5 ${
-                day.event ? "border-[#16C7C4] bg-[#EFFFFF]" : day.shabbos ? "border-[#D8B4FE] bg-white" : "border-[#D8DEE8] bg-white"
+              className={`flex min-h-108 flex-col rounded-2xl border p-4 shadow-sm shadow-[#17202a]/5 ${
+                day.event ? "border-[#1f4d73] bg-[#fbfcfd]" : day.shabbos ? "border-[#b9c2cf] bg-white" : "border-[#d8dde5] bg-white"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className={`text-base font-black ${day.shabbos ? "text-[#6D28D9]" : "text-[#0F172A]"}`}>{day.weekday}</h3>
-                  <p className="mt-1 text-xs font-semibold text-[#64748B]">{day.date}</p>
+                  <h3 className={`text-base font-black ${day.shabbos ? "text-[#1f4d73]" : "text-[#17202a]"}`}>{day.weekday}</h3>
+                  <p className="mt-1 text-xs font-semibold text-[#6a7483]">{day.date}</p>
                 </div>
                 <button
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#CBD5E1] bg-white text-[#0F172A] transition hover:bg-[#F7F4ED]"
+                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white text-[#17202a] transition hover:bg-[#eef4fa]"
                   type="button"
                   aria-label={`Add kitchen event on ${day.weekday} ${day.date}`}
                   title={`Add kitchen event on ${day.weekday} ${day.date}`}
@@ -280,17 +272,17 @@ function FourWeeksKitchenView() {
             return (
               <article
                 key={`${weekday}-${date}`}
-                className={`min-h-39 rounded-xl border p-3 shadow-sm shadow-[#0F172A]/4 ${
-                  isEventDay ? "border-[#16C7C4] bg-[#EFFFFF]" : isShabbos ? "border-[#D8B4FE] bg-white" : "border-[#D8DEE8] bg-white"
+                className={`min-h-39 rounded-xl border p-3 shadow-sm shadow-[#17202a]/4 ${
+                  isEventDay ? "border-[#1f4d73] bg-[#fbfcfd]" : isShabbos ? "border-[#b9c2cf] bg-white" : "border-[#d8dde5] bg-white"
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className={`text-sm font-black ${isShabbos ? "text-[#6D28D9]" : "text-[#0F172A]"}`}>{weekday}</h3>
-                    <p className="mt-1 text-xs font-semibold text-[#64748B]">{date}</p>
+                    <h3 className={`text-sm font-black ${isShabbos ? "text-[#1f4d73]" : "text-[#17202a]"}`}>{weekday}</h3>
+                    <p className="mt-1 text-xs font-semibold text-[#6a7483]">{date}</p>
                   </div>
                   <button
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-[#CBD5E1] bg-white text-[#0F172A] transition hover:bg-[#F7F4ED]"
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-[#b9c2cf] bg-white text-[#17202a] transition hover:bg-[#eef4fa]"
                     type="button"
                     aria-label={`Add kitchen event on ${weekday} ${date}`}
                     title={`Add kitchen event on ${weekday} ${date}`}
@@ -298,7 +290,7 @@ function FourWeeksKitchenView() {
                     <LineIcon name="plus" className="h-3 w-3" />
                   </button>
                 </div>
-                <div className="mt-3">{isEventDay ? <KitchenEventMini compact /> : <div className="h-15 rounded-lg border border-[#E5E0D6] bg-[#FFFEFB]" />}</div>
+                <div className="mt-3">{isEventDay ? <KitchenEventMini compact /> : <div className="h-15 rounded-lg border border-[#d8dde5] bg-[#ffffff]" />}</div>
               </article>
             );
           })}
@@ -353,30 +345,16 @@ export function KitchenDashboardPage() {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#F7F4ED]" aria-busy="true" />;
+    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const user = syncData.user;
-  const roleLabel = formatRole(user.role);
-
-  const logout = async () => {
-    const supabase = createSupabaseBrowserClient();
-    clearCachedSyncedUser();
-    await supabase.auth.signOut();
-    router.replace("/");
-    router.refresh();
-  };
-
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#FFFEFB] text-[#0F172A]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Kitchen" onLogout={logout} />
+    <div className="min-h-screen overflow-x-hidden bg-[#ffffff] text-[#17202a]">
+      <DashboardTopbar title="Kitchen Dashboard" subtitle="See today's kitchen events and what needs to be prepared." />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar title="Kitchen Dashboard" subtitle="See today's kitchen events and what needs to be prepared." />
-
-        <div className="px-4 py-10 sm:px-8 lg:px-14 lg:py-16">
+      <div className="px-4 py-10 sm:px-8 lg:px-14 lg:py-16">
           <div className="relative pb-10">
-            <svg className="pointer-events-none absolute right-0 top-0 hidden h-80 w-180 max-w-full text-[#B9974D]/18 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
+            <svg className="pointer-events-none absolute right-0 top-0 hidden h-80 w-180 max-w-full text-[#1f4d73]/18 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
               {Array.from({ length: 8 }).map((_, index) => (
                 <path key={index} d={`M0 ${90 + index * 24}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
               ))}
@@ -406,8 +384,7 @@ export function KitchenDashboardPage() {
               </div>
             </div>
           </div>
-        </div>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }

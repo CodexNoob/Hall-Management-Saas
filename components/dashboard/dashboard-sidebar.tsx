@@ -56,7 +56,7 @@ const sidebarSections: Array<{ title: string; items: SidebarItem[] }> = [
   {
     title: "Office",
     items: [
-      { icon: "billing", label: "Billing", count: "18" },
+      { icon: "billing", label: "Billing", count: "18", route: "/dashboard/billing" },
       { icon: "staff", label: "Staff", count: "42" },
       { icon: "vendor", label: "Vendors", count: "16" },
       { icon: "settings", label: "Settings", count: "18", route: "/dashboard/settings" },
@@ -235,17 +235,17 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
 
   return (
     <aside
-      className={`app-sidebar fixed bottom-0 left-0 top-20 z-40 hidden overflow-x-hidden border-r border-[#D8DEE8] bg-[#FFFEFB] lg:flex lg:flex-col ${
+      className={`app-sidebar fixed bottom-0 left-0 top-20 z-40 hidden overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] lg:flex lg:flex-col sidebar-will-change-width ${
         isSidebarTransitionReady ? "transition-[width] duration-300 ease-in-out" : "transition-none"
       } ${
-        isCollapsed ? "w-18" : "w-70"
+        isCollapsed ? "w-18" : "w-64"
       }`}
     >
-      <nav className={`flex-1 overflow-x-hidden overflow-y-auto ${isCollapsed ? "space-y-2 px-2 py-4" : "space-y-7 px-4 py-5"}`}>
+      <nav className={`flex-1 overflow-x-hidden overflow-y-auto ${isCollapsed ? "space-y-2 px-2 py-4" : "space-y-5 px-3 py-4"}`}>
         {sidebarSections.map((section) => (
           <section key={section.title}>
             {!isCollapsed ? (
-              <h2 className="mb-3 px-2 text-xs font-black uppercase tracking-[0.12em] text-[#64748B]">
+              <h2 className="mb-3 px-2 text-xs font-black uppercase tracking-[0.12em] text-[#6a7483]">
                 {section.title}
               </h2>
             ) : null}
@@ -260,10 +260,10 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                     className={`group relative flex w-full items-center transition ${
                       isCollapsed
                         ? `h-11 justify-center rounded-xl ${
-                            isActive ? "bg-[#EAF2F8] text-[#0F172A]" : "text-[#64748B] hover:bg-[#F7F4ED] hover:text-[#0F172A]"
+                            isActive ? "bg-[#eef4fa] text-[#17202a]" : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
                           }`
-                        : `gap-3 rounded-xl px-3 py-2.5 text-left ${
-                            isActive ? "bg-[#EAF2F8] text-[#0F172A]" : "text-[#334155] hover:bg-[#F7F4ED]"
+                        : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
+                            isActive ? "bg-[#eef4fa] text-[#17202a]" : "text-[#17202a] hover:bg-[#eef4fa]"
                           }`
                     }`}
                     type="button"
@@ -272,7 +272,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                     title={isCollapsed ? item.label : undefined}
                   >
                     {isCollapsed && isActive ? (
-                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#B9974D]" />
+                      <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
                     ) : null}
 
                     <span
@@ -280,8 +280,8 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                         isCollapsed
                           ? "h-9 w-9 rounded-xl"
                           : isActive
-                            ? "text-[#B9974D]"
-                            : "text-[#64748B]"
+                            ? "text-[#1f4d73]"
+                            : "text-[#6a7483]"
                       }`}
                     >
                       <SidebarIcon name={item.icon} className="h-4.5 w-4.5" />
@@ -292,10 +292,10 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                         <span className={`min-w-0 flex-1 truncate text-sm ${isActive ? "font-black" : "font-semibold"}`}>
                           {item.label}
                         </span>
-                        {item.count ? <span className="text-xs font-bold text-[#475569]">{item.count}</span> : null}
+                        {item.count ? <span className="text-xs font-bold text-[#6a7483]">{item.count}</span> : null}
                       </>
                     ) : (
-                      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#0F172A] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                      <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
                         {item.label}
                       </span>
                     )}
@@ -307,29 +307,29 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
         ))}
       </nav>
 
-      <div className="border-t border-[#E5E0D6] p-3">
+      <div className="border-t border-[#d8dde5] p-3">
         <button
-          className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#F7F4ED] ${
+          className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#eef4fa] ${
             isCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
           }`}
           type="button"
           onClick={logout}
           title={isCollapsed ? `${user.name} - ${roleLabel}` : "Sign out"}
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EAF2F8] text-sm font-black text-[#0F172A]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef4fa] text-sm font-black text-[#17202a]">
             {initials}
           </span>
 
           {!isCollapsed ? (
             <>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black text-[#0F172A]">{user.name}</span>
-                <span className="block truncate text-xs font-semibold text-[#64748B]">{roleLabel}</span>
+                <span className="block truncate text-sm font-black text-[#17202a]">{user.name}</span>
+                <span className="block truncate text-xs font-semibold text-[#6a7483]">{roleLabel}</span>
               </span>
-              <span className="text-[#64748B]">›</span>
+              <span className="text-[#6a7483]">›</span>
             </>
           ) : (
-            <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#0F172A] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+            <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
               {user.name} - {roleLabel}
             </span>
           )}

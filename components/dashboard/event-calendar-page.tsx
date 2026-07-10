@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -12,14 +11,6 @@ type CalendarEvent = {
   hall?: string;
   tone: "green" | "gold" | "red";
 };
-
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 function LineIcon({
   name,
@@ -59,19 +50,19 @@ function LineIcon({
 
 function FilterSelect({ icon, label }: { icon: "hall" | "tag" | "shield"; label: string }) {
   return (
-    <button className="flex h-13 min-w-0 items-center gap-3 rounded-xl border border-[#E5E0D6] bg-[#FFFEFB] px-4 text-left text-sm font-bold text-[#475569] shadow-sm shadow-[#0F172A]/4 transition hover:border-[#B9974D]/70 hover:bg-white" type="button">
-      <LineIcon name={icon} className="h-5 w-5 shrink-0 text-[#64748B]" />
+    <button className="flex h-13 min-w-0 items-center gap-3 rounded-xl border border-[#d8dde5] bg-[#ffffff] px-4 text-left text-sm font-bold text-[#6a7483] shadow-sm shadow-[#17202a]/4 transition hover:border-[#1f4d73]/70 hover:bg-white" type="button">
+      <LineIcon name={icon} className="h-5 w-5 shrink-0 text-[#6a7483]" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <LineIcon name="chevron" className="h-4 w-4 shrink-0 text-[#64748B]" />
+      <LineIcon name="chevron" className="h-4 w-4 shrink-0 text-[#6a7483]" />
     </button>
   );
 }
 
 function EventMiniCard({ event }: { event: CalendarEvent }) {
   const classes = {
-    green: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]",
-    gold: "border-[#EBD6A7] bg-[#FFF8E8] text-[#B07A12]",
-    red: "border-[#FDA4A4] bg-[#FEF2F2] text-[#DC2626]"
+    green: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
+    gold: "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
+    red: "border-[#a62b24] bg-[#fbfcfd] text-[#a62b24]"
   };
 
   return (
@@ -82,12 +73,12 @@ function EventMiniCard({ event }: { event: CalendarEvent }) {
   );
 }
 
-function CalendarCell({ day, hebrew, events = [], highlighted = false }: { day: number; hebrew: string; events?: CalendarEvent[]; highlighted?: boolean }) {
+function CalendarCell({ day, hebrew, events = [], highlighted = false }: { day: number; hebrew?: string; events?: CalendarEvent[]; highlighted?: boolean }) {
   return (
-    <div className={`relative min-h-32 rounded-xl border bg-white p-3 shadow-sm shadow-[#0F172A]/3 transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-36 ${highlighted ? "border-[#B9974D] ring-1 ring-[#B9974D]/20" : "border-[#E5E0D6]"}`}>
+    <div className={`relative min-h-32 rounded-xl border bg-white p-3 shadow-sm shadow-[#17202a]/3 transition hover:-translate-y-0.5 hover:shadow-md sm:min-h-36 ${highlighted ? "border-[#1f4d73] ring-1 ring-[#1f4d73]/20" : "border-[#d8dde5]"}`}>
       <div className="flex items-start justify-between gap-2">
-        <span className="text-base font-black text-[#0F172A]">{day}</span>
-        <span className="truncate text-right text-xs font-bold text-[#475569]" dir="rtl">{hebrew}</span>
+        <span className="text-base font-black text-[#17202a]">{day}</span>
+        <span className="truncate text-right text-xs font-bold text-[#6a7483]" dir="rtl">{hebrew ?? ""}</span>
       </div>
 
       <div className="mt-4 space-y-2 pb-8">
@@ -95,23 +86,13 @@ function CalendarCell({ day, hebrew, events = [], highlighted = false }: { day: 
           <EventMiniCard key={`${day}-${event.title}`} event={event} />
         ))}
       </div>
-
-      <button className="absolute bottom-3 left-3 flex h-7 w-7 items-center justify-center rounded-lg bg-[#B9974D] text-white shadow-md shadow-[#B9974D]/25 transition hover:-translate-y-0.5 hover:bg-[#A98537]" type="button" aria-label={`Add event on June ${day}`}>
-        <LineIcon name="plus" className="h-4 w-4" />
-      </button>
     </div>
   );
 }
 
 const dayHeaders = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SHABBOS"];
 
-const hebrewDates = [
-  "ט״ו סיון", "ט״ז סיון", "י״ז סיון", "י״ח סיון", "י״ט סיון", "כ׳ סיון", "כ״א סיון",
-  "כ״ב סיון", "כ״ג סיון", "כ״ד סיון", "כ״ה סיון", "כ״ו סיון", "כ״ז סיון", "כ״ח סיון",
-  "א׳ תמוז", "ב׳ תמוז", "ג׳ תמוז", "ד׳ תמוז", "ה׳ תמוז", "ו׳ תמוז", "ז׳ תמוז",
-  "ח׳ תמוז", "ט׳ תמוז", "י׳ תמוז", "י״א תמוז", "י״ב תמוז", "י״ג תמוז", "י״ד תמוז",
-  "ט״ו תמוז", "ט״ז תמוז"
-];
+
 
 const eventsByDay: Record<number, CalendarEvent[]> = {
   3: [{ title: "Sample Vort", hall: "Hall 1", tone: "green" }],
@@ -167,46 +148,47 @@ export function EventCalendarPage() {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#F7F4ED]" aria-busy="true" />;
+    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const user = syncData.user;
-  const roleLabel = formatRole(user.role);
-
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F7F4ED] text-[#0F172A]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Calendar" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Event Calendar"
+        subtitle="Any organization can rename them and add more halls from Settings."
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar
-          title="Event Calendar"
-          subtitle="Any organization can rename them and add more halls from Settings."
-        />
+      <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#fbfcfd]/70 to-transparent" />
+          <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#1f4d73]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
+            {Array.from({ length: 9 }).map((_, index) => (
+              <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
+            ))}
+          </svg>
 
-        <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
-        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#B9974D]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
-          {Array.from({ length: 9 }).map((_, index) => (
-            <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
-          ))}
-        </svg>
-
-          <section className="dashboard-gradient-card mt-8 overflow-hidden shadow-xl shadow-[#0F172A]/8">
+          <section className="dashboard-gradient-card mt-8 overflow-hidden shadow-xl shadow-[#17202a]/8">
             <div className="relative z-1 space-y-7 p-5 sm:p-6 lg:p-7">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex flex-wrap items-center gap-3">
-                  <button className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#E5E0D6] bg-white text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D]" type="button" aria-label="Previous month">
-                    <LineIcon name="left" className="h-6 w-6" />
-                  </button>
-                  <h2 className="px-2 text-2xl font-black tracking-tight text-[#0F172A] sm:text-3xl">June 2026</h2>
-                  <button className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#E5E0D6] bg-white text-[#0F172A] shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 hover:border-[#B9974D]" type="button" aria-label="Next month">
-                    <LineIcon name="right" className="h-6 w-6" />
-                  </button>
-                  <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-[#B9974D] px-5 text-sm font-black text-white shadow-lg shadow-[#B9974D]/20 transition hover:-translate-y-0.5 hover:bg-[#A98537]" type="button">
-                    <LineIcon name="calendar" />
-                    Today
-                  </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="px-2 text-2xl font-black tracking-tight text-[#17202a] sm:text-3xl">June 2026</h2>
+
+                  <div className="flex items-center gap-3">
+                    <button className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73]" type="button" aria-label="Previous month">
+                      <LineIcon name="left" className="h-6 w-6" />
+                    </button>
+
+                    <button className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-[#1f4d73] px-5 text-sm font-black text-white shadow-lg shadow-[#1f4d73]/20 transition hover:-translate-y-0.5 hover:bg-[#9a5b00]" type="button">
+                      <LineIcon name="calendar" />
+                      Today
+                    </button>
+
+                    <button className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73]" type="button" aria-label="Next month">
+                      <LineIcon name="right" className="h-6 w-6" />
+                    </button>
+                  </div>
                 </div>
+
+                <p className="text-sm font-bold text-[#6a7483]">Availability is checked by room and operating night.</p>
 
                 <div className="grid gap-3 sm:grid-cols-3 xl:min-w-180">
                   <FilterSelect icon="hall" label="All Halls" />
@@ -219,7 +201,7 @@ export function EventCalendarPage() {
                 <div className="xl:min-w-180">
                   <div className="grid grid-cols-7 gap-2 px-1 pb-3">
                     {dayHeaders.map((day) => (
-                      <div key={day} className="text-center text-xs font-black uppercase tracking-[0.08em] text-[#475569]">
+                      <div key={day} className="text-center text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
                         {day}
                       </div>
                     ))}
@@ -233,7 +215,6 @@ export function EventCalendarPage() {
                         <CalendarCell
                           key={day}
                           day={day}
-                          hebrew={hebrewDates[index]}
                           events={eventsByDay[day]}
                           highlighted={day === 15}
                         />
@@ -245,7 +226,6 @@ export function EventCalendarPage() {
             </div>
           </section>
       </section>
-      </section>
-    </main>
+    </div>
   );
 }

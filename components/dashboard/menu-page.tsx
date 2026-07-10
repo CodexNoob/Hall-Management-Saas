@@ -2,20 +2,11 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type IconName = "home" | "bell" | "help" | "grid" | "chevron" | "plus" | "serving" | "users" | "leaf" | "edit" | "trash";
-
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
-}
 
 function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const common = {
@@ -48,8 +39,8 @@ function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?:
 
 function MenuBadge({ icon, label, tone }: { icon: "users" | "leaf"; label: string; tone: "blue" | "green" }) {
   const classes = {
-    blue: "border-[#BBD7FF] bg-[#EEF7FF] text-[#1D6BFF]",
-    green: "border-[#A7F3D0] bg-[#ECFDF5] text-[#027A48]"
+    blue: "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
+    green: "border-[#146c43] bg-[#eef4fa] text-[#146c43]"
   };
 
   return (
@@ -62,8 +53,8 @@ function MenuBadge({ icon, label, tone }: { icon: "users" | "leaf"; label: strin
 
 function ActionButton({ icon, label, tone }: { icon: "edit" | "trash"; label: string; tone: "outline" | "danger" }) {
   const classes = {
-    outline: "border-[#0F172A]/35 bg-white text-[#0F172A] hover:bg-[#F7F4ED]",
-    danger: "border-[#FCA5A5] bg-white text-[#DC2626] hover:bg-[#FEF2F2]"
+    outline: "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]",
+    danger: "border-[#a62b24] bg-white text-[#a62b24] hover:bg-[#fbfcfd]"
   };
 
   return (
@@ -120,24 +111,18 @@ export function MenuPage() {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#F7F4ED]" aria-busy="true" />;
+    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const user = syncData.user;
-  const roleLabel = formatRole(user.role);
-
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F7F4ED] text-[#0F172A]">
-      <DashboardSidebar user={user} roleLabel={roleLabel} activeLabel="Menu" />
+    <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Menu"
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-70">
-        <DashboardTopbar
-          title="Menu"
-        />
-
-        <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#E7E3DA]/70 to-transparent" />
-        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#B9974D]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
+      <section className="relative overflow-hidden px-4 py-8 sm:px-8 lg:px-12">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-linear-to-b from-[#fbfcfd]/70 to-transparent" />
+        <svg className="pointer-events-none absolute right-0 top-0 hidden h-96 w-180 max-w-full text-[#1f4d73]/20 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
           {Array.from({ length: 9 }).map((_, index) => (
             <path key={index} d={`M0 ${90 + index * 22}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
           ))}
@@ -146,21 +131,21 @@ export function MenuPage() {
         <div className="relative mx-auto max-w-[1600px]">
           <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#B9974D]">Route / Menu</p>
-              <p className="mt-5 max-w-5xl text-base leading-8 text-[#64748B] sm:text-lg">
+              <p className="text-sm font-black uppercase tracking-[0.32em] text-[#1f4d73]">Route / Menu</p>
+              <p className="mt-5 max-w-5xl text-base leading-8 text-[#6a7483] sm:text-lg">
                 Menu, packages, add-ons, and hall menu permissions can be configured per organization and per hall.
               </p>
             </div>
           </div>
 
-          <section className="dashboard-gradient-card mt-8 overflow-hidden shadow-xl shadow-[#0F172A]/8">
+          <section className="dashboard-gradient-card mt-8 overflow-hidden shadow-xl shadow-[#17202a]/8">
             <div className="relative z-1 space-y-7 p-5 sm:p-6 lg:p-7">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div className="flex flex-wrap gap-3">
                   {tabs.map((tab, index) => (
                     <button
                       key={tab}
-                      className={`h-14 rounded-xl border px-6 text-base font-black shadow-sm shadow-[#0F172A]/4 transition hover:-translate-y-0.5 ${index === 0 ? "border-[#0F172A] bg-[#0F172A] text-white" : "border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#B9974D]"}`}
+                      className={`h-14 rounded-xl border px-6 text-base font-black shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 ${index === 0 ? "border-[#1f4d73] bg-[#1f4d73] text-white" : "border-[#d8dde5] bg-white text-[#17202a] hover:border-[#1f4d73]"}`}
                       type="button"
                     >
                       {tab}
@@ -168,20 +153,20 @@ export function MenuPage() {
                   ))}
                 </div>
 
-                <button className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#B9974D] px-7 text-base font-black text-white shadow-xl shadow-[#B9974D]/20 transition hover:-translate-y-0.5 hover:bg-[#A98537]" type="button">
+                <button className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#1f4d73] px-7 text-base font-black text-white shadow-xl shadow-[#1f4d73]/20 transition hover:-translate-y-0.5 hover:bg-[#9a5b00]" type="button">
                   <LineIcon name="plus" />
                   Add
                 </button>
               </div>
 
-              <article className="flex flex-col gap-5 rounded-2xl border border-[#E5E0D6] bg-white p-5 shadow-lg shadow-[#0F172A]/5 xl:flex-row xl:items-center">
+              <article className="flex flex-col gap-5 rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-lg shadow-[#17202a]/5 xl:flex-row xl:items-center">
                 <div className="flex min-w-0 flex-1 items-start gap-5 sm:items-center">
-                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-[#E5E0D6] bg-[#F7F4ED] text-[#B9974D]">
+                  <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-[#d8dde5] bg-[#f5f6f8] text-[#1f4d73]">
                     <LineIcon name="serving" className="h-10 w-10" />
                   </span>
                   <div className="min-w-0">
-                    <h2 className="text-2xl font-black tracking-tight text-[#0F172A]">Potato Kugel</h2>
-                    <p className="mt-3 text-base font-semibold text-[#64748B]">Side Dish&nbsp; · &nbsp;Simcha</p>
+                    <h2 className="text-2xl font-black tracking-tight text-[#17202a]">Potato Kugel</h2>
+                    <p className="mt-3 text-base font-semibold text-[#6a7483]">Side Dish&nbsp; · &nbsp;Simcha</p>
                   </div>
                 </div>
 
@@ -199,7 +184,6 @@ export function MenuPage() {
           </section>
         </div>
       </section>
-      </section>
-    </main>
+    </div>
   );
 }
