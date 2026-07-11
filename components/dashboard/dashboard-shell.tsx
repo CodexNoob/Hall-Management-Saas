@@ -8,6 +8,7 @@ import {
   type NewBookingFormValues,
   type NewBookingSubmitIntent,
 } from "@/components/forms-and-modals/new-booking-dialog";
+import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
 
@@ -98,9 +99,14 @@ function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
 export function DashboardShell({}: DashboardShellProps) {
   const router = useRouter();
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
 
   const closeNewBooking = useCallback(() => {
     setIsNewBookingOpen(false);
+  }, []);
+
+  const closeTodayNotes = useCallback(() => {
+    setIsTodayNotesOpen(false);
   }, []);
 
   const continueNewBooking = useCallback(
@@ -129,9 +135,12 @@ export function DashboardShell({}: DashboardShellProps) {
         <DashboardTopbar
           title="Dashboard"
           subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
+          onTodayNotes={() => setIsTodayNotesOpen(true)}
           onNewBooking={() => setIsNewBookingOpen(true)}
         />
       </header>
+
+      <TodayNotesDrawer onClose={closeTodayNotes} open={isTodayNotesOpen} />
 
       <NewBookingDialog
         onClose={closeNewBooking}

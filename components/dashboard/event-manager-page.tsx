@@ -2,6 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { NewEventDialog, type NewEventFormValues } from "@/components/forms-and-modals/new-event-dialog";
+import { PrintPacketDrawer } from "@/components/forms-and-modals/print-packet-drawer";
+import { ClientPortalPreviewDrawer } from "@/components/forms-and-modals/client-portal-preview-drawer";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -215,7 +218,7 @@ function Badge({ children, tone }: { children: ReactNode; tone: BadgeTone }) {
   return <span className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-black ${classes[tone]}`}>{children}</span>;
 }
 
-function ActionButton({ children, icon, primary = false }: { children: ReactNode; icon: IconName; primary?: boolean }) {
+function ActionButton({ children, icon, onClick, primary = false }: { children: ReactNode; icon: IconName; onClick?: () => void; primary?: boolean }) {
   return (
     <button
       className={`inline-flex h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-2.5 text-xs font-black transition hover:-translate-y-0.5 ${
@@ -223,6 +226,7 @@ function ActionButton({ children, icon, primary = false }: { children: ReactNode
           ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
           : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
       }`}
+      onClick={onClick}
       type="button"
     >
       <LineIcon name={icon} className="h-3.5 w-3.5 shrink-0" />
@@ -1127,6 +1131,8 @@ function EventTabPlaceholder({ label }: { label: string }) {
 
 function EventWorkspace({ event }: { event: EventFile }) {
   const [activeTab, setActiveTab] = useState<EventWorkspaceTab>("Event details");
+  const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
+  const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
   return (
     <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
@@ -1145,8 +1151,8 @@ function EventWorkspace({ event }: { event: EventFile }) {
             </div>
           </div>
           <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2">
-            <ActionButton icon="document">Preview portal</ActionButton>
-            <ActionButton icon="printer" primary>Print packet</ActionButton>
+            <ActionButton icon="document" onClick={() => setIsPortalPreviewOpen(true)}>Preview portal</ActionButton>
+            <ActionButton icon="printer" onClick={() => setIsPrintPacketOpen(true)} primary>Print packet</ActionButton>
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
@@ -1158,6 +1164,17 @@ function EventWorkspace({ event }: { event: EventFile }) {
           <SummaryTile label="Today notes" value="Unread" icon="files" emphasized />
         </div>
       </header>
+
+      <PrintPacketDrawer
+        event={{ title: event.title, date: event.date, room: event.room }}
+        onClose={() => setIsPrintPacketOpen(false)}
+        open={isPrintPacketOpen}
+      />
+      <ClientPortalPreviewDrawer
+        event={{ title: event.title, date: event.date, room: event.room, balance: event.balance }}
+        onClose={() => setIsPortalPreviewOpen(false)}
+        open={isPortalPreviewOpen}
+      />
 
       <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-3">
         {tabs.map((tab) => (
@@ -1206,6 +1223,8 @@ export function EventManagerPage() {
   const router = useRouter();
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
   const [selectedEventTitle, setSelectedEventTitle] = useState(events[0].title);
+  const [createdEvents, setCreatedEvents] = useState<EventFile[]>([]);
+  const [isNewEventOpen, setIsNewEventOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -1250,7 +1269,38 @@ export function EventManagerPage() {
     return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const selectedEvent = events.find((event) => event.title === selectedEventTitle) ?? events[0];
+  const allEvents = [...createdEvents, ...events];
+  const selectedEvent = allEvents.find((event) => event.title === selectedEventTitle) ?? allEvents[0];
+
+  const createEvent = (values: NewEventFormValues) => {
+    const title = `${values.clientName} ${values.eventType}`.trim();
+    const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+      new Date(`${values.date}T00:00:00`),
+    );
+    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
+      new Date(`${values.date}T${values.time}:00`),
+    );
+
+    const newEvent: EventFile = {
+      title,
+      date,
+      time,
+      room: values.room,
+      packageName: "Not assigned",
+      guests: values.guests,
+      children: values.children,
+      couples: values.couples,
+      coordinator: "Unassigned",
+      balance: "$0.00",
+      status: values.status,
+      paymentStatus: "No invoice",
+      notes: values.initialNotes ? [values.initialNotes] : [],
+    };
+
+    setCreatedEvents((current) => [newEvent, ...current]);
+    setSelectedEventTitle(title);
+    setIsNewEventOpen(false);
+  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
@@ -1259,11 +1309,13 @@ export function EventManagerPage() {
           <h1 className="text-lg font-black text-[#17202a]">Event Manager</h1>
           <p className="mt-1 text-xs text-[#6a7483]">Select an event, then manage every connected section from one workspace.</p>
         </div>
-        <button className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]" type="button">
+        <button className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]" onClick={() => setIsNewEventOpen(true)} type="button">
           <LineIcon name="plus" />
           New event
         </button>
       </header>
+
+      <NewEventDialog onClose={() => setIsNewEventOpen(false)} onCreate={createEvent} open={isNewEventOpen} />
 
       <div className="min-h-0 flex-1 p-3">
       <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -1274,7 +1326,7 @@ export function EventManagerPage() {
                 <LineIcon name="calendar" />
                 <h2 className="text-sm font-black text-[#17202a]">Events</h2>
               </div>
-              <p className="mt-1 text-xs text-[#6a7483]">5 records</p>
+              <p className="mt-1 text-xs text-[#6a7483]">{allEvents.length} records</p>
             </div>
             <button className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
               <LineIcon name="close" />
@@ -1300,7 +1352,7 @@ export function EventManagerPage() {
           </div>
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {events.map((event) => (
+            {allEvents.map((event) => (
               <EventListCard
                 key={event.title}
                 event={event}

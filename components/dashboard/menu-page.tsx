@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { NewPackageDialog, type NewPackageFormValues } from "@/components/forms-and-modals/new-package-dialog";
+import { NewLibraryItemDialog, type NewLibraryItemFormValues } from "@/components/forms-and-modals/new-library-item-dialog";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -279,6 +281,10 @@ export function MenuPage() {
   const [activeTab, setActiveTab] = useState("Menu Library");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPackage, setSelectedPackage] = useState(packages[0].name);
+  const [createdPackages, setCreatedPackages] = useState<typeof packages>([]);
+  const [isNewPackageOpen, setIsNewPackageOpen] = useState(false);
+  const [createdMenuItems, setCreatedMenuItems] = useState<typeof menuItems>([]);
+  const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -323,11 +329,39 @@ export function MenuPage() {
     return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const visibleItems = selectedCategory === "All" ? menuItems : menuItems.filter((item) => item.category === selectedCategory);
-  const activePackage = packages.find((item) => item.name === selectedPackage) ?? packages[0];
+  const allMenuItems = [...createdMenuItems, ...menuItems];
+  const visibleItems = selectedCategory === "All" ? allMenuItems : allMenuItems.filter((item) => item.category === selectedCategory);
+  const displayCategories = categories.map((category) => ({
+    ...category,
+    count: category.label === "All" ? allMenuItems.length : allMenuItems.filter((item) => item.category === category.label).length,
+  }));
+  const allPackages = [...createdPackages, ...packages];
+  const activePackage = allPackages.find((item) => item.name === selectedPackage) ?? allPackages[0];
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const ruleSections = activeTab === "Plated Menu" ? platedSections : buffetSections;
   const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
+
+  const savePackage = (values: NewPackageFormValues) => {
+    const price = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(values.basePrice));
+    const newPackage = {
+      name: values.name,
+      type: values.type,
+      summary: "0 Buffet/Plated items",
+      price,
+    };
+
+    setCreatedPackages((current) => [newPackage, ...current]);
+    setSelectedPackage(values.name);
+    setActiveTab("Packages");
+    setIsNewPackageOpen(false);
+  };
+
+  const saveLibraryItem = (values: NewLibraryItemFormValues) => {
+    setCreatedMenuItems((current) => [{ name: values.name, category: values.category }, ...current]);
+    setSelectedCategory(values.category);
+    setActiveTab("Menu Library");
+    setIsNewLibraryItemOpen(false);
+  };
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
@@ -340,6 +374,7 @@ export function MenuPage() {
           <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
             <button
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+              onClick={() => setIsNewLibraryItemOpen(true)}
               type="button"
             >
               <LineIcon name="plus" className="h-4 w-4" />
@@ -347,6 +382,7 @@ export function MenuPage() {
             </button>
             <button
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#1f4d73] bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
+              onClick={() => setIsNewPackageOpen(true)}
               type="button"
             >
               <LineIcon name="box" className="h-4 w-4" />
@@ -372,6 +408,9 @@ export function MenuPage() {
         </nav>
       </div>
 
+      <NewPackageDialog onClose={() => setIsNewPackageOpen(false)} onSave={savePackage} open={isNewPackageOpen} />
+      <NewLibraryItemDialog onClose={() => setIsNewLibraryItemOpen(false)} onSave={saveLibraryItem} open={isNewLibraryItemOpen} />
+
       <main className="min-h-0 flex-1 overflow-hidden p-3">
         {activeTab === "Packages" ? (
           <div className="grid items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
@@ -381,13 +420,13 @@ export function MenuPage() {
                   <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
                   <h2 className="text-sm font-black text-[#17202a]">Packages</h2>
                 </div>
-                <button className="inline-flex h-8 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                <button className="inline-flex h-8 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" onClick={() => setIsNewPackageOpen(true)} type="button">
                   New
                 </button>
               </header>
 
               <div className="space-y-2 p-3">
-                {packages.map((item) => {
+                {allPackages.map((item) => {
                   const isActive = selectedPackage === item.name;
 
                   return (
@@ -467,7 +506,7 @@ export function MenuPage() {
                   </div>
                   <p className="mt-1 text-xs text-[#6a7483]">Select a Menu Library item, then add the rule and price.</p>
                 </div>
-                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" onClick={() => setIsNewLibraryItemOpen(true)} type="button">
                   Add {ruleMode} item
                 </button>
               </header>
@@ -512,7 +551,8 @@ export function MenuPage() {
                   </div>
                   <p className="mt-1 text-xs text-[#6a7483]">Base food items only. No rules, no prices, no hall usage.</p>
                 </div>
-                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                <button className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" 
+                onClick={() => {setIsNewLibraryItemOpen(true)} } type="button">
                   New item
                 </button>
               </header>
@@ -529,7 +569,7 @@ export function MenuPage() {
                     value={selectedCategory}
                     onChange={(event) => setSelectedCategory(event.target.value)}
                   >
-                    {categories.map((category) => (
+                    {displayCategories.map((category) => (
                       <option key={category.label} value={category.label}>
                         {category.label}
                       </option>
@@ -557,7 +597,7 @@ export function MenuPage() {
             </header>
 
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-              {categories.map((category) => {
+              {displayCategories.map((category) => {
                 const isActive = selectedCategory === category.label;
 
                 return (

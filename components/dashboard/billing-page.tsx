@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { NewInvoiceDialog } from "@/components/forms-and-modals/new-invoice-dialog";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -46,7 +47,7 @@ function LineIcon({ name, className = "h-4 w-4" }: { name: IconName; className?:
   return <svg {...common}>{icons[name]}</svg>;
 }
 
-function TopAction({ icon, label, tone = "outline" }: { icon?: IconName; label: string; tone?: "outline" | "primary" }) {
+function TopAction({ icon, label, onClick, tone = "outline" }: { icon?: IconName; label: string; onClick?: () => void; tone?: "outline" | "primary" }) {
   return (
     <button
       className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-black transition hover:-translate-y-0.5 ${
@@ -54,6 +55,7 @@ function TopAction({ icon, label, tone = "outline" }: { icon?: IconName; label: 
           ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md shadow-[#1f4d73]/15"
           : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
       }`}
+      onClick={onClick}
       type="button"
     >
       {icon ? <LineIcon name={icon} /> : null}
@@ -427,6 +429,12 @@ export function BillingPage() {
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
   const [activeTab, setActiveTab] = useState<BillingTab>("Dashboard");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
+
+  const saveInvoice = () => {
+    setIsNewInvoiceOpen(false);
+    setActiveTab("Invoices");
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -475,9 +483,14 @@ export function BillingPage() {
           <>
             <TopAction icon="upload" label="Import bank file" />
             <TopAction icon="settings" label="Invoice settings" />
-            <TopAction icon="plus" label="New invoice" tone="primary" />
+            <TopAction icon="plus" label="New invoice" onClick={() => setIsNewInvoiceOpen(true)} tone="primary" />
           </>
         }
+      />
+      <NewInvoiceDialog
+        onClose={() => setIsNewInvoiceOpen(false)}
+        onSave={saveInvoice}
+        open={isNewInvoiceOpen}
       />
       <section className="h-[calc(100vh-5rem)] bg-[#fbfcfd]">
         <div className="flex h-full flex-col">

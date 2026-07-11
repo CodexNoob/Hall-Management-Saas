@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 type DashboardTopbarProps = {
   title: string;
   subtitle?: string;
+  onTodayNotes?: () => void;
   onNewBooking?: () => void;
   actionsSlot?: ReactNode;
   rightSlot?: ReactNode;
@@ -136,7 +137,7 @@ export function DashboardTopbarBrand() {
   );
 }
 
-export function DashboardTopbar({ title, subtitle, onNewBooking, actionsSlot, rightSlot }: DashboardTopbarProps) {
+export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, actionsSlot, rightSlot }: DashboardTopbarProps) {
   return (
     <>
       <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
@@ -158,6 +159,7 @@ export function DashboardTopbar({ title, subtitle, onNewBooking, actionsSlot, ri
                 <>
                   <button
                     type="button"
+                    onClick={onTodayNotes}
                     className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
                   >
                     Today notes
