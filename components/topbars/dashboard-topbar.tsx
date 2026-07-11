@@ -158,7 +158,7 @@ export function DashboardTopbar({ title, subtitle, onNewBooking, actionsSlot, ri
                 <>
                   <button
                     type="button"
-                    className="h-11 rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+                    className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
                   >
                     Today notes
                   </button>
@@ -166,7 +166,7 @@ export function DashboardTopbar({ title, subtitle, onNewBooking, actionsSlot, ri
                   <button
                     type="button"
                     onClick={onNewBooking}
-                    className="flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
+                    className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
                   >
                     <TopbarIcon name="plus" />
                     New booking

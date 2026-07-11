@@ -15,6 +15,7 @@ type SidebarIconName =
   | "portal"
   | "dining"
   | "map"
+  | "files"
   | "billing"
   | "staff"
   | "vendor"
@@ -51,6 +52,7 @@ const sidebarSections: Array<{ title: string; items: SidebarItem[] }> = [
     items: [
       { icon: "dining", label: "Dining Manager", count: "9", route: "/dashboard/dining-manager" },
       { icon: "map", label: "Hall Room Map", count: "4", route: "/dashboard/hall-room-map" },
+      { icon: "files", label: "Files", count: "12", route: "/dashboard/files" },
     ],
   },
   {
@@ -140,6 +142,15 @@ function SidebarIcon({ name, className = "h-4 w-4" }: { name: SidebarIconName; c
       <>
         <path d="M3 6 9 3l6 3 6-3v15l-6 3-6-3-6 3Z" />
         <path d="M9 3v15M15 6v15" />
+      </>
+    ),
+
+    files: (
+      <>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8" />
+      <path d="M8 17h8" />
       </>
     ),
     billing: (

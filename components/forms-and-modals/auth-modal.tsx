@@ -8,7 +8,7 @@ import { SignupCard } from "@/components/signup/signup-card";
 type AuthView = "login" | "signup" | "forgot";
 type SlideDirection = "forward" | "back";
 
-export function LoginModal() {
+export function AuthModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [isSwitching, setIsSwitching] = useState(false);

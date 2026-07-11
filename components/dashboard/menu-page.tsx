@@ -330,7 +330,7 @@ export function MenuPage() {
   const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
 
   return (
-    <div className="flex flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <div className="shrink-0 bg-white">
         <header className="flex min-h-16 flex-col gap-3 border-b border-[#d8dde5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -372,7 +372,7 @@ export function MenuPage() {
         </nav>
       </div>
 
-      <main className="p-3">
+      <main className="min-h-0 flex-1 overflow-hidden p-3">
         {activeTab === "Packages" ? (
           <div className="grid items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
             <aside className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
@@ -501,10 +501,10 @@ export function MenuPage() {
             </div>
           </section>
         ) : (
-        <div className="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
-              <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-3">
+        <div className="grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <LineIcon name="document" className="h-4 w-4 text-[#17202a]" />
@@ -517,7 +517,7 @@ export function MenuPage() {
                 </button>
               </header>
 
-              <div className="border-b border-[#d8dde5] p-3">
+              <div className="shrink-0 border-b border-[#d8dde5] p-3">
                 <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_150px_140px]">
                   <input
                     className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73]"
@@ -541,7 +541,7 @@ export function MenuPage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+              <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
                 {visibleItems.map((item) => (
                   <MenuItemCard key={item.name} category={item.category} name={item.name} />
                 ))}
@@ -550,13 +550,13 @@ export function MenuPage() {
             </div>
           </section>
 
-          <aside className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+          <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
             <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
               <LineIcon name="filter" className="h-4 w-4 text-[#17202a]" />
               <h2 className="text-sm font-black text-[#17202a]">Categories</h2>
             </header>
 
-            <div className="space-y-2 p-3">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
               {categories.map((category) => {
                 const isActive = selectedCategory === category.label;
 

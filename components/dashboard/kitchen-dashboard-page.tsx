@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
+import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 

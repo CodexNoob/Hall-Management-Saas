@@ -1,7 +1,13 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardTopbar } from "@/components/dashboard/dashboard-topbar";
+import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
+import {
+  NewBookingDialog,
+  type NewBookingFormValues,
+  type NewBookingSubmitIntent,
+} from "@/components/forms-and-modals/new-booking-dialog";
 import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
 
 type DashboardShellProps = {
@@ -76,13 +82,42 @@ function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
 
 export function DashboardShell({}: DashboardShellProps) {
   const router = useRouter();
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+
+  const closeNewBooking = useCallback(() => setIsNewBookingOpen(false), []);
+
+  const continueNewBooking = useCallback(
+    (values: NewBookingFormValues, intent: NewBookingSubmitIntent) => {
+      const searchParams = new URLSearchParams({
+        clientName: values.clientName,
+        phone: values.phone,
+        email: values.email,
+        eventType: values.eventType,
+        eventDate: values.eventDate,
+        hall: values.hall,
+        guestCount: values.guestCount,
+        package: values.eventPackage,
+        intent,
+      });
+
+      setIsNewBookingOpen(false);
+      router.push(`/dashboard/events/new?${searchParams.toString()}`);
+    },
+    [router],
+  );
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Dashboard"
         subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
-        onNewBooking={() => console.log("New booking clicked")}
+        onNewBooking={() => setIsNewBookingOpen(true)}
+      />
+
+      <NewBookingDialog
+        onClose={closeNewBooking}
+        onSubmit={continueNewBooking}
+        open={isNewBookingOpen}
       />
 
       <div className="px-4 py-6 sm:px-6">

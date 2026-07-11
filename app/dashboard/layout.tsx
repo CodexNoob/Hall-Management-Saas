@@ -9,8 +9,8 @@ import {
   syncSignedInUser,
   type SyncSignedInUserResponse,
 } from "@/lib/auth/client";
-import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
-import { DashboardTopbarBrand } from "@/components/dashboard/dashboard-topbar";
+import { DashboardSidebar } from "@/components/sidebars/dashboard-sidebar";
+import { DashboardTopbarBrand } from "@/components/topbars/dashboard-topbar";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {

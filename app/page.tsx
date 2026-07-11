@@ -1,11 +1,11 @@
-import { AiChatWidget } from "@/components/landing/ai-chat-widget";
+import { AiChatWidget } from "@/components/widgets/ai-chat-widget";
 import { BenefitsSection } from "@/components/landing/benefits-section";
 import { ContactModal } from "@/components/landing/contact-modal";
 import { FeaturesSection } from "@/components/landing/features-section";
 import { HallFlowHero } from "@/components/landing/hero";
 import { LandingNavbar } from "@/components/landing/landing-navbar";
 import { LandingFooter } from "@/components/landing/landing-footer";
-import { LoginModal } from "@/components/landing/login-modal";
+import { AuthModal } from "@/components/forms-and-modals/auth-modal";
 import { PricingSection } from "@/components/landing/pricing-section";
 
 export default function Home() {
@@ -18,7 +18,7 @@ export default function Home() {
       <PricingSection />
       <LandingFooter />
       <ContactModal />
-      <LoginModal />
+      <AuthModal />
       <AiChatWidget />
     </main>
   );

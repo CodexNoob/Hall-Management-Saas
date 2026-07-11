@@ -1,4 +1,4 @@
-import { DashboardModulePlaceholder } from "@/components/dashboard/dashboard-module-placeholder";
+import { DashboardModulePlaceholder } from "@/components/placeholders/dashboard-module-placeholder";
 
 export default function HallRoomMapPage() {
   return (
