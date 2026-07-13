@@ -149,12 +149,12 @@ export function DashboardShell({}: DashboardShellProps) {
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="px-4 py-6 sm:px-6">
+        <div className="mx-auto w-full max-w-[1800px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           <div className="grid gap-4 md:grid-cols-2">
             {kpis.map((kpi) => (
               <article
                 key={kpi.label}
-                className="rounded-2xl border border-[#d8dde5] bg-white p-5 shadow-sm shadow-[#17202a]/4"
+                className="rounded-2xl border border-[#d8dde5] bg-white p-4 shadow-sm shadow-[#17202a]/4 sm:p-5"
               >
                 <p className="text-sm font-black text-[#6a7483]">
                   {kpi.label}
@@ -195,7 +195,7 @@ export function DashboardShell({}: DashboardShellProps) {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full table-fixed text-left">
+                <table className="w-full min-w-220 table-fixed text-left">
                   <thead className="border-b border-[#d8dde5] bg-[#fbfcfd] text-xs font-black uppercase tracking-[0.04em] text-[#6a7483]">
                     <tr>
                       <th className="w-[10%] px-4 py-4">Time</th>
@@ -286,7 +286,7 @@ export function DashboardShell({}: DashboardShellProps) {
                   </h2>
                 </div>
 
-                <div className="grid gap-4 p-4 sm:grid-cols-2">
+                <div className="grid gap-3 p-4 sm:grid-cols-2">
                   <button
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
                     type="button"
@@ -323,7 +323,7 @@ export function DashboardShell({}: DashboardShellProps) {
             </div>
           </div>
 
-          <section className="mt-6 grid gap-4 pb-6 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="mt-6 grid gap-4 pb-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
             {[
               {
                 eyebrow: "Live",

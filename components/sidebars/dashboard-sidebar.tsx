@@ -188,7 +188,14 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
   const router = useRouter();
   const initials = getInitials(user.name);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarTransitionReady, setIsSidebarTransitionReady] = useState(false);
+
+  useEffect(() => {
+    const toggleMobileSidebar = () => setIsMobileOpen((current) => !current);
+    window.addEventListener("dashboard-mobile-sidebar-toggle", toggleMobileSidebar);
+    return () => window.removeEventListener("dashboard-mobile-sidebar-toggle", toggleMobileSidebar);
+  }, []);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("sidebarCollapsed");
@@ -254,24 +261,37 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
     router.refresh();
   };
 
+  const showCollapsed = isCollapsed && !isMobileOpen;
+
   return (
-    <aside
-      className={`app-sidebar fixed bottom-0 left-0 top-20 z-40 hidden overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] lg:flex lg:flex-col sidebar-will-change-width ${
+    <>
+      {isMobileOpen ? (
+        <button
+          aria-label="Close navigation"
+          className="fixed inset-0 top-20 z-40 bg-[#17202a]/45 backdrop-blur-[2px] lg:hidden"
+          onClick={() => setIsMobileOpen(false)}
+          type="button"
+        />
+      ) : null}
+      <aside
+      className={`app-sidebar fixed bottom-0 left-0 top-20 z-50 flex w-[min(86vw,20rem)] flex-col overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
+        isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+      } ${
         isSidebarTransitionReady ? "transition-[width] duration-150 ease-in-out" : "transition-none"
       } ${
-        isCollapsed ? "w-18" : "w-64"
+        showCollapsed ? "lg:w-18" : "lg:w-64"
       }`}
     >
-      <nav className={`flex-1 overflow-x-hidden overflow-y-auto ${isCollapsed ? "space-y-2 px-2 py-4" : "space-y-5 px-3 py-4"}`}>
+      <nav className={`flex-1 overflow-x-hidden overflow-y-auto ${showCollapsed ? "space-y-2 px-2 py-4" : "space-y-5 px-3 py-4"}`}>
         {sidebarSections.map((section) => (
           <section key={section.title}>
-            {!isCollapsed ? (
+            {!showCollapsed ? (
               <h2 className="mb-3 px-2 text-xs font-black uppercase tracking-[0.12em] text-[#6a7483]">
                 {section.title}
               </h2>
             ) : null}
 
-            <div className={isCollapsed ? "space-y-2" : "space-y-1.5"}>
+            <div className={showCollapsed ? "space-y-2" : "space-y-1.5"}>
               {section.items.map((item) => {
                 const isActive = item.label === activeLabel;
 
@@ -279,7 +299,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                   <button
                     key={`${section.title}-${item.label}`}
                     className={`group relative flex w-full items-center transition ${
-                      isCollapsed
+                      showCollapsed
                         ? `h-11 justify-center rounded-xl ${
                             isActive ? "bg-[#eef4fa] text-[#17202a]" : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
                           }`
@@ -288,17 +308,20 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                           }`
                     }`}
                     type="button"
-                    onClick={() => (item.route ? router.push(item.route as Parameters<typeof router.push>[0]) : undefined)}
+                    onClick={() => {
+                      setIsMobileOpen(false);
+                      if (item.route) router.push(item.route as Parameters<typeof router.push>[0]);
+                    }}
                     aria-label={item.label}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    {isCollapsed && isActive ? (
+                    {showCollapsed && isActive ? (
                       <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
                     ) : null}
 
                     <span
                       className={`flex shrink-0 items-center justify-center ${
-                        isCollapsed
+                        showCollapsed
                           ? "h-9 w-9 rounded-xl"
                           : isActive
                             ? "text-[#1f4d73]"
@@ -308,7 +331,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
                       <SidebarIcon name={item.icon} className="h-4.5 w-4.5" />
                     </span>
 
-                    {!isCollapsed ? (
+                    {!showCollapsed ? (
                       <>
                         <span className={`min-w-0 flex-1 truncate text-sm ${isActive ? "font-black" : "font-semibold"}`}>
                           {item.label}
@@ -331,17 +354,17 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
       <div className="border-t border-[#d8dde5] p-3">
         <button
           className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#eef4fa] ${
-            isCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
+            showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
           }`}
           type="button"
           onClick={logout}
-          title={isCollapsed ? `${user.name} - ${roleLabel}` : "Sign out"}
+          title={showCollapsed ? `${user.name} - ${roleLabel}` : "Sign out"}
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef4fa] text-sm font-black text-[#17202a]">
             {initials}
           </span>
 
-          {!isCollapsed ? (
+          {!showCollapsed ? (
             <>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-black text-[#17202a]">{user.name}</span>
@@ -356,6 +379,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
           )}
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

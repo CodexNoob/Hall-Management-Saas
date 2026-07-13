@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type ReactNode } from "react";
+import { useId, useMemo, useRef, useState, useEffect, type FormEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 type DashboardTopbarProps = {
   title: string;
@@ -11,6 +12,26 @@ type DashboardTopbarProps = {
   actionsSlot?: ReactNode;
   rightSlot?: ReactNode;
 };
+
+type SearchTarget = {
+  label: string;
+  description: string;
+  route: string;
+  keywords: string[];
+};
+
+const searchTargets: SearchTarget[] = [
+  { label: "Dashboard", description: "Operating day overview", route: "/dashboard", keywords: ["home", "overview", "schedule", "kpis"] },
+  { label: "Kitchen", description: "Kitchen production board", route: "/dashboard/kitchen", keywords: ["food", "prep", "production", "items"] },
+  { label: "Calendar", description: "Room availability and bookings", route: "/dashboard/calendar", keywords: ["booking", "date", "month", "rooms"] },
+  { label: "Events", description: "Event manager and event files", route: "/dashboard/events", keywords: ["event", "client", "wedding", "files"] },
+  { label: "Menu", description: "Library, packages, buffet, plated, add-ons", route: "/dashboard/menu", keywords: ["menu", "packages", "buffet", "plated", "addons", "add-ons"] },
+  { label: "Client Portal", description: "Client-facing portal tools", route: "/dashboard/client-portal", keywords: ["client", "portal", "share", "link"] },
+  { label: "Billing", description: "Invoices, balances, transactions", route: "/dashboard/billing", keywords: ["invoice", "payment", "balance", "money", "transactions"] },
+  { label: "Dining Manager", description: "Dining room operations", route: "/dashboard/dining-manager", keywords: ["dining", "tables", "service"] },
+  { label: "Hall Room Map", description: "Hall layouts and room map", route: "/dashboard/hall-room-map", keywords: ["hall", "map", "layout", "rooms"] },
+  { label: "Settings", description: "Rules, users, pricing, templates", route: "/dashboard/settings", keywords: ["settings", "admin", "users", "pricing"] },
+];
 
 function TopbarIcon({ name, className = "h-4 w-4" }: { name: "search" | "plus"; className?: string }) {
   if (name === "search") {
@@ -69,6 +90,11 @@ export function DashboardTopbarBrand() {
   }, []);
 
   const toggleSidebar = () => {
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      window.dispatchEvent(new CustomEvent("dashboard-mobile-sidebar-toggle"));
+      return;
+    }
+
     const nextCollapsed = !isSidebarCollapsed;
 
     setIsSidebarCollapsed(nextCollapsed);
@@ -80,7 +106,7 @@ export function DashboardTopbarBrand() {
   };
 
   return (
-    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex min-h-20 shrink-0 items-center justify-between gap-3 border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
+    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
       <Image
         src="/hms-logo-header.png"
         alt="Hall Management SaaS"
@@ -99,8 +125,8 @@ export function DashboardTopbarBrand() {
         }`}
         type="button"
         onClick={toggleSidebar}
-        aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-label={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
+        title={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
       >
         <Image
           src="/logo.png"
@@ -138,22 +164,134 @@ export function DashboardTopbarBrand() {
 }
 
 export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, actionsSlot, rightSlot }: DashboardTopbarProps) {
+  const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchInputId = useId();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  const searchResults = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return searchTargets.slice(0, 6);
+    }
+
+    return searchTargets
+      .filter((target) => {
+        const haystack = [target.label, target.description, ...target.keywords].join(" ").toLowerCase();
+        return haystack.includes(normalizedQuery);
+      })
+      .slice(0, 6);
+  }, [searchQuery]);
+
+  const goToSearchTarget = (target: SearchTarget) => {
+    setSearchQuery("");
+    setIsSearchOpen(false);
+    router.push(target.route as Parameters<typeof router.push>[0]);
+  };
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const [firstResult] = searchResults;
+    if (firstResult) {
+      goToSearchTarget(firstResult);
+    }
+  };
+
+  useEffect(() => {
+    const focusSearchFromShortcut = (event: KeyboardEvent) => {
+      if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target;
+      const isTyping =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+
+      if (isTyping) {
+        return;
+      }
+
+      event.preventDefault();
+      searchInputRef.current?.focus();
+      setIsSearchOpen(true);
+    };
+
+    window.addEventListener("keydown", focusSearchFromShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", focusSearchFromShortcut);
+    };
+  }, []);
+
   return (
     <>
-      <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
+      <header className="dashboard-topbar-content fixed right-0 top-20 z-50 bg-[#ffffff]/95 backdrop-blur-xl lg:top-0">
         <div className="flex min-h-20 items-stretch">
-          <div className="flex min-w-0 flex-1 items-center gap-6 border-b border-[#d8dde5] pl-6 pr-4 sm:pr-6 lg:pr-8">
+          <div className="flex min-w-0 flex-1 items-center gap-6 border-b border-[#d8dde5] px-4 sm:px-6 lg:pl-6 lg:pr-8">
             <div className="min-w-0 shrink grow">
-              <h1 className="truncate text-2xl font-black tracking-tight text-[#17202a]">{title}</h1>
-              {subtitle ? <p className="mt-1 truncate text-sm font-medium text-[#6a7483]">{subtitle}</p> : null}
+              <h1 className="truncate text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">{title}</h1>
+              {subtitle ? <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] sm:block">{subtitle}</p> : null}
             </div>
 
             <div className="ml-auto hidden min-w-0 items-center gap-3 lg:flex">
-              <div className="flex h-11 w-96 min-w-0 items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm">
-                <span className="font-bold text-[#17202a]">/</span>
-                <TopbarIcon name="search" />
-                <span className="truncate">Search events, clients, invoices</span>
-              </div>
+              <form className="relative" onSubmit={submitSearch}>
+                <label
+                  className="flex h-11 w-96 min-w-0 cursor-text items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd]"
+                  htmlFor={searchInputId}
+                >
+                  <TopbarIcon name="search" />
+                  <input
+                    id={searchInputId}
+                    ref={searchInputRef}
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#17202a] outline-none placeholder:text-[#6a7483]"
+                    placeholder="Search events, clients, invoices"
+                    type="search"
+                    value={searchQuery}
+                    onBlur={() => window.setTimeout(() => setIsSearchOpen(false), 120)}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                      setIsSearchOpen(true);
+                    }}
+                    onFocus={() => setIsSearchOpen(true)}
+                  />
+                </label>
+
+                {isSearchOpen ? (
+                  <div className="absolute left-0 right-0 top-13 z-50 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-xl shadow-[#17202a]/12">
+                    {searchResults.length ? (
+                      <div className="p-1.5">
+                        {searchResults.map((target) => (
+                          <button
+                            key={target.route}
+                            className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left transition hover:bg-[#eef4fa]"
+                            type="button"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              goToSearchTarget(target);
+                            }}
+                          >
+                            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
+                              <TopbarIcon name="search" className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-black text-[#17202a]">{target.label}</span>
+                              <span className="block truncate text-xs font-semibold text-[#6a7483]">{target.description}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="px-4 py-3 text-sm font-semibold text-[#6a7483]">No matches found.</div>
+                    )}
+                  </div>
+                ) : null}
+              </form>
 
               {actionsSlot ?? (
                 <>
@@ -182,7 +320,7 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
         </div>
       </header>
 
-      <div className="h-20" aria-hidden="true" />
+      <div className="h-40 lg:h-20" aria-hidden="true" />
     </>
   );
 }

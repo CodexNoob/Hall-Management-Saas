@@ -164,9 +164,24 @@ svg {
 }
 
 .dashboard-topbar-content {
-  left: 16rem;
+  left: 0;
   transition: left 150ms ease-in-out;
   will-change: left;
+}
+
+@media (max-width: 1023px) {
+  .dashboard-topbar-brand {
+    width: 100%;
+  }
+
+  .dashboard-topbar-logo {
+    max-width: min(70vw, 220px);
+  }
+
+  .dashboard-sidebar-toggle {
+    height: 2.75rem !important;
+    width: 2.75rem !important;
+  }
 }
 
 .dashboard-topbar-logo {
