@@ -33,6 +33,7 @@ function getDashboardActiveLabel(pathname: string | null): string {
   if (path.startsWith("/dashboard/client-portal")) return "Client Portal";
   if (path.startsWith("/dashboard/dining-manager")) return "Dining Manager";
   if (path.startsWith("/dashboard/hall-room-map")) return "Hall Room Map";
+  if (path.startsWith("/dashboard/files")) return "Files";
   if (path.startsWith("/dashboard/billing")) return "Billing";
   if (path.startsWith("/dashboard/menu")) return "Menu";
   if (path.startsWith("/dashboard/kitchen")) return "Kitchen";

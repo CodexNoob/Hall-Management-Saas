@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { NewEventDialog, type NewEventFormValues } from "@/components/forms-and-modals/new-event-dialog";
 import { PrintPacketDrawer } from "@/components/forms-and-modals/print-packet-drawer";
 import { ClientPortalPreviewDrawer } from "@/components/forms-and-modals/client-portal-preview-drawer";
+import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -1304,16 +1305,20 @@ export function EventManagerPage() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
-      <header className="flex min-h-17 shrink-0 flex-col gap-3 border-b border-[#d8dde5] bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-lg font-black text-[#17202a]">Event Manager</h1>
-          <p className="mt-1 text-xs text-[#6a7483]">Select an event, then manage every connected section from one workspace.</p>
-        </div>
-        <button className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]" onClick={() => setIsNewEventOpen(true)} type="button">
-          <LineIcon name="plus" />
-          New event
-        </button>
-      </header>
+      <DashboardTopbar
+        title="Event Manager"
+        subtitle="Select an event, then manage every connected section from one workspace."
+        actionsSlot={
+          <button
+            className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f] 2xl:px-5"
+            onClick={() => setIsNewEventOpen(true)}
+            type="button"
+          >
+            <LineIcon name="plus" />
+            New event
+          </button>
+        }
+      />
 
       <NewEventDialog onClose={() => setIsNewEventOpen(false)} onCreate={createEvent} open={isNewEventOpen} />
 

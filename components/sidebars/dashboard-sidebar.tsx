@@ -274,7 +274,7 @@ export function DashboardSidebar({ user, roleLabel, activeLabel = "Dashboard", o
         />
       ) : null}
       <aside
-      className={`app-sidebar fixed bottom-0 left-0 top-20 z-50 flex w-[min(86vw,20rem)] flex-col overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
+      className={`app-sidebar fixed bottom-0 left-0 top-20 z-60 flex w-[min(86vw,20rem)] flex-col overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
         isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
       } ${
         isSidebarTransitionReady ? "transition-[width] duration-150 ease-in-out" : "transition-none"

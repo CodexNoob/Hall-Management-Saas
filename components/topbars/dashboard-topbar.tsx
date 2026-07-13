@@ -233,16 +233,16 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
     <>
       <header className="dashboard-topbar-content fixed right-0 top-20 z-50 bg-[#ffffff]/95 backdrop-blur-xl lg:top-0">
         <div className="flex min-h-20 items-stretch">
-          <div className="flex min-w-0 flex-1 items-center gap-6 border-b border-[#d8dde5] px-4 sm:px-6 lg:pl-6 lg:pr-8">
+          <div className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#d8dde5] px-4 sm:px-6 lg:pl-6 lg:pr-8 xl:gap-6">
             <div className="min-w-0 shrink grow">
               <h1 className="truncate text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">{title}</h1>
               {subtitle ? <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] sm:block">{subtitle}</p> : null}
             </div>
 
-            <div className="ml-auto hidden min-w-0 items-center gap-3 lg:flex">
+            <div className="ml-auto hidden min-w-0 shrink-0 items-center gap-2 lg:flex xl:gap-3">
               <form className="relative" onSubmit={submitSearch}>
                 <label
-                  className="flex h-11 w-96 min-w-0 cursor-text items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd]"
+                  className="flex h-11 w-56 min-w-0 cursor-text items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd] xl:w-72 2xl:w-96"
                   htmlFor={searchInputId}
                 >
                   <TopbarIcon name="search" />
@@ -298,7 +298,7 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
                   <button
                     type="button"
                     onClick={onTodayNotes}
-                    className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+                    className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa] 2xl:px-5"
                   >
                     Today notes
                   </button>
@@ -306,7 +306,7 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
                   <button
                     type="button"
                     onClick={onNewBooking}
-                    className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
+                    className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f] 2xl:px-5"
                   >
                     <TopbarIcon name="plus" />
                     New booking

@@ -71,7 +71,7 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
       <aside
         aria-labelledby={titleId}
         aria-modal="true"
-        className="ml-auto flex h-full w-full max-w-[455px] flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="ml-auto flex h-full w-full max-w-11375 flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">

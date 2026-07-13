@@ -1,10 +1,5 @@
-import { DashboardModulePlaceholder } from "@/components/placeholders/dashboard-module-placeholder";
+import { FilePage } from "@/components/dashboard/file-page";
 
-export default function FilesPage() {
-  return (
-    <DashboardModulePlaceholder
-      title="Files"
-      description="Manage and organize your files, documents, and media assets for your events."
-    />
-  );
+export default function DashboardFilePage() {
+  return <FilePage />;
 }
