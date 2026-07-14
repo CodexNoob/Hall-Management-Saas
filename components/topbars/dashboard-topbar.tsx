@@ -128,15 +128,12 @@ export function DashboardTopbarBrand() {
         aria-label={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
         title={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
       >
-        <Image
-          src="/logo.png"
-          alt=""
-          width={44}
-          height={44}
-          unoptimized
-          className={`absolute h-11 w-11 object-contain transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 ${
+        <span
+          aria-hidden="true"
+          className={`absolute h-11 w-11 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 ${
             isSidebarCollapsed ? "scale-100 opacity-100" : "scale-95 opacity-0"
           }`}
+          style={{ backgroundImage: "url('/logo.png')" }}
         />
         <Image
           src="/sidebar-right.png"

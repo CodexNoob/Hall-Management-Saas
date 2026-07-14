@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
+import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
 
 type CalendarStatus = "confirmed" | "hold" | "school";
 
@@ -110,6 +111,43 @@ const halls = [
   "School Dining Room",
 ];
 
+type AvailabilityDay = {
+  day: number;
+  dayName: string;
+  hebrewDate: string;
+  roomsAvailable: number;
+  status: "available" | "hold";
+};
+
+const availabilityDays: AvailabilityDay[] = [
+  { day: 1, dayName: "Wed", hebrewDate: "16 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 2, dayName: "Thu", hebrewDate: "17 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 3, dayName: "Fri", hebrewDate: "18 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 5, dayName: "Sun", hebrewDate: "20 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 6, dayName: "Mon", hebrewDate: "21 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 7, dayName: "Tue", hebrewDate: "22 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 8, dayName: "Wed", hebrewDate: "23 בתמוז 5786", roomsAvailable: 4, status: "available" },
+  { day: 9, dayName: "Thu", hebrewDate: "24 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 10, dayName: "Fri", hebrewDate: "25 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 11, dayName: "Sat", hebrewDate: "26 בתמוז 5786", roomsAvailable: 4, status: "hold" },
+  { day: 12, dayName: "Sun", hebrewDate: "27 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 13, dayName: "Mon", hebrewDate: "28 בתמוז 5786", roomsAvailable: 5, status: "available" },
+  { day: 14, dayName: "Tue", hebrewDate: "29 בתמוז 5786", roomsAvailable: 4, status: "available" },
+  { day: 15, dayName: "Wed", hebrewDate: "1 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 16, dayName: "Thu", hebrewDate: "2 באב 5786", roomsAvailable: 4, status: "available" },
+  { day: 17, dayName: "Fri", hebrewDate: "3 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 19, dayName: "Sun", hebrewDate: "5 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 20, dayName: "Mon", hebrewDate: "6 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 21, dayName: "Tue", hebrewDate: "7 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 25, dayName: "Sat", hebrewDate: "11 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 26, dayName: "Sun", hebrewDate: "12 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 27, dayName: "Mon", hebrewDate: "13 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 28, dayName: "Tue", hebrewDate: "14 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 29, dayName: "Wed", hebrewDate: "15 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 30, dayName: "Thu", hebrewDate: "16 באב 5786", roomsAvailable: 5, status: "available" },
+  { day: 31, dayName: "Fri", hebrewDate: "17 באב 5786", roomsAvailable: 5, status: "available" },
+];
+
 function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
@@ -174,6 +212,209 @@ function StatusDot({
   );
 }
 
+function AvailabilityView({ onNewBooking }: { onNewBooking: () => void }) {
+  return (
+    <section className="mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+      <header className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <BuildingIcon />
+            <h1 className="text-sm font-black">Availability</h1>
+          </div>
+          <p className="mt-1 text-xs text-[#6a7483]">
+            Open the range picker, select the start date, then select the end date from the same open calendar.
+          </p>
+        </div>
+
+        <button
+          className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f]"
+          onClick={onNewBooking}
+          type="button"
+        >
+          New booking
+        </button>
+      </header>
+
+      <div className="p-3">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-xl font-black">Availability Range</h2>
+            <p className="text-xs font-bold text-[#617086]">Wed, Jul 1, 2026 to Fri, Jul 31, 2026</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-[156px_156px_auto]">
+            <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
+              <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+            </div>
+            <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
+              <strong className="mt-1 block text-sm">Fri, Jul 31, 2026</strong>
+            </div>
+            <button className="h-9 self-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]" type="button">
+              Select range
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-3 flex gap-3">
+          <StatusDot color="bg-[#178151]" label="Available" />
+          <StatusDot color="bg-[#b66b00]" label="Hold" />
+        </div>
+
+        <div className="mt-3 space-y-2">
+          {availabilityDays.map((availabilityDay) => {
+            const isHold = availabilityDay.status === "hold";
+            return (
+              <article
+                className="flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                key={availabilityDay.day}
+              >
+                <div>
+                  <h3 className="text-sm font-black">
+                    {availabilityDay.dayName}, Jul {availabilityDay.day}, 2026
+                  </h3>
+                  <p className="mt-1 text-xs text-[#617086]" dir="rtl">
+                    {availabilityDay.hebrewDate}
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <span className="text-xs text-[#617086]">
+                    {isHold
+                      ? `1 hold · ${availabilityDay.roomsAvailable} rooms still available`
+                      : `${availabilityDay.roomsAvailable} rooms available`}
+                  </span>
+                  <span
+                    className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${
+                      isHold
+                        ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]"
+                        : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"
+                    }`}
+                  >
+                    {isHold ? "Hold" : "Available"}
+                  </span>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+type BlockedRange = {
+  id: string;
+  startLabel: string;
+  endLabel?: string;
+  hebrewLabel: string;
+};
+
+const initialBlockedRanges: BlockedRange[] = [
+  { id: "july-4", startLabel: "Sat, Jul 4, 2026", hebrewLabel: "19 בתמוז 5786" },
+  { id: "july-18", startLabel: "Sat, Jul 18, 2026", hebrewLabel: "4 באב 5786" },
+  {
+    id: "july-22-24",
+    startLabel: "Wed, Jul 22, 2026",
+    endLabel: "Fri, Jul 24, 2026",
+    hebrewLabel: "8 באב 5786 to 10 באב 5786",
+  },
+];
+
+function ClockIcon() {
+  return (
+    <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function CalendarSettingsView() {
+  const [blockedRanges, setBlockedRanges] = useState(initialBlockedRanges);
+
+  function addBlockedRange() {
+    setBlockedRanges((current) => {
+      if (current.some((range) => range.id === "july-1")) return current;
+
+      return [
+        { id: "july-1", startLabel: "Wed, Jul 1, 2026", hebrewLabel: "16 בתמוז 5786" },
+        ...current,
+      ];
+    });
+  }
+
+  function removeBlockedRange(rangeId: string) {
+    setBlockedRanges((current) => current.filter((range) => range.id !== rangeId));
+  }
+
+  return (
+    <section className="mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+      <header className="border-b border-[#d8dde5] p-3">
+        <div className="flex items-center gap-2">
+          <SettingsIcon />
+          <h1 className="text-sm font-black">Calendar Settings</h1>
+        </div>
+        <p className="mt-1 text-xs text-[#6a7483]">Manage blocked date ranges.</p>
+      </header>
+
+      <div className="p-3">
+        <div className="overflow-hidden rounded-xl border border-[#d8dde5]">
+          <div className="border-b border-[#d8dde5] px-3 py-2">
+            <h2 className="text-sm font-black">Blocked ranges</h2>
+            <p className="mt-1 text-xs text-[#6a7483]">Blocked ranges will not show in Availability and cannot be booked.</p>
+          </div>
+
+          <div className="p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 className="text-base font-black">Add blocked range</h3>
+                <p className="text-xs font-bold text-[#617086]">Wed, Jul 1, 2026 to Wed, Jul 1, 2026</p>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[156px_156px_auto_auto]">
+                <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
+                  <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+                </div>
+                <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
+                  <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+                </div>
+                <button className="h-9 self-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]" type="button">Select range</button>
+                <button className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]" onClick={addBlockedRange} type="button">Add blocked range</button>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              {blockedRanges.map((range) => (
+                <article className="flex min-h-14 flex-col gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between" key={range.id}>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bfd2e2] bg-[#f7fbff] text-[#1f4d73]">
+                      <ClockIcon />
+                    </span>
+                    <p className="min-w-0 text-sm">
+                      <strong>{range.startLabel}{range.endLabel ? ` to ${range.endLabel}` : ""}</strong>{" "}
+                      <span className="text-xs text-[#617086]" dir="rtl">{range.hebrewLabel}</span>
+                    </p>
+                  </div>
+
+                  <button className="h-8 shrink-0 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]" onClick={() => removeBlockedRange(range.id)} type="button">Remove</button>
+                </article>
+              ))}
+
+              {blockedRanges.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-[#b9c2cf] p-6 text-center text-sm text-[#6a7483]">No blocked date ranges.</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function EventPill({
   booking,
   onSelect,
@@ -223,6 +464,7 @@ export function EventCalendarPage() {
   const [hallFilter, setHallFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
   const filteredBookings = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -266,6 +508,7 @@ export function EventCalendarPage() {
       <DashboardTopbar
         title="Calendar"
         subtitle="Review hall availability, bookings, holds, and fully booked dates."
+        onNewBooking={() => setIsNewBookingOpen(true)}
       />
 
       <nav className="shrink-0 overflow-x-auto border-b border-[#d8dde5] bg-white px-3 sm:px-5">
@@ -312,20 +555,10 @@ export function EventCalendarPage() {
       </nav>
 
       <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-        {activeTab !== "calendar" ? (
-          <div className="mx-auto flex min-h-72 max-w-[1700px] items-center justify-center rounded-xl border border-dashed border-[#b9c2cf] bg-white p-8 text-center">
-            <div>
-              <h2 className="text-xl font-black">
-                {activeTab === "availability"
-                  ? "Availability"
-                  : "Calendar settings"}
-              </h2>
-
-              <p className="mt-2 text-sm text-[#6a7483]">
-                This tab is ready for its next implementation phase.
-              </p>
-            </div>
-          </div>
+        {activeTab === "availability" ? (
+          <AvailabilityView onNewBooking={() => setIsNewBookingOpen(true)} />
+        ) : activeTab === "settings" ? (
+          <CalendarSettingsView />
         ) : (
           <div className="mx-auto grid max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
             <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
@@ -618,6 +851,12 @@ export function EventCalendarPage() {
           </div>
         )}
       </main>
+
+      <NewBookingDialog
+        onClose={() => setIsNewBookingOpen(false)}
+        onSubmit={() => setIsNewBookingOpen(false)}
+        open={isNewBookingOpen}
+      />
     </div>
   );
 }

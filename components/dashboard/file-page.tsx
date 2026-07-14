@@ -1,8 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { AddFileDialog } from "@/components/forms-and-modals/add-file-dialog";
+import {
+  NewEventFolderDialog,
+  type NewEventFolderFormValues,
+} from "@/components/forms-and-modals/new-event-folder-dialog";
+import {
+  NewFolderDialog,
+  type NewFolderFormValues,
+} from "@/components/forms-and-modals/new-folder-dialog";
 
 type Folder = {
   id: string;
@@ -11,7 +19,7 @@ type Folder = {
   parentId: string | null;
 };
 
-const folders: Folder[] = [
+const initialFolders: Folder[] = [
   {
     id: "event-core-files",
     name: "Event Core Files",
@@ -130,6 +138,7 @@ function SyncBadge({ children }: { children: React.ReactNode }) {
 }
 
 export function FilePage() {
+  const [folders, setFolders] = useState<Folder[]>(initialFolders);
   const [selectedFolderId, setSelectedFolderId] =
     useState("event-core-files");
 
@@ -142,6 +151,32 @@ export function FilePage() {
   const [fileType, setFileType] = useState("all");
   const [isMobileFoldersOpen, setIsMobileFoldersOpen] = useState(false);
   const [isAddFileOpen, setIsAddFileOpen] = useState(false);
+  const [isNewEventFolderOpen, setIsNewEventFolderOpen] = useState(false);
+  const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
+  const [openFolderMenuId, setOpenFolderMenuId] = useState<string | null>(null);
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+  const [editFolderName, setEditFolderName] = useState("");
+
+  useEffect(() => {
+    if (!openFolderMenuId) return;
+
+    function closeMenuOnOutsideClick(event: PointerEvent) {
+      const target = event.target;
+      if (target instanceof Element && target.closest("[data-folder-actions-menu]")) return;
+      setOpenFolderMenuId(null);
+    }
+
+    function closeMenuOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenFolderMenuId(null);
+    }
+
+    window.addEventListener("pointerdown", closeMenuOnOutsideClick);
+    window.addEventListener("keydown", closeMenuOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeMenuOnOutsideClick);
+      window.removeEventListener("keydown", closeMenuOnEscape);
+    };
+  }, [openFolderMenuId]);
 
   const selectedFolder =
     folders.find((folder) => folder.id === selectedFolderId) ?? folders[0];
@@ -158,7 +193,7 @@ export function FilePage() {
 
       return matchesSearch && fileType === "all";
     });
-  }, [selectedFolderId, searchQuery, fileType]);
+  }, [folders, selectedFolderId, searchQuery, fileType]);
 
   function hasChildren(folderId: string) {
     return folders.some((folder) => folder.parentId === folderId);
@@ -193,6 +228,94 @@ export function FilePage() {
     setSelectedFolderId(folderId);
     setSearchQuery("");
     setIsMobileFoldersOpen(false);
+  }
+
+  function createEventFolder(values: NewEventFolderFormValues) {
+    const eventFolderId = `event-${crypto.randomUUID()}`;
+    const eventFolderName = `${values.clientName} ${values.eventType}`.trim();
+    const standardFolderNames = [
+      "Invoicing",
+      "Hall Layout",
+      "Footage",
+      "Pictures",
+      "Videos",
+      "Documents",
+    ];
+
+    const newFolders: Folder[] = [
+      { id: eventFolderId, name: eventFolderName, fileCount: 0, parentId: "events" },
+      ...standardFolderNames.map((folderName) => ({
+        id: `${eventFolderId}-${folderName.toLowerCase().replaceAll(" ", "-")}`,
+        name: folderName,
+        fileCount: 0,
+        parentId: eventFolderId,
+      })),
+    ];
+
+    setFolders((current) => [...current, ...newFolders]);
+    setExpandedFolderIds((current) =>
+      Array.from(new Set([...current, "event-core-files", "events", eventFolderId])),
+    );
+    setSelectedFolderId(eventFolderId);
+  }
+
+  function createFolder(values: NewFolderFormValues) {
+    const folderId = `folder-${crypto.randomUUID()}`;
+    const newFolder: Folder = {
+      id: folderId,
+      name: values.folderName,
+      fileCount: 0,
+      parentId: selectedFolder.id,
+    };
+
+    setFolders((current) => [...current, newFolder]);
+    setExpandedFolderIds((current) =>
+      Array.from(new Set([...current, selectedFolder.id])),
+    );
+    setSelectedFolderId(folderId);
+  }
+
+  function startEditingFolder(folder: Folder) {
+    setEditingFolderId(folder.id);
+    setEditFolderName(folder.name);
+    setOpenFolderMenuId(null);
+  }
+
+  function saveFolderName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedName = editFolderName.trim();
+    if (!editingFolderId || !normalizedName) return;
+
+    setFolders((current) =>
+      current.map((folder) =>
+        folder.id === editingFolderId ? { ...folder, name: normalizedName } : folder,
+      ),
+    );
+    setEditingFolderId(null);
+    setEditFolderName("");
+  }
+
+  function deleteFolder(folderId: string) {
+    setFolders((current) => {
+      const folderIdsToDelete = new Set([folderId]);
+      let foundChild = true;
+
+      while (foundChild) {
+        foundChild = false;
+        current.forEach((folder) => {
+          if (folder.parentId && folderIdsToDelete.has(folder.parentId) && !folderIdsToDelete.has(folder.id)) {
+            folderIdsToDelete.add(folder.id);
+            foundChild = true;
+          }
+        });
+      }
+
+      setExpandedFolderIds((expandedIds) =>
+        expandedIds.filter((id) => !folderIdsToDelete.has(id)),
+      );
+      return current.filter((folder) => !folderIdsToDelete.has(folder.id));
+    });
+    setOpenFolderMenuId(null);
   }
 
   function renderFolderTree(parentId: string | null, depth = 0) {
@@ -279,9 +402,7 @@ export function FilePage() {
         actionsSlot={
             <>
             <button className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]" 
-            type="button" onClick={() => {
-                //Open the New Event Folder dialog here.
-            }}>
+            type="button" onClick={() => setIsNewEventFolderOpen(true)}>
                 New Event Folder
             </button>
 
@@ -376,10 +497,13 @@ export function FilePage() {
                   value={fileType}
                 >
                   <option value="all">All types</option>
-                  <option value="document">Documents</option>
-                  <option value="image">Images</option>
-                  <option value="video">Videos</option>
-                  <option value="pdf">PDF files</option>
+                  <option value="pdf">PDF</option>
+                  <option value="image">Image</option>
+                  <option value="video">Video</option>
+                  <option value="audio">Audio</option>
+                  <option value="spreadsheet">Spreadsheet</option>
+                  <option value="document">Document</option>
+                  <option value="other">Other</option>
                 </select>
               </div>
 
@@ -387,6 +511,7 @@ export function FilePage() {
 
                 <button
                   className="h-10 whitespace-nowrap rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black transition hover:bg-[#eef4fa]"
+                  onClick={() => setIsNewFolderOpen(true)}
                   type="button"
                 >
                   New folder
@@ -408,34 +533,55 @@ export function FilePage() {
                   {visibleFolders.map((folder) => (
                     <article
                       key={folder.id}
-                      className="group flex min-h-20 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white p-4 transition hover:border-[#1f4d73]/50 hover:bg-[#fbfcfd] hover:shadow-sm"
+                      className={`group relative flex min-h-20 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white p-4 transition hover:border-[#1f4d73]/50 hover:bg-[#fbfcfd] hover:shadow-sm ${openFolderMenuId === folder.id ? "z-20" : ""}`}
                     >
-                      <button
-                        className="flex min-w-0 flex-1 items-center gap-4 text-left"
-                        onClick={() => selectFolder(folder.id)}
-                        type="button"
-                      >
-                        <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
+                      {editingFolderId === folder.id ? (
+                        <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={saveFolderName}>
+                          <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
+                          <input
+                            aria-label={`Folder name for ${folder.name}`}
+                            autoFocus
+                            className="h-9 min-w-0 flex-1 rounded-lg border border-[#8fbce3] px-2 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1f4d73]/15"
+                            name="folderName"
+                            onChange={(event) => setEditFolderName(event.target.value)}
+                            value={editFolderName}
+                          />
+                          <button className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white" type="submit">Save</button>
+                          <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black" onClick={() => setEditingFolderId(null)} type="button">Cancel</button>
+                        </form>
+                      ) : (
+                        <>
+                          <button className="flex min-w-0 flex-1 items-center gap-4 text-left" onClick={() => selectFolder(folder.id)} type="button">
+                            <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-black">{folder.name}</span>
+                              <span className="mt-1 block text-xs font-medium text-[#6a7483]">
+                                {folder.fileCount} {folder.fileCount === 1 ? "file" : "files"}
+                              </span>
+                            </span>
+                          </button>
 
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-black">
-                            {folder.name}
-                          </span>
+                          <div className="relative" data-folder-actions-menu>
+                            <button
+                              aria-expanded={openFolderMenuId === folder.id}
+                              aria-haspopup="menu"
+                              aria-label={`More actions for ${folder.name}`}
+                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
+                              onClick={() => setOpenFolderMenuId((current) => current === folder.id ? null : folder.id)}
+                              type="button"
+                            >
+                              <MoreIcon />
+                            </button>
 
-                          <span className="mt-1 block text-xs font-medium text-[#6a7483]">
-                            {folder.fileCount}{" "}
-                            {folder.fileCount === 1 ? "file" : "files"}
-                          </span>
-                        </span>
-                      </button>
-
-                      <button
-                        aria-label={`More actions for ${folder.name}`}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
-                        type="button"
-                      >
-                        <MoreIcon />
-                      </button>
+                            {openFolderMenuId === folder.id ? (
+                              <div className="absolute right-0 top-11 z-30 w-32 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-1 shadow-xl" role="menu">
+                                <button className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#17202a] hover:bg-[#eef4fa]" onClick={() => startEditingFolder(folder)} role="menuitem" type="button">Edit</button>
+                                <button className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]" onClick={() => deleteFolder(folder.id)} role="menuitem" type="button">Delete</button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -462,6 +608,16 @@ export function FilePage() {
         onClose={() => setIsAddFileOpen(false)}
         onSave={() => setIsAddFileOpen(false)}
         open={isAddFileOpen}
+      />
+      <NewEventFolderDialog
+        onClose={() => setIsNewEventFolderOpen(false)}
+        onCreate={createEventFolder}
+        open={isNewEventFolderOpen}
+      />
+      <NewFolderDialog
+        onClose={() => setIsNewFolderOpen(false)}
+        onCreate={createFolder}
+        open={isNewFolderOpen}
       />
     </div>
   );
