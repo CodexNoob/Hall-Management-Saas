@@ -281,8 +281,8 @@ function SummaryTile({ label, value, icon, emphasized = false }: { label: string
   return (
     <article className={`relative min-h-20 overflow-hidden rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}>
       <div className="min-w-0 pr-7">
-        <p className="break-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
-        <p className="mt-2 break-words text-sm font-black leading-5 text-[#17202a]">{value}</p>
+        <p className="wrap-break-wordbreak-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
+        <p className="mt-2 wrap-break-words text-sm font-black leading-5 text-[#17202a]">{value}</p>
       </div>
       <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
         <LineIcon name={icon} className="h-3.5 w-3.5" />
