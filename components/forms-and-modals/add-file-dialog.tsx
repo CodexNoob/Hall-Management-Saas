@@ -29,6 +29,11 @@ export function AddFileDialog({
     onSave,
 }: AddFileDialogProps) {
     const titleId = useId();
+    const fileId = useId();
+    const fileNameId = useId();
+    const fileTypeId = useId();
+    const folderPathId = useId();
+    const notesId = useId();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -134,17 +139,17 @@ export function AddFileDialog({
 
                         <form onSubmit={handleSubmit}>
                             <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
-                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
+                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={fileId}>
                                     Choose file
-                                    <input ref={fileInputRef} className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" onChange={(event) =>
+                                    <input ref={fileInputRef} id={fileId} name="file" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" onChange={(event) =>
                                         handleFileChange(event.target.files?.[0]??null)
                                     } 
                                     required
                                     type="file" />
                                 </label>
-                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={fileNameId}>
                                     File Name
-                                    <input className={[controlClass, "mt-1"].join(" ")}
+                                    <input id={fileNameId} name="fileName" className={[controlClass, "mt-1"].join(" ")}
                                     onChange={(event) => setFileName(event.target.value)} 
                                     placeholder="file name"
                                     required
@@ -152,9 +157,9 @@ export function AddFileDialog({
                                     />
                                 </label>
 
-                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={fileTypeId}>
                                     Type
-                                    <select className={[controlClass, "mt-1"].join(" ")}
+                                    <select id={fileTypeId} name="fileType" className={[controlClass, "mt-1"].join(" ")}
                                     onChange={(event) => setFileType(event.target.value)}
                                     value={fileType}
                                     >
@@ -167,18 +172,18 @@ export function AddFileDialog({
                                     </select>
                                 </label>
 
-                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
+                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={folderPathId}>
                                     Folder Path
-                                    <input className={[controlClass, "mt-1 bg-[#f8fafc]"].join(" ")}
+                                    <input id={folderPathId} name="folderPath" className={[controlClass, "mt-1 bg-[#f8fafc]"].join(" ")}
                                     readOnly
                                     value={folderPath}
                                     />
                                 </label>
 
-                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
+                                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={notesId}>
                                     Notes
 
-                                    <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                                    <textarea id={notesId} name="notes" className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                                     onChange={(event) => setNotes(event.target.value)}
                                     placeholder="Optional Notes"
                                     value={notes}

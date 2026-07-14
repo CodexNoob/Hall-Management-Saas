@@ -52,6 +52,16 @@ function SaveIcon() {
 
 export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps) {
   const titleId = useId();
+  const clientNameId = useId();
+  const eventTypeId = useId();
+  const statusId = useId();
+  const dateId = useId();
+  const timeId = useId();
+  const roomId = useId();
+  const guestsId = useId();
+  const couplesId = useId();
+  const childrenId = useId();
+  const initialNotesId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
 
@@ -119,7 +129,10 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               <label>
                 <FieldLabel>Client name</FieldLabel>
                 <input
+                  autoComplete="name"
                   className={`${controlClass} mt-1`}
+                  id={clientNameId}
+                  name="clientName"
                   onChange={(event) => updateValue("clientName", event.target.value)}
                   ref={firstInputRef}
                   required
@@ -129,7 +142,10 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               <label>
                 <FieldLabel>Event type</FieldLabel>
                 <input
+                  autoComplete="off"
                   className={`${controlClass} mt-1`}
+                  id={eventTypeId}
+                  name="eventType"
                   onChange={(event) => updateValue("eventType", event.target.value)}
                   required
                   value={values.eventType}
@@ -139,6 +155,8 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                 <FieldLabel>Status</FieldLabel>
                 <select
                   className={`${controlClass} mt-1`}
+                  id={statusId}
+                  name="status"
                   onChange={(event) => updateValue("status", event.target.value)}
                   value={values.status}
                 >
@@ -149,7 +167,10 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               <label>
                 <FieldLabel>Date</FieldLabel>
                 <input
+                  autoComplete="off"
                   className={`${controlClass} mt-1`}
+                  id={dateId}
+                  name="eventDate"
                   onChange={(event) => updateValue("date", event.target.value)}
                   required
                   type="date"
@@ -159,7 +180,10 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               <label>
                 <FieldLabel>Time</FieldLabel>
                 <input
+                  autoComplete="off"
                   className={`${controlClass} mt-1`}
+                  id={timeId}
+                  name="eventTime"
                   onChange={(event) => updateValue("time", event.target.value)}
                   required
                   type="time"
@@ -170,6 +194,8 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                 <FieldLabel>Hall / room</FieldLabel>
                 <select
                   className={`${controlClass} mt-1`}
+                  id={roomId}
+                  name="hall"
                   onChange={(event) => updateValue("room", event.target.value)}
                   value={values.room}
                 >
@@ -182,15 +208,15 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               </label>
               <label>
                 <FieldLabel>Guests</FieldLabel>
-                <input className={`${controlClass} mt-1`} min="0" onChange={(event) => updateValue("guests", event.target.value)} required type="number" value={values.guests} />
+                <input className={`${controlClass} mt-1`} id={guestsId} min="0" name="guests" onChange={(event) => updateValue("guests", event.target.value)} required type="number" value={values.guests} />
               </label>
               <label>
                 <FieldLabel>Couples</FieldLabel>
-                <input className={`${controlClass} mt-1`} min="0" onChange={(event) => updateValue("couples", event.target.value)} required type="number" value={values.couples} />
+                <input className={`${controlClass} mt-1`} id={couplesId} min="0" name="couples" onChange={(event) => updateValue("couples", event.target.value)} required type="number" value={values.couples} />
               </label>
               <label>
                 <FieldLabel>Children</FieldLabel>
-                <input className={`${controlClass} mt-1`} min="0" onChange={(event) => updateValue("children", event.target.value)} required type="number" value={values.children} />
+                <input className={`${controlClass} mt-1`} id={childrenId} min="0" name="children" onChange={(event) => updateValue("children", event.target.value)} required type="number" value={values.children} />
               </label>
             </div>
 
@@ -198,6 +224,8 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               <FieldLabel>Initial notes</FieldLabel>
               <textarea
                 className="mt-1 min-h-20 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                id={initialNotesId}
+                name="initialNotes"
                 onChange={(event) => updateValue("initialNotes", event.target.value)}
                 value={values.initialNotes}
               />

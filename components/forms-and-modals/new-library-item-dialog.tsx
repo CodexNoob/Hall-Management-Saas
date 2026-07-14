@@ -106,31 +106,31 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Item name
-              <input className={`${controlClass} mt-1`} onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
+              <input className={`${controlClass} mt-1`} name="libraryItemName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Category
-              <select className={`${controlClass} mt-1`} onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
+              <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
                 <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
               </select>
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Kashrut type
-              <select className={`${controlClass} mt-1`} onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
+              <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
                 <option>Parve</option><option>Fleishig</option><option>Milchig</option>
               </select>
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Allergies
-              <input className={`${controlClass} mt-1`} onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
+              <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Description
-              <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" onChange={(event) => updateValue("description", event.target.value)} placeholder="Short description for reference" value={values.description} />
+              <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" name="description" onChange={(event) => updateValue("description", event.target.value)} placeholder="Short description for reference" value={values.description} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Picture
-              <input accept="image/*" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
+              <input accept="image/*" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" name="picture" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
             </label>
           </div>
 

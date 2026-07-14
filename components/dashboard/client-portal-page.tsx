@@ -178,7 +178,7 @@ export function ClientPortalPage() {
                   and booking messages.
                 </p>
               </div>
-
+              
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"

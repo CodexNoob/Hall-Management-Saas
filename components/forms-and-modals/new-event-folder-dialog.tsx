@@ -40,6 +40,10 @@ export function NewEventFolderDialog({
   onCreate,
 }: NewEventFolderDialogProps) {
   const titleId = useId();
+  const clientNameId = useId();
+  const eventTypeId = useId();
+  const dateId = useId();
+  const hallId = useId();
   const clientInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] =
     useState<NewEventFolderFormValues>(initialValues);
@@ -135,11 +139,14 @@ export function NewEventFolderDialog({
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={clientNameId}>
               Client
               <input
                 ref={clientInputRef}
+                autoComplete="name"
                 className={controlClass}
+                id={clientNameId}
+                name="clientName"
                 onChange={(event) => updateValue("clientName", event.target.value)}
                 placeholder="Client name"
                 required
@@ -147,10 +154,12 @@ export function NewEventFolderDialog({
               />
             </label>
 
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={eventTypeId}>
               Event type
               <input
                 className={controlClass}
+                id={eventTypeId}
+                name="eventType"
                 onChange={(event) => updateValue("eventType", event.target.value)}
                 placeholder="Wedding"
                 required
@@ -158,10 +167,12 @@ export function NewEventFolderDialog({
               />
             </label>
 
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={dateId}>
               Date
               <input
                 className={controlClass}
+                id={dateId}
+                name="eventDate"
                 onChange={(event) => updateValue("date", event.target.value)}
                 required
                 type="date"
@@ -169,10 +180,12 @@ export function NewEventFolderDialog({
               />
             </label>
 
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={hallId}>
               Hall
               <input
                 className={controlClass}
+                id={hallId}
+                name="hall"
                 onChange={(event) => updateValue("hall", event.target.value)}
                 placeholder="Grand Hall"
                 required

@@ -279,16 +279,14 @@ function EventListCard({ event, selected, onClick }: { event: EventFile; selecte
 
 function SummaryTile({ label, value, icon, emphasized = false }: { label: string; value: string; icon: IconName; emphasized?: boolean }) {
   return (
-    <article className={`min-h-20 rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
-          <p className="mt-2 text-sm font-black text-[#17202a]">{value}</p>
-        </div>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
-          <LineIcon name={icon} className="h-4 w-4" />
-        </span>
+    <article className={`relative min-h-20 overflow-hidden rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}>
+      <div className="min-w-0 pr-7">
+        <p className="break-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
+        <p className="mt-2 break-words text-sm font-black leading-5 text-[#17202a]">{value}</p>
       </div>
+      <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
+        <LineIcon name={icon} className="h-3.5 w-3.5" />
+      </span>
     </article>
   );
 }
@@ -368,39 +366,40 @@ function EventInformation({ event }: { event: EventFile }) {
       </header>
       <div className="grid gap-3 p-3 sm:grid-cols-3">
         <Field label="Client">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.replace(" Wedding", "")} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.replace(" Wedding", "")} name="clientName" />
         </Field>
         <Field label="Event type">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.includes("Wedding") ? "Wedding" : "Dinner"} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.includes("Wedding") ? "Wedding" : "Dinner"} name="eventType" />
         </Field>
         <Field label="Status">
-          <select className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.status} aria-label="Event status">
+          <select className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.status} aria-label="Event status" name="eventStatus">
             <option>Confirmed</option>
             <option>Hold</option>
           </select>
         </Field>
         <Field label="Date">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.date} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.date} name="eventDate" />
         </Field>
         <Field label="Time">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.time} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.time} name="eventTime" />
         </Field>
         <Field label="Hall / Room">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.room} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.room} name="eventRoom" />
         </Field>
         <Field label="Guests">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.guests} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.guests} name="guestCount" />
         </Field>
         <Field label="Children">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.children} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.children} name="childrenCount" />
         </Field>
         <Field label="Couples">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.couples} />
+          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.couples} name="couplesCount" />
         </Field>
         <Field label="Internal notes" className="sm:col-span-3">
           <textarea
             className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
             defaultValue="Confirm final layout and waiter count before the kitchen packet is printed."
+            name="internalNotes"
           />
         </Field>
       </div>
@@ -434,8 +433,8 @@ function TimelineInstructions() {
               {time}
               <LineIcon name="clock" className="h-4 w-4" />
             </div>
-            <input className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={text} />
-            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={type} aria-label={`${time} timeline type`}>
+            <input className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={text} name={`timeline-${time}-text`} />
+            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={type} aria-label={`${time} timeline type`} name={`timeline-${time}-type`}>
               <option>Event</option>
               <option>Kitchen</option>
               <option>Staff</option>
@@ -526,7 +525,7 @@ function PortalOptionCard({ title, price, selected = false, highlight = false }:
         {title}
       </div>
       <div className="mt-3 flex items-start gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516174]">
-        <input className="mt-0.5 h-3.5 w-3.5" type={selected ? "radio" : "checkbox"} defaultChecked={selected} name={selected ? "menu-package" : undefined} />
+        <input className="mt-0.5 h-3.5 w-3.5" type={selected ? "radio" : "checkbox"} defaultChecked={selected} name={selected ? "menu-package" : "menu-item"} />
         <span>{title}{price ? <span className="ml-0.5 text-[#17202a]">{price}</span> : null}</span>
       </div>
     </label>
@@ -575,7 +574,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
           <div className="space-y-2 p-3">
             {portalChecklist.map(([label, shared]) => (
               <label key={label} className="flex h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]">
-                <input className="h-4 w-4 accent-[#1f4d73]" type="checkbox" defaultChecked={shared} />
+                <input className="h-4 w-4 accent-[#1f4d73]" type="checkbox" defaultChecked={shared} name={`portal-section-${label.toLowerCase().replaceAll(" ", "-")}`} />
                 <span className="min-w-0 flex-1 truncate">{label}</span>
                 <span className="text-xs font-medium text-[#6a7483]">{shared ? "Shared" : "Hidden"}</span>
               </label>
@@ -585,7 +584,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
 
         <section className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
           <h2 className="text-sm font-black text-[#17202a]">Client portal link</h2>
-          <input className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" defaultValue="https://eventcore.app/client/e1" />
+          <input className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" defaultValue="https://eventcore.app/client/e1" name="clientPortalUrl" />
           <div className="mt-2 flex flex-wrap gap-2">
             <button className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white" type="button">
               <LineIcon name="document" />
@@ -622,7 +621,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
                 ["Extra guests", "0"],
               ].map(([label, value]) => (
                 <Field key={label} label={label}>
-                  <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue={value} />
+                  <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue={value} name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`} />
                 </Field>
               ))}
             </div>
@@ -762,7 +761,7 @@ function EventBillingContent() {
           </header>
           <div className="space-y-3 p-3">
             <Field label="Payment amount">
-              <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue="5000" />
+              <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue="5000" name="paymentAmount" />
             </Field>
             {["Record payment", "Client statement"].map((action) => (
               <button key={action} className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]" type="button">
@@ -1341,14 +1340,14 @@ export function EventManagerPage() {
 
           <div className="shrink-0 border-b border-[#d8dde5] p-3">
             <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_136px] xl:grid-cols-[minmax(0,1fr)_136px]">
-              <input className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" placeholder="Search client, hall, type" />
-              <select className="h-9 min-w-34 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]" aria-label="Event filter" defaultValue="All events">
+              <input className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" name="eventSearch" placeholder="Search client, hall, type" />
+              <select className="h-9 min-w-34 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]" aria-label="Event filter" defaultValue="All events" name="eventFilter">
                 <option>All events</option>
                 <option>Confirmed</option>
                 <option>Hold</option>
               </select>
             </div>
-            <select className="mt-2 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" aria-label="Room filter" defaultValue="All rooms">
+            <select className="mt-2 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" aria-label="Room filter" defaultValue="All rooms" name="roomFilter">
               <option>All rooms</option>
               <option>Grand Hall</option>
               <option>Nachlas Yehuda A</option>

@@ -97,11 +97,11 @@ export function NewPackageDialog({ open, onClose, onSave }: NewPackageDialogProp
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Package name
-              <input className={`${controlClass} mt-1`} onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
+              <input className={`${controlClass} mt-1`} name="packageName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Package type
-              <select className={`${controlClass} mt-1`} onChange={(event) => updateValue("type", event.target.value)} value={values.type}>
+              <select className={`${controlClass} mt-1`} name="packageType" onChange={(event) => updateValue("type", event.target.value)} value={values.type}>
                 <option>Dinner</option>
                 <option>Dairy</option>
                 <option>Shabbos</option>
@@ -111,11 +111,11 @@ export function NewPackageDialog({ open, onClose, onSave }: NewPackageDialogProp
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Base price
-              <input className={`${controlClass} mt-1`} min="0" onChange={(event) => updateValue("basePrice", event.target.value)} required step="0.01" type="number" value={values.basePrice} />
+              <input className={`${controlClass} mt-1`} min="0" name="basePrice" onChange={(event) => updateValue("basePrice", event.target.value)} required step="0.01" type="number" value={values.basePrice} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Per couple
-              <input className={`${controlClass} mt-1`} min="0" onChange={(event) => updateValue("perCouplePrice", event.target.value)} required step="0.01" type="number" value={values.perCouplePrice} />
+              <input className={`${controlClass} mt-1`} min="0" name="perCouplePrice" onChange={(event) => updateValue("perCouplePrice", event.target.value)} required step="0.01" type="number" value={values.perCouplePrice} />
             </label>
           </div>
 

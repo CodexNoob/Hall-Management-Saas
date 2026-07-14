@@ -387,6 +387,7 @@ export function EventCalendarPage() {
                 <div className="grid gap-2 md:grid-cols-[minmax(190px,2fr)_repeat(3,minmax(120px,1fr))]">
                   <input
                     className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73]"
+                    name="calendarSearch"
                     onChange={(event) =>
                       setSearchQuery(event.target.value)
                     }
@@ -397,6 +398,7 @@ export function EventCalendarPage() {
 
                   <select
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarHallFilter"
                     onChange={(event) =>
                       setHallFilter(event.target.value)
                     }
@@ -412,6 +414,7 @@ export function EventCalendarPage() {
 
                   <select
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarStatusFilter"
                     onChange={(event) =>
                       setStatusFilter(event.target.value)
                     }
@@ -425,6 +428,7 @@ export function EventCalendarPage() {
 
                   <select
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarTypeFilter"
                     onChange={(event) =>
                       setTypeFilter(event.target.value)
                     }

@@ -331,7 +331,7 @@ function TextField({
             </svg>
           </>
         ) : (
-          <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} />
+          <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} name={`setting-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} />
         )}
       </span>
     </label>
@@ -522,7 +522,7 @@ function IconField({
         }`}
       >
         <LineIcon name={icon} className={`${compact ? "h-4 w-4" : "h-6 w-6"} shrink-0 text-[#6a7483]`} />
-        <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} />
+        <input className="min-w-0 flex-1 bg-transparent outline-none" defaultValue={value} name={`integration-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`} />
       </span>
     </label>
   );

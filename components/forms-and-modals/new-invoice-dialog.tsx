@@ -91,6 +91,7 @@ export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProp
               Event
               <select
                 className={`${controlClass} mt-1`}
+                name="invoiceEvent"
                 onChange={(event) => updateValue("event", event.target.value)}
                 ref={firstControlRef}
                 value={values.event}
@@ -106,6 +107,7 @@ export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProp
               Status
               <select
                 className={`${controlClass} mt-1`}
+                name="invoiceStatus"
                 onChange={(event) => updateValue("status", event.target.value)}
                 value={values.status}
               >
@@ -120,6 +122,7 @@ export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProp
               First item
               <input
                 className={`${controlClass} mt-1`}
+                name="firstInvoiceItem"
                 onChange={(event) => updateValue("firstItem", event.target.value)}
                 required
                 value={values.firstItem}
@@ -131,6 +134,7 @@ export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProp
               <input
                 className={`${controlClass} mt-1`}
                 min="0"
+                name="invoiceAmount"
                 onChange={(event) => updateValue("amount", event.target.value)}
                 required
                 step="0.01"

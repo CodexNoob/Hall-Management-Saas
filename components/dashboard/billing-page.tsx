@@ -230,10 +230,10 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
         </div>
         <div className="space-y-3 p-4">
           <label className="block text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">Search</label>
-          <input className="h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" placeholder="Merchant, memo, client, amount" />
+          <input className="h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" name="transactionSearch" placeholder="Merchant, memo, client, amount" />
           <div className="grid grid-cols-2 gap-2">
-            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Transaction status filter" title="Transaction status filter"><option>Needs review</option></select>
-            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Transaction category filter" title="Transaction category filter"><option>All categories</option></select>
+            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Transaction status filter" name="transactionStatusFilter" title="Transaction status filter"><option>Needs review</option></select>
+            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Transaction category filter" name="transactionCategoryFilter" title="Transaction category filter"><option>All categories</option></select>
           </div>
           <button className="w-full rounded-lg border border-[#1f4d73] bg-[#eef4fa] p-3 text-left" type="button" onClick={openModal}>
             <div className="flex justify-between font-black"><span>Zelle Yidel Graus</span><span className="text-[#146c43]">$3,900</span></div>
@@ -277,8 +277,8 @@ function InvoicesTab() {
           <div><h2 className="font-black">Invoices</h2><p className="text-sm text-[#6a7483]">Draft, send, and receive payment.</p></div>
           <TopAction label="New" />
         </div>
-        <input className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" placeholder="Invoice, client, status" />
-        <select className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Invoice status filter" title="Invoice status filter"><option>All invoices</option></select>
+        <input className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" name="invoiceSearch" placeholder="Invoice, client, status" />
+        <select className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Invoice status filter" name="invoiceStatusFilter" title="Invoice status filter"><option>All invoices</option></select>
         <div className="mt-3 space-y-2">
           {["INV-1028 - Friedman", "INV-1029 - Klein", "INV-1030 - Weiss", "INV-1031 - Green"].map((invoice, index) => (
             <article key={invoice} className={`rounded-lg border p-3 ${index === 1 ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5]"}`}>
@@ -305,7 +305,7 @@ function InvoicesTab() {
           <article className="rounded-xl border border-[#d8dde5] p-4">
             <div className="flex justify-between"><h3 className="font-black">Invoice builder</h3><TopAction label="Add item" /></div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              {["Client", "Status", "Due Date", "Event"].map((label, index) => <label key={label} className="text-xs font-black uppercase text-[#6a7483]">{label}<input className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={["Klein", "Open", "Jul 5, 2026", "Klein - Jul 11, 2026"][index]} /></label>)}
+              {["Client", "Status", "Due Date", "Event"].map((label, index) => <label key={label} className="text-xs font-black uppercase text-[#6a7483]">{label}<input className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={["Klein", "Open", "Jul 5, 2026", "Klein - Jul 11, 2026"][index]} name={`invoice-${label.toLowerCase().replaceAll(" ", "-")}`} /></label>)}
             </div>
           </article>
           <article className="rounded-xl border border-[#d8dde5] p-4">
@@ -328,8 +328,8 @@ function EventBillingTab() {
       <section className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
         <h2 className="font-black">Event Billing</h2>
         <p className="text-sm text-[#6a7483]">Open a specific event billing workspace.</p>
-        <input className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" placeholder="Client, hall, date, status" />
-        <select className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Event billing balance filter" title="Event billing balance filter"><option>Open balance</option></select>
+        <input className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" name="eventBillingSearch" placeholder="Client, hall, date, status" />
+        <select className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Event billing balance filter" name="eventBalanceFilter" title="Event billing balance filter"><option>Open balance</option></select>
         <div className="mt-3 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">Events highlighted here have open invoice balances.</div>
         <div className="mt-3 space-y-2">
           {["Friedman", "Klein", "Weiss", "Green"].map((name, index) => (
@@ -370,8 +370,8 @@ function SettingsTab() {
       <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <div className="border-b border-[#d8dde5] p-4"><h2 className="font-black">Invoice settings</h2><p className="text-sm text-[#6a7483]">Controls invoice PDF and email defaults.</p></div>
         <div className="space-y-4 p-4">
-          <div className="grid gap-3 md:grid-cols-2"><label className="text-xs font-black uppercase text-[#6a7483]">Business Name<input className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue="Event Core Demo Hall" /></label><label className="text-xs font-black uppercase text-[#6a7483]">Payment Terms<select className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Payment terms" title="Payment terms"><option>Due before event</option></select></label></div>
-          <label className="text-xs font-black uppercase text-[#6a7483]">Invoice Footer<textarea className="mt-1 h-24 w-full rounded-lg border border-[#b9c2cf] p-3 text-sm" defaultValue="Thank you. Please submit payment according to the agreed terms." /></label>
+          <div className="grid gap-3 md:grid-cols-2"><label className="text-xs font-black uppercase text-[#6a7483]">Business Name<input className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue="Event Core Demo Hall" name="businessName" /></label><label className="text-xs font-black uppercase text-[#6a7483]">Payment Terms<select className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm" aria-label="Payment terms" name="paymentTerms" title="Payment terms"><option>Due before event</option></select></label></div>
+          <label className="text-xs font-black uppercase text-[#6a7483]">Invoice Footer<textarea className="mt-1 h-24 w-full rounded-lg border border-[#b9c2cf] p-3 text-sm" defaultValue="Thank you. Please submit payment according to the agreed terms." name="invoiceFooter" /></label>
           <button className="h-10 w-full rounded-lg bg-[#1f4d73] text-sm font-black text-white" type="button">Save settings</button>
         </div>
       </section>
