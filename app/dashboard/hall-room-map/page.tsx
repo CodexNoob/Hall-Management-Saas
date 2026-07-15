@@ -1,10 +1,6 @@
-import { DashboardModulePlaceholder } from "@/components/placeholders/dashboard-module-placeholder";
+import { HallRoomMapPage } from "@/components/dashboard/hall-room-map-page";
 
-export default function HallRoomMapPage() {
-  return (
-    <DashboardModulePlaceholder
-      title="Hall Room Map"
-      description="Build default hall layouts with movable, resizable, and rotatable room objects."
-    />
-  );
+
+export default function DashboardHallRoomMapPage() {
+  return <HallRoomMapPage />;
 }

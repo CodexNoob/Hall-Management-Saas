@@ -11,6 +11,7 @@ type DashboardTopbarProps = {
   onNewBooking?: () => void;
   actionsSlot?: ReactNode;
   rightSlot?: ReactNode;
+  showSearch?: boolean;
 };
 
 type SearchTarget = {
@@ -160,7 +161,7 @@ export function DashboardTopbarBrand() {
   );
 }
 
-export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, actionsSlot, rightSlot }: DashboardTopbarProps) {
+export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, actionsSlot, rightSlot, showSearch = true }: DashboardTopbarProps) {
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchInputId = useId();
@@ -237,6 +238,7 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
             </div>
 
             <div className="ml-auto hidden min-w-0 shrink-0 items-center gap-2 lg:flex xl:gap-3">
+              {showSearch ? (
               <form className="relative" onSubmit={submitSearch}>
                 <label
                   className="flex h-11 w-56 min-w-0 cursor-text items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd] xl:w-72 2xl:w-96"
@@ -289,6 +291,7 @@ export function DashboardTopbar({ title, subtitle, onTodayNotes, onNewBooking, a
                   </div>
                 ) : null}
               </form>
+              ) : null}
 
               {actionsSlot ?? (
                 <>

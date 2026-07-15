@@ -193,7 +193,7 @@ function DiningTable({
 }
 
 export function DiningManagerPage() {
-  const [selectedEventId, setSelectedEventId] = useState(
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(
     diningEvents[0].id,
   );
 
@@ -205,7 +205,25 @@ export function DiningManagerPage() {
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Dining Manager"
-        subtitle="Arrange tables, seating, waiter counts, and event-specific dining details."
+        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
+        showSearch={false}
+        actionsSlot={
+          <>
+            <button
+              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+              onClick={() => setSelectedEventId(null)}
+              type="button"
+            >
+              Clear selection
+            </button>
+            <button
+              className="h-11 whitespace-nowrap rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#15344f]"
+              type="button"
+            >
+              Save layout
+            </button>
+          </>
+        }
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto p-3">
