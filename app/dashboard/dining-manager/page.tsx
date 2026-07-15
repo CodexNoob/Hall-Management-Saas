@@ -1,10 +1,5 @@
-import { DashboardModulePlaceholder } from "@/components/placeholders/dashboard-module-placeholder";
+import { DiningManagerPage } from "@/components/dashboard/dining-manager-page";
 
-export default function DiningManagerPage() {
-  return (
-    <DashboardModulePlaceholder
-      title="Dining Manager"
-      description="Select an event, adjust hall layout, seating, waiter counts, and prepare the dining sheet."
-    />
-  );
+export default function DashboardDiningManagerPage() {
+  return <DiningManagerPage />;
 }
