@@ -3,14 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import {
-  NewBookingDialog,
-  type NewBookingFormValues,
-  type NewBookingSubmitIntent,
-} from "@/components/forms-and-modals/new-booking-dialog";
-import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
-import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
-
 type KitchenView = "today" | "week" | "four-weeks";
 
 type KitchenEvent = {
@@ -216,6 +208,7 @@ function KitchenHeader({
   activeView: KitchenView;
   onChangeView: (view: KitchenView) => void;
 }) {
+  const router = useRouter();
   const information = viewInformation[activeView];
 
   const tabs: Array<{
@@ -230,6 +223,24 @@ function KitchenHeader({
   return (
     <header className="border-b border-[#929292] bg-[#b0b0b0] px-4 py-4">
       <div className="flex min-w-270 items-center gap-3">
+        <button
+          className="h-11 border border-[#d6dde5] bg-white px-5 text-sm font-black hover:bg-[#f6f8fa]"
+          onClick={() => router.push("/dashboard")}
+          type="button"
+        >
+          ← Main Menu
+        </button>
+
+        <button
+          className="relative h-11 border border-[#e99841] bg-white px-3 text-sm font-black"
+          type="button"
+        >
+          Bell
+          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-[#d91d28] px-1 text-[10px] font-black text-white">
+            2
+          </span>
+        </button>
+
         <button
           aria-label="Previous date range"
           className="h-11 w-11 border border-[#d6dde5] bg-white font-black"
@@ -491,7 +502,7 @@ function FourWeeksView() {
         ))}
       </div>
 
-      <div className="grid min-w-[1150px] grid-cols-7 gap-1.5">
+      <div className="grid min-w-287.5 grid-cols-7 gap-1.5">
         {fourWeekDays.map((day) => (
           <FourWeekDay day={day} key={day.dateLabel} />
         ))}
@@ -501,70 +512,13 @@ function FourWeeksView() {
 }
 
 export function KitchenDashboardPage() {
-  const router = useRouter();
   const [activeView, setActiveView] =
     useState<KitchenView>("today");
 
   const [workersOnly, setWorkersOnly] = useState(false);
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
-  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
-
-  function continueNewBooking(
-    values: NewBookingFormValues,
-    intent: NewBookingSubmitIntent,
-  ) {
-    const searchParams = new URLSearchParams({
-      clientName: values.clientName,
-      phone: values.phone,
-      email: values.email,
-      eventType: values.eventType,
-      eventDate: values.eventDate,
-      hall: values.hall,
-      guestCount: values.guestCount,
-      package: values.eventPackage,
-      intent,
-    });
-
-    setIsNewBookingOpen(false);
-    router.push(`/dashboard/events?${searchParams.toString()}`);
-  }
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
-      <DashboardTopbar
-        actionsSlot={
-          <>
-            <button
-              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
-              onClick={() => setIsNotesOpen(true)}
-              type="button"
-            >
-              Notes
-            </button>
-            <button
-              className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
-              onClick={() => setIsNewBookingOpen(true)}
-              type="button"
-            >
-              <span aria-hidden="true">+</span>
-              New booking
-            </button>
-          </>
-        }
-        subtitle="Manage kitchen events, preparation schedules, and assigned work."
-        title="Kitchen Dashboard"
-      />
-
-      <TodayNotesDrawer
-        onClose={() => setIsNotesOpen(false)}
-        open={isNotesOpen}
-      />
-      <NewBookingDialog
-        onClose={() => setIsNewBookingOpen(false)}
-        onSubmit={continueNewBooking}
-        open={isNewBookingOpen}
-      />
-
       <div className="shrink-0 overflow-x-auto">
         <KitchenHeader
           activeView={activeView}
