@@ -15,6 +15,10 @@ export type SyncedUserAccess = {
   canEditMenu: boolean;
   canViewSettings: boolean;
   canEditSettings: boolean;
+  canEditStaff: boolean;
+  canEditVendors: boolean;
+  canEditClients: boolean;
+  canEditFiles: boolean;
   canAssignWorkers: boolean;
   canUpdateKitchenStatus: boolean;
   canAddKitchenEvents: boolean;
@@ -22,6 +26,7 @@ export type SyncedUserAccess = {
   canSeeSchoolEvents: boolean;
   canSeeSimchaEvents: boolean;
   canViewPaymentInfo: boolean;
+  canManagePayments: boolean;
   canSendPaymentEmail: boolean;
   canUseNiceHomeBackground: boolean;
   allowedHallIds: string[];
@@ -36,23 +41,42 @@ export type SyncedUser = {
   phone: string | null;
   venueName: string | null;
   role: string;
+  organizationId: string;
+};
+
+export type SyncedOrganization = {
+  id: string;
+  name: string;
+  slug: string;
+  role: string;
 };
 
 export type SyncSignedInUserResponse = {
   user: SyncedUser;
   access: SyncedUserAccess;
+  activeOrganizationId: string;
+  organizations: SyncedOrganization[];
 };
 
 const SYNCED_USER_CACHE_KEY = "hms.syncedUser";
 const SYNC_TIMEOUT_MS = 12000;
 
-function isSyncSignedInUserResponse(value: unknown): value is SyncSignedInUserResponse {
+function isSyncSignedInUserResponse(
+  value: unknown
+): value is SyncSignedInUserResponse {
   if (!value || typeof value !== "object") {
     return false;
   }
 
   const payload = value as Partial<SyncSignedInUserResponse>;
-  return Boolean(payload.user && payload.access && typeof payload.user === "object" && typeof payload.access === "object");
+  return Boolean(
+    payload.user &&
+    payload.access &&
+    typeof payload.user === "object" &&
+    typeof payload.access === "object" &&
+    typeof payload.activeOrganizationId === "string" &&
+    Array.isArray(payload.organizations)
+  );
 }
 
 export function cacheSyncedUser(syncData: SyncSignedInUserResponse) {
@@ -65,12 +89,28 @@ export function cacheSyncedUser(syncData: SyncSignedInUserResponse) {
   window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
 }
 
+export function setActiveOrganization(organizationId: string) {
+  const syncData = getCachedSyncedUser();
+
+  if (
+    !syncData?.organizations.some(
+      (organization) => organization.id === organizationId
+    )
+  ) {
+    throw new Error("You do not have access to that organization.");
+  }
+
+  cacheSyncedUser({ ...syncData, activeOrganizationId: organizationId });
+}
+
 export function getCachedSyncedUser() {
   if (typeof window === "undefined") {
     return null;
   }
 
-  const rawSyncData = window.localStorage.getItem(SYNCED_USER_CACHE_KEY) ?? window.sessionStorage.getItem(SYNCED_USER_CACHE_KEY);
+  const rawSyncData =
+    window.localStorage.getItem(SYNCED_USER_CACHE_KEY) ??
+    window.sessionStorage.getItem(SYNCED_USER_CACHE_KEY);
 
   if (!rawSyncData) {
     return null;
@@ -96,7 +136,10 @@ export function clearCachedSyncedUser() {
 
 export async function syncSignedInUser(accessToken: string) {
   const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  const timeoutId = window.setTimeout(
+    () => controller.abort(),
+    SYNC_TIMEOUT_MS
+  );
 
   const response = await fetch("/api/auth/sync-user", {
     method: "POST",
@@ -107,8 +150,13 @@ export async function syncSignedInUser(accessToken: string) {
   }).finally(() => window.clearTimeout(timeoutId));
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "Unable to sync the signed-in user with the Hall Management database.");
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(
+      payload?.error ??
+        "Unable to sync the signed-in user with the Hall Management database."
+    );
   }
 
   const syncData = (await response.json()) as SyncSignedInUserResponse;
@@ -117,7 +165,9 @@ export async function syncSignedInUser(accessToken: string) {
   return syncData;
 }
 
-export async function signInWithOAuthProvider(provider: Extract<Provider, "google" | "azure">) {
+export async function signInWithOAuthProvider(
+  provider: Extract<Provider, "google" | "azure">
+) {
   const supabase = createSupabaseBrowserClient();
   const redirectTo = `${window.location.origin}/auth/callback`;
 

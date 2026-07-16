@@ -1,5 +1,5 @@
-import { ClientPortalPage } from "@/components/dashboard/client-portal-page";
+import { redirect } from "next/navigation";
 
 export default function DashboardClientPortalPage() {
-  return <ClientPortalPage />;
+  redirect("/dashboard/clients");
 }

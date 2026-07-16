@@ -334,7 +334,7 @@ card("Billing & Payments", [
 ]);
 card("Clients", [
   "Client List",
-  "Client Portal",
+  "Clients",
   "Client Events",
   "Client Payments",
   "Client Documents",
@@ -449,7 +449,7 @@ card("Phase 4 - Finance and Integrations", [
   "File uploads",
   "Activity logs",
 ]);
-card("Phase 5 - Client Portal and Polish", [
+card("Phase 5 - Clients and Polish", [
   "Client portal",
   "Reports",
   "Mobile responsiveness",

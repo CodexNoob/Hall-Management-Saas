@@ -1,5 +1,5 @@
-import { PlatformSettingsPage } from "@/components/dashboard/platform-settings-page";
+import { SettingsOverviewPage } from "@/components/dashboard/settings-page";
 
 export default function DashboardSettingsPage() {
-  return <PlatformSettingsPage />;
+  return <SettingsOverviewPage />;
 }

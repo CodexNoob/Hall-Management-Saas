@@ -5,12 +5,16 @@ import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { AddFileDialog } from "@/components/forms-and-modals/add-file-dialog";
 import {
   NewEventFolderDialog,
-  type NewEventFolderFormValues,
+  type NewEventFolderFormValues
 } from "@/components/forms-and-modals/new-event-folder-dialog";
 import {
   NewFolderDialog,
-  type NewFolderFormValues,
+  type NewFolderFormValues
 } from "@/components/forms-and-modals/new-folder-dialog";
+import { AsyncState } from "@/components/ui/async-state";
+import { useAuthenticatedMutation } from "@/lib/hooks/use-authenticated-mutation";
+import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
+import { useDashboardPermission } from "@/lib/hooks/use-dashboard-permission";
 
 type Folder = {
   id: string;
@@ -19,62 +23,21 @@ type Folder = {
   parentId: string | null;
 };
 
-const initialFolders: Folder[] = [
-  {
-    id: "event-core-files",
-    name: "Event Core Files",
-    fileCount: 11,
-    parentId: null,
-  },
-  {
-    id: "billing",
-    name: "Billing",
-    fileCount: 1,
-    parentId: "event-core-files",
-  },
-  {
-    id: "events",
-    name: "Events",
-    fileCount: 7,
-    parentId: "event-core-files",
-  },
-  {
-    id: "friedman-wedding",
-    name: "Friedman Wedding",
-    fileCount: 5,
-    parentId: "events",
-  },
-  {
-    id: "klein-sheva-brachos",
-    name: "Klein Sheva Brachos",
-    fileCount: 1,
-    parentId: "events",
-  },
-  {
-    id: "weiss-bar-mitzvah",
-    name: "Weiss Bar Mitzvah",
-    fileCount: 1,
-    parentId: "events",
-  },
-  {
-    id: "menu",
-    name: "Menu",
-    fileCount: 1,
-    parentId: "event-core-files",
-  },
-  {
-    id: "pictures",
-    name: "Pictures",
-    fileCount: 1,
-    parentId: "event-core-files",
-  },
-  {
-    id: "videos",
-    name: "Videos",
-    fileCount: 1,
-    parentId: "event-core-files",
-  },
-];
+type FilesResponse = {
+  folders: Array<{
+    id: string;
+    name: string;
+    parentId: string | null;
+    _count: { files: number };
+  }>;
+  files: Array<{
+    id: string;
+    folderId: string | null;
+    fileName: string;
+    contentType: string | null;
+    sizeBytes: number | null;
+  }>;
+};
 
 function FolderIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
@@ -93,17 +56,11 @@ function FolderIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function ChevronIcon({
-  expanded,
-}: {
-  expanded: boolean;
-}) {
+function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
       aria-hidden="true"
-      className={`h-3 w-3 transition-transform ${
-        expanded ? "rotate-90" : ""
-      }`}
+      className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -138,14 +95,24 @@ function SyncBadge({ children }: { children: React.ReactNode }) {
 }
 
 export function FilePage() {
-  const [folders, setFolders] = useState<Folder[]>(initialFolders);
-  const [selectedFolderId, setSelectedFolderId] =
-    useState("event-core-files");
+  const canEdit = useDashboardPermission("canEditFiles");
+  const filesQuery = useAuthenticatedQuery<FilesResponse>("/api/files");
+  const folderMutation = useAuthenticatedMutation<
+    Record<string, unknown>,
+    { folder: { id: string } }
+  >("/api/files");
+  const updateFolderMutation = useAuthenticatedMutation<
+    { id: string; name: string },
+    { success: boolean }
+  >("/api/files", "PATCH");
+  const deleteFolderMutation = useAuthenticatedMutation<
+    { id: string },
+    { success: boolean }
+  >("/api/files", "DELETE");
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState("");
 
-  const [expandedFolderIds, setExpandedFolderIds] = useState([
-    "event-core-files",
-    "events",
-  ]);
+  const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [fileType, setFileType] = useState("all");
@@ -158,11 +125,31 @@ export function FilePage() {
   const [editFolderName, setEditFolderName] = useState("");
 
   useEffect(() => {
+    if (!filesQuery.data) return;
+    const nextFolders = filesQuery.data.folders.map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      parentId: folder.parentId,
+      fileCount: folder._count.files
+    }));
+    setFolders(nextFolders);
+    setSelectedFolderId((current) =>
+      current && nextFolders.some((folder) => folder.id === current)
+        ? current
+        : (nextFolders[0]?.id ?? "")
+    );
+  }, [filesQuery.data]);
+
+  useEffect(() => {
     if (!openFolderMenuId) return;
 
     function closeMenuOnOutsideClick(event: PointerEvent) {
       const target = event.target;
-      if (target instanceof Element && target.closest("[data-folder-actions-menu]")) return;
+      if (
+        target instanceof Element &&
+        target.closest("[data-folder-actions-menu]")
+      )
+        return;
       setOpenFolderMenuId(null);
     }
 
@@ -178,8 +165,10 @@ export function FilePage() {
     };
   }, [openFolderMenuId]);
 
-  const selectedFolder =
-    folders.find((folder) => folder.id === selectedFolderId) ?? folders[0];
+  const selectedFolder = folders.find(
+    (folder) => folder.id === selectedFolderId
+  ) ??
+    folders[0] ?? { id: "", name: "Files", fileCount: 0, parentId: null };
 
   const visibleFolders = useMemo(() => {
     return folders.filter((folder) => {
@@ -203,19 +192,20 @@ export function FilePage() {
     setExpandedFolderIds((current) =>
       current.includes(folderId)
         ? current.filter((id) => id !== folderId)
-        : [...current, folderId],
+        : [...current, folderId]
     );
   }
 
-  function getFolderPath(folderId:string){
-    const path:string[]=[];
+  function getFolderPath(folderId: string) {
+    const path: string[] = [];
     let currentFolder = folders.find((folder) => folder.id === folderId);
 
     while (currentFolder) {
       path.unshift(currentFolder.name);
 
-      currentFolder = currentFolder.parentId? folders.find((folder) => folder.id === currentFolder?.parentId)
-      :undefined;
+      currentFolder = currentFolder.parentId
+        ? folders.find((folder) => folder.id === currentFolder?.parentId)
+        : undefined;
     }
 
     return path.join("/");
@@ -223,15 +213,13 @@ export function FilePage() {
 
   const selectedFolderPath = getFolderPath(selectedFolder.id);
 
-  
   function selectFolder(folderId: string) {
     setSelectedFolderId(folderId);
     setSearchQuery("");
     setIsMobileFoldersOpen(false);
   }
 
-  function createEventFolder(values: NewEventFolderFormValues) {
-    const eventFolderId = `event-${crypto.randomUUID()}`;
+  async function createEventFolder(values: NewEventFolderFormValues) {
     const eventFolderName = `${values.clientName} ${values.eventType}`.trim();
     const standardFolderNames = [
       "Invoicing",
@@ -239,40 +227,41 @@ export function FilePage() {
       "Footage",
       "Pictures",
       "Videos",
-      "Documents",
+      "Documents"
     ];
 
-    const newFolders: Folder[] = [
-      { id: eventFolderId, name: eventFolderName, fileCount: 0, parentId: "events" },
-      ...standardFolderNames.map((folderName) => ({
-        id: `${eventFolderId}-${folderName.toLowerCase().replaceAll(" ", "-")}`,
-        name: folderName,
-        fileCount: 0,
-        parentId: eventFolderId,
-      })),
-    ];
-
-    setFolders((current) => [...current, ...newFolders]);
-    setExpandedFolderIds((current) =>
-      Array.from(new Set([...current, "event-core-files", "events", eventFolderId])),
+    const result = await folderMutation.mutate({
+      resource: "folder",
+      name: eventFolderName,
+      parentId: selectedFolder.id || null
+    });
+    await Promise.all(
+      standardFolderNames.map((name) =>
+        folderMutation.mutate({
+          resource: "folder",
+          name,
+          parentId: result.folder.id
+        })
+      )
     );
-    setSelectedFolderId(eventFolderId);
+    await filesQuery.refetch();
+    setExpandedFolderIds((current) =>
+      Array.from(new Set([...current, result.folder.id]))
+    );
+    setSelectedFolderId(result.folder.id);
   }
 
-  function createFolder(values: NewFolderFormValues) {
-    const folderId = `folder-${crypto.randomUUID()}`;
-    const newFolder: Folder = {
-      id: folderId,
+  async function createFolder(values: NewFolderFormValues) {
+    const result = await folderMutation.mutate({
+      resource: "folder",
       name: values.folderName,
-      fileCount: 0,
-      parentId: selectedFolder.id,
-    };
-
-    setFolders((current) => [...current, newFolder]);
+      parentId: selectedFolder.id || null
+    });
+    await filesQuery.refetch();
     setExpandedFolderIds((current) =>
-      Array.from(new Set([...current, selectedFolder.id])),
+      Array.from(new Set([...current, selectedFolder.id]))
     );
-    setSelectedFolderId(folderId);
+    setSelectedFolderId(result.folder.id);
   }
 
   function startEditingFolder(folder: Folder) {
@@ -281,40 +270,26 @@ export function FilePage() {
     setOpenFolderMenuId(null);
   }
 
-  function saveFolderName(event: FormEvent<HTMLFormElement>) {
+  async function saveFolderName(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalizedName = editFolderName.trim();
     if (!editingFolderId || !normalizedName) return;
 
-    setFolders((current) =>
-      current.map((folder) =>
-        folder.id === editingFolderId ? { ...folder, name: normalizedName } : folder,
-      ),
-    );
+    await updateFolderMutation.mutate({
+      id: editingFolderId,
+      name: normalizedName
+    });
+    await filesQuery.refetch();
     setEditingFolderId(null);
     setEditFolderName("");
   }
 
-  function deleteFolder(folderId: string) {
-    setFolders((current) => {
-      const folderIdsToDelete = new Set([folderId]);
-      let foundChild = true;
-
-      while (foundChild) {
-        foundChild = false;
-        current.forEach((folder) => {
-          if (folder.parentId && folderIdsToDelete.has(folder.parentId) && !folderIdsToDelete.has(folder.id)) {
-            folderIdsToDelete.add(folder.id);
-            foundChild = true;
-          }
-        });
-      }
-
-      setExpandedFolderIds((expandedIds) =>
-        expandedIds.filter((id) => !folderIdsToDelete.has(id)),
-      );
-      return current.filter((folder) => !folderIdsToDelete.has(folder.id));
-    });
+  async function deleteFolder(folderId: string) {
+    await deleteFolderMutation.mutate({ id: folderId });
+    await filesQuery.refetch();
+    setExpandedFolderIds((expandedIds) =>
+      expandedIds.filter((id) => id !== folderId)
+    );
     setOpenFolderMenuId(null);
   }
 
@@ -378,6 +353,18 @@ export function FilePage() {
       });
   }
 
+  if (filesQuery.isLoading || filesQuery.error) {
+    return (
+      <main className="min-h-screen bg-[#f5f6f8] p-4">
+        <AsyncState
+          error={filesQuery.error}
+          isLoading={filesQuery.isLoading}
+          onRetry={filesQuery.refetch}
+        />
+      </main>
+    );
+  }
+
   const folderPanel = (
     <section className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-4">
@@ -400,19 +387,25 @@ export function FilePage() {
         title="Files"
         subtitle="Master file explorer with practical folders only."
         actionsSlot={
-            <>
-            <button className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]" 
-            type="button" onClick={() => setIsNewEventFolderOpen(true)}>
-                New Event Folder
+          <>
+            <button
+              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canEdit}
+              type="button"
+              onClick={() => setIsNewEventFolderOpen(true)}
+            >
+              New Event Folder
             </button>
 
-            <button className="h-11 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#15344f]"
-            type="button"
-            onClick={() => setIsAddFileOpen(true)}
+            <button
+              className="h-11 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!canEdit}
+              type="button"
+              onClick={() => setIsAddFileOpen(true)}
             >
-                Add File
+              Add File
             </button>
-            </>
+          </>
         }
       />
 
@@ -508,9 +501,9 @@ export function FilePage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 sm:flex">
-
                 <button
-                  className="h-10 whitespace-nowrap rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black transition hover:bg-[#eef4fa]"
+                  className="h-10 whitespace-nowrap rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black transition hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canEdit}
                   onClick={() => setIsNewFolderOpen(true)}
                   type="button"
                 >
@@ -518,7 +511,8 @@ export function FilePage() {
                 </button>
 
                 <button
-                  className="h-10 whitespace-nowrap rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white transition hover:bg-[#15344f]"
+                  className="h-10 whitespace-nowrap rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canEdit}
                   onClick={() => setIsAddFileOpen(true)}
                   type="button"
                 >
@@ -536,27 +530,50 @@ export function FilePage() {
                       className={`group relative flex min-h-20 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white p-4 transition hover:border-[#1f4d73]/50 hover:bg-[#fbfcfd] hover:shadow-sm ${openFolderMenuId === folder.id ? "z-20" : ""}`}
                     >
                       {editingFolderId === folder.id ? (
-                        <form className="flex min-w-0 flex-1 items-center gap-2" onSubmit={saveFolderName}>
+                        <form
+                          className="flex min-w-0 flex-1 items-center gap-2"
+                          onSubmit={saveFolderName}
+                        >
                           <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
                           <input
                             aria-label={`Folder name for ${folder.name}`}
                             autoFocus
                             className="h-9 min-w-0 flex-1 rounded-lg border border-[#8fbce3] px-2 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1f4d73]/15"
                             name="folderName"
-                            onChange={(event) => setEditFolderName(event.target.value)}
+                            onChange={(event) =>
+                              setEditFolderName(event.target.value)
+                            }
                             value={editFolderName}
                           />
-                          <button className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white" type="submit">Save</button>
-                          <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black" onClick={() => setEditingFolderId(null)} type="button">Cancel</button>
+                          <button
+                            className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
+                            type="submit"
+                          >
+                            Save
+                          </button>
+                          <button
+                            className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black"
+                            onClick={() => setEditingFolderId(null)}
+                            type="button"
+                          >
+                            Cancel
+                          </button>
                         </form>
                       ) : (
                         <>
-                          <button className="flex min-w-0 flex-1 items-center gap-4 text-left" onClick={() => selectFolder(folder.id)} type="button">
+                          <button
+                            className="flex min-w-0 flex-1 items-center gap-4 text-left"
+                            onClick={() => selectFolder(folder.id)}
+                            type="button"
+                          >
                             <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
                             <span className="min-w-0">
-                              <span className="block truncate text-sm font-black">{folder.name}</span>
+                              <span className="block truncate text-sm font-black">
+                                {folder.name}
+                              </span>
                               <span className="mt-1 block text-xs font-medium text-[#6a7483]">
-                                {folder.fileCount} {folder.fileCount === 1 ? "file" : "files"}
+                                {folder.fileCount}{" "}
+                                {folder.fileCount === 1 ? "file" : "files"}
                               </span>
                             </span>
                           </button>
@@ -567,16 +584,39 @@ export function FilePage() {
                               aria-haspopup="menu"
                               aria-label={`More actions for ${folder.name}`}
                               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
-                              onClick={() => setOpenFolderMenuId((current) => current === folder.id ? null : folder.id)}
+                              onClick={() =>
+                                setOpenFolderMenuId((current) =>
+                                  current === folder.id ? null : folder.id
+                                )
+                              }
                               type="button"
                             >
                               <MoreIcon />
                             </button>
 
                             {openFolderMenuId === folder.id ? (
-                              <div className="absolute right-0 top-11 z-30 w-32 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-1 shadow-xl" role="menu">
-                                <button className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#17202a] hover:bg-[#eef4fa]" onClick={() => startEditingFolder(folder)} role="menuitem" type="button">Edit</button>
-                                <button className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]" onClick={() => deleteFolder(folder.id)} role="menuitem" type="button">Delete</button>
+                              <div
+                                className="absolute right-0 top-11 z-30 w-32 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-1 shadow-xl"
+                                role="menu"
+                              >
+                                <button
+                                  className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#17202a] hover:bg-[#eef4fa]"
+                                  disabled={!canEdit}
+                                  onClick={() => startEditingFolder(folder)}
+                                  role="menuitem"
+                                  type="button"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]"
+                                  disabled={!canEdit}
+                                  onClick={() => deleteFolder(folder.id)}
+                                  role="menuitem"
+                                  type="button"
+                                >
+                                  Delete
+                                </button>
                               </div>
                             ) : null}
                           </div>

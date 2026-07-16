@@ -6,85 +6,170 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
+model Organization {
   id        String   @id @default(uuid()) @db.Uuid
   name      String
-  email     String   @unique
-  phone     String?
-  venueName String?  @map("venue_name")
-  role      String
+  slug      String   @unique
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  access                         UserAccess?
-  createdEvents                  Event[]               @relation("EventCreatedBy")
-  updatedEvents                  Event[]               @relation("EventUpdatedBy")
-  createdSchoolCycles            SchoolCycle[]         @relation("SchoolCycleCreatedBy")
-  updatedKitchenItemStatuses      KitchenItemStatus[]   @relation("KitchenItemStatusUpdatedBy")
-  changedKitchenNotifications     KitchenNotification[] @relation("KitchenNotificationChangedBy")
-  acknowledgedKitchenNotifications KitchenNotification[] @relation("KitchenNotificationAcknowledgedBy")
-  activityLogs                   ActivityLog[]
-  generatedPdfs                  GeneratedPdf[]
-  sentEmailLogs                  EmailLog[]
+  primaryUsers            User[]                   @relation("PrimaryOrganization")
+  memberships             OrganizationMembership[]
+  accessRecords           UserAccess[]
+  halls                   Hall[]
+  eventTypes              EventType[]
+  events                  Event[]
+  menuItems               MenuItem[]
+  eventPackages           EventPackage[]
+  addOns                  AddOn[]
+  kitchenWorkers          KitchenWorker[]
+  kitchenItemStatuses     KitchenItemStatus[]
+  kitchenNotifications    KitchenNotification[]
+  schoolCycles            SchoolCycle[]
+  memberShuls             MemberShul[]
+  paymentSettings         PaymentSetting[]
+  tableclothOptions       TableclothOption[]
+  menuCategories          MenuCategory[]
+  holidayBlockedDates     HolidayBlockedDate[]
+  activityLogs            ActivityLog[]
+  generatedPdfs           GeneratedPdf[]
+  emailLogs               EmailLog[]
+  storedFiles             StoredFile[]
+  fileFolders             FileFolder[]
+  paymentTransactions     PaymentTransaction[]
+  vendors                 Vendor[]
+  invoices                Invoice[]
+  settings                OrganizationSetting?
+  notificationPreferences NotificationPreference[]
+  clients                 Client[]
+  bookingReservations     BookingReservation[]
 
+  @@index([isActive])
+  @@map("organizations")
+}
+
+model OrganizationMembership {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  role           String   @default("member")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId, isActive])
+  @@index([organizationId, isActive])
+  @@map("organization_memberships")
+}
+
+model User {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  supabaseAuthId String?  @unique @map("supabase_auth_id") @db.Uuid
+  name           String
+  email          String   @unique
+  phone          String?
+  venueName      String?  @map("venue_name")
+  role           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization                     Organization             @relation("PrimaryOrganization", fields: [organizationId], references: [id])
+  memberships                      OrganizationMembership[]
+  access                           UserAccess[]
+  createdEvents                    Event[]                  @relation("EventCreatedBy")
+  updatedEvents                    Event[]                  @relation("EventUpdatedBy")
+  createdSchoolCycles              SchoolCycle[]            @relation("SchoolCycleCreatedBy")
+  updatedKitchenItemStatuses       KitchenItemStatus[]      @relation("KitchenItemStatusUpdatedBy")
+  changedKitchenNotifications      KitchenNotification[]    @relation("KitchenNotificationChangedBy")
+  acknowledgedKitchenNotifications KitchenNotification[]    @relation("KitchenNotificationAcknowledgedBy")
+  activityLogs                     ActivityLog[]
+  generatedPdfs                    GeneratedPdf[]
+  sentEmailLogs                    EmailLog[]
+  uploadedFiles                    StoredFile[]             @relation("StoredFileUploadedBy")
+  confirmedPaymentTransactions     PaymentTransaction[]     @relation("PaymentTransactionConfirmedBy")
+  notificationPreferences          NotificationPreference[]
+
+  @@index([organizationId, isActive])
   @@map("users")
 }
 
 model UserAccess {
-  id                         String   @id @default(uuid()) @db.Uuid
-  userId                     String   @unique @map("user_id") @db.Uuid
-  canViewHome                Boolean  @default(true) @map("can_view_home")
-  canViewCalendar            Boolean  @default(false) @map("can_view_calendar")
-  canCreateBooking           Boolean  @default(false) @map("can_create_booking")
-  canViewEventManager        Boolean  @default(false) @map("can_view_event_manager")
-  canViewKitchenDashboard    Boolean  @default(false) @map("can_view_kitchen_dashboard")
-  canViewMenu                Boolean  @default(false) @map("can_view_menu")
-  canEditMenu                Boolean  @default(false) @map("can_edit_menu")
-  canViewSettings            Boolean  @default(false) @map("can_view_settings")
-  canEditSettings            Boolean  @default(false) @map("can_edit_settings")
-  canAssignWorkers           Boolean  @default(false) @map("can_assign_workers")
-  canUpdateKitchenStatus     Boolean  @default(false) @map("can_update_kitchen_status")
-  canAddKitchenEvents        Boolean  @default(false) @map("can_add_kitchen_events")
-  canManageSchoolSchedule    Boolean  @default(false) @map("can_manage_school_schedule")
-  canSeeSchoolEvents         Boolean  @default(false) @map("can_see_school_events")
-  canSeeSimchaEvents         Boolean  @default(true) @map("can_see_simcha_events")
-  canViewPaymentInfo         Boolean  @default(false) @map("can_view_payment_info")
-  canSendPaymentEmail        Boolean  @default(false) @map("can_send_payment_email")
-  canUseNiceHomeBackground   Boolean  @default(false) @map("can_use_nice_home_background")
-  allowedHallIds             String[] @default([]) @map("allowed_hall_ids")
-  createdAt                  DateTime @default(now()) @map("created_at")
-  updatedAt                  DateTime @updatedAt @map("updated_at")
+  id                       String   @id @default(uuid()) @db.Uuid
+  organizationId           String   @map("organization_id") @db.Uuid
+  userId                   String   @map("user_id") @db.Uuid
+  canViewHome              Boolean  @default(true) @map("can_view_home")
+  canViewCalendar          Boolean  @default(false) @map("can_view_calendar")
+  canCreateBooking         Boolean  @default(false) @map("can_create_booking")
+  canViewEventManager      Boolean  @default(false) @map("can_view_event_manager")
+  canViewKitchenDashboard  Boolean  @default(false) @map("can_view_kitchen_dashboard")
+  canViewMenu              Boolean  @default(false) @map("can_view_menu")
+  canEditMenu              Boolean  @default(false) @map("can_edit_menu")
+  canViewSettings          Boolean  @default(false) @map("can_view_settings")
+  canEditSettings          Boolean  @default(false) @map("can_edit_settings")
+  canEditStaff             Boolean  @default(false) @map("can_edit_staff")
+  canEditVendors           Boolean  @default(false) @map("can_edit_vendors")
+  canEditClients           Boolean  @default(false) @map("can_edit_clients")
+  canEditFiles             Boolean  @default(false) @map("can_edit_files")
+  canAssignWorkers         Boolean  @default(false) @map("can_assign_workers")
+  canUpdateKitchenStatus   Boolean  @default(false) @map("can_update_kitchen_status")
+  canAddKitchenEvents      Boolean  @default(false) @map("can_add_kitchen_events")
+  canManageSchoolSchedule  Boolean  @default(false) @map("can_manage_school_schedule")
+  canSeeSchoolEvents       Boolean  @default(false) @map("can_see_school_events")
+  canSeeSimchaEvents       Boolean  @default(true) @map("can_see_simcha_events")
+  canViewPaymentInfo       Boolean  @default(false) @map("can_view_payment_info")
+  canManagePayments        Boolean  @default(false) @map("can_manage_payments")
+  canSendPaymentEmail      Boolean  @default(false) @map("can_send_payment_email")
+  canUseNiceHomeBackground Boolean  @default(false) @map("can_use_nice_home_background")
+  allowedHallIds           String[] @default([]) @map("allowed_hall_ids")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([organizationId, userId])
+  @@index([organizationId])
+  @@index([userId])
   @@map("user_access")
 }
 
 model Hall {
-  id                 String   @id @default(uuid()) @db.Uuid
-  name               String
-  isActive           Boolean  @default(true) @map("is_active")
-  isBookable         Boolean  @default(true) @map("is_bookable")
-  basePrice          Decimal? @map("base_price") @db.Decimal(12, 2)
-  perCouplePrice     Decimal? @map("per_couple_price") @db.Decimal(12, 2)
-  memberBasePrice    Decimal? @map("member_base_price") @db.Decimal(12, 2)
+  id                   String   @id @default(uuid()) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  name                 String
+  isActive             Boolean  @default(true) @map("is_active")
+  isBookable           Boolean  @default(true) @map("is_bookable")
+  basePrice            Decimal? @map("base_price") @db.Decimal(12, 2)
+  perCouplePrice       Decimal? @map("per_couple_price") @db.Decimal(12, 2)
+  memberBasePrice      Decimal? @map("member_base_price") @db.Decimal(12, 2)
   memberPerCouplePrice Decimal? @map("member_per_couple_price") @db.Decimal(12, 2)
-  connectedHallIds   String[] @default([]) @map("connected_hall_ids")
-  sharedMenuEnabled  Boolean  @default(false) @map("shared_menu_enabled")
-  allowedMenuItemIds String[] @default([]) @map("allowed_menu_item_ids")
-  color              String?
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt @map("updated_at")
+  connectedHallIds     String[] @default([]) @map("connected_hall_ids")
+  sharedMenuEnabled    Boolean  @default(false) @map("shared_menu_enabled")
+  allowedMenuItemIds   String[] @default([]) @map("allowed_menu_item_ids")
+  color                String?
+  capacity             Int?
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  events Event[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events              Event[]
+  bookingReservations BookingReservation[]
 
+  @@index([organizationId, isActive, isBookable])
   @@index([isActive, isBookable])
   @@map("halls")
 }
 
 model EventType {
   id                    String   @id @default(uuid()) @db.Uuid
+  organizationId        String   @map("organization_id") @db.Uuid
   name                  String
   isActive              Boolean  @default(true) @map("is_active")
   validDays             Int[]    @default([]) @map("valid_days")
@@ -92,77 +177,107 @@ model EventType {
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
-  events Event[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       Event[]
 
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("event_types")
 }
 
 model Event {
-  id                    String   @id @default(uuid()) @db.Uuid
-  clientName            String   @map("client_name")
-  phone                 String
-  email                 String?
-  eventDate             DateTime @map("event_date") @db.Date
-  hallId                String   @map("hall_id") @db.Uuid
-  hallName              String?  @map("hall_name")
-  eventTypeId           String?  @map("event_type_id") @db.Uuid
-  eventType             String?  @map("event_type")
-  eventStatus           String   @map("event_status")
-  paymentStatus         String?  @map("payment_status")
-  packageId             String?  @map("package_id") @db.Uuid
-  packageName           String?  @map("package_name")
-  couplesCount          Int      @default(0) @map("couples_count")
-  menCount              Int      @default(0) @map("men_count")
-  ladiesCount           Int      @default(0) @map("ladies_count")
-  boysCount             Int      @default(0) @map("boys_count")
-  girlsCount            Int      @default(0) @map("girls_count")
-  kidsCount             Int      @default(0) @map("kids_count")
-  waitersCount          Int      @default(0) @map("waiters_count")
-  setupTime             String?  @map("setup_time")
-  washingTime           String?  @map("washing_time")
-  tableclothId          String?  @map("tablecloth_id") @db.Uuid
-  tableclothName        String?  @map("tablecloth_name")
-  notes                 String?
-  daveningNote          String?  @map("davening_note")
-  sideBoxes             Json?    @map("side_boxes")
-  menuItemIds           String[] @default([]) @map("menu_item_ids")
-  drinkItemIds          String[] @default([]) @map("drink_item_ids")
-  addOnIds              String[] @default([]) @map("add_on_ids")
-  isMemberRate          Boolean  @default(false) @map("is_member_rate")
-  memberShulName        String?  @map("member_shul_name")
-  regularPriceTotal     Decimal? @map("regular_price_total") @db.Decimal(12, 2)
-  memberPriceTotal      Decimal? @map("member_price_total") @db.Decimal(12, 2)
-  finalTotal            Decimal? @map("final_total") @db.Decimal(12, 2)
-  amountDue             Decimal? @map("amount_due") @db.Decimal(12, 2)
-  layoutFileUrl         String?  @map("layout_file_url")
-  layoutFileType        String?  @map("layout_file_type")
-  shabbosSetup          Json?    @map("shabbos_setup")
-  sharedMenuSourceEventId String? @map("shared_menu_source_event_id") @db.Uuid
-  googleCalendarEventId String?  @map("google_calendar_event_id")
-  googleSyncStatus      String?  @map("google_sync_status")
-  googleLastSyncedAt    DateTime? @map("google_last_synced_at")
-  googleSyncError       String?  @map("google_sync_error")
-  createdById           String?  @map("created_by") @db.Uuid
-  updatedById           String?  @map("updated_by") @db.Uuid
-  deleted               Boolean  @default(false)
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                      String    @id @default(uuid()) @db.Uuid
+  organizationId          String    @map("organization_id") @db.Uuid
+  clientId                String?   @map("client_id") @db.Uuid
+  clientName              String    @map("client_name")
+  phone                   String
+  email                   String?
+  eventDate               DateTime  @map("event_date") @db.Date
+  hallId                  String    @map("hall_id") @db.Uuid
+  hallName                String?   @map("hall_name")
+  eventTypeId             String?   @map("event_type_id") @db.Uuid
+  eventType               String?   @map("event_type")
+  eventStatus             String    @map("event_status")
+  bookingStatus           String    @default("INQUIRY") @map("booking_status")
+  startsAt                DateTime? @map("starts_at") @db.Timestamptz(3)
+  endsAt                  DateTime? @map("ends_at") @db.Timestamptz(3)
+  setupStartsAt           DateTime? @map("setup_starts_at") @db.Timestamptz(3)
+  cleanupEndsAt           DateTime? @map("cleanup_ends_at") @db.Timestamptz(3)
+  holdExpiresAt           DateTime? @map("hold_expires_at") @db.Timestamptz(3)
+  statusChangedAt         DateTime  @default(now()) @map("status_changed_at") @db.Timestamptz(3)
+  cancelledAt             DateTime? @map("cancelled_at") @db.Timestamptz(3)
+  completedAt             DateTime? @map("completed_at") @db.Timestamptz(3)
+  version                 Int       @default(0)
+  idempotencyKey          String?   @map("idempotency_key")
+  idempotencyHash         String?   @map("idempotency_hash")
+  paymentStatus           String?   @map("payment_status")
+  packageId               String?   @map("package_id") @db.Uuid
+  packageName             String?   @map("package_name")
+  couplesCount            Int       @default(0) @map("couples_count")
+  menCount                Int       @default(0) @map("men_count")
+  ladiesCount             Int       @default(0) @map("ladies_count")
+  boysCount               Int       @default(0) @map("boys_count")
+  girlsCount              Int       @default(0) @map("girls_count")
+  kidsCount               Int       @default(0) @map("kids_count")
+  waitersCount            Int       @default(0) @map("waiters_count")
+  setupTime               String?   @map("setup_time")
+  washingTime             String?   @map("washing_time")
+  tableclothId            String?   @map("tablecloth_id") @db.Uuid
+  tableclothName          String?   @map("tablecloth_name")
+  notes                   String?
+  daveningNote            String?   @map("davening_note")
+  sideBoxes               Json?     @map("side_boxes")
+  menuItemIds             String[]  @default([]) @map("menu_item_ids")
+  drinkItemIds            String[]  @default([]) @map("drink_item_ids")
+  addOnIds                String[]  @default([]) @map("add_on_ids")
+  isMemberRate            Boolean   @default(false) @map("is_member_rate")
+  memberShulName          String?   @map("member_shul_name")
+  regularPriceTotal       Decimal?  @map("regular_price_total") @db.Decimal(12, 2)
+  memberPriceTotal        Decimal?  @map("member_price_total") @db.Decimal(12, 2)
+  finalTotal              Decimal?  @map("final_total") @db.Decimal(12, 2)
+  amountDue               Decimal?  @map("amount_due") @db.Decimal(12, 2)
+  layoutFileUrl           String?   @map("layout_file_url")
+  layoutFileType          String?   @map("layout_file_type")
+  shabbosSetup            Json?     @map("shabbos_setup")
+  sharedMenuSourceEventId String?   @map("shared_menu_source_event_id") @db.Uuid
+  googleCalendarEventId   String?   @map("google_calendar_event_id")
+  googleSyncStatus        String?   @map("google_sync_status")
+  googleLastSyncedAt      DateTime? @map("google_last_synced_at")
+  googleSyncError         String?   @map("google_sync_error")
+  createdById             String?   @map("created_by") @db.Uuid
+  updatedById             String?   @map("updated_by") @db.Uuid
+  deleted                 Boolean   @default(false)
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
 
-  hall                  Hall              @relation(fields: [hallId], references: [id])
-  eventTypeSetting      EventType?        @relation(fields: [eventTypeId], references: [id])
-  package               EventPackage?     @relation(fields: [packageId], references: [id])
-  tablecloth            TableclothOption? @relation(fields: [tableclothId], references: [id])
-  sharedMenuSourceEvent Event?            @relation("SharedMenuSource", fields: [sharedMenuSourceEventId], references: [id])
-  sharedMenuEvents      Event[]           @relation("SharedMenuSource")
-  createdBy             User?             @relation("EventCreatedBy", fields: [createdById], references: [id])
-  updatedBy             User?             @relation("EventUpdatedBy", fields: [updatedById], references: [id])
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client                Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  hall                  Hall                  @relation(fields: [hallId], references: [id])
+  eventTypeSetting      EventType?            @relation(fields: [eventTypeId], references: [id])
+  package               EventPackage?         @relation(fields: [packageId], references: [id])
+  tablecloth            TableclothOption?     @relation(fields: [tableclothId], references: [id])
+  sharedMenuSourceEvent Event?                @relation("SharedMenuSource", fields: [sharedMenuSourceEventId], references: [id])
+  sharedMenuEvents      Event[]               @relation("SharedMenuSource")
+  createdBy             User?                 @relation("EventCreatedBy", fields: [createdById], references: [id])
+  updatedBy             User?                 @relation("EventUpdatedBy", fields: [updatedById], references: [id])
   kitchenItemStatuses   KitchenItemStatus[]
   kitchenNotifications  KitchenNotification[]
   activityLogs          ActivityLog[]
   generatedPdfs         GeneratedPdf[]
   emailLogs             EmailLog[]
+  storedFiles           StoredFile[]
+  fileFolders           FileFolder[]
+  paymentTransactions   PaymentTransaction[]
+  invoices              Invoice[]
+  bookingReservations   BookingReservation[]
 
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, bookingStatus, holdExpiresAt])
+  @@index([organizationId, hallId, setupStartsAt, cleanupEndsAt])
+  @@index([organizationId, eventDate])
+  @@index([organizationId, clientId, eventDate])
+  @@index([organizationId, hallId, eventDate])
+  @@index([organizationId, eventStatus, eventDate])
   @@index([eventDate])
   @@index([hallId, eventDate])
   @@index([eventStatus, eventDate])
@@ -173,20 +288,44 @@ model Event {
   @@map("events")
 }
 
-model MenuItem {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String
-  category      String?
-  usageType     String   @map("usage_type")
-  kosherType    String?  @map("kosher_type")
-  countingRules Json?    @map("counting_rules")
-  notes         String?
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+model BookingReservation {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  hallId         String   @map("hall_id") @db.Uuid
+  startsAt       DateTime @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime @map("ends_at") @db.Timestamptz(3)
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  hall         Hall         @relation(fields: [hallId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, hallId])
+  @@index([organizationId, hallId, startsAt, endsAt])
+  @@index([organizationId, active, endsAt])
+  @@map("booking_reservations")
+}
+
+model MenuItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  category       String?
+  usageType      String   @map("usage_type")
+  kosherType     String?  @map("kosher_type")
+  countingRules  Json?    @map("counting_rules")
+  notes          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   kitchenItemStatuses KitchenItemStatus[]
 
+  @@index([organizationId, isActive])
   @@index([category])
   @@index([usageType])
   @@index([isActive])
@@ -195,6 +334,7 @@ model MenuItem {
 
 model EventPackage {
   id                   String   @id @default(uuid()) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
   name                 String
   hallIds              String[] @default([]) @map("hall_ids")
   eventTypeIds         String[] @default([]) @map("event_type_ids")
@@ -207,14 +347,17 @@ model EventPackage {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  events Event[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       Event[]
 
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("packages")
 }
 
 model AddOn {
   id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
   name             String
   price            Decimal? @db.Decimal(12, 2)
   pricingType      String   @map("pricing_type")
@@ -225,26 +368,33 @@ model AddOn {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("add_ons")
 }
 
 model KitchenWorker {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  color     String?
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  color          String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   assignedKitchenItems KitchenItemStatus[]
 
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("kitchen_workers")
 }
 
 model KitchenItemStatus {
   id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
   eventId          String   @map("event_id") @db.Uuid
   menuItemId       String   @map("menu_item_id") @db.Uuid
   status           String
@@ -253,12 +403,14 @@ model KitchenItemStatus {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   event          Event          @relation(fields: [eventId], references: [id], onDelete: Cascade)
   menuItem       MenuItem       @relation(fields: [menuItemId], references: [id])
   assignedWorker KitchenWorker? @relation(fields: [assignedWorkerId], references: [id])
   updatedBy      User?          @relation("KitchenItemStatusUpdatedBy", fields: [updatedById], references: [id])
 
   @@unique([eventId, menuItemId])
+  @@index([organizationId, status])
   @@index([status])
   @@index([assignedWorkerId])
   @@map("kitchen_item_statuses")
@@ -266,6 +418,7 @@ model KitchenItemStatus {
 
 model KitchenNotification {
   id                     String    @id @default(uuid()) @db.Uuid
+  organizationId         String    @map("organization_id") @db.Uuid
   eventId                String?   @map("event_id") @db.Uuid
   notificationType       String    @map("notification_type")
   eventDate              DateTime? @map("event_date") @db.Date
@@ -282,10 +435,12 @@ model KitchenNotification {
   emailSentAt            DateTime? @map("email_sent_at")
   createdAt              DateTime  @default(now()) @map("created_at")
 
-  event          Event? @relation(fields: [eventId], references: [id])
-  changedBy      User?  @relation("KitchenNotificationChangedBy", fields: [changedById], references: [id])
-  acknowledgedBy User?  @relation("KitchenNotificationAcknowledgedBy", fields: [acknowledgedById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event          Event?       @relation(fields: [eventId], references: [id])
+  changedBy      User?        @relation("KitchenNotificationChangedBy", fields: [changedById], references: [id])
+  acknowledgedBy User?        @relation("KitchenNotificationAcknowledgedBy", fields: [acknowledgedById], references: [id])
 
+  @@index([organizationId, createdAt])
   @@index([eventDate])
   @@index([requiresAcknowledgment])
   @@index([emailSent])
@@ -293,18 +448,21 @@ model KitchenNotification {
 }
 
 model SchoolCycle {
-  id          String   @id @default(uuid()) @db.Uuid
-  cycleName   String   @map("cycle_name")
-  cycleType   String   @map("cycle_type")
-  startDate   DateTime? @map("start_date") @db.Date
-  endDate     DateTime? @map("end_date") @db.Date
-  days        Json
-  createdById String?  @map("created_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  cycleName      String    @map("cycle_name")
+  cycleType      String    @map("cycle_type")
+  startDate      DateTime? @map("start_date") @db.Date
+  endDate        DateTime? @map("end_date") @db.Date
+  days           Json
+  createdById    String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  createdBy User? @relation("SchoolCycleCreatedBy", fields: [createdById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SchoolCycleCreatedBy", fields: [createdById], references: [id])
 
+  @@index([organizationId, cycleType])
   @@index([cycleType])
   @@index([startDate, endDate])
   @@map("school_cycles")
@@ -312,16 +470,22 @@ model SchoolCycle {
 
 model MemberShul {
   id                 String   @id @default(uuid()) @db.Uuid
-  name               String   @unique
+  organizationId     String   @map("organization_id") @db.Uuid
+  name               String
   createdFromBooking Boolean  @default(false) @map("created_from_booking")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
   @@map("member_shuls")
 }
 
 model PaymentSetting {
   id                       String   @id @default(uuid()) @db.Uuid
+  organizationId           String   @map("organization_id") @db.Uuid
   paymentLink              String   @map("payment_link")
   connectedGmailAccount    String?  @map("connected_gmail_account")
   paymentEmailSubject      String?  @map("payment_email_subject")
@@ -330,64 +494,85 @@ model PaymentSetting {
   createdAt                DateTime @default(now()) @map("created_at")
   updatedAt                DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId])
   @@map("payment_settings")
 }
 
 model TableclothOption {
   id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
   name               String
   colorOrDescription String?  @map("color_or_description")
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  events Event[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events       Event[]
 
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("tablecloth_options")
 }
 
 model MenuCategory {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @unique
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, isActive])
   @@index([isActive])
   @@map("menu_categories")
 }
 
 model HolidayBlockedDate {
-  id        String   @id @default(uuid()) @db.Uuid
-  startDate DateTime @map("start_date") @db.Date
-  endDate   DateTime @map("end_date") @db.Date
-  label     String
-  reason    String?
-  isBlocked Boolean  @default(true) @map("is_blocked")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  startDate      DateTime @map("start_date") @db.Date
+  endDate        DateTime @map("end_date") @db.Date
+  label          String
+  reason         String?
+  isBlocked      Boolean  @default(true) @map("is_blocked")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, startDate, endDate])
   @@index([startDate, endDate])
   @@index([isBlocked])
   @@map("holiday_blocked_dates")
 }
 
 model ActivityLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  eventId    String?  @map("event_id") @db.Uuid
-  userId     String?  @map("user_id") @db.Uuid
-  userName   String?  @map("user_name")
-  actionType String   @map("action_type")
-  message    String
-  oldValue   Json?    @map("old_value")
-  newValue   Json?    @map("new_value")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String?  @map("event_id") @db.Uuid
+  clientId       String?  @map("client_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  userName       String?  @map("user_name")
+  actionType     String   @map("action_type")
+  message        String
+  oldValue       Json?    @map("old_value")
+  newValue       Json?    @map("new_value")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  event Event? @relation(fields: [eventId], references: [id])
-  user  User?  @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id])
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  user         User?        @relation(fields: [userId], references: [id])
 
+  @@index([organizationId, createdAt])
   @@index([eventId])
+  @@index([organizationId, clientId, createdAt])
   @@index([userId])
   @@index([actionType])
   @@index([createdAt])
@@ -395,38 +580,227 @@ model ActivityLog {
 }
 
 model GeneratedPdf {
-  id          String   @id @default(uuid()) @db.Uuid
-  eventId     String   @map("event_id") @db.Uuid
-  fileUrl     String   @map("file_url")
-  fileName    String   @map("file_name")
-  generatedById String? @map("generated_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String   @map("event_id") @db.Uuid
+  fileUrl        String   @map("file_url")
+  fileName       String   @map("file_name")
+  generatedById  String?  @map("generated_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  event       Event @relation(fields: [eventId], references: [id])
-  generatedBy User? @relation(fields: [generatedById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id])
+  generatedBy  User?        @relation(fields: [generatedById], references: [id])
 
+  @@index([organizationId, eventId])
   @@index([eventId])
   @@map("generated_pdfs")
 }
 
 model EmailLog {
-  id           String   @id @default(uuid()) @db.Uuid
-  eventId      String?  @map("event_id") @db.Uuid
-  emailType    String   @map("email_type")
-  toEmail      String   @map("to_email")
-  fromEmail    String?  @map("from_email")
-  subject      String?
-  status       String
-  errorMessage String?  @map("error_message")
-  sentById     String?  @map("sent_by") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String?  @map("event_id") @db.Uuid
+  emailType      String   @map("email_type")
+  toEmail        String   @map("to_email")
+  fromEmail      String?  @map("from_email")
+  subject        String?
+  status         String
+  errorMessage   String?  @map("error_message")
+  sentById       String?  @map("sent_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  event  Event? @relation(fields: [eventId], references: [id])
-  sentBy User?  @relation(fields: [sentById], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id])
+  sentBy       User?        @relation(fields: [sentById], references: [id])
 
+  @@index([organizationId, createdAt])
   @@index([eventId])
   @@index([emailType])
   @@index([status])
   @@index([createdAt])
   @@map("email_logs")
+}
+
+model StoredFile {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String?  @map("event_id") @db.Uuid
+  clientId       String?  @map("client_id") @db.Uuid
+  folderId       String?  @map("folder_id") @db.Uuid
+  uploadedById   String?  @map("uploaded_by") @db.Uuid
+  bucket         String
+  storagePath    String   @map("storage_path")
+  fileName       String   @map("file_name")
+  contentType    String?  @map("content_type")
+  sizeBytes      Int?     @map("size_bytes")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  folder       FileFolder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  uploadedBy   User?        @relation("StoredFileUploadedBy", fields: [uploadedById], references: [id])
+
+  @@unique([organizationId, bucket, storagePath])
+  @@index([organizationId, eventId])
+  @@index([organizationId, clientId])
+  @@index([organizationId, folderId])
+  @@map("stored_files")
+}
+
+model PaymentTransaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  organizationId    String   @map("organization_id") @db.Uuid
+  eventId           String   @map("event_id") @db.Uuid
+  clientId          String?  @map("client_id") @db.Uuid
+  confirmedById     String?  @map("confirmed_by") @db.Uuid
+  amountCents       Int      @map("amount_cents")
+  currency          String   @default("USD")
+  status            String
+  provider          String?
+  providerReference String?  @map("provider_reference")
+  note              String?
+  metadata          Json?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  confirmedBy  User?        @relation("PaymentTransactionConfirmedBy", fields: [confirmedById], references: [id])
+
+  @@index([organizationId, eventId, createdAt])
+  @@index([organizationId, clientId, createdAt])
+  @@index([organizationId, status])
+  @@map("payment_transactions")
+}
+
+model Vendor {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  description    String?
+  category       String
+  contactName    String?  @map("contact_name")
+  email          String?
+  phone          String?
+  status         String   @default("Active")
+  rating         Decimal? @db.Decimal(2, 1)
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([organizationId, category])
+  @@map("vendors")
+}
+
+model Invoice {
+  id              String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @map("organization_id") @db.Uuid
+  eventId         String?   @map("event_id") @db.Uuid
+  clientId        String?   @map("client_id") @db.Uuid
+  invoiceNumber   String    @map("invoice_number")
+  clientName      String    @map("client_name")
+  status          String    @default("Draft")
+  dueDate         DateTime? @map("due_date") @db.Date
+  totalCents      Int       @default(0) @map("total_cents")
+  amountPaidCents Int       @default(0) @map("amount_paid_cents")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, status, dueDate])
+  @@index([organizationId, clientId, status])
+  @@map("invoices")
+}
+
+model Client {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  email          String?
+  phone          String?
+  status         String   @default("Active")
+  tags           String[] @default([])
+  notes          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events              Event[]
+  invoices            Invoice[]
+  storedFiles         StoredFile[]
+  paymentTransactions PaymentTransaction[]
+  activityLogs        ActivityLog[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId, status, name])
+  @@index([organizationId, phone])
+  @@map("clients")
+}
+
+model FileFolder {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventId        String?  @map("event_id") @db.Uuid
+  parentId       String?  @map("parent_id") @db.Uuid
+  name           String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  parent       FileFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children     FileFolder[] @relation("FolderTree")
+  files        StoredFile[]
+
+  @@unique([organizationId, parentId, name])
+  @@index([organizationId, eventId])
+  @@index([organizationId, parentId])
+  @@map("file_folders")
+}
+
+model OrganizationSetting {
+  id                    String   @id @default(uuid()) @db.Uuid
+  organizationId        String   @unique @map("organization_id") @db.Uuid
+  timezone              String   @default("America/New_York")
+  twoFactorRequired     Boolean  @default(false) @map("two_factor_required")
+  sessionTimeoutMinutes Int      @default(30) @map("session_timeout_minutes")
+  branding              Json?
+  integrations          Json?
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("organization_settings")
+}
+
+model NotificationPreference {
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  userId              String   @map("user_id") @db.Uuid
+  emailNotifications  Boolean  @default(true) @map("email_notifications")
+  eventConfirmations  Boolean  @default(true) @map("event_confirmations")
+  billingAlerts       Boolean  @default(true) @map("billing_alerts")
+  systemAnnouncements Boolean  @default(false) @map("system_announcements")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("notification_preferences")
 }

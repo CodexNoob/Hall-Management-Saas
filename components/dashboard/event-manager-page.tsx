@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { NewEventDialog, type NewEventFormValues } from "@/components/forms-and-modals/new-event-dialog";
+import {
+  NewEventDialog,
+  type NewEventFormValues
+} from "@/components/forms-and-modals/new-event-dialog";
 import { PrintPacketDrawer } from "@/components/forms-and-modals/print-packet-drawer";
 import { ClientPortalPreviewDrawer } from "@/components/forms-and-modals/client-portal-preview-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
-import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
+import { AsyncState } from "@/components/ui/async-state";
+import {
+  clearCachedSyncedUser,
+  getCachedSyncedUser,
+  syncSignedInUser,
+  type SyncSignedInUserResponse
+} from "@/lib/auth/client";
+import { useAuthenticatedMutation } from "@/lib/hooks/use-authenticated-mutation";
+import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type BadgeTone = "green" | "gold" | "red";
@@ -49,83 +60,34 @@ type EventFile = {
   notes: string[];
 };
 
-const events: EventFile[] = [
-  {
-    title: "Friedman Wedding",
-    date: "Jul 8, 2026",
-    time: "6:30 PM",
-    room: "Grand Hall",
-    packageName: "Gold Dinner",
-    guests: "278",
-    children: "38",
-    couples: "120",
-    coordinator: "M. Stern",
-    balance: "$30,200.00",
-    status: "Confirmed",
-    paymentStatus: "Open balance",
-    notes: ["Menu: Confirmed", "Layout: Needs final review", "Needs review"],
-  },
-  {
-    title: "Klein Sheva Brachos",
-    date: "Jul 11, 2026",
-    time: "8:45 PM",
-    room: "Nachlas Yehuda A",
-    packageName: "Standard Dairy",
-    guests: "180",
-    children: "24",
-    couples: "76",
-    coordinator: "Y. Mandel",
-    balance: "$15,100.00",
-    status: "Hold",
-    paymentStatus: "Open balance",
-    notes: ["Menu: Needs confirmation", "Layout: Ready", "Needs review"],
-  },
-  {
-    title: "Weiss Bar Mitzvah",
-    date: "Jul 14, 2026",
-    time: "12:30 PM",
-    room: "Terrace Room",
-    packageName: "Premium Lunch",
-    guests: "205",
-    children: "42",
-    couples: "84",
-    coordinator: "S. Berger",
-    balance: "Paid",
-    status: "Confirmed",
-    paymentStatus: "Paid",
-    notes: ["Menu: Confirmed", "Layout: Ready"],
-  },
-  {
-    title: "Green Dinner",
-    date: "Jul 20, 2026",
-    time: "7:00 PM",
-    room: "Small Hall",
-    packageName: "Basic Dinner",
-    guests: "95",
-    children: "12",
-    couples: "40",
-    coordinator: "A. Klein",
-    balance: "$9,200.00",
-    status: "Hold",
-    paymentStatus: "Open balance",
-    notes: ["Menu: Not assigned", "Layout: Not started", "Needs review"],
-  },
-  {
-    title: "Landau Vort",
-    date: "Jul 23, 2026",
-    time: "8:00 PM",
-    room: "Grand Hall",
-    packageName: "Light Buffet",
-    guests: "160",
-    children: "18",
-    couples: "70",
-    coordinator: "M. Stern",
-    balance: "$6,800.00",
-    status: "Confirmed",
-    paymentStatus: "Open balance",
-    notes: ["Menu: Confirmed", "Layout: Ready", "Needs review"],
-  },
-];
+type EventsResponse = {
+  events: Array<{
+    id: string;
+    clientName: string;
+    eventDate: string;
+    eventType: string | null;
+    eventStatus: string;
+    bookingStatus: string;
+    startsAt: string | null;
+    endsAt: string | null;
+    setupStartsAt: string | null;
+    cleanupEndsAt: string | null;
+    holdExpiresAt: string | null;
+    version: number;
+    paymentStatus: string | null;
+    packageName: string | null;
+    couplesCount: number;
+    menCount: number;
+    ladiesCount: number;
+    boysCount: number;
+    girlsCount: number;
+    kidsCount: number;
+    notes: string | null;
+    hall: { id: string; name: string };
+  }>;
+  halls: Array<{ id: string; name: string }>;
+  eventTypes: Array<{ id: string; name: string }>;
+};
 
 const tabs = [
   { label: "Event details", icon: "calendar" },
@@ -135,7 +97,7 @@ const tabs = [
   { label: "Hall map", icon: "map" },
   { label: "Kitchen", icon: "fork" },
   { label: "Vendors", icon: "store" },
-  { label: "Files", icon: "files" },
+  { label: "Files", icon: "files" }
 ] satisfies Array<{ label: string; icon: IconName }>;
 
 type EventWorkspaceTab = (typeof tabs)[number]["label"];
@@ -144,7 +106,7 @@ const timelineRows = [
   ["03:00 PM", "Dining room setup begins", "Event"],
   ["04:30 PM", "Kitchen starts hot service prep", "Kitchen"],
   ["06:30 PM", "Guests arrive and first course begins", "Event"],
-  ["10:45 PM", "Washing and cleanup instructions begin", "Event"],
+  ["10:45 PM", "Washing and cleanup instructions begin", "Event"]
 ];
 
 const menuItems = [
@@ -152,10 +114,18 @@ const menuItems = [
   { course: "Soup", name: "Chicken soup" },
   { course: "Main", name: "Braised short ribs" },
   { course: "Side", name: "Potato kugel" },
-  { course: "Main", name: "Children schnitzel" },
+  { course: "Main", name: "Children schnitzel" }
 ];
 
-const addMenuItems = ["Add Appetizer", "Add Soup", "Add Main", "Add Side", "Add Drink", "Add Dessert", "Add more"];
+const addMenuItems = [
+  "Add Appetizer",
+  "Add Soup",
+  "Add Main",
+  "Add Side",
+  "Add Drink",
+  "Add Dessert",
+  "Add more"
+];
 
 const portalChecklist = [
   ["Event date and time", true],
@@ -167,10 +137,16 @@ const portalChecklist = [
   ["Tablecloth options with pictures", true],
   ["Add-ons with pictures", true],
   ["Balance due", true],
-  ["Internal notes", false],
+  ["Internal notes", false]
 ] as const;
 
-function LineIcon({ name, className = "h-4 w-4" }: { name: IconName; className?: string }) {
+function LineIcon({
+  name,
+  className = "h-4 w-4"
+}: {
+  name: IconName;
+  className?: string;
+}) {
   const common = {
     className,
     viewBox: "0 0 24 24",
@@ -179,31 +155,117 @@ function LineIcon({ name, className = "h-4 w-4" }: { name: IconName; className?:
     strokeWidth: 2,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    "aria-hidden": true,
+    "aria-hidden": true
   };
 
   const paths: Record<IconName, ReactNode> = {
-    calendar: <><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01" /></>,
-    check: <><circle cx="12" cy="12" r="9" /><path d="m8 12 2.6 2.6L16.5 9" /></>,
+    calendar: (
+      <>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M8 2v4M16 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01" />
+      </>
+    ),
+    check: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8 12 2.6 2.6L16.5 9" />
+      </>
+    ),
     chevron: <path d="m9 18 6-6-6-6" />,
-    clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3 2" />
+      </>
+    ),
     close: <path d="M6 6l12 12M18 6 6 18" />,
-    couples: <><circle cx="8" cy="8" r="3" /><circle cx="16" cy="8" r="3" /><path d="M3 20a5 5 0 0 1 10 0M11 20a5 5 0 0 1 10 0" /></>,
-    document: <><path d="M6 3h9l3 3v15H6Z" /><path d="M14 3v4h4M9 11h6M9 15h6" /></>,
-    expand: <><path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" /><path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" /></>,
-    files: <><path d="M7 3h8l4 4v12H7Z" /><path d="M15 3v5h4M5 7H3v14h12v-2" /></>,
-    fork: <><path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M18 3v18M18 3c2 2 3 4 3 7v2h-3" /></>,
-    guests: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
-    mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
-    map: <><path d="M3 6 9 3l6 3 6-3v15l-6 3-6-3-6 3Z" /><path d="M9 3v15M15 6v15" /></>,
+    couples: (
+      <>
+        <circle cx="8" cy="8" r="3" />
+        <circle cx="16" cy="8" r="3" />
+        <path d="M3 20a5 5 0 0 1 10 0M11 20a5 5 0 0 1 10 0" />
+      </>
+    ),
+    document: (
+      <>
+        <path d="M6 3h9l3 3v15H6Z" />
+        <path d="M14 3v4h4M9 11h6M9 15h6" />
+      </>
+    ),
+    expand: (
+      <>
+        <path d="M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5" />
+        <path d="M3 3l6 6M21 3l-6 6M3 21l6-6M21 21l-6-6" />
+      </>
+    ),
+    files: (
+      <>
+        <path d="M7 3h8l4 4v12H7Z" />
+        <path d="M15 3v5h4M5 7H3v14h12v-2" />
+      </>
+    ),
+    fork: (
+      <>
+        <path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M18 3v18M18 3c2 2 3 4 3 7v2h-3" />
+      </>
+    ),
+    guests: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </>
+    ),
+    mail: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m3 7 9 6 9-6" />
+      </>
+    ),
+    map: (
+      <>
+        <path d="M3 6 9 3l6 3 6-3v15l-6 3-6-3-6 3Z" />
+        <path d="M9 3v15M15 6v15" />
+      </>
+    ),
     menu: <path d="M4 7h16M4 12h16M4 17h16" />,
-    phone: <><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.8L7.7 9.8a16 16 0 0 0 6.5 6.5l1.3-1.3a2 2 0 0 1 1.8-.6l3 .5a2 2 0 0 1 1.7 2Z" /></>,
+    phone: (
+      <>
+        <path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.5 3a2 2 0 0 1-.6 1.8L7.7 9.8a16 16 0 0 0 6.5 6.5l1.3-1.3a2 2 0 0 1 1.8-.6l3 .5a2 2 0 0 1 1.7 2Z" />
+      </>
+    ),
     plus: <path d="M12 5v14M5 12h14" />,
-    printer: <><path d="M7 8V3h10v5" /><path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" /><path d="M7 14h10v7H7Z" /></>,
-    save: <><path d="M5 3h12l2 2v16H5Z" /><path d="M8 3v6h8M8 21v-7h8v7" /></>,
-    store: <><path d="M4 10h16l-1-5H5Z" /><path d="M6 10v10h12V10M9 20v-6h6v6" /></>,
-    upload: <><path d="M12 16V8" /><path d="m8 12 4-4 4 4" /><path d="M20 16.5A4.5 4.5 0 0 0 15.8 12a6 6 0 1 0-11.1 3.2A3.5 3.5 0 0 0 6.5 22H18a4 4 0 0 0 2-7.5" /></>,
-    user: <><circle cx="12" cy="8" r="4" /><path d="M6 21a6 6 0 0 1 12 0" /></>,
+    printer: (
+      <>
+        <path d="M7 8V3h10v5" />
+        <path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+        <path d="M7 14h10v7H7Z" />
+      </>
+    ),
+    save: (
+      <>
+        <path d="M5 3h12l2 2v16H5Z" />
+        <path d="M8 3v6h8M8 21v-7h8v7" />
+      </>
+    ),
+    store: (
+      <>
+        <path d="M4 10h16l-1-5H5Z" />
+        <path d="M6 10v10h12V10M9 20v-6h6v6" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M12 16V8" />
+        <path d="m8 12 4-4 4 4" />
+        <path d="M20 16.5A4.5 4.5 0 0 0 15.8 12a6 6 0 1 0-11.1 3.2A3.5 3.5 0 0 0 6.5 22H18a4 4 0 0 0 2-7.5" />
+      </>
+    ),
+    user: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M6 21a6 6 0 0 1 12 0" />
+      </>
+    )
   };
 
   return <svg {...common}>{paths[name]}</svg>;
@@ -213,13 +275,29 @@ function Badge({ children, tone }: { children: ReactNode; tone: BadgeTone }) {
   const classes = {
     green: "border-[#146c43]/30 bg-[#eef4fa] text-[#146c43]",
     gold: "border-[#9a5b00]/35 bg-[#fbfcfd] text-[#9a5b00]",
-    red: "border-[#a62b24]/35 bg-[#fbfcfd] text-[#a62b24]",
+    red: "border-[#a62b24]/35 bg-[#fbfcfd] text-[#a62b24]"
   };
 
-  return <span className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-black ${classes[tone]}`}>{children}</span>;
+  return (
+    <span
+      className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-black ${classes[tone]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
-function ActionButton({ children, icon, onClick, primary = false }: { children: ReactNode; icon: IconName; onClick?: () => void; primary?: boolean }) {
+function ActionButton({
+  children,
+  icon,
+  onClick,
+  primary = false
+}: {
+  children: ReactNode;
+  icon: IconName;
+  onClick?: () => void;
+  primary?: boolean;
+}) {
   return (
     <button
       className={`inline-flex h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-2.5 text-xs font-black transition hover:-translate-y-0.5 ${
@@ -236,13 +314,23 @@ function ActionButton({ children, icon, onClick, primary = false }: { children: 
   );
 }
 
-function EventListCard({ event, selected, onClick }: { event: EventFile; selected: boolean; onClick: () => void }) {
+function EventListCard({
+  event,
+  selected,
+  onClick
+}: {
+  event: EventFile;
+  selected: boolean;
+  onClick: () => void;
+}) {
   const statusTone = event.status === "Confirmed" ? "green" : "gold";
 
   return (
     <button
       className={`w-full rounded-lg border p-2.5 text-left transition ${
-        selected ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5] bg-white hover:border-[#b9c2cf] hover:bg-[#fbfcfd]"
+        selected
+          ? "border-[#1f4d73] bg-[#eef4fa]"
+          : "border-[#d8dde5] bg-white hover:border-[#b9c2cf] hover:bg-[#fbfcfd]"
       }`}
       type="button"
       onClick={onClick}
@@ -253,7 +341,9 @@ function EventListCard({ event, selected, onClick }: { event: EventFile; selecte
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="truncate text-sm font-black text-[#17202a]">{event.title}</h3>
+            <h3 className="truncate text-sm font-black text-[#17202a]">
+              {event.title}
+            </h3>
             <Badge tone={statusTone}>{event.status}</Badge>
           </div>
           <div className="mt-1 flex items-start justify-between gap-2 text-[11px] leading-5 text-[#6a7483]">
@@ -262,11 +352,22 @@ function EventListCard({ event, selected, onClick }: { event: EventFile; selecte
               <br />
               {event.packageName} - {event.guests} guests - {event.coordinator}
             </p>
-            <span className="shrink-0 text-right text-[#17202a]">{event.balance}</span>
+            <span className="shrink-0 text-right text-[#17202a]">
+              {event.balance}
+            </span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {event.notes.map((note) => (
-              <Badge key={note} tone={note.includes("Not") ? "red" : note.includes("Needs") ? "gold" : "green"}>
+              <Badge
+                key={note}
+                tone={
+                  note.includes("Not")
+                    ? "red"
+                    : note.includes("Needs")
+                      ? "gold"
+                      : "green"
+                }
+              >
                 {note}
               </Badge>
             ))}
@@ -277,12 +378,28 @@ function EventListCard({ event, selected, onClick }: { event: EventFile; selecte
   );
 }
 
-function SummaryTile({ label, value, icon, emphasized = false }: { label: string; value: string; icon: IconName; emphasized?: boolean }) {
+function SummaryTile({
+  label,
+  value,
+  icon,
+  emphasized = false
+}: {
+  label: string;
+  value: string;
+  icon: IconName;
+  emphasized?: boolean;
+}) {
   return (
-    <article className={`relative min-h-20 overflow-hidden rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}>
+    <article
+      className={`relative min-h-20 overflow-hidden rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}
+    >
       <div className="min-w-0 pr-7">
-        <p className="wrap-break-wordbreak-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
-        <p className="mt-2 wrap-break-words text-sm font-black leading-5 text-[#17202a]">{value}</p>
+        <p className="wrap-break-wordbreak-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+          {label}
+        </p>
+        <p className="mt-2 wrap-break-words text-sm font-black leading-5 text-[#17202a]">
+          {value}
+        </p>
       </div>
       <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
         <LineIcon name={icon} className="h-3.5 w-3.5" />
@@ -291,9 +408,19 @@ function SummaryTile({ label, value, icon, emphasized = false }: { label: string
   );
 }
 
-function Field({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+function Field({
+  label,
+  children,
+  className = ""
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <label className={`block text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483] ${className}`}>
+    <label
+      className={`block text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483] ${className}`}
+    >
       {label}
       {children}
     </label>
@@ -304,7 +431,7 @@ function ClientContact() {
   const rows = [
     { icon: "phone", label: "718-555-0142" },
     { icon: "mail", label: "office@friedman.example" },
-    { icon: "couples", label: "M. Stern" },
+    { icon: "couples", label: "M. Stern" }
   ] satisfies Array<{ icon: IconName; label: string }>;
 
   return (
@@ -315,7 +442,11 @@ function ClientContact() {
       </header>
       <div className="space-y-3 p-3">
         {rows.map((row) => (
-          <button key={row.label} className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]" type="button">
+          <button
+            key={row.label}
+            className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+            type="button"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
               <LineIcon name={row.icon} />
             </span>
@@ -334,7 +465,7 @@ function ReadinessPanel() {
     ["Menu confirmed", true],
     ["Hall map confirmed", false],
     ["Timeline confirmed", false],
-    ["Event paid", false],
+    ["Event paid", false]
   ] as const;
 
   return (
@@ -345,8 +476,13 @@ function ReadinessPanel() {
       </header>
       <div className="space-y-3 p-3">
         {rows.map(([label, done]) => (
-          <div key={label} className="flex h-12 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]">
-            <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-[#146c43] text-[#146c43]" : "border-[#b9c2cf] text-transparent"}`}>
+          <div
+            key={label}
+            className="flex h-12 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]"
+          >
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-[#146c43] text-[#146c43]" : "border-[#b9c2cf] text-transparent"}`}
+            >
               {done ? <LineIcon name="check" className="h-4 w-4" /> : null}
             </span>
             {label}
@@ -366,34 +502,73 @@ function EventInformation({ event }: { event: EventFile }) {
       </header>
       <div className="grid gap-3 p-3 sm:grid-cols-3">
         <Field label="Client">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.replace(" Wedding", "")} name="clientName" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.title.replace(" Wedding", "")}
+            name="clientName"
+          />
         </Field>
         <Field label="Event type">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.title.includes("Wedding") ? "Wedding" : "Dinner"} name="eventType" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={
+              event.title.includes("Wedding") ? "Wedding" : "Dinner"
+            }
+            name="eventType"
+          />
         </Field>
         <Field label="Status">
-          <select className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.status} aria-label="Event status" name="eventStatus">
+          <select
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.status}
+            aria-label="Event status"
+            name="eventStatus"
+          >
             <option>Confirmed</option>
             <option>Hold</option>
           </select>
         </Field>
         <Field label="Date">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.date} name="eventDate" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.date}
+            name="eventDate"
+          />
         </Field>
         <Field label="Time">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.time} name="eventTime" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.time}
+            name="eventTime"
+          />
         </Field>
         <Field label="Hall / Room">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]" defaultValue={event.room} name="eventRoom" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.room}
+            name="eventRoom"
+          />
         </Field>
         <Field label="Guests">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.guests} name="guestCount" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.guests}
+            name="guestCount"
+          />
         </Field>
         <Field label="Children">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.children} name="childrenCount" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.children}
+            name="childrenCount"
+          />
         </Field>
         <Field label="Couples">
-          <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]" defaultValue={event.couples} name="couplesCount" />
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            defaultValue={event.couples}
+            name="couplesCount"
+          />
         </Field>
         <Field label="Internal notes" className="sm:col-span-3">
           <textarea
@@ -404,7 +579,10 @@ function EventInformation({ event }: { event: EventFile }) {
         </Field>
       </div>
       <div className="px-3 pb-3">
-        <button className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+        <button
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          type="button"
+        >
           <LineIcon name="save" className="h-4 w-4" />
           Save event details
         </button>
@@ -419,38 +597,65 @@ function TimelineInstructions() {
       <header className="flex h-11 items-center justify-between border-b border-[#d8dde5] px-4">
         <div className="flex items-center gap-2">
           <LineIcon name="clock" />
-          <h2 className="text-sm font-black text-[#17202a]">Timeline instructions</h2>
+          <h2 className="text-sm font-black text-[#17202a]">
+            Timeline instructions
+          </h2>
         </div>
-        <button className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
+        <button
+          className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+          type="button"
+        >
           <LineIcon name="plus" />
           Add time
         </button>
       </header>
       <div className="space-y-3 p-3">
         {timelineRows.map(([time, text, type]) => (
-          <div key={time} className="grid gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_38px]">
+          <div
+            key={time}
+            className="grid gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_38px]"
+          >
             <div className="flex h-10 items-center justify-between rounded-lg border border-[#d8dde5] bg-white px-3 text-sm">
               {time}
               <LineIcon name="clock" className="h-4 w-4" />
             </div>
-            <input className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={text} name={`timeline-${time}-text`} />
-            <select className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm" defaultValue={type} aria-label={`${time} timeline type`} name={`timeline-${time}-type`}>
+            <input
+              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              defaultValue={text}
+              name={`timeline-${time}-text`}
+            />
+            <select
+              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              defaultValue={type}
+              aria-label={`${time} timeline type`}
+              name={`timeline-${time}-type`}
+            >
               <option>Event</option>
               <option>Kitchen</option>
               <option>Staff</option>
             </select>
-            <button className="flex h-10 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]" type="button" aria-label={`Remove ${time}`}>
+            <button
+              className="flex h-10 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
+              type="button"
+              aria-label={`Remove ${time}`}
+            >
               <LineIcon name="close" />
             </button>
           </div>
         ))}
       </div>
       <div className="flex flex-wrap gap-2 px-3 pb-3">
-        <button className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+        <button
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          type="button"
+        >
           <LineIcon name="save" />
           Save timeline
         </button>
-        <button className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black hover:bg-[#eef4fa]" type="button">
+        <button
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black hover:bg-[#eef4fa]"
+          type="button"
+        >
           <LineIcon name="check" />
           Confirm timeline
         </button>
@@ -478,7 +683,10 @@ function MenuDishCard({ course, name }: { course: string; name: string }) {
 
 function AddMenuCard({ label }: { label: string }) {
   return (
-    <button className="flex h-50 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:border-[#1f4d73] hover:bg-[#eef4fa]" type="button">
+    <button
+      className="flex h-50 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+      type="button"
+    >
       <div className="flex flex-1 items-center justify-center">
         <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-[#b9c2cf] bg-white text-[#1f4d73]">
           <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8dde5]">
@@ -499,9 +707,14 @@ function EventMenuContent() {
       <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
         <div className="flex items-center gap-2">
           <LineIcon name="document" />
-          <h2 className="text-sm font-black text-[#17202a]">Menu for this event</h2>
+          <h2 className="text-sm font-black text-[#17202a]">
+            Menu for this event
+          </h2>
         </div>
-        <button className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+        <button
+          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          type="button"
+        >
           <LineIcon name="check" />
           Confirm menu
         </button>
@@ -518,15 +731,37 @@ function EventMenuContent() {
   );
 }
 
-function PortalOptionCard({ title, price, selected = false, highlight = false }: { title: string; price?: string; selected?: boolean; highlight?: boolean }) {
+function PortalOptionCard({
+  title,
+  price,
+  selected = false,
+  highlight = false
+}: {
+  title: string;
+  price?: string;
+  selected?: boolean;
+  highlight?: boolean;
+}) {
   return (
     <label className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div className={`flex h-20 items-center justify-center rounded-lg border border-[#d8dde5] text-center text-xs font-black uppercase tracking-[0.08em] text-[#516174] ${highlight ? "bg-[#fff2b8]" : "bg-white"}`}>
+      <div
+        className={`flex h-20 items-center justify-center rounded-lg border border-[#d8dde5] text-center text-xs font-black uppercase tracking-[0.08em] text-[#516174] ${highlight ? "bg-[#fff2b8]" : "bg-white"}`}
+      >
         {title}
       </div>
       <div className="mt-3 flex items-start gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516174]">
-        <input className="mt-0.5 h-3.5 w-3.5" type={selected ? "radio" : "checkbox"} defaultChecked={selected} name={selected ? "menu-package" : "menu-item"} />
-        <span>{title}{price ? <span className="ml-0.5 text-[#17202a]">{price}</span> : null}</span>
+        <input
+          className="mt-0.5 h-3.5 w-3.5"
+          type={selected ? "radio" : "checkbox"}
+          defaultChecked={selected}
+          name={selected ? "menu-package" : "menu-item"}
+        />
+        <span>
+          {title}
+          {price ? (
+            <span className="ml-0.5 text-[#17202a]">{price}</span>
+          ) : null}
+        </span>
       </div>
     </label>
   );
@@ -534,25 +769,46 @@ function PortalOptionCard({ title, price, selected = false, highlight = false }:
 
 function LayoutPreview() {
   const gridStyle = {
-    backgroundImage: "linear-gradient(#d8dde5 1px, transparent 1px), linear-gradient(90deg, #d8dde5 1px, transparent 1px)",
-    backgroundSize: "22px 22px",
+    backgroundImage:
+      "linear-gradient(#d8dde5 1px, transparent 1px), linear-gradient(90deg, #d8dde5 1px, transparent 1px)",
+    backgroundSize: "22px 22px"
   };
 
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white p-4">
       <h2 className="text-sm font-black text-[#17202a]">Layout preview</h2>
-      <div className="mt-3 rounded-lg border border-[#d8dde5] p-8" style={gridStyle}>
+      <div
+        className="mt-3 rounded-lg border border-[#d8dde5] p-8"
+        style={gridStyle}
+      >
         <div className="mx-auto grid max-w-96 grid-cols-4 gap-0 text-xs font-black">
-          {["Table 1", "Table 2", "Table 5", "Table 6", "Table 3", "Table 4", "Table 7", "Table 8"].map((table) => (
-            <div key={table} className="flex h-11 items-center justify-center rounded-full border border-[#17202a] bg-white">
+          {[
+            "Table 1",
+            "Table 2",
+            "Table 5",
+            "Table 6",
+            "Table 3",
+            "Table 4",
+            "Table 7",
+            "Table 8"
+          ].map((table) => (
+            <div
+              key={table}
+              className="flex h-11 items-center justify-center rounded-full border border-[#17202a] bg-white"
+            >
               {table}
             </div>
           ))}
         </div>
-        <div className="mx-auto my-2 h-2 max-w-100 rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">Mechitza</div>
+        <div className="mx-auto my-2 h-2 max-w-100 rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">
+          Mechitza
+        </div>
         <div className="mx-auto mt-10 grid max-w-lg grid-cols-3 gap-8 text-xs font-black">
           {["Buffet", "Head table", "Drinks"].map((label) => (
-            <div key={label} className="flex h-11 items-center justify-center rounded-lg border border-[#17202a] bg-white">
+            <div
+              key={label}
+              className="flex h-11 items-center justify-center rounded-lg border border-[#17202a] bg-white"
+            >
               {label}
             </div>
           ))}
@@ -569,28 +825,52 @@ function ClientPortalContent({ event }: { event: EventFile }) {
         <section className="rounded-lg border border-[#d8dde5] bg-white">
           <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
             <LineIcon name="files" />
-            <h2 className="text-sm font-black text-[#17202a]">Client sharing checklist</h2>
+            <h2 className="text-sm font-black text-[#17202a]">
+              Client sharing checklist
+            </h2>
           </header>
           <div className="space-y-2 p-3">
             {portalChecklist.map(([label, shared]) => (
-              <label key={label} className="flex h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]">
-                <input className="h-4 w-4 accent-[#1f4d73]" type="checkbox" defaultChecked={shared} name={`portal-section-${label.toLowerCase().replaceAll(" ", "-")}`} />
+              <label
+                key={label}
+                className="flex h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]"
+              >
+                <input
+                  className="h-4 w-4 accent-[#1f4d73]"
+                  type="checkbox"
+                  defaultChecked={shared}
+                  name={`portal-section-${label.toLowerCase().replaceAll(" ", "-")}`}
+                />
                 <span className="min-w-0 flex-1 truncate">{label}</span>
-                <span className="text-xs font-medium text-[#6a7483]">{shared ? "Shared" : "Hidden"}</span>
+                <span className="text-xs font-medium text-[#6a7483]">
+                  {shared ? "Shared" : "Hidden"}
+                </span>
               </label>
             ))}
           </div>
         </section>
 
         <section className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
-          <h2 className="text-sm font-black text-[#17202a]">Client portal link</h2>
-          <input className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" defaultValue="https://eventcore.app/client/e1" name="clientPortalUrl" />
+          <h2 className="text-sm font-black text-[#17202a]">
+            Client portal link
+          </h2>
+          <input
+            className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+            defaultValue="https://eventcore.app/client/e1"
+            name="clientPortalUrl"
+          />
           <div className="mt-2 flex flex-wrap gap-2">
-            <button className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white" type="button">
+            <button
+              className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
+              type="button"
+            >
               <LineIcon name="document" />
               Generate link
             </button>
-            <button className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black" type="button">
+            <button
+              className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black"
+              type="button"
+            >
               <LineIcon name="files" />
               Copy link
             </button>
@@ -601,14 +881,22 @@ function ClientPortalContent({ event }: { event: EventFile }) {
       <section className="rounded-lg border border-[#d8dde5] bg-white">
         <header className="rounded-t-lg bg-[#1f4d73] p-6 text-white">
           <h1 className="text-2xl font-black">{event.title}</h1>
-          <p className="mt-2 text-sm font-semibold">{event.date} - {event.time} - {event.room}</p>
+          <p className="mt-2 text-sm font-semibold">
+            {event.date} - {event.time} - {event.room}
+          </p>
         </header>
         <div className="space-y-3 p-4">
           <section className="rounded-lg border border-[#d8dde5] p-4">
             <h2 className="text-sm font-black">Event details</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"><strong>Status</strong><p className="mt-1 text-sm text-[#6a7483]">{event.status}</p></div>
-              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"><strong>Hall</strong><p className="mt-1 text-sm text-[#6a7483]">{event.room}</p></div>
+              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+                <strong>Status</strong>
+                <p className="mt-1 text-sm text-[#6a7483]">{event.status}</p>
+              </div>
+              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+                <strong>Hall</strong>
+                <p className="mt-1 text-sm text-[#6a7483]">{event.room}</p>
+              </div>
             </div>
           </section>
 
@@ -618,10 +906,14 @@ function ClientPortalContent({ event }: { event: EventFile }) {
               {[
                 ["Couples", event.couples],
                 ["Children", event.children],
-                ["Extra guests", "0"],
+                ["Extra guests", "0"]
               ].map(([label, value]) => (
                 <Field key={label} label={label}>
-                  <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue={value} name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`} />
+                  <input
+                    className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
+                    defaultValue={value}
+                    name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`}
+                  />
                 </Field>
               ))}
             </div>
@@ -633,7 +925,11 @@ function ClientPortalContent({ event }: { event: EventFile }) {
               <Badge tone="green">client selectable</Badge>
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <PortalOptionCard title="Standard dinner" price="Included" selected />
+              <PortalOptionCard
+                title="Standard dinner"
+                price="Included"
+                selected
+              />
               <PortalOptionCard title="Premium dinner" price="$1,800.00" />
               <PortalOptionCard title="Gold dinner" price="$3,500.00" />
               <PortalOptionCard title="Dairy buffet" price="$1,200.00" />
@@ -664,14 +960,19 @@ function ClientPortalContent({ event }: { event: EventFile }) {
 
           <section className="rounded-lg border border-[#d8dde5] p-4">
             <h2 className="text-sm font-black">Payment</h2>
-            <button className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white" type="button">
+            <button
+              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
+              type="button"
+            >
               <LineIcon name="document" />
               Pay balance
             </button>
           </section>
 
           <div className="flex items-center justify-between rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
-            <span className="text-sm text-[#17202a]">Estimated client total</span>
+            <span className="text-sm text-[#17202a]">
+              Estimated client total
+            </span>
             <strong className="text-xl text-[#17202a]">$55,200.00</strong>
           </div>
         </div>
@@ -680,13 +981,33 @@ function ClientPortalContent({ event }: { event: EventFile }) {
   );
 }
 
-function BillingStatCard({ label, value, note, icon, emphasized = false }: { label: string; value: string; note: string; icon: IconName; emphasized?: boolean }) {
+function BillingStatCard({
+  label,
+  value,
+  note,
+  icon,
+  emphasized = false
+}: {
+  label: string;
+  value: string;
+  note: string;
+  icon: IconName;
+  emphasized?: boolean;
+}) {
   return (
-    <article className={`min-h-27 rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}>
+    <article
+      className={`min-h-27 rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">{label}</p>
-          <p className={`mt-2 text-xl font-black ${emphasized ? "text-[#9a5b00]" : "text-[#17202a]"}`}>{value}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+            {label}
+          </p>
+          <p
+            className={`mt-2 text-xl font-black ${emphasized ? "text-[#9a5b00]" : "text-[#17202a]"}`}
+          >
+            {value}
+          </p>
           <p className="mt-2 text-xs text-[#6a7483]">{note}</p>
         </div>
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
@@ -700,22 +1021,43 @@ function BillingStatCard({ label, value, note, icon, emphasized = false }: { lab
 function EventBillingContent() {
   const invoices = [
     ["INV-1028", "Open", "$48,200.00", "$18,000.00", "$30,200.00"],
-    ["RET-881", "Paid", "$7,000.00", "$7,000.00", "$0.00"],
+    ["RET-881", "Paid", "$7,000.00", "$7,000.00", "$0.00"]
   ];
 
   const transactions = [
     ["Jun 24", "ACH Friedman", "$15,000.00", "Event Deposit"],
     ["Jun 25", "Premium Linen Co.", "$-1,840.00", "Linen Rental"],
-    ["Jun 27", "Refund adjustment", "$-600.00", "Refund"],
+    ["Jun 27", "Refund adjustment", "$-600.00", "Refund"]
   ];
 
   return (
     <div className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <BillingStatCard label="Total event" value="$55,200.00" note="Invoice total" icon="document" />
-        <BillingStatCard label="Open balance" value="$30,200.00" note="Click to open outstanding balance" icon="document" emphasized />
-        <BillingStatCard label="Payments" value="$25,000.00" note="Recorded on event" icon="document" />
-        <BillingStatCard label="Transactions" value="3" note="Assigned records" icon="files" />
+        <BillingStatCard
+          label="Total event"
+          value="$55,200.00"
+          note="Invoice total"
+          icon="document"
+        />
+        <BillingStatCard
+          label="Open balance"
+          value="$30,200.00"
+          note="Click to open outstanding balance"
+          icon="document"
+          emphasized
+        />
+        <BillingStatCard
+          label="Payments"
+          value="$25,000.00"
+          note="Recorded on event"
+          icon="document"
+        />
+        <BillingStatCard
+          label="Transactions"
+          value="3"
+          note="Assigned records"
+          icon="files"
+        />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_336px]">
@@ -723,9 +1065,14 @@ function EventBillingContent() {
           <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
             <div className="flex items-center gap-2">
               <LineIcon name="document" />
-              <h2 className="text-sm font-black text-[#17202a]">Invoices for this event</h2>
+              <h2 className="text-sm font-black text-[#17202a]">
+                Invoices for this event
+              </h2>
             </div>
-            <button className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+            <button
+              className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+              type="button"
+            >
               <LineIcon name="plus" />
               Create invoice
             </button>
@@ -734,19 +1081,33 @@ function EventBillingContent() {
             <table className="w-full min-w-130 text-left text-sm">
               <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
                 <tr>
-                  {["Invoice", "Status", "Total", "Paid", "Balance"].map((head) => (
-                    <th key={head} className="border-b border-[#d8dde5] px-2 py-3">{head}</th>
-                  ))}
+                  {["Invoice", "Status", "Total", "Paid", "Balance"].map(
+                    (head) => (
+                      <th
+                        key={head}
+                        className="border-b border-[#d8dde5] px-2 py-3"
+                      >
+                        {head}
+                      </th>
+                    )
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {invoices.map(([invoice, status, total, paid, balance]) => (
-                  <tr key={invoice} className="border-b border-[#d8dde5] last:border-b-0">
-                    <td className="px-2 py-3 font-black text-[#17202a]">{invoice}</td>
+                  <tr
+                    key={invoice}
+                    className="border-b border-[#d8dde5] last:border-b-0"
+                  >
+                    <td className="px-2 py-3 font-black text-[#17202a]">
+                      {invoice}
+                    </td>
                     <td className="px-2 py-3">{status}</td>
                     <td className="px-2 py-3">{total}</td>
                     <td className="px-2 py-3">{paid}</td>
-                    <td className="px-2 py-3 text-right font-black">{balance}</td>
+                    <td className="px-2 py-3 text-right font-black">
+                      {balance}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -761,10 +1122,18 @@ function EventBillingContent() {
           </header>
           <div className="space-y-3 p-3">
             <Field label="Payment amount">
-              <input className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]" defaultValue="5000" name="paymentAmount" />
+              <input
+                className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
+                defaultValue="5000"
+                name="paymentAmount"
+              />
             </Field>
             {["Record payment", "Client statement"].map((action) => (
-              <button key={action} className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]" type="button">
+              <button
+                key={action}
+                className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+                type="button"
+              >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
                   <LineIcon name="document" />
                 </span>
@@ -779,22 +1148,34 @@ function EventBillingContent() {
       <section className="rounded-lg border border-[#d8dde5] bg-white">
         <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
           <LineIcon name="files" />
-          <h2 className="text-sm font-black text-[#17202a]">Transaction history</h2>
+          <h2 className="text-sm font-black text-[#17202a]">
+            Transaction history
+          </h2>
         </header>
         <div className="overflow-x-auto p-3">
           <table className="w-full min-w-160 text-left text-sm">
             <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
               <tr>
                 {["Date", "Source", "Amount", "Category"].map((head) => (
-                  <th key={head} className="border-b border-[#d8dde5] px-2 py-3">{head}</th>
+                  <th
+                    key={head}
+                    className="border-b border-[#d8dde5] px-2 py-3"
+                  >
+                    {head}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {transactions.map(([date, source, amount, category]) => (
-                <tr key={`${date}-${source}`} className="border-b border-[#d8dde5] last:border-b-0">
+                <tr
+                  key={`${date}-${source}`}
+                  className="border-b border-[#d8dde5] last:border-b-0"
+                >
                   <td className="px-2 py-3">{date}</td>
-                  <td className="px-2 py-3 font-black text-[#17202a]">{source}</td>
+                  <td className="px-2 py-3 font-black text-[#17202a]">
+                    {source}
+                  </td>
                   <td className="px-2 py-3 text-right font-black">{amount}</td>
                   <td className="px-2 py-3">{category}</td>
                 </tr>
@@ -811,12 +1192,13 @@ function HallMapContent() {
   const layoutRows = [
     ["03:00 PM", "Setup layout"],
     ["06:30 PM", "Guest arrival layout"],
-    ["08:00 PM", "Dinner service layout"],
+    ["08:00 PM", "Dinner service layout"]
   ];
 
   const gridStyle = {
-    backgroundImage: "linear-gradient(#d8dde5 1px, transparent 1px), linear-gradient(90deg, #d8dde5 1px, transparent 1px)",
-    backgroundSize: "22px 22px",
+    backgroundImage:
+      "linear-gradient(#d8dde5 1px, transparent 1px), linear-gradient(90deg, #d8dde5 1px, transparent 1px)",
+    backgroundSize: "22px 22px"
   };
 
   return (
@@ -826,9 +1208,14 @@ function HallMapContent() {
           <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
             <div className="flex items-center gap-2">
               <LineIcon name="clock" />
-              <h2 className="text-sm font-black text-[#17202a]">Timeline layouts</h2>
+              <h2 className="text-sm font-black text-[#17202a]">
+                Timeline layouts
+              </h2>
             </div>
-            <button className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
+            <button
+              className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+              type="button"
+            >
               <LineIcon name="plus" />
               Add layout
             </button>
@@ -838,7 +1225,9 @@ function HallMapContent() {
               <button
                 key={time}
                 className={`grid w-full grid-cols-[104px_minmax(0,1fr)] gap-2 rounded-lg border p-2 text-left ${
-                  index === 0 ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd]"
+                  index === 0
+                    ? "border-[#1f4d73] bg-[#eef4fa]"
+                    : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd]"
                 }`}
                 type="button"
               >
@@ -855,10 +1244,15 @@ function HallMapContent() {
         </section>
 
         <section className="rounded-lg border border-[#d8dde5] bg-white p-3 text-sm leading-5 text-[#17202a]">
-          Hall map is view-only inside the event. Edit the timing or layout name here. To change the actual room layout, open the official Hall Map editor.
+          Hall map is view-only inside the event. Edit the timing or layout name
+          here. To change the actual room layout, open the official Hall Map
+          editor.
         </section>
 
-        <button className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+        <button
+          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          type="button"
+        >
           <LineIcon name="map" />
           Edit layout
         </button>
@@ -873,24 +1267,47 @@ function HallMapContent() {
           <Badge tone="gold">Needs final review</Badge>
         </header>
         <div className="px-4 pb-4">
-          <div className="min-h-80 rounded-lg border border-[#d8dde5] p-12" style={gridStyle}>
+          <div
+            className="min-h-80 rounded-lg border border-[#d8dde5] p-12"
+            style={gridStyle}
+          >
             <div className="mx-auto grid max-w-md grid-cols-4 gap-x-4 gap-y-6 text-xs font-black">
-              {["Table 1", "Table 2", "Table 5", "Table 6", "Table 3", "Table 4", "Table 7", "Table 8"].map((table) => (
-                <div key={table} className="flex h-12 items-center justify-center rounded-full border border-[#17202a] bg-white">
+              {[
+                "Table 1",
+                "Table 2",
+                "Table 5",
+                "Table 6",
+                "Table 3",
+                "Table 4",
+                "Table 7",
+                "Table 8"
+              ].map((table) => (
+                <div
+                  key={table}
+                  className="flex h-12 items-center justify-center rounded-full border border-[#17202a] bg-white"
+                >
                   {table}
                 </div>
               ))}
             </div>
-            <div className="mx-auto my-10 h-2 max-w-md rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">Mechitza</div>
+            <div className="mx-auto my-10 h-2 max-w-md rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">
+              Mechitza
+            </div>
             <div className="mx-auto mt-20 grid max-w-2xl grid-cols-3 gap-24 text-xs font-black">
               {["Buffet", "Head table", "Drinks"].map((label) => (
-                <div key={label} className="flex h-9 items-center justify-center rounded-lg border border-[#17202a] bg-white">
+                <div
+                  key={label}
+                  className="flex h-9 items-center justify-center rounded-lg border border-[#17202a] bg-white"
+                >
                   {label}
                 </div>
               ))}
             </div>
           </div>
-          <button className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
+          <button
+            className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+            type="button"
+          >
             <LineIcon name="check" />
             Confirm hall map
           </button>
@@ -900,14 +1317,35 @@ function HallMapContent() {
   );
 }
 
-function KitchenItemCard({ title, amount, status, note }: { title: string; amount: string; status: string; note: string }) {
-  const statusClass = status === "COMPLETE" ? "text-[#146c43]" : status === "IN PROGRESS" ? "text-[#9a5b00]" : "text-[#17202a]";
+function KitchenItemCard({
+  title,
+  amount,
+  status,
+  note
+}: {
+  title: string;
+  amount: string;
+  status: string;
+  note: string;
+}) {
+  const statusClass =
+    status === "COMPLETE"
+      ? "text-[#146c43]"
+      : status === "IN PROGRESS"
+        ? "text-[#9a5b00]"
+        : "text-[#17202a]";
 
   return (
     <article className="w-27 border border-[#d8dde5] bg-white p-3">
-      <h3 className="border-b border-[#d8dde5] pb-3 text-center text-lg font-black leading-4 text-[#17202a]">{title}</h3>
+      <h3 className="border-b border-[#d8dde5] pb-3 text-center text-lg font-black leading-4 text-[#17202a]">
+        {title}
+      </h3>
       <p className="mt-3 text-xs font-black text-[#17202a]">{amount}</p>
-      <p className={`mt-1 text-[11px] font-black uppercase tracking-[0.08em] ${statusClass}`}>{status}</p>
+      <p
+        className={`mt-1 text-[11px] font-black uppercase tracking-[0.08em] ${statusClass}`}
+      >
+        {status}
+      </p>
       <p className="mt-2 text-[11px] leading-4 text-[#6a7483]">{note}</p>
     </article>
   );
@@ -919,38 +1357,78 @@ function EventKitchenContent() {
     ["Chicken soup", "120 bowls", "IN PROGRESS", "Already in progress"],
     ["Braised short ribs", "24 trays", "PENDING", "Changes still allowed"],
     ["Potato kugel", "18 pans", "PENDING", "Changes still allowed"],
-    ["Children schnitzel", "38 portions", "PENDING", "Changes still allowed"],
+    ["Children schnitzel", "38 portions", "PENDING", "Changes still allowed"]
   ];
 
   return (
     <div className="space-y-3">
       <section className="bg-[#a9a9a9] p-4 text-[#17202a]">
         <div className="flex flex-wrap items-start gap-3">
-          <button className="inline-flex h-10 items-center gap-3 bg-white px-4 text-sm font-black" type="button">
+          <button
+            className="inline-flex h-10 items-center gap-3 bg-white px-4 text-sm font-black"
+            type="button"
+          >
             <LineIcon name="chevron" />
             Main Menu
           </button>
-          <button className="flex h-10 w-10 items-center justify-center bg-white" type="button" aria-label="Kitchen document">
+          <button
+            className="flex h-10 w-10 items-center justify-center bg-white"
+            type="button"
+            aria-label="Kitchen document"
+          >
             <LineIcon name="document" />
           </button>
-          <button className="flex h-10 w-10 items-center justify-center bg-white" type="button" aria-label="Previous day">
+          <button
+            className="flex h-10 w-10 items-center justify-center bg-white"
+            type="button"
+            aria-label="Previous day"
+          >
             <LineIcon name="chevron" className="h-4 w-4 rotate-180" />
           </button>
-          <h2 className="flex h-10 items-center text-2xl font-black">Wednesday, July 8, 2026</h2>
-          <button className="flex h-10 w-10 items-center justify-center bg-white" type="button" aria-label="Next day">
+          <h2 className="flex h-10 items-center text-2xl font-black">
+            Wednesday, July 8, 2026
+          </h2>
+          <button
+            className="flex h-10 w-10 items-center justify-center bg-white"
+            type="button"
+            aria-label="Next day"
+          >
             <LineIcon name="chevron" />
           </button>
-          <button className="h-10 bg-white px-4 text-sm font-black" type="button">Today</button>
+          <button
+            className="h-10 bg-white px-4 text-sm font-black"
+            type="button"
+          >
+            Today
+          </button>
           <div className="ml-auto flex flex-wrap gap-3">
-            <button className="h-10 bg-[#f5c542] px-5 text-sm font-black" type="button">Today</button>
-            <button className="h-10 bg-white px-5 text-sm font-black" type="button">This Week</button>
-            <button className="h-10 bg-white px-5 text-sm font-black" type="button">4 Weeks</button>
+            <button
+              className="h-10 bg-[#f5c542] px-5 text-sm font-black"
+              type="button"
+            >
+              Today
+            </button>
+            <button
+              className="h-10 bg-white px-5 text-sm font-black"
+              type="button"
+            >
+              This Week
+            </button>
+            <button
+              className="h-10 bg-white px-5 text-sm font-black"
+              type="button"
+            >
+              4 Weeks
+            </button>
           </div>
         </div>
         <p className="mt-3 text-2xl font-black text-[#ffe36e]">3:56 PM</p>
       </section>
 
-      <button className="flex h-11 w-full items-center gap-3 border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#6a7483]" type="button">
+      <button
+        className="flex h-11 w-full items-center gap-3 border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#6a7483]"
+        type="button"
+      >
         <LineIcon name="plus" />
         Kitchen live view
       </button>
@@ -959,22 +1437,41 @@ function EventKitchenContent() {
         <div className="border border-[#b9c2cf] bg-[#d8eeee] p-6">
           <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
             <div className="border-l-5 border-[#21b8ae] pl-5">
-              <p className="text-sm font-black uppercase tracking-[0.12em] text-[#17202a]">Friedman Wedding</p>
-              <h2 className="mt-4 text-2xl font-black text-[#001a33]">278 portions</h2>
-              <button className="mt-3 inline-flex h-7 items-center gap-2 border border-[#c77cff] bg-[#f7eaff] px-3 text-xs font-black text-[#8a3fd1]" type="button">
+              <p className="text-sm font-black uppercase tracking-[0.12em] text-[#17202a]">
+                Friedman Wedding
+              </p>
+              <h2 className="mt-4 text-2xl font-black text-[#001a33]">
+                278 portions
+              </h2>
+              <button
+                className="mt-3 inline-flex h-7 items-center gap-2 border border-[#c77cff] bg-[#f7eaff] px-3 text-xs font-black text-[#8a3fd1]"
+                type="button"
+              >
                 <LineIcon name="document" className="h-3.5 w-3.5" />
                 Kitchen live
               </button>
-              <p className="mt-4 text-sm font-black uppercase tracking-[0.12em] text-[#516174]">Gold dinner menu assigned</p>
-              <div className="mt-3 border border-[#e6c35c] bg-[#fff7d7] px-3 py-2 text-sm font-black text-[#9a5b00]">Needs it ready for 6:30 PM</div>
+              <p className="mt-4 text-sm font-black uppercase tracking-[0.12em] text-[#516174]">
+                Gold dinner menu assigned
+              </p>
+              <div className="mt-3 border border-[#e6c35c] bg-[#fff7d7] px-3 py-2 text-sm font-black text-[#9a5b00]">
+                Needs it ready for 6:30 PM
+              </div>
               <p className="mt-4 max-w-md text-xs leading-5 text-[#1f4d73]">
-                Read-only event view. This reflects the kitchen in real time. Kitchen is already in progress. Items already started are no longer changeable.
+                Read-only event view. This reflects the kitchen in real time.
+                Kitchen is already in progress. Items already started are no
+                longer changeable.
               </p>
             </div>
 
             <div className="flex flex-wrap items-start gap-3">
               {kitchenItems.map(([title, amount, status, note]) => (
-                <KitchenItemCard key={title} title={title} amount={amount} status={status} note={note} />
+                <KitchenItemCard
+                  key={title}
+                  title={title}
+                  amount={amount}
+                  status={status}
+                  note={note}
+                />
               ))}
             </div>
           </div>
@@ -986,8 +1483,18 @@ function EventKitchenContent() {
 
 function EventVendorsContent() {
   const vendorRows = [
-    { vendor: "Royal Linen", order: "Tablecloth order", status: "Pending", notes: "Need ivory count" },
-    { vendor: "Sweet House", order: "Dessert cups", status: "Confirmed", notes: "Delivery 4:30 PM" },
+    {
+      vendor: "Royal Linen",
+      order: "Tablecloth order",
+      status: "Pending",
+      notes: "Need ivory count"
+    },
+    {
+      vendor: "Sweet House",
+      order: "Dessert cups",
+      status: "Confirmed",
+      notes: "Delivery 4:30 PM"
+    }
   ];
 
   return (
@@ -995,7 +1502,9 @@ function EventVendorsContent() {
       <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
         <div className="flex items-center gap-2">
           <LineIcon name="store" className="h-4 w-4 text-[#17202a]" />
-          <h2 className="text-sm font-black text-[#17202a]">Vendors for this event</h2>
+          <h2 className="text-sm font-black text-[#17202a]">
+            Vendors for this event
+          </h2>
         </div>
         <button
           className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
@@ -1018,11 +1527,16 @@ function EventVendorsContent() {
           </thead>
           <tbody className="text-[#17202a]">
             {vendorRows.map((row) => (
-              <tr key={row.vendor} className="border-b border-[#d8dde5] last:border-b-0">
+              <tr
+                key={row.vendor}
+                className="border-b border-[#d8dde5] last:border-b-0"
+              >
                 <td className="px-2 py-3 font-black">{row.vendor}</td>
                 <td className="px-2 py-3">{row.order}</td>
                 <td className="px-2 py-3">
-                  <Badge tone={row.status === "Confirmed" ? "green" : "gold"}>{row.status}</Badge>
+                  <Badge tone={row.status === "Confirmed" ? "green" : "gold"}>
+                    {row.status}
+                  </Badge>
                 </td>
                 <td className="px-2 py-3">{row.notes}</td>
               </tr>
@@ -1043,18 +1557,36 @@ function EventFilesContent() {
     { label: "Billing / Invoices", count: 0 },
     { label: "Hall Map / Layouts", count: 1 },
     { label: "Menus", count: 1 },
-    { label: "Client Portal", count: 0 },
+    { label: "Client Files", count: 0 },
     { label: "Vendors", count: 0 },
     { label: "Kitchen", count: 0 },
-    { label: "General", count: 0 },
+    { label: "General", count: 0 }
   ];
 
   const files = [
-    { title: "Signed agreement.pdf", category: "Contracts", type: "Contract", date: "Jun 12" },
-    { title: "Grand Hall layout.pdf", category: "Hall Map / Layouts", type: "Layout", date: "Jun 27" },
-    { title: "Client menu approval.pdf", category: "Menus", type: "Menu", date: "Jun 29" },
+    {
+      title: "Signed agreement.pdf",
+      category: "Contracts",
+      type: "Contract",
+      date: "Jun 12"
+    },
+    {
+      title: "Grand Hall layout.pdf",
+      category: "Hall Map / Layouts",
+      type: "Layout",
+      date: "Jun 27"
+    },
+    {
+      title: "Client menu approval.pdf",
+      category: "Menus",
+      type: "Menu",
+      date: "Jun 29"
+    }
   ];
-  const visibleFiles = selectedFileCategory === "All files" ? files : files.filter((file) => file.category === selectedFileCategory);
+  const visibleFiles =
+    selectedFileCategory === "All files"
+      ? files
+      : files.filter((file) => file.category === selectedFileCategory);
 
   return (
     <div className="grid min-h-107.5 gap-3 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 lg:grid-cols-[280px_minmax(0,1fr)]">
@@ -1066,7 +1598,9 @@ function EventFilesContent() {
             <button
               key={category.label}
               className={`flex h-9.75 w-full items-center gap-2 border-b border-[#d8dde5] px-4 text-left text-sm last:border-b-0 ${
-                isActive ? "bg-[#eef4fa] font-black text-[#17202a]" : "text-[#17202a] hover:bg-[#eef4fa]"
+                isActive
+                  ? "bg-[#eef4fa] font-black text-[#17202a]"
+                  : "text-[#17202a] hover:bg-[#eef4fa]"
               }`}
               type="button"
               onClick={() => setSelectedFileCategory(category.label)}
@@ -1076,7 +1610,9 @@ function EventFilesContent() {
                 className={`h-4 w-4 shrink-0 ${isActive ? "text-[#1f4d73]" : "text-[#17202a]"}`}
               />
               <span className="min-w-0 flex-1 truncate">{category.label}</span>
-              <span className="text-xs font-normal text-[#17202a]">{category.count}</span>
+              <span className="text-xs font-normal text-[#17202a]">
+                {category.count}
+              </span>
             </button>
           );
         })}
@@ -1086,7 +1622,9 @@ function EventFilesContent() {
         <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-2">
             <LineIcon name="files" className="h-4 w-4 text-[#17202a]" />
-            <h2 className="text-sm font-black text-[#17202a]">{selectedFileCategory}</h2>
+            <h2 className="text-sm font-black text-[#17202a]">
+              {selectedFileCategory}
+            </h2>
           </div>
           <button
             className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
@@ -1099,9 +1637,14 @@ function EventFilesContent() {
 
         <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleFiles.map((file) => (
-            <article key={file.title} className="flex min-h-28 flex-col justify-between rounded-lg border border-[#d8dde5] bg-white p-4">
+            <article
+              key={file.title}
+              className="flex min-h-28 flex-col justify-between rounded-lg border border-[#d8dde5] bg-white p-4"
+            >
               <div>
-                <h3 className="text-sm font-black text-[#17202a]">{file.title}</h3>
+                <h3 className="text-sm font-black text-[#17202a]">
+                  {file.title}
+                </h3>
                 <p className="mt-1 text-xs text-[#6a7483]">{file.category}</p>
               </div>
               <div className="mt-6 flex flex-wrap gap-2">
@@ -1124,13 +1667,16 @@ function EventTabPlaceholder({ label }: { label: string }) {
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white p-6">
       <h2 className="text-sm font-black text-[#17202a]">{label}</h2>
-      <p className="mt-2 text-sm text-[#6a7483]">This event section is ready for the next workspace panel.</p>
+      <p className="mt-2 text-sm text-[#6a7483]">
+        This event section is ready for the next workspace panel.
+      </p>
     </section>
   );
 }
 
 function EventWorkspace({ event }: { event: EventFile }) {
-  const [activeTab, setActiveTab] = useState<EventWorkspaceTab>("Event details");
+  const [activeTab, setActiveTab] =
+    useState<EventWorkspaceTab>("Event details");
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
@@ -1141,7 +1687,9 @@ function EventWorkspace({ event }: { event: EventFile }) {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <LineIcon name="calendar" />
-              <h1 className="truncate text-xl font-black text-[#17202a]">{event.title}</h1>
+              <h1 className="truncate text-xl font-black text-[#17202a]">
+                {event.title}
+              </h1>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge tone="green">Confirmed</Badge>
@@ -1151,8 +1699,19 @@ function EventWorkspace({ event }: { event: EventFile }) {
             </div>
           </div>
           <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-2">
-            <ActionButton icon="document" onClick={() => setIsPortalPreviewOpen(true)}>Preview portal</ActionButton>
-            <ActionButton icon="printer" onClick={() => setIsPrintPacketOpen(true)} primary>Print packet</ActionButton>
+            <ActionButton
+              icon="document"
+              onClick={() => setIsPortalPreviewOpen(true)}
+            >
+              Preview portal
+            </ActionButton>
+            <ActionButton
+              icon="printer"
+              onClick={() => setIsPrintPacketOpen(true)}
+              primary
+            >
+              Print packet
+            </ActionButton>
           </div>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
@@ -1160,8 +1719,18 @@ function EventWorkspace({ event }: { event: EventFile }) {
           <SummaryTile label="Couples" value={event.couples} icon="couples" />
           <SummaryTile label="Menu" value="Confirmed" icon="document" />
           <SummaryTile label="Layout" value="Needs final review" icon="map" />
-          <SummaryTile label="Open balance" value={event.balance} icon="document" emphasized />
-          <SummaryTile label="Today notes" value="Unread" icon="files" emphasized />
+          <SummaryTile
+            label="Open balance"
+            value={event.balance}
+            icon="document"
+            emphasized
+          />
+          <SummaryTile
+            label="Today notes"
+            value="Unread"
+            icon="files"
+            emphasized
+          />
         </div>
       </header>
 
@@ -1171,7 +1740,12 @@ function EventWorkspace({ event }: { event: EventFile }) {
         open={isPrintPacketOpen}
       />
       <ClientPortalPreviewDrawer
-        event={{ title: event.title, date: event.date, room: event.room, balance: event.balance }}
+        event={{
+          title: event.title,
+          date: event.date,
+          room: event.room,
+          balance: event.balance
+        }}
         onClose={() => setIsPortalPreviewOpen(false)}
         open={isPortalPreviewOpen}
       />
@@ -1181,7 +1755,9 @@ function EventWorkspace({ event }: { event: EventFile }) {
           <button
             key={tab.label}
             className={`inline-flex h-10 shrink-0 items-center gap-2 border-b-3 px-2 text-xs font-black ${
-              activeTab === tab.label ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
+              activeTab === tab.label
+                ? "border-[#1f4d73] text-[#17202a]"
+                : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
             }`}
             type="button"
             onClick={() => setActiveTab(tab.label)}
@@ -1207,13 +1783,26 @@ function EventWorkspace({ event }: { event: EventFile }) {
         ) : null}
 
         {activeTab === "Menu" ? <EventMenuContent /> : null}
-        {activeTab === "Client portal" ? <ClientPortalContent event={event} /> : null}
+        {activeTab === "Client portal" ? (
+          <ClientPortalContent event={event} />
+        ) : null}
         {activeTab === "Billing" ? <EventBillingContent /> : null}
         {activeTab === "Hall map" ? <HallMapContent /> : null}
         {activeTab === "Kitchen" ? <EventKitchenContent /> : null}
         {activeTab === "Vendors" ? <EventVendorsContent /> : null}
         {activeTab === "Files" ? <EventFilesContent /> : null}
-        {!["Event details", "Menu", "Client portal", "Billing", "Hall map", "Kitchen", "Vendors", "Files"].includes(activeTab) ? <EventTabPlaceholder label={activeTab} /> : null}
+        {![
+          "Event details",
+          "Menu",
+          "Client portal",
+          "Billing",
+          "Hall map",
+          "Kitchen",
+          "Vendors",
+          "Files"
+        ].includes(activeTab) ? (
+          <EventTabPlaceholder label={activeTab} />
+        ) : null}
       </div>
     </section>
   );
@@ -1221,10 +1810,61 @@ function EventWorkspace({ event }: { event: EventFile }) {
 
 export function EventManagerPage() {
   const router = useRouter();
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
-  const [selectedEventTitle, setSelectedEventTitle] = useState(events[0].title);
-  const [createdEvents, setCreatedEvents] = useState<EventFile[]>([]);
+  const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
+  const createEventMutation = useAuthenticatedMutation<
+    Record<string, string | number | undefined>,
+    { event: { id: string } }
+  >("/api/events");
+  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
+    null
+  );
+  const [selectedEventTitle, setSelectedEventTitle] = useState("");
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
+  const allEvents = useMemo<EventFile[]>(
+    () =>
+      (eventsQuery.data?.events ?? []).map((event) => {
+        const date = new Date(event.eventDate);
+        const guestCount =
+          event.couplesCount * 2 +
+          event.menCount +
+          event.ladiesCount +
+          event.boysCount +
+          event.girlsCount +
+          event.kidsCount;
+
+        return {
+          title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
+          date: new Intl.DateTimeFormat("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            timeZone: "UTC"
+          }).format(date),
+          time: event.startsAt
+            ? new Intl.DateTimeFormat("en-US", {
+                hour: "numeric",
+                minute: "2-digit"
+              }).format(new Date(event.startsAt))
+            : "Time not set",
+          room: event.hall.name,
+          packageName: event.packageName ?? "Not assigned",
+          guests: String(guestCount),
+          children: String(
+            event.kidsCount + event.boysCount + event.girlsCount
+          ),
+          couples: String(event.couplesCount),
+          coordinator: "Unassigned",
+          balance:
+            event.paymentStatus === "Paid in Full" ? "Paid" : "See billing",
+          status: event.eventStatus.toLowerCase().includes("confirm")
+            ? "Confirmed"
+            : "Hold",
+          paymentStatus: event.paymentStatus ?? "No invoice",
+          notes: event.notes ? [event.notes] : []
+        };
+      }),
+    [eventsQuery.data]
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -1265,40 +1905,77 @@ export function EventManagerPage() {
     };
   }, [router]);
 
-  if (!syncData) {
+  if (!syncData || eventsQuery.isLoading) {
     return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
   }
 
-  const allEvents = [...createdEvents, ...events];
-  const selectedEvent = allEvents.find((event) => event.title === selectedEventTitle) ?? allEvents[0];
-
-  const createEvent = (values: NewEventFormValues) => {
-    const title = `${values.clientName} ${values.eventType}`.trim();
-    const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
-      new Date(`${values.date}T00:00:00`),
+  if (eventsQuery.error || allEvents.length === 0) {
+    return (
+      <main className="min-h-screen bg-[#f5f6f8] p-4">
+        <AsyncState
+          emptyMessage="Create an event to start using the event workspace."
+          emptyTitle="No events yet"
+          error={eventsQuery.error}
+          isEmpty={!eventsQuery.error}
+          onRetry={eventsQuery.refetch}
+        />
+      </main>
     );
-    const time = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(
-      new Date(`${values.date}T${values.time}:00`),
+  }
+
+  const selectedEvent =
+    allEvents.find((event) => event.title === selectedEventTitle) ??
+    allEvents[0];
+
+  const createEvent = async (values: NewEventFormValues) => {
+    const hall = eventsQuery.data?.halls.find(
+      (item) => item.name === values.room
+    );
+    const eventType = eventsQuery.data?.eventTypes.find(
+      (item) => item.name === values.eventType
     );
 
-    const newEvent: EventFile = {
-      title,
-      date,
-      time,
-      room: values.room,
-      packageName: "Not assigned",
-      guests: values.guests,
-      children: values.children,
-      couples: values.couples,
-      coordinator: "Unassigned",
-      balance: "$0.00",
-      status: values.status,
-      paymentStatus: "No invoice",
-      notes: values.initialNotes ? [values.initialNotes] : [],
-    };
+    if (!hall) return;
 
-    setCreatedEvents((current) => [newEvent, ...current]);
-    setSelectedEventTitle(title);
+    const toIso = (time: string) =>
+      new Date(`${values.date}T${time}:00`).toISOString();
+    const startsAt = toIso(values.startTime);
+    let endsAt = toIso(values.endTime);
+    let cleanupEndsAt = toIso(values.cleanupTime);
+    if (new Date(endsAt) <= new Date(startsAt)) {
+      endsAt = new Date(new Date(endsAt).getTime() + 86_400_000).toISOString();
+    }
+    if (new Date(cleanupEndsAt) < new Date(endsAt)) {
+      cleanupEndsAt = new Date(
+        new Date(cleanupEndsAt).getTime() + 86_400_000
+      ).toISOString();
+    }
+
+    await createEventMutation.mutate({
+      clientName: values.clientName,
+      phone: "Not provided",
+      eventDate: values.date,
+      startsAt,
+      endsAt,
+      setupStartsAt: toIso(values.setupTime),
+      cleanupEndsAt,
+      hallId: hall.id,
+      eventTypeId: eventType?.id,
+      bookingStatus:
+        values.status === "Confirmed" ? "CONFIRMED" : "TENTATIVE_HOLD",
+      idempotencyKey: crypto.randomUUID(),
+      couplesCount: Number(values.couples) || 0,
+      menCount: Math.max(
+        (Number(values.guests) || 0) -
+          (Number(values.couples) || 0) * 2 -
+          (Number(values.children) || 0),
+        0
+      ),
+      kidsCount: Number(values.children) || 0,
+      notes: values.initialNotes || undefined
+    });
+    await eventsQuery.refetch();
+    setSelectedEventTitle(`${values.clientName} ${values.eventType}`.trim());
     setIsNewEventOpen(false);
   };
 
@@ -1319,56 +1996,79 @@ export function EventManagerPage() {
         }
       />
 
-      <NewEventDialog onClose={() => setIsNewEventOpen(false)} onCreate={createEvent} open={isNewEventOpen} />
+      <NewEventDialog
+        onClose={() => setIsNewEventOpen(false)}
+        onCreate={createEvent}
+        open={isNewEventOpen}
+      />
 
       <div className="min-h-0 flex-1 p-3">
-      <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-          <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] p-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <LineIcon name="calendar" />
-                <h2 className="text-sm font-black text-[#17202a]">Events</h2>
+        <div className="grid h-full min-h-0 gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] p-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <LineIcon name="calendar" />
+                  <h2 className="text-sm font-black text-[#17202a]">Events</h2>
+                </div>
+                <p className="mt-1 text-xs text-[#6a7483]">
+                  {allEvents.length} records
+                </p>
               </div>
-              <p className="mt-1 text-xs text-[#6a7483]">{allEvents.length} records</p>
-            </div>
-            <button className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
-              <LineIcon name="close" />
-              Clear
-            </button>
-          </header>
+              <button
+                className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                type="button"
+              >
+                <LineIcon name="close" />
+                Clear
+              </button>
+            </header>
 
-          <div className="shrink-0 border-b border-[#d8dde5] p-3">
-            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_136px] xl:grid-cols-[minmax(0,1fr)_136px]">
-              <input className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" name="eventSearch" placeholder="Search client, hall, type" />
-              <select className="h-9 min-w-34 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]" aria-label="Event filter" defaultValue="All events" name="eventFilter">
-                <option>All events</option>
-                <option>Confirmed</option>
-                <option>Hold</option>
+            <div className="shrink-0 border-b border-[#d8dde5] p-3">
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_136px] xl:grid-cols-[minmax(0,1fr)_136px]">
+                <input
+                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                  name="eventSearch"
+                  placeholder="Search client, hall, type"
+                />
+                <select
+                  className="h-9 min-w-34 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]"
+                  aria-label="Event filter"
+                  defaultValue="All events"
+                  name="eventFilter"
+                >
+                  <option>All events</option>
+                  <option>Confirmed</option>
+                  <option>Hold</option>
+                </select>
+              </div>
+              <select
+                className="mt-2 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                aria-label="Room filter"
+                defaultValue="All rooms"
+                name="roomFilter"
+              >
+                <option>All rooms</option>
+                <option>Grand Hall</option>
+                <option>Nachlas Yehuda A</option>
+                <option>Terrace Room</option>
               </select>
             </div>
-            <select className="mt-2 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]" aria-label="Room filter" defaultValue="All rooms" name="roomFilter">
-              <option>All rooms</option>
-              <option>Grand Hall</option>
-              <option>Nachlas Yehuda A</option>
-              <option>Terrace Room</option>
-            </select>
-          </div>
 
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-            {allEvents.map((event) => (
-              <EventListCard
-                key={event.title}
-                event={event}
-                selected={event.title === selectedEvent.title}
-                onClick={() => setSelectedEventTitle(event.title)}
-              />
-            ))}
-          </div>
-        </aside>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+              {allEvents.map((event) => (
+                <EventListCard
+                  key={event.title}
+                  event={event}
+                  selected={event.title === selectedEvent.title}
+                  onClick={() => setSelectedEventTitle(event.title)}
+                />
+              ))}
+            </div>
+          </aside>
 
-        <EventWorkspace event={selectedEvent} />
-      </div>
+          <EventWorkspace event={selectedEvent} />
+        </div>
       </div>
     </div>
   );

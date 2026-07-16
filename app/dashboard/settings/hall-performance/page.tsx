@@ -1,5 +1,5 @@
-import { PlatformSettingsPage } from "@/components/dashboard/platform-settings-page";
+import { redirect } from "next/navigation";
 
 export default function DashboardHallPerformanceSettingsPage() {
-  return <PlatformSettingsPage initialActiveItem="Hall Performance" />;
+  redirect("/dashboard/settings");
 }

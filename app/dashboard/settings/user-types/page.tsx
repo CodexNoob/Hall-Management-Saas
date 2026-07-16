@@ -1,5 +1,5 @@
-import { PlatformSettingsPage } from "@/components/dashboard/platform-settings-page";
+import { redirect } from "next/navigation";
 
 export default function DashboardUserTypesSettingsPage() {
-  return <PlatformSettingsPage initialActiveItem="User Types" />;
+  redirect("/dashboard/settings");
 }

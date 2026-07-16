@@ -1,5 +1,5 @@
-import { PlatformSettingsPage } from "@/components/dashboard/platform-settings-page";
+import { redirect } from "next/navigation";
 
 export default function DashboardFeatureAccessSettingsPage() {
-  return <PlatformSettingsPage initialActiveItem="Feature Access" />;
+  redirect("/dashboard/settings");
 }

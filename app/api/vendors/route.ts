@@ -1,0 +1,49 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import {
+  requireAnyPermission,
+  requirePermission
+} from "@/lib/auth/server-auth";
+import { createApiErrorResponse } from "@/lib/http/api-error";
+import { prisma } from "@/lib/prisma";
+
+const vendorSchema = z.object({
+  name: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  category: z.string().trim().min(1),
+  contactName: z.string().trim().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().trim().optional(),
+  status: z.enum(["Active", "Inactive"]).default("Active"),
+  rating: z.number().min(0).max(5).optional(),
+  notes: z.string().trim().optional()
+});
+
+export async function GET(request: Request) {
+  try {
+    const actor = await requireAnyPermission(request, [
+      "canViewEventManager",
+      "canViewSettings"
+    ]);
+    const vendors = await prisma.vendor.findMany({
+      where: { organizationId: actor.organizationId },
+      orderBy: { name: "asc" }
+    });
+    return NextResponse.json({ vendors });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const actor = await requirePermission(request, "canEditVendors");
+    const input = vendorSchema.parse(await request.json());
+    const vendor = await prisma.vendor.create({
+      data: { organizationId: actor.organizationId, ...input }
+    });
+    return NextResponse.json({ vendor }, { status: 201 });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}

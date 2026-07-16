@@ -4,7 +4,6 @@ export type PaymentConfirmationInput = {
   eventId: string;
   amountCents: number;
   result: "paid" | "failed" | "cancelled";
-  confirmedByUserId: string;
   note?: string;
 };
 

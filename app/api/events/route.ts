@@ -1,78 +1,86 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { isAdministrativeRole } from "@/lib/auth/roles";
+import {
+  requireAnyPermission,
+  requirePermission
+} from "@/lib/auth/server-auth";
+import { createBookingSchema } from "@/lib/bookings/booking-schema";
+import {
+  createBooking,
+  expireOrganizationHolds
+} from "@/lib/bookings/booking-service";
+import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
-const createEventSchema = z.object({
-  clientName: z.string().min(1),
-  phone: z.string().min(1),
-  email: z.string().email().optional(),
-  eventDate: z.string().date(),
-  hallId: z.string().min(1),
-  eventTypeId: z.string().optional(),
-  eventStatus: z.enum(["On Hold", "Confirmed"]).default("On Hold"),
-  paymentStatus: z.enum(["Deposit Paid", "Paid Partially", "Paid in Full"]).optional(),
-  packageId: z.string().optional(),
-  couplesCount: z.number().int().min(0).default(0),
-  menCount: z.number().int().min(0).default(0),
-  ladiesCount: z.number().int().min(0).default(0),
-  boysCount: z.number().int().min(0).default(0),
-  girlsCount: z.number().int().min(0).default(0),
-  kidsCount: z.number().int().min(0).default(0),
-  waitersCount: z.number().int().min(0).default(0),
-  createdById: z.string().optional(),
-  notes: z.string().optional()
-});
+export async function GET(request: Request) {
+  try {
+    const actor = await requireAnyPermission(request, [
+      "canViewCalendar",
+      "canViewEventManager"
+    ]);
+    const allowedHallIds = actor.access?.allowedHallIds ?? [];
+    const restrictHalls =
+      !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
 
-export type CreateEventRequest = z.infer<typeof createEventSchema>;
+    await expireOrganizationHolds(actor.organizationId);
+    const [events, halls, eventTypes, packages] = await Promise.all([
+      prisma.event.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          deleted: false,
+          ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+        },
+        orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
+        include: { hall: true, package: true, client: true },
+        take: 100
+      }),
+      prisma.hall.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          isActive: true,
+          ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
+        },
+        orderBy: { name: "asc" }
+      }),
+      prisma.eventType.findMany({
+        where: { organizationId: actor.organizationId },
+        orderBy: { name: "asc" }
+      }),
+      prisma.eventPackage.findMany({
+        where: { organizationId: actor.organizationId, isActive: true },
+        orderBy: { name: "asc" }
+      })
+    ]);
 
-export async function GET() {
-  const events = await prisma.event.findMany({
-    where: { deleted: false },
-    orderBy: { eventDate: "asc" },
-    include: {
-      hall: true,
-      package: true
-    },
-    take: 50
-  });
-
-  return NextResponse.json({ events });
+    return NextResponse.json({ events, halls, eventTypes, packages });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
 }
 
 export async function POST(request: Request) {
-  const json = await request.json();
-  const input = createEventSchema.parse(json);
-  const [hall, eventType, eventPackage] = await Promise.all([
-    prisma.hall.findUnique({ where: { id: input.hallId } }),
-    input.eventTypeId ? prisma.eventType.findUnique({ where: { id: input.eventTypeId } }) : null,
-    input.packageId ? prisma.eventPackage.findUnique({ where: { id: input.packageId } }) : null
-  ]);
+  try {
+    const actor = await requirePermission(request, "canCreateBooking");
+    const body = (await request.json()) as Record<string, unknown>;
+    const headerKey = request.headers.get("idempotency-key") ?? undefined;
+    const input = createBookingSchema.parse({
+      ...body,
+      idempotencyKey: headerKey ?? body.idempotencyKey
+    });
+    const result = await createBooking(input, {
+      id: actor.id,
+      name: actor.name,
+      organizationId: actor.organizationId,
+      allowedHallIds: isAdministrativeRole(actor.membership.role)
+        ? []
+        : (actor.access?.allowedHallIds ?? [])
+    });
 
-  const event = await prisma.event.create({
-    data: {
-      clientName: input.clientName,
-      phone: input.phone,
-      email: input.email,
-      eventDate: new Date(`${input.eventDate}T00:00:00.000Z`),
-      hallId: input.hallId,
-      hallName: hall?.name,
-      eventTypeId: input.eventTypeId,
-      eventType: eventType?.name,
-      eventStatus: input.eventStatus,
-      paymentStatus: input.paymentStatus,
-      packageId: input.packageId,
-      packageName: eventPackage?.name,
-      couplesCount: input.couplesCount,
-      menCount: input.menCount,
-      ladiesCount: input.ladiesCount,
-      boysCount: input.boysCount,
-      girlsCount: input.girlsCount,
-      kidsCount: input.kidsCount,
-      waitersCount: input.waitersCount,
-      createdById: input.createdById,
-      notes: input.notes
-    }
-  });
-
-  return NextResponse.json({ event }, { status: 201 });
+    return NextResponse.json(result, {
+      status: result.replayed ? 200 : 201,
+      headers: result.replayed ? { "Idempotent-Replay": "true" } : undefined
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
 }

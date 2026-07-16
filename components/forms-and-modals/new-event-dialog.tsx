@@ -7,7 +7,10 @@ export type NewEventFormValues = {
   eventType: string;
   status: "Confirmed" | "Hold";
   date: string;
-  time: string;
+  setupTime: string;
+  startTime: string;
+  endTime: string;
+  cleanupTime: string;
   room: string;
   guests: string;
   couples: string;
@@ -26,37 +29,58 @@ const initialValues: NewEventFormValues = {
   eventType: "Wedding",
   status: "Hold",
   date: "2026-07-22",
-  time: "18:30",
+  setupTime: "16:30",
+  startTime: "18:30",
+  endTime: "22:30",
+  cleanupTime: "23:30",
   room: "Grand Hall",
   guests: "180",
   couples: "80",
   children: "20",
-  initialNotes: "Booking created from event manager.",
+  initialNotes: "Booking created from event manager."
 };
 
 const controlClass =
   "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
 function FieldLabel({ children }: { children: string }) {
-  return <span className="block text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">{children}</span>;
+  return (
+    <span className="block text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+      {children}
+    </span>
+  );
 }
 
 function SaveIcon() {
   return (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
       <path d="M5 4h12l2 2v14H5Z" />
       <path d="M8 4v6h8V4M8 20v-6h8v6" />
     </svg>
   );
 }
 
-export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps) {
+export function NewEventDialog({
+  open,
+  onClose,
+  onCreate
+}: NewEventDialogProps) {
   const titleId = useId();
   const clientNameId = useId();
   const eventTypeId = useId();
   const statusId = useId();
   const dateId = useId();
-  const timeId = useId();
+  const setupTimeId = useId();
+  const startTimeId = useId();
+  const endTimeId = useId();
+  const cleanupTimeId = useId();
   const roomId = useId();
   const guestsId = useId();
   const couplesId = useId();
@@ -111,8 +135,12 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
       >
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="text-2xl font-light leading-none text-[#17202a]">+</span>
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>New event</h2>
+            <span className="text-2xl font-light leading-none text-[#17202a]">
+              +
+            </span>
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>
+              New event
+            </h2>
           </div>
           <button
             className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
@@ -133,7 +161,9 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                   className={`${controlClass} mt-1`}
                   id={clientNameId}
                   name="clientName"
-                  onChange={(event) => updateValue("clientName", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("clientName", event.target.value)
+                  }
                   ref={firstInputRef}
                   required
                   value={values.clientName}
@@ -146,7 +176,9 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                   className={`${controlClass} mt-1`}
                   id={eventTypeId}
                   name="eventType"
-                  onChange={(event) => updateValue("eventType", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("eventType", event.target.value)
+                  }
                   required
                   value={values.eventType}
                 />
@@ -157,7 +189,9 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                   className={`${controlClass} mt-1`}
                   id={statusId}
                   name="status"
-                  onChange={(event) => updateValue("status", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("status", event.target.value)
+                  }
                   value={values.status}
                 >
                   <option>Hold</option>
@@ -178,16 +212,60 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                 />
               </label>
               <label>
-                <FieldLabel>Time</FieldLabel>
+                <FieldLabel>Setup starts</FieldLabel>
                 <input
                   autoComplete="off"
                   className={`${controlClass} mt-1`}
-                  id={timeId}
-                  name="eventTime"
-                  onChange={(event) => updateValue("time", event.target.value)}
+                  id={setupTimeId}
+                  name="setupTime"
+                  onChange={(event) =>
+                    updateValue("setupTime", event.target.value)
+                  }
                   required
                   type="time"
-                  value={values.time}
+                  value={values.setupTime}
+                />
+              </label>
+              <label>
+                <FieldLabel>Event starts</FieldLabel>
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={startTimeId}
+                  name="startTime"
+                  onChange={(event) =>
+                    updateValue("startTime", event.target.value)
+                  }
+                  required
+                  type="time"
+                  value={values.startTime}
+                />
+              </label>
+              <label>
+                <FieldLabel>Event ends</FieldLabel>
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={endTimeId}
+                  name="endTime"
+                  onChange={(event) =>
+                    updateValue("endTime", event.target.value)
+                  }
+                  required
+                  type="time"
+                  value={values.endTime}
+                />
+              </label>
+              <label>
+                <FieldLabel>Cleanup ends</FieldLabel>
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={cleanupTimeId}
+                  name="cleanupTime"
+                  onChange={(event) =>
+                    updateValue("cleanupTime", event.target.value)
+                  }
+                  required
+                  type="time"
+                  value={values.cleanupTime}
                 />
               </label>
               <label>
@@ -208,15 +286,48 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
               </label>
               <label>
                 <FieldLabel>Guests</FieldLabel>
-                <input className={`${controlClass} mt-1`} id={guestsId} min="0" name="guests" onChange={(event) => updateValue("guests", event.target.value)} required type="number" value={values.guests} />
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={guestsId}
+                  min="0"
+                  name="guests"
+                  onChange={(event) =>
+                    updateValue("guests", event.target.value)
+                  }
+                  required
+                  type="number"
+                  value={values.guests}
+                />
               </label>
               <label>
                 <FieldLabel>Couples</FieldLabel>
-                <input className={`${controlClass} mt-1`} id={couplesId} min="0" name="couples" onChange={(event) => updateValue("couples", event.target.value)} required type="number" value={values.couples} />
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={couplesId}
+                  min="0"
+                  name="couples"
+                  onChange={(event) =>
+                    updateValue("couples", event.target.value)
+                  }
+                  required
+                  type="number"
+                  value={values.couples}
+                />
               </label>
               <label>
                 <FieldLabel>Children</FieldLabel>
-                <input className={`${controlClass} mt-1`} id={childrenId} min="0" name="children" onChange={(event) => updateValue("children", event.target.value)} required type="number" value={values.children} />
+                <input
+                  className={`${controlClass} mt-1`}
+                  id={childrenId}
+                  min="0"
+                  name="children"
+                  onChange={(event) =>
+                    updateValue("children", event.target.value)
+                  }
+                  required
+                  type="number"
+                  value={values.children}
+                />
               </label>
             </div>
 
@@ -226,17 +337,26 @@ export function NewEventDialog({ open, onClose, onCreate }: NewEventDialogProps)
                 className="mt-1 min-h-20 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                 id={initialNotesId}
                 name="initialNotes"
-                onChange={(event) => updateValue("initialNotes", event.target.value)}
+                onChange={(event) =>
+                  updateValue("initialNotes", event.target.value)
+                }
                 value={values.initialNotes}
               />
             </label>
           </div>
 
           <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
-            <button className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
+            <button
+              className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+              onClick={onClose}
+              type="button"
+            >
               Cancel
             </button>
-            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f]" type="submit">
+            <button
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f]"
+              type="submit"
+            >
               <SaveIcon />
               Create event
             </button>

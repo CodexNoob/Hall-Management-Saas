@@ -1,9 +1,11 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
+import { AsyncState } from "@/components/ui/async-state";
+import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 
 type KitchenView = "today" | "week" | "four-weeks";
 
@@ -26,87 +28,26 @@ type KitchenDay = {
   events?: KitchenEvent[];
 };
 
-const staffMeal: KitchenEvent = {
-  id: "staff-meal",
-  category: "Kitchen",
-  title: "Staff Meal",
-  portions: "80 portions",
-  packageName: "Kitchen Event",
-  statusType: "kitchen",
+type KitchenResponse = {
+  events: Array<{
+    id: string;
+    clientName: string;
+    eventDate: string;
+    eventType: string | null;
+    eventStatus: string;
+    packageName: string | null;
+    couplesCount: number;
+    menCount: number;
+    ladiesCount: number;
+    boysCount: number;
+    girlsCount: number;
+    kidsCount: number;
+    hall: { name: string };
+  }>;
+  workers: Array<{ id: string; name: string }>;
 };
 
-const sterlingHallEvent: KitchenEvent = {
-  id: "sterling-hall",
-  category: "Sterling Hall",
-  title: "Tenoyim",
-  portions: "200 portions",
-  packageName: "Standard Tenoim Package",
-  status: "On Hold",
-  statusType: "hold",
-};
-
-const weekDays: KitchenDay[] = [
-  { dayName: "Sun", dateLabel: "Jul 5", dayNumber: 5 },
-  {
-    dayName: "Mon",
-    dateLabel: "Jul 6",
-    dayNumber: 6,
-    events: [sterlingHallEvent],
-  },
-  { dayName: "Tue", dateLabel: "Jul 7", dayNumber: 7 },
-  { dayName: "Wed", dateLabel: "Jul 8", dayNumber: 8 },
-  { dayName: "Thu", dateLabel: "Jul 9", dayNumber: 9 },
-  {
-    dayName: "Today",
-    dateLabel: "Jul 10",
-    dayNumber: 10,
-    today: true,
-    events: [staffMeal],
-  },
-  {
-    dayName: "Shabbos",
-    dateLabel: "Jul 11",
-    dayNumber: 11,
-    shabbos: true,
-  },
-];
-
-const dayNames = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Shabbos",
-];
-
-const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
-
-const fourWeekDays: KitchenDay[] = Array.from(
-  { length: 28 },
-  (_, index) => {
-    const date = new Date(Date.UTC(2026, 6, 5 + index));
-    const dayNumber = date.getUTCDate();
-    const dateLabel = `${monthNames[date.getUTCMonth()]} ${dayNumber}`;
-    const dayName = dayNames[date.getUTCDay()];
-    const isJulySix = date.getUTCMonth() === 6 && dayNumber === 6;
-    const isJulyTen = date.getUTCMonth() === 6 && dayNumber === 10;
-
-    return {
-      dayName,
-      dateLabel,
-      dayNumber,
-      shabbos: dayName === "Shabbos",
-      today: isJulyTen,
-      events: isJulySix
-        ? [sterlingHallEvent]
-        : isJulyTen
-          ? [staffMeal]
-          : undefined,
-    };
-  },
-);
+const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
 
 const viewInformation: Record<
   KitchenView,
@@ -117,23 +58,19 @@ const viewInformation: Record<
 > = {
   today: {
     heading: "Friday, July 10, 2026",
-    time: "6:19 PM",
+    time: "6:19 PM"
   },
   week: {
     heading: "This Week · Jul 5 – Jul 11",
-    time: "6:20 PM",
+    time: "6:20 PM"
   },
   "four-weeks": {
     heading: "4 Weeks · Jul 5 – Aug 1",
-    time: "6:20 PM",
-  },
+    time: "6:20 PM"
+  }
 };
 
-function PlusButton({
-  label,
-}: {
-  label: string;
-}) {
+function PlusButton({ label }: { label: string }) {
   return (
     <button
       aria-label={label}
@@ -148,7 +85,7 @@ function PlusButton({
 
 function KitchenEventCard({
   compact = false,
-  event,
+  event
 }: {
   compact?: boolean;
   event: KitchenEvent;
@@ -173,22 +110,16 @@ function KitchenEventCard({
   return (
     <article
       className={`border border-dashed p-3 ${
-        hold
-          ? "border-[#f0a326] bg-[#fffaf1]"
-          : "border-[#c8d6e3] bg-[#f8fafc]"
+        hold ? "border-[#f0a326] bg-[#fffaf1]" : "border-[#c8d6e3] bg-[#f8fafc]"
       }`}
     >
       <p className="text-[11px] font-black uppercase tracking-wide text-[#34465b]">
         {event.category}
       </p>
 
-      <h3 className="mt-1 text-sm font-black text-[#07162d]">
-        {event.title}
-      </h3>
+      <h3 className="mt-1 text-sm font-black text-[#07162d]">{event.title}</h3>
 
-      <p className="mt-1 text-xs font-bold text-[#41556c]">
-        {event.portions}
-      </p>
+      <p className="mt-1 text-xs font-bold text-[#41556c]">{event.portions}</p>
 
       <p className="mt-1 text-xs font-bold text-[#41556c]">
         {event.packageName}
@@ -205,7 +136,7 @@ function KitchenEventCard({
 
 function KitchenHeader({
   activeView,
-  onChangeView,
+  onChangeView
 }: {
   activeView: KitchenView;
   onChangeView: (view: KitchenView) => void;
@@ -218,7 +149,7 @@ function KitchenHeader({
   }> = [
     { label: "Today", value: "today" },
     { label: "This Week", value: "week" },
-    { label: "4 Weeks", value: "four-weeks" },
+    { label: "4 Weeks", value: "four-weeks" }
   ];
 
   return (
@@ -229,8 +160,19 @@ function KitchenHeader({
           className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
           type="button"
         >
-          <svg aria-hidden="true" className="h-8 w-8" fill="none" viewBox="0 0 24 24">
-            <path d="m15 4-8 8 8 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" />
+          <svg
+            aria-hidden="true"
+            className="h-8 w-8"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m15 4-8 8 8 8"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3.5"
+            />
           </svg>
         </button>
 
@@ -243,8 +185,19 @@ function KitchenHeader({
           className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
           type="button"
         >
-          <svg aria-hidden="true" className="h-8 w-8" fill="none" viewBox="0 0 24 24">
-            <path d="m9 4 8 8-8 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" />
+          <svg
+            aria-hidden="true"
+            className="h-8 w-8"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              d="m9 4 8 8-8 8"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3.5"
+            />
           </svg>
         </button>
 
@@ -293,7 +246,7 @@ function KitchenHeader({
 
 function KitchenToolbar({
   workersOnly,
-  onWorkersOnlyChange,
+  onWorkersOnlyChange
 }: {
   workersOnly: boolean;
   onWorkersOnlyChange: (checked: boolean) => void;
@@ -315,9 +268,7 @@ function KitchenToolbar({
           checked={workersOnly}
           id="workers-assigned-only"
           name="workersAssignedOnly"
-          onChange={(event) =>
-            onWorkersOnlyChange(event.target.checked)
-          }
+          onChange={(event) => onWorkersOnlyChange(event.target.checked)}
           type="checkbox"
         />
 
@@ -331,20 +282,26 @@ function KitchenToolbar({
   );
 }
 
-function TodayView() {
+function TodayView({ day }: { day: KitchenDay }) {
   return (
     <section className="min-h-120 border-2 border-[#009ee8] bg-[#edf9ff] p-2">
       <header className="flex items-center justify-between border-b-2 border-[#009ee8] px-2 pb-2">
         <h2 className="text-lg font-black text-[#0077b7]">Today</h2>
 
         <div className="flex items-center gap-2">
-          <PlusButton label="Add kitchen event on July 10" />
-          <strong className="text-sm text-[#536780]">Jul 10</strong>
+          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
+          <strong className="text-sm text-[#536780]">{day.dateLabel}</strong>
         </div>
       </header>
 
       <div className="mt-3">
-        <KitchenEventCard event={staffMeal} />
+        {day.events?.length ? (
+          day.events.map((event) => (
+            <KitchenEventCard event={event} key={event.id} />
+          ))
+        ) : (
+          <p className="text-sm font-black text-[#536780]">No events</p>
+        )}
       </div>
     </section>
   );
@@ -377,9 +334,7 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
         </h2>
 
         <div className="flex items-center gap-2">
-          <PlusButton
-            label={`Add kitchen event on ${day.dateLabel}`}
-          />
+          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
 
           <strong
             className={`text-sm ${
@@ -399,19 +354,17 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-sm font-black text-[#536780]">
-            No events
-          </p>
+          <p className="mt-2 text-sm font-black text-[#536780]">No events</p>
         )}
       </div>
     </article>
   );
 }
 
-function WeekView() {
+function WeekView({ days }: { days: KitchenDay[] }) {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-      {weekDays.map((day) => (
+      {days.map((day) => (
         <WeekDayColumn day={day} key={day.dateLabel} />
       ))}
     </div>
@@ -447,9 +400,7 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
         </strong>
 
         <div className="flex items-center gap-2">
-          <PlusButton
-            label={`Add kitchen event on ${day.dateLabel}`}
-          />
+          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
 
           <strong
             className={`text-sm ${
@@ -463,18 +414,14 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
 
       <div className="space-y-1 p-2">
         {day.events?.map((event) => (
-          <KitchenEventCard
-            compact
-            event={event}
-            key={event.id}
-          />
+          <KitchenEventCard compact event={event} key={event.id} />
         ))}
       </div>
     </article>
   );
 }
 
-function FourWeeksView() {
+function FourWeeksView({ days }: { days: KitchenDay[] }) {
   return (
     <div>
       <div className="mb-3 flex gap-2">
@@ -490,7 +437,7 @@ function FourWeeksView() {
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {fourWeekDays.map((day) => (
+        {days.map((day) => (
           <FourWeekDay day={day} key={day.dateLabel} />
         ))}
       </div>
@@ -499,12 +446,61 @@ function FourWeeksView() {
 }
 
 export function KitchenDashboardPage() {
-  const [activeView, setActiveView] =
-    useState<KitchenView>("today");
+  const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
+  const [activeView, setActiveView] = useState<KitchenView>("today");
 
   const [workersOnly, setWorkersOnly] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+  const days = useMemo<KitchenDay[]>(() => {
+    const eventsByDate = new Map<string, KitchenEvent[]>();
+    for (const event of kitchenQuery.data?.events ?? []) {
+      const key = event.eventDate.slice(0, 10);
+      const portions =
+        event.couplesCount * 2 +
+        event.menCount +
+        event.ladiesCount +
+        event.boysCount +
+        event.girlsCount +
+        event.kidsCount;
+      const current = eventsByDate.get(key) ?? [];
+      current.push({
+        id: event.id,
+        category: event.hall.name,
+        title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
+        portions: `${portions} portions`,
+        packageName: event.packageName ?? "No package assigned",
+        status: event.eventStatus,
+        statusType: event.eventStatus.toLowerCase().includes("hold")
+          ? "hold"
+          : undefined
+      });
+      eventsByDate.set(key, current);
+    }
+
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    return Array.from({ length: 28 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const key = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")
+      ].join("-");
+      return {
+        dayName: index === 0 ? "Today" : dayNames[date.getDay()],
+        dateLabel: new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric"
+        }).format(date),
+        dayNumber: date.getDate(),
+        shabbos: date.getDay() === 6,
+        today: index === 0,
+        events: eventsByDate.get(key)
+      };
+    });
+  }, [kitchenQuery.data]);
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
@@ -516,27 +512,34 @@ export function KitchenDashboardPage() {
       />
 
       <div className="shrink-0 overflow-x-hidden">
-        <KitchenHeader
-          activeView={activeView}
-          onChangeView={setActiveView}
-        />
+        <KitchenHeader activeView={activeView} onChangeView={setActiveView} />
       </div>
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
-        <KitchenToolbar
-          onWorkersOnlyChange={setWorkersOnly}
-          workersOnly={workersOnly}
-        />
+        {kitchenQuery.isLoading || kitchenQuery.error ? (
+          <AsyncState
+            error={kitchenQuery.error}
+            isLoading={kitchenQuery.isLoading}
+            onRetry={kitchenQuery.refetch}
+          />
+        ) : (
+          <>
+            <KitchenToolbar
+              onWorkersOnlyChange={setWorkersOnly}
+              workersOnly={workersOnly}
+            />
 
-        <div className="mt-4">
-          {activeView === "today" ? (
-            <TodayView />
-          ) : activeView === "week" ? (
-            <WeekView />
-          ) : (
-            <FourWeeksView />
-          )}
-        </div>
+            <div className="mt-4">
+              {activeView === "today" ? (
+                <TodayView day={days[0]} />
+              ) : activeView === "week" ? (
+                <WeekView days={days.slice(0, 7)} />
+              ) : (
+                <FourWeeksView days={days} />
+              )}
+            </div>
+          </>
+        )}
       </main>
 
       <TodayNotesDrawer

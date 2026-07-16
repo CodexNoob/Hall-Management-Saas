@@ -7,7 +7,7 @@ import {
   clearCachedSyncedUser,
   getCachedSyncedUser,
   syncSignedInUser,
-  type SyncSignedInUserResponse,
+  type SyncSignedInUserResponse
 } from "@/lib/auth/client";
 import { DashboardSidebar } from "@/components/sidebars/dashboard-sidebar";
 import { DashboardTopbarBrand } from "@/components/topbars/dashboard-topbar";
@@ -30,7 +30,11 @@ function getDashboardActiveLabel(pathname: string | null): string {
 
   if (path === "/dashboard") return "Dashboard";
   if (path.startsWith("/dashboard/settings")) return "Settings";
-  if (path.startsWith("/dashboard/client-portal")) return "Client Portal";
+  if (
+    path.startsWith("/dashboard/clients") ||
+    path.startsWith("/dashboard/client-portal")
+  )
+    return "Clients";
   if (path.startsWith("/dashboard/dining-manager")) return "Dining Manager";
   if (path.startsWith("/dashboard/hall-room-map")) return "Hall Room Map";
   if (path.startsWith("/dashboard/files")) return "Files";
@@ -48,7 +52,9 @@ function getDashboardActiveLabel(pathname: string | null): string {
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
+  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
+    null
+  );
   const [status, setStatus] = useState("Preparing your dashboard...");
 
   useEffect(() => {
@@ -99,7 +105,13 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }, [router]);
 
   if (!syncData) {
-    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" aria-label={status} />;
+    return (
+      <main
+        className="min-h-screen bg-[#f5f6f8]"
+        aria-busy="true"
+        aria-label={status}
+      />
+    );
   }
 
   const activeLabel = getDashboardActiveLabel(pathname);
@@ -108,9 +120,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbarBrand />
-      <DashboardSidebar user={syncData.user} roleLabel={roleLabel} activeLabel={activeLabel} />
+      <DashboardSidebar
+        user={syncData.user}
+        roleLabel={roleLabel}
+        activeLabel={activeLabel}
+      />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-64">{children}</section>
+      <section className="dashboard-shell-main min-h-screen lg:pl-64">
+        {children}
+      </section>
     </main>
   );
 }
