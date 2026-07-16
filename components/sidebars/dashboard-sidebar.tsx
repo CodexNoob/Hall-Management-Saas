@@ -59,8 +59,8 @@ const sidebarSections: Array<{ title: string; items: SidebarItem[] }> = [
     title: "Office",
     items: [
       { icon: "billing", label: "Billing", count: "18", route: "/dashboard/billing" },
-      { icon: "staff", label: "Staff", count: "42" },
-      { icon: "vendor", label: "Vendors", count: "16" },
+      { icon: "staff", label: "Staff", count: "42", route: "/dashboard/staff" },
+      { icon: "vendor", label: "Vendors", count: "16", route: "/dashboard/vendors" },
       { icon: "settings", label: "Settings", count: "18", route: "/dashboard/settings" },
     ],
   },

@@ -1,7 +1,9 @@
 ﻿"use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
+import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
+import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 
 type KitchenView = "today" | "week" | "four-weeks";
 
@@ -208,7 +210,6 @@ function KitchenHeader({
   activeView: KitchenView;
   onChangeView: (view: KitchenView) => void;
 }) {
-  const router = useRouter();
   const information = viewInformation[activeView];
 
   const tabs: Array<{
@@ -222,70 +223,56 @@ function KitchenHeader({
 
   return (
     <header className="border-b border-[#929292] bg-[#b0b0b0] px-4 py-4">
-      <div className="flex min-w-270 items-center gap-3">
-        <button
-          className="h-11 border border-[#d6dde5] bg-white px-5 text-sm font-black hover:bg-[#f6f8fa]"
-          onClick={() => router.push("/dashboard")}
-          type="button"
-        >
-          ← Main Menu
-        </button>
-
-        <button
-          className="relative h-11 border border-[#e99841] bg-white px-3 text-sm font-black"
-          type="button"
-        >
-          Bell
-          <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-[#d91d28] px-1 text-[10px] font-black text-white">
-            2
-          </span>
-        </button>
-
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 xl:flex-nowrap">
         <button
           aria-label="Previous date range"
-          className="h-11 w-11 border border-[#d6dde5] bg-white font-black"
+          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
           type="button"
         >
-          ‹
+          <svg aria-hidden="true" className="h-8 w-8" fill="none" viewBox="0 0 24 24">
+            <path d="m15 4-8 8 8 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" />
+          </svg>
         </button>
 
-        <h1 className="min-w-0 max-w-105 flex-1 truncate text-2xl font-black text-[#07162d]">
+        <h1 className="shrink-0 whitespace-nowrap text-2xl font-black text-[#07162d]">
           {information.heading}
         </h1>
 
         <button
           aria-label="Next date range"
-          className="h-11 w-11 border border-[#d6dde5] bg-white font-black"
+          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
           type="button"
         >
-          ›
+          <svg aria-hidden="true" className="h-8 w-8" fill="none" viewBox="0 0 24 24">
+            <path d="m9 4 8 8-8 8" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="3.5" />
+          </svg>
         </button>
 
         <button
-          className="h-11 border border-[#d6dde5] bg-white px-5 text-sm font-black"
+          className="h-11 shrink-0 whitespace-nowrap border border-[#d6dde5] bg-white px-5 text-sm font-black"
           type="button"
         >
           Today
         </button>
 
-        <strong className="min-w-32 text-center text-3xl font-black text-[#ffd45c]">
+        <strong className="min-w-32 shrink-0 whitespace-nowrap text-center text-3xl font-black text-[#ffd45c]">
           {information.time}
         </strong>
 
-        <span className="bg-[#07162d] px-4 py-3 text-xs font-black uppercase tracking-wide text-white">
+        <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-4 py-3 text-xs font-black uppercase tracking-wide text-white">
           Hall Manager
         </span>
 
         <nav
           aria-label="Kitchen calendar views"
-          className="ml-auto flex gap-2"
+          className="ml-auto flex shrink-0 gap-2"
         >
           {tabs.map((tab) => {
             const active = activeView === tab.value;
 
             return (
               <button
-                className={`h-11 min-w-24 border px-4 text-sm font-black ${
+                className={`h-11 min-w-24 whitespace-nowrap border px-4 text-sm font-black ${
                   active
                     ? "border-2 border-black bg-[#ffc958] shadow-[inset_0_0_0_1px_white]"
                     : "border-[#d6dde5] bg-white hover:bg-[#f6f8fa]"
@@ -312,7 +299,7 @@ function KitchenToolbar({
   onWorkersOnlyChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="grid min-w-225 gap-3 lg:grid-cols-[minmax(0,1fr)_222px]">
+    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_222px]">
       <button
         className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb]"
         type="button"
@@ -423,7 +410,7 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
 
 function WeekView() {
   return (
-    <div className="grid min-w-287.5 grid-cols-7 gap-2">
+    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
       {weekDays.map((day) => (
         <WeekDayColumn day={day} key={day.dateLabel} />
       ))}
@@ -502,7 +489,7 @@ function FourWeeksView() {
         ))}
       </div>
 
-      <div className="grid min-w-287.5 grid-cols-7 gap-1.5">
+      <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {fourWeekDays.map((day) => (
           <FourWeekDay day={day} key={day.dateLabel} />
         ))}
@@ -516,17 +503,26 @@ export function KitchenDashboardPage() {
     useState<KitchenView>("today");
 
   const [workersOnly, setWorkersOnly] = useState(false);
+  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
-      <div className="shrink-0 overflow-x-auto">
+      <DashboardTopbar
+        title="Kitchen Dashboard"
+        subtitle="Review kitchen events, production schedules, and assigned work."
+        onTodayNotes={() => setIsTodayNotesOpen(true)}
+        onNewBooking={() => setIsNewBookingOpen(true)}
+      />
+
+      <div className="shrink-0 overflow-x-hidden">
         <KitchenHeader
           activeView={activeView}
           onChangeView={setActiveView}
         />
       </div>
 
-      <main className="min-h-0 flex-1 overflow-auto p-4">
+      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
         <KitchenToolbar
           onWorkersOnlyChange={setWorkersOnly}
           workersOnly={workersOnly}
@@ -542,6 +538,17 @@ export function KitchenDashboardPage() {
           )}
         </div>
       </main>
+
+      <TodayNotesDrawer
+        onClose={() => setIsTodayNotesOpen(false)}
+        open={isTodayNotesOpen}
+      />
+
+      <NewBookingDialog
+        onClose={() => setIsNewBookingOpen(false)}
+        onSubmit={() => setIsNewBookingOpen(false)}
+        open={isNewBookingOpen}
+      />
     </div>
   );
 }
