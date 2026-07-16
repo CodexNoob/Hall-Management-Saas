@@ -1,300 +1,500 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
+import {
+  NewBookingDialog,
+  type NewBookingFormValues,
+  type NewBookingSubmitIntent,
+} from "@/components/forms-and-modals/new-booking-dialog";
+import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
-import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type KitchenView = "today" | "week" | "four-weeks";
 
-type IconName =
-  | "calendar"
-  | "chevron"
-  | "clock"
-  | "drink"
-  | "events"
-  | "file"
-  | "home"
-  | "kitchen"
-  | "logout"
-  | "menu"
-  | "plus"
-  | "search"
-  | "soup"
-  | "trash"
-  | "users";
-
-const todayItems = [
-  { title: "Chicken Soup", units: "2 units", icon: "soup" as const },
-  { title: "Schnitzel Sandwich", units: "100 units", icon: "kitchen" as const },
-  { title: "Cold Drinks", units: "2 units", icon: "drink" as const }
-];
-
-const kitchenDateInfo: Record<KitchenView, { range: string; time: string }> = {
-  today: { range: "Thursday, July 2, 2026", time: "12:19 PM" },
-  week: { range: "Jun 28 - Jul 4, 2026", time: "12:19 PM" },
-  "four-weeks": { range: "Jun 28 - Jul 25, 2026", time: "12:20 PM" }
+type KitchenEvent = {
+  id: string;
+  category: string;
+  title: string;
+  portions: string;
+  packageName: string;
+  status?: string;
+  statusType?: "hold" | "kitchen";
 };
 
-const weekDays = [
-  { weekday: "Sun", date: "Jun 28" },
-  { weekday: "Mon", date: "Jun 29" },
-  { weekday: "Tue", date: "Jun 30" },
-  { weekday: "Wed", date: "Jul 1" },
-  { weekday: "Thu", date: "Jul 2", event: true },
-  { weekday: "Fri", date: "Jul 3" },
-  { weekday: "Sutarday", date: "Jul 4", shabbos: true }
+type KitchenDay = {
+  dayName: string;
+  dateLabel: string;
+  dayNumber: number;
+  shabbos?: boolean;
+  today?: boolean;
+  events?: KitchenEvent[];
+};
+
+const staffMeal: KitchenEvent = {
+  id: "staff-meal",
+  category: "Kitchen",
+  title: "Staff Meal",
+  portions: "80 portions",
+  packageName: "Kitchen Event",
+  statusType: "kitchen",
+};
+
+const sterlingHallEvent: KitchenEvent = {
+  id: "sterling-hall",
+  category: "Sterling Hall",
+  title: "Tenoyim",
+  portions: "200 portions",
+  packageName: "Standard Tenoim Package",
+  status: "On Hold",
+  statusType: "hold",
+};
+
+const weekDays: KitchenDay[] = [
+  { dayName: "Sun", dateLabel: "Jul 5", dayNumber: 5 },
+  {
+    dayName: "Mon",
+    dateLabel: "Jul 6",
+    dayNumber: 6,
+    events: [sterlingHallEvent],
+  },
+  { dayName: "Tue", dateLabel: "Jul 7", dayNumber: 7 },
+  { dayName: "Wed", dateLabel: "Jul 8", dayNumber: 8 },
+  { dayName: "Thu", dateLabel: "Jul 9", dayNumber: 9 },
+  {
+    dayName: "Today",
+    dateLabel: "Jul 10",
+    dayNumber: 10,
+    today: true,
+    events: [staffMeal],
+  },
+  {
+    dayName: "Shabbos",
+    dateLabel: "Jul 11",
+    dayNumber: 11,
+    shabbos: true,
+  },
 ];
 
-const fourWeekDays = [
-  ["Sun", "Jun 28"],
-  ["Mon", "Jun 29"],
-  ["Tue", "Jun 30"],
-  ["Wed", "Jul 1"],
-  ["Thu", "Jul 2"],
-  ["Fri", "Jul 3"],
-  ["Sutarday", "Jul 4"],
-  ["Sun", "Jul 5"],
-  ["Mon", "Jul 6"],
-  ["Tue", "Jul 7"],
-  ["Wed", "Jul 8"],
-  ["Thu", "Jul 9"],
-  ["Fri", "Jul 10"],
-  ["Sutarday", "Jul 11"],
-  ["Sun", "Jul 12"],
-  ["Mon", "Jul 13"],
-  ["Tue", "Jul 14"],
-  ["Wed", "Jul 15"],
-  ["Thu", "Jul 16"],
-  ["Fri", "Jul 17"],
-  ["Sutarday", "Jul 18"],
-  ["Sun", "Jul 19"],
-  ["Mon", "Jul 20"],
-  ["Tue", "Jul 21"],
-  ["Wed", "Jul 22"],
-  ["Thu", "Jul 23"],
-  ["Fri", "Jul 24"],
-  ["Sutarday", "Jul 25"]
+const dayNames = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Shabbos",
 ];
 
-function LineIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
-  const common = {
-    className,
-    viewBox: "0 0 24 24",
-    fill: "none",
-    stroke: "currentColor",
-    strokeWidth: 2,
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    "aria-hidden": true
-  };
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
 
-  const paths: Record<IconName, React.ReactNode> = {
-    calendar: <><path d="M4 6h16v14H4ZM8 3v5M16 3v5M4 11h16" /></>,
-    chevron: <path d="m6 9 6 6 6-6" />,
-    clock: <><circle cx="12" cy="12" r="8" /><path d="M12 8v5l3 2" /></>,
-    drink: <><path d="M7 4h10l-1 15H8Z" /><path d="M9 8h6M10 12h4" /></>,
-    events: <><path d="M6 3h9l3 3v15H6Z" /><path d="M15 3v4h4M9 12h6M9 16h4" /></>,
-    file: <><path d="M6 3h9l3 3v15H6Z" /><path d="M15 3v4h4M9 13h6M9 17h4" /></>,
-    home: <path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z" />,
-    kitchen: <><path d="M8 4v5M12 4v5M16 4v5M7 9h10l-1 11H8Z" /><path d="M5 13H3v3h3M19 13h2v3h-3" /></>,
-    logout: <><path d="M10 6H5v12h5" /><path d="M14 8l4 4-4 4M8 12h10" /></>,
-    menu: <><path d="M7 3v18M11 3v7a4 4 0 0 1-8 0V3M17 3v18M17 3c2 1.5 3 4 3 7v2h-3" /></>,
-    plus: <path d="M12 5v14M5 12h14" />,
-    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
-    soup: <><path d="M5 12h14l-1 7H6Z" /><path d="M7 12c0-3 10-3 10 0M9 5c-1 1-1 2 0 3M13 5c-1 1-1 2 0 3" /></>,
-    trash: <><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" /></>,
-    users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.9" /></>
-  };
+const fourWeekDays: KitchenDay[] = Array.from(
+  { length: 28 },
+  (_, index) => {
+    const date = new Date(Date.UTC(2026, 6, 5 + index));
+    const dayNumber = date.getUTCDate();
+    const dateLabel = `${monthNames[date.getUTCMonth()]} ${dayNumber}`;
+    const dayName = dayNames[date.getUTCDay()];
+    const isJulySix = date.getUTCMonth() === 6 && dayNumber === 6;
+    const isJulyTen = date.getUTCMonth() === 6 && dayNumber === 10;
 
-  return <svg {...common}>{paths[name]}</svg>;
+    return {
+      dayName,
+      dateLabel,
+      dayNumber,
+      shabbos: dayName === "Shabbos",
+      today: isJulyTen,
+      events: isJulySix
+        ? [sterlingHallEvent]
+        : isJulyTen
+          ? [staffMeal]
+          : undefined,
+    };
+  },
+);
+
+const viewInformation: Record<
+  KitchenView,
+  {
+    heading: string;
+    time: string;
+  }
+> = {
+  today: {
+    heading: "Friday, July 10, 2026",
+    time: "6:19 PM",
+  },
+  week: {
+    heading: "This Week · Jul 5 – Jul 11",
+    time: "6:20 PM",
+  },
+  "four-weeks": {
+    heading: "4 Weeks · Jul 5 – Aug 1",
+    time: "6:20 PM",
+  },
+};
+
+function PlusButton({
+  label,
+}: {
+  label: string;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="flex h-6 w-6 shrink-0 items-center justify-center border border-[#cbd5df] bg-[#f8fafc] text-sm font-black text-[#17202a] hover:bg-white"
+      title={label}
+      type="button"
+    >
+      +
+    </button>
+  );
 }
 
-function SegmentedTabs({ activeView, setActiveView }: { activeView: KitchenView; setActiveView: (view: KitchenView) => void }) {
-  const tabs: Array<{ label: string; value: KitchenView }> = [
+function KitchenEventCard({
+  compact = false,
+  event,
+}: {
+  compact?: boolean;
+  event: KitchenEvent;
+}) {
+  const hold = event.statusType === "hold";
+
+  if (compact) {
+    return (
+      <button
+        className={`block w-full truncate border px-2 py-1 text-left text-xs font-black ${
+          hold
+            ? "border-[#f0a326] bg-[#fff5e4] text-[#914700]"
+            : "border-[#16a267] bg-[#effcf5] text-[#006d3e]"
+        }`}
+        type="button"
+      >
+        {hold ? "HOLD" : "KITCHEN"} · {event.title}
+      </button>
+    );
+  }
+
+  return (
+    <article
+      className={`border border-dashed p-3 ${
+        hold
+          ? "border-[#f0a326] bg-[#fffaf1]"
+          : "border-[#c8d6e3] bg-[#f8fafc]"
+      }`}
+    >
+      <p className="text-[11px] font-black uppercase tracking-wide text-[#34465b]">
+        {event.category}
+      </p>
+
+      <h3 className="mt-1 text-sm font-black text-[#07162d]">
+        {event.title}
+      </h3>
+
+      <p className="mt-1 text-xs font-bold text-[#41556c]">
+        {event.portions}
+      </p>
+
+      <p className="mt-1 text-xs font-bold text-[#41556c]">
+        {event.packageName}
+      </p>
+
+      {event.status ? (
+        <span className="mt-3 inline-flex bg-[#ff7624] px-3 py-1 text-[10px] font-black uppercase text-white">
+          {event.status}
+        </span>
+      ) : null}
+    </article>
+  );
+}
+
+function KitchenHeader({
+  activeView,
+  onChangeView,
+}: {
+  activeView: KitchenView;
+  onChangeView: (view: KitchenView) => void;
+}) {
+  const information = viewInformation[activeView];
+
+  const tabs: Array<{
+    label: string;
+    value: KitchenView;
+  }> = [
     { label: "Today", value: "today" },
     { label: "This Week", value: "week" },
-    { label: "4 Weeks", value: "four-weeks" }
+    { label: "4 Weeks", value: "four-weeks" },
   ];
 
   return (
-    <div className="inline-flex w-full overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4 sm:w-130">
-      {tabs.map((tab) => (
+    <header className="border-b border-[#929292] bg-[#b0b0b0] px-4 py-4">
+      <div className="flex min-w-270 items-center gap-3">
         <button
-          key={tab.value}
-          className={`h-13 flex-1 px-5 text-base font-bold transition ${
-            activeView === tab.value ? "bg-[#1f4d73] text-white shadow-inner" : "border-l border-[#d8dde5] text-[#17202a] hover:bg-[#eef4fa]"
-          }`}
+          aria-label="Previous date range"
+          className="h-11 w-11 border border-[#d6dde5] bg-white font-black"
           type="button"
-          onClick={() => setActiveView(tab.value)}
         >
-          {tab.label}
+          ‹
         </button>
-      ))}
-    </div>
-  );
-}
 
-function DateInfoCards({ range, time }: { range: string; time: string }) {
-  return (
-    <div className="flex flex-col gap-3 sm:flex-row">
-      <div className="flex h-17 min-w-80 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white px-7 text-base font-black text-[#17202a] shadow-sm shadow-[#17202a]/4">
-        <LineIcon name="calendar" className="h-5 w-5 text-[#1f4d73]" />
-        {range}
-      </div>
-      <div className="flex h-17 min-w-54 items-center gap-4 rounded-xl border border-[#d8dde5] bg-white px-7 text-base font-black text-[#9a5b00] shadow-sm shadow-[#17202a]/4">
-        <LineIcon name="clock" className="h-5 w-5 text-[#1f4d73]" />
-        {time}
-      </div>
-    </div>
-  );
-}
+        <h1 className="min-w-0 max-w-105 flex-1 truncate text-2xl font-black text-[#07162d]">
+          {information.heading}
+        </h1>
 
-function ViewNavigationButtons() {
-  return (
-    <div className="flex flex-wrap gap-3">
-      {["Previous", "Current", "Next"].map((label, index) => (
-        <button key={label} className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#17202a] shadow-sm transition hover:bg-[#eef4fa]" type="button">
-          {index === 0 ? "?" : null}
-          {label}
-          {index === 2 ? "?" : null}
+        <button
+          aria-label="Next date range"
+          className="h-11 w-11 border border-[#d6dde5] bg-white font-black"
+          type="button"
+        >
+          ›
         </button>
-      ))}
-    </div>
-  );
-}
 
-function TodayKitchenView() {
-  return (
-    <div className="space-y-6">
-      <button className="flex h-19.5 w-full items-center gap-5 rounded-2xl border border-dashed border-[#b9c2cf] bg-white/75 px-9 text-lg font-semibold text-[#6a7483] transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]" type="button">
-        <LineIcon name="plus" className="h-5 w-5" />
-        Add Kitchen Event
-      </button>
+        <button
+          className="h-11 border border-[#d6dde5] bg-white px-5 text-sm font-black"
+          type="button"
+        >
+          Today
+        </button>
 
-      <section className="rounded-2xl border border-[#d8dde5] border-l-4 border-l-[#1f4d73] bg-[#fbfcfd] px-8 py-11 shadow-xl shadow-[#17202a]/7">
-        <div className="grid gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
-          <div>
-            <p className="text-base font-black uppercase tracking-[0.12em] text-[#1f4d73]">KITA TES</p>
-            <h2 className="mt-4 text-[42px] font-black tracking-tight text-[#17202a]">100 portions</h2>
-            <span className="mt-3 inline-flex rounded-lg border border-[#b9c2cf] bg-[#fbfcfd] px-3 py-1 text-xs font-black text-[#1f4d73]">Kitchen Add</span>
-            <p className="mt-4 text-sm font-black uppercase tracking-[0.08em] text-[#6a7483]">No menu assigned</p>
-            <div className="mt-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] px-5 py-3 text-sm font-black text-[#9a5b00]">
-              Needs it ready for 2:00pm
-            </div>
-            <button className="mt-4 inline-flex h-11 items-center gap-2 rounded-lg border border-[#a62b24] bg-white px-4 text-sm font-black text-[#a62b24] transition hover:bg-[#fbfcfd]" type="button">
-              <LineIcon name="trash" className="h-4 w-4" />
-              Delete Event
-            </button>
-          </div>
+        <strong className="min-w-32 text-center text-3xl font-black text-[#ffd45c]">
+          {information.time}
+        </strong>
 
-          <div className="flex flex-wrap items-center gap-5 lg:justify-center">
-            {todayItems.map((item) => (
-              <article key={item.title} className="flex min-h-50 w-35 flex-col justify-center rounded-xl border border-[#d8dde5] bg-white p-5 text-center shadow-lg shadow-[#17202a]/7">
-                <LineIcon name={item.icon} className="mx-auto h-7 w-7 text-[#1f4d73]" />
-                <h3 className="mt-4 text-lg font-black leading-5 text-[#17202a]">{item.title}</h3>
-                <div className="mt-5 border-t border-[#d8dde5] pt-3 text-xs font-black text-[#6a7483]">{item.units}</div>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
+        <span className="bg-[#07162d] px-4 py-3 text-xs font-black uppercase tracking-wide text-white">
+          Hall Manager
+        </span>
 
-function EmptyDay() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center text-center text-[#6a7483]">
-      <LineIcon name="calendar" className="h-6 w-6" />
-      <p className="mt-2 text-xs font-semibold">No events</p>
-    </div>
-  );
-}
+        <nav
+          aria-label="Kitchen calendar views"
+          className="ml-auto flex gap-2"
+        >
+          {tabs.map((tab) => {
+            const active = activeView === tab.value;
 
-function KitchenEventMini({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className={`rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73] shadow-sm ${compact ? "p-2 text-xs" : "p-3 text-sm"}`}>
-      <p className="font-black uppercase tracking-[0.04em]">KITA TES</p>
-      <p className="mt-1 font-black text-[#17202a]">100 portions</p>
-      <p className="mt-1 font-semibold text-[#6a7483]">No menu</p>
-    </div>
-  );
-}
-
-function WeekKitchenView() {
-  return (
-    <div className="space-y-5">
-      <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-270 grid-cols-7 gap-3">
-          {weekDays.map((day) => (
-            <article
-              key={day.date}
-              className={`flex min-h-108 flex-col rounded-2xl border p-4 shadow-sm shadow-[#17202a]/5 ${
-                day.event ? "border-[#1f4d73] bg-[#fbfcfd]" : day.shabbos ? "border-[#b9c2cf] bg-white" : "border-[#d8dde5] bg-white"
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className={`text-base font-black ${day.shabbos ? "text-[#1f4d73]" : "text-[#17202a]"}`}>{day.weekday}</h3>
-                  <p className="mt-1 text-xs font-semibold text-[#6a7483]">{day.date}</p>
-                </div>
-                <button
-                  className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white text-[#17202a] transition hover:bg-[#eef4fa]"
-                  type="button"
-                  aria-label={`Add kitchen event on ${day.weekday} ${day.date}`}
-                  title={`Add kitchen event on ${day.weekday} ${day.date}`}
-                >
-                  <LineIcon name="plus" className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="mt-4 flex flex-1">
-                {day.event ? <KitchenEventMini /> : <EmptyDay />}
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FourWeeksKitchenView() {
-  return (
-    <div className="space-y-5">
-      <div className="overflow-x-auto pb-2">
-        <div className="grid min-w-305 grid-cols-7 gap-1.5">
-          {fourWeekDays.map(([weekday, date]) => {
-            const isEventDay = date === "Jul 2";
-            const isShabbos = weekday === "Shabbos";
             return (
-              <article
-                key={`${weekday}-${date}`}
-                className={`min-h-39 rounded-xl border p-3 shadow-sm shadow-[#17202a]/4 ${
-                  isEventDay ? "border-[#1f4d73] bg-[#fbfcfd]" : isShabbos ? "border-[#b9c2cf] bg-white" : "border-[#d8dde5] bg-white"
+              <button
+                className={`h-11 min-w-24 border px-4 text-sm font-black ${
+                  active
+                    ? "border-2 border-black bg-[#ffc958] shadow-[inset_0_0_0_1px_white]"
+                    : "border-[#d6dde5] bg-white hover:bg-[#f6f8fa]"
                 }`}
+                key={tab.value}
+                onClick={() => onChangeView(tab.value)}
+                type="button"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className={`text-sm font-black ${isShabbos ? "text-[#1f4d73]" : "text-[#17202a]"}`}>{weekday}</h3>
-                    <p className="mt-1 text-xs font-semibold text-[#6a7483]">{date}</p>
-                  </div>
-                  <button
-                    className="flex h-6 w-6 items-center justify-center rounded-md border border-[#b9c2cf] bg-white text-[#17202a] transition hover:bg-[#eef4fa]"
-                    type="button"
-                    aria-label={`Add kitchen event on ${weekday} ${date}`}
-                    title={`Add kitchen event on ${weekday} ${date}`}
-                  >
-                    <LineIcon name="plus" className="h-3 w-3" />
-                  </button>
-                </div>
-                <div className="mt-3">{isEventDay ? <KitchenEventMini compact /> : <div className="h-15 rounded-lg border border-[#d8dde5] bg-[#ffffff]" />}</div>
-              </article>
+                {tab.label}
+              </button>
             );
           })}
+        </nav>
+      </div>
+    </header>
+  );
+}
+
+function KitchenToolbar({
+  workersOnly,
+  onWorkersOnlyChange,
+}: {
+  workersOnly: boolean;
+  onWorkersOnlyChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="grid min-w-225 gap-3 lg:grid-cols-[minmax(0,1fr)_222px]">
+      <button
+        className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb]"
+        type="button"
+      >
+        + Add Kitchen Event
+      </button>
+
+      <label
+        className="flex min-h-12 cursor-pointer items-center justify-center gap-8 bg-white px-4 text-center text-xs font-black text-[#07162d]"
+        htmlFor="workers-assigned-only"
+      >
+        <input
+          checked={workersOnly}
+          id="workers-assigned-only"
+          name="workersAssignedOnly"
+          onChange={(event) =>
+            onWorkersOnlyChange(event.target.checked)
+          }
+          type="checkbox"
+        />
+
+        <span>
+          Workers see
+          <br />
+          assigned items only
+        </span>
+      </label>
+    </div>
+  );
+}
+
+function TodayView() {
+  return (
+    <section className="min-h-120 border-2 border-[#009ee8] bg-[#edf9ff] p-2">
+      <header className="flex items-center justify-between border-b-2 border-[#009ee8] px-2 pb-2">
+        <h2 className="text-lg font-black text-[#0077b7]">Today</h2>
+
+        <div className="flex items-center gap-2">
+          <PlusButton label="Add kitchen event on July 10" />
+          <strong className="text-sm text-[#536780]">Jul 10</strong>
         </div>
+      </header>
+
+      <div className="mt-3">
+        <KitchenEventCard event={staffMeal} />
+      </div>
+    </section>
+  );
+}
+
+function WeekDayColumn({ day }: { day: KitchenDay }) {
+  const borderColor = day.today
+    ? "border-[#009ee8]"
+    : day.shabbos
+      ? "border-[#a25bff]"
+      : "border-transparent";
+
+  const headingColor = day.today
+    ? "text-[#0077b7]"
+    : day.shabbos
+      ? "text-[#8b37f5]"
+      : "text-[#07162d]";
+
+  return (
+    <article
+      className={`flex min-h-120 flex-col border-2 bg-white p-2 ${borderColor} ${
+        day.today ? "bg-[#edf9ff]" : ""
+      }`}
+    >
+      <header
+        className={`flex items-center justify-between border-b-2 pb-2 ${borderColor}`}
+      >
+        <h2 className={`text-base font-black ${headingColor}`}>
+          {day.dayName}
+        </h2>
+
+        <div className="flex items-center gap-2">
+          <PlusButton
+            label={`Add kitchen event on ${day.dateLabel}`}
+          />
+
+          <strong
+            className={`text-sm ${
+              day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
+            }`}
+          >
+            {day.dateLabel}
+          </strong>
+        </div>
+      </header>
+
+      <div className="mt-3">
+        {day.events?.length ? (
+          <div className="space-y-2">
+            {day.events.map((event) => (
+              <KitchenEventCard event={event} key={event.id} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-sm font-black text-[#536780]">
+            No events
+          </p>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function WeekView() {
+  return (
+    <div className="grid min-w-287.5 grid-cols-7 gap-2">
+      {weekDays.map((day) => (
+        <WeekDayColumn day={day} key={day.dateLabel} />
+      ))}
+    </div>
+  );
+}
+
+function FourWeekDay({ day }: { day: KitchenDay }) {
+  const borderColor = day.today
+    ? "border-[#009ee8]"
+    : day.shabbos
+      ? "border-[#a25bff]"
+      : "border-[#aeb6bf]";
+
+  return (
+    <article
+      className={`min-h-39 border-2 bg-white ${borderColor} ${
+        day.today ? "bg-[#edf9ff]" : ""
+      }`}
+    >
+      <header
+        className={`flex items-center justify-between border-b px-2 py-1.5 ${
+          day.shabbos
+            ? "border-[#a25bff] bg-[#fcf8ff]"
+            : "border-[#d6dde5] bg-[#f7f9fb]"
+        }`}
+      >
+        <strong
+          className={`text-sm ${
+            day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
+          }`}
+        >
+          {day.dayName}
+        </strong>
+
+        <div className="flex items-center gap-2">
+          <PlusButton
+            label={`Add kitchen event on ${day.dateLabel}`}
+          />
+
+          <strong
+            className={`text-sm ${
+              day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
+            }`}
+          >
+            {day.dateLabel}
+          </strong>
+        </div>
+      </header>
+
+      <div className="space-y-1 p-2">
+        {day.events?.map((event) => (
+          <KitchenEventCard
+            compact
+            event={event}
+            key={event.id}
+          />
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function FourWeeksView() {
+  return (
+    <div>
+      <div className="mb-3 flex gap-2">
+        {["Previous", "Current", "Next"].map((label) => (
+          <button
+            className="h-11 min-w-26 border border-[#d6dde5] bg-white px-4 text-sm font-black hover:bg-[#f6f8fa]"
+            key={label}
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid min-w-[1150px] grid-cols-7 gap-1.5">
+        {fourWeekDays.map((day) => (
+          <FourWeekDay day={day} key={day.dateLabel} />
+        ))}
       </div>
     </div>
   );
@@ -302,89 +502,92 @@ function FourWeeksKitchenView() {
 
 export function KitchenDashboardPage() {
   const router = useRouter();
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
-  const [activeView, setActiveView] = useState<KitchenView>("today");
+  const [activeView, setActiveView] =
+    useState<KitchenView>("today");
 
-  useEffect(() => {
-    let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
+  const [workersOnly, setWorkersOnly] = useState(false);
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
 
-    if (cachedSyncData) {
-      setSyncData(cachedSyncData);
-    }
+  function continueNewBooking(
+    values: NewBookingFormValues,
+    intent: NewBookingSubmitIntent,
+  ) {
+    const searchParams = new URLSearchParams({
+      clientName: values.clientName,
+      phone: values.phone,
+      email: values.email,
+      eventType: values.eventType,
+      eventDate: values.eventDate,
+      hall: values.hall,
+      guestCount: values.guestCount,
+      package: values.eventPackage,
+      intent,
+    });
 
-    async function loadUser() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
-          router.replace("/");
-          return;
-        }
-
-        const synced = await syncSignedInUser(data.session.access_token);
-
-        if (isMounted) {
-          setSyncData(synced);
-        }
-      } catch {
-        if (!cachedSyncData) {
-          clearCachedSyncedUser();
-          router.replace("/");
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  if (!syncData) {
-    return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
+    setIsNewBookingOpen(false);
+    router.push(`/dashboard/events?${searchParams.toString()}`);
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#ffffff] text-[#17202a]">
-      <DashboardTopbar title="Kitchen Dashboard" subtitle="See today's kitchen events and what needs to be prepared." />
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
+      <DashboardTopbar
+        actionsSlot={
+          <>
+            <button
+              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+              onClick={() => setIsNotesOpen(true)}
+              type="button"
+            >
+              Notes
+            </button>
+            <button
+              className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f]"
+              onClick={() => setIsNewBookingOpen(true)}
+              type="button"
+            >
+              <span aria-hidden="true">+</span>
+              New booking
+            </button>
+          </>
+        }
+        subtitle="Manage kitchen events, preparation schedules, and assigned work."
+        title="Kitchen Dashboard"
+      />
 
-      <div className="px-4 py-10 sm:px-8 lg:px-14 lg:py-16">
-          <div className="relative pb-10">
-            <svg className="pointer-events-none absolute right-0 top-0 hidden h-80 w-180 max-w-full text-[#1f4d73]/18 sm:block" viewBox="0 0 720 360" fill="none" aria-hidden="true">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <path key={index} d={`M0 ${90 + index * 24}c142-90 242 44 384-46 128-80 214-30 336-98`} stroke="currentColor" />
-              ))}
-            </svg>
+      <TodayNotesDrawer
+        onClose={() => setIsNotesOpen(false)}
+        open={isNotesOpen}
+      />
+      <NewBookingDialog
+        onClose={() => setIsNewBookingOpen(false)}
+        onSubmit={continueNewBooking}
+        open={isNewBookingOpen}
+      />
 
-            <div className="relative">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <SegmentedTabs activeView={activeView} setActiveView={setActiveView} />
-                <div className="flex flex-col items-center gap-3 xl:items-end">
-                  <DateInfoCards range={kitchenDateInfo[activeView].range} time={kitchenDateInfo[activeView].time} />
-                  {activeView !== "today" ? (
-                    <div className="flex justify-center xl:justify-end">
-                      <ViewNavigationButtons />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-7">
-                {activeView === "today" ? (
-                  <TodayKitchenView />
-                ) : activeView === "week" ? (
-                  <WeekKitchenView />
-                ) : (
-                  <FourWeeksKitchenView />
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="shrink-0 overflow-x-auto">
+        <KitchenHeader
+          activeView={activeView}
+          onChangeView={setActiveView}
+        />
       </div>
+
+      <main className="min-h-0 flex-1 overflow-auto p-4">
+        <KitchenToolbar
+          onWorkersOnlyChange={setWorkersOnly}
+          workersOnly={workersOnly}
+        />
+
+        <div className="mt-4">
+          {activeView === "today" ? (
+            <TodayView />
+          ) : activeView === "week" ? (
+            <WeekView />
+          ) : (
+            <FourWeeksView />
+          )}
+        </div>
+      </main>
     </div>
   );
 }

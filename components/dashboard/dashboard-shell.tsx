@@ -124,7 +124,7 @@ export function DashboardShell({}: DashboardShellProps) {
       });
 
       setIsNewBookingOpen(false);
-      router.push(`/dashboard/events/new?${searchParams.toString()}`);
+      router.push(`/dashboard/events?${searchParams.toString()}`);
     },
     [router],
   );
@@ -290,7 +290,7 @@ export function DashboardShell({}: DashboardShellProps) {
                   <button
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
                     type="button"
-                    onClick={() => router.push("/dashboard/events/new")}
+                    onClick={() => router.push("/dashboard/events")}
                   >
                     Book event
                   </button>
