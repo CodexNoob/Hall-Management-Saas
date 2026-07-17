@@ -21,6 +21,7 @@
     "db:member-view-access-backfill": "prisma db execute --file prisma/member-view-access-backfill.sql",
     "db:sample-vendors": "prisma db execute --file prisma/sample-vendors.sql",
     "db:booking-engine": "prisma db execute --file prisma/booking-engine.sql",
+    "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "db:rls": "prisma db execute --file prisma/supabase-rls.sql",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
