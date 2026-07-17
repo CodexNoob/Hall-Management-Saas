@@ -18,10 +18,15 @@ export function AsyncState({
   if (isLoading) {
     return (
       <div
+        aria-busy="true"
         aria-live="polite"
-        className="rounded-xl border border-[#d8dde5] bg-white p-8 text-center text-sm font-semibold text-[#6a7483]"
+        className="inline-flex items-center gap-3 rounded-xl border border-[#d8dde5] bg-white px-6 py-4 text-center text-sm font-semibold text-[#6a7483] shadow-sm"
       >
-        Loading data…
+        <span
+          aria-hidden="true"
+          className="h-5 w-5 animate-spin rounded-full border-2 border-[#c7d0dc] border-t-[#1f4d73]"
+        />
+        <span>Loading data…</span>
       </div>
     );
   }

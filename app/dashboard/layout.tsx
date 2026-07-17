@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/client";
 import { DashboardSidebar } from "@/components/sidebars/dashboard-sidebar";
 import { DashboardTopbarBrand } from "@/components/topbars/dashboard-topbar";
+import { AsyncState } from "@/components/ui/async-state";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {
@@ -107,10 +108,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (!syncData) {
     return (
       <main
-        className="min-h-screen bg-[#f5f6f8]"
+        className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4"
         aria-busy="true"
         aria-label={status}
-      />
+      >
+        <AsyncState isLoading />
+      </main>
     );
   }
 

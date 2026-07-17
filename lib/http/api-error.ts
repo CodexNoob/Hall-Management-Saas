@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthorizationError } from "@/lib/auth/server-auth";
+import { BillingError } from "@/lib/billing/billing-error";
 import { BookingError } from "@/lib/bookings/booking-service";
 
 export function createApiErrorResponse(error: unknown) {
@@ -14,6 +15,12 @@ export function createApiErrorResponse(error: unknown) {
   if (error instanceof AuthorizationError) {
     return NextResponse.json(
       { error: error.message },
+      { status: error.status }
+    );
+  }
+  if (error instanceof BillingError) {
+    return NextResponse.json(
+      { error: error.message, code: error.code },
       { status: error.status }
     );
   }
@@ -39,6 +46,15 @@ export function createApiErrorResponse(error: unknown) {
     return NextResponse.json(
       { error: "Requested record was not found." },
       { status: 404 }
+    );
+  }
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    return NextResponse.json(
+      { error: "A record with the same provider reference already exists." },
+      { status: 409 }
     );
   }
 

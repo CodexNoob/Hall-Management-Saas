@@ -300,7 +300,7 @@ export function StaffPage() {
 
   if (staffQuery.isLoading || staffQuery.error || !selectedStaff) {
     return (
-      <main className="min-h-screen bg-[#f5f6f8] p-4">
+      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
         <AsyncState
           error={staffQuery.error}
           isEmpty={

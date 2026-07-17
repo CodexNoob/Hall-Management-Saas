@@ -59,7 +59,36 @@ export type SyncSignedInUserResponse = {
 };
 
 const SYNCED_USER_CACHE_KEY = "hms.syncedUser";
+const SYNCED_USER_CACHE_SUBJECT_KEY = "hms.syncedUser.subject";
+const SYNCED_USER_CACHE_TIME_KEY = "hms.syncedUser.syncedAt";
 const SYNC_TIMEOUT_MS = 12000;
+const SYNC_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+let syncInFlight:
+  | {
+      subject: string | null;
+      promise: Promise<SyncSignedInUserResponse>;
+    }
+  | null = null;
+
+function getAccessTokenSubject(accessToken: string) {
+  try {
+    const encodedPayload = accessToken.split(".")[1];
+    if (!encodedPayload) return null;
+
+    const normalizedPayload = encodedPayload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(encodedPayload.length / 4) * 4, "=");
+    const payload = JSON.parse(window.atob(normalizedPayload)) as {
+      sub?: unknown;
+    };
+
+    return typeof payload.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
 
 function isSyncSignedInUserResponse(
   value: unknown
@@ -79,7 +108,10 @@ function isSyncSignedInUserResponse(
   );
 }
 
-export function cacheSyncedUser(syncData: SyncSignedInUserResponse) {
+export function cacheSyncedUser(
+  syncData: SyncSignedInUserResponse,
+  subject?: string | null
+) {
   if (typeof window === "undefined") {
     return;
   }
@@ -87,6 +119,11 @@ export function cacheSyncedUser(syncData: SyncSignedInUserResponse) {
   const payload = JSON.stringify(syncData);
   window.localStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
   window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
+  window.localStorage.setItem(SYNCED_USER_CACHE_TIME_KEY, String(Date.now()));
+
+  if (subject) {
+    window.localStorage.setItem(SYNCED_USER_CACHE_SUBJECT_KEY, subject);
+  }
 }
 
 export function setActiveOrganization(organizationId: string) {
@@ -132,37 +169,78 @@ export function clearCachedSyncedUser() {
 
   window.localStorage.removeItem(SYNCED_USER_CACHE_KEY);
   window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
+  window.localStorage.removeItem(SYNCED_USER_CACHE_SUBJECT_KEY);
+  window.localStorage.removeItem(SYNCED_USER_CACHE_TIME_KEY);
 }
 
-export async function syncSignedInUser(accessToken: string) {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(
-    () => controller.abort(),
-    SYNC_TIMEOUT_MS
+export function syncSignedInUser(
+  accessToken: string,
+  options: { force?: boolean } = {}
+) {
+  const subject = getAccessTokenSubject(accessToken);
+  const cachedUser = getCachedSyncedUser();
+  const cachedSubject = window.localStorage.getItem(
+    SYNCED_USER_CACHE_SUBJECT_KEY
   );
+  const cachedAt = Number(
+    window.localStorage.getItem(SYNCED_USER_CACHE_TIME_KEY) ?? 0
+  );
+  const cacheIsFresh =
+    cachedAt > 0 && Date.now() - cachedAt < SYNC_CACHE_MAX_AGE_MS;
 
-  const response = await fetch("/api/auth/sync-user", {
-    method: "POST",
-    signal: controller.signal,
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  }).finally(() => window.clearTimeout(timeoutId));
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Error(
-      payload?.error ??
-        "Unable to sync the signed-in user with the Hall Management database."
-    );
+  if (
+    !options.force &&
+    cachedUser &&
+    cacheIsFresh &&
+    subject &&
+    cachedSubject === subject
+  ) {
+    return Promise.resolve(cachedUser);
   }
 
-  const syncData = (await response.json()) as SyncSignedInUserResponse;
-  cacheSyncedUser(syncData);
+  if (syncInFlight && syncInFlight.subject === subject) {
+    return syncInFlight.promise;
+  }
 
-  return syncData;
+  const promise = (async () => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      SYNC_TIMEOUT_MS
+    );
+
+    const response = await fetch("/api/auth/sync-user", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    }).finally(() => window.clearTimeout(timeoutId));
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      throw new Error(
+        payload?.error ??
+          "Unable to sync the signed-in user with the Hall Management database."
+      );
+    }
+
+    const syncData = (await response.json()) as SyncSignedInUserResponse;
+    cacheSyncedUser(syncData, subject);
+    return syncData;
+  })();
+
+  syncInFlight = { subject, promise };
+  const clearInFlight = () => {
+    if (syncInFlight?.promise === promise) {
+      syncInFlight = null;
+    }
+  };
+  void promise.then(clearInFlight, clearInFlight);
+
+  return promise;
 }
 
 export async function signInWithOAuthProvider(

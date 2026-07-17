@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
+import { AsyncState } from "@/components/ui/async-state";
 import {
   clearCachedSyncedUser,
   getCachedSyncedUser,
@@ -278,7 +279,13 @@ export function ClientPortalPage() {
 
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? clients[0];
 
-  if (!syncData) return <main className="min-h-screen bg-[#f5f6f8]" aria-busy="true" />;
+  if (!syncData) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
+        <AsyncState isLoading />
+      </main>
+    );
+  }
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">

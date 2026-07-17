@@ -22,7 +22,7 @@ export default function AuthCallbackPage() {
           throw error ?? new Error("No active Supabase session was found.");
         }
 
-        await syncSignedInUser(data.session.access_token);
+        await syncSignedInUser(data.session.access_token, { force: true });
 
         if (isMounted) {
           router.replace("/dashboard");

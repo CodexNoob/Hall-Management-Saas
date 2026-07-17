@@ -179,7 +179,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
       }
 
       if (data.session?.access_token) {
-        await syncSignedInUser(data.session.access_token);
+        await syncSignedInUser(data.session.access_token, { force: true });
       }
 
       router.push("/dashboard");

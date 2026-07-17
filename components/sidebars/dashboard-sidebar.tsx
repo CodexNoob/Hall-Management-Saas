@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SyncedUser } from "@/lib/auth/client";
 import { clearCachedSyncedUser } from "@/lib/auth/client";
+import { clearAuthenticatedQueryCache } from "@/lib/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type SidebarIconName =
@@ -330,6 +331,7 @@ export function DashboardSidebar({
     }
 
     const supabase = createSupabaseBrowserClient();
+    clearAuthenticatedQueryCache();
     clearCachedSyncedUser();
     await supabase.auth.signOut();
     router.replace("/");

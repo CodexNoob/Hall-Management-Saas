@@ -534,7 +534,7 @@ export function MenuPage() {
 
   if (!syncData || menuQuery.isLoading || menuQuery.error) {
     return (
-      <main className="min-h-screen bg-[#f5f6f8] p-4">
+      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
         <AsyncState
           error={menuQuery.error}
           isLoading={!syncData || menuQuery.isLoading}

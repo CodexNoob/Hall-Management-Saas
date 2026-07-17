@@ -279,11 +279,13 @@ export function ClientsPage() {
       />
       <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         {query.isLoading || query.error ? (
-          <AsyncState
-            error={query.error}
-            isLoading={query.isLoading}
-            onRetry={query.refetch}
-          />
+          <div className="flex h-full min-h-80 items-center justify-center">
+            <AsyncState
+              error={query.error}
+              isLoading={query.isLoading}
+              onRetry={query.refetch}
+            />
+          </div>
         ) : (
           <div className="mx-auto max-w-450 space-y-4">
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -14,7 +14,7 @@ model Organization {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  primaryUsers            User[]                   @relation("PrimaryOrganization")
+  primaryUsers            User[]                        @relation("PrimaryOrganization")
   memberships             OrganizationMembership[]
   accessRecords           UserAccess[]
   halls                   Hall[]
@@ -38,8 +38,16 @@ model Organization {
   storedFiles             StoredFile[]
   fileFolders             FileFolder[]
   paymentTransactions     PaymentTransaction[]
+  paymentRefunds          PaymentRefund[]
+  paymentReceipts         PaymentReceipt[]
+  paymentWebhookEvents    PaymentProviderWebhookEvent[]
   vendors                 Vendor[]
   invoices                Invoice[]
+  invoiceLineItems        InvoiceLineItem[]
+  invoiceDiscounts        InvoiceDiscount[]
+  invoiceTaxes            InvoiceTax[]
+  invoicePaymentSchedules InvoicePaymentSchedule[]
+  invoiceBalances         InvoiceBalance[]
   settings                OrganizationSetting?
   notificationPreferences NotificationPreference[]
   clients                 Client[]
@@ -94,6 +102,8 @@ model User {
   sentEmailLogs                    EmailLog[]
   uploadedFiles                    StoredFile[]             @relation("StoredFileUploadedBy")
   confirmedPaymentTransactions     PaymentTransaction[]     @relation("PaymentTransactionConfirmedBy")
+  processedPaymentRefunds          PaymentRefund[]          @relation("PaymentRefundProcessedBy")
+  issuedPaymentReceipts            PaymentReceipt[]         @relation("PaymentReceiptIssuedBy")
   notificationPreferences          NotificationPreference[]
 
   @@index([organizationId, isActive])
@@ -651,28 +661,41 @@ model StoredFile {
 }
 
 model PaymentTransaction {
-  id                String   @id @default(uuid()) @db.Uuid
-  organizationId    String   @map("organization_id") @db.Uuid
-  eventId           String   @map("event_id") @db.Uuid
-  clientId          String?  @map("client_id") @db.Uuid
-  confirmedById     String?  @map("confirmed_by") @db.Uuid
-  amountCents       Int      @map("amount_cents")
-  currency          String   @default("USD")
-  status            String
-  provider          String?
-  providerReference String?  @map("provider_reference")
-  note              String?
-  metadata          Json?
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(uuid()) @db.Uuid
+  organizationId      String   @map("organization_id") @db.Uuid
+  eventId             String   @map("event_id") @db.Uuid
+  clientId            String?  @map("client_id") @db.Uuid
+  invoiceId           String?  @map("invoice_id") @db.Uuid
+  paymentScheduleId   String?  @map("payment_schedule_id") @db.Uuid
+  confirmedById       String?  @map("confirmed_by") @db.Uuid
+  transactionType     String   @default("PAYMENT") @map("transaction_type")
+  amountCents         Int      @map("amount_cents")
+  refundedAmountCents Int      @default(0) @map("refunded_amount_cents")
+  currency            String   @default("USD")
+  status              String
+  provider            String?
+  providerReference   String?  @map("provider_reference")
+  processedAt         DateTime @default(now()) @map("processed_at")
+  note                String?
+  metadata            Json?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  event        Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  confirmedBy  User?        @relation("PaymentTransactionConfirmedBy", fields: [confirmedById], references: [id])
+  organization    Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event           Event                         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  client          Client?                       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoice         Invoice?                      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentSchedule InvoicePaymentSchedule?       @relation(fields: [paymentScheduleId], references: [id], onDelete: SetNull)
+  confirmedBy     User?                         @relation("PaymentTransactionConfirmedBy", fields: [confirmedById], references: [id])
+  refunds         PaymentRefund[]
+  receipt         PaymentReceipt?
+  webhookEvents   PaymentProviderWebhookEvent[]
 
+  @@unique([organizationId, provider, providerReference])
   @@index([organizationId, eventId, createdAt])
   @@index([organizationId, clientId, createdAt])
+  @@index([organizationId, invoiceId, createdAt])
+  @@index([organizationId, paymentScheduleId])
   @@index([organizationId, status])
   @@map("payment_transactions")
 }
@@ -707,21 +730,221 @@ model Invoice {
   invoiceNumber   String    @map("invoice_number")
   clientName      String    @map("client_name")
   status          String    @default("Draft")
+  currency        String    @default("USD")
   dueDate         DateTime? @map("due_date") @db.Date
+  issuedAt        DateTime? @map("issued_at")
+  paidAt          DateTime? @map("paid_at")
+  voidedAt        DateTime? @map("voided_at")
+  subtotalCents   Int       @default(0) @map("subtotal_cents")
+  discountCents   Int       @default(0) @map("discount_cents")
+  taxCents        Int       @default(0) @map("tax_cents")
   totalCents      Int       @default(0) @map("total_cents")
   amountPaidCents Int       @default(0) @map("amount_paid_cents")
+  balanceDueCents Int       @default(0) @map("balance_due_cents")
   notes           String?
+  metadata        Json?
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  event        Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
-  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  organization    Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event           Event?                   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  client          Client?                  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  lineItems       InvoiceLineItem[]
+  discounts       InvoiceDiscount[]
+  taxes           InvoiceTax[]
+  paymentSchedule InvoicePaymentSchedule[]
+  transactions    PaymentTransaction[]
+  refunds         PaymentRefund[]
+  receipts        PaymentReceipt[]
+  balance         InvoiceBalance?
 
   @@unique([organizationId, invoiceNumber])
   @@index([organizationId, status, dueDate])
   @@index([organizationId, clientId, status])
   @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  invoiceId       String   @map("invoice_id") @db.Uuid
+  description     String
+  quantity        Decimal  @default(1) @db.Decimal(12, 3)
+  unitAmountCents Int      @map("unit_amount_cents")
+  subtotalCents   Int      @map("subtotal_cents")
+  discountCents   Int      @default(0) @map("discount_cents")
+  taxCents        Int      @default(0) @map("tax_cents")
+  totalCents      Int      @map("total_cents")
+  sortOrder       Int      @default(0) @map("sort_order")
+  metadata        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, invoiceId, sortOrder])
+  @@map("invoice_line_items")
+}
+
+model InvoiceDiscount {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  invoiceId      String   @map("invoice_id") @db.Uuid
+  name           String
+  discountType   String   @default("FIXED") @map("discount_type")
+  value          Decimal  @db.Decimal(12, 4)
+  amountCents    Int      @map("amount_cents")
+  reason         String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, invoiceId])
+  @@map("invoice_discounts")
+}
+
+model InvoiceTax {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  invoiceId      String   @map("invoice_id") @db.Uuid
+  name           String
+  taxType        String   @default("PERCENTAGE") @map("tax_type")
+  rate           Decimal? @db.Decimal(9, 6)
+  amountCents    Int      @map("amount_cents")
+  jurisdiction   String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, invoiceId])
+  @@map("invoice_taxes")
+}
+
+model InvoicePaymentSchedule {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  invoiceId      String    @map("invoice_id") @db.Uuid
+  scheduleType   String    @default("INSTALLMENT") @map("schedule_type")
+  label          String
+  dueDate        DateTime  @map("due_date") @db.Date
+  amountCents    Int       @map("amount_cents")
+  paidCents      Int       @default(0) @map("paid_cents")
+  status         String    @default("PENDING")
+  sortOrder      Int       @default(0) @map("sort_order")
+  paidAt         DateTime? @map("paid_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  transactions PaymentTransaction[]
+
+  @@index([organizationId, invoiceId, dueDate])
+  @@index([organizationId, status, dueDate])
+  @@map("invoice_payment_schedules")
+}
+
+model InvoiceBalance {
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  invoiceId        String   @unique @map("invoice_id") @db.Uuid
+  subtotalCents    Int      @default(0) @map("subtotal_cents")
+  discountCents    Int      @default(0) @map("discount_cents")
+  taxCents         Int      @default(0) @map("tax_cents")
+  totalCents       Int      @default(0) @map("total_cents")
+  paidCents        Int      @default(0) @map("paid_cents")
+  refundedCents    Int      @default(0) @map("refunded_cents")
+  outstandingCents Int      @default(0) @map("outstanding_cents")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, outstandingCents])
+  @@map("invoice_balances")
+}
+
+model PaymentRefund {
+  id                   String    @id @default(uuid()) @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  invoiceId            String?   @map("invoice_id") @db.Uuid
+  paymentTransactionId String    @map("payment_transaction_id") @db.Uuid
+  processedById        String?   @map("processed_by") @db.Uuid
+  amountCents          Int       @map("amount_cents")
+  currency             String    @default("USD")
+  status               String    @default("PENDING")
+  provider             String?
+  providerReference    String?   @map("provider_reference")
+  reason               String?
+  metadata             Json?
+  processedAt          DateTime? @map("processed_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice            Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentTransaction PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  processedBy        User?              @relation("PaymentRefundProcessedBy", fields: [processedById], references: [id])
+
+  @@unique([organizationId, provider, providerReference])
+  @@index([organizationId, invoiceId, createdAt])
+  @@index([organizationId, paymentTransactionId])
+  @@index([organizationId, status])
+  @@map("payment_refunds")
+}
+
+model PaymentReceipt {
+  id                   String   @id @default(uuid()) @db.Uuid
+  organizationId       String   @map("organization_id") @db.Uuid
+  invoiceId            String?  @map("invoice_id") @db.Uuid
+  paymentTransactionId String   @unique @map("payment_transaction_id") @db.Uuid
+  issuedById           String?  @map("issued_by") @db.Uuid
+  receiptNumber        String   @map("receipt_number")
+  issuedAt             DateTime @default(now()) @map("issued_at")
+  fileUrl              String?  @map("file_url")
+  fileName             String?  @map("file_name")
+  receiptData          Json?    @map("receipt_data")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice            Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  paymentTransaction PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+  issuedBy           User?              @relation("PaymentReceiptIssuedBy", fields: [issuedById], references: [id])
+
+  @@unique([organizationId, receiptNumber])
+  @@index([organizationId, invoiceId, issuedAt])
+  @@map("payment_receipts")
+}
+
+model PaymentProviderWebhookEvent {
+  id                   String    @id @default(uuid()) @db.Uuid
+  organizationId       String    @map("organization_id") @db.Uuid
+  paymentTransactionId String?   @map("payment_transaction_id") @db.Uuid
+  provider             String
+  externalEventId      String    @map("external_event_id")
+  eventType            String    @map("event_type")
+  status               String    @default("RECEIVED")
+  signatureDigest      String?   @map("signature_digest")
+  payload              Json
+  processingAttempts   Int       @default(0) @map("processing_attempts")
+  receivedAt           DateTime  @default(now()) @map("received_at")
+  processedAt          DateTime? @map("processed_at")
+  errorMessage         String?   @map("error_message")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  paymentTransaction PaymentTransaction? @relation(fields: [paymentTransactionId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, provider, externalEventId])
+  @@index([organizationId, status, receivedAt])
+  @@index([organizationId, paymentTransactionId])
+  @@map("payment_provider_webhook_events")
 }
 
 model Client {

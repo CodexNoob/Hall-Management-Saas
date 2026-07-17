@@ -154,10 +154,10 @@ function KitchenHeader({
 
   return (
     <header className="border-b border-[#929292] bg-[#b0b0b0] px-4 py-4">
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 xl:flex-nowrap">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-3 xl:flex-nowrap xl:gap-2">
         <button
           aria-label="Previous date range"
-          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] xl:w-9"
           type="button"
         >
           <svg
@@ -176,13 +176,16 @@ function KitchenHeader({
           </svg>
         </button>
 
-        <h1 className="shrink-0 whitespace-nowrap text-2xl font-black text-[#07162d]">
+        <h1
+          className="min-w-0 shrink-0 whitespace-nowrap text-2xl font-black text-[#07162d] xl:max-w-[24rem] xl:shrink xl:truncate xl:text-xl 2xl:text-2xl"
+          title={information.heading}
+        >
           {information.heading}
         </h1>
 
         <button
           aria-label="Next date range"
-          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+          className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] xl:w-9"
           type="button"
         >
           <svg
@@ -201,31 +204,24 @@ function KitchenHeader({
           </svg>
         </button>
 
-        <button
-          className="h-11 shrink-0 whitespace-nowrap border border-[#d6dde5] bg-white px-5 text-sm font-black"
-          type="button"
-        >
-          Today
-        </button>
-
-        <strong className="min-w-32 shrink-0 whitespace-nowrap text-center text-3xl font-black text-[#ffd45c]">
+        <strong className="min-w-32 flex-1 whitespace-nowrap text-center text-3xl font-black text-[#ffd45c] xl:min-w-26 xl:text-2xl 2xl:min-w-32 2xl:text-3xl">
           {information.time}
         </strong>
 
-        <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-4 py-3 text-xs font-black uppercase tracking-wide text-white">
+        <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-4 py-3 text-xs font-black uppercase tracking-wide text-white xl:px-3">
           Hall Manager
         </span>
 
         <nav
           aria-label="Kitchen calendar views"
-          className="ml-auto flex shrink-0 gap-2"
+          className="flex min-w-0 shrink-0 gap-2 xl:gap-1"
         >
           {tabs.map((tab) => {
             const active = activeView === tab.value;
 
             return (
               <button
-                className={`h-11 min-w-24 whitespace-nowrap border px-4 text-sm font-black ${
+                className={`h-11 min-w-24 whitespace-nowrap border px-4 text-sm font-black xl:min-w-20 xl:px-3 2xl:min-w-24 2xl:px-4 ${
                   active
                     ? "border-2 border-black bg-[#ffc958] shadow-[inset_0_0_0_1px_white]"
                     : "border-[#d6dde5] bg-white hover:bg-[#f6f8fa]"
@@ -308,11 +304,16 @@ function TodayView({ day }: { day: KitchenDay }) {
 }
 
 function WeekDayColumn({ day }: { day: KitchenDay }) {
-  const borderColor = day.today
+  const outerBorderColor = day.today
     ? "border-[#009ee8]"
     : day.shabbos
       ? "border-[#a25bff]"
       : "border-transparent";
+  const headerBorderColor = day.today
+    ? "border-[#009ee8]"
+    : day.shabbos
+      ? "border-[#a25bff]"
+      : "border-[#07162d]";
 
   const headingColor = day.today
     ? "text-[#0077b7]"
@@ -322,28 +323,24 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
 
   return (
     <article
-      className={`flex min-h-120 flex-col border-2 bg-white p-2 ${borderColor} ${
+      className={`flex min-h-120 flex-col border-2 bg-white p-2 ${outerBorderColor} ${
         day.today ? "bg-[#edf9ff]" : ""
       }`}
     >
       <header
-        className={`flex items-center justify-between border-b-2 pb-2 ${borderColor}`}
+        className={`flex items-center justify-between border-b-2 pb-2 ${headerBorderColor}`}
       >
         <h2 className={`text-base font-black ${headingColor}`}>
           {day.dayName}
         </h2>
 
-        <div className="flex items-center gap-2">
-          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
-
-          <strong
-            className={`text-sm ${
-              day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
-            }`}
-          >
-            {day.dateLabel}
-          </strong>
-        </div>
+        <strong
+          className={`shrink-0 text-sm ${
+            day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
+          }`}
+        >
+          {day.dateLabel}
+        </strong>
       </header>
 
       <div className="mt-3">
@@ -399,11 +396,11 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
           {day.dayName}
         </strong>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1">
           <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
 
           <strong
-            className={`text-sm ${
+            className={`whitespace-nowrap text-sm ${
               day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
             }`}
           >
@@ -478,8 +475,16 @@ export function KitchenDashboardPage() {
       eventsByDate.set(key, current);
     }
 
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const selectedDate = new Date(2026, 6, 10);
+    selectedDate.setHours(0, 0, 0, 0);
+    const start = new Date(selectedDate);
+    start.setDate(selectedDate.getDate() - selectedDate.getDay());
+    const selectedDateKey = [
+      selectedDate.getFullYear(),
+      String(selectedDate.getMonth() + 1).padStart(2, "0"),
+      String(selectedDate.getDate()).padStart(2, "0")
+    ].join("-");
+
     return Array.from({ length: 28 }, (_, index) => {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
@@ -488,15 +493,17 @@ export function KitchenDashboardPage() {
         String(date.getMonth() + 1).padStart(2, "0"),
         String(date.getDate()).padStart(2, "0")
       ].join("-");
+      const isSelectedDate = key === selectedDateKey;
+
       return {
-        dayName: index === 0 ? "Today" : dayNames[date.getDay()],
+        dayName: isSelectedDate ? "Today" : dayNames[date.getDay()],
         dateLabel: new Intl.DateTimeFormat("en-US", {
           month: "short",
           day: "numeric"
         }).format(date),
         dayNumber: date.getDate(),
         shabbos: date.getDay() === 6,
-        today: index === 0,
+        today: isSelectedDate,
         events: eventsByDate.get(key)
       };
     });
@@ -515,30 +522,30 @@ export function KitchenDashboardPage() {
         <KitchenHeader activeView={activeView} onChangeView={setActiveView} />
       </div>
 
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-4">
-        {kitchenQuery.isLoading || kitchenQuery.error ? (
-          <AsyncState
-            error={kitchenQuery.error}
-            isLoading={kitchenQuery.isLoading}
-            onRetry={kitchenQuery.refetch}
-          />
-        ) : (
-          <>
-            <KitchenToolbar
-              onWorkersOnlyChange={setWorkersOnly}
-              workersOnly={workersOnly}
-            />
+      <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4">
+        <KitchenToolbar
+          onWorkersOnlyChange={setWorkersOnly}
+          workersOnly={workersOnly}
+        />
 
-            <div className="mt-4">
-              {activeView === "today" ? (
-                <TodayView day={days[0]} />
-              ) : activeView === "week" ? (
-                <WeekView days={days.slice(0, 7)} />
-              ) : (
-                <FourWeeksView days={days} />
-              )}
-            </div>
-          </>
+        {kitchenQuery.isLoading || kitchenQuery.error ? (
+          <div className="flex min-h-80 flex-1 items-center justify-center">
+            <AsyncState
+              error={kitchenQuery.error}
+              isLoading={kitchenQuery.isLoading}
+              onRetry={kitchenQuery.refetch}
+            />
+          </div>
+        ) : (
+          <div className="mt-4">
+            {activeView === "today" ? (
+              <TodayView day={days.find((day) => day.today) ?? days[0]} />
+            ) : activeView === "week" ? (
+              <WeekView days={days.slice(0, 7)} />
+            ) : (
+              <FourWeeksView days={days} />
+            )}
+          </div>
         )}
       </main>
 

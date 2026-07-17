@@ -628,7 +628,13 @@ export function EventCalendarPage() {
 
       <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
         {activeTab === "calendar" && (eventsQuery.isLoading || eventsQuery.error) ? (
-          <AsyncState error={eventsQuery.error} isLoading={eventsQuery.isLoading} onRetry={eventsQuery.refetch} />
+          <div className="flex h-full min-h-80 items-center justify-center">
+            <AsyncState
+              error={eventsQuery.error}
+              isLoading={eventsQuery.isLoading}
+              onRetry={eventsQuery.refetch}
+            />
+          </div>
         ) : activeTab === "availability" ? (
           <AvailabilityView days={liveAvailabilityDays} onNewBooking={() => setIsNewBookingOpen(true)} />
         ) : activeTab === "settings" ? (

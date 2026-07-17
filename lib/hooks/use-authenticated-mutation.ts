@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { invalidateAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
 export function useAuthenticatedMutation<TInput, TOutput>(
@@ -30,6 +31,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
           );
         }
 
+        invalidateAuthenticatedQuery(url);
         return payload as TOutput;
       } catch (mutationError) {
         const message =

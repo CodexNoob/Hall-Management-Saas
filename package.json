@@ -20,6 +20,7 @@
     "db:admin-permissions-backfill": "prisma db execute --file prisma/admin-permissions-backfill.sql",
     "db:member-view-access-backfill": "prisma db execute --file prisma/member-view-access-backfill.sql",
     "db:sample-vendors": "prisma db execute --file prisma/sample-vendors.sql",
+    "db:billing-strengthening": "prisma db execute --file prisma/billing-strengthening.sql",
     "db:booking-engine": "prisma db execute --file prisma/booking-engine.sql",
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "db:rls": "prisma db execute --file prisma/supabase-rls.sql",

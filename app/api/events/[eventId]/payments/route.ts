@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { assertHallAccess, requirePermission } from "@/lib/auth/server-auth";
+import { requirePermission } from "@/lib/auth/server-auth";
+import { recordPaymentWithAudit } from "@/lib/billing/record-payment";
 import { createApiErrorResponse } from "@/lib/http/api-error";
-import { prisma } from "@/lib/prisma";
 
 const confirmationSchema = z.object({
+  invoiceId: z.string().uuid().optional(),
+  paymentScheduleId: z.string().uuid().optional(),
   amountCents: z.number().int().positive(),
   result: z.enum(["paid", "failed", "cancelled"]),
+  currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).optional(),
+  provider: z.string().trim().min(1).max(100).optional(),
+  providerReference: z.string().trim().min(1).max(255).optional(),
   note: z.string().optional()
 });
-
-const paymentStatusByResult = {
-  paid: "Paid in Full",
-  failed: "Paid Partially",
-  cancelled: "Paid Partially"
-} as const;
 
 export async function POST(
   request: Request,
@@ -26,55 +25,7 @@ export async function POST(
     const eventId = z.string().uuid().parse(rawEventId);
     const input = confirmationSchema.parse(await request.json());
 
-    const result = await prisma.$transaction(async (transaction) => {
-      const currentEvent = await transaction.event.findUniqueOrThrow({
-        where: { id: eventId, organizationId: actor.organizationId },
-        select: { hallId: true }
-      });
-
-      assertHallAccess(actor, currentEvent.hallId);
-
-      const event = await transaction.event.update({
-        where: { id: eventId, organizationId: actor.organizationId },
-        data: {
-          paymentStatus: paymentStatusByResult[input.result],
-          amountDue: input.result === "paid" ? 0 : undefined,
-          updatedById: actor.id
-        }
-      });
-
-      const activityLog = await transaction.activityLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId,
-          clientId: event.clientId,
-          userId: actor.id,
-          userName: actor.name,
-          actionType: "Payment Confirmation",
-          message: `Payment marked ${input.result}.`,
-          newValue: {
-            amountCents: input.amountCents,
-            result: input.result,
-            note: input.note
-          }
-        }
-      });
-
-      await transaction.paymentTransaction.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId,
-          clientId: event.clientId,
-          confirmedById: actor.id,
-          amountCents: input.amountCents,
-          status: input.result,
-          note: input.note,
-          metadata: { source: "manual-confirmation" }
-        }
-      });
-
-      return { event, activityLog };
-    });
+    const result = await recordPaymentWithAudit(actor, { eventId, ...input });
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

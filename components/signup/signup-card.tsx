@@ -249,7 +249,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
       }
 
       if (data.session?.access_token) {
-        await syncSignedInUser(data.session.access_token);
+        await syncSignedInUser(data.session.access_token, { force: true });
         router.push("/dashboard");
         router.refresh();
         return;

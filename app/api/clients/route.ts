@@ -50,6 +50,7 @@ export async function GET(request: Request) {
             status: true,
             totalCents: true,
             amountPaidCents: true,
+            balanceDueCents: true,
             dueDate: true
           }
         },
@@ -79,8 +80,7 @@ export async function GET(request: Request) {
           0
         ),
         outstandingCents: client.invoices.reduce(
-          (sum, invoice) =>
-            sum + Math.max(0, invoice.totalCents - invoice.amountPaidCents),
+          (sum, invoice) => sum + invoice.balanceDueCents,
           0
         ),
         fileCount: client.storedFiles.length,
