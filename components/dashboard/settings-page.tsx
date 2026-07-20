@@ -36,8 +36,7 @@ type IconName =
   | "globe"
   | "eye"
   | "link"
-  | "billing"
-  | "check";
+  | "billing";
 
 type SettingsHubItem = {
   title: string;
@@ -217,8 +216,7 @@ function Icon({
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <path d="M3 9h18M7 15h4" />
       </>
-    ),
-    check: <path d="m6 12 4 4 8-9" />
+    )
   };
 
   return <svg {...common}>{icons[name]}</svg>;
@@ -261,71 +259,17 @@ function Toggle({
   );
 }
 
-function SubscriptionPlan({
-  title,
-  price,
-  description,
-  features,
-  current
-}: {
-  title: string;
-  price: string;
-  description: string;
-  features: string[];
-  current?: boolean;
-}) {
-  return (
-    <article
-      className={`relative flex min-h-64 flex-col rounded-xl border bg-white p-4 ${
-        current ? "border-2 border-[#347db4]" : "border-[#d8dde5]"
-      }`}
-    >
-      {current ? (
-        <span className="absolute -top-3 right-4 rounded-md bg-[#1f4d73] px-3 py-1 text-[9px] font-black text-white">
-          Current Plan
-        </span>
-      ) : null}
-
-      <h3 className="text-base font-black">{title}</h3>
-      <p className="mt-2">
-        <strong className="text-xl font-black">{price}</strong>
-        {price.startsWith("$") ? (
-          <span className="ml-1 text-xs text-[#6a7483]">/ month</span>
-        ) : null}
-      </p>
-      <p className="mt-3 text-xs text-[#6a7483]">{description}</p>
-
-      <ul className="mt-4 space-y-2 text-[11px] text-[#425166]">
-        {features.map((feature) => (
-          <li className="flex items-center gap-2" key={feature}>
-            <Icon name="check" className="h-3.5 w-3.5" />
-            {feature}
-          </li>
-        ))}
-      </ul>
-
-      <button
-        className={`mt-auto h-9 rounded-lg border text-xs font-black ${
-          current
-            ? "border-[#a9d1ef] bg-[#eef7ff] text-[#1f4d73]"
-            : "border-[#c7d0dc] bg-white text-[#233144]"
-        }`}
-        type="button"
-      >
-        {current
-          ? "Current Plan"
-          : title === "Enterprise"
-            ? "Contact Sales"
-            : `Choose ${title}`}
-      </button>
-    </article>
-  );
-}
-
 const secondaryButton =
   "inline-flex h-9 items-center justify-center rounded-lg border border-[#c7d0dc] bg-white px-4 text-xs font-black text-[#233144] transition hover:bg-[#eef4fa]";
 
-export function SettingsOverviewPage() {
+type SettingsOverviewPageProps = {
+  displayMode?: "page" | "modal";
+};
+
+export function SettingsOverviewPage({
+  displayMode = "page"
+}: SettingsOverviewPageProps) {
+  const isModal = displayMode === "modal";
   const canEditSettings = useDashboardPermission("canEditSettings");
   const settingsQuery =
     useAuthenticatedQuery<SettingsResponse>("/api/settings");
@@ -367,7 +311,11 @@ export function SettingsOverviewPage() {
 
   if (settingsQuery.isLoading || settingsQuery.error) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
+      <main
+        className={`flex items-center justify-center bg-[#f5f6f8] p-4 ${
+          isModal ? "h-full min-h-80" : "min-h-dvh"
+        }`}
+      >
         <AsyncState
           error={settingsQuery.error}
           isLoading={settingsQuery.isLoading}
@@ -378,13 +326,19 @@ export function SettingsOverviewPage() {
   }
 
   return (
-    <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
-      <DashboardTopbar
-        title="Settings"
-        subtitle="Manage organization, system, access, integrations, branding, and account plan."
-        onNewBooking={() => setIsNewBookingOpen(true)}
-        onTodayNotes={() => setIsTodayNotesOpen(true)}
-      />
+    <div
+      className={`dashboard-readable-page flex min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a] ${
+        isModal ? "h-full" : "h-dvh"
+      }`}
+    >
+      {!isModal ? (
+        <DashboardTopbar
+          title="Settings"
+          subtitle="Manage organization, system, access, integrations, branding, and account plan."
+          onNewBooking={() => setIsNewBookingOpen(true)}
+          onTodayNotes={() => setIsTodayNotesOpen(true)}
+        />
+      ) : null}
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto grid w-full max-w-[1800px] gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
@@ -536,7 +490,7 @@ export function SettingsOverviewPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-[222px]">
+            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-55.5">
               <PanelHeader title="Timezone" icon="globe" />
 
               <div className="space-y-3 p-4">
@@ -591,53 +545,7 @@ export function SettingsOverviewPage() {
           </aside>
 
           <div className="min-w-0 space-y-4">
-            <section className="flex flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm xl:min-h-[470px]">
-              <h2 className="text-base font-black">Subscription Plan</h2>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-3 xl:flex-1">
-                <SubscriptionPlan
-                  description="For small halls getting started."
-                  features={[
-                    "Up to 2 halls",
-                    "Up to 5 users",
-                    "Basic features",
-                    "Email support"
-                  ]}
-                  price="$149"
-                  title="Starter"
-                />
-
-                <SubscriptionPlan
-                  current
-                  description="For growing hall businesses."
-                  features={[
-                    "Up to 10 halls",
-                    "Up to 25 users",
-                    "Advanced features",
-                    "Priority email support",
-                    "Google & Gmail integration"
-                  ]}
-                  price="$299"
-                  title="Professional"
-                />
-
-                <SubscriptionPlan
-                  description="For large organizations."
-                  features={[
-                    "Unlimited halls",
-                    "Unlimited users",
-                    "All premium features",
-                    "Dedicated support",
-                    "Custom integrations",
-                    "SLA & onboarding"
-                  ]}
-                  price="$599"
-                  title="Enterprise"
-                />
-              </div>
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-[353px]">
+            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-88.25">
               <PanelHeader title="Settings Hub" />
 
               <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -749,16 +657,20 @@ export function SettingsOverviewPage() {
         </div>
       </main>
 
-      <TodayNotesDrawer
-        onClose={() => setIsTodayNotesOpen(false)}
-        open={isTodayNotesOpen}
-      />
+      {!isModal ? (
+        <>
+          <TodayNotesDrawer
+            onClose={() => setIsTodayNotesOpen(false)}
+            open={isTodayNotesOpen}
+          />
 
-      <NewBookingDialog
-        onClose={closeNewBooking}
-        onSubmit={submitNewBooking}
-        open={isNewBookingOpen}
-      />
+          <NewBookingDialog
+            onClose={closeNewBooking}
+            onSubmit={submitNewBooking}
+            open={isNewBookingOpen}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

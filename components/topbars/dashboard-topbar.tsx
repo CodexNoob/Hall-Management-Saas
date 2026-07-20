@@ -210,8 +210,8 @@ export function DashboardTopbarBrand() {
         }`}
         type="button"
         onClick={toggleSidebar}
-        aria-label={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
-        title={isSidebarCollapsed ? "Expand sidebar" : "Open navigation"}
+        aria-label={isSidebarCollapsed ? "Expand sidebar" : "Close Sidebar"}
+        title={isSidebarCollapsed ? "Expand sidebar" : "Close Sidebar"}
       >
         <span
           aria-hidden="true"

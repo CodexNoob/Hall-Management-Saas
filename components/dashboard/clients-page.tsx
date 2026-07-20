@@ -85,7 +85,7 @@ function Metric({
 }) {
   return (
     <article className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
-      <p className="text-[10px] font-black uppercase tracking-[0.1em] text-[#687588]">
+      <p className="text-[10px] font-black uppercase tracking-widest text-[#687588]">
         {label}
       </p>
       <p className="mt-2 text-2xl font-black">{value}</p>

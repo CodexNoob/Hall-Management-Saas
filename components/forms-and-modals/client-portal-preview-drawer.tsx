@@ -71,7 +71,7 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
       <aside
         aria-labelledby={titleId}
         aria-modal="true"
-        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-[455px] flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-113.75 flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
@@ -91,7 +91,7 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
             <header className="bg-[#1f4d73] px-5 py-6 text-white">
-              <h3 className="break-words text-xl font-black leading-tight sm:text-2xl">{event.title}</h3>
+              <h3 className="wrap-break-word text-xl font-black leading-tight sm:text-2xl">{event.title}</h3>
               <p className="mt-1 text-sm text-white/85">{event.date} · {event.room}</p>
             </header>
 

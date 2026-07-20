@@ -1,6 +1,10 @@
 ﻿"use client";
 
 import { useMemo, useState } from "react";
+import {
+  AddKitchenEventDialog,
+  type AddKitchenEventFormValues
+} from "@/components/forms-and-modals/add-kitchen-event-dialog";
 import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
@@ -78,11 +82,18 @@ function kitchenViewInformation(activeView: KitchenView, anchorDate: Date) {
   };
 }
 
-function PlusButton({ label }: { label: string }) {
+function PlusButton({
+  label,
+  onClick
+}: {
+  label: string;
+  onClick?: () => void;
+}) {
   return (
     <button
       aria-label={label}
       className="flex h-6 w-6 shrink-0 items-center justify-center border border-[#cbd5df] bg-[#f8fafc] text-sm font-black text-[#17202a] hover:bg-white"
+      onClick={onClick}
       title={label}
       type="button"
     >
@@ -257,9 +268,11 @@ function KitchenHeader({
 }
 
 function KitchenToolbar({
+  onAddKitchenEvent,
   workersOnly,
   onWorkersOnlyChange
 }: {
+  onAddKitchenEvent: () => void;
   workersOnly: boolean;
   onWorkersOnlyChange: (checked: boolean) => void;
 }) {
@@ -267,6 +280,7 @@ function KitchenToolbar({
     <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_222px]">
       <button
         className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb]"
+        onClick={onAddKitchenEvent}
         type="button"
       >
         + Add Kitchen Event
@@ -294,14 +308,23 @@ function KitchenToolbar({
   );
 }
 
-function TodayView({ day }: { day: KitchenDay }) {
+function TodayView({
+  day,
+  onAddKitchenEvent
+}: {
+  day: KitchenDay;
+  onAddKitchenEvent: (dateKey: string) => void;
+}) {
   return (
     <section className="min-h-120 border-2 border-[#009ee8] bg-[#edf9ff] p-2">
       <header className="flex items-center justify-between border-b-2 border-[#009ee8] px-2 pb-2">
         <h2 className="text-lg font-black text-[#0077b7]">{day.today ? "Today" : day.dayName}</h2>
 
         <div className="flex items-center gap-2">
-          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
+          <PlusButton
+            label={`Add kitchen event on ${day.dateLabel}`}
+            onClick={() => onAddKitchenEvent(day.dateKey)}
+          />
           <strong className="text-sm text-[#536780]">{day.dateLabel}</strong>
         </div>
       </header>
@@ -319,7 +342,13 @@ function TodayView({ day }: { day: KitchenDay }) {
   );
 }
 
-function WeekDayColumn({ day }: { day: KitchenDay }) {
+function WeekDayColumn({
+  day,
+  onAddKitchenEvent
+}: {
+  day: KitchenDay;
+  onAddKitchenEvent: (dateKey: string) => void;
+}) {
   const outerBorderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
@@ -346,17 +375,29 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
       <header
         className={`flex items-center justify-between border-b-2 pb-2 ${headerBorderColor}`}
       >
-        <h2 className={`text-base font-black ${headingColor}`}>
+        <h2
+          className={`font-black ${
+            day.shabbos ? "text-sm" : "text-base"
+          } ${headingColor}`}
+        >
           {day.dayName}
         </h2>
 
-        <strong
-          className={`shrink-0 text-sm ${
-            day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
-          }`}
-        >
-          {day.dateLabel}
-        </strong>
+        <div className="flex shrink-0 items-center gap-1">
+          <PlusButton
+            label={`Add kitchen event on ${day.dateLabel}`}
+            onClick={() => onAddKitchenEvent(day.dateKey)}
+          />
+          <strong
+            className={`whitespace-nowrap ${
+              day.shabbos ? "text-xs" : "text-sm"
+            } ${
+              day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
+            }`}
+          >
+            {day.dateLabel}
+          </strong>
+        </div>
       </header>
 
       <div className="mt-3">
@@ -374,17 +415,33 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
   );
 }
 
-function WeekView({ days }: { days: KitchenDay[] }) {
+function WeekView({
+  days,
+  onAddKitchenEvent
+}: {
+  days: KitchenDay[];
+  onAddKitchenEvent: (dateKey: string) => void;
+}) {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
       {days.map((day) => (
-        <WeekDayColumn day={day} key={day.dateKey} />
+        <WeekDayColumn
+          day={day}
+          key={day.dateKey}
+          onAddKitchenEvent={onAddKitchenEvent}
+        />
       ))}
     </div>
   );
 }
 
-function FourWeekDay({ day }: { day: KitchenDay }) {
+function FourWeekDay({
+  day,
+  onAddKitchenEvent
+}: {
+  day: KitchenDay;
+  onAddKitchenEvent: (dateKey: string) => void;
+}) {
   const borderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
@@ -413,7 +470,10 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
         </strong>
 
         <div className="flex shrink-0 items-center gap-1">
-          <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
+          <PlusButton
+            label={`Add kitchen event on ${day.dateLabel}`}
+            onClick={() => onAddKitchenEvent(day.dateKey)}
+          />
 
           <strong
             className={`whitespace-nowrap text-sm ${
@@ -437,11 +497,13 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
 function FourWeeksView({
   days,
   onCurrent,
+  onAddKitchenEvent,
   onNext,
   onPrevious
 }: {
   days: KitchenDay[];
   onCurrent: () => void;
+  onAddKitchenEvent: (dateKey: string) => void;
   onNext: () => void;
   onPrevious: () => void;
 }) {
@@ -468,7 +530,11 @@ function FourWeeksView({
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((day) => (
-          <FourWeekDay day={day} key={day.dateKey} />
+          <FourWeekDay
+            day={day}
+            key={day.dateKey}
+            onAddKitchenEvent={onAddKitchenEvent}
+          />
         ))}
       </div>
     </div>
@@ -481,6 +547,13 @@ export function KitchenDashboardPage() {
   const today = useMemo(() => startOfDay(new Date()), []);
   const [anchorDate, setAnchorDate] = useState(today);
   const [workersOnly, setWorkersOnly] = useState(false);
+  const [isAddKitchenEventOpen, setIsAddKitchenEventOpen] = useState(false);
+  const [kitchenEventDateKey, setKitchenEventDateKey] = useState(() =>
+    dateKey(today)
+  );
+  const [createdKitchenEvents, setCreatedKitchenEvents] = useState<
+    Array<KitchenEvent & { dateKey: string }>
+  >([]);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const days = useMemo<KitchenDay[]>(() => {
@@ -509,6 +582,12 @@ export function KitchenDashboardPage() {
       eventsByDate.set(key, current);
     }
 
+    for (const event of createdKitchenEvents) {
+      const current = eventsByDate.get(event.dateKey) ?? [];
+      current.push(event);
+      eventsByDate.set(event.dateKey, current);
+    }
+
     const start = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
     const selectedDateKey = dateKey(anchorDate);
     const todayKey = dateKey(today);
@@ -532,7 +611,7 @@ export function KitchenDashboardPage() {
         events: eventsByDate.get(key)
       };
     });
-  }, [activeView, anchorDate, kitchenQuery.data, today]);
+  }, [activeView, anchorDate, createdKitchenEvents, kitchenQuery.data, today]);
 
   const navigationStep = activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
 
@@ -547,6 +626,26 @@ export function KitchenDashboardPage() {
 
   function goToCurrentRange() {
     setAnchorDate(today);
+  }
+
+  function addKitchenEvent(values: AddKitchenEventFormValues) {
+    setCreatedKitchenEvents((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        dateKey: kitchenEventDateKey,
+        category: "Kitchen",
+        title: values.eventName,
+        portions: `${values.portions} portions`,
+        packageName: values.kitchenNote || "Kitchen Event",
+        statusType: "kitchen"
+      }
+    ]);
+  }
+
+  function openAddKitchenEvent(targetDateKey: string) {
+    setKitchenEventDateKey(targetDateKey);
+    setIsAddKitchenEventOpen(true);
   }
 
   return (
@@ -570,6 +669,7 @@ export function KitchenDashboardPage() {
 
       <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4">
         <KitchenToolbar
+          onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
           onWorkersOnlyChange={setWorkersOnly}
           workersOnly={workersOnly}
         />
@@ -585,13 +685,20 @@ export function KitchenDashboardPage() {
         ) : (
           <div className="mt-4">
             {activeView === "today" ? (
-              <TodayView day={days.find((day) => day.selected) ?? days[0]} />
+              <TodayView
+                day={days.find((day) => day.selected) ?? days[0]}
+                onAddKitchenEvent={openAddKitchenEvent}
+              />
             ) : activeView === "week" ? (
-              <WeekView days={days.slice(0, 7)} />
+              <WeekView
+                days={days.slice(0, 7)}
+                onAddKitchenEvent={openAddKitchenEvent}
+              />
             ) : (
               <FourWeeksView
                 days={days}
                 onCurrent={goToCurrentRange}
+                onAddKitchenEvent={openAddKitchenEvent}
                 onNext={() => navigate(1)}
                 onPrevious={() => navigate(-1)}
               />
@@ -599,6 +706,13 @@ export function KitchenDashboardPage() {
           </div>
         )}
       </main>
+
+      <AddKitchenEventDialog
+        date={kitchenEventDateKey}
+        onClose={() => setIsAddKitchenEventOpen(false)}
+        onSave={addKitchenEvent}
+        open={isAddKitchenEventOpen}
+      />
 
       <TodayNotesDrawer
         onClose={() => setIsTodayNotesOpen(false)}

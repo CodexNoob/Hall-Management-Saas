@@ -93,7 +93,7 @@ export function MenuItemSelectorDrawer({
       <aside
         aria-labelledby={titleId}
         aria-modal="true"
-        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-[486px] flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-121.5 flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
@@ -146,7 +146,7 @@ export function MenuItemSelectorDrawer({
                 onClick={() => onSelect(item)}
                 type="button"
               >
-                <strong className="block break-words text-[13px] leading-5 text-[#17202a] sm:text-sm">
+                <strong className="block wrap-break-word text-[13px] leading-5 text-[#17202a] sm:text-sm">
                   {item.name}
                 </strong>
                 <span className="mt-1 block text-xs text-[#6a7483]">

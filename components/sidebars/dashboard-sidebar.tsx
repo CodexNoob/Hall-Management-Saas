@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import type { SyncedUser } from "@/lib/auth/client";
-import { clearCachedSyncedUser } from "@/lib/auth/client";
+import { EditProfileDialog } from "@/components/forms-and-modals/edit-profile-dialog";
+import { LogoutConfirmationDialog } from "@/components/forms-and-modals/logout-confirmation-dialog";
+import { SettingsDialog } from "@/components/forms-and-modals/settings-dialog";
+import { UpgradePlanDialog } from "@/components/forms-and-modals/upgrade-plan-dialog";
+import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/lib/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
@@ -24,89 +28,88 @@ type SidebarIconName =
 
 type SidebarItem = {
   icon: SidebarIconName;
+  iconSrc?: string;
   label: string;
-  count?: string;
   route?: string;
+};
+
+type SidebarSection = {
+  title: string;
+  icon: SidebarIconName;
+  collapsedIconSrc?: string;
+  items: SidebarItem[];
 };
 
 type DashboardSidebarProps = {
   user: SyncedUser;
   roleLabel: string;
   activeLabel?: string;
-  onLogout?: () => void;
 };
 
-const sidebarSections: Array<{ title: string; items: SidebarItem[] }> = [
+const sidebarSections: SidebarSection[] = [
   {
     title: "Workspace",
+    icon: "dashboard",
     items: [
       {
         icon: "dashboard",
         label: "Dashboard",
-        count: "12",
         route: "/dashboard"
       },
       {
         icon: "kitchen",
+        iconSrc: "/icons/sidebar/kitchen-cutlery.png",
         label: "Kitchen",
-        count: "34",
         route: "/dashboard/kitchen"
       },
       {
         icon: "calendar",
         label: "Calendar",
-        count: "8",
         route: "/dashboard/calendar"
       },
       {
         icon: "events",
         label: "Events",
-        count: "27",
         route: "/dashboard/events"
       },
-      { icon: "menu", label: "Menu", count: "146", route: "/dashboard/menu" },
+      { icon: "menu", label: "Menu", route: "/dashboard/menu" },
       { icon: "portal", label: "Clients", route: "/dashboard/clients" }
     ]
   },
   {
     title: "Operations",
+    icon: "dining",
+    collapsedIconSrc: "/icons/sidebar/operations-cogwheel.png",
     items: [
       {
         icon: "dining",
+        iconSrc: "/icons/sidebar/dining-manager-table.png",
         label: "Dining Manager",
-        count: "9",
         route: "/dashboard/dining-manager"
       },
       {
         icon: "map",
         label: "Hall Room Map",
-        count: "4",
         route: "/dashboard/hall-room-map"
       },
-      { icon: "files", label: "Files", count: "12", route: "/dashboard/files" }
+      { icon: "files", label: "Files", route: "/dashboard/files" }
     ]
   },
   {
     title: "Office",
+    icon: "billing",
+    collapsedIconSrc: "/icons/sidebar/office-location.png",
     items: [
       {
         icon: "billing",
         label: "Billing",
-        count: "18",
         route: "/dashboard/billing"
       },
-      { icon: "staff", label: "Staff", count: "42", route: "/dashboard/staff" },
+      { icon: "staff", label: "Staff", route: "/dashboard/staff" },
       {
         icon: "vendor",
         label: "Vendors",
-        count: "16",
         route: "/dashboard/vendors"
-      },
-      {
-        icon: "settings",
-        label: "Settings",
-        count: "18",
-        route: "/dashboard/settings"
       }
     ]
   }
@@ -239,15 +242,32 @@ function SidebarIcon({
 export function DashboardSidebar({
   user,
   roleLabel,
-  activeLabel = "Dashboard",
-  onLogout
+  activeLabel = "Dashboard"
 }: DashboardSidebarProps) {
   const router = useRouter();
-  const initials = getInitials(user.name);
+  const collapsedNavigationRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [profileName, setProfileName] = useState(user.name);
+  const [profileUsername, setProfileUsername] = useState(
+    user.email.split("@")[0] || user.name.toLowerCase().replace(/\s+/g, "")
+  );
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
+  const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [isUpgradePlanDialogOpen, setIsUpgradePlanDialogOpen] = useState(false);
+  const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
+    sidebarSections.map((section) => section.title)
+  );
+  const [openCollapsedSection, setOpenCollapsedSection] = useState<
+    string | null
+  >(null);
   const [isSidebarTransitionReady, setIsSidebarTransitionReady] =
     useState(false);
+  const initials = getInitials(profileName);
 
   useEffect(() => {
     const toggleMobileSidebar = () => setIsMobileOpen((current) => !current);
@@ -324,16 +344,92 @@ export function DashboardSidebar({
     });
   }, [router]);
 
-  const logout = async () => {
-    if (onLogout) {
-      onLogout();
-      return;
+  useEffect(() => {
+    if (!openCollapsedSection) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !collapsedNavigationRef.current?.contains(event.target)
+      ) {
+        setOpenCollapsedSection(null);
+      }
     }
 
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpenCollapsedSection(null);
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [openCollapsedSection]);
+
+  useEffect(() => {
+    if (!isCollapsed || isMobileOpen) setOpenCollapsedSection(null);
+  }, [isCollapsed, isMobileOpen]);
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return;
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !profileMenuRef.current?.contains(event.target)
+      ) {
+        setIsProfileMenuOpen(false);
+        setIsHelpMenuOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+
+      if (isHelpMenuOpen) {
+        setIsHelpMenuOpen(false);
+        return;
+      }
+
+      setIsProfileMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    window.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [isHelpMenuOpen, isProfileMenuOpen]);
+
+  useEffect(() => {
+    if (isCollapsed) {
+      setIsProfileMenuOpen(false);
+      setIsHelpMenuOpen(false);
+    }
+  }, [isCollapsed]);
+
+  const openProfileDestination = (route: string) => {
+    setIsProfileMenuOpen(false);
+    setIsMobileOpen(false);
+    router.push(route as Parameters<typeof router.push>[0]);
+  };
+
+  const logout = async () => {
+    setIsHelpMenuOpen(false);
+    setIsProfileMenuOpen(false);
+
     const supabase = createSupabaseBrowserClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
     clearAuthenticatedQueryCache();
     clearCachedSyncedUser();
-    await supabase.auth.signOut();
+    setIsLogoutDialogOpen(false);
     router.replace("/");
     router.refresh();
   };
@@ -351,131 +447,470 @@ export function DashboardSidebar({
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-20 z-60 flex w-[min(86vw,20rem)] flex-col overflow-x-hidden border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
+        className={`app-sidebar fixed bottom-0 left-0 top-20 z-60 flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${
           isSidebarTransitionReady
             ? "transition-[width] duration-150 ease-in-out"
             : "transition-none"
-        } ${showCollapsed ? "lg:w-18" : "lg:w-64"}`}
+        } ${
+          showCollapsed
+            ? "overflow-visible lg:w-18"
+            : "overflow-visible lg:w-64"
+        }`}
       >
         <nav
-          className={`flex-1 overflow-x-hidden overflow-y-auto ${showCollapsed ? "space-y-2 px-2 py-4" : "space-y-5 px-3 py-4"}`}
+          className={`flex-1 ${
+            showCollapsed
+              ? "overflow-visible px-2 py-4"
+              : "space-y-5 overflow-x-hidden overflow-y-auto px-3 py-4"
+          }`}
         >
-          {sidebarSections.map((section) => (
-            <section key={section.title}>
-              {!showCollapsed ? (
-                <h2 className="mb-3 px-2 text-xs font-black uppercase tracking-[0.12em] text-[#6a7483]">
-                  {section.title}
-                </h2>
-              ) : null}
+          {showCollapsed ? (
+            <div className="space-y-3" ref={collapsedNavigationRef}>
+              {sidebarSections.map((section) => {
+                const isActiveSection = section.items.some(
+                  (item) => item.label === activeLabel
+                );
+                const isOpen = openCollapsedSection === section.title;
 
-              <div className={showCollapsed ? "space-y-2" : "space-y-1.5"}>
-                {section.items.map((item) => {
-                  const isActive = item.label === activeLabel;
-
-                  return (
+                return (
+                  <div className="relative" key={section.title}>
                     <button
-                      key={`${section.title}-${item.label}`}
-                      className={`group relative flex w-full items-center transition ${
-                        showCollapsed
-                          ? `h-11 justify-center rounded-xl ${
-                              isActive
-                                ? "bg-[#eef4fa] text-[#17202a]"
-                                : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
-                            }`
-                          : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
-                              isActive
-                                ? "bg-[#eef4fa] text-[#17202a]"
-                                : "text-[#17202a] hover:bg-[#eef4fa]"
-                            }`
+                      aria-label={`${section.title} navigation`}
+                      aria-expanded={isOpen}
+                      aria-haspopup="menu"
+                      className={`group relative flex h-11 w-full items-center justify-center rounded-xl transition ${
+                        isActiveSection
+                          ? "bg-[#eef4fa] text-[#1f4d73]"
+                          : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
                       }`}
+                      onClick={() =>
+                        setOpenCollapsedSection((current) =>
+                          current === section.title ? null : section.title
+                        )
+                      }
+                      title={section.title}
                       type="button"
-                      onClick={() => {
-                        setIsMobileOpen(false);
-                        if (item.route)
-                          router.push(
-                            item.route as Parameters<typeof router.push>[0]
-                          );
-                      }}
-                      aria-label={item.label}
-                      title={isCollapsed ? item.label : undefined}
                     >
-                      {showCollapsed && isActive ? (
+                      {isActiveSection ? (
                         <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
                       ) : null}
 
-                      <span
-                        className={`flex shrink-0 items-center justify-center ${
-                          showCollapsed
-                            ? "h-9 w-9 rounded-xl"
-                            : isActive
-                              ? "text-[#1f4d73]"
-                              : "text-[#6a7483]"
-                        }`}
-                      >
-                        <SidebarIcon name={item.icon} className="h-4.5 w-4.5" />
-                      </span>
-
-                      {!showCollapsed ? (
-                        <>
-                          <span
-                            className={`min-w-0 flex-1 truncate text-sm ${isActive ? "font-black" : "font-semibold"}`}
-                          >
-                            {item.label}
-                          </span>
-                          {item.count ? (
-                            <span className="text-xs font-bold text-[#6a7483]">
-                              {item.count}
-                            </span>
-                          ) : null}
-                        </>
+                      {section.collapsedIconSrc ? (
+                        <Image
+                          alt=""
+                          aria-hidden="true"
+                          className="h-5 w-5 object-contain"
+                          height={20}
+                          src={section.collapsedIconSrc}
+                          width={20}
+                        />
                       ) : (
-                        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                          {item.label}
-                        </span>
+                        <SidebarIcon className="h-5 w-5" name={section.icon} />
                       )}
+
+                      {!isOpen ? (
+                        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                          {section.title}
+                        </span>
+                      ) : null}
                     </button>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
+
+                    {isOpen ? (
+                      <div
+                        aria-label={`${section.title} links`}
+                        className="absolute left-[calc(100%+0.5rem)] top-0 z-80 w-60 overflow-hidden rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20"
+                        role="menu"
+                      >
+                        <h2 className="px-3 pb-2 pt-1 text-sm font-medium">
+                          {section.title}
+                        </h2>
+
+                        <div className="space-y-1">
+                          {section.items.map((item) => {
+                            const isActive = item.label === activeLabel;
+
+                            return (
+                              <button
+                                className={`relative block w-full rounded-xl px-3 py-2.5 text-left text-sm font-normal transition ${
+                                  isActive
+                                    ? "bg-white/15 text-white"
+                                    : "text-white/90 hover:bg-white/10 hover:text-white"
+                                }`}
+                                key={item.label}
+                                onClick={() => {
+                                  setOpenCollapsedSection(null);
+                                  if (item.route) {
+                                    router.push(
+                                      item.route as Parameters<
+                                        typeof router.push
+                                      >[0]
+                                    );
+                                  }
+                                }}
+                                role="menuitem"
+                                type="button"
+                              >
+                                {isActive ? (
+                                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#eef4fa]" />
+                                ) : null}
+                                {item.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            sidebarSections.map((section) => (
+              <section key={section.title}>
+                {!showCollapsed ? (
+                  <button
+                    aria-expanded={expandedSidebarSections.includes(
+                      section.title
+                    )}
+                    className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-0.5 text-left text-[11px] font-medium tracking-[0.04em] text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
+                    onClick={() =>
+                      setExpandedSidebarSections((current) =>
+                        current.includes(section.title)
+                          ? current.filter((title) => title !== section.title)
+                          : [...current, section.title]
+                      )
+                    }
+                    type="button"
+                  >
+                    <span>{section.title}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`text-sm leading-none transition-transform ${
+                        expandedSidebarSections.includes(section.title)
+                          ? "rotate-90"
+                          : "rotate-0"
+                      }`}
+                    >
+                      ›
+                    </span>
+                  </button>
+                ) : null}
+
+                {expandedSidebarSections.includes(section.title) ? (
+                  <div className={showCollapsed ? "space-y-2" : "space-y-1.5"}>
+                    {section.items.map((item) => {
+                      const isActive = item.label === activeLabel;
+
+                      return (
+                        <button
+                          key={`${section.title}-${item.label}`}
+                          className={`group relative flex w-full items-center transition ${
+                            showCollapsed
+                              ? `h-11 justify-center rounded-xl ${
+                                  isActive
+                                    ? "bg-[#eef4fa] text-[#17202a]"
+                                    : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                                }`
+                              : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
+                                  isActive
+                                    ? "bg-[#eef4fa] text-[#17202a]"
+                                    : "text-[#17202a] hover:bg-[#eef4fa]"
+                                }`
+                          }`}
+                          type="button"
+                          onClick={() => {
+                            setIsMobileOpen(false);
+                            if (item.route)
+                              router.push(
+                                item.route as Parameters<typeof router.push>[0]
+                              );
+                          }}
+                          aria-label={item.label}
+                          title={isCollapsed ? item.label : undefined}
+                        >
+                          {isActive ? (
+                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
+                          ) : null}
+
+                          <span
+                            className={`flex shrink-0 items-center justify-center ${
+                              showCollapsed
+                                ? "h-9 w-9 rounded-xl"
+                                : isActive
+                                  ? "text-[#1f4d73]"
+                                  : "text-[#6a7483]"
+                            }`}
+                          >
+                            {item.iconSrc ? (
+                              <Image
+                                alt=""
+                                aria-hidden="true"
+                                className="h-4.5 w-4.5 object-contain"
+                                height={18}
+                                src={item.iconSrc}
+                                width={18}
+                              />
+                            ) : (
+                              <SidebarIcon
+                                className="h-4.5 w-4.5"
+                                name={item.icon}
+                              />
+                            )}
+                          </span>
+
+                          {!showCollapsed ? (
+                            <>
+                              <span className="min-w-0 flex-1 truncate text-sm font-normal">
+                                {item.label}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                              {item.label}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </section>
+            ))
+          )}
         </nav>
 
-        <div className="border-t border-[#d8dde5] p-3">
-          <button
-            className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#eef4fa] ${
-              showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
-            }`}
-            type="button"
-            onClick={logout}
-            title={showCollapsed ? `${user.name} - ${roleLabel}` : "Sign out"}
+        {!showCollapsed ? (
+          <div
+            className="relative border-t border-[#d8dde5] p-3"
+            ref={profileMenuRef}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef4fa] text-sm font-black text-[#17202a]">
-              {initials}
-            </span>
+            {isProfileMenuOpen ? (
+              <div
+                aria-label="Profile menu"
+                className="absolute bottom-[calc(100%+0.5rem)] left-3 right-3 z-80 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20"
+                role="menu"
+              >
+                {[
+                  {
+                    label: "Upgrade Plan",
+                    iconSrc: "/icons/profile-menu/upgrade-plan.png",
+                    route: null
+                  },
+                  {
+                    label: "Profile",
+                    iconSrc: "/icons/profile-menu/profile.png",
+                    route: null
+                  },
+                  {
+                    label: "Settings",
+                    iconSrc: "/icons/profile-menu/settings.png",
+                    route: null
+                  },
+                  {
+                    label: "Help",
+                    iconSrc: "/icons/profile-menu/help.png",
+                    route: null
+                  },
+                  {
+                    label: "Logout",
+                    iconSrc: "/icons/profile-menu/logout.png",
+                    route: null
+                  }
+                ].map((item) => (
+                  <button
+                    aria-expanded={
+                      item.label === "Help" ? isHelpMenuOpen : undefined
+                    }
+                    aria-haspopup={item.label === "Help" ? "menu" : undefined}
+                    className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
+                      item.label === "Settings"
+                        ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
+                        : ""
+                    }`}
+                    key={item.label}
+                    onClick={() => {
+                      if (item.label === "Upgrade Plan") {
+                        setIsProfileMenuOpen(false);
+                        setIsMobileOpen(false);
+                        setIsUpgradePlanDialogOpen(true);
+                        return;
+                      }
 
-            {!showCollapsed ? (
-              <>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-black text-[#17202a]">
-                    {user.name}
-                  </span>
-                  <span className="block truncate text-xs font-semibold text-[#6a7483]">
-                    {roleLabel}
-                  </span>
-                </span>
-                <span className="text-[#6a7483]">›</span>
-              </>
-            ) : (
-              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                {user.name} - {roleLabel}
+                      if (item.label === "Settings") {
+                        setIsProfileMenuOpen(false);
+                        setIsMobileOpen(false);
+                        setIsSettingsDialogOpen(true);
+                        return;
+                      }
+
+                      if (item.label === "Profile") {
+                        setIsProfileMenuOpen(false);
+                        setIsMobileOpen(false);
+                        setIsEditProfileDialogOpen(true);
+                        return;
+                      }
+
+                      if (item.label === "Help") {
+                        setIsHelpMenuOpen((current) => !current);
+                        return;
+                      }
+
+                      if (item.label === "Logout") {
+                        setIsHelpMenuOpen(false);
+                        setIsProfileMenuOpen(false);
+                        setIsLogoutDialogOpen(true);
+                        return;
+                      }
+
+                      if (item.route) openProfileDestination(item.route);
+                    }}
+                    role="menuitem"
+                    type="button"
+                  >
+                    <Image
+                      alt=""
+                      aria-hidden="true"
+                      className="h-4.5 w-4.5 shrink-0 object-contain invert opacity-90"
+                      height={18}
+                      src={item.iconSrc}
+                      width={18}
+                    />
+                    {item.label}
+                    {item.label === "Help" ? (
+                      <span
+                        aria-hidden="true"
+                        className={`ml-auto text-lg leading-none transition-transform ${
+                          isHelpMenuOpen ? "rotate-90" : "rotate-0"
+                        }`}
+                      >
+                        ›
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+
+                {isHelpMenuOpen ? (
+                  <div
+                    aria-label="Help links"
+                    className="absolute bottom-0 left-[calc(100%+0.5rem)] z-90 w-52 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20 max-lg:bottom-[calc(100%+0.5rem)] max-lg:left-0 max-lg:w-full"
+                    role="menu"
+                  >
+                    {[
+                      "Help Center",
+                      "Release Notes",
+                      "Download Apps",
+                      "Terms of Service",
+                      "Privacy Policy"
+                    ].map((label) => (
+                      <button
+                        className={`relative block w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
+                          label === "Download Apps"
+                            ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
+                            : ""
+                        }`}
+                        key={label}
+                        onClick={() => {
+                          setIsHelpMenuOpen(false);
+                          setIsProfileMenuOpen(false);
+                        }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <button
+              className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#eef4fa] ${
+                showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
+              }`}
+              type="button"
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                setIsHelpMenuOpen(false);
+                setIsProfileMenuOpen((current) => !current);
+              }}
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1f4d73] text-sm font-black text-white">
+                {initials}
               </span>
-            )}
-          </button>
-        </div>
+
+              {!showCollapsed ? (
+                <>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black text-[#17202a]">
+                      {profileName}
+                    </span>
+                    <span className="block truncate text-xs font-semibold text-[#6a7483]">
+                      {roleLabel}
+                    </span>
+                  </span>
+                  <span className="text-[#6a7483]">›</span>
+                </>
+              ) : (
+                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                  {profileName} - {roleLabel}
+                </span>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="border-t border-[#d8dde5] p-2">
+            <button
+              aria-label={`Open ${profileName} profile menu`}
+              className="group relative flex h-12 w-full items-center justify-center rounded-xl transition hover:bg-[#eef4fa]"
+              onClick={() => {
+                setIsCollapsed(false);
+                setIsProfileMenuOpen(true);
+              }}
+              title={`${profileName} - ${roleLabel}`}
+              type="button"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f4d73] text-xs font-medium text-white">
+                {initials}
+              </span>
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-normal text-white shadow-xl group-hover:block">
+                {profileName} - {roleLabel}
+              </span>
+            </button>
+          </div>
+        )}
       </aside>
+
+      <EditProfileDialog
+        initialValues={{
+          displayName: profileName,
+          username: profileUsername
+        }}
+        initials={initials}
+        onClose={() => setIsEditProfileDialogOpen(false)}
+        onSave={(values) => {
+          setProfileName(values.displayName);
+          setProfileUsername(values.username);
+          setIsEditProfileDialogOpen(false);
+        }}
+        open={isEditProfileDialogOpen}
+      />
+      <LogoutConfirmationDialog
+        onClose={() => setIsLogoutDialogOpen(false)}
+        onConfirm={logout}
+        open={isLogoutDialogOpen}
+      />
+      <SettingsDialog
+        onClose={() => setIsSettingsDialogOpen(false)}
+        open={isSettingsDialogOpen}
+      />
+      <UpgradePlanDialog
+        onClose={() => setIsUpgradePlanDialogOpen(false)}
+        open={isUpgradePlanDialogOpen}
+      />
     </>
   );
 }
