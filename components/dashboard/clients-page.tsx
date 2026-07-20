@@ -261,7 +261,7 @@ export function ClientsPage() {
   };
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Clients"
         subtitle="Manage client contacts, event history, balances, files, and internal notes."

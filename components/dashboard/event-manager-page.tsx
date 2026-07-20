@@ -8,6 +8,11 @@ import {
 } from "@/components/forms-and-modals/new-event-dialog";
 import { PrintPacketDrawer } from "@/components/forms-and-modals/print-packet-drawer";
 import { ClientPortalPreviewDrawer } from "@/components/forms-and-modals/client-portal-preview-drawer";
+import {
+  MenuItemSelectorDrawer,
+  type MenuCourse,
+  type MenuSelectorItem
+} from "@/components/forms-and-modals/menu-item-selector-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
 import {
@@ -115,7 +120,7 @@ const menuItems = [
   { course: "Main", name: "Braised short ribs" },
   { course: "Side", name: "Potato kugel" },
   { course: "Main", name: "Children schnitzel" }
-];
+] satisfies Array<{ course: MenuCourse; name: string }>;
 
 const addMenuItems = [
   "Add Appetizer",
@@ -126,6 +131,32 @@ const addMenuItems = [
   "Add Dessert",
   "Add more"
 ];
+
+const fallbackMenuLibrary: MenuSelectorItem[] = [
+  { id: "appetizer-challah", course: "Appetizer", name: "Challah rolls" },
+  { id: "appetizer-quiche", course: "Appetizer", name: "Mini quiche" },
+  { id: "appetizer-salad", course: "Appetizer", name: "Garden salad" },
+  { id: "appetizer-gefilte", course: "Appetizer", name: "Gefilte fish" },
+  { id: "appetizer-dips", course: "Appetizer", name: "Dips platter" },
+  { id: "soup-chicken", course: "Soup", name: "Chicken soup" },
+  { id: "soup-vegetable", course: "Soup", name: "Vegetable soup" },
+  { id: "main-ribs", course: "Main", name: "Braised short ribs" },
+  { id: "main-schnitzel", course: "Main", name: "Children schnitzel" },
+  { id: "side-kugel", course: "Side", name: "Potato kugel" },
+  { id: "side-vegetables", course: "Side", name: "Seasonal vegetables" },
+  { id: "drink-water", course: "Drink", name: "Bottled water" },
+  { id: "drink-soda", course: "Drink", name: "Assorted soda" },
+  { id: "dessert-cups", course: "Dessert", name: "Dessert cups" },
+  { id: "more-coffee", course: "More", name: "Coffee station" }
+];
+
+type EventMenuResponse = {
+  items: Array<{
+    id: string;
+    name: string;
+    category: string | null;
+  }>;
+};
 
 const portalChecklist = [
   ["Event date and time", true],
@@ -664,27 +695,65 @@ function TimelineInstructions() {
   );
 }
 
-function MenuDishCard({ course, name }: { course: string; name: string }) {
+function normalizeMenuCourse(category: string | null): MenuCourse {
+  const value = category?.trim().toLowerCase() ?? "";
+
+  if (value.includes("appetizer")) return "Appetizer";
+  if (value.includes("soup")) return "Soup";
+  if (value.includes("main") || value.includes("entree")) return "Main";
+  if (value.includes("side")) return "Side";
+  if (value.includes("drink") || value.includes("beverage")) return "Drink";
+  if (value.includes("dessert")) return "Dessert";
+  return "More";
+}
+
+function courseFromAddLabel(label: string): MenuCourse {
+  const course = label.replace(/^Add\s+/i, "").trim();
+  return course === "more" || course === "More"
+    ? "More"
+    : (course as MenuCourse);
+}
+
+function MenuDishCard({
+  course,
+  name,
+  onClick
+}: {
+  course: MenuCourse;
+  name: string;
+  onClick: () => void;
+}) {
   return (
-    <article className="flex h-50 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+    <button
+      className="dashboard-hover-card flex h-44 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left sm:h-50"
+      onClick={onClick}
+      type="button"
+    >
       <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
         <div className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf]">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d8dde5] bg-white text-[11px] font-black uppercase tracking-[0.08em] text-[#1f4d73]">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d8dde5] bg-white px-1 text-center text-[8px] font-black uppercase leading-3 tracking-[0.03em] text-[#1f4d73]">
             {course}
           </span>
         </div>
       </div>
       <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] px-3">
-        <h3 className="truncate text-sm font-black text-[#17202a]">{name}</h3>
+        <h3 className="line-clamp-2 text-center text-[13px] font-black leading-4 text-[#17202a] sm:text-sm">{name}</h3>
       </div>
-    </article>
+    </button>
   );
 }
 
-function AddMenuCard({ label }: { label: string }) {
+function AddMenuCard({
+  label,
+  onClick
+}: {
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
-      className="flex h-50 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+      className="dashboard-hover-card flex h-44 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa] sm:h-50"
+      onClick={onClick}
       type="button"
     >
       <div className="flex flex-1 items-center justify-center">
@@ -695,39 +764,93 @@ function AddMenuCard({ label }: { label: string }) {
         </span>
       </div>
       <div className="flex h-12 w-full items-center justify-center border-t border-[#d8dde5] px-3">
-        <span className="truncate text-sm font-black">{label}</span>
+        <span className="line-clamp-2 text-center text-[13px] font-black leading-4 sm:text-sm">{label}</span>
       </div>
     </button>
   );
 }
 
 function EventMenuContent() {
+  const menuQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
+  const [selectedItems, setSelectedItems] = useState<
+    Array<{ course: MenuCourse; name: string }>
+  >(menuItems);
+  const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(
+    null
+  );
+  const libraryItems = useMemo<MenuSelectorItem[]>(() => {
+    const liveItems = (menuQuery.data?.items ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      course: normalizeMenuCourse(item.category)
+    }));
+
+    return liveItems.length ? liveItems : fallbackMenuLibrary;
+  }, [menuQuery.data]);
+
+  const selectMenuItem = (item: MenuSelectorItem) => {
+    setSelectedItems((current) =>
+      current.some(
+        (selected) =>
+          selected.course === item.course && selected.name === item.name
+      )
+        ? current
+        : [...current, { course: item.course, name: item.name }]
+    );
+    setSelectorCourse(null);
+  };
+
+  const clearCourse = (course: MenuCourse) => {
+    setSelectedItems((current) =>
+      current.filter((item) => item.course !== course)
+    );
+  };
+
   return (
-    <section className="rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <LineIcon name="document" />
-          <h2 className="text-sm font-black text-[#17202a]">
-            Menu for this event
-          </h2>
+    <>
+      <section className="dashboard-panel-enter rounded-lg border border-[#d8dde5] bg-white">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-3 sm:px-4">
+          <div className="flex items-center gap-2">
+            <LineIcon name="document" />
+            <h2 className="text-[13px] font-black text-[#17202a] sm:text-sm">
+              Menu for this event
+            </h2>
+          </div>
+          <button
+            className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#15344f] sm:px-4 sm:text-xs"
+            type="button"
+          >
+            <LineIcon name="check" />
+            Confirm menu
+          </button>
+        </header>
+        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          {selectedItems.map((item) => (
+            <MenuDishCard
+              key={`${item.course}-${item.name}`}
+              {...item}
+              onClick={() => setSelectorCourse(item.course)}
+            />
+          ))}
+          {addMenuItems.map((label) => (
+            <AddMenuCard
+              key={label}
+              label={label}
+              onClick={() => setSelectorCourse(courseFromAddLabel(label))}
+            />
+          ))}
         </div>
-        <button
-          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
-          type="button"
-        >
-          <LineIcon name="check" />
-          Confirm menu
-        </button>
-      </header>
-      <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-        {menuItems.map((item) => (
-          <MenuDishCard key={item.name} {...item} />
-        ))}
-        {addMenuItems.map((label) => (
-          <AddMenuCard key={label} label={label} />
-        ))}
-      </div>
-    </section>
+      </section>
+
+      <MenuItemSelectorDrawer
+        initialCourse={selectorCourse ?? "Appetizer"}
+        items={libraryItems}
+        onClear={clearCourse}
+        onClose={() => setSelectorCourse(null)}
+        onSelect={selectMenuItem}
+        open={selectorCourse !== null}
+      />
+    </>
   );
 }
 
@@ -1681,7 +1804,7 @@ function EventWorkspace({ event }: { event: EventFile }) {
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
   return (
-    <section className="flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
+    <section className="dashboard-panel-enter flex h-full min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
       <header className="shrink-0 border-b border-[#d8dde5] bg-white p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">

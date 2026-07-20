@@ -10,6 +10,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
 ) {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const resetError = useCallback(() => setError(null), []);
 
   const mutate = useCallback(
     async (input: TInput) => {
@@ -47,5 +48,5 @@ export function useAuthenticatedMutation<TInput, TOutput>(
     [method, url]
   );
 
-  return { mutate, isPending, error, resetError: () => setError(null) };
+  return { mutate, isPending, error, resetError };
 }

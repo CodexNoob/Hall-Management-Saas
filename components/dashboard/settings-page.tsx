@@ -378,7 +378,7 @@ export function SettingsOverviewPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Settings"
         subtitle="Manage organization, system, access, integrations, branding, and account plan."
@@ -536,7 +536,7 @@ export function SettingsOverviewPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-[222px]">
               <PanelHeader title="Timezone" icon="globe" />
 
               <div className="space-y-3 p-4">
@@ -591,10 +591,10 @@ export function SettingsOverviewPage() {
           </aside>
 
           <div className="min-w-0 space-y-4">
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+            <section className="flex flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm xl:min-h-[470px]">
               <h2 className="text-base font-black">Subscription Plan</h2>
 
-              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+              <div className="mt-4 grid gap-4 lg:grid-cols-3 xl:flex-1">
                 <SubscriptionPlan
                   description="For small halls getting started."
                   features={[
@@ -637,7 +637,7 @@ export function SettingsOverviewPage() {
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-[353px]">
               <PanelHeader title="Settings Hub" />
 
               <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -664,7 +664,7 @@ export function SettingsOverviewPage() {
               </div>
             </section>
 
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="grid gap-4 lg:grid-cols-3 xl:pt-px">
               <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                 <PanelHeader title="Branding Preview" icon="eye" />
 

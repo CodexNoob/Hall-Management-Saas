@@ -1116,7 +1116,7 @@ export function BillingPage() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="dashboard-readable-page min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Billing"
         subtitle="Transactions, invoices, event billing, payments, and financial dashboard."

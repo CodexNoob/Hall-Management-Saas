@@ -2,15 +2,17 @@
 
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
-import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
+import { CalendarBookingDialog } from "@/components/forms-and-modals/calendar-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
+import { addDays, addMonths, buildMonthGrid, dateKey, dateKeyFromIso, startOfDay, startOfMonth } from "@/lib/dates/calendar-date";
+import { formatHebrewDate } from "@/lib/dates/hebrew-date";
 import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 
 type CalendarStatus = "confirmed" | "hold" | "school";
 
 type CalendarBooking = {
   id: string;
-  day: number;
+  dateKey: string;
   title: string;
   hall: string;
   type: string;
@@ -29,8 +31,11 @@ type EventsResponse = {
     hall: { id: string; name: string };
   }>;
   halls: Array<{ id: string; name: string }>;
+  eventTypes: Array<{ id: string; name: string }>;
+  packages: Array<{ id: string; name: string }>;
 };
 
+/* Legacy July fixture retained for visual-reference history.
 type CalendarDay = {
   day: number;
   hebrewDate: string;
@@ -81,8 +86,13 @@ const calendarDays: CalendarDay[] = [
   { day: 31, hebrewDate: "17 באב", currentMonth: true },
   { day: 1, hebrewDate: "18 באב", currentMonth: false }
 ];
+*/
+
+const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 type AvailabilityDay = {
+  dateKey: string;
+  dateLabel: string;
   day: number;
   dayName: string;
   hebrewDate: string;
@@ -312,9 +322,19 @@ function StatusDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-function AvailabilityView({ onNewBooking, days }: { onNewBooking: () => void; days: AvailabilityDay[] }) {
+function AvailabilityView({
+  days,
+  endDateLabel,
+  onNewBooking,
+  startDateLabel
+}: {
+  days: AvailabilityDay[];
+  endDateLabel: string;
+  onNewBooking: () => void;
+  startDateLabel: string;
+}) {
   return (
-    <section className="mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
       <header className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -333,17 +353,17 @@ function AvailabilityView({ onNewBooking, days }: { onNewBooking: () => void; da
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-xl font-black">Availability Range</h2>
-            <p className="text-xs font-bold text-[#617086]">Wed, Jul 1, 2026 to Fri, Jul 31, 2026</p>
+            <p className="text-xs font-bold text-[#617086]">{startDateLabel} to {endDateLabel}</p>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[156px_156px_auto]">
             <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
-              <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+              <strong className="mt-1 block text-sm">{startDateLabel}</strong>
             </div>
             <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
-              <strong className="mt-1 block text-sm">Fri, Jul 31, 2026</strong>
+              <strong className="mt-1 block text-sm">{endDateLabel}</strong>
             </div>
             <button className="h-9 self-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]" type="button">
               Select range
@@ -360,10 +380,10 @@ function AvailabilityView({ onNewBooking, days }: { onNewBooking: () => void; da
           {days.map((availabilityDay) => {
             const isHold = availabilityDay.status === "hold";
             return (
-              <article className="flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between" key={availabilityDay.day}>
+              <article className="dashboard-hover-card flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between" key={availabilityDay.dateKey}>
                 <div>
                   <h3 className="text-sm font-black">
-                    {availabilityDay.dayName}, Jul {availabilityDay.day}, 2026
+                    {availabilityDay.dateLabel}
                   </h3>
                   <p className="mt-1 text-xs text-[#617086]" dir="rtl">
                     {availabilityDay.hebrewDate}
@@ -437,7 +457,7 @@ function CalendarSettingsView() {
   }
 
   return (
-    <section className="mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
       <header className="border-b border-[#d8dde5] p-3">
         <div className="flex items-center gap-2">
           <SettingsIcon />
@@ -537,8 +557,10 @@ function EventPill({ booking, onSelect }: { booking: CalendarBooking; onSelect: 
 export function EventCalendarPage() {
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
   const [activeTab, setActiveTab] = useState<"calendar" | "availability" | "settings">("calendar");
-
-  const [selectedDay, setSelectedDay] = useState(8);
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
+  const [selectedDateValue, setSelectedDateValue] = useState(today);
+  const selectedDate = dateKey(selectedDateValue);
   const [searchQuery, setSearchQuery] = useState("");
   const [hallFilter, setHallFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -547,13 +569,12 @@ export function EventCalendarPage() {
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
-        const eventDate = new Date(event.eventDate);
         const normalizedStatus = event.eventStatus.toLowerCase();
         const isSchoolEvent = event.eventType?.toLowerCase().includes("school");
 
         return {
           id: event.id,
-          day: eventDate.getUTCDate(),
+          dateKey: dateKeyFromIso(event.eventDate),
           title: event.clientName,
           hall: event.hall.name,
           type: event.eventType ?? "Event",
@@ -564,23 +585,40 @@ export function EventCalendarPage() {
     [eventsQuery.data]
   );
   const halls = useMemo(() => (eventsQuery.data?.halls ?? []).map((hall) => hall.name), [eventsQuery.data]);
+  const calendarGridDays = useMemo(() => buildMonthGrid(visibleMonth), [visibleMonth]);
+  const monthStart = useMemo(() => startOfMonth(visibleMonth), [visibleMonth]);
+  const monthEnd = useMemo(
+    () => new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0),
+    [monthStart]
+  );
+  const currentMonthDays = useMemo(
+    () => Array.from({ length: monthEnd.getDate() }, (_, index) => addDays(monthStart, index)),
+    [monthEnd, monthStart]
+  );
   const liveAvailabilityDays = useMemo<AvailabilityDay[]>(
     () =>
-      calendarDays
-        .filter((day) => day.currentMonth)
+      currentMonthDays
         .map((day) => {
-          const dayBookings = bookings.filter((booking) => booking.day === day.day);
+          const currentDateKey = dateKey(day);
+          const dayBookings = bookings.filter((booking) => booking.dateKey === currentDateKey);
           return {
-            day: day.day,
+            dateKey: currentDateKey,
+            dateLabel: new Intl.DateTimeFormat("en-US", {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+              year: "numeric"
+            }).format(day),
+            day: day.getDate(),
             dayName: new Intl.DateTimeFormat("en-US", {
               weekday: "short"
-            }).format(new Date(2026, 6, day.day)),
-            hebrewDate: "",
+            }).format(day),
+            hebrewDate: formatHebrewDate(day),
             roomsAvailable: Math.max(0, halls.length - new Set(dayBookings.map((booking) => booking.hall)).size),
             status: dayBookings.some((booking) => booking.status === "hold") ? "hold" : "available"
           };
         }),
-    [bookings, halls.length]
+    [bookings, currentMonthDays, halls.length]
   );
 
   const filteredBookings = useMemo(() => {
@@ -599,9 +637,40 @@ export function EventCalendarPage() {
     });
   }, [bookings, hallFilter, searchQuery, statusFilter, typeFilter]);
 
-  const selectedBookings = bookings.filter((booking) => booking.day === selectedDay);
+  const selectedBookings = bookings.filter((booking) => booking.dateKey === selectedDate);
 
   const selectedHallNames = selectedBookings.map((booking) => booking.hall);
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(visibleMonth);
+  const selectedDateLabel = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(selectedDateValue);
+  const rangeDateFormatter = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+  const monthStartLabel = rangeDateFormatter.format(monthStart);
+  const monthEndLabel = rangeDateFormatter.format(monthEnd);
+
+  function selectDate(date: Date) {
+    setSelectedDateValue(date);
+    setVisibleMonth(startOfMonth(date));
+  }
+
+  function moveMonth(amount: number) {
+    const nextMonth = addMonths(visibleMonth, amount);
+    setVisibleMonth(nextMonth);
+    setSelectedDateValue(nextMonth);
+  }
+
+  function goToToday() {
+    setVisibleMonth(startOfMonth(today));
+    setSelectedDateValue(today);
+  }
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
@@ -636,12 +705,17 @@ export function EventCalendarPage() {
             />
           </div>
         ) : activeTab === "availability" ? (
-          <AvailabilityView days={liveAvailabilityDays} onNewBooking={() => setIsNewBookingOpen(true)} />
+          <AvailabilityView
+            days={liveAvailabilityDays}
+            endDateLabel={monthEndLabel}
+            onNewBooking={() => setIsNewBookingOpen(true)}
+            startDateLabel={monthStartLabel}
+          />
         ) : activeTab === "settings" ? (
           <CalendarSettingsView />
         ) : (
           <div className="mx-auto grid max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+            <section className="dashboard-panel-enter min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
               <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
@@ -662,18 +736,18 @@ export function EventCalendarPage() {
 
               <div className="flex flex-col gap-3 p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-black">July 2026</h2>
+                  <h2 className="text-xl font-black">{monthLabel}</h2>
 
                   <div className="grid grid-cols-3 gap-2">
-                    <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
+                    <button aria-label="Show previous month" className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={() => moveMonth(-1)} type="button">
                       Previous
                     </button>
 
-                    <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={() => setSelectedDay(8)} type="button">
+                    <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={goToToday} type="button">
                       Today
                     </button>
 
-                    <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" type="button">
+                    <button aria-label="Show next month" className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={() => moveMonth(1)} type="button">
                       Next
                     </button>
                   </div>
@@ -719,30 +793,36 @@ export function EventCalendarPage() {
                   </div>
 
                   <div className="grid grid-cols-7">
-                    {calendarDays.map((calendarDay, index) => {
-                      const dayBookings = calendarDay.currentMonth ? filteredBookings.filter((booking) => booking.day === calendarDay.day) : [];
-
-                      const isSelected = calendarDay.currentMonth && calendarDay.day === selectedDay;
+                    {calendarGridDays.map((calendarDay) => {
+                      const dayBookings = filteredBookings.filter((booking) => booking.dateKey === calendarDay.dateKey);
+                      const isSelected = calendarDay.dateKey === selectedDate;
+                      const bookedHallCount = new Set(bookings.filter((booking) => booking.dateKey === calendarDay.dateKey).map((booking) => booking.hall)).size;
+                      const fullyBooked = calendarDay.currentMonth && halls.length > 0 && bookedHallCount >= halls.length;
+                      const dateLabel = new Intl.DateTimeFormat("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric"
+                      }).format(calendarDay.date);
 
                       return (
-                        <div key={[calendarDay.day, index].join("-")} className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1]"} ${isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}>
-                          <button aria-label={`Select July ${calendarDay.day}, 2026`} className="absolute inset-0 z-0 disabled:cursor-default" disabled={!calendarDay.currentMonth} onClick={() => setSelectedDay(calendarDay.day)} type="button" />
+                        <div key={calendarDay.dateKey} className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}>
+                          <button aria-label={`Select ${dateLabel}`} className="absolute inset-0 z-0" onClick={() => selectDate(calendarDay.date)} type="button" />
 
                           <div className="pointer-events-none relative z-1 flex items-start justify-between gap-2">
                             <strong className="text-sm">{calendarDay.day}</strong>
 
                             <span className="text-[9px] font-semibold" dir="rtl">
-                              {calendarDay.hebrewDate}
+                              {formatHebrewDate(calendarDay.date)}
                             </span>
                           </div>
 
                           <div className="relative z-1 mt-2 space-y-1">
                             {dayBookings.map((booking) => (
-                              <EventPill booking={booking} key={booking.id} onSelect={() => setSelectedDay(booking.day)} />
+                              <EventPill booking={booking} key={booking.id} onSelect={() => selectDate(calendarDay.date)} />
                             ))}
                           </div>
 
-                          {calendarDay.fullyBooked ? <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">Fully booked</span> : null}
+                          {fullyBooked ? <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">Fully booked</span> : null}
                         </div>
                       );
                     })}
@@ -751,12 +831,12 @@ export function EventCalendarPage() {
               </div>
             </section>
 
-            <aside className="self-start overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
-              <div className="flex items-center justify-between gap-3 border-b border-[#d8dde5] p-3">
+            <aside className="dashboard-panel-enter self-start overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8dde5] p-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <CalendarIcon />
-                    <h2 className="text-sm font-black">Wed, Jul {selectedDay}, 2026</h2>
+                    <h2 className="text-sm font-black">{selectedDateLabel}</h2>
                   </div>
 
                   <p className="mt-1 text-xs text-[#6a7483]">
@@ -764,14 +844,18 @@ export function EventCalendarPage() {
                   </p>
                 </div>
 
-                <button className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]" type="button">
+                <button
+                  className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
+                  onClick={() => setIsNewBookingOpen(true)}
+                  type="button"
+                >
                   Book date
                 </button>
               </div>
 
               <div className="space-y-3 p-3">
                 {selectedBookings.map((booking) => (
-                  <article className="rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3" key={booking.id}>
+                  <article className="dashboard-hover-card rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3" key={booking.id}>
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5] bg-white text-[#1f4d73]">✓</span>
 
@@ -794,7 +878,7 @@ export function EventCalendarPage() {
                   const booking = selectedBookings.find((item) => item.hall === hall);
 
                   return (
-                    <article className={`rounded-xl border p-3 ${booked ? "border-[#ebc7bd] bg-[#fff7f4]" : "border-[#b9ddcf] bg-[#f5fbf8]"}`} key={hall}>
+                    <article className={`dashboard-hover-card rounded-xl border p-3 ${booked ? "border-[#ebc7bd] bg-[#fff7f4]" : "border-[#b9ddcf] bg-[#f5fbf8]"}`} key={hall}>
                       <h3 className="text-sm font-black">{hall}</h3>
 
                       <p className="mt-2 text-xs text-[#6a7483]">{booked ? "Booked by " + booking?.title : "Available"}</p>
@@ -807,7 +891,17 @@ export function EventCalendarPage() {
         )}
       </main>
 
-      <NewBookingDialog onClose={() => setIsNewBookingOpen(false)} onSubmit={() => setIsNewBookingOpen(false)} open={isNewBookingOpen} />
+      <CalendarBookingDialog
+        eventTypes={eventsQuery.data?.eventTypes ?? []}
+        halls={eventsQuery.data?.halls ?? []}
+        onClose={() => setIsNewBookingOpen(false)}
+        onSaved={async () => {
+          await eventsQuery.refetch();
+        }}
+        open={isNewBookingOpen}
+        packages={eventsQuery.data?.packages ?? []}
+        selectedDate={selectedDate}
+      />
     </div>
   );
 }

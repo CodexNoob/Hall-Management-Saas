@@ -16,6 +16,7 @@ type DashboardTopbarProps = {
   title: string;
   subtitle?: string;
   onTodayNotes?: () => void;
+  todayNotesNeedRevision?: boolean;
   onNewBooking?: () => void;
   actionsSlot?: ReactNode;
   rightSlot?: ReactNode;
@@ -250,6 +251,7 @@ export function DashboardTopbar({
   title,
   subtitle,
   onTodayNotes,
+  todayNotesNeedRevision = false,
   onNewBooking,
   actionsSlot,
   rightSlot,
@@ -410,9 +412,10 @@ export function DashboardTopbar({
                   <button
                     type="button"
                     onClick={onTodayNotes}
-                    className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa] 2xl:px-5"
+                    className="revision-gradient-stroke h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] 2xl:px-5"
+                    data-needs-revision={todayNotesNeedRevision || undefined}
                   >
-                    Today notes
+                    <span className="relative z-1">Today notes</span>
                   </button>
 
                   <button

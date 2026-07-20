@@ -142,6 +142,156 @@ svg {
   mask-composite: exclude;
 }
 
+/*
+ * Revision signal: apply only while the related item needs attention.
+ * A wide gradient slides through a masked 2px border to create a continuous,
+ * living stroke without tinting the card's content.
+ */
+.revision-gradient-stroke {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.revision-gradient-stroke::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    110deg,
+    #1f4d73 0%,
+    #50d5ff 18%,
+    #8b5cf6 38%,
+    #f59e0b 58%,
+    #2dd4bf 78%,
+    #1f4d73 100%
+  );
+  background-size: 300% 100%;
+  animation: revision-gradient-slide 3.2s linear infinite;
+  animation-play-state: paused;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.revision-gradient-stroke:hover::before {
+  opacity: 1;
+}
+
+.revision-gradient-stroke[data-needs-revision="true"]::before {
+  animation-play-state: running;
+}
+
+@keyframes revision-gradient-slide {
+  to {
+    background-position: -300% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .revision-gradient-stroke::before {
+    animation: none;
+  }
+}
+
+.dashboard-panel-enter {
+  animation: dashboard-panel-enter 320ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.dashboard-drawer-backdrop {
+  animation: dashboard-backdrop-enter 180ms ease-out both;
+}
+
+.dashboard-drawer-enter {
+  animation: dashboard-drawer-enter 280ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.dashboard-hover-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.dashboard-hover-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 77, 115, 0.55);
+  box-shadow: 0 10px 24px rgba(23, 32, 42, 0.08);
+}
+
+/*
+ * Directory and administration screens previously used 9–11px typography
+ * throughout. Keep compact badges compact, but bring their metadata, labels,
+ * controls, and table content up to the operational dashboard's readable scale.
+ */
+.dashboard-readable-page
+  :where(
+    [class~="text-[9px]"],
+    [class~="text-[10px]"]
+  ) {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+}
+
+.dashboard-readable-page
+  :where(
+    [class~="text-[11px]"],
+    [class~="text-xs"]
+  ) {
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+}
+
+@keyframes dashboard-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes dashboard-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dashboard-drawer-enter {
+  from {
+    opacity: 0.75;
+    transform: translateX(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-panel-enter,
+  .dashboard-drawer-backdrop,
+  .dashboard-drawer-enter {
+    animation: none;
+  }
+
+  .dashboard-hover-card {
+    transition: none;
+  }
+
+  .dashboard-hover-card:hover {
+    transform: none;
+  }
+}
+
 .app-sidebar {
   will-change: width;
 }

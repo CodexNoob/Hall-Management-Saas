@@ -5,6 +5,7 @@ import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dial
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
+import { addDays, dateKey, dateKeyFromIso, startOfDay, startOfWeek } from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 
 type KitchenView = "today" | "week" | "four-weeks";
@@ -20,10 +21,12 @@ type KitchenEvent = {
 };
 
 type KitchenDay = {
+  dateKey: string;
   dayName: string;
   dateLabel: string;
   dayNumber: number;
   shabbos?: boolean;
+  selected?: boolean;
   today?: boolean;
   events?: KitchenEvent[];
 };
@@ -49,26 +52,31 @@ type KitchenResponse = {
 
 const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
 
-const viewInformation: Record<
-  KitchenView,
-  {
-    heading: string;
-    time: string;
-  }
-> = {
-  today: {
-    heading: "Friday, July 10, 2026",
-    time: "6:19 PM"
-  },
-  week: {
-    heading: "This Week · Jul 5 – Jul 11",
-    time: "6:20 PM"
-  },
-  "four-weeks": {
-    heading: "4 Weeks · Jul 5 – Aug 1",
-    time: "6:20 PM"
-  }
-};
+function kitchenViewInformation(activeView: KitchenView, anchorDate: Date) {
+  const fullDate = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+  const shortDate = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric"
+  });
+  const rangeStart = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+  const rangeEnd = addDays(rangeStart, activeView === "week" ? 6 : 27);
+
+  return {
+    heading:
+      activeView === "today"
+        ? fullDate.format(anchorDate)
+        : `${activeView === "week" ? "This Week" : "4 Weeks"} · ${shortDate.format(rangeStart)} – ${shortDate.format(rangeEnd)}`,
+    time:
+      activeView === "four-weeks"
+        ? "4-week kitchen schedule"
+        : `Current time: ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date())}`
+  };
+}
 
 function PlusButton({ label }: { label: string }) {
   return (
@@ -136,12 +144,18 @@ function KitchenEventCard({
 
 function KitchenHeader({
   activeView,
-  onChangeView
+  anchorDate,
+  onChangeView,
+  onNext,
+  onPrevious
 }: {
   activeView: KitchenView;
+  anchorDate: Date;
   onChangeView: (view: KitchenView) => void;
+  onNext: () => void;
+  onPrevious: () => void;
 }) {
-  const information = viewInformation[activeView];
+  const information = kitchenViewInformation(activeView, anchorDate);
 
   const tabs: Array<{
     label: string;
@@ -158,6 +172,7 @@ function KitchenHeader({
         <button
           aria-label="Previous date range"
           className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] xl:w-9"
+          onClick={onPrevious}
           type="button"
         >
           <svg
@@ -186,6 +201,7 @@ function KitchenHeader({
         <button
           aria-label="Next date range"
           className="flex h-11 w-11 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] xl:w-9"
+          onClick={onNext}
           type="button"
         >
           <svg
@@ -204,7 +220,7 @@ function KitchenHeader({
           </svg>
         </button>
 
-        <strong className="min-w-32 flex-1 whitespace-nowrap text-center text-3xl font-black text-[#ffd45c] xl:min-w-26 xl:text-2xl 2xl:min-w-32 2xl:text-3xl">
+        <strong className="min-w-32 flex-1 text-center text-xl font-black text-[#ffd45c] xl:min-w-26 xl:text-lg 2xl:min-w-32 2xl:text-xl">
           {information.time}
         </strong>
 
@@ -282,7 +298,7 @@ function TodayView({ day }: { day: KitchenDay }) {
   return (
     <section className="min-h-120 border-2 border-[#009ee8] bg-[#edf9ff] p-2">
       <header className="flex items-center justify-between border-b-2 border-[#009ee8] px-2 pb-2">
-        <h2 className="text-lg font-black text-[#0077b7]">Today</h2>
+        <h2 className="text-lg font-black text-[#0077b7]">{day.today ? "Today" : day.dayName}</h2>
 
         <div className="flex items-center gap-2">
           <PlusButton label={`Add kitchen event on ${day.dateLabel}`} />
@@ -304,18 +320,18 @@ function TodayView({ day }: { day: KitchenDay }) {
 }
 
 function WeekDayColumn({ day }: { day: KitchenDay }) {
-  const outerBorderColor = day.today
+  const outerBorderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
       ? "border-[#a25bff]"
       : "border-transparent";
-  const headerBorderColor = day.today
+  const headerBorderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
       ? "border-[#a25bff]"
       : "border-[#07162d]";
 
-  const headingColor = day.today
+  const headingColor = day.today || day.selected
     ? "text-[#0077b7]"
     : day.shabbos
       ? "text-[#8b37f5]"
@@ -324,7 +340,7 @@ function WeekDayColumn({ day }: { day: KitchenDay }) {
   return (
     <article
       className={`flex min-h-120 flex-col border-2 bg-white p-2 ${outerBorderColor} ${
-        day.today ? "bg-[#edf9ff]" : ""
+        day.today || day.selected ? "bg-[#edf9ff]" : ""
       }`}
     >
       <header
@@ -362,14 +378,14 @@ function WeekView({ days }: { days: KitchenDay[] }) {
   return (
     <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
       {days.map((day) => (
-        <WeekDayColumn day={day} key={day.dateLabel} />
+        <WeekDayColumn day={day} key={day.dateKey} />
       ))}
     </div>
   );
 }
 
 function FourWeekDay({ day }: { day: KitchenDay }) {
-  const borderColor = day.today
+  const borderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
       ? "border-[#a25bff]"
@@ -378,7 +394,7 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
   return (
     <article
       className={`min-h-39 border-2 bg-white ${borderColor} ${
-        day.today ? "bg-[#edf9ff]" : ""
+        day.today || day.selected ? "bg-[#edf9ff]" : ""
       }`}
     >
       <header
@@ -418,24 +434,41 @@ function FourWeekDay({ day }: { day: KitchenDay }) {
   );
 }
 
-function FourWeeksView({ days }: { days: KitchenDay[] }) {
+function FourWeeksView({
+  days,
+  onCurrent,
+  onNext,
+  onPrevious
+}: {
+  days: KitchenDay[];
+  onCurrent: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+}) {
+  const controls = [
+    { label: "Previous", onClick: onPrevious },
+    { label: "Current", onClick: onCurrent },
+    { label: "Next", onClick: onNext }
+  ];
+
   return (
     <div>
       <div className="mb-3 flex gap-2">
-        {["Previous", "Current", "Next"].map((label) => (
+        {controls.map((control) => (
           <button
             className="h-11 min-w-26 border border-[#d6dde5] bg-white px-4 text-sm font-black hover:bg-[#f6f8fa]"
-            key={label}
+            key={control.label}
+            onClick={control.onClick}
             type="button"
           >
-            {label}
+            {control.label}
           </button>
         ))}
       </div>
 
       <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {days.map((day) => (
-          <FourWeekDay day={day} key={day.dateLabel} />
+          <FourWeekDay day={day} key={day.dateKey} />
         ))}
       </div>
     </div>
@@ -445,14 +478,15 @@ function FourWeeksView({ days }: { days: KitchenDay[] }) {
 export function KitchenDashboardPage() {
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
   const [activeView, setActiveView] = useState<KitchenView>("today");
-
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const [anchorDate, setAnchorDate] = useState(today);
   const [workersOnly, setWorkersOnly] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const days = useMemo<KitchenDay[]>(() => {
     const eventsByDate = new Map<string, KitchenEvent[]>();
     for (const event of kitchenQuery.data?.events ?? []) {
-      const key = event.eventDate.slice(0, 10);
+      const key = dateKeyFromIso(event.eventDate);
       const portions =
         event.couplesCount * 2 +
         event.menCount +
@@ -475,39 +509,45 @@ export function KitchenDashboardPage() {
       eventsByDate.set(key, current);
     }
 
-    const selectedDate = new Date(2026, 6, 10);
-    selectedDate.setHours(0, 0, 0, 0);
-    const start = new Date(selectedDate);
-    start.setDate(selectedDate.getDate() - selectedDate.getDay());
-    const selectedDateKey = [
-      selectedDate.getFullYear(),
-      String(selectedDate.getMonth() + 1).padStart(2, "0"),
-      String(selectedDate.getDate()).padStart(2, "0")
-    ].join("-");
+    const start = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+    const selectedDateKey = dateKey(anchorDate);
+    const todayKey = dateKey(today);
 
     return Array.from({ length: 28 }, (_, index) => {
-      const date = new Date(start);
-      date.setDate(start.getDate() + index);
-      const key = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0")
-      ].join("-");
+      const date = addDays(start, index);
+      const key = dateKey(date);
       const isSelectedDate = key === selectedDateKey;
 
       return {
-        dayName: isSelectedDate ? "Today" : dayNames[date.getDay()],
+        dateKey: key,
+        dayName: key === todayKey ? "Today" : dayNames[date.getDay()],
         dateLabel: new Intl.DateTimeFormat("en-US", {
           month: "short",
           day: "numeric"
         }).format(date),
         dayNumber: date.getDate(),
         shabbos: date.getDay() === 6,
-        today: isSelectedDate,
+        selected: isSelectedDate,
+        today: key === todayKey,
         events: eventsByDate.get(key)
       };
     });
-  }, [kitchenQuery.data]);
+  }, [activeView, anchorDate, kitchenQuery.data, today]);
+
+  const navigationStep = activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
+
+  function navigate(amount: number) {
+    setAnchorDate((current) => addDays(current, amount * navigationStep));
+  }
+
+  function changeView(view: KitchenView) {
+    setActiveView(view);
+    if (view === "today") setAnchorDate(today);
+  }
+
+  function goToCurrentRange() {
+    setAnchorDate(today);
+  }
 
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
@@ -519,7 +559,13 @@ export function KitchenDashboardPage() {
       />
 
       <div className="shrink-0 overflow-x-hidden">
-        <KitchenHeader activeView={activeView} onChangeView={setActiveView} />
+        <KitchenHeader
+          activeView={activeView}
+          anchorDate={anchorDate}
+          onChangeView={changeView}
+          onNext={() => navigate(1)}
+          onPrevious={() => navigate(-1)}
+        />
       </div>
 
       <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4">
@@ -539,11 +585,16 @@ export function KitchenDashboardPage() {
         ) : (
           <div className="mt-4">
             {activeView === "today" ? (
-              <TodayView day={days.find((day) => day.today) ?? days[0]} />
+              <TodayView day={days.find((day) => day.selected) ?? days[0]} />
             ) : activeView === "week" ? (
               <WeekView days={days.slice(0, 7)} />
             ) : (
-              <FourWeeksView days={days} />
+              <FourWeeksView
+                days={days}
+                onCurrent={goToCurrentRange}
+                onNext={() => navigate(1)}
+                onPrevious={() => navigate(-1)}
+              />
             )}
           </div>
         )}

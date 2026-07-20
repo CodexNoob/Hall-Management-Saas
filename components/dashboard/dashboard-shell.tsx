@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -11,6 +11,7 @@ import {
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
+import { useAuthenticatedQuery } from "@/lib/hooks/use-authenticated-query";
 
 type DashboardShellProps = {
   user: SyncedUser;
@@ -27,18 +28,40 @@ type ScheduleRow = {
   next: string;
 };
 
-const kpis = [
-  {
-    label: "Events today",
-    value: "6",
-    description: "3 confirmed, 2 in setup, 1 on hold",
-  },
-  {
-    label: "Open balance",
-    value: "$18.7k",
-    description: "Includes two retainers due",
-  },
-];
+const OPEN_BALANCE_REVISION_THRESHOLD_CENTS = 200_000;
+const TODAY_NOTES_READ_STORAGE_KEY = "dashboard-today-notes-read-date";
+const FALLBACK_OPEN_BALANCE_CENTS = 1_870_000;
+
+type DashboardBillingResponse = {
+  summary: {
+    openInvoiceCents: number;
+    openInvoices: number;
+  };
+};
+
+function getOperatingDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(
+    parts.map(({ type, value }) => [type, value]),
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function formatCompactCurrency(cents: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    notation: "compact",
+    maximumFractionDigits: 1,
+  })
+    .format(cents / 100)
+    .replace("K", "k");
+}
 
 const scheduleRows: ScheduleRow[] = [
   {
@@ -96,10 +119,40 @@ function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
   );
 }
 
-export function DashboardShell({}: DashboardShellProps) {
+export function DashboardShell({ access }: DashboardShellProps) {
   const router = useRouter();
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
+  const billingQuery = useAuthenticatedQuery<DashboardBillingResponse>(
+    "/api/billing",
+    access.canViewPaymentInfo,
+  );
+  const openBalanceCents =
+    billingQuery.data?.summary.openInvoiceCents ?? FALLBACK_OPEN_BALANCE_CENTS;
+  const kpis = [
+    {
+      label: "Events today",
+      value: "6",
+      description: "3 confirmed, 2 in setup, 1 on hold",
+      needsRevision: false,
+    },
+    {
+      label: "Open balance",
+      value: formatCompactCurrency(openBalanceCents),
+      description: billingQuery.data
+        ? `${billingQuery.data.summary.openInvoices} open invoices`
+        : "Includes two retainers due",
+      needsRevision: openBalanceCents >= OPEN_BALANCE_REVISION_THRESHOLD_CENTS,
+    },
+  ];
+
+  useEffect(() => {
+    setTodayNotesNeedRevision(
+      window.localStorage.getItem(TODAY_NOTES_READ_STORAGE_KEY) !==
+        getOperatingDateKey(),
+    );
+  }, []);
 
   const closeNewBooking = useCallback(() => {
     setIsNewBookingOpen(false);
@@ -107,6 +160,15 @@ export function DashboardShell({}: DashboardShellProps) {
 
   const closeTodayNotes = useCallback(() => {
     setIsTodayNotesOpen(false);
+  }, []);
+
+  const openTodayNotes = useCallback(() => {
+    window.localStorage.setItem(
+      TODAY_NOTES_READ_STORAGE_KEY,
+      getOperatingDateKey(),
+    );
+    setTodayNotesNeedRevision(false);
+    setIsTodayNotesOpen(true);
   }, []);
 
   const continueNewBooking = useCallback(
@@ -135,7 +197,8 @@ export function DashboardShell({}: DashboardShellProps) {
         <DashboardTopbar
           title="Dashboard"
           subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
-          onTodayNotes={() => setIsTodayNotesOpen(true)}
+          onTodayNotes={openTodayNotes}
+          todayNotesNeedRevision={todayNotesNeedRevision}
           onNewBooking={() => setIsNewBookingOpen(true)}
         />
       </header>
@@ -154,19 +217,26 @@ export function DashboardShell({}: DashboardShellProps) {
             {kpis.map((kpi) => (
               <article
                 key={kpi.label}
-                className="rounded-2xl border border-[#d8dde5] bg-white p-4 shadow-sm shadow-[#17202a]/4 sm:p-5"
+                className={`rounded-2xl border border-[#d8dde5] bg-white p-4 shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
+                  kpi.label === "Open balance"
+                    ? "revision-gradient-stroke"
+                    : "hover:border-[#1f4d73]/60"
+                }`}
+                data-needs-revision={kpi.needsRevision || undefined}
               >
-                <p className="text-sm font-black text-[#6a7483]">
-                  {kpi.label}
-                </p>
+                <div className="relative z-1">
+                  <p className="text-sm font-black text-[#6a7483]">
+                    {kpi.label}
+                  </p>
 
-                <p className="mt-4 text-3xl font-black tracking-tight text-[#17202a]">
-                  {kpi.value}
-                </p>
+                  <p className="mt-4 text-3xl font-black tracking-tight text-[#17202a]">
+                    {kpi.value}
+                  </p>
 
-                <p className="mt-3 text-sm font-medium text-[#6a7483]">
-                  {kpi.description}
-                </p>
+                  <p className="mt-3 text-sm font-medium text-[#6a7483]">
+                    {kpi.description}
+                  </p>
+                </div>
               </article>
             ))}
           </div>
