@@ -681,15 +681,21 @@ export function DashboardSidebar({
           )}
         </nav>
 
-        {!showCollapsed ? (
+        {!showCollapsed || isProfileMenuOpen ? (
           <div
-            className="relative border-t border-[#d8dde5] p-3"
+            className={`relative border-t border-[#d8dde5] ${
+              showCollapsed ? "p-2" : "p-3"
+            }`}
             ref={profileMenuRef}
           >
             {isProfileMenuOpen ? (
               <div
                 aria-label="Profile menu"
-                className="absolute bottom-[calc(100%+0.5rem)] left-3 right-3 z-80 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20"
+                className={`absolute z-80 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20 ${
+                  showCollapsed
+                    ? "bottom-2 left-[calc(100%+0.5rem)] w-60"
+                    : "bottom-[calc(100%+0.5rem)] left-3 right-3"
+                }`}
                 role="menu"
               >
                 {[
@@ -794,7 +800,11 @@ export function DashboardSidebar({
                 {isHelpMenuOpen ? (
                   <div
                     aria-label="Help links"
-                    className="absolute bottom-0 left-[calc(100%+0.5rem)] z-90 w-52 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20 max-lg:bottom-[calc(100%+0.5rem)] max-lg:left-0 max-lg:w-full"
+                    className={`absolute z-90 w-52 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-[calc(100%+0.5rem)] max-lg:left-0 max-lg:w-full ${
+                      showCollapsed
+                        ? "bottom-[3.25rem] left-full"
+                        : "bottom-0 left-[calc(100%+0.5rem)]"
+                    }`}
                     role="menu"
                   >
                     {[
@@ -865,10 +875,12 @@ export function DashboardSidebar({
           <div className="border-t border-[#d8dde5] p-2">
             <button
               aria-label={`Open ${profileName} profile menu`}
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="menu"
               className="group relative flex h-12 w-full items-center justify-center rounded-xl transition hover:bg-[#eef4fa]"
               onClick={() => {
-                setIsCollapsed(false);
-                setIsProfileMenuOpen(true);
+                setIsHelpMenuOpen(false);
+                setIsProfileMenuOpen((current) => !current);
               }}
               title={`${profileName} - ${roleLabel}`}
               type="button"
