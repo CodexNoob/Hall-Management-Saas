@@ -523,7 +523,7 @@ export function DashboardSidebar({
                         className="absolute left-[calc(100%+0.5rem)] top-0 z-80 w-60 overflow-hidden rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20"
                         role="menu"
                       >
-                        <h2 className="px-3 pb-2 pt-1 text-sm font-medium">
+                        <h2 className="mb-2 border-b border-white/20 px-3 pb-2 pt-1 text-sm font-medium">
                           {section.title}
                         </h2>
 
@@ -533,7 +533,7 @@ export function DashboardSidebar({
 
                             return (
                               <button
-                                className={`relative block w-full rounded-xl px-3 py-2.5 text-left text-sm font-normal transition ${
+                                className={`relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-normal transition ${
                                   isActive
                                     ? "bg-white/15 text-white"
                                     : "text-white/90 hover:bg-white/10 hover:text-white"
@@ -555,11 +555,27 @@ export function DashboardSidebar({
                                 {isActive ? (
                                   <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#eef4fa]" />
                                 ) : null}
-                                {item.label}
+                                {item.iconSrc ? (
+                                  <Image
+                                    alt=""
+                                    aria-hidden="true"
+                                    className="h-4 w-4 shrink-0 object-contain brightness-0 invert"
+                                    height={16}
+                                    src={item.iconSrc}
+                                    width={16}
+                                  />
+                                ) : (
+                                  <SidebarIcon
+                                    className="h-4 w-4 shrink-0"
+                                    name={item.icon}
+                                  />
+                                )}
+                                <span>{item.label}</span>
                               </button>
                             );
                           })}
                         </div>
+
                       </div>
                     ) : null}
                   </div>
@@ -802,7 +818,7 @@ export function DashboardSidebar({
                     aria-label="Help links"
                     className={`absolute z-90 w-52 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-[calc(100%+0.5rem)] max-lg:left-0 max-lg:w-full ${
                       showCollapsed
-                        ? "bottom-[3.25rem] left-full"
+                        ? "bottom-13 left-full"
                         : "bottom-0 left-[calc(100%+0.5rem)]"
                     }`}
                     role="menu"
@@ -864,11 +880,11 @@ export function DashboardSidebar({
                   </span>
                   <span className="text-[#6a7483]">›</span>
                 </>
-              ) : (
+              ) : !isProfileMenuOpen ? (
                 <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                  {profileName} - {roleLabel}
+                  {profileName}
                 </span>
-              )}
+              ) : null}
             </button>
           </div>
         ) : (
@@ -882,14 +898,13 @@ export function DashboardSidebar({
                 setIsHelpMenuOpen(false);
                 setIsProfileMenuOpen((current) => !current);
               }}
-              title={`${profileName} - ${roleLabel}`}
               type="button"
             >
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f4d73] text-xs font-medium text-white">
                 {initials}
               </span>
               <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-normal text-white shadow-xl group-hover:block">
-                {profileName} - {roleLabel}
+                {profileName}
               </span>
             </button>
           </div>
