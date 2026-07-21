@@ -73,7 +73,6 @@ const sidebarSections: SidebarSection[] = [
         route: "/dashboard/events"
       },
       { icon: "menu", label: "Menu", route: "/dashboard/menu" },
-      { icon: "portal", label: "Clients", route: "/dashboard/clients" }
     ]
   },
   {
@@ -105,12 +104,7 @@ const sidebarSections: SidebarSection[] = [
         label: "Billing",
         route: "/dashboard/billing"
       },
-      { icon: "staff", label: "Staff", route: "/dashboard/staff" },
-      {
-        icon: "vendor",
-        label: "Vendors",
-        route: "/dashboard/vendors"
-      }
+      { icon: "staff", label: "Staff", route: "/dashboard/staff" }
     ]
   }
 ];
