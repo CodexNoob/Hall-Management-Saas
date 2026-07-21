@@ -1,36 +1,5 @@
 import Image from "next/image";
 
-const stats = [
-  {
-    value: "500+",
-    label: "Venues Managed",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 20h16M6 20V9l6-4 6 4v11M9 20v-6h6v6M8 11h2M14 11h2" />
-      </svg>
-    )
-  },
-  {
-    value: "99.9%",
-    label: "Uptime",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
-        <path d="m8.5 12.3 2.2 2.2 4.8-5" />
-      </svg>
-    )
-  },
-  {
-    value: "24/7",
-    label: "Support",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M5 13v-1a7 7 0 0 1 14 0v1M5 13h3v6H5zM16 13h3v6h-3zM12 21h3" />
-      </svg>
-    )
-  }
-];
-
 function PlayIcon() {
   return (
     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -83,33 +52,6 @@ export function HallFlowHero() {
               <PlayIcon />
               Watch Demo
             </a>
-          </div>
-
-          <div className="mt-12 grid max-w-2xl gap-4 sm:grid-cols-3">
-            {stats.map((stat, index) => (
-              <div
-                key={stat.label}
-                className={`saas-animate-up saas-hover-lift rounded-2xl border border-[#E5E0D6] bg-white/85 p-4 shadow-xl shadow-[#B9974D]/5 backdrop-blur ${
-                  index === 0
-                    ? "saas-delay-340"
-                    : index === 1
-                      ? "saas-delay-420"
-                      : "saas-delay-520"
-                }`}
-              >
-                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F7F4ED] text-[#B9974D] lg:mx-0">
-                  <span className="[&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-current [&_svg]:stroke-2">
-                    {stat.icon}
-                  </span>
-                </div>
-                <p className="text-xl font-black text-[#0F172A]">
-                  {stat.value}
-                </p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">
-                  {stat.label}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
 
