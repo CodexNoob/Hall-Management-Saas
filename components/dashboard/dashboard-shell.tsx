@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   NewBookingDialog,
   type NewBookingFormValues,
-  type NewBookingSubmitIntent,
+  type NewBookingSubmitIntent
 } from "@/components/forms-and-modals/new-booking-dialog";
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
@@ -43,10 +43,10 @@ function getOperatingDateKey() {
   const parts = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "2-digit",
-    day: "2-digit",
+    day: "2-digit"
   }).formatToParts(new Date());
   const values = Object.fromEntries(
-    parts.map(({ type, value }) => [type, value]),
+    parts.map(({ type, value }) => [type, value])
   );
 
   return `${values.year}-${values.month}-${values.day}`;
@@ -57,7 +57,7 @@ function formatCompactCurrency(cents: number) {
     style: "currency",
     currency: "USD",
     notation: "compact",
-    maximumFractionDigits: 1,
+    maximumFractionDigits: 1
   })
     .format(cents / 100)
     .replace("K", "k");
@@ -71,7 +71,7 @@ const scheduleRows: ScheduleRow[] = [
     room: "Grand Hall",
     owner: "M. Mandelbaum",
     status: "Confirmed",
-    next: "Dining setup 4:45 PM",
+    next: "Dining setup 4:45 PM"
   },
   {
     time: "6:15 PM",
@@ -80,7 +80,7 @@ const scheduleRows: ScheduleRow[] = [
     room: "Nachlas Yehuda A",
     owner: "Y. Waldman",
     status: "Menu review",
-    next: "Kitchen quantities",
+    next: "Kitchen quantities"
   },
   {
     time: "7:00 PM",
@@ -89,7 +89,7 @@ const scheduleRows: ScheduleRow[] = [
     room: "Terrace Room",
     owner: "J. Klein",
     status: "On hold",
-    next: "Retainer payment",
+    next: "Retainer payment"
   },
   {
     time: "8:30 PM",
@@ -98,8 +98,8 @@ const scheduleRows: ScheduleRow[] = [
     room: "Small Hall",
     owner: "M. Mandelbaum",
     status: "Balance due",
-    next: "Billing follow-up",
-  },
+    next: "Billing follow-up"
+  }
 ];
 
 function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
@@ -107,12 +107,12 @@ function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
     Confirmed: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
     "Menu review": "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
     "On hold": "border-[#b9c2cf] bg-[#eef4fa] text-[#1f4d73]",
-    "Balance due": "border-[#a62b24] bg-[#fbfcfd] text-[#a62b24]",
+    "Balance due": "border-[#a62b24] bg-[#fbfcfd] text-[#a62b24]"
   };
 
   return (
     <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${classes[status]}`}
+      className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-black ${classes[status]}`}
     >
       {status}
     </span>
@@ -126,7 +126,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
   const billingQuery = useAuthenticatedQuery<DashboardBillingResponse>(
     "/api/billing",
-    access.canViewPaymentInfo,
+    access.canViewPaymentInfo
   );
   const openBalanceCents =
     billingQuery.data?.summary.openInvoiceCents ?? FALLBACK_OPEN_BALANCE_CENTS;
@@ -135,7 +135,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
       label: "Events today",
       value: "6",
       description: "3 confirmed, 2 in setup, 1 on hold",
-      needsRevision: false,
+      needsRevision: false
     },
     {
       label: "Open balance",
@@ -143,14 +143,14 @@ export function DashboardShell({ access }: DashboardShellProps) {
       description: billingQuery.data
         ? `${billingQuery.data.summary.openInvoices} open invoices`
         : "Includes two retainers due",
-      needsRevision: openBalanceCents >= OPEN_BALANCE_REVISION_THRESHOLD_CENTS,
-    },
+      needsRevision: openBalanceCents >= OPEN_BALANCE_REVISION_THRESHOLD_CENTS
+    }
   ];
 
   useEffect(() => {
     setTodayNotesNeedRevision(
       window.localStorage.getItem(TODAY_NOTES_READ_STORAGE_KEY) !==
-        getOperatingDateKey(),
+        getOperatingDateKey()
     );
   }, []);
 
@@ -165,7 +165,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const openTodayNotes = useCallback(() => {
     window.localStorage.setItem(
       TODAY_NOTES_READ_STORAGE_KEY,
-      getOperatingDateKey(),
+      getOperatingDateKey()
     );
     setTodayNotesNeedRevision(false);
     setIsTodayNotesOpen(true);
@@ -182,13 +182,13 @@ export function DashboardShell({ access }: DashboardShellProps) {
         hall: values.hall,
         guestCount: values.guestCount,
         package: values.eventPackage,
-        intent,
+        intent
       });
 
       setIsNewBookingOpen(false);
       router.push(`/dashboard/events?${searchParams.toString()}`);
     },
-    [router],
+    [router]
   );
 
   return (
@@ -393,7 +393,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
             </div>
           </div>
 
-          <section className="mt-6 grid gap-4 pb-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          <section className="mt-6 grid grid-flow-col auto-cols-[minmax(12rem,1fr)] gap-4 overflow-x-auto pb-6 pt-2">
             {[
               {
                 eyebrow: "Live",
@@ -401,7 +401,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 description:
                   "Menu production, quantities, workers, and completion status.",
                 metric: "34 items active",
-                route: "/dashboard/kitchen",
+                route: "/dashboard/kitchen"
               },
               {
                 eyebrow: "Booking",
@@ -409,7 +409,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 description:
                   "Month view with room availability and closed-date rules.",
                 metric: "8 bookings this week",
-                route: "/dashboard/calendar",
+                route: "/dashboard/calendar"
               },
               {
                 eyebrow: "Manage",
@@ -417,7 +417,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 description:
                   "Full event file: client, menu, dining, staff, vendors, files.",
                 metric: "27 open files",
-                route: "/dashboard/events",
+                route: "/dashboard/events"
               },
               {
                 eyebrow: "Office",
@@ -425,25 +425,15 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 description:
                   "Retainers, invoices, payment links, and balances due.",
                 metric: "$18.7k open",
-                route: "/dashboard/billing",
-              },
-              {
-                eyebrow: "Admin",
-                title: "Settings",
-                description:
-                  "Hall rules, menus, users, templates, and pricing.",
-                metric: "11 sections",
-                route: "/dashboard/settings",
-              },
+                route: "/dashboard/billing"
+              }
             ].map((item) => (
               <button
                 key={item.title}
                 className="min-h-38 rounded-2xl border border-[#d8dde5] bg-white p-4 text-left shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:bg-[#fbfcfd] hover:shadow-md"
                 type="button"
                 onClick={() =>
-                  router.push(
-                    item.route as Parameters<typeof router.push>[0],
-                  )
+                  router.push(item.route as Parameters<typeof router.push>[0])
                 }
               >
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a7483]">
@@ -458,7 +448,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   {item.description}
                 </p>
 
-                <p className="mt-4 text-sm font-black text-[#1f4d73]">
+                <p className="mt-4 whitespace-nowrap text-sm font-black text-[#1f4d73]">
                   {item.metric}
                 </p>
               </button>

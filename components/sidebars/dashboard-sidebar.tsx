@@ -270,7 +270,14 @@ export function DashboardSidebar({
   const initials = getInitials(profileName);
 
   useEffect(() => {
-    const toggleMobileSidebar = () => setIsMobileOpen((current) => !current);
+    const toggleMobileSidebar = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsMobileOpen((current) =>
+        typeof customEvent.detail?.open === "boolean"
+          ? customEvent.detail.open
+          : !current
+      );
+    };
     window.addEventListener(
       "dashboard-mobile-sidebar-toggle",
       toggleMobileSidebar
@@ -281,6 +288,14 @@ export function DashboardSidebar({
         toggleMobileSidebar
       );
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("dashboard-mobile-sidebar-change", {
+        detail: { open: isMobileOpen }
+      })
+    );
+  }, [isMobileOpen]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("sidebarCollapsed");

@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 function LandingLogo() {
   return (
-    <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-18 w-auto object-contain" />
+    <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority className="h-12 w-auto object-contain sm:h-18" />
   );
 }
 
@@ -66,6 +66,13 @@ export function LandingNavbar() {
             Contact
           </button>
         </nav>
+        <button
+          className="navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#B9974D]/45 hover:shadow-md sm:hidden"
+          type="button"
+          data-login-modal
+        >
+          Login
+        </button>
         <div className="hidden items-center gap-3 sm:flex">
           <button
             className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#B9974D]/45 hover:shadow-md"
@@ -74,7 +81,11 @@ export function LandingNavbar() {
           >
             Login
           </button>
-          <a className="saas-hover-lift rounded-xl bg-[#B9974D] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#9C7D37]" href="#demo">
+          <a
+            className="saas-hover-lift rounded-xl bg-[#B9974D] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#9C7D37]"
+            href="/start-trial"
+            data-free-trial-modal
+          >
             Free Trial
           </a>
         </div>

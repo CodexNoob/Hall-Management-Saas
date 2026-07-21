@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
+import { syncSignedInUser } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function UserIcon() {
@@ -79,29 +79,7 @@ function ShieldIcon() {
   );
 }
 
-function GoogleIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.3h6a5.1 5.1 0 0 1-2.2 3.3v2.8h3.6c2.1-1.9 3.2-4.8 3.2-8.2Z" />
-      <path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.6l-3.6-2.8c-1 .7-2.3 1-3.8 1-2.9 0-5.3-1.9-6.1-4.5H2.2V17A11 11 0 0 0 12 23Z" />
-      <path fill="#FBBC05" d="M5.9 14.1a6.6 6.6 0 0 1 0-4.2V7H2.2a11 11 0 0 0 0 10l3.7-2.9Z" />
-      <path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A10.8 10.8 0 0 0 12 1 11 11 0 0 0 2.2 7l3.7 2.9c.8-2.6 3.2-4.5 6.1-4.5Z" />
-    </svg>
-  );
-}
-
-function MicrosoftIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#F35325" d="M3 3h8.5v8.5H3z" />
-      <path fill="#81BC06" d="M12.5 3H21v8.5h-8.5z" />
-      <path fill="#05A6F0" d="M3 12.5h8.5V21H3z" />
-      <path fill="#FFBA08" d="M12.5 12.5H21V21h-8.5z" />
-    </svg>
-  );
-}
-
-function SignupIllustration() {
+function FreeTrialIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
       <div className="absolute bottom-0 left-2 h-48 w-48 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
@@ -176,12 +154,12 @@ function SignupIllustration() {
   );
 }
 
-type SignupCardProps = {
+type FreeTrialCardProps = {
   compact?: boolean;
   onLoginClick?: () => void;
 };
 
-export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
+export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardProps) {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -198,7 +176,6 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
 
   const updateField = (name: keyof typeof form, value: string | boolean) => {
     setForm((current) => ({ ...current, [name]: value }));
@@ -230,7 +207,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data, error: freeTrialError } = await supabase.auth.signUp({
         email: form.email.trim(),
         password: form.password,
         options: {
@@ -238,13 +215,14 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
           data: {
             full_name: form.fullName.trim(),
             phone: `${form.countryCode} ${form.phone.trim()}`,
-            venue_name: form.venue.trim()
+            venue_name: form.venue.trim(),
+            account_type: "organization_owner"
           }
         }
       });
 
-      if (signUpError) {
-        setError(signUpError.message);
+      if (freeTrialError) {
+        setError(freeTrialError.message);
         return;
       }
 
@@ -255,7 +233,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
         return;
       }
 
-      setSuccess("Account created. Please check your email to confirm your account.");
+      setSuccess("Organization account created. Please check your email to confirm your account.");
     } catch (error) {
       setError(error instanceof Error ? error.message : "Unable to create your account.");
     } finally {
@@ -263,22 +241,9 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
     }
   };
 
-  const signInWithProvider = async (provider: "google" | "azure") => {
-    setOauthProvider(provider);
-    setError("");
-    setSuccess("");
-
-    try {
-      await signInWithOAuthProvider(provider);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to start social login.");
-      setOauthProvider(null);
-    }
-  };
-
   return (
-    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#E7E3DA]/75 blur-2xl" />
@@ -305,16 +270,16 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
             <p className="mt-10 text-base font-black text-[#B9974D]">
               Welcome! <span aria-hidden="true">&#128075;</span>
             </p>
-            <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
-              Create your account
+            <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
+              Create your organization
             </h1>
-            <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
+            <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
               Get started with powerful tools to manage hall bookings, events, payments, and operations&mdash;all in one place.
             </p>
           </div>
 
           <div className={compact ? "lg:-my-3" : ""}>
-            <SignupIllustration />
+            <FreeTrialIllustration />
           </div>
 
           <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
@@ -329,10 +294,10 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
         </div>
       </div>
 
-      <div className={`order-1 bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
-        <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-          <h2 id="signup-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Sign Up</h2>
-          <p className="mt-4 text-lg text-[#64748B]">Set up your account to get started</p>
+      <div className={`order-1 box-border w-full min-w-0 bg-white ${compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
+        <div className="mx-auto flex h-full w-full min-w-0 max-w-xl flex-col justify-center">
+          <h2 id="free-trial-modal-title" className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Start Your Free Trial</h2>
+          <p className="mt-3 text-base text-[#64748B] sm:mt-4 sm:text-lg">Create the owner account for a new hall organization.</p>
 
           <form className="mt-8" onSubmit={submit}>
             <label className="text-base font-bold text-[#0F172A]" htmlFor="fullName">
@@ -351,13 +316,13 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="signupEmail">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="freeTrialEmail">
               Email Address
             </label>
             <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <EmailIcon />
               <input
-                id="signupEmail"
+                id="freeTrialEmail"
                 name="email"
                 autoComplete="email"
                 className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
@@ -371,8 +336,8 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
             <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="phone">
               Phone Number
             </label>
-            <div className="login-field mt-3 flex h-14 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
-              <div className="flex items-center px-4">
+            <div className="login-field mt-3 flex h-14 w-full min-w-0 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
+              <div className="flex items-center px-3 sm:px-4">
                 <PhoneIcon />
               </div>
               <select
@@ -380,7 +345,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
                 name="countryCode"
                 autoComplete="tel-country-code"
                 aria-label="Country code"
-                className="h-full border-x border-[#E5E0D6] bg-white px-3 text-base font-bold text-[#0F172A] outline-none"
+                className="h-full border-x border-[#E5E0D6] bg-white px-2 text-sm font-bold text-[#0F172A] outline-none sm:px-3 sm:text-base"
                 value={form.countryCode}
                 onChange={(event) => updateField("countryCode", event.target.value)}
               >
@@ -393,7 +358,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
                 id="phone"
                 name="phone"
                 autoComplete="tel-national"
-                className="min-w-0 flex-1 bg-transparent px-4 text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+                className="min-w-0 flex-1 bg-transparent px-3 text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba] sm:px-4 sm:text-base"
                 placeholder="Enter your phone number"
                 type="tel"
                 value={form.phone}
@@ -417,13 +382,13 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="signupPassword">
+            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="freeTrialPassword">
               Password
             </label>
             <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
               <LockIcon />
               <input
-                id="signupPassword"
+                id="freeTrialPassword"
                 name="newPassword"
                 autoComplete="new-password"
                 className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
@@ -457,10 +422,10 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               </button>
             </div>
 
-            <label className="mt-6 flex cursor-pointer items-center gap-3 text-base font-medium text-[#64748B]" htmlFor="terms">
+            <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm font-medium leading-6 text-[#64748B] sm:text-base" htmlFor="terms">
               <input
                 id="terms"
-                className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#B9974D]"
+                className="login-checkbox mt-0.5 h-5 w-5 shrink-0 border border-[#E5E0D6] accent-[#B9974D]"
                 type="checkbox"
                 checked={form.acceptedTerms}
                 onChange={(event) => updateField("acceptedTerms", event.target.checked)}
@@ -482,35 +447,8 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
               disabled={isSubmitting}
             >
               <ArrowLoginIcon />
-              {isSubmitting ? "Creating account..." : "Sign Up"}
+              {isSubmitting ? "Creating organization..." : "Create organization"}
             </button>
-
-            <div className="my-8 flex items-center gap-5 text-sm font-medium text-[#64748B]">
-              <span className="h-px flex-1 bg-[#E5E0D6]" />
-              or continue with
-              <span className="h-px flex-1 bg-[#E5E0D6]" />
-            </div>
-
-            <div className="space-y-4">
-              <button
-                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
-                type="button"
-                disabled={oauthProvider !== null}
-                onClick={() => signInWithProvider("google")}
-              >
-                <GoogleIcon />
-                {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
-              </button>
-              <button
-                className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
-                type="button"
-                disabled={oauthProvider !== null}
-                onClick={() => signInWithProvider("azure")}
-              >
-                <MicrosoftIcon />
-                {oauthProvider === "azure" ? "Opening Microsoft..." : "Continue with Microsoft"}
-              </button>
-            </div>
 
             <p className="mt-9 text-center text-base text-[#64748B]">
               Already have an account?{" "}
@@ -519,7 +457,7 @@ export function SignupCard({ compact = false, onLoginClick }: SignupCardProps) {
                   Login
                 </button>
               ) : (
-                <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/dashboard">
+                <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/login">
                   Login
                 </Link>
               )}

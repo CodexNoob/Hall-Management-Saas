@@ -137,7 +137,8 @@ export function PricingSection() {
                     ? "bg-[#B9974D] text-white shadow-lg shadow-[#0F172A]/15 hover:bg-[#9C7D37]"
                     : "border border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#B9974D] hover:bg-[#F7F4ED] hover:brightness-105"
                 }`}
-                href={plan.name === "Enterprise" ? "#pricing" : "#trial"}
+                href={plan.name === "Enterprise" ? "#pricing" : "/start-trial"}
+                {...(plan.name === "Enterprise" ? {} : { "data-free-trial-modal": true })}
               >
                 {plan.buttonLabel}
               </a>
@@ -183,8 +184,8 @@ export function PricingSection() {
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#B9974D] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:bg-[#9C7D37]" href="#trial">
-                Book a Demo
+              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#B9974D] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:bg-[#9C7D37]" href="/start-trial" data-free-trial-modal>
+                Start free trial
               </a>
               <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-white px-8 text-sm font-black text-black! shadow-lg shadow-black/10 transition hover:brightness-105" type="button" data-contact-modal>
                 Contact us

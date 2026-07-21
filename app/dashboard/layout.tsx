@@ -30,7 +30,6 @@ function getDashboardActiveLabel(pathname: string | null): string {
   const path = pathname.replace(/\/$/, "");
 
   if (path === "/dashboard") return "Dashboard";
-  if (path.startsWith("/dashboard/settings")) return "Settings";
   if (
     path.startsWith("/dashboard/clients") ||
     path.startsWith("/dashboard/client-portal")

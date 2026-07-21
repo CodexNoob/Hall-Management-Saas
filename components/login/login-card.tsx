@@ -141,11 +141,11 @@ function DashboardIllustration() {
 
 type LoginCardProps = {
   compact?: boolean;
-  onSignupClick?: () => void;
+  onStartTrialClick?: () => void;
   onForgotPasswordClick?: () => void;
 };
 
-export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClick }: LoginCardProps) {
+export function LoginCard({ compact = false, onStartTrialClick, onForgotPasswordClick }: LoginCardProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -204,8 +204,8 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
   };
 
   return (
-        <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
-          <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+        <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
+          <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
             <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -220,10 +220,10 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
               </Link>
 
               <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>Welcome Back!</p>
-              <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
+              <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
                 Login to your account
               </h1>
-              <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
+              <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
                 Access your dashboard to manage bookings, events, payments, and hall operations all in one place.
               </p>
 
@@ -241,10 +241,10 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
             </div>
           </div>
 
-          <div className={`bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-16"}`}>
-            <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-              <h2 id="login-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Login</h2>
-              <p className="mt-4 text-lg text-[#64748B]">Enter your credentials to continue</p>
+          <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
+            <div className="mx-auto flex h-full w-full min-w-0 max-w-xl flex-col justify-center">
+              <h2 id="login-modal-title" className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Employee Login</h2>
+              <p className="mt-3 text-base text-[#64748B] sm:mt-4 sm:text-lg">Use your organization account to continue.</p>
 
               <form className={compact ? "mt-8" : "mt-10"} onSubmit={submit}>
                 <label className="text-base font-bold text-[#0F172A]" htmlFor="email">
@@ -295,7 +295,7 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                   </button>
                 </div>
 
-                <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
+                <div className="mt-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
                   <label className="flex cursor-pointer items-center gap-3 text-base font-medium text-[#64748B]" htmlFor="remember">
                     <input
                       id="remember"
@@ -355,15 +355,22 @@ export function LoginCard({ compact = false, onSignupClick, onForgotPasswordClic
                   </button>
                 </div>
 
-                <p className="mt-10 text-center text-base text-[#64748B]">
-                  Don&apos;t have an account?{" "}
-                  {onSignupClick ? (
-                    <button className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onSignupClick}>
-                      Sign Up Now
+                <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
+                  <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
+                  <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                    Ask your administrator for an invitation, then open the secure link sent to your email.
+                  </p>
+                </div>
+
+                <p className="mt-5 text-center text-base text-[#64748B]">
+                  Opening a new hall organization?{" "}
+                  {onStartTrialClick ? (
+                    <button className="font-bold text-[#B9974D] transition hover:text-[#9C7D37]" type="button" onClick={onStartTrialClick}>
+                      Start free trial
                     </button>
                   ) : (
-                    <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/signup">
-                      Sign Up Now
+                    <Link className="font-bold text-[#B9974D] transition hover:text-[#9C7D37]" href="/start-trial">
+                      Start free trial
                     </Link>
                   )}
                 </p>

@@ -3,9 +3,9 @@
 import { MouseEvent, useEffect, useRef, useState } from "react";
 import { ForgotPasswordCard } from "@/components/login/forgot-password-card";
 import { LoginCard } from "@/components/login/login-card";
-import { SignupCard } from "@/components/signup/signup-card";
+import { FreeTrialCard } from "@/components/free-trial/free-trial-card";
 
-type AuthView = "login" | "signup" | "forgot";
+type AuthView = "login" | "trial" | "forgot";
 type SlideDirection = "forward" | "back";
 
 export function AuthModal() {
@@ -33,11 +33,12 @@ export function AuthModal() {
 
     const handleClick = (event: globalThis.MouseEvent) => {
       const target = event.target as HTMLElement | null;
-      const trigger = target?.closest("[data-login-modal]");
+      const loginTrigger = target?.closest("[data-login-modal]");
+      const freeTrialTrigger = target?.closest("[data-free-trial-modal]");
 
-      if (trigger) {
+      if (loginTrigger || freeTrialTrigger) {
         event.preventDefault();
-        setAuthView("login");
+        setAuthView(freeTrialTrigger ? "trial" : "login");
         setIsSwitching(false);
         setIsOpen(true);
 
@@ -145,24 +146,24 @@ export function AuthModal() {
 
   return (
     <div
-      className="fixed inset-0 z-9999 flex items-center justify-center overflow-hidden bg-[rgba(15,23,42,0.58)] p-4 text-[#0b1433] backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-9999 flex items-center justify-center overflow-hidden bg-[rgba(15,23,42,0.58)] p-2 text-[#0b1433] backdrop-blur-sm sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby={
         authView === "login"
           ? "login-modal-title"
-          : authView === "signup"
-            ? "signup-modal-title"
+          : authView === "trial"
+            ? "free-trial-modal-title"
             : "forgot-password-modal-title"
       }
       onMouseDown={closeOnOverlayClick}
     >
       <div
-        className="relative max-h-[90vh] w-[min(1100px,95vw)] overflow-hidden rounded-4xl shadow-[0_30px_90px_rgba(15,23,42,0.32)]"
+        className="relative mx-auto max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-275 overflow-hidden rounded-2xl shadow-[0_30px_90px_rgba(15,23,42,0.32)] sm:max-h-[90vh] sm:w-[calc(100vw-3rem)] sm:rounded-4xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
-          className="modal-round absolute right-5 top-5 z-30 flex h-11 w-11 items-center justify-center border border-[#E5E0D6] bg-white text-[#0F172A] shadow-md shadow-[#0F172A]/10 transition hover:scale-105 hover:bg-[#F7F4ED]"
+          className="modal-round absolute right-3 top-3 z-30 flex h-10 w-10 items-center justify-center border border-[#E5E0D6] bg-white text-[#0F172A] shadow-md shadow-[#0F172A]/10 transition hover:scale-105 hover:bg-[#F7F4ED] sm:right-5 sm:top-5 sm:h-11 sm:w-11"
           type="button"
           aria-label="Close login modal"
           onClick={close}
@@ -174,17 +175,17 @@ export function AuthModal() {
 
         <div
           ref={scrollContainerRef}
-          className="login-modal-content max-h-[90vh] overflow-y-auto overflow-x-hidden"
+          className="login-modal-content max-h-[calc(100dvh-1rem)] overflow-y-auto overflow-x-hidden sm:max-h-[90vh]"
         >
-          <div className={contentClassName}>
+          <div className={`${contentClassName} w-full min-w-0`}>
             {authView === "login" ? (
               <LoginCard
                 compact
-                onSignupClick={() => switchAuthView("signup")}
+                onStartTrialClick={() => switchAuthView("trial")}
                 onForgotPasswordClick={() => switchAuthView("forgot")}
               />
-            ) : authView === "signup" ? (
-              <SignupCard compact onLoginClick={() => switchAuthView("login")} />
+            ) : authView === "trial" ? (
+              <FreeTrialCard compact onLoginClick={() => switchAuthView("login")} />
             ) : (
               <ForgotPasswordCard compact onBackToLogin={() => switchAuthView("login")} />
             )}

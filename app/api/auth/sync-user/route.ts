@@ -3,6 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 
+class InvitationRequiredError extends Error {
+  constructor() {
+    super(
+      "No employee account was found for this email. Ask your organization administrator for an invitation."
+    );
+    this.name = "InvitationRequiredError";
+  }
+}
+
 function getBearerToken(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
 
@@ -62,6 +71,10 @@ export async function POST(request: NextRequest) {
       typeof metadata.venue_name === "string" && metadata.venue_name.trim()
         ? metadata.venue_name.trim()
         : null;
+    const accountType =
+      typeof metadata.account_type === "string"
+        ? metadata.account_type.trim()
+        : null;
 
     const { user, access, memberships } = await prisma.$transaction(
       async (transaction) => {
@@ -87,6 +100,10 @@ export async function POST(request: NextRequest) {
             }
           });
         } else {
+          if (accountType !== "organization_owner") {
+            throw new InvitationRequiredError();
+          }
+
           const organizationName = venueName ?? `${name}'s Organization`;
           const organization = await transaction.organization.create({
             data: {
@@ -206,6 +223,10 @@ export async function POST(request: NextRequest) {
       }))
     });
   } catch (error) {
+    if (error instanceof InvitationRequiredError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
     return NextResponse.json(
       {
         error:

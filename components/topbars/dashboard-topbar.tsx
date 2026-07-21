@@ -84,12 +84,6 @@ const searchTargets: SearchTarget[] = [
     description: "Hall layouts and room map",
     route: "/dashboard/hall-room-map",
     keywords: ["hall", "map", "layout", "rooms"]
-  },
-  {
-    label: "Settings",
-    description: "Rules, users, pricing, templates",
-    route: "/dashboard/settings",
-    keywords: ["settings", "admin", "users", "pricing"]
   }
 ];
 
@@ -150,6 +144,8 @@ export function DashboardTopbarBrand() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     getCurrentSidebarCollapsed
   );
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
     const sidebarState = document.documentElement.dataset.dashboardSidebar;
@@ -174,9 +170,37 @@ export function DashboardTopbarBrand() {
     };
   }, []);
 
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+    const updateViewport = () => setIsMobileViewport(mediaQuery.matches);
+    const handleMobileSidebarChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsMobileSidebarOpen(Boolean(customEvent.detail?.open));
+    };
+
+    updateViewport();
+    mediaQuery.addEventListener("change", updateViewport);
+    window.addEventListener(
+      "dashboard-mobile-sidebar-change",
+      handleMobileSidebarChange
+    );
+
+    return () => {
+      mediaQuery.removeEventListener("change", updateViewport);
+      window.removeEventListener(
+        "dashboard-mobile-sidebar-change",
+        handleMobileSidebarChange
+      );
+    };
+  }, []);
+
   const toggleSidebar = () => {
     if (window.matchMedia("(max-width: 1023px)").matches) {
-      window.dispatchEvent(new CustomEvent("dashboard-mobile-sidebar-toggle"));
+      window.dispatchEvent(
+        new CustomEvent("dashboard-mobile-sidebar-toggle", {
+          detail: { open: !isMobileSidebarOpen }
+        })
+      );
       return;
     }
 
@@ -189,6 +213,14 @@ export function DashboardTopbarBrand() {
       })
     );
   };
+
+  const sidebarToggleLabel = isMobileViewport
+    ? isMobileSidebarOpen
+      ? "Close navigation"
+      : "Open navigation"
+    : isSidebarCollapsed
+      ? "Expand sidebar"
+      : "Close Sidebar";
 
   return (
     <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
@@ -203,19 +235,37 @@ export function DashboardTopbarBrand() {
       />
 
       <button
-        className={`dashboard-sidebar-toggle group relative flex shrink-0 items-center justify-center overflow-hidden transition hover:-translate-y-0.5 focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
+        className={`dashboard-sidebar-toggle group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eef4fa] focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
           isSidebarCollapsed
-            ? "h-11 w-11 rounded-xl border border-transparent bg-transparent shadow-none hover:border-[#d8dde5] hover:bg-[#eef4fa] hover:shadow-sm"
-            : "h-9 w-9 rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm hover:bg-[#eef4fa]"
+            ? "lg:h-11 lg:w-11 lg:border-transparent lg:bg-transparent lg:shadow-none lg:hover:border-[#d8dde5] lg:hover:bg-[#eef4fa] lg:hover:shadow-sm"
+            : "lg:h-9 lg:w-9"
         }`}
         type="button"
         onClick={toggleSidebar}
-        aria-label={isSidebarCollapsed ? "Expand sidebar" : "Close Sidebar"}
-        title={isSidebarCollapsed ? "Expand sidebar" : "Close Sidebar"}
+        aria-label={sidebarToggleLabel}
+        aria-expanded={isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed}
+        title={sidebarToggleLabel}
       >
+        <span className="relative h-5 w-6 lg:hidden" aria-hidden="true">
+          <span
+            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
+              isMobileSidebarOpen ? "top-2.25 rotate-45" : "top-0.5"
+            }`}
+          />
+          <span
+            className={`absolute left-0 top-2.25 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
+              isMobileSidebarOpen ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
+            }`}
+          />
+          <span
+            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
+              isMobileSidebarOpen ? "top-2.25 -rotate-45" : "top-4"
+            }`}
+          />
+        </span>
         <span
           aria-hidden="true"
-          className={`absolute h-11 w-11 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 ${
+          className={`absolute hidden h-11 w-11 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 lg:block ${
             isSidebarCollapsed ? "scale-100 opacity-100" : "scale-95 opacity-0"
           }`}
           style={{ backgroundImage: "url('/logo.png')" }}
@@ -226,7 +276,7 @@ export function DashboardTopbarBrand() {
           width={24}
           height={24}
           unoptimized
-          className={`absolute h-5 w-5 object-contain transition-[opacity,transform] duration-90 ease-in-out ${
+          className={`absolute hidden h-5 w-5 object-contain transition-[opacity,transform] duration-90 ease-in-out lg:block ${
             isSidebarCollapsed
               ? "scale-100 opacity-0 group-hover:opacity-100"
               : "scale-95 opacity-0"
@@ -238,7 +288,7 @@ export function DashboardTopbarBrand() {
           width={20}
           height={20}
           unoptimized
-          className={`absolute h-5 w-5 object-contain transition-[opacity,transform] duration-70 ease-in-out ${
+          className={`absolute hidden h-5 w-5 object-contain transition-[opacity,transform] duration-70 ease-in-out lg:block ${
             isSidebarCollapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"
           }`}
         />

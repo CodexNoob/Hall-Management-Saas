@@ -146,8 +146,8 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className="grid w-full overflow-hidden rounded-4xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl lg:grid-cols-2">
-      <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-14"}`}>
+    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -167,10 +167,10 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
           <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>
             No worries! <span aria-hidden="true">&#128075;</span>
           </p>
-          <h1 className="mt-6 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:text-5xl">
+          <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
             Recover your account
           </h1>
-          <p className="mt-5 max-w-md text-lg leading-8 text-[#64748B]">
+          <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
             Enter your email address and we&apos;ll send you a secure link to reset your password.
           </p>
 
@@ -188,10 +188,10 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
         </div>
       </div>
 
-      <div className={`bg-white p-8 sm:p-10 ${compact ? "lg:p-10" : "lg:p-16"}`}>
-        <div className="mx-auto flex h-full max-w-xl flex-col justify-center">
-          <h2 id="forgot-password-modal-title" className="text-4xl font-black tracking-tight text-[#0F172A]">Forgot Password</h2>
-          <p className="mt-4 max-w-md text-lg leading-8 text-[#64748B]">Enter your email address and we will send you a reset link.</p>
+      <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
+        <div className="mx-auto flex h-full w-full min-w-0 max-w-xl flex-col justify-center">
+          <h2 id="forgot-password-modal-title" className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Forgot Password</h2>
+          <p className="mt-3 max-w-md text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8">Enter your email address and we will send you a reset link.</p>
 
           <form className={compact ? "mt-10" : "mt-12"} onSubmit={submit}>
             <label className="text-base font-bold text-[#0F172A]" htmlFor="forgotEmail">
@@ -249,7 +249,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               </Link>
             )}
 
-            <p className="mt-14 flex items-center justify-center gap-2 text-base text-[#64748B]">
+            <p className="mt-10 flex flex-wrap items-center justify-center gap-2 text-center text-sm text-[#64748B] sm:mt-14 sm:text-base">
               Need help?{" "}
               <Link className="inline-flex items-center gap-2 font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="#support">
                 Contact support

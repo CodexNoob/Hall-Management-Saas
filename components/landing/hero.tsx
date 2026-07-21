@@ -42,34 +42,44 @@ function PlayIcon() {
 
 export function HallFlowHero() {
   return (
-    <section id="home" className="relative min-h-screen overflow-hidden bg-[#F7F4ED] text-[#0F172A]">
+    <section
+      id="home"
+      className="relative min-h-screen overflow-hidden bg-[#F7F4ED] text-[#0F172A]"
+    >
       <div className="absolute -left-28 top-24 h-72 w-72 rounded-full bg-[#B9974D]/18 blur-3xl" />
       <div className="absolute right-0 top-0 h-96 w-96 rounded-full bg-[#0F172A]/10 blur-3xl" />
       <div className="absolute bottom-12 left-1/3 h-44 w-44 rounded-full bg-[#E7E3DA] blur-3xl" />
 
-      <div
-        className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 lg:min-h-[calc(100vh-80px)] lg:grid-cols-[0.9fr_1.1fr] lg:py-20"
-      >
-        <div>
+      <div className="relative z-10 mx-auto grid max-w-7xl items-center gap-12 px-5 py-14 sm:px-8 lg:min-h-[calc(100vh-80px)] lg:grid-cols-[0.9fr_1.1fr] lg:py-20">
+        <div className="text-center lg:text-left">
           <div className="saas-animate-up mb-6 inline-flex rounded-full border border-[#E5E0D6] bg-white/75 px-4 py-2 text-xl font-black uppercase tracking-[0.2em] text-[#B9974D] shadow-sm">
             Hall Management SaaS
           </div>
 
-          <h1 className="saas-animate-up saas-delay-100 max-w-2xl text-4xl font-black leading-[1.08] tracking-tight text-[#0F172A] sm:text-5xl xl:text-6xl">
+          <h1 className="saas-animate-up saas-delay-100 mx-auto max-w-2xl text-4xl font-black leading-[1.08] tracking-tight text-[#0F172A] sm:text-5xl lg:mx-0 xl:text-6xl">
             Manage Your Hall Bookings, Events, and Operations in{" "}
-            <span className="bg-linear-to-r from-[#B9974D] to-[#9C7D37] bg-clip-text text-transparent">One Platform</span>
+            <span className="bg-linear-to-r from-[#B9974D] to-[#9C7D37] bg-clip-text text-transparent">
+              One Platform
+            </span>
           </h1>
 
-          <p className="saas-animate-up saas-delay-180 mt-6 max-w-xl text-lg leading-8 text-[#64748B]">
-            Streamline bookings, schedules, payments, staff coordination, and customer communication all in one powerful,
-            easy-to-use platform.
+          <p className="saas-animate-up saas-delay-180 mx-auto mt-6 max-w-xl text-lg leading-8 text-[#64748B] lg:mx-0">
+            Streamline bookings, schedules, payments, staff coordination, and
+            customer communication all in one powerful, easy-to-use platform.
           </p>
 
-          <div className="saas-animate-up saas-delay-260 mt-9 flex flex-col gap-4 sm:flex-row">
-            <a className="saas-hover-lift inline-flex h-13 items-center justify-center rounded-xl bg-[#B9974D] px-7 text-sm font-black text-white! shadow-xl shadow-[#0F172A]/15 hover:bg-[#9C7D37]" href="#trial">
+          <div className="saas-animate-up saas-delay-260 mt-9 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
+            <a
+              className="saas-hover-lift inline-flex h-13 items-center justify-center rounded-xl bg-[#B9974D] px-7 text-sm font-black text-white! shadow-xl shadow-[#0F172A]/15 hover:bg-[#9C7D37]"
+              href="/start-trial"
+              data-free-trial-modal
+            >
               Start Free Trial
             </a>
-            <a className="saas-hover-lift inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-[#E5E0D6] bg-white px-7 text-sm font-black text-[#0F172A] shadow-sm" href="#demo">
+            <a
+              className="saas-hover-lift inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-[#E5E0D6] bg-white px-7 text-sm font-black text-[#0F172A] shadow-sm"
+              href="#demo"
+            >
               <PlayIcon />
               Watch Demo
             </a>
@@ -80,14 +90,24 @@ export function HallFlowHero() {
               <div
                 key={stat.label}
                 className={`saas-animate-up saas-hover-lift rounded-2xl border border-[#E5E0D6] bg-white/85 p-4 shadow-xl shadow-[#B9974D]/5 backdrop-blur ${
-                  index === 0 ? "saas-delay-340" : index === 1 ? "saas-delay-420" : "saas-delay-520"
+                  index === 0
+                    ? "saas-delay-340"
+                    : index === 1
+                      ? "saas-delay-420"
+                      : "saas-delay-520"
                 }`}
               >
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F7F4ED] text-[#B9974D]">
-                  <span className="[&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-current [&_svg]:stroke-2">{stat.icon}</span>
+                <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F7F4ED] text-[#B9974D] lg:mx-0">
+                  <span className="[&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-current [&_svg]:stroke-2">
+                    {stat.icon}
+                  </span>
                 </div>
-                <p className="text-xl font-black text-[#0F172A]">{stat.value}</p>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">{stat.label}</p>
+                <p className="text-xl font-black text-[#0F172A]">
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[#64748B]">
+                  {stat.label}
+                </p>
               </div>
             ))}
           </div>
