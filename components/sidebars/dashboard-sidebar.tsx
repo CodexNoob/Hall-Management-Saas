@@ -456,17 +456,17 @@ export function DashboardSidebar({
       {isMobileOpen ? (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 top-20 z-[55] bg-[#17202a]/45 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-55 bg-[#17202a]/45 backdrop-blur-[2px] transition-opacity duration-300 ease-out lg:hidden"
           onClick={() => setIsMobileOpen(false)}
           type="button"
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-20 z-[70] flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
+        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${
           isSidebarTransitionReady
-            ? "transition-[width] duration-150 ease-in-out"
+            ? ""
             : "transition-none"
         } ${
           showCollapsed
@@ -474,6 +474,30 @@ export function DashboardSidebar({
             : "overflow-visible lg:w-64"
         }`}
       >
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-[#d8dde5] px-4 lg:hidden">
+          <Image
+            src="/hms-logo-header.png"
+            alt="Hall Management SaaS"
+            width={1160}
+            height={300}
+            priority
+            unoptimized
+            className="h-14 w-auto object-contain"
+          />
+
+          <button
+            aria-label="Close navigation"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#17202a] transition hover:bg-[#eef4fa]"
+            onClick={() => setIsMobileOpen(false)}
+            type="button"
+          >
+            <span className="relative h-5 w-5" aria-hidden="true">
+              <span className="absolute left-0 top-2 h-0.5 w-5 rotate-45 rounded-full bg-current" />
+              <span className="absolute left-0 top-2 h-0.5 w-5 -rotate-45 rounded-full bg-current" />
+            </span>
+          </button>
+        </div>
+
         <nav
           className={`flex-1 ${
             showCollapsed

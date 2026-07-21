@@ -223,7 +223,7 @@ export function DashboardTopbarBrand() {
       : "Close Sidebar";
 
   return (
-    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6">
+    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-center gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6 lg:justify-between">
       <Image
         src="/hms-logo-header.png"
         alt="Hall Management SaaS"
@@ -231,11 +231,11 @@ export function DashboardTopbarBrand() {
         height={300}
         priority
         unoptimized
-        className="dashboard-topbar-logo h-14 w-auto object-contain sm:h-16"
+        className="dashboard-topbar-logo hidden h-14 w-auto object-contain lg:block lg:h-16"
       />
 
       <button
-        className={`dashboard-sidebar-toggle group relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8dde5] bg-white text-[#17202a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eef4fa] focus:outline-none focus-visible:outline-none focus-visible:ring-0 ${
+        className={`dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:static lg:rounded-xl lg:border-[#d8dde5] lg:bg-white lg:shadow-sm lg:hover:-translate-y-0.5 lg:hover:bg-[#eef4fa] ${
           isSidebarCollapsed
             ? "lg:h-11 lg:w-11 lg:border-transparent lg:bg-transparent lg:shadow-none lg:hover:border-[#d8dde5] lg:hover:bg-[#eef4fa] lg:hover:shadow-sm"
             : "lg:h-9 lg:w-9"
@@ -246,20 +246,20 @@ export function DashboardTopbarBrand() {
         aria-expanded={isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed}
         title={sidebarToggleLabel}
       >
-        <span className="relative h-5 w-6 lg:hidden" aria-hidden="true">
+        <span className="relative h-4 w-5 lg:hidden" aria-hidden="true">
           <span
-            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
-              isMobileSidebarOpen ? "top-2.25 rotate-45" : "top-0.5"
+            className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-200 ${
+              isMobileSidebarOpen ? "top-1.75 rotate-45" : "top-0.5"
             }`}
           />
           <span
-            className={`absolute left-0 top-2.25 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
+            className={`absolute left-0 top-1.75 h-0.5 w-5 rounded-full bg-current transition-all duration-200 ${
               isMobileSidebarOpen ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
             }`}
           />
           <span
-            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
-              isMobileSidebarOpen ? "top-2.25 -rotate-45" : "top-4"
+            className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-200 ${
+              isMobileSidebarOpen ? "top-1.75 -rotate-45" : "top-3"
             }`}
           />
         </span>
