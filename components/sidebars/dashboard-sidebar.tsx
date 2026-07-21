@@ -456,13 +456,13 @@ export function DashboardSidebar({
       {isMobileOpen ? (
         <button
           aria-label="Close navigation"
-          className="fixed inset-0 top-20 z-40 bg-[#17202a]/45 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 top-20 z-[55] bg-[#17202a]/45 backdrop-blur-[2px] lg:hidden"
           onClick={() => setIsMobileOpen(false)}
           type="button"
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-20 z-60 flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
+        className={`app-sidebar fixed bottom-0 left-0 top-20 z-[70] flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-[transform,width] duration-200 ease-out lg:z-40 lg:shadow-none sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${
           isSidebarTransitionReady
