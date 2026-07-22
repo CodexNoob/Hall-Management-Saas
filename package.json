@@ -42,6 +42,7 @@
     "date-fns": "^4.1.0",
     "googleapis": "^150.0.1",
     "hebcal": "^2.3.2",
+    "lucide-react": "^0.456.0",
     "next": "^15.3.4",
     "pdf-lib": "^1.17.1",
     "react": "^19.1.0",

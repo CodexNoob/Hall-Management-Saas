@@ -62,7 +62,7 @@ export function DashboardModulePlaceholder({ title, description }: DashboardModu
     <main className="min-h-screen overflow-x-hidden text-[#17202a] [background:linear-gradient(135deg,rgba(31,77,115,0.10),transparent_34%),linear-gradient(315deg,rgba(21,52,79,0.08),transparent_32%),#f5f6f8]">
       <header className="sticky top-0 z-30 border-b border-[#d8dde5] bg-white/92 backdrop-blur-xl">
         <div className="mx-auto flex min-h-18 max-w-[1600px] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:px-8 lg:px-12">
-          <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-16 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
+          <Image src="/hms-logo-header.png?v=20260722" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-16 w-auto max-w-37.5 object-contain sm:h-14 sm:max-w-none lg:h-16" />
           <button
             className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#1f4d73] px-5 text-sm font-black text-white transition hover:bg-[#15344f]"
             type="button"

@@ -50,7 +50,7 @@ function ArrowLoginIcon() {
 
 function ShieldIcon() {
   return (
-    <svg className="h-7 w-7 text-[#B9974D]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-7 w-7 text-[#1f4d73]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -83,17 +83,17 @@ function DashboardIllustration() {
   return (
     <div className="relative mt-10 min-h-75 overflow-hidden lg:mt-12">
       <div className="absolute bottom-0 left-2 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
-      <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#B9974D]/70 blur-3xl" />
+      <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-107.5">
-        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#B9974D]/20">
+        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] bg-[#FFFFFF] px-4">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#ffbf4d]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#32d583]" />
           </div>
           <div className="grid h-[calc(100%-40px)] grid-cols-[95px_1fr]">
-            <div className="bg-linear-to-b from-[#B9974D] to-[#0F172A] p-4">
+            <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-4">
               <div className="h-3 w-14 rounded-full bg-white/80" />
               <div className="mt-6 space-y-3">
                 <div className="h-3 w-16 rounded-full bg-white/50" />
@@ -109,8 +109,8 @@ function DashboardIllustration() {
                 <div className="h-14 rounded-2xl bg-[#F7F4ED]" />
               </div>
               <div className="mt-5 grid grid-cols-[1fr_72px] gap-4">
-                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#B9974D]/10">
-                  <svg className="h-full w-full p-4 text-[#B9974D]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
+                <div className="h-24 rounded-2xl bg-white shadow-inner shadow-[#1f4d73]/10">
+                  <svg className="h-full w-full p-4 text-[#1f4d73]" viewBox="0 0 160 80" fill="none" aria-hidden="true">
                     <path d="M8 64c22-42 42-10 62-38 16-22 39 18 82-12" stroke="currentColor" strokeWidth="5" strokeLinecap="round" />
                   </svg>
                 </div>
@@ -123,7 +123,7 @@ function DashboardIllustration() {
         </div>
 
         <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
-          <div className="mb-3 h-3 w-20 rounded-full bg-[#B9974D]/30" />
+          <div className="mb-3 h-3 w-20 rounded-full bg-[#1f4d73]/30" />
           <div className="grid grid-cols-3 gap-2">
             {Array.from({ length: 9 }).map((_, index) => (
               <span key={index} className="h-5 rounded-md bg-[#F7F4ED]" />
@@ -131,7 +131,7 @@ function DashboardIllustration() {
           </div>
         </div>
 
-        <div className="absolute bottom-5 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#B9974D] to-[#0F172A] text-white shadow-2xl shadow-[#B9974D]/30">
+        <div className="absolute bottom-5 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
           <LockIcon />
         </div>
       </div>
@@ -204,22 +204,22 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
   };
 
   return (
-        <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
+        <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
           <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
-            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
+            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
               {Array.from({ length: 36 }).map((_, index) => (
-                <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#B9974D]" />
+                <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
               ))}
             </div>
 
             <div className="relative">
               <Link href="/" aria-label="Back to Hall Management SaaS home">
-                <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+                <Image src="/hms-logo-header.png?v=20260722" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
               </Link>
 
-              <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>Welcome Back!</p>
+              <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>Welcome Back!</p>
               <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
                 Login to your account
               </h1>
@@ -230,7 +230,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
               {!compact ? <DashboardIllustration /> : <div className="hidden lg:block"><DashboardIllustration /></div>}
 
               <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#B9974D]/10">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
                   <ShieldIcon />
                 </div>
                 <div>
@@ -250,7 +250,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 <label className="text-base font-bold text-[#0F172A]" htmlFor="email">
                   Email Address
                 </label>
-                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
+                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
                   <EmailIcon />
                   <input
                     id="email"
@@ -270,7 +270,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 <label className={`${compact ? "mt-5" : "mt-7"} block text-base font-bold text-[#0F172A]`} htmlFor="password">
                   Password
                 </label>
-                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
+                <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
                   <LockIcon />
                   <input
                     id="password"
@@ -286,7 +286,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                     }}
                   />
                   <button
-                    className="login-icon-button text-[#64748B] transition hover:text-[#B9974D]"
+                    className="login-icon-button text-[#64748B] transition hover:text-[#1f4d73]"
                     type="button"
                     onClick={() => setShowPassword((current) => !current)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
@@ -299,7 +299,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   <label className="flex cursor-pointer items-center gap-3 text-base font-medium text-[#64748B]" htmlFor="remember">
                     <input
                       id="remember"
-                      className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#B9974D]"
+                      className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#1f4d73]"
                       type="checkbox"
                       checked={rememberMe}
                       onChange={(event) => setRememberMe(event.target.checked)}
@@ -307,11 +307,11 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                     Remember me
                   </label>
                   {onForgotPasswordClick ? (
-                    <button className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onForgotPasswordClick}>
+                    <button className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onForgotPasswordClick}>
                       Forgot password?
                     </button>
                   ) : (
-                    <Link className="font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="/forgot-password">
+                    <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="/forgot-password">
                       Forgot password?
                     </Link>
                   )}
@@ -320,7 +320,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
 
                 <button
-                  className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#B9974D] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70`}
+                  className={`${compact ? "mt-6" : "mt-8"} login-button flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70`}
                   type="submit"
                   disabled={isSubmitting}
                 >
@@ -336,7 +336,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
 
                 <div className="space-y-4">
                   <button
-                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                     type="button"
                     disabled={oauthProvider !== null}
                     onClick={() => signInWithProvider("google")}
@@ -345,7 +345,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                     {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
                   </button>
                   <button
-                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#B9974D] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70"
                     type="button"
                     disabled={oauthProvider !== null}
                     onClick={() => signInWithProvider("azure")}
@@ -365,11 +365,11 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 <p className="mt-5 text-center text-base text-[#64748B]">
                   Opening a new hall organization?{" "}
                   {onStartTrialClick ? (
-                    <button className="font-bold text-[#B9974D] transition hover:text-[#9C7D37]" type="button" onClick={onStartTrialClick}>
+                    <button className="font-bold text-[#1f4d73] transition hover:text-[#15344f]" type="button" onClick={onStartTrialClick}>
                       Start free trial
                     </button>
                   ) : (
-                    <Link className="font-bold text-[#B9974D] transition hover:text-[#9C7D37]" href="/start-trial">
+                    <Link className="font-bold text-[#1f4d73] transition hover:text-[#15344f]" href="/start-trial">
                       Start free trial
                     </Link>
                   )}

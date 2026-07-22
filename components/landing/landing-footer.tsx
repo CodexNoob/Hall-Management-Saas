@@ -86,7 +86,7 @@ function SocialIcon({ type }: { type: "facebook" | "linkedin" | "instagram" }) {
 
   return (
     <a
-      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#B9974D] transition duration-300 hover:-translate-y-1 hover:border-[#B9974D] hover:bg-[#B9974D]/20 hover:text-white hover:shadow-lg hover:shadow-[#B9974D]/20"
+      className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#1f4d73] transition duration-300 hover:-translate-y-1 hover:border-[#1f4d73] hover:bg-[#1f4d73]/20 hover:text-white hover:shadow-lg hover:shadow-[#1f4d73]/20"
       href="#home"
       aria-label={type}
     >
@@ -106,8 +106,8 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
       <ul className="mt-8 space-y-5">
         {links.map((link) => (
           <li key={link.label}>
-            <a className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#B9974D]" href={link.href}>
-              <span className="text-[#B9974D]">
+            <a className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]" href={link.href}>
+              <span className="text-[#1f4d73]">
                 <ChevronIcon />
               </span>
               {link.label}
@@ -137,7 +137,7 @@ export function LandingFooter() {
 
   return (
     <footer className="relative overflow-hidden bg-[#061126] text-white" data-site-footer>
-      <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#B9974D]/15 blur-3xl" />
+      <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#1f4d73]/15 blur-3xl" />
       <div className="absolute -right-24 top-0 h-72 w-72 rounded-full bg-[#0F172A]/20 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
@@ -183,13 +183,13 @@ export function LandingFooter() {
                 />
               </div>
               <button
-                className="group mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#B9974D] text-base font-black text-white shadow-lg shadow-[#B9974D]/20 transition hover:bg-[#9C7D37]"
+                className="group mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#1f4d73] text-base font-black text-white shadow-lg shadow-[#1f4d73]/20 transition hover:bg-[#15344f]"
                 type="submit"
               >
                 Subscribe
                 <ArrowIcon />
               </button>
-              {message ? <p className="mt-4 text-sm font-semibold text-[#B9974D]">{message}</p> : null}
+              {message ? <p className="mt-4 text-sm font-semibold text-[#1f4d73]">{message}</p> : null}
             </form>
           </div>
         </div>
@@ -197,7 +197,7 @@ export function LandingFooter() {
 
       <div className="relative border-t border-white/10">
         <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-5 py-7 text-center text-base text-[#aeb8d1] sm:px-8">
-          <p>© 2026 Hall Management SaaS. All rights reserved.</p>
+          <p>© 2026 Event Core. All rights reserved.</p>
         </div>
       </div>
     </footer>

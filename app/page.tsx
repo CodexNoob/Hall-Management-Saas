@@ -1,4 +1,3 @@
-import { AiChatWidget } from "@/components/widgets/ai-chat-widget";
 import { BenefitsSection } from "@/components/landing/benefits-section";
 import { ContactModal } from "@/components/landing/contact-modal";
 import { FeaturesSection } from "@/components/landing/features-section";
@@ -7,10 +6,16 @@ import { LandingNavbar } from "@/components/landing/landing-navbar";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { AuthModal } from "@/components/forms-and-modals/auth-modal";
 import { PricingSection } from "@/components/landing/pricing-section";
+import { Manrope } from "next/font/google";
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  display: "swap"
+});
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-white pt-20">
+    <main className={`${manrope.className} min-h-screen bg-white pt-20`}>
       <LandingNavbar />
       <HallFlowHero />
       <FeaturesSection />
@@ -19,7 +24,6 @@ export default function Home() {
       <LandingFooter />
       <ContactModal />
       <AuthModal />
-      <AiChatWidget />
     </main>
   );
 }

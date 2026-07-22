@@ -15,7 +15,7 @@ function EmailIcon() {
 
 function ShieldIcon() {
   return (
-    <svg className="h-7 w-7 text-[#B9974D]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg className="h-7 w-7 text-[#1f4d73]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
       <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -50,12 +50,12 @@ function ResetIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
       <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
-      <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#B9974D]/70 blur-3xl" />
+      <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
       <div className="relative mx-auto w-full max-w-107.5">
-        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#B9974D]/20">
+        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="grid h-full grid-cols-[92px_1fr]">
-            <div className="bg-linear-to-b from-[#B9974D] to-[#0F172A] p-4">
+            <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-4">
               <div className="h-3 w-14 rounded-full bg-white/80" />
               <div className="mt-7 space-y-3">
                 <span className="block h-3 w-14 rounded-full bg-white/50" />
@@ -69,24 +69,24 @@ function ResetIllustration() {
                 <div className="h-20 rounded-2xl bg-[#F7F4ED]" />
                 <div className="h-20 rounded-2xl bg-[#F7F4ED]" />
               </div>
-              <div className="mt-4 h-14 rounded-2xl bg-white shadow-inner shadow-[#B9974D]/10" />
+              <div className="mt-4 h-14 rounded-2xl bg-white shadow-inner shadow-[#1f4d73]/10" />
             </div>
           </div>
         </div>
 
-        <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#B9974D] to-[#0F172A] text-white shadow-2xl shadow-[#B9974D]/30">
+        <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
           <LockIcon />
         </div>
 
         <div className="absolute -right-2 top-28 w-32 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7F4ED] text-[#B9974D]">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7F4ED] text-[#1f4d73]">
             <EmailIcon />
           </div>
           <p className="text-xs font-black text-[#64748B]">Reset Link</p>
           <p className="mt-2 h-2 w-20 rounded-full bg-[#E5E0D6]" />
         </div>
 
-        <div className="absolute bottom-8 right-20 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#B9974D] shadow-xl shadow-[#B9974D]/15">
+        <div className="absolute bottom-8 right-20 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
           <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -146,25 +146,25 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#B9974D]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
+    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
       <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#B9974D]/80 blur-2xl" />
+        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#B9974D]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
           ))}
         </div>
-        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#B9974D] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#1f4d73] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
         </svg>
 
         <div className="relative">
           <Link href="/" aria-label="Back to Hall Management SaaS home">
-            <Image src="/hms-logo-header.png" alt="Hall Management SaaS" width={1160} height={300} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+            <Image src="/hms-logo-header.png?v=20260722" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
           </Link>
 
-          <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#B9974D]`}>
+          <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
             No worries! <span aria-hidden="true">&#128075;</span>
           </p>
           <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
@@ -177,7 +177,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
           <ResetIllustration />
 
           <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#B9974D]/10">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
               <ShieldIcon />
             </div>
             <div>
@@ -197,7 +197,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             <label className="text-base font-bold text-[#0F172A]" htmlFor="forgotEmail">
               Email Address
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#B9974D] focus-within:shadow-[0_0_0_4px_rgba(185,151,77,0.14)]">
+            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
               <EmailIcon />
               <input
                 id="forgotEmail"
@@ -223,7 +223,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#B9974D] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
               type="submit"
               disabled={isSubmitting}
             >
@@ -238,12 +238,12 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             </div>
 
             {onBackToLogin ? (
-              <button className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#B9974D] transition hover:text-[#B9974D]" type="button" onClick={onBackToLogin}>
+              <button className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onBackToLogin}>
                 <span aria-hidden="true"></span>
                 Back to Login
               </button>
             ) : (
-              <Link className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#B9974D] transition hover:text-[#B9974D]" href="/">
+              <Link className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#1f4d73] transition hover:text-[#1f4d73]" href="/">
                 <span aria-hidden="true"></span>
                 Back to Login
               </Link>
@@ -251,7 +251,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
             <p className="mt-10 flex flex-wrap items-center justify-center gap-2 text-center text-sm text-[#64748B] sm:mt-14 sm:text-base">
               Need help?{" "}
-              <Link className="inline-flex items-center gap-2 font-bold text-[#B9974D] transition hover:text-[#B9974D]" href="#support">
+              <Link className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="#support">
                 Contact support
                 <ExternalLinkIcon />
               </Link>

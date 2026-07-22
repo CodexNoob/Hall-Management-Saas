@@ -580,10 +580,10 @@ export function SettingsOverviewPage({
                   <Image
                     alt="Hall Management SaaS"
                     className="h-16 w-auto object-contain"
-                    height={300}
-                    src="/hms-logo-header.png"
+                    height={408}
+                    src="/hms-logo-header.png?v=20260722"
                     unoptimized
-                    width={1160}
+                    width={612}
                   />
 
                   <button

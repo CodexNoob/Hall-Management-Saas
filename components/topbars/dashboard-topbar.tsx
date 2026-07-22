@@ -225,20 +225,18 @@ export function DashboardTopbarBrand() {
   return (
     <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-center gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6 lg:justify-between">
       <Image
-        src="/hms-logo-header.png"
+        src="/hms-logo-header.png?v=20260722"
         alt="Hall Management SaaS"
-        width={1160}
-        height={300}
+        width={612}
+        height={408}
         priority
         unoptimized
-        className="dashboard-topbar-logo hidden h-14 w-auto object-contain lg:block lg:h-16"
+        className="dashboard-topbar-logo hidden h-14 w-auto shrink-0 object-contain lg:-ml-3 lg:block lg:h-24"
       />
 
       <button
-        className={`dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:static lg:rounded-xl lg:border-[#d8dde5] lg:bg-white lg:shadow-sm lg:hover:-translate-y-0.5 lg:hover:bg-[#eef4fa] ${
-          isSidebarCollapsed
-            ? "lg:h-11 lg:w-11 lg:border-transparent lg:bg-transparent lg:shadow-none lg:hover:border-[#d8dde5] lg:hover:bg-[#eef4fa] lg:hover:shadow-sm"
-            : "lg:h-9 lg:w-9"
+        className={`dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:static lg:h-12 lg:w-12 ${
+          isSidebarCollapsed ? "" : "lg:translate-x-1"
         }`}
         type="button"
         onClick={toggleSidebar}
@@ -246,6 +244,10 @@ export function DashboardTopbarBrand() {
         aria-expanded={isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed}
         title={sidebarToggleLabel}
       >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute hidden h-10 w-10 rounded-lg bg-transparent transition-colors group-hover:bg-[#eef4fa] lg:block"
+        />
         <span className="relative h-4 w-5 lg:hidden" aria-hidden="true">
           <span
             className={`absolute left-0 h-0.5 w-5 rounded-full bg-current transition-all duration-200 ${
@@ -265,10 +267,14 @@ export function DashboardTopbarBrand() {
         </span>
         <span
           aria-hidden="true"
-          className={`absolute hidden h-11 w-11 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 lg:block ${
+          className={`absolute hidden h-8 w-8 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 lg:block ${
             isSidebarCollapsed ? "scale-100 opacity-100" : "scale-95 opacity-0"
           }`}
-          style={{ backgroundImage: "url('/logo.png')" }}
+          style={{
+            backgroundImage: "url('/logo.png?v=20260722')",
+            backgroundPosition: "38% center",
+            backgroundSize: "190% 190%"
+          }}
         />
         <Image
           src="/sidebar-right.png"
@@ -276,7 +282,7 @@ export function DashboardTopbarBrand() {
           width={24}
           height={24}
           unoptimized
-          className={`absolute hidden h-5 w-5 object-contain transition-[opacity,transform] duration-90 ease-in-out lg:block ${
+          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-90 ease-in-out lg:block ${
             isSidebarCollapsed
               ? "scale-100 opacity-0 group-hover:opacity-100"
               : "scale-95 opacity-0"
@@ -288,7 +294,7 @@ export function DashboardTopbarBrand() {
           width={20}
           height={20}
           unoptimized
-          className={`absolute hidden h-5 w-5 object-contain transition-[opacity,transform] duration-70 ease-in-out lg:block ${
+          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-70 ease-in-out lg:block ${
             isSidebarCollapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"
           }`}
         />

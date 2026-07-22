@@ -1,115 +1,91 @@
 "use client";
 
-import type { ReactNode } from "react";
+import Image from "next/image";
+import { useState } from "react";
 
 import { useDelayedInView } from "./use-delayed-in-view";
 
 type FeatureCard = {
   title: string;
   description: string;
-  icon: ReactNode;
+  iconSrc: string;
 };
 
-function FeatureIcon({ children }: { children: ReactNode }) {
+function FeatureIcon({ src }: { src: string }) {
   return (
-    <div className="saas-feature-icon flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#F7F4ED] to-[#F7F4ED] text-[#B9974D] transition-colors duration-300 group-hover:from-[#B9974D] group-hover:to-[#0F172A] group-hover:text-white">
-      <span className="[&_svg]:h-6 [&_svg]:w-6 [&_svg]:stroke-current [&_svg]:stroke-2">{children}</span>
+    <div className="saas-feature-icon flex h-52 w-full shrink-0 items-center justify-center bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] transition-colors duration-300 group-hover:from-[#1f4d73] group-hover:to-[#0F172A]">
+      <Image
+        src={src}
+        alt=""
+        width={192}
+        height={192}
+        className="h-48 w-48 object-contain transition group-hover:brightness-0 group-hover:invert"
+      />
     </div>
   );
 }
 
 const features: FeatureCard[] = [
   {
-    title: "Booking Management",
-    description: "Create, manage, and track all hall bookings in one organized dashboard.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M5 5h14v15H5zM8 3v4M16 3v4M5 10h14M8 14h4M8 17h7" />
-      </svg>
-    )
+    title: "Event & Booking Management",
+    description: "Create bookings, manage complete event records, and keep every event detail organized in one workspace.",
+    iconSrc: "/features icons/Event-Booking-management.png"
   },
   {
-    title: "Event Scheduling",
-    description: "Schedule events, set timelines, manage dates, and avoid calendar conflicts.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 6h16v14H4zM8 3v5M16 3v5M4 11h16M8 15h3M14 15h2" />
-      </svg>
-    )
+    title: "Calendar & Availability",
+    description: "Review monthly schedules, check room availability, manage holds, and block unavailable date ranges.",
+    iconSrc: "/features icons/Calendar-Availability.png"
   },
   {
-    title: "Multi-Hall Calendar",
-    description: "View real-time availability across multiple halls and prevent double bookings.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 5h7v6H4zM13 5h7v6h-7zM4 13h7v6H4zM13 13h7v6h-7z" />
-      </svg>
-    )
+    title: "Kitchen Operations",
+    description: "Plan kitchen events, portions, preparation notes, schedules, and assigned work across daily and weekly views.",
+    iconSrc: "/features icons/Kitchen-Operations.png"
   },
   {
-    title: "Client Management",
-    description: "Store client details, booking history, contact information, and communication records.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0M18 8h3M19.5 6.5v3" />
-      </svg>
-    )
+    title: "Menu Library & Packages",
+    description: "Build reusable menu items, categories, packages, pricing, dietary details, and event-specific selections.",
+    iconSrc: "/features icons/Menu-Library-Packages.png"
   },
   {
-    title: "Invoicing & Payments",
-    description: "Generate invoices, monitor payment status, collect dues, and track revenue.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M6 3h12v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2L6 21zM9 8h6M9 12h6M9 16h3" />
-      </svg>
-    )
+    title: "Dining & Seating Management",
+    description: "Prepare dining layouts, place tables, manage seating counts, assign waiters, and save hall presets.",
+    iconSrc: "/features icons/Dining-Sitting-management.png"
   },
   {
-    title: "Staff Coordination",
-    description: "Assign tasks, manage staff schedules, and coordinate teams for every event.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 21a5 5 0 0 1 10 0M11 21a5 5 0 0 1 10 0" />
-      </svg>
-    )
+    title: "Hall Room Map Editor",
+    description: "Create reusable hall layouts with movable, resizable, and rotatable tables, dividers, and service areas.",
+    iconSrc: "/features icons/Hall-Room-Map.png"
   },
   {
-    title: "Reports & Analytics",
-    description: "Track bookings, occupancy, payments, and performance with clear visual insights.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M4 20h16M7 17v-5M12 17V7M17 17v-8M5 9l5-4 4 3 5-5" />
-      </svg>
-    )
+    title: "Billing & Invoicing",
+    description: "Create invoices, line items, deposits, payment schedules, transactions, refunds, and outstanding balances.",
+    iconSrc: "/features icons/Billing-Invoicing.png"
   },
   {
-    title: "PDF Contracts & Acceptances",
-    description: "Create, send, and manage digital contracts, agreements, and client acceptances.",
-    icon: (
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M6 3h9l3 3v15H6zM15 3v4h4M9 11h6M9 15h6M9 18h4" />
-      </svg>
-    )
+    title: "Staff, Permissions & Files",
+    description: "Manage staff roles and access while organizing event documents, pictures, videos, and operational files.",
+    iconSrc: "/features icons/Staff-Permission-Files.png"
   }
 ];
 
 export function FeaturesSection() {
   const [sectionRef, isSectionVisible] = useDelayedInView<HTMLElement>();
+  const [flippedCard, setFlippedCard] = useState<number | null>(null);
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
-      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-xl -translate-x-1/2 rounded-full bg-[#B9974D]/12 blur-3xl" />
+      <div className="saas-feature-glow absolute left-1/2 top-0 h-40 w-xl -translate-x-1/2 rounded-full bg-[#1f4d73]/12 blur-3xl" />
       <div className="saas-feature-glow absolute -right-32 top-32 h-72 w-72 rounded-full bg-[#F7F4ED] opacity-60 blur-3xl" />
 
       <div className="saas-flip-stage relative mx-auto max-w-7xl">
         <div id="features" className="mx-auto max-w-3xl text-center">
-          <p className={`saas-flip-reveal text-lg font-black uppercase tracking-[0.24em] text-[#B9974D] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
+          <p className={`saas-flip-reveal text-lg font-black uppercase tracking-[0.24em] text-[#1f4d73] ${isSectionVisible ? "is-visible" : ""}`}>Features</p>
           <h2 className={`saas-flip-reveal saas-delay-100 mt-4 text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl lg:text-5xl ${isSectionVisible ? "is-visible" : ""}`}>
             Everything You Need to Run Your Venue Seamlessly
           </h2>
           <p className={`saas-flip-reveal saas-delay-180 mx-auto mt-5 max-w-2xl text-base leading-7 text-[#64748B] sm:text-lg ${isSectionVisible ? "is-visible" : ""}`}>
-            Manage bookings, events, payments, clients, staff, and reports from one centralized platform built for modern hall
-            operations.
+            Coordinate events, calendars, kitchen work, menus, dining layouts, billing, staff, and files from one connected
+            operations platform.
           </p>
         </div>
 
@@ -117,7 +93,7 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <article
               key={feature.title}
-              className={`saas-feature-slide-reveal saas-feature-card group rounded-3xl border border-[#E5E0D6] bg-white p-6 shadow-sm shadow-[#B9974D]/5 hover:border-[#B9974D] ${isSectionVisible ? "is-visible" : ""} ${
+              className={`saas-feature-slide-reveal group h-72 perspective-distant ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0
                   ? ""
                   : index === 1
@@ -135,9 +111,29 @@ export function FeaturesSection() {
                               : "saas-feature-delay-700"
               }`}
             >
-              <FeatureIcon>{feature.icon}</FeatureIcon>
-              <h3 className="mt-6 text-lg font-black text-[#0F172A]">{feature.title}</h3>
-              <p className="mt-3 text-sm leading-6 text-[#64748B]">{feature.description}</p>
+              <button
+                type="button"
+                aria-pressed={flippedCard === index}
+                onClick={() => setFlippedCard((current) => (current === index ? null : index))}
+                className="group/flip block h-full w-full text-left outline-none"
+              >
+                <span
+                  className={`relative block h-full w-full transform-3d transition-transform duration-500 ease-out motion-reduce:transition-none group-hover:transform-[rotateY(180deg)] ${
+                    flippedCard === index ? "transform-[rotateY(180deg)]" : ""
+                  }`}
+                >
+                  <span className="backface-hidden absolute inset-0 flex flex-col items-center justify-start overflow-hidden rounded-3xl border border-[#E5E0D6] bg-white text-center shadow-sm shadow-[#1f4d73]/5 transition-colors group-hover:border-[#1f4d73] group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-[#1f4d73]/35">
+                    <FeatureIcon src={feature.iconSrc} />
+                    <h3 className="flex min-h-0 flex-1 items-center justify-center px-4 py-3 text-xl font-black leading-tight text-[#0F172A]">
+                      {feature.title}
+                    </h3>
+                  </span>
+
+                  <span className="backface-hidden absolute inset-0 flex transform-[rotateY(180deg)] items-center justify-center overflow-hidden rounded-3xl border border-[#1f4d73] bg-linear-to-br from-[#1f4d73] to-[#0F172A] p-7 text-center text-white shadow-lg shadow-[#0F172A]/20 group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-white/50">
+                    <p className="text-base font-semibold leading-7">{feature.description}</p>
+                  </span>
+                </span>
+              </button>
             </article>
           ))}
         </div>

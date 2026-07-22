@@ -470,10 +470,10 @@ export function DashboardSidebar({
       >
         <div className="flex h-20 shrink-0 items-center justify-between border-b border-[#d8dde5] px-4 lg:hidden">
           <Image
-            src="/hms-logo-header.png"
+            src="/hms-logo-header.png?v=20260722"
             alt="Hall Management SaaS"
-            width={1160}
-            height={300}
+            width={612}
+            height={408}
             priority
             unoptimized
             className="h-14 w-auto object-contain"
