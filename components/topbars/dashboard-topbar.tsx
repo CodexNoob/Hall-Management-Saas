@@ -385,7 +385,7 @@ export function DashboardTopbar({
       <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
         <div className="flex min-h-40 items-stretch lg:min-h-20">
           <div className="flex min-w-0 flex-1 flex-col gap-2 border-b border-[#d8dde5] pb-3 pl-20 pr-4 pt-5 sm:px-6 sm:pl-20 sm:pt-5 lg:flex-row lg:items-center lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6">
-            <div className="order-3 min-w-0 shrink grow lg:order-none">
+            <div className="order-3 min-w-0 shrink grow lg:order-0">
               <h1 className="truncate text-lg font-black tracking-tight text-[#17202a] sm:text-xl lg:text-2xl">
                 {title}
               </h1>

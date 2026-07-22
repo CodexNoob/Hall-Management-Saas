@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { useDelayedInView } from "./use-delayed-in-view";
@@ -9,12 +10,24 @@ type BenefitCard = {
   description: string;
   metric: string;
   icon: ReactNode;
+  iconSrc?: string;
 };
 
-function BenefitVisual({ children }: { children: ReactNode }) {
+function BenefitVisual({ children, src }: { children: ReactNode; src?: string }) {
   return (
-    <div className="saas-benefit-visual flex h-24 items-center justify-center rounded-3xl bg-linear-to-br from-[#F7F4ED] via-white to-[#F7F4ED] text-[#1f4d73] transition-transform duration-300 group-hover:scale-[1.04]">
-      <span className="[&_svg]:h-16 [&_svg]:w-16 [&_svg]:stroke-current [&_svg]:stroke-2">{children}</span>
+    <div className="saas-benefit-visual relative flex h-48 items-center justify-center overflow-hidden rounded-3xl bg-linear-to-br from-[#F7F4ED] via-white to-[#F7F4ED] text-[#1f4d73] transition-transform duration-300 group-hover:scale-[1.04]">
+      {src ? (
+        <Image
+          src={src}
+          alt=""
+          width={192}
+          height={192}
+          unoptimized
+          className="h-48 w-48 object-contain drop-shadow-[0_18px_26px_rgba(15,23,42,0.22)] transition duration-300 group-hover:drop-shadow-[0_22px_32px_rgba(15,23,42,0.3)]"
+        />
+      ) : (
+        <span className="[&_svg]:h-16 [&_svg]:w-16 [&_svg]:stroke-current [&_svg]:stroke-2">{children}</span>
+      )}
     </div>
   );
 }
@@ -24,6 +37,7 @@ const benefits: BenefitCard[] = [
     title: "Save Time",
     description: "Automate bookings, invoicing, scheduling, and daily operations to reduce manual work every day.",
     metric: "Up to 70% Time Saved",
+    iconSrc: "/Benefits/Save-time.png",
     icon: (
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <path d="M32 56a22 22 0 1 0 0-44 22 22 0 0 0 0 44Z" />
@@ -35,6 +49,7 @@ const benefits: BenefitCard[] = [
     title: "Reduce Double Bookings",
     description: "Use real-time hall availability and smart scheduling to prevent overlapping events.",
     metric: "99% Fewer Conflicts",
+    iconSrc: "/Benefits/Reduce-double-bookings.png",
     icon: (
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <path d="M10 14h34v34H10zM18 8v12M36 8v12M10 24h34M17 32h6M29 32h6M17 40h6" />
@@ -47,6 +62,7 @@ const benefits: BenefitCard[] = [
     title: "Improve Client Experience",
     description: "Give clients faster responses, clearer communication, digital agreements, and smoother booking updates.",
     metric: "4.8/5 Client Satisfaction",
+    iconSrc: "/Benefits/Improve-client-experience.png",
     icon: (
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <path d="M18 30a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM46 30a10 10 0 1 0 0-20 10 10 0 0 0 0 20ZM6 56a12 12 0 0 1 24 0M34 56a12 12 0 0 1 24 0" />
@@ -59,6 +75,7 @@ const benefits: BenefitCard[] = [
     title: "Grow Revenue",
     description: "Track occupancy, payments, upsells, and booking performance to maximize venue income.",
     metric: "30%+ Revenue Growth",
+    iconSrc: "/Benefits/Grow-revenue.png",
     icon: (
       <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <path d="M8 54h48M14 48V34M28 48V26M42 48V18M10 30l14-12 12 8 18-18" />
@@ -98,7 +115,7 @@ export function BenefitsSection() {
                 index === 0 ? "saas-delay-260" : index === 1 ? "saas-delay-340" : index === 2 ? "saas-delay-420" : "saas-delay-520"
               }`}
             >
-              <BenefitVisual>{benefit.icon}</BenefitVisual>
+              <BenefitVisual src={benefit.iconSrc}>{benefit.icon}</BenefitVisual>
               <h3 className="mt-6 text-xl font-black text-[#0F172A]">{benefit.title}</h3>
               <p className="mt-3 min-h-24 text-sm leading-6 text-[#64748B]">{benefit.description}</p>
               <div
