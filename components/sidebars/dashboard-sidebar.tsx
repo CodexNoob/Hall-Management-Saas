@@ -848,7 +848,7 @@ export function DashboardSidebar({
                 {isHelpMenuOpen ? (
                   <div
                     aria-label="Help links"
-                    className={`absolute z-90 w-36 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-1.5 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-[3.25rem] max-lg:left-32 max-lg:w-44 ${
+                    className={`absolute z-90 w-36 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-1.5 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-13 max-lg:left-32 max-lg:w-44 ${
                       showCollapsed
                         ? "bottom-13 left-full"
                         : "bottom-13 left-full"

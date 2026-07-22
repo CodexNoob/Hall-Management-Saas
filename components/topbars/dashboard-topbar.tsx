@@ -324,7 +324,7 @@ export function DashboardTopbarBrand() {
           }`}
         />
         {isSidebarCollapsed ? (
-          <span className="pointer-events-none fixed z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl shadow-[#17202a]/20 lg:left-[4.75rem] lg:top-10 lg:group-hover:block">
+          <span className="pointer-events-none fixed z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl shadow-[#17202a]/20 lg:left-19 lg:top-10 lg:group-hover:block">
             {sidebarToggleLabel}
           </span>
         ) : null}
