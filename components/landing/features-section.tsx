@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
 
 import { useDelayedInView } from "./use-delayed-in-view";
 
@@ -13,14 +12,16 @@ type FeatureCard = {
 
 function FeatureIcon({ src }: { src: string }) {
   return (
-    <div className="saas-feature-icon flex h-52 w-full shrink-0 items-center justify-center bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] transition-colors duration-300 group-hover:from-[#1f4d73] group-hover:to-[#0F172A]">
-      <Image
-        src={src}
-        alt=""
-        width={192}
-        height={192}
-        className="h-48 w-48 object-contain transition group-hover:brightness-0 group-hover:invert"
-      />
+    <div className="flex h-40 w-full shrink-0 items-center justify-center pt-6">
+      <span className="saas-feature-icon flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] p-5 transition-colors duration-300 group-hover:from-[#1f4d73] group-hover:to-[#0F172A] sm:h-28 sm:w-28">
+        <Image
+          src={src}
+          alt=""
+          width={192}
+          height={192}
+          className="h-16 w-16 object-contain transition duration-300 group-hover:scale-105 group-hover:brightness-0 group-hover:invert sm:h-20 sm:w-20"
+        />
+      </span>
     </div>
   );
 }
@@ -70,7 +71,6 @@ const features: FeatureCard[] = [
 
 export function FeaturesSection() {
   const [sectionRef, isSectionVisible] = useDelayedInView<HTMLElement>();
-  const [flippedCard, setFlippedCard] = useState<number | null>(null);
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
@@ -93,7 +93,7 @@ export function FeaturesSection() {
           {features.map((feature, index) => (
             <article
               key={feature.title}
-              className={`saas-feature-slide-reveal group h-72 perspective-distant ${isSectionVisible ? "is-visible" : ""} ${
+              className={`saas-feature-slide-reveal group flex min-h-80 flex-col items-center rounded-3xl border border-[#E5E0D6] bg-white p-6 text-center shadow-sm shadow-[#1f4d73]/5 transition duration-300 hover:-translate-y-1 hover:border-[#1f4d73] hover:shadow-xl hover:shadow-[#1f4d73]/10 ${isSectionVisible ? "is-visible" : ""} ${
                 index === 0
                   ? ""
                   : index === 1
@@ -111,29 +111,13 @@ export function FeaturesSection() {
                               : "saas-feature-delay-700"
               }`}
             >
-              <button
-                type="button"
-                aria-pressed={flippedCard === index}
-                onClick={() => setFlippedCard((current) => (current === index ? null : index))}
-                className="group/flip block h-full w-full text-left outline-none"
-              >
-                <span
-                  className={`relative block h-full w-full transform-3d transition-transform duration-500 ease-out motion-reduce:transition-none group-hover:transform-[rotateY(180deg)] ${
-                    flippedCard === index ? "transform-[rotateY(180deg)]" : ""
-                  }`}
-                >
-                  <span className="backface-hidden absolute inset-0 flex flex-col items-center justify-start overflow-hidden rounded-3xl border border-[#E5E0D6] bg-white text-center shadow-sm shadow-[#1f4d73]/5 transition-colors group-hover:border-[#1f4d73] group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-[#1f4d73]/35">
-                    <FeatureIcon src={feature.iconSrc} />
-                    <h3 className="flex min-h-0 flex-1 items-center justify-center px-4 py-3 text-xl font-black leading-tight text-[#0F172A]">
-                      {feature.title}
-                    </h3>
-                  </span>
-
-                  <span className="backface-hidden absolute inset-0 flex transform-[rotateY(180deg)] items-center justify-center overflow-hidden rounded-3xl border border-[#E5E0D6] bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] p-7 text-center text-[#0F172A] shadow-lg shadow-[#1f4d73]/10 group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-[#1f4d73]/35">
-                    <p className="text-base font-semibold leading-7">{feature.description}</p>
-                  </span>
-                </span>
-              </button>
+              <FeatureIcon src={feature.iconSrc} />
+              <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]">
+                {feature.title}
+              </h3>
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">
+                {feature.description}
+              </p>
             </article>
           ))}
         </div>

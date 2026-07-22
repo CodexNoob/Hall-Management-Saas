@@ -315,7 +315,13 @@ svg {
 
 @media (max-width: 1023px) {
   .dashboard-topbar-brand {
-    width: 100%;
+    background: transparent !important;
+    border-bottom: 0 !important;
+    border-right: 0 !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    pointer-events: none;
+    width: 4.5rem;
   }
 
   .dashboard-topbar-logo {
@@ -324,6 +330,7 @@ svg {
 
   .dashboard-sidebar-toggle {
     height: 2.75rem !important;
+    pointer-events: auto;
     width: 2.75rem !important;
   }
 }

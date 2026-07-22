@@ -175,9 +175,7 @@ export function PricingSection() {
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              Want to learn more about how Hall Management SaaS can help your venue? Contact our team now. Our experts are
-              available to answer questions, walk you through setup, and help you try our 30-day free trial with full support
-              included.
+              Want to learn more about how Event Core can help your venue? Contact our team now. Our experts are available to answer questions, walk you through setup, and help you try our 30-day free trial with full support included.
             </p>
             <div
               className={`saas-fade-reveal saas-delay-260 mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row ${

@@ -382,25 +382,25 @@ export function DashboardTopbar({
 
   return (
     <>
-      <header className="dashboard-topbar-content fixed right-0 top-20 z-50 bg-[#ffffff]/95 backdrop-blur-xl lg:top-0">
-        <div className="flex min-h-20 items-stretch">
-          <div className="flex min-w-0 flex-1 items-center gap-3 border-b border-[#d8dde5] px-4 sm:px-6 lg:pl-6 lg:pr-8 xl:gap-6">
-            <div className="min-w-0 shrink grow">
-              <h1 className="truncate text-xl font-black tracking-tight text-[#17202a] sm:text-2xl">
+      <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
+        <div className="flex min-h-40 items-stretch lg:min-h-20">
+          <div className="flex min-w-0 flex-1 flex-col gap-2 border-b border-[#d8dde5] pb-3 pl-20 pr-4 pt-5 sm:px-6 sm:pl-20 sm:pt-5 lg:flex-row lg:items-center lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6">
+            <div className="order-3 min-w-0 shrink grow lg:order-none">
+              <h1 className="truncate text-lg font-black tracking-tight text-[#17202a] sm:text-xl lg:text-2xl">
                 {title}
               </h1>
               {subtitle ? (
-                <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] sm:block">
+                <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] lg:block">
                   {subtitle}
                 </p>
               ) : null}
             </div>
 
-            <div className="ml-auto hidden min-w-0 shrink-0 items-center gap-2 lg:flex xl:gap-3">
+            <div className="flex w-full min-w-0 flex-col gap-2 lg:ml-auto lg:w-auto lg:shrink-0 lg:flex-row lg:items-center xl:gap-3">
               {showSearch ? (
-                <form className="relative" onSubmit={submitSearch}>
+                <form className="relative w-full lg:w-auto" onSubmit={submitSearch}>
                   <label
-                    className="flex h-11 w-56 min-w-0 cursor-text items-center gap-3 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd] xl:w-72 2xl:w-96"
+                    className="flex h-10 w-full min-w-0 cursor-text items-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm text-[#6a7483] shadow-sm transition focus-within:border-[#1f4d73] focus-within:bg-[#fbfcfd] lg:h-11 lg:w-56 lg:gap-3 lg:px-4 xl:w-72 2xl:w-96"
                     htmlFor={searchInputId}
                   >
                     <TopbarIcon name="search" />
@@ -463,12 +463,13 @@ export function DashboardTopbar({
                 </form>
               ) : null}
 
-              {actionsSlot ?? (
-                <>
+              <div className="flex w-full min-w-0 gap-2 lg:w-auto lg:shrink-0">
+                {actionsSlot ?? (
+                  <>
                   <button
                     type="button"
                     onClick={onTodayNotes}
-                    className="revision-gradient-stroke h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] 2xl:px-5"
+                    className="revision-gradient-stroke h-10 flex-1 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-3 text-xs font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] sm:text-sm lg:h-11 lg:flex-none lg:px-4 2xl:px-5"
                     data-needs-revision={todayNotesNeedRevision || undefined}
                   >
                     <span className="relative z-1">Today notes</span>
@@ -477,13 +478,14 @@ export function DashboardTopbar({
                   <button
                     type="button"
                     onClick={onNewBooking}
-                    className="flex h-11 items-center gap-2 whitespace-nowrap rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f] 2xl:px-5"
+                    className="flex h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#1f4d73] px-3 text-xs font-bold text-white shadow-lg shadow-[#17202a]/15 transition hover:-translate-y-0.5 hover:bg-[#15344f] sm:text-sm lg:h-11 lg:flex-none lg:gap-2 lg:px-4 2xl:px-5"
                   >
                     <TopbarIcon name="plus" />
                     New booking
                   </button>
-                </>
-              )}
+                  </>
+                )}
+              </div>
 
               {rightSlot}
             </div>
