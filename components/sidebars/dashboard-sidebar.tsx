@@ -456,7 +456,7 @@ export function DashboardSidebar({
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(86vw,20rem)] flex-col border-r border-[#d8dde5] bg-[#ffffff] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
+        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(86vw,20rem)] flex-col border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${
           isSidebarTransitionReady
@@ -468,7 +468,7 @@ export function DashboardSidebar({
             : "overflow-visible lg:w-64"
         }`}
       >
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-[#d8dde5] px-4 lg:hidden">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/10 px-4 lg:hidden">
           <Image
             src="/hms-logo-header.png?v=20260722"
             alt="Hall Management SaaS"
@@ -476,12 +476,12 @@ export function DashboardSidebar({
             height={408}
             priority
             unoptimized
-            className="h-14 w-auto object-contain"
+            className="-my-2 h-24 w-auto object-contain brightness-0 invert"
           />
 
           <button
             aria-label="Close navigation"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-[#17202a] transition hover:bg-[#eef4fa]"
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
             onClick={() => setIsMobileOpen(false)}
             type="button"
           >
@@ -515,8 +515,8 @@ export function DashboardSidebar({
                       aria-haspopup="menu"
                       className={`group relative flex h-11 w-full items-center justify-center rounded-xl transition ${
                         isActiveSection
-                          ? "bg-[#eef4fa] text-[#1f4d73]"
-                          : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                          ? "bg-white/15 text-white"
+                          : "text-white/70 hover:bg-white/10 hover:text-white"
                       }`}
                       onClick={() =>
                         setOpenCollapsedSection((current) =>
@@ -527,14 +527,14 @@ export function DashboardSidebar({
                       type="button"
                     >
                       {isActiveSection ? (
-                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
+                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
                       ) : null}
 
                       {section.collapsedIconSrc ? (
                         <Image
                           alt=""
                           aria-hidden="true"
-                          className="h-5 w-5 object-contain"
+                          className="h-5 w-5 object-contain brightness-0 invert"
                           height={20}
                           src={section.collapsedIconSrc}
                           width={20}
@@ -623,7 +623,7 @@ export function DashboardSidebar({
                     aria-expanded={expandedSidebarSections.includes(
                       section.title
                     )}
-                    className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-0.5 text-left text-[11px] font-medium tracking-[0.04em] text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
+                    className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-0.5 text-left text-[11px] font-medium tracking-[0.04em] text-white/55 transition hover:bg-white/10 hover:text-white"
                     onClick={() =>
                       setExpandedSidebarSections((current) =>
                         current.includes(section.title)
@@ -659,13 +659,13 @@ export function DashboardSidebar({
                             showCollapsed
                               ? `h-11 justify-center rounded-xl ${
                                   isActive
-                                    ? "bg-[#eef4fa] text-[#17202a]"
-                                    : "text-[#6a7483] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                                    ? "bg-white/15 text-white"
+                                    : "text-white/70 hover:bg-white/10 hover:text-white"
                                 }`
                               : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
                                   isActive
-                                    ? "bg-[#eef4fa] text-[#17202a]"
-                                    : "text-[#17202a] hover:bg-[#eef4fa]"
+                                    ? "bg-white/15 text-white"
+                                    : "text-white/80 hover:bg-white/10 hover:text-white"
                                 }`
                           }`}
                           type="button"
@@ -680,7 +680,7 @@ export function DashboardSidebar({
                           title={isCollapsed ? item.label : undefined}
                         >
                           {isActive ? (
-                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#1f4d73]" />
+                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
                           ) : null}
 
                           <span
@@ -688,15 +688,15 @@ export function DashboardSidebar({
                               showCollapsed
                                 ? "h-9 w-9 rounded-xl"
                                 : isActive
-                                  ? "text-[#1f4d73]"
-                                  : "text-[#6a7483]"
+                                  ? "text-white"
+                                  : "text-white/65"
                             }`}
                           >
                             {item.iconSrc ? (
                               <Image
                                 alt=""
                                 aria-hidden="true"
-                                className="h-4.5 w-4.5 object-contain"
+                                className="h-4.5 w-4.5 object-contain brightness-0 invert opacity-80"
                                 height={18}
                                 src={item.iconSrc}
                                 width={18}
@@ -732,7 +732,7 @@ export function DashboardSidebar({
 
         {!showCollapsed || isProfileMenuOpen ? (
           <div
-            className={`relative border-t border-[#d8dde5] ${
+            className={`relative border-t border-white/10 ${
               showCollapsed ? "p-2" : "p-3"
             }`}
             ref={profileMenuRef}
@@ -886,7 +886,7 @@ export function DashboardSidebar({
             ) : null}
 
             <button
-              className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-[#eef4fa] ${
+              className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-white/10 ${
                 showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
               }`}
               type="button"
@@ -897,21 +897,21 @@ export function DashboardSidebar({
                 setIsProfileMenuOpen((current) => !current);
               }}
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1f4d73] text-sm font-black text-white">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#061126]">
                 {initials}
               </span>
 
               {!showCollapsed ? (
                 <>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black text-[#17202a]">
+                    <span className="block truncate text-sm font-black text-white">
                       {profileName}
                     </span>
-                    <span className="block truncate text-xs font-semibold text-[#6a7483]">
+                    <span className="block truncate text-xs font-semibold text-white/60">
                       {roleLabel}
                     </span>
                   </span>
-                  <span className="text-[#6a7483]">›</span>
+                  <span className="text-white/55">›</span>
                 </>
               ) : !isProfileMenuOpen ? (
                 <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
@@ -921,19 +921,19 @@ export function DashboardSidebar({
             </button>
           </div>
         ) : (
-          <div className="border-t border-[#d8dde5] p-2">
+          <div className="border-t border-white/10 p-2">
             <button
               aria-label={`Open ${profileName} profile menu`}
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="menu"
-              className="group relative flex h-12 w-full items-center justify-center rounded-xl transition hover:bg-[#eef4fa]"
+              className="group relative flex h-12 w-full items-center justify-center rounded-xl transition hover:bg-white/10"
               onClick={() => {
                 setIsHelpMenuOpen(false);
                 setIsProfileMenuOpen((current) => !current);
               }}
               type="button"
             >
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1f4d73] text-xs font-medium text-white">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-medium text-[#061126]">
                 {initials}
               </span>
               <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-normal text-white shadow-xl group-hover:block">
