@@ -140,6 +140,18 @@ function getCurrentSidebarCollapsed() {
   return false;
 }
 
+function setDashboardSidebarState(collapsed: boolean) {
+  document.documentElement.dataset.dashboardSidebar = collapsed
+    ? "collapsed"
+    : "expanded";
+  window.localStorage.setItem("sidebarCollapsed", String(collapsed));
+  window.dispatchEvent(
+    new CustomEvent("dashboard-sidebar-change", {
+      detail: { collapsed }
+    })
+  );
+}
+
 export function DashboardTopbarBrand() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     getCurrentSidebarCollapsed
@@ -204,9 +216,10 @@ export function DashboardTopbarBrand() {
       return;
     }
 
-    const nextCollapsed = !isSidebarCollapsed;
+    const nextCollapsed = !getCurrentSidebarCollapsed();
 
     setIsSidebarCollapsed(nextCollapsed);
+    setDashboardSidebarState(nextCollapsed);
     window.dispatchEvent(
       new CustomEvent("dashboard-sidebar-toggle", {
         detail: { collapsed: nextCollapsed }
@@ -223,30 +236,42 @@ export function DashboardTopbarBrand() {
       : "Close Sidebar";
 
   return (
-    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-center gap-3 border-b border-r border-[#d8dde5] bg-[#ffffff]/95 px-4 backdrop-blur-xl sm:px-6 lg:justify-between">
-      <Image
-        src="/hms-logo-header.png?v=20260722"
-        alt="Hall Management SaaS"
-        width={612}
-        height={408}
-        priority
-        unoptimized
-        className="dashboard-topbar-logo hidden h-14 w-auto shrink-0 object-contain lg:-ml-3 lg:block lg:h-24"
-      />
+    <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-center gap-3 border-b border-r border-white/10 bg-[#061126] px-4 backdrop-blur-xl sm:px-6 lg:justify-between">
+      <button
+        aria-label={sidebarToggleLabel}
+        className="peer/logo dashboard-topbar-logo-shell relative hidden h-20 shrink-0 cursor-pointer overflow-visible border-0 bg-transparent p-0 text-left transition-[margin,width] duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 lg:flex"
+        onClick={toggleSidebar}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            toggleSidebar();
+          }
+        }}
+        type="button"
+      >
+        <span
+          aria-hidden="true"
+          className="dashboard-topbar-logo dashboard-topbar-logo-full"
+        />
+        <span
+          aria-hidden="true"
+          className="dashboard-topbar-logo dashboard-topbar-logo-mark"
+        />
+      </button>
+      <span className="dashboard-sidebar-logo-tooltip pointer-events-none fixed top-10 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl shadow-[#17202a]/20 peer-hover/logo:lg:block">
+        {sidebarToggleLabel}
+      </span>
 
       <button
-        className={`dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:static lg:h-12 lg:w-12 ${
-          isSidebarCollapsed ? "" : "lg:translate-x-1"
-        }`}
+        className="dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-visible border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:hidden"
         type="button"
         onClick={toggleSidebar}
         aria-label={sidebarToggleLabel}
         aria-expanded={isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed}
-        title={sidebarToggleLabel}
       >
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute hidden h-10 w-10 rounded-lg bg-transparent transition-colors group-hover:bg-[#eef4fa] lg:block"
+          className="pointer-events-none absolute hidden h-10 w-10 rounded-lg bg-transparent transition-colors group-hover:bg-white/10 lg:block"
         />
         <span className="relative h-4 w-5 lg:hidden" aria-hidden="true">
           <span
@@ -267,7 +292,7 @@ export function DashboardTopbarBrand() {
         </span>
         <span
           aria-hidden="true"
-          className={`absolute hidden h-8 w-8 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 lg:block ${
+          className={`absolute hidden h-8 w-8 bg-contain bg-center bg-no-repeat transition-[opacity,transform] duration-90 ease-in-out group-hover:opacity-0 lg:block lg:brightness-0 lg:invert ${
             isSidebarCollapsed ? "scale-100 opacity-100" : "scale-95 opacity-0"
           }`}
           style={{
@@ -282,7 +307,7 @@ export function DashboardTopbarBrand() {
           width={24}
           height={24}
           unoptimized
-          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-90 ease-in-out lg:block ${
+          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-90 ease-in-out lg:block lg:brightness-0 lg:invert ${
             isSidebarCollapsed
               ? "scale-100 opacity-0 group-hover:opacity-100"
               : "scale-95 opacity-0"
@@ -294,10 +319,15 @@ export function DashboardTopbarBrand() {
           width={20}
           height={20}
           unoptimized
-          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-70 ease-in-out lg:block ${
+          className={`absolute hidden h-7 w-7 object-contain transition-[opacity,transform] duration-70 ease-in-out lg:block lg:brightness-0 lg:invert ${
             isSidebarCollapsed ? "scale-90 opacity-0" : "scale-100 opacity-100"
           }`}
         />
+        {isSidebarCollapsed ? (
+          <span className="pointer-events-none fixed z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl shadow-[#17202a]/20 lg:left-[4.75rem] lg:top-10 lg:group-hover:block">
+            {sidebarToggleLabel}
+          </span>
+        ) : null}
       </button>
     </div>
   );

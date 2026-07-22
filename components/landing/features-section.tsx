@@ -26,6 +26,49 @@ function FeatureIcon({ src }: { src: string }) {
   );
 }
 
+function FeatureCardArticle({ feature, index }: { feature: FeatureCard; index: number }) {
+  const [cardRef, isCardVisible] = useDelayedInView<HTMLElement>({
+    rootMargin: "0px 0px -12% 0px",
+    threshold: 0.12
+  });
+
+  const delayClass =
+    index === 0
+      ? ""
+      : index === 1
+        ? "saas-feature-delay-100"
+        : index === 2
+          ? "saas-feature-delay-200"
+          : index === 3
+            ? "saas-feature-delay-300"
+            : index === 4
+              ? "saas-feature-delay-400"
+              : index === 5
+                ? "saas-feature-delay-500"
+                : index === 6
+                  ? "saas-feature-delay-600"
+                  : "saas-feature-delay-700";
+
+  return (
+    <article
+      ref={cardRef}
+      className={`saas-feature-slide-reveal ${
+        index % 2 === 0 ? "saas-feature-mobile-left" : "saas-feature-mobile-right"
+      } group flex min-h-80 flex-col items-center rounded-3xl border border-[#E5E0D6] bg-white p-6 text-center shadow-sm shadow-[#1f4d73]/5 transition duration-300 hover:-translate-y-1 hover:border-[#1f4d73] hover:shadow-xl hover:shadow-[#1f4d73]/10 ${
+        isCardVisible ? "is-visible" : ""
+      } ${delayClass}`}
+    >
+      <FeatureIcon src={feature.iconSrc} />
+      <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]">
+        {feature.title}
+      </h3>
+      <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">
+        {feature.description}
+      </p>
+    </article>
+  );
+}
+
 const features: FeatureCard[] = [
   {
     title: "Event & Booking Management",
@@ -70,7 +113,10 @@ const features: FeatureCard[] = [
 ];
 
 export function FeaturesSection() {
-  const [sectionRef, isSectionVisible] = useDelayedInView<HTMLElement>();
+  const [sectionRef, isSectionVisible] = useDelayedInView<HTMLElement>({
+    rootMargin: "0px 0px -8% 0px",
+    threshold: 0.01
+  });
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-white px-5 py-24 sm:px-8 lg:py-28">
@@ -91,34 +137,7 @@ export function FeaturesSection() {
 
         <div className="mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {features.map((feature, index) => (
-            <article
-              key={feature.title}
-              className={`saas-feature-slide-reveal group flex min-h-80 flex-col items-center rounded-3xl border border-[#E5E0D6] bg-white p-6 text-center shadow-sm shadow-[#1f4d73]/5 transition duration-300 hover:-translate-y-1 hover:border-[#1f4d73] hover:shadow-xl hover:shadow-[#1f4d73]/10 ${isSectionVisible ? "is-visible" : ""} ${
-                index === 0
-                  ? ""
-                  : index === 1
-                    ? "saas-feature-delay-100"
-                    : index === 2
-                      ? "saas-feature-delay-200"
-                      : index === 3
-                        ? "saas-feature-delay-300"
-                        : index === 4
-                          ? "saas-feature-delay-400"
-                          : index === 5
-                            ? "saas-feature-delay-500"
-                            : index === 6
-                              ? "saas-feature-delay-600"
-                              : "saas-feature-delay-700"
-              }`}
-            >
-              <FeatureIcon src={feature.iconSrc} />
-              <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]">
-                {feature.title}
-              </h3>
-              <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">
-                {feature.description}
-              </p>
-            </article>
+            <FeatureCardArticle feature={feature} index={index} key={feature.title} />
           ))}
         </div>
       </div>

@@ -456,7 +456,7 @@ export function DashboardSidebar({
         />
       ) : null}
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(86vw,20rem)] flex-col border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
+        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(76vw,17rem)] flex-col border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${
           isSidebarTransitionReady
@@ -470,13 +470,13 @@ export function DashboardSidebar({
       >
         <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/10 px-4 lg:hidden">
           <Image
-            src="/hms-logo-header.png?v=20260722"
+            src="/Footer-logo.png?v=20260722"
             alt="Hall Management SaaS"
             width={612}
             height={408}
             priority
             unoptimized
-            className="-my-2 h-24 w-auto object-contain brightness-0 invert"
+            className="h-14 w-auto object-contain"
           />
 
           <button
@@ -523,7 +523,6 @@ export function DashboardSidebar({
                           current === section.title ? null : section.title
                         )
                       }
-                      title={section.title}
                       type="button"
                     >
                       {isActiveSection ? (
@@ -742,7 +741,7 @@ export function DashboardSidebar({
                 aria-label="Profile menu"
                 className={`absolute z-80 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20 ${
                   showCollapsed
-                    ? "bottom-2 left-[calc(100%+0.5rem)] w-60"
+                    ? "bottom-2 left-[calc(100%+0.5rem)] w-48"
                     : "bottom-[calc(100%+0.5rem)] left-3 right-3"
                 }`}
                 role="menu"
@@ -849,10 +848,10 @@ export function DashboardSidebar({
                 {isHelpMenuOpen ? (
                   <div
                     aria-label="Help links"
-                    className={`absolute z-90 w-52 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-[calc(100%+0.5rem)] max-lg:left-0 max-lg:w-full ${
+                    className={`absolute z-90 w-36 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-1.5 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-[3.25rem] max-lg:left-32 max-lg:w-44 ${
                       showCollapsed
                         ? "bottom-13 left-full"
-                        : "bottom-0 left-[calc(100%+0.5rem)]"
+                        : "bottom-13 left-full"
                     }`}
                     role="menu"
                   >
@@ -864,7 +863,7 @@ export function DashboardSidebar({
                       "Privacy Policy"
                     ].map((label) => (
                       <button
-                        className={`relative block w-full rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
+                        className={`relative block w-full rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
                           label === "Download Apps"
                             ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
                             : ""
