@@ -129,7 +129,7 @@ export function FeaturesSection() {
                     </h3>
                   </span>
 
-                  <span className="backface-hidden absolute inset-0 flex transform-[rotateY(180deg)] items-center justify-center overflow-hidden rounded-3xl border border-[#1f4d73] bg-linear-to-br from-[#1f4d73] to-[#0F172A] p-7 text-center text-white shadow-lg shadow-[#0F172A]/20 group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-white/50">
+                  <span className="backface-hidden absolute inset-0 flex transform-[rotateY(180deg)] items-center justify-center overflow-hidden rounded-3xl border border-[#E5E0D6] bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] p-7 text-center text-[#0F172A] shadow-lg shadow-[#1f4d73]/10 group-focus-visible/flip:ring-3 group-focus-visible/flip:ring-[#1f4d73]/35">
                     <p className="text-base font-semibold leading-7">{feature.description}</p>
                   </span>
                 </span>
