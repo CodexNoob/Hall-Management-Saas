@@ -2,8 +2,8 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
@@ -300,19 +300,19 @@ export function StaffPage() {
 
   if (staffQuery.isLoading || staffQuery.error || !selectedStaff) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
-        <AsyncState
-          error={staffQuery.error}
-          isEmpty={
-            !staffQuery.isLoading &&
-            !staffQuery.error &&
-            staffMembers.length === 0
-          }
-          isLoading={staffQuery.isLoading}
-          emptyTitle="No staff members yet"
-          onRetry={staffQuery.refetch}
-        />
-      </main>
+      <DashboardPageState
+        emptyTitle="No staff members yet"
+        error={staffQuery.error}
+        isEmpty={
+          !staffQuery.isLoading &&
+          !staffQuery.error &&
+          staffMembers.length === 0
+        }
+        isLoading={staffQuery.isLoading}
+        onRetry={staffQuery.refetch}
+        subtitle="Manage staff members, roles, departments, and permissions."
+        title="Staff"
+      />
     );
   }
 

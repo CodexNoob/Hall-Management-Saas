@@ -14,7 +14,7 @@ import {
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { AsyncState } from "@/components/ui/async-state";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import {
   clearCachedSyncedUser,
   getCachedSyncedUser,
@@ -2207,23 +2207,25 @@ export function EventManagerPage() {
 
   if (!syncData || eventsQuery.isLoading) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
-        <AsyncState isLoading />
-      </main>
+      <DashboardPageState
+        isLoading
+        subtitle="Select an event, then manage every connected section from one workspace."
+        title="Event Manager"
+      />
     );
   }
 
   if (eventsQuery.error || allEvents.length === 0) {
     return (
-      <main className="min-h-screen bg-[#f5f6f8] p-4">
-        <AsyncState
-          emptyMessage="Create an event to start using the event workspace."
-          emptyTitle="No events yet"
-          error={eventsQuery.error}
-          isEmpty={!eventsQuery.error}
-          onRetry={eventsQuery.refetch}
-        />
-      </main>
+      <DashboardPageState
+        emptyMessage="Create an event to start using the event workspace."
+        emptyTitle="No events yet"
+        error={eventsQuery.error}
+        isEmpty={!eventsQuery.error}
+        onRetry={eventsQuery.refetch}
+        subtitle="Select an event, then manage every connected section from one workspace."
+        title="Event Manager"
+      />
     );
   }
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import {
   NewPackageDialog,
   type NewPackageFormValues
@@ -18,7 +19,6 @@ import {
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
@@ -535,13 +535,13 @@ export function MenuPage() {
 
   if (!syncData || menuQuery.isLoading || menuQuery.error) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
-        <AsyncState
-          error={menuQuery.error}
-          isLoading={!syncData || menuQuery.isLoading}
-          onRetry={menuQuery.refetch}
-        />
-      </main>
+      <DashboardPageState
+        error={menuQuery.error}
+        isLoading={!syncData || menuQuery.isLoading}
+        onRetry={menuQuery.refetch}
+        subtitle="Menu library, packages, buffet, plated and add-ons."
+        title="Menu"
+      />
     );
   }
 

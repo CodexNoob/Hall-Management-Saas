@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { NewInvoiceDialog } from "@/features/billing/forms/new-invoice-dialog";
 import {
   clearCachedSyncedUser,
@@ -11,7 +12,6 @@ import {
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
@@ -1127,13 +1127,13 @@ export function BillingPage() {
     !billingQuery.data
   ) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
-        <AsyncState
-          error={billingQuery.error}
-          isLoading={!syncData || billingQuery.isLoading}
-          onRetry={billingQuery.refetch}
-        />
-      </main>
+      <DashboardPageState
+        error={billingQuery.error}
+        isLoading={!syncData || billingQuery.isLoading}
+        onRetry={billingQuery.refetch}
+        subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
+        title="Billing"
+      />
     );
   }
 

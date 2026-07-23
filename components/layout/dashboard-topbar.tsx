@@ -422,8 +422,8 @@ export function DashboardTopbar({
           <div
             className={`relative flex min-w-0 flex-1 flex-col border-b border-[#d8dde5] pl-20 pr-4 lg:flex-row lg:items-center lg:gap-2 lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6 ${
               compactMobileActions
-                ? "gap-0 pb-2.5 pt-2.5"
-                : "gap-2 pb-3 pt-3"
+                ? "gap-0 pb-3 pt-3"
+                : "gap-0 pb-3 pt-3"
             }`}
           >
             <div className="order-1 flex h-9 min-w-0 shrink items-center pr-26 lg:order-0 lg:block lg:h-auto lg:grow lg:pr-0">

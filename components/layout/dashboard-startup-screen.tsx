@@ -72,7 +72,7 @@ export function DashboardStartupScreen({ routeKey }: { routeKey: string }) {
       className={`flex items-center justify-center bg-[#f5f6f8] transition-opacity duration-300 ${
         isFullScreen
           ? "fixed inset-0 z-2000"
-          : "dashboard-route-loading-screen fixed bottom-0 right-0 top-14 z-35 lg:top-20"
+          : "dashboard-route-loading-screen fixed bottom-0 right-0 top-15 z-35 lg:top-20"
       } ${
         isVisible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}

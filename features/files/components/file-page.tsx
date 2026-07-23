@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { AddFileDialog } from "@/features/files/forms/add-file-dialog";
 import {
   NewEventFolderDialog,
@@ -11,7 +12,6 @@ import {
   NewFolderDialog,
   type NewFolderFormValues
 } from "@/features/files/forms/new-folder-dialog";
-import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
@@ -369,13 +369,13 @@ export function FilePage() {
 
   if (filesQuery.isLoading || filesQuery.error) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
-        <AsyncState
-          error={filesQuery.error}
-          isLoading={filesQuery.isLoading}
-          onRetry={filesQuery.refetch}
-        />
-      </main>
+      <DashboardPageState
+        error={filesQuery.error}
+        isLoading={filesQuery.isLoading}
+        onRetry={filesQuery.refetch}
+        subtitle="Master file explorer with practical folders only."
+        title="Files"
+      />
     );
   }
 
