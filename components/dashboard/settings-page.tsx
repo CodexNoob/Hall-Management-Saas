@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, type RefObject } from "react";
 import { NewBookingDialog } from "@/components/forms-and-modals/new-booking-dialog";
 import { TodayNotesDrawer } from "@/components/forms-and-modals/today-notes-drawer";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
@@ -44,6 +44,69 @@ type SettingsHubItem = {
   icon: IconName;
 };
 
+type ModalSettingsNavItem = {
+  label: string;
+  description: string;
+  icon: IconName;
+};
+
+const modalSettingsNavItems: ModalSettingsNavItem[] = [
+  {
+    label: "General",
+    description: "Organization profile and account basics.",
+    icon: "gear"
+  },
+  {
+    label: "Notifications",
+    description: "Email, billing, and system alerts.",
+    icon: "mail"
+  },
+  {
+    label: "Security",
+    description: "Password, sessions, and two-factor access.",
+    icon: "shield"
+  },
+  {
+    label: "Halls",
+    description: "Rooms, halls, capacity, and setup.",
+    icon: "hall"
+  },
+  {
+    label: "User Access",
+    description: "Staff permissions and feature visibility.",
+    icon: "access"
+  },
+  {
+    label: "Payments & Gmail",
+    description: "Payment processing and email integrations.",
+    icon: "billing"
+  },
+  {
+    label: "Google Calendar",
+    description: "Event sync and calendar availability.",
+    icon: "calendar"
+  },
+  {
+    label: "PDF & Branding",
+    description: "Logos, invoices, packets, and exports.",
+    icon: "file"
+  },
+  {
+    label: "Activity Logs",
+    description: "Audit history and system activity.",
+    icon: "activity"
+  },
+  {
+    label: "Integrations",
+    description: "Connected services and account links.",
+    icon: "link"
+  },
+  {
+    label: "Billing Cycle",
+    description: "Plan, renewal, and subscription settings.",
+    icon: "billing"
+  }
+];
 const settingsHubItems: SettingsHubItem[] = [
   {
     title: "Platform Settings",
@@ -263,11 +326,15 @@ const secondaryButton =
   "inline-flex h-9 items-center justify-center rounded-lg border border-[#c7d0dc] bg-white px-4 text-xs font-black text-[#233144] transition hover:bg-[#eef4fa]";
 
 type SettingsOverviewPageProps = {
+  closeButtonRef?: RefObject<HTMLButtonElement | null>;
   displayMode?: "page" | "modal";
+  onClose?: () => void;
 };
 
 export function SettingsOverviewPage({
-  displayMode = "page"
+  closeButtonRef,
+  displayMode = "page",
+  onClose
 }: SettingsOverviewPageProps) {
   const isModal = displayMode === "modal";
   const canEditSettings = useDashboardPermission("canEditSettings");
@@ -340,318 +407,387 @@ export function SettingsOverviewPage({
         />
       ) : null}
 
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
-        <div className="mx-auto grid w-full max-w-[1800px] gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
-          <aside className="space-y-4">
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <PanelHeader title="My Account" />
+      <main
+        className={`min-h-0 flex-1 ${
+          isModal
+            ? "grid overflow-hidden md:grid-cols-[14rem_minmax(0,1fr)]"
+            : "overflow-x-hidden overflow-y-auto p-3 sm:p-4"
+        }`}
+      >
+        {isModal ? (
+          <aside className="hidden min-h-0 flex-col border-r border-[#d8dde5] bg-[#202225] text-white md:flex">
+            <div className="shrink-0 p-4 pb-2">
+              <button
+                aria-label="Close settings"
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 text-lg leading-none text-white transition hover:bg-white/25"
+                onClick={onClose}
+                ref={closeButtonRef}
+                type="button"
+              >
+                X
+              </button>
+            </div>
 
-              <div className="flex items-center gap-3 border-b border-[#d8dde5] p-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25292e] text-base font-bold text-white">
-                  N
-                </span>
-
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-sm font-black">
-                      Charles John Duot
-                    </h2>
-                    <span className="rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]">
-                      Super Admin
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[10px] text-[#6a7483]">
-                    Administrator
-                  </p>
-                  <p className="mt-1 truncate text-[10px] text-[#6a7483]">
-                    charles.duot@example.com
-                  </p>
-                </div>
-              </div>
-
-              <dl className="space-y-3 p-4 text-[10px]">
-                <div className="flex justify-between gap-4">
-                  <dt>Last login</dt>
-                  <dd className="font-bold">Jul 8, 2026 8:42 AM</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt>Account created</dt>
-                  <dd className="font-bold">May 12, 2026</dd>
-                </div>
-              </dl>
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <PanelHeader title="Security" />
-
-              {[
-                ["Change password", "lock", ""],
-                ["Two-factor authentication", "shield", "Enabled"],
-                ["Active sessions", "users", "3 sessions"]
-              ].map(([label, icon, value]) => (
+            <nav
+              aria-label="Settings sections"
+              className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 pb-4"
+            >
+              {modalSettingsNavItems.map((item, index) => (
                 <button
-                  className="flex w-full items-center gap-3 border-b border-[#e6e9ed] px-4 py-3 text-left text-[11px] last:border-0 hover:bg-[#f7fafc]"
-                  key={label}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-xs font-bold transition ${
+                    index === 0
+                      ? "bg-white/10 text-white"
+                      : "text-white/80 hover:bg-white/10 hover:text-white"
+                  }`}
+                  key={item.label}
+                  title={item.description}
                   type="button"
                 >
-                  <Icon name={icon as IconName} />
-                  <span className="flex-1">{label}</span>
-                  {value ? (
-                    <span
-                      className={
-                        value === "Enabled"
-                          ? "rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]"
-                          : "text-[9px] text-[#6a7483]"
-                      }
-                    >
-                      {value}
-                    </span>
-                  ) : null}
-                  <span>›</span>
+                  <Icon className="h-4 w-4 shrink-0" name={item.icon} />
+                  <span className="min-w-0 truncate">{item.label}</span>
                 </button>
               ))}
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <PanelHeader title="Notification preferences" />
-
-              <div className="space-y-4 p-4">
-                {[
-                  {
-                    title: "Email notifications",
-                    description: "Receive important updates via email.",
-                    icon: "mail" as const,
-                    value: emailNotifications,
-                    action: () => {
-                      const value = !emailNotifications;
-                      setEmailNotifications(value);
-                      void savePreference("emailNotifications", value);
-                    }
-                  },
-                  {
-                    title: "Event confirmations",
-                    description: "New bookings, updates, and cancellations.",
-                    icon: "calendar" as const,
-                    value: eventConfirmations,
-                    action: () => {
-                      const value = !eventConfirmations;
-                      setEventConfirmations(value);
-                      void savePreference("eventConfirmations", value);
-                    }
-                  },
-                  {
-                    title: "Invoice & billing alerts",
-                    description: "Payment reminders and invoice updates.",
-                    icon: "billing" as const,
-                    value: billingAlerts,
-                    action: () => {
-                      const value = !billingAlerts;
-                      setBillingAlerts(value);
-                      void savePreference("billingAlerts", value);
-                    }
-                  },
-                  {
-                    title: "System announcements",
-                    description: "Product updates and maintenance alerts.",
-                    icon: "activity" as const,
-                    value: systemAnnouncements,
-                    action: () => {
-                      const value = !systemAnnouncements;
-                      setSystemAnnouncements(value);
-                      void savePreference("systemAnnouncements", value);
-                    }
-                  }
-                ].map((notification) => (
-                  <div
-                    className="flex items-start gap-3"
-                    key={notification.title}
-                  >
-                    <Icon
-                      name={notification.icon}
-                      className="mt-0.5 h-4 w-4 shrink-0"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-[11px] font-black">
-                        {notification.title}
-                      </h3>
-                      <p className="mt-1 text-[9px] leading-4 text-[#6a7483]">
-                        {notification.description}
-                      </p>
-                    </div>
-
-                    <Toggle
-                      checked={notification.value}
-                      label={`Toggle ${notification.title}`}
-                      onChange={notification.action}
-                    />
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-55.5">
-              <PanelHeader title="Timezone" icon="globe" />
-
-              <div className="space-y-3 p-4">
-                <label className="block text-[10px] font-bold">
-                  Current timezone
-                  <select
-                    className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-[10px]"
-                    name="settingsTimezone"
-                    disabled={!canEditSettings}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setTimezone(value);
-                      void settingsMutation.mutate({ timezone: value });
-                    }}
-                    value={timezone}
-                  >
-                    <option value="America/New_York">
-                      (UTC-05:00) Eastern Time (US & Canada)
-                    </option>
-                    <option value="America/Chicago">
-                      (UTC-06:00) Central Time (US & Canada)
-                    </option>
-                    <option value="Asia/Manila">(UTC+08:00) Asia/Manila</option>
-                  </select>
-                </label>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="text-[10px] font-bold">
-                    Date format
-                    <select
-                      className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
-                      name="settingsDateFormat"
-                    >
-                      <option>Jul 8, 2026</option>
-                      <option>07/08/2026</option>
-                    </select>
-                  </label>
-
-                  <label className="text-[10px] font-bold">
-                    Time format
-                    <select
-                      className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
-                      name="settingsTimeFormat"
-                    >
-                      <option>12 Hour (1:30 PM)</option>
-                      <option>24 Hour (13:30)</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-            </section>
+            </nav>
           </aside>
+        ) : null}
 
-          <div className="min-w-0 space-y-4">
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-88.25">
-              <PanelHeader title="Settings Hub" />
+        <div
+          className={
+            isModal
+              ? "min-h-0 overflow-x-hidden overflow-y-auto p-3 sm:p-4"
+              : ""
+          }
+        >
+          {isModal ? (
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-[#d8dde5] bg-white px-3 py-2 md:hidden">
+              <h3 className="text-sm font-black text-[#17202a]">Settings</h3>
+              <button
+                className="h-8 rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-black text-[#233144] transition hover:bg-[#eef4fa]"
+                onClick={onClose}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+          ) : null}
 
-              <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
-                {settingsHubItems.map((item) => (
-                  <article
-                    className="flex min-h-24 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
-                    key={item.title}
-                  >
-                    <Icon
-                      className="mt-0.5 h-5 w-5 shrink-0 text-[#536b83]"
-                      name={item.icon}
-                    />
-
-                    <span className="min-w-0 flex-1">
-                      <strong className="block text-[11px]">
-                        {item.title}
-                      </strong>
-                      <span className="mt-2 block text-[9px] leading-4 text-[#6a7483]">
-                        {item.description}
-                      </span>
-                    </span>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <div className="grid gap-4 lg:grid-cols-3 xl:pt-px">
+          <div className="mx-auto grid w-full max-w-[1800px] gap-4 xl:grid-cols-[300px_minmax(0,1fr)]">
+            <aside className="space-y-4">
               <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <PanelHeader title="Branding Preview" icon="eye" />
+                <PanelHeader title="My Account" />
 
-                <div className="p-4">
-                  <Image
-                    alt="Hall Management SaaS"
-                    className="h-16 w-auto object-contain"
-                    height={408}
-                    src="/hms-logo-header.png?v=20260722"
-                    unoptimized
-                    width={612}
-                  />
+                <div className="flex items-center gap-3 border-b border-[#d8dde5] p-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25292e] text-base font-bold text-white">
+                    N
+                  </span>
 
-                  <button
-                    className={`${secondaryButton} mt-4 w-full`}
-                    type="button"
-                  >
-                    Customize Branding
-                  </button>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-sm font-black">
+                        Charles John Duot
+                      </h2>
+                      <span className="rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]">
+                        Super Admin
+                      </span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-[#6a7483]">
+                      Administrator
+                    </p>
+                    <p className="mt-1 truncate text-[10px] text-[#6a7483]">
+                      charles.duot@example.com
+                    </p>
+                  </div>
                 </div>
+
+                <dl className="space-y-3 p-4 text-[10px]">
+                  <div className="flex justify-between gap-4">
+                    <dt>Last login</dt>
+                    <dd className="font-bold">Jul 8, 2026 8:42 AM</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt>Account created</dt>
+                    <dd className="font-bold">May 12, 2026</dd>
+                  </div>
+                </dl>
               </section>
 
               <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <PanelHeader title="Integrations Status" icon="link" />
+                <PanelHeader title="Security" />
+
+                {[
+                  ["Change password", "lock", ""],
+                  ["Two-factor authentication", "shield", "Enabled"],
+                  ["Active sessions", "users", "3 sessions"]
+                ].map(([label, icon, value]) => (
+                  <button
+                    className="flex w-full items-center gap-3 border-b border-[#e6e9ed] px-4 py-3 text-left text-[11px] last:border-0 hover:bg-[#f7fafc]"
+                    key={label}
+                    type="button"
+                  >
+                    <Icon name={icon as IconName} />
+                    <span className="flex-1">{label}</span>
+                    {value ? (
+                      <span
+                        className={
+                          value === "Enabled"
+                            ? "rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]"
+                            : "text-[9px] text-[#6a7483]"
+                        }
+                      >
+                        {value}
+                      </span>
+                    ) : null}
+                    <span>›</span>
+                  </button>
+                ))}
+              </section>
+
+              <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                <PanelHeader title="Notification preferences" />
 
                 <div className="space-y-4 p-4">
-                  {integrations.map((integration) => (
+                  {[
+                    {
+                      title: "Email notifications",
+                      description: "Receive important updates via email.",
+                      icon: "mail" as const,
+                      value: emailNotifications,
+                      action: () => {
+                        const value = !emailNotifications;
+                        setEmailNotifications(value);
+                        void savePreference("emailNotifications", value);
+                      }
+                    },
+                    {
+                      title: "Event confirmations",
+                      description: "New bookings, updates, and cancellations.",
+                      icon: "calendar" as const,
+                      value: eventConfirmations,
+                      action: () => {
+                        const value = !eventConfirmations;
+                        setEventConfirmations(value);
+                        void savePreference("eventConfirmations", value);
+                      }
+                    },
+                    {
+                      title: "Invoice & billing alerts",
+                      description: "Payment reminders and invoice updates.",
+                      icon: "billing" as const,
+                      value: billingAlerts,
+                      action: () => {
+                        const value = !billingAlerts;
+                        setBillingAlerts(value);
+                        void savePreference("billingAlerts", value);
+                      }
+                    },
+                    {
+                      title: "System announcements",
+                      description: "Product updates and maintenance alerts.",
+                      icon: "activity" as const,
+                      value: systemAnnouncements,
+                      action: () => {
+                        const value = !systemAnnouncements;
+                        setSystemAnnouncements(value);
+                        void savePreference("systemAnnouncements", value);
+                      }
+                    }
+                  ].map((notification) => (
                     <div
-                      className="flex items-center gap-3"
-                      key={integration.name}
+                      className="flex items-start gap-3"
+                      key={notification.title}
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa] p-1">
-                        <Image
-                          alt=""
-                          className="h-5 w-5 object-contain"
-                          height={20}
-                          src={integration.image}
-                          width={20}
-                        />
-                      </span>
+                      <Icon
+                        name={notification.icon}
+                        className="mt-0.5 h-4 w-4 shrink-0"
+                      />
 
-                      <span className="flex-1 text-[11px] font-bold">
-                        {integration.name}
-                      </span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-[11px] font-black">
+                          {notification.title}
+                        </h3>
+                        <p className="mt-1 text-[9px] leading-4 text-[#6a7483]">
+                          {notification.description}
+                        </p>
+                      </div>
 
-                      <span className="rounded-full border border-[#a9dfc9] bg-[#effaf5] px-2 py-1 text-[9px] font-black text-[#147653]">
-                        Connected
-                      </span>
+                      <Toggle
+                        checked={notification.value}
+                        label={`Toggle ${notification.title}`}
+                        onChange={notification.action}
+                      />
                     </div>
                   ))}
                 </div>
               </section>
 
-              <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <PanelHeader title="Billing Cycle" icon="billing" />
+              <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-55.5">
+                <PanelHeader title="Timezone" icon="globe" />
 
-                <dl className="space-y-4 p-4 text-[10px]">
-                  <div className="flex justify-between gap-3">
-                    <dt>Current plan</dt>
-                    <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">
-                      Professional
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <dt>Billing cycle</dt>
-                    <dd className="font-bold">Monthly</dd>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <dt>Next billing date</dt>
-                    <dd className="font-bold">Aug 8, 2026</dd>
-                  </div>
-                </dl>
+                <div className="space-y-3 p-4">
+                  <label className="block text-[10px] font-bold">
+                    Current timezone
+                    <select
+                      className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-[10px]"
+                      name="settingsTimezone"
+                      disabled={!canEditSettings}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setTimezone(value);
+                        void settingsMutation.mutate({ timezone: value });
+                      }}
+                      value={timezone}
+                    >
+                      <option value="America/New_York">
+                        (UTC-05:00) Eastern Time (US & Canada)
+                      </option>
+                      <option value="America/Chicago">
+                        (UTC-06:00) Central Time (US & Canada)
+                      </option>
+                      <option value="Asia/Manila">
+                        (UTC+08:00) Asia/Manila
+                      </option>
+                    </select>
+                  </label>
 
-                <div className="px-4 pb-4">
-                  <button className={`${secondaryButton} w-full`} type="button">
-                    Manage Subscription
-                  </button>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="text-[10px] font-bold">
+                      Date format
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
+                        name="settingsDateFormat"
+                      >
+                        <option>Jul 8, 2026</option>
+                        <option>07/08/2026</option>
+                      </select>
+                    </label>
+
+                    <label className="text-[10px] font-bold">
+                      Time format
+                      <select
+                        className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
+                        name="settingsTimeFormat"
+                      >
+                        <option>12 Hour (1:30 PM)</option>
+                        <option>24 Hour (13:30)</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
               </section>
+            </aside>
+
+            <div className="min-w-0 space-y-4">
+              <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:min-h-88.25">
+                <PanelHeader title="Settings Hub" />
+
+                <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                  {settingsHubItems.map((item) => (
+                    <article
+                      className="flex min-h-24 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
+                      key={item.title}
+                    >
+                      <Icon
+                        className="mt-0.5 h-5 w-5 shrink-0 text-[#536b83]"
+                        name={item.icon}
+                      />
+
+                      <span className="min-w-0 flex-1">
+                        <strong className="block text-[11px]">
+                          {item.title}
+                        </strong>
+                        <span className="mt-2 block text-[9px] leading-4 text-[#6a7483]">
+                          {item.description}
+                        </span>
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              </section>
+
+              <div className="grid gap-4 lg:grid-cols-3 xl:pt-px">
+                <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                  <PanelHeader title="Branding Preview" icon="eye" />
+
+                  <div className="p-4">
+                    <Image
+                      alt="Hall Management SaaS"
+                      className="h-16 w-auto object-contain"
+                      height={408}
+                      src="/hms-logo-header.png?v=20260722"
+                      unoptimized
+                      width={612}
+                    />
+
+                    <button
+                      className={`${secondaryButton} mt-4 w-full`}
+                      type="button"
+                    >
+                      Customize Branding
+                    </button>
+                  </div>
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                  <PanelHeader title="Integrations Status" icon="link" />
+
+                  <div className="space-y-4 p-4">
+                    {integrations.map((integration) => (
+                      <div
+                        className="flex items-center gap-3"
+                        key={integration.name}
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa] p-1">
+                          <Image
+                            alt=""
+                            className="h-5 w-5 object-contain"
+                            height={20}
+                            src={integration.image}
+                            width={20}
+                          />
+                        </span>
+
+                        <span className="flex-1 text-[11px] font-bold">
+                          {integration.name}
+                        </span>
+
+                        <span className="rounded-full border border-[#a9dfc9] bg-[#effaf5] px-2 py-1 text-[9px] font-black text-[#147653]">
+                          Connected
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                  <PanelHeader title="Billing Cycle" icon="billing" />
+
+                  <dl className="space-y-4 p-4 text-[10px]">
+                    <div className="flex justify-between gap-3">
+                      <dt>Current plan</dt>
+                      <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">
+                        Professional
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Billing cycle</dt>
+                      <dd className="font-bold">Monthly</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt>Next billing date</dt>
+                      <dd className="font-bold">Aug 8, 2026</dd>
+                    </div>
+                  </dl>
+
+                  <div className="px-4 pb-4">
+                    <button
+                      className={`${secondaryButton} w-full`}
+                      type="button"
+                    >
+                      Manage Subscription
+                    </button>
+                  </div>
+                </section>
+              </div>
             </div>
           </div>
         </div>

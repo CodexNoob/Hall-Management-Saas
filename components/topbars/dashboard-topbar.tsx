@@ -239,7 +239,7 @@ export function DashboardTopbarBrand() {
     <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-20 shrink-0 items-center justify-center gap-3 border-b border-r border-white/10 bg-[#061126] px-4 backdrop-blur-xl sm:px-6 lg:justify-between">
       <button
         aria-label={sidebarToggleLabel}
-        className="peer/logo dashboard-topbar-logo-shell relative hidden h-20 shrink-0 cursor-pointer overflow-visible border-0 bg-transparent p-0 text-left transition-[margin,width] duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 lg:flex"
+        className="dashboard-topbar-logo-shell relative hidden h-20 shrink-0 cursor-pointer overflow-visible border-0 bg-transparent p-0 text-left transition-[margin,width] duration-150 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50 lg:flex"
         onClick={toggleSidebar}
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
@@ -258,10 +258,6 @@ export function DashboardTopbarBrand() {
           className="dashboard-topbar-logo dashboard-topbar-logo-mark"
         />
       </button>
-      <span className="dashboard-sidebar-logo-tooltip pointer-events-none fixed top-10 z-50 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl shadow-[#17202a]/20 peer-hover/logo:lg:block">
-        {sidebarToggleLabel}
-      </span>
-
       <button
         className="dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-visible border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:hidden"
         type="button"

@@ -122,17 +122,19 @@ function getInitials(name: string) {
 
 function SidebarIcon({
   name,
-  className = "h-4 w-4"
+  className = "h-4 w-4",
+  strokeWidth = 2
 }: {
   name: SidebarIconName;
   className?: string;
+  strokeWidth?: number;
 }) {
   const common = {
     className,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 2,
+    strokeWidth,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     "aria-hidden": true
@@ -533,13 +535,17 @@ export function DashboardSidebar({
                         <Image
                           alt=""
                           aria-hidden="true"
-                          className="h-5 w-5 object-contain brightness-0 invert"
-                          height={20}
+                          className="h-6 w-6 object-contain brightness-0 invert drop-shadow-[0_0_0.7px_white]"
+                          height={24}
                           src={section.collapsedIconSrc}
-                          width={20}
+                          width={24}
                         />
                       ) : (
-                        <SidebarIcon className="h-5 w-5" name={section.icon} />
+                        <SidebarIcon
+                          className="h-6 w-6"
+                          name={section.icon}
+                          strokeWidth={2.6}
+                        />
                       )}
 
                       {!isOpen ? (

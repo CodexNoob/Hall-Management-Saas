@@ -3,6 +3,10 @@
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/topbars/dashboard-topbar";
 import { CalendarBookingDialog } from "@/components/forms-and-modals/calendar-booking-dialog";
+import {
+  DateRangePickerDialog,
+  type DateRange
+} from "@/components/forms-and-modals/date-range-picker-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import { addDays, addMonths, buildMonthGrid, dateKey, dateKeyFromIso, startOfDay, startOfMonth } from "@/lib/dates/calendar-date";
 import { formatHebrewDate } from "@/lib/dates/hebrew-date";
@@ -324,17 +328,25 @@ function StatusDot({ color, label }: { color: string; label: string }) {
 
 function AvailabilityView({
   days,
+  endDate,
   endDateLabel,
   onNewBooking,
+  onRangeChange,
+  startDate,
   startDateLabel
 }: {
   days: AvailabilityDay[];
+  endDate: Date;
   endDateLabel: string;
   onNewBooking: () => void;
+  onRangeChange: (range: DateRange) => void;
+  startDate: Date;
   startDateLabel: string;
 }) {
+  const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
+
   return (
-    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-visible rounded-xl border border-[#d8dde5] bg-white">
       <header className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -365,9 +377,22 @@ function AvailabilityView({
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
               <strong className="mt-1 block text-sm">{endDateLabel}</strong>
             </div>
-            <button className="h-9 self-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]" type="button">
-              Select range
-            </button>
+            <div className="relative self-center">
+              <button
+                className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]"
+                onClick={() => setIsRangePickerOpen((current) => !current)}
+                type="button"
+              >
+                Select range
+              </button>
+              <DateRangePickerDialog
+                endDate={endDate}
+                isOpen={isRangePickerOpen}
+                onApply={onRangeChange}
+                onClose={() => setIsRangePickerOpen(false)}
+                startDate={startDate}
+              />
+            </div>
           </div>
         </div>
 
@@ -399,6 +424,7 @@ function AvailabilityView({
           })}
         </div>
       </div>
+
     </section>
   );
 }
@@ -436,15 +462,31 @@ function ClockIcon() {
 
 function CalendarSettingsView() {
   const [blockedRanges, setBlockedRanges] = useState(initialBlockedRanges);
+  const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
+  const [blockedRangeDraft, setBlockedRangeDraft] = useState<DateRange>(() => ({
+    startDate: new Date(2026, 6, 1),
+    endDate: new Date(2026, 6, 2)
+  }));
+  const rangeDateFormatter = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+  const blockedStartLabel = rangeDateFormatter.format(blockedRangeDraft.startDate);
+  const blockedEndLabel = rangeDateFormatter.format(blockedRangeDraft.endDate);
 
   function addBlockedRange() {
     setBlockedRanges((current) => {
-      if (current.some((range) => range.id === "july-1")) return current;
+      const rangeId = `blocked-${dateKey(blockedRangeDraft.startDate)}-${dateKey(blockedRangeDraft.endDate)}`;
+      const isSingleBlockedDay = dateKey(blockedRangeDraft.startDate) === dateKey(blockedRangeDraft.endDate);
+      if (current.some((range) => range.id === rangeId)) return current;
 
       return [
         {
-          id: "july-1",
-          startLabel: "Wed, Jul 1, 2026",
+          id: rangeId,
+          startLabel: blockedStartLabel,
+          endLabel: isSingleBlockedDay ? undefined : blockedEndLabel,
           hebrewLabel: "16 בתמוז 5786"
         },
         ...current
@@ -457,7 +499,7 @@ function CalendarSettingsView() {
   }
 
   return (
-    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+    <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-visible rounded-xl border border-[#d8dde5] bg-white">
       <header className="border-b border-[#d8dde5] p-3">
         <div className="flex items-center gap-2">
           <SettingsIcon />
@@ -467,7 +509,7 @@ function CalendarSettingsView() {
       </header>
 
       <div className="p-3">
-        <div className="overflow-hidden rounded-xl border border-[#d8dde5]">
+        <div className="overflow-visible rounded-xl border border-[#d8dde5]">
           <div className="border-b border-[#d8dde5] px-3 py-2">
             <h2 className="text-sm font-black">Blocked ranges</h2>
             <p className="mt-1 text-xs text-[#6a7483]">Blocked ranges will not show in Availability and cannot be booked.</p>
@@ -477,21 +519,34 @@ function CalendarSettingsView() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-base font-black">Add blocked range</h3>
-                <p className="text-xs font-bold text-[#617086]">Wed, Jul 1, 2026 to Wed, Jul 1, 2026</p>
+                <p className="text-xs font-bold text-[#617086]">{blockedStartLabel} to {blockedEndLabel}</p>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[156px_156px_auto_auto]">
                 <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
-                  <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+                  <strong className="mt-1 block text-sm">{blockedStartLabel}</strong>
                 </div>
                 <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
-                  <strong className="mt-1 block text-sm">Wed, Jul 1, 2026</strong>
+                  <strong className="mt-1 block text-sm">{blockedEndLabel}</strong>
                 </div>
-                <button className="h-9 self-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]" type="button">
-                  Select range
-                </button>
+                <div className="relative self-center">
+                  <button
+                    className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]"
+                    onClick={() => setIsRangePickerOpen((current) => !current)}
+                    type="button"
+                  >
+                    Select range
+                  </button>
+                  <DateRangePickerDialog
+                    endDate={blockedRangeDraft.endDate}
+                    isOpen={isRangePickerOpen}
+                    onApply={setBlockedRangeDraft}
+                    onClose={() => setIsRangePickerOpen(false)}
+                    startDate={blockedRangeDraft.startDate}
+                  />
+                </div>
                 <button className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]" onClick={addBlockedRange} type="button">
                   Add blocked range
                 </button>
@@ -558,6 +613,13 @@ export function EventCalendarPage() {
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
   const [activeTab, setActiveTab] = useState<"calendar" | "availability" | "settings">("calendar");
   const today = useMemo(() => startOfDay(new Date()), []);
+  const [availabilityRange, setAvailabilityRange] = useState<DateRange>(() => {
+    const startDate = startOfMonth(today);
+    return {
+      startDate,
+      endDate: new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
+    };
+  });
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
   const [selectedDateValue, setSelectedDateValue] = useState(today);
   const selectedDate = dateKey(selectedDateValue);
@@ -586,18 +648,22 @@ export function EventCalendarPage() {
   );
   const halls = useMemo(() => (eventsQuery.data?.halls ?? []).map((hall) => hall.name), [eventsQuery.data]);
   const calendarGridDays = useMemo(() => buildMonthGrid(visibleMonth), [visibleMonth]);
-  const monthStart = useMemo(() => startOfMonth(visibleMonth), [visibleMonth]);
-  const monthEnd = useMemo(
-    () => new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0),
-    [monthStart]
-  );
-  const currentMonthDays = useMemo(
-    () => Array.from({ length: monthEnd.getDate() }, (_, index) => addDays(monthStart, index)),
-    [monthEnd, monthStart]
-  );
+  const availabilityRangeDays = useMemo(() => {
+    const days: Date[] = [];
+
+    for (
+      let day = startOfDay(availabilityRange.startDate);
+      day <= availabilityRange.endDate;
+      day = addDays(day, 1)
+    ) {
+      days.push(day);
+    }
+
+    return days;
+  }, [availabilityRange.endDate, availabilityRange.startDate]);
   const liveAvailabilityDays = useMemo<AvailabilityDay[]>(
     () =>
-      currentMonthDays
+      availabilityRangeDays
         .map((day) => {
           const currentDateKey = dateKey(day);
           const dayBookings = bookings.filter((booking) => booking.dateKey === currentDateKey);
@@ -618,7 +684,7 @@ export function EventCalendarPage() {
             status: dayBookings.some((booking) => booking.status === "hold") ? "hold" : "available"
           };
         }),
-    [bookings, currentMonthDays, halls.length]
+    [availabilityRangeDays, bookings, halls.length]
   );
 
   const filteredBookings = useMemo(() => {
@@ -653,8 +719,12 @@ export function EventCalendarPage() {
     day: "numeric",
     year: "numeric"
   });
-  const monthStartLabel = rangeDateFormatter.format(monthStart);
-  const monthEndLabel = rangeDateFormatter.format(monthEnd);
+  const availabilityStartDateLabel = rangeDateFormatter.format(
+    availabilityRange.startDate
+  );
+  const availabilityEndDateLabel = rangeDateFormatter.format(
+    availabilityRange.endDate
+  );
 
   function selectDate(date: Date) {
     setSelectedDateValue(date);
@@ -707,9 +777,12 @@ export function EventCalendarPage() {
         ) : activeTab === "availability" ? (
           <AvailabilityView
             days={liveAvailabilityDays}
-            endDateLabel={monthEndLabel}
+            endDate={availabilityRange.endDate}
+            endDateLabel={availabilityEndDateLabel}
             onNewBooking={() => setIsNewBookingOpen(true)}
-            startDateLabel={monthStartLabel}
+            onRangeChange={setAvailabilityRange}
+            startDate={availabilityRange.startDate}
+            startDateLabel={availabilityStartDateLabel}
           />
         ) : activeTab === "settings" ? (
           <CalendarSettingsView />
