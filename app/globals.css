@@ -1,25 +1,54 @@
 @import "tailwindcss";
 
-@keyframes dashboardLoaderSpinZoom {
-  0% {
-    transform: rotate(0deg) scale(0.82);
+@keyframes dashboardLoaderSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dashboardLoaderZoom {
+  0%,
+  100% {
+    transform: scale(0.82);
   }
 
   50% {
-    transform: rotate(180deg) scale(1.12);
-  }
-
-  100% {
-    transform: rotate(360deg) scale(0.82);
+    transform: scale(1.12);
   }
 }
 
 .dashboard-loading-motion {
-  animation: dashboardLoaderSpinZoom 1.35s ease-in-out infinite;
+  animation: dashboardLoaderSpin 1.35s linear infinite;
   transform-origin: center;
   will-change: transform;
 }
 
+.dashboard-loading-zoom {
+  animation: dashboardLoaderZoom 1.35s ease-in-out infinite;
+  transform-box: view-box;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.dashboard-route-loading-screen {
+  left: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-loading-zoom {
+    animation: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  html[data-dashboard-sidebar="expanded"] .dashboard-route-loading-screen {
+    left: var(--dashboard-sidebar-expanded-width);
+  }
+
+  html[data-dashboard-sidebar="collapsed"] .dashboard-route-loading-screen {
+    left: var(--dashboard-sidebar-collapsed-width);
+  }
+}
 :root {
   --navy: #1f4d73;
   --navy-light: #15344f;

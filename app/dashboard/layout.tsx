@@ -10,8 +10,8 @@ import {
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { DashboardStartupScreen } from "@/components/layout/dashboard-startup-screen";
 import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
-import { AsyncState } from "@/components/ui/async-state";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {
@@ -104,33 +104,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     };
   }, [router]);
 
-  if (!syncData) {
-    return (
-      <main
-        className="dashboard-font flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4"
-        aria-busy="true"
-        aria-label={status}
-      >
-        <AsyncState isLoading />
-      </main>
-    );
-  }
-
-  const activeLabel = getDashboardActiveLabel(pathname);
-  const roleLabel = formatRole(syncData.user.role);
-
   return (
-    <main className="dashboard-font min-h-screen bg-[#f5f6f8] text-[#17202a]">
-      <DashboardTopbarBrand />
-      <DashboardSidebar
-        user={syncData.user}
-        roleLabel={roleLabel}
-        activeLabel={activeLabel}
-      />
+    <>
+      <DashboardStartupScreen routeKey={pathname ?? "/dashboard"} />
+      {!syncData ? (
+        <main
+          className="dashboard-font min-h-dvh bg-[#f5f6f8]"
+          aria-busy="true"
+          aria-label={status}
+        />
+      ) : (
+        <main className="dashboard-font min-h-screen bg-[#f5f6f8] text-[#17202a]">
+          <DashboardTopbarBrand />
+          <DashboardSidebar
+            user={syncData.user}
+            roleLabel={formatRole(syncData.user.role)}
+            activeLabel={getDashboardActiveLabel(pathname)}
+          />
 
-      <section className="dashboard-shell-main min-h-screen lg:pl-64">
-        {children}
-      </section>
-    </main>
+          <section className="dashboard-shell-main min-h-screen lg:pl-64">
+            {children}
+          </section>
+        </main>
+      )}
+    </>
   );
 }
