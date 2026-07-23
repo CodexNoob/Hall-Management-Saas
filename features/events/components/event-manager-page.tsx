@@ -625,15 +625,15 @@ function EventInformation({ event }: { event: EventFile }) {
 function TimelineInstructions() {
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex h-11 items-center justify-between border-b border-[#d8dde5] px-4">
-        <div className="flex items-center gap-2">
-          <LineIcon name="clock" />
-          <h2 className="text-sm font-black text-[#17202a]">
+      <header className="flex min-h-12 items-center justify-between gap-2 border-b border-[#d8dde5] px-3 py-2 sm:h-11 sm:px-4 sm:py-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <LineIcon name="clock" className="h-4 w-4 shrink-0" />
+          <h2 className="min-w-0 text-[13px] font-black leading-tight text-[#17202a] sm:text-sm">
             Timeline instructions
           </h2>
         </div>
         <button
-          className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
           type="button"
         >
           <LineIcon name="plus" />
@@ -644,19 +644,19 @@ function TimelineInstructions() {
         {timelineRows.map(([time, text, type]) => (
           <div
             key={time}
-            className="grid gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_38px]"
+            className="grid min-w-0 gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_38px]"
           >
             <div className="flex h-10 items-center justify-between rounded-lg border border-[#d8dde5] bg-white px-3 text-sm">
               {time}
               <LineIcon name="clock" className="h-4 w-4" />
             </div>
             <input
-              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
               defaultValue={text}
               name={`timeline-${time}-text`}
             />
             <select
-              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
               defaultValue={type}
               aria-label={`${time} timeline type`}
               name={`timeline-${time}-type`}
@@ -898,13 +898,13 @@ function LayoutPreview() {
   };
 
   return (
-    <section className="rounded-lg border border-[#d8dde5] bg-white p-4">
+    <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-3 sm:p-4">
       <h2 className="text-sm font-black text-[#17202a]">Layout preview</h2>
       <div
-        className="mt-3 rounded-lg border border-[#d8dde5] p-8"
+        className="mt-3 min-w-0 rounded-lg border border-[#d8dde5] p-2 sm:p-8"
         style={gridStyle}
       >
-        <div className="mx-auto grid max-w-96 grid-cols-4 gap-0 text-xs font-black">
+        <div className="mx-auto grid min-w-0 max-w-96 grid-cols-4 gap-1 text-[9px] font-black sm:gap-0 sm:text-xs">
           {[
             "Table 1",
             "Table 2",
@@ -926,7 +926,7 @@ function LayoutPreview() {
         <div className="mx-auto my-2 h-2 max-w-100 rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">
           Mechitza
         </div>
-        <div className="mx-auto mt-10 grid max-w-lg grid-cols-3 gap-8 text-xs font-black">
+        <div className="mx-auto mt-8 grid min-w-0 max-w-lg grid-cols-3 gap-2 text-[9px] font-black sm:mt-10 sm:gap-8 sm:text-xs">
           {["Buffet", "Head table", "Drinks"].map((label) => (
             <div
               key={label}
@@ -943,9 +943,9 @@ function LayoutPreview() {
 
 function ClientPortalContent({ event }: { event: EventFile }) {
   return (
-    <div className="grid gap-3 xl:grid-cols-[340px_minmax(0,1fr)]">
-      <aside className="space-y-3">
-        <section className="rounded-lg border border-[#d8dde5] bg-white">
+    <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-3">
+        <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
           <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
             <LineIcon name="files" />
             <h2 className="text-sm font-black text-[#17202a]">
@@ -956,7 +956,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
             {portalChecklist.map(([label, shared]) => (
               <label
                 key={label}
-                className="flex h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]"
+                className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 text-sm font-black text-[#17202a]"
               >
                 <input
                   className="h-4 w-4 accent-[#1f4d73]"
@@ -964,8 +964,8 @@ function ClientPortalContent({ event }: { event: EventFile }) {
                   defaultChecked={shared}
                   name={`portal-section-${label.toLowerCase().replaceAll(" ", "-")}`}
                 />
-                <span className="min-w-0 flex-1 truncate">{label}</span>
-                <span className="text-xs font-medium text-[#6a7483]">
+                <span className="min-w-0 flex-1 leading-tight">{label}</span>
+                <span className="shrink-0 text-xs font-medium text-[#6a7483]">
                   {shared ? "Shared" : "Hidden"}
                 </span>
               </label>
@@ -973,7 +973,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+        <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
           <h2 className="text-sm font-black text-[#17202a]">
             Client portal link
           </h2>
@@ -1001,15 +1001,15 @@ function ClientPortalContent({ event }: { event: EventFile }) {
         </section>
       </aside>
 
-      <section className="rounded-lg border border-[#d8dde5] bg-white">
-        <header className="rounded-t-lg bg-[#1f4d73] p-6 text-white">
-          <h1 className="text-2xl font-black">{event.title}</h1>
+      <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+        <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
+          <h1 className="break-words text-xl font-black sm:text-2xl">{event.title}</h1>
           <p className="mt-2 text-sm font-semibold">
             {event.date} - {event.time} - {event.room}
           </p>
         </header>
-        <div className="space-y-3 p-4">
-          <section className="rounded-lg border border-[#d8dde5] p-4">
+        <div className="min-w-0 space-y-3 p-3 sm:p-4">
+          <section className="min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-4">
             <h2 className="text-sm font-black">Event details</h2>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
@@ -1092,7 +1092,7 @@ function ClientPortalContent({ event }: { event: EventFile }) {
             </button>
           </section>
 
-          <div className="flex items-center justify-between rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
             <span className="text-sm text-[#17202a]">
               Estimated client total
             </span>
@@ -1122,18 +1122,18 @@ function BillingStatCard({
       className={`min-h-27 rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
             {label}
           </p>
           <p
-            className={`mt-2 text-xl font-black ${emphasized ? "text-[#9a5b00]" : "text-[#17202a]"}`}
+            className={`mt-2 text-base font-black sm:text-xl ${emphasized ? "text-[#9a5b00]" : "text-[#17202a]"}`}
           >
             {value}
           </p>
           <p className="mt-2 text-xs text-[#6a7483]">{note}</p>
         </div>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
+        <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483] sm:flex">
           <LineIcon name={icon} className="h-4 w-4" />
         </span>
       </div>
@@ -1154,8 +1154,8 @@ function EventBillingContent() {
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="min-w-0 space-y-3 overflow-hidden">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <BillingStatCard
           label="Total event"
           value="$55,200.00"
@@ -1183,9 +1183,9 @@ function EventBillingContent() {
         />
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_336px]">
-        <section className="rounded-lg border border-[#d8dde5] bg-white">
-          <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
+      <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_336px]">
+        <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+          <header className="flex flex-col gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
             <div className="flex items-center gap-2">
               <LineIcon name="document" />
               <h2 className="text-sm font-black text-[#17202a]">
@@ -1193,14 +1193,43 @@ function EventBillingContent() {
               </h2>
             </div>
             <button
-              className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+              className="inline-flex h-8 shrink-0 items-center justify-center gap-2 self-end rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
               type="button"
             >
               <LineIcon name="plus" />
               Create invoice
             </button>
           </header>
-          <div className="overflow-x-auto p-3">
+          <div className="space-y-2 p-3 md:hidden">
+            {invoices.map(([invoice, status, total, paid, balance]) => (
+              <article
+                className="rounded-lg border border-[#d8dde5] p-3 text-sm"
+                key={invoice}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <strong>{invoice}</strong>
+                  <span className="text-xs font-bold text-[#617086]">
+                    {status}
+                  </span>
+                </div>
+                <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Total</dt>
+                    <dd className="mt-1 font-bold">{total}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Paid</dt>
+                    <dd className="mt-1 font-bold">{paid}</dd>
+                  </div>
+                  <div className="text-right">
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Balance</dt>
+                    <dd className="mt-1 font-black">{balance}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto p-3 md:block">
             <table className="w-full min-w-130 text-left text-sm">
               <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
                 <tr>
@@ -1238,7 +1267,7 @@ function EventBillingContent() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#d8dde5] bg-white">
+        <section className="min-w-0 rounded-lg border border-[#d8dde5] bg-white">
           <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
             <LineIcon name="document" />
             <h2 className="text-sm font-black text-[#17202a]">Actions</h2>
@@ -1268,14 +1297,32 @@ function EventBillingContent() {
         </section>
       </div>
 
-      <section className="rounded-lg border border-[#d8dde5] bg-white">
+      <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
         <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
           <LineIcon name="files" />
           <h2 className="text-sm font-black text-[#17202a]">
             Transaction history
           </h2>
         </header>
-        <div className="overflow-x-auto p-3">
+        <div className="space-y-2 p-3 md:hidden">
+          {transactions.map(([date, source, amount, category]) => (
+            <article
+              className="rounded-lg border border-[#d8dde5] p-3 text-sm"
+              key={`${date}-${source}`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <strong className="block truncate">{source}</strong>
+                  <span className="mt-1 block text-xs text-[#6a7483]">
+                    {date} · {category}
+                  </span>
+                </div>
+                <strong className="shrink-0">{amount}</strong>
+              </div>
+            </article>
+          ))}
+        </div>
+        <div className="hidden overflow-x-auto p-3 md:block">
           <table className="w-full min-w-160 text-left text-sm">
             <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
               <tr>
@@ -1325,8 +1372,8 @@ function HallMapContent() {
   };
 
   return (
-    <div className="grid gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
-      <aside className="space-y-3">
+    <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[310px_minmax(0,1fr)]">
+      <aside className="min-w-0 space-y-3">
         <section className="rounded-lg border border-[#d8dde5] bg-white">
           <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
             <div className="flex items-center gap-2">
@@ -1381,7 +1428,7 @@ function HallMapContent() {
         </button>
       </aside>
 
-      <section className="rounded-lg border border-[#d8dde5] bg-white">
+      <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
         <header className="flex items-center justify-between gap-3 px-4 py-4">
           <div className="flex items-center gap-2">
             <LineIcon name="map" />
@@ -1391,10 +1438,10 @@ function HallMapContent() {
         </header>
         <div className="px-4 pb-4">
           <div
-            className="min-h-80 rounded-lg border border-[#d8dde5] p-12"
+            className="min-h-80 min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-12"
             style={gridStyle}
           >
-            <div className="mx-auto grid max-w-md grid-cols-4 gap-x-4 gap-y-6 text-xs font-black">
+            <div className="mx-auto grid min-w-0 max-w-md grid-cols-4 gap-2 text-[9px] font-black sm:gap-x-4 sm:gap-y-6 sm:text-xs">
               {[
                 "Table 1",
                 "Table 2",
@@ -1416,7 +1463,7 @@ function HallMapContent() {
             <div className="mx-auto my-10 h-2 max-w-md rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">
               Mechitza
             </div>
-            <div className="mx-auto mt-20 grid max-w-2xl grid-cols-3 gap-24 text-xs font-black">
+            <div className="mx-auto mt-12 grid min-w-0 max-w-2xl grid-cols-3 gap-2 text-[9px] font-black sm:mt-20 sm:gap-24 sm:text-xs">
               {["Buffet", "Head table", "Drinks"].map((label) => (
                 <div
                   key={label}
@@ -1459,7 +1506,7 @@ function KitchenItemCard({
         : "text-[#17202a]";
 
   return (
-    <article className="w-27 border border-[#d8dde5] bg-white p-3">
+    <article className="w-full min-w-0 border border-[#d8dde5] bg-white p-3 xl:w-27">
       <h3 className="border-b border-[#d8dde5] pb-3 text-center text-lg font-black leading-4 text-[#17202a]">
         {title}
       </h3>
@@ -1485,7 +1532,48 @@ function EventKitchenContent() {
 
   return (
     <div className="space-y-3">
-      <section className="bg-[#a9a9a9] p-4 text-[#17202a]">
+      <section className="min-w-0 bg-[#a9a9a9] p-3 text-[#17202a] sm:p-4">
+        <div className="space-y-3 xl:hidden">
+          <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2">
+            <button
+              aria-label="Previous day"
+              className="flex h-10 w-10 items-center justify-center bg-white"
+              type="button"
+            >
+              <LineIcon name="chevron" className="h-4 w-4 rotate-180" />
+            </button>
+            <h2 className="min-w-0 text-center text-base font-black leading-tight">
+              Wednesday, July 8, 2026
+            </h2>
+            <button
+              aria-label="Next day"
+              className="flex h-10 w-10 items-center justify-center bg-white"
+              type="button"
+            >
+              <LineIcon name="chevron" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {["Today", "This Week", "4 Weeks"].map((view, index) => (
+              <button
+                className={`h-10 min-w-0 px-2 text-sm font-black ${
+                  index === 0 ? "bg-[#f5c542]" : "bg-white"
+                }`}
+                key={view}
+                type="button"
+              >
+                {view}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-center text-xl font-black text-[#ffe36e]">
+            3:56 PM
+          </p>
+        </div>
+
+        <div className="hidden xl:block">
         <div className="flex flex-wrap items-start gap-3">
           <button
             className="inline-flex h-10 items-center gap-3 bg-white px-4 text-sm font-black"
@@ -1546,6 +1634,7 @@ function EventKitchenContent() {
           </div>
         </div>
         <p className="mt-3 text-2xl font-black text-[#ffe36e]">3:56 PM</p>
+        </div>
       </section>
 
       <button
@@ -1556,10 +1645,10 @@ function EventKitchenContent() {
         Kitchen live view
       </button>
 
-      <section className="border border-[#b9c2cf] bg-[#d8eeee] p-4">
-        <div className="border border-[#b9c2cf] bg-[#d8eeee] p-6">
+      <section className="min-w-0 border border-[#b9c2cf] bg-[#d8eeee] p-2 sm:p-4">
+        <div className="min-w-0 border border-[#b9c2cf] bg-[#d8eeee] p-3 sm:p-6">
           <div className="grid gap-5 xl:grid-cols-[minmax(320px,0.9fr)_minmax(0,1.1fr)]">
-            <div className="border-l-5 border-[#21b8ae] pl-5">
+            <div className="min-w-0 border-l-5 border-[#21b8ae] pl-3 sm:pl-5">
               <p className="text-sm font-black uppercase tracking-[0.12em] text-[#17202a]">
                 Friedman Wedding
               </p>
@@ -1586,7 +1675,7 @@ function EventKitchenContent() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-start gap-3">
+            <div className="grid min-w-0 grid-cols-2 items-start gap-2 sm:grid-cols-3 xl:flex xl:flex-wrap xl:gap-3">
               {kitchenItems.map(([title, amount, status, note]) => (
                 <KitchenItemCard
                   key={title}
@@ -1621,7 +1710,7 @@ function EventVendorsContent() {
   ];
 
   return (
-    <section className="min-h-107.5 rounded-lg border border-[#d8dde5] bg-white">
+    <section className="min-h-107.5 min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
       <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
         <div className="flex items-center gap-2">
           <LineIcon name="store" className="h-4 w-4 text-[#17202a]" />
@@ -1712,7 +1801,7 @@ function EventFilesContent() {
       : files.filter((file) => file.category === selectedFileCategory);
 
   return (
-    <div className="grid min-h-107.5 gap-3 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 lg:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="grid min-h-107.5 min-w-0 gap-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 lg:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
         {categories.map((category) => {
           const isActive = selectedFileCategory === category.label;
@@ -1804,7 +1893,7 @@ function EventWorkspace({ event }: { event: EventFile }) {
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
   return (
-    <section className="dashboard-panel-enter flex h-auto min-w-0 flex-col overflow-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
+    <section className="dashboard-panel-enter flex h-auto w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
       <header className="shrink-0 border-b border-[#d8dde5] bg-white p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
@@ -1891,9 +1980,9 @@ function EventWorkspace({ event }: { event: EventFile }) {
         ))}
       </nav>
 
-      <div className="min-h-0 flex-1 overflow-visible p-3 xl:overflow-y-auto">
+      <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-visible p-3 xl:overflow-y-auto">
         {activeTab === "Event details" ? (
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_336px]">
+          <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
             <div className="space-y-3">
               <EventInformation event={event} />
               <TimelineInstructions />
@@ -2132,9 +2221,9 @@ export function EventManagerPage() {
         open={isNewEventOpen}
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
-        <div className="grid h-auto min-h-0 gap-3 xl:h-full xl:grid-cols-[360px_minmax(0,1fr)]">
-          <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
+        <div className="grid h-auto w-full min-w-0 max-w-full gap-3 overflow-hidden xl:h-full xl:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
             <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] p-3">
               <div>
                 <div className="flex items-center gap-2">

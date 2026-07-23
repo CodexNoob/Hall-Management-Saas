@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import {
   NewPackageDialog,
   type NewPackageFormValues
@@ -319,7 +320,7 @@ function PackageAddCard({
   price: string;
 }) {
   return (
-    <article className="flex h-50 w-38 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
       <div className="flex w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
           <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">
@@ -351,7 +352,7 @@ function MenuRuleCard({
   price: string;
 }) {
   return (
-    <article className="flex h-50 w-38 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
       <div className="flex w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
           <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">
@@ -387,7 +388,7 @@ function MenuRuleSection({
         </span>
       </header>
       {items.length ? (
-        <div className="flex flex-col gap-10 p-3">
+        <div className="flex flex-col gap-3 p-3">
           {items.map((item) => (
             <MenuRuleCard
               key={`${title}-${item.name}`}
@@ -419,14 +420,14 @@ function AddOnCard({
   tag: string;
 }) {
   return (
-    <article className="flex min-h-25 rounded-lg border border-[#d8dde5] bg-white p-3">
+    <article className="flex min-h-25 min-w-0 rounded-lg border border-[#d8dde5] bg-white p-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-18 w-18 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
           <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-black text-[#17202a]">{name}</h3>
-          <p className="mt-1 max-w-48 text-xs leading-4 text-[#516174]">
+          <p className="mt-1 max-w-full text-xs leading-4 text-[#516174] sm:max-w-48">
             {description}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -602,38 +603,39 @@ export function MenuPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
-      <div className="shrink-0 bg-white">
-        <header className="flex min-h-16 flex-col gap-3 border-b border-[#d8dde5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-lg font-black leading-6 text-[#17202a]">
-              Menu
-            </h1>
-            <p className="mt-1 text-xs text-[#6a7483]">
-              Menu library, packages, buffet, plated and add-ons.
-            </p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+    <div className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Menu"
+        subtitle="Menu library, packages, buffet, plated and add-ons."
+        compactMobileActions
+        actionsSlot={
+          <>
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+              aria-label="Create new library item"
+              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-black lg:[&_svg]:h-4 lg:[&_svg]:w-4"
               onClick={() => setIsNewLibraryItemOpen(true)}
+              title="New library item"
               type="button"
             >
-              <LineIcon name="plus" className="h-4 w-4" />
-              New library item
+              <LineIcon name="plus" />
+              <span className="hidden lg:inline">New library item</span>
             </button>
             <button
-              className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#1f4d73] bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
+              aria-label="Create new package"
+              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#1f4d73] hover:text-[#15344f] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-black lg:text-white lg:shadow-sm lg:[&_svg]:h-4 lg:[&_svg]:w-4"
               onClick={() => setIsNewPackageOpen(true)}
+              title="New package"
               type="button"
             >
-              <LineIcon name="box" className="h-4 w-4" />
-              New package
+              <LineIcon name="box" />
+              <span className="hidden lg:inline">New package</span>
             </button>
-          </div>
-        </header>
+          </>
+        }
+      />
 
-        <nav className="flex min-h-12 shrink-0 flex-wrap gap-2 overflow-hidden border-b border-[#d8dde5] px-4">
+      <div className="shrink-0 bg-white">
+        <nav className="mt-2 flex min-h-12 shrink-0 flex-nowrap gap-2 overflow-x-auto border-b border-t border-[#d8dde5] px-3 sm:px-4 lg:mt-0 lg:border-t-0">
           {tabs.map((tab) => (
             <button
               key={tab.label}
@@ -663,10 +665,10 @@ export function MenuPage() {
         open={isNewLibraryItemOpen}
       />
 
-      <main className="min-h-0 flex-1 overflow-hidden p-3">
+      <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
         {activeTab === "Packages" ? (
-          <div className="grid items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
-            <aside className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+          <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
+            <aside className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
               <header className="flex h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
                 <div className="flex items-center gap-2">
                   <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
@@ -718,9 +720,9 @@ export function MenuPage() {
               </div>
             </aside>
 
-            <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-              <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
-                <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
+            <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+              <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+                <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
@@ -734,7 +736,7 @@ export function MenuPage() {
                     </p>
                   </div>
                   <button
-                    className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
+                    className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] sm:self-auto"
                     type="button"
                   >
                     Edit package
@@ -745,7 +747,7 @@ export function MenuPage() {
                   {packageItems.map((item) => (
                     <article
                       key={`${activePackage.name}-${item.name}`}
-                      className="flex min-h-14 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2"
+                      className="flex min-h-14 min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 sm:flex-nowrap sm:gap-3"
                     >
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-black text-[#17202a]">
@@ -755,7 +757,7 @@ export function MenuPage() {
                           {item.mode} - {item.rule} - {item.price}
                         </p>
                       </div>
-                      <span className="w-22 shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73]">
+                      <span className="shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73] sm:w-22">
                         {item.mode}
                       </span>
                       <button
@@ -790,10 +792,10 @@ export function MenuPage() {
             </section>
           </div>
         ) : isRuleMenu ? (
-          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
-              <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
-                <div>
+          <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+              <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <LineIcon
                       name="document"
@@ -808,7 +810,7 @@ export function MenuPage() {
                   </p>
                 </div>
                 <button
-                  className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
+                  className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
                   onClick={() => setIsNewLibraryItemOpen(true)}
                   type="button"
                 >
@@ -828,9 +830,9 @@ export function MenuPage() {
             </div>
           </section>
         ) : activeTab === "Add-ons" ? (
-          <section className="self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
-              <div>
+          <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <LineIcon name="dollar" className="h-4 w-4 text-[#17202a]" />
                   <h2 className="text-sm font-black text-[#17202a]">Add-ons</h2>
@@ -841,7 +843,7 @@ export function MenuPage() {
                 </p>
               </div>
               <button
-                className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
+                className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
                 type="button"
               >
                 New add-on
@@ -861,11 +863,11 @@ export function MenuPage() {
             </div>
           </section>
         ) : (
-          <div className="grid h-full min-h-0 items-start gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-            <section className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+          <div className="grid h-auto min-h-0 min-w-0 items-start gap-3 xl:h-full xl:grid-cols-[minmax(0,1fr)_320px]">
+            <section className="flex h-auto min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:h-full">
               <div className="flex min-h-0 flex-1 flex-col">
-                <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-3">
-                  <div>
+                <header className="flex shrink-0 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <LineIcon
                         name="document"
@@ -880,7 +882,7 @@ export function MenuPage() {
                     </p>
                   </div>
                   <button
-                    className="inline-flex h-8 shrink-0 items-center rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
+                    className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
                     onClick={() => {
                       setIsNewLibraryItemOpen(true);
                     }}
@@ -935,7 +937,7 @@ export function MenuPage() {
               </div>
             </section>
 
-            <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <aside className="flex h-auto min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:h-full">
               <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
                 <LineIcon name="filter" className="h-4 w-4 text-[#17202a]" />
                 <h2 className="text-sm font-black text-[#17202a]">

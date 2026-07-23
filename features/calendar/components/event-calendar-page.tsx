@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { CalendarBookingDialog } from "@/features/calendar/forms/calendar-booking-dialog";
 import {
   DateRangePickerDialog,
@@ -379,7 +380,7 @@ function AvailabilityView({
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
               <strong className="mt-1 block text-sm">{endDateLabel}</strong>
             </div>
-            <div className="relative justify-self-end self-center">
+            <div className="relative col-span-full flex w-full justify-end self-center lg:col-auto lg:w-auto lg:justify-self-end">
               <button
                 className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]"
                 onClick={() => setIsRangePickerOpen((current) => !current)}
@@ -390,6 +391,7 @@ function AvailabilityView({
               <DateRangePickerDialog
                 endDate={endDate}
                 isOpen={isRangePickerOpen}
+                mobileCentered
                 onApply={onRangeChange}
                 onClose={() => setIsRangePickerOpen(false)}
                 startDate={startDate}
@@ -540,7 +542,7 @@ function CalendarSettingsView() {
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
                   <strong className="mt-1 block text-sm">{blockedEndLabel}</strong>
                 </div>
-                <div className="relative self-center">
+                <div className="relative col-span-full flex w-full justify-end self-center lg:col-auto lg:w-auto lg:justify-self-end">
                   <button
                     className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#15344f]"
                     onClick={() => setIsRangePickerOpen((current) => !current)}
@@ -551,6 +553,7 @@ function CalendarSettingsView() {
                   <DateRangePickerDialog
                     endDate={blockedRangeDraft.endDate}
                     isOpen={isRangePickerOpen}
+                    mobileCentered
                     onApply={setBlockedRangeDraft}
                     onClose={() => setIsRangePickerOpen(false)}
                     startDate={blockedRangeDraft.startDate}
@@ -640,6 +643,7 @@ export function EventCalendarPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -758,8 +762,13 @@ export function EventCalendarPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
-      <DashboardTopbar title="Calendar" subtitle="Review hall availability, bookings, holds, and fully booked dates." onNewBooking={() => setIsNewBookingOpen(true)} />
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+      <DashboardTopbar
+        title="Calendar"
+        subtitle="Review hall availability, bookings, holds, and fully booked dates."
+        onNewBooking={() => setIsNewBookingOpen(true)}
+        onTodayNotes={() => setIsTodayNotesOpen(true)}
+      />
 
       <nav className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0">
         <div className="grid w-full min-w-0 grid-cols-3 sm:flex sm:min-w-max sm:gap-2">
@@ -780,7 +789,7 @@ export function EventCalendarPage() {
         </div>
       </nav>
 
-      <main className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+      <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         {activeTab === "calendar" && (eventsQuery.isLoading || eventsQuery.error) ? (
           <div className="flex h-full min-h-80 items-center justify-center">
             <AsyncState
@@ -809,7 +818,7 @@ export function EventCalendarPage() {
         ) : activeTab === "settings" ? (
           <CalendarSettingsView />
         ) : (
-          <div className="mx-auto grid max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="mx-auto grid w-full min-w-0 max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
             <section className="dashboard-panel-enter min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
               <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -877,7 +886,7 @@ export function EventCalendarPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto px-3 pb-3">
+              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-3 pb-3">
                 <div className="min-w-212.5 overflow-hidden rounded-xl border border-[#d8dde5]">
                   <div className="grid grid-cols-7 bg-[#fbfcfd]">
                     {weekDays.map((day) => (
@@ -996,6 +1005,10 @@ export function EventCalendarPage() {
         open={isNewBookingOpen}
         packages={eventsQuery.data?.packages ?? []}
         selectedDate={selectedDate}
+      />
+      <TodayNotesDrawer
+        onClose={() => setIsTodayNotesOpen(false)}
+        open={isTodayNotesOpen}
       />
     </div>
   );

@@ -884,7 +884,7 @@ export function SettingsPage({
                       alt="Hall Management SaaS"
                       className="h-16 w-auto object-contain"
                       height={408}
-                      src="/images/branding/hms-logo-header.png?v=20260722"
+                      src="/images/branding/hms-logo-header.png"
                       unoptimized
                       width={612}
                     />

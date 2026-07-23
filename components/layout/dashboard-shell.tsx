@@ -192,7 +192,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
   );
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <header className="relative z-40 shrink-0 bg-white">
         <DashboardTopbar
           title="Dashboard"
@@ -242,7 +242,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
           </div>
 
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
-            <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+            <section className="min-w-0 overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
               <div className="flex flex-col gap-4 border-b border-[#d8dde5] p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black text-[#17202a]">
@@ -256,7 +256,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 </div>
 
                 <button
-                  className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+                  className="h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa] sm:w-auto"
                   type="button"
                   onClick={() => router.push("/dashboard/event-manager")}
                 >
@@ -264,7 +264,36 @@ export function DashboardShell({ access }: DashboardShellProps) {
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="space-y-2 p-3 md:hidden">
+                {scheduleRows.map((row) => (
+                  <article
+                    className="rounded-xl border border-[#d8dde5] p-3"
+                    key={`${row.time}-${row.event}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <strong className="block text-sm">{row.event}</strong>
+                        <span className="mt-1 block text-xs text-[#6a7483]">
+                          {row.time} · {row.room}
+                        </span>
+                      </div>
+                      <StatusBadge status={row.status} />
+                    </div>
+                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <dt className="font-black text-[#6a7483]">Owner</dt>
+                        <dd className="mt-1">{row.owner}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-black text-[#6a7483]">Next item</dt>
+                        <dd className="mt-1">{row.next}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full min-w-220 table-fixed text-left">
                   <thead className="border-b border-[#d8dde5] bg-[#fbfcfd] text-xs font-black uppercase tracking-[0.04em] text-[#6a7483]">
                     <tr>

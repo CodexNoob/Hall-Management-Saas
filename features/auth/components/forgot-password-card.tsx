@@ -161,7 +161,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
         <div className="relative">
           <Link href="/" aria-label="Back to Hall Management SaaS home">
-            <Image src="/images/branding/hms-logo-header.png?v=20260722" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+            <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
           </Link>
 
           <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>

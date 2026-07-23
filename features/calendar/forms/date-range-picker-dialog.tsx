@@ -16,6 +16,7 @@ export type DateRange = {
 type DateRangePickerDialogProps = {
   endDate: Date;
   isOpen: boolean;
+  mobileCentered?: boolean;
   onApply: (range: DateRange) => void;
   onClose: () => void;
   startDate: Date;
@@ -38,6 +39,7 @@ const monthFormatter = new Intl.DateTimeFormat("en-US", {
 export function DateRangePickerDialog({
   endDate,
   isOpen,
+  mobileCentered = false,
   onApply,
   onClose,
   startDate
@@ -135,7 +137,11 @@ export function DateRangePickerDialog({
   return (
     <div
       aria-label="Select date range"
-      className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#cfd8e3] bg-white p-3 shadow-xl"
+      className={`absolute top-[calc(100%+0.5rem)] z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#cfd8e3] bg-white p-3 shadow-xl ${
+        mobileCentered
+          ? "left-1/2 -translate-x-1/2 lg:left-auto lg:right-0 lg:translate-x-0"
+          : "right-0"
+      }`}
       ref={pickerRef}
       role="dialog"
     >

@@ -691,7 +691,7 @@ export function KitchenDashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
       <DashboardTopbar
         title="Kitchen Dashboard"
         subtitle="Review kitchen events, production schedules, and assigned work."
@@ -709,7 +709,7 @@ export function KitchenDashboardPage() {
         />
       </div>
 
-      <main className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto p-4">
+      <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         <KitchenToolbar
           onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
           onWorkersOnlyChange={setWorkersOnly}

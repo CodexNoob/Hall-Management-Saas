@@ -472,7 +472,7 @@ export function DashboardSidebar({
       >
         <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/10 px-4 lg:hidden">
           <Image
-            src="/images/branding/Footer-logo.png?v=20260722"
+            src="/images/branding/Footer-logo.png"
             alt="Hall Management SaaS"
             width={612}
             height={408}
@@ -745,7 +745,7 @@ export function DashboardSidebar({
             {isProfileMenuOpen ? (
               <div
                 aria-label="Profile menu"
-                className={`absolute z-80 rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20 ${
+                className={`absolute z-80 rounded-2xl border border-white/15 bg-[#061126] p-2 text-white shadow-[0_16px_40px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)] ${
                   showCollapsed
                     ? "bottom-2 left-[calc(100%+0.5rem)] w-48"
                     : "bottom-[calc(100%+0.5rem)] left-3 right-3 max-lg:right-auto max-lg:w-52"
@@ -854,7 +854,7 @@ export function DashboardSidebar({
                 {isHelpMenuOpen ? (
                   <div
                     aria-label="Help links"
-                    className={`absolute z-90 w-44 whitespace-nowrap rounded-2xl border border-[#15344f] bg-[#1f4d73] p-1.5 text-white shadow-[0_12px_32px_rgba(23,32,42,0.3)] max-lg:bottom-13 max-lg:left-32 ${
+                    className={`absolute z-90 w-44 whitespace-nowrap rounded-2xl border border-white/15 bg-[#061126] p-1.5 text-white shadow-[0_16px_40px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)] max-lg:bottom-13 max-lg:left-32 ${
                       showCollapsed
                         ? "bottom-13 left-full"
                         : "bottom-13 left-full"

@@ -20,7 +20,7 @@ const initialForm: ContactForm = {
 function BrandMark() {
   return (
     <Image
-      src="/images/branding/hms-logo-header.png?v=20260722"
+      src="/images/branding/hms-logo-header.png"
       alt="Hall Management SaaS"
       width={612}
       height={408}

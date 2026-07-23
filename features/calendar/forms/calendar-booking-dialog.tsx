@@ -243,11 +243,23 @@ export function CalendarBookingDialog({
 
           <button
             aria-label="Close calendar booking"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none hover:bg-[#eef4fa]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
           >
-            <span aria-hidden="true">×</span>
+            <svg
+              aria-hidden="true"
+              className="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M5 5 19 19M19 5 5 19"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="2.25"
+              />
+            </svg>
           </button>
         </header>
 

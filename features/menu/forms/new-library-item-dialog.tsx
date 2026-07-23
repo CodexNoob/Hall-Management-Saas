@@ -93,13 +93,13 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
         if (mouseEvent.currentTarget === mouseEvent.target) closeAndReset();
       }}
     >
-      <section aria-labelledby={titleId} aria-modal="true" className="w-full max-w-3xl overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20" role="dialog">
+      <section aria-labelledby={titleId} aria-modal="true" className="max-h-[calc(100dvh-24px)] w-full max-w-3xl overflow-y-auto rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20" role="dialog">
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
             <LibraryIcon />
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>Library item</h2>
           </div>
-          <button aria-label="Close library item" className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><span aria-hidden="true">×</span></button>
+          <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
         </header>
 
         <form onSubmit={handleSubmit}>
