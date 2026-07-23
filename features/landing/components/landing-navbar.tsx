@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 function LandingLogo() {
   return (
-    <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-28 w-auto shrink-0 object-contain sm:h-30" />
+    <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-29 w-auto shrink-0 object-contain sm:h-30" />
   );
 }
 
