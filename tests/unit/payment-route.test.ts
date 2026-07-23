@@ -12,10 +12,10 @@ vi.mock("@/lib/auth/server-auth", () => ({
   },
   requirePermission: vi.fn()
 }));
-vi.mock("@/lib/billing/record-payment", () => ({
+vi.mock("@/features/billing/services/record-payment.service", () => ({
   recordPaymentWithAudit: vi.fn()
 }));
-vi.mock("@/lib/bookings/booking-service", () => ({
+vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {
     constructor(
       message: string,
@@ -29,7 +29,7 @@ vi.mock("@/lib/bookings/booking-service", () => ({
 
 import { POST } from "@/app/api/events/[eventId]/payments/route";
 import { requirePermission } from "@/lib/auth/server-auth";
-import { recordPaymentWithAudit } from "@/lib/billing/record-payment";
+import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 
 describe("payment confirmation", () => {
   const eventId = "44444444-4444-4444-8444-444444444444";

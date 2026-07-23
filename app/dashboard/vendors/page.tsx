@@ -1,4 +1,4 @@
-import { VendorsPage } from "@/components/dashboard/vendors-page";
+import { VendorsPage } from "@/features/vendors/components/vendors-page";
 
 export default function DashboardVendorsPage() {
   return <VendorsPage />;

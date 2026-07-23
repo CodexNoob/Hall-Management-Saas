@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
-import { recordPaymentWithAudit } from "@/lib/billing/record-payment";
+import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 const confirmationSchema = z.object({

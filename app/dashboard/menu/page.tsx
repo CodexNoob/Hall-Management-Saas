@@ -1,4 +1,4 @@
-import { MenuPage } from "@/components/dashboard/menu-page";
+import { MenuPage } from "@/features/menu/components/menu-page";
 
 export default function DashboardMenuPage() {
   return <MenuPage />;

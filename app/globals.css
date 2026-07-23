@@ -222,6 +222,12 @@ svg {
   }
 }
 
+@media (max-width: 1023px) {
+  .dashboard-topbar-icon-action::before {
+    display: none;
+  }
+}
+
 .dashboard-panel-enter {
   animation: dashboard-panel-enter 320ms cubic-bezier(0.22, 1, 0.36, 1)
     both;
@@ -385,7 +391,7 @@ svg {
 }
 
 .dashboard-topbar-logo-full {
-  background-image: url("/Footer-logo.png?v=20260722");
+  background-image: url("/images/branding/Footer-logo.png?v=20260722");
   height: 3.75rem;
   left: 50%;
   opacity: 1;
@@ -395,7 +401,7 @@ svg {
 }
 
 .dashboard-topbar-logo-mark {
-  background-image: url("/logo.png?v=20260722");
+  background-image: url("/images/branding/logo.png?v=20260722");
   background-size: 130% 130%;
   filter: brightness(0) invert(1);
   height: 2.75rem;

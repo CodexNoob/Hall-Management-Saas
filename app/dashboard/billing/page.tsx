@@ -1,4 +1,4 @@
-import { BillingPage } from "@/components/dashboard/billing-page";
+import { BillingPage } from "@/features/billing/components/billing-page";
 
 export default function DashboardBillingPage() {
   return <BillingPage />;

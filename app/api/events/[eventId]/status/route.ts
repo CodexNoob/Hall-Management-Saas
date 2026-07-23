@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import { requirePermission } from "@/lib/auth/server-auth";
-import { transitionBookingSchema } from "@/lib/bookings/booking-schema";
-import { transitionBooking } from "@/lib/bookings/booking-service";
+import { transitionBookingSchema } from "@/features/bookings/validations/booking.schema";
+import { transitionBooking } from "@/features/bookings/services/booking.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 export async function PATCH(

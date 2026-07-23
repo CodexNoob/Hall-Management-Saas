@@ -1,4 +1,4 @@
-import { HallRoomMapPage } from "@/components/dashboard/hall-room-map-page";
+import { HallRoomMapPage } from "@/features/hall-room-map/components/hall-room-map-page";
 
 
 export default function DashboardHallRoomMapPage() {

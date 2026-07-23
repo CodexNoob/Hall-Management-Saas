@@ -9,8 +9,8 @@ import {
   syncSignedInUser,
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
-import { DashboardSidebar } from "@/components/sidebars/dashboard-sidebar";
-import { DashboardTopbarBrand } from "@/components/topbars/dashboard-topbar";
+import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
+import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
 import type { ReactNode } from "react";
 

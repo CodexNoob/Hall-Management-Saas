@@ -1,11 +1,11 @@
-import { BenefitsSection } from "@/components/landing/benefits-section";
-import { ContactModal } from "@/components/landing/contact-modal";
-import { FeaturesSection } from "@/components/landing/features-section";
-import { HallFlowHero } from "@/components/landing/hero";
-import { LandingNavbar } from "@/components/landing/landing-navbar";
-import { LandingFooter } from "@/components/landing/landing-footer";
-import { AuthModal } from "@/components/forms-and-modals/auth-modal";
-import { PricingSection } from "@/components/landing/pricing-section";
+import { AuthModal } from "@/features/auth/components/auth-modal";
+import { BenefitsSection } from "@/features/landing/components/benefits-section";
+import { ContactModal } from "@/features/landing/components/contact-modal";
+import { FeaturesSection } from "@/features/landing/components/features-section";
+import { HallFlowHero } from "@/features/landing/components/hero";
+import { LandingFooter } from "@/features/landing/components/landing-footer";
+import { LandingNavbar } from "@/features/landing/components/landing-navbar";
+import { PricingSection } from "@/features/landing/components/pricing-section";
 import { Manrope } from "next/font/google";
 
 const manrope = Manrope({

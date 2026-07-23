@@ -2,8 +2,8 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthorizationError } from "@/lib/auth/server-auth";
-import { BillingError } from "@/lib/billing/billing-error";
-import { BookingError } from "@/lib/bookings/booking-service";
+import { BillingError } from "@/features/billing/services/billing-error";
+import { BookingError } from "@/features/bookings/services/booking.service";
 
 export function createApiErrorResponse(error: unknown) {
   if (error instanceof BookingError) {

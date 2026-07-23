@@ -4,11 +4,11 @@ import {
   requireAnyPermission,
   requirePermission
 } from "@/lib/auth/server-auth";
-import { createBookingSchema } from "@/lib/bookings/booking-schema";
+import { createBookingSchema } from "@/features/bookings/validations/booking.schema";
 import {
   createBooking,
   expireOrganizationHolds
-} from "@/lib/bookings/booking-service";
+} from "@/features/bookings/services/booking.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 

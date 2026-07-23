@@ -5,6 +5,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
 const settingsSchema = z.object({
+  language: z.enum(["en-US", "en-GB", "he-IL", "es-US"]).optional(),
   timezone: z.string().trim().min(1).optional(),
   twoFactorRequired: z.boolean().optional(),
   sessionTimeoutMinutes: z.number().int().min(5).max(1440).optional(),
@@ -49,6 +50,7 @@ export async function PATCH(request: Request) {
     const actor = await requirePermission(request, "canViewSettings");
     const input = settingsSchema.parse(await request.json());
     if (
+      input.language !== undefined ||
       input.timezone !== undefined ||
       input.twoFactorRequired !== undefined ||
       input.sessionTimeoutMinutes !== undefined
@@ -56,6 +58,7 @@ export async function PATCH(request: Request) {
       await requirePermission(request, "canEditSettings");
     }
     const organizationChanges = {
+      language: input.language,
       timezone: input.timezone,
       twoFactorRequired: input.twoFactorRequired,
       sessionTimeoutMinutes: input.sessionTimeoutMinutes

@@ -26,6 +26,7 @@
     "db:sample-vendors": "prisma db execute --file prisma/sample-vendors.sql",
     "db:billing-strengthening": "prisma db execute --file prisma/billing-strengthening.sql",
     "db:booking-engine": "prisma db execute --file prisma/booking-engine.sql",
+    "db:language-setting": "prisma db execute --file prisma/language-setting-backfill.sql",
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "db:rls": "prisma db execute --file prisma/supabase-rls.sql",
     "format": "prettier --write .",

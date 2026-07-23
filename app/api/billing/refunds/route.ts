@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
-import { recordRefundWithAudit } from "@/lib/billing/record-refund";
+import { recordRefundWithAudit } from "@/features/billing/services/record-refund.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 const refundSchema = z.object({

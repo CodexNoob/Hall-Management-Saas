@@ -1,4 +1,4 @@
-import { EventManagerPage } from "@/components/dashboard/event-manager-page";
+import { EventManagerPage } from "@/features/events/components/event-manager-page";
 
 export default function DashboardEventsPage() {
   return <EventManagerPage />;

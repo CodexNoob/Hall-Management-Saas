@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createBookingSchema,
   transitionBookingSchema
-} from "@/lib/bookings/booking-schema";
+} from "@/features/bookings/validations/booking.schema";
 
 const baseBooking = {
   clientName: "Miriam Cohen",

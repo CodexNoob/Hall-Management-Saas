@@ -1,4 +1,4 @@
-import { DiningManagerPage } from "@/components/dashboard/dining-manager-page";
+import { DiningManagerPage } from "@/features/dining/components/dining-manager-page";
 
 export default function DashboardDiningManagerPage() {
   return <DiningManagerPage />;

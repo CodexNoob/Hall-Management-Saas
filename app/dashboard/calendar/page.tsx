@@ -1,4 +1,4 @@
-import { EventCalendarPage } from "@/components/dashboard/event-calendar-page";
+import { EventCalendarPage } from "@/features/calendar/components/event-calendar-page";
 
 export default function DashboardCalendarPage() {
   return <EventCalendarPage />;

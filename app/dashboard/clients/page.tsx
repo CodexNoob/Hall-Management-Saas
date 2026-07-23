@@ -1,4 +1,4 @@
-import { ClientsPage } from "@/components/dashboard/clients-page";
+import { ClientsPage } from "@/features/clients/components/clients-page";
 
 export default function DashboardClientsPage() {
   return <ClientsPage />;

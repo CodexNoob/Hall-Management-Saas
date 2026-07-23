@@ -1,4 +1,4 @@
-import { FreeTrialCard } from "@/components/free-trial/free-trial-card";
+import { FreeTrialCard } from "@/features/auth/components/free-trial-card";
 
 export default function StartTrialPage() {
   return (

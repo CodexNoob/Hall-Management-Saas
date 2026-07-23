@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
     eventPackage: { findMany: vi.fn() }
   }
 }));
-vi.mock("@/lib/bookings/booking-service", () => ({
+vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {},
   createBooking: vi.fn(),
   expireOrganizationHolds: vi.fn().mockResolvedValue(0)

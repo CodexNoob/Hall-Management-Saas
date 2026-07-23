@@ -996,6 +996,7 @@ model FileFolder {
 model OrganizationSetting {
   id                    String   @id @default(uuid()) @db.Uuid
   organizationId        String   @unique @map("organization_id") @db.Uuid
+  language              String   @default("en-US")
   timezone              String   @default("America/New_York")
   twoFactorRequired     Boolean  @default(false) @map("two_factor_required")
   sessionTimeoutMinutes Int      @default(30) @map("session_timeout_minutes")

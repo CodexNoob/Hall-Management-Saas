@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/server-auth";
-import { expireOrganizationHolds } from "@/lib/bookings/booking-service";
+import { expireOrganizationHolds } from "@/features/bookings/services/booking.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 // Safe to call from an authenticated scheduler/heartbeat. Event reads and writes

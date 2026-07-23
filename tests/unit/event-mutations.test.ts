@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/server-auth", () => ({
   requirePermission: vi.fn()
 }));
-vi.mock("@/lib/bookings/booking-service", () => ({
+vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {
     constructor(
       message: string,
@@ -34,7 +34,7 @@ import {
   BookingError,
   createBooking,
   transitionBooking
-} from "@/lib/bookings/booking-service";
+} from "@/features/bookings/services/booking.service";
 
 const actor = {
   id: "22222222-2222-4222-8222-222222222222",

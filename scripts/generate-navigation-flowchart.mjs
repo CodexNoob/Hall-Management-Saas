@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 
 const svgPath = "docs/hall-management-saas-navigation-flowchart.svg";
