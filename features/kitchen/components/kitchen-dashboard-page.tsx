@@ -282,31 +282,34 @@ function KitchenHeader({
         </nav>
       </div>
 
-      <div className="hidden w-full min-w-0 items-center gap-2 xl:flex">
-        {previousButton()}
-        <h1
-          className="min-w-0 max-w-[24rem] shrink truncate whitespace-nowrap text-xl font-black text-[#07162d] 2xl:text-2xl"
-          title={information.heading}
-        >
-          {information.heading}
-        </h1>
+      <div className="hidden w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 xl:grid">
+        <div className="flex min-w-0 items-center gap-2">
+          {previousButton()}
+          <h1
+            className="min-w-0 max-w-[24rem] truncate whitespace-nowrap text-xl font-black text-[#07162d] 2xl:text-2xl"
+            title={information.heading}
+          >
+            {information.heading}
+          </h1>
+          {nextButton()}
+        </div>
 
-        {nextButton()}
-
-        <strong className="min-w-26 flex-1 text-center text-lg font-black text-[#ffd45c] 2xl:min-w-32 2xl:text-xl">
+        <strong className="whitespace-nowrap text-center text-lg font-black text-[#ffd45c] 2xl:text-xl">
           {information.time}
         </strong>
 
-        <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-3 py-3 text-xs font-black uppercase tracking-wide text-white">
-          Hall Manager
-        </span>
+        <div className="flex min-w-0 items-center justify-end gap-2">
+          <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-3 py-3 text-xs font-black uppercase tracking-wide text-white">
+            Hall Manager
+          </span>
 
-        <nav
-          aria-label="Kitchen calendar views"
-          className="flex min-w-0 shrink-0 gap-1"
-        >
-          {viewTabs()}
-        </nav>
+          <nav
+            aria-label="Kitchen calendar views"
+            className="flex min-w-0 shrink-0 gap-1"
+          >
+            {viewTabs()}
+          </nav>
+        </div>
       </div>
     </header>
   );

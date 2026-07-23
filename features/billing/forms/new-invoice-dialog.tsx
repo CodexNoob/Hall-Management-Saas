@@ -78,10 +78,23 @@ export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProp
           <h2 className="text-base font-black text-[#17202a]" id={titleId}>New invoice</h2>
           <button
             aria-label="Close new invoice"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[0] leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
           >
+            <svg
+              aria-hidden="true"
+              className="absolute h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M5 5 19 19M19 5 5 19"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeWidth="2.25"
+              />
+            </svg>
             <span aria-hidden="true">×</span>
           </button>
         </header>

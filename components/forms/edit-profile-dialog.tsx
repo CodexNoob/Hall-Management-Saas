@@ -81,7 +81,7 @@ export function EditProfileDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-[#15344f] bg-[#1f4d73] text-white shadow-2xl"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-white/15 bg-[#061126] text-white shadow-2xl"
         role="dialog"
       >
         <form className="p-4 sm:p-5" onSubmit={submitProfile}>
@@ -91,7 +91,7 @@ export function EditProfileDialog({
 
           <div className="flex justify-center py-9">
             <div className="relative">
-              <div className="flex h-34 w-34 items-center justify-center rounded-full border-3 border-[#f0f0f0] bg-[#facb0b] text-5xl font-light text-white ring-2 ring-[#15344f] ring-offset-2 ring-offset-[#1f4d73]">
+              <div className="flex h-34 w-34 items-center justify-center rounded-full border-3 border-[#f0f0f0] bg-[#facb0b] text-5xl font-light text-white ring-2 ring-[#15344f] ring-offset-2 ring-offset-[#061126]">
                 {initials}
               </div>
 
@@ -155,7 +155,7 @@ export function EditProfileDialog({
           </div>
 
           <p className="mt-4 text-center text-xs text-white/70">
-            Your profile helps people recognize you in group chats.
+            Your profile helps your team recognize you across the dashboard.
           </p>
 
           <footer className="mt-4 flex justify-end gap-3">
@@ -167,7 +167,7 @@ export function EditProfileDialog({
               Cancel
             </button>
             <button
-              className="h-9 rounded-full bg-white px-4 text-sm font-semibold text-[#1f4d73] transition hover:bg-[#eef4fa]"
+              className="h-9 rounded-full bg-white px-4 text-sm font-semibold text-[#061126] transition hover:bg-[#eef4fa]"
               type="submit"
             >
               Save

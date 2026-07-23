@@ -21,6 +21,7 @@ type Folder = {
   name: string;
   fileCount: number;
   parentId: string | null;
+  isPermanent: boolean;
 };
 
 type FilesResponse = {
@@ -130,7 +131,9 @@ export function FilePage() {
       id: folder.id,
       name: folder.name,
       parentId: folder.parentId,
-      fileCount: folder._count.files
+      fileCount: folder._count.files,
+      isPermanent:
+        folder.parentId === null && folder.name === "Event Core Files"
     }));
     setFolders(nextFolders);
     setSelectedFolderId((current) =>
@@ -168,7 +171,14 @@ export function FilePage() {
   const selectedFolder = folders.find(
     (folder) => folder.id === selectedFolderId
   ) ??
-    folders[0] ?? { id: "", name: "Files", fileCount: 0, parentId: null };
+    folders[0] ?? {
+      id: "",
+      name: "Files",
+      fileCount: 0,
+      parentId: null,
+      isPermanent: false
+    };
+  const eventCoreFolder = folders.find((folder) => folder.isPermanent);
 
   const visibleFolders = useMemo(() => {
     return folders.filter((folder) => {
@@ -220,6 +230,8 @@ export function FilePage() {
   }
 
   async function createEventFolder(values: NewEventFolderFormValues) {
+    if (!eventCoreFolder) return;
+
     const eventFolderName = `${values.clientName} ${values.eventType}`.trim();
     const standardFolderNames = [
       "Invoicing",
@@ -233,7 +245,7 @@ export function FilePage() {
     const result = await folderMutation.mutate({
       resource: "folder",
       name: eventFolderName,
-      parentId: selectedFolder.id || null
+      parentId: eventCoreFolder.id
     });
     await Promise.all(
       standardFolderNames.map((name) =>
@@ -246,20 +258,22 @@ export function FilePage() {
     );
     await filesQuery.refetch();
     setExpandedFolderIds((current) =>
-      Array.from(new Set([...current, result.folder.id]))
+      Array.from(new Set([...current, eventCoreFolder.id, result.folder.id]))
     );
     setSelectedFolderId(result.folder.id);
   }
 
   async function createFolder(values: NewFolderFormValues) {
+    if (!eventCoreFolder) return;
+
     const result = await folderMutation.mutate({
       resource: "folder",
       name: values.folderName,
-      parentId: selectedFolder.id || null
+      parentId: eventCoreFolder.id
     });
     await filesQuery.refetch();
     setExpandedFolderIds((current) =>
-      Array.from(new Set([...current, selectedFolder.id]))
+      Array.from(new Set([...current, eventCoreFolder.id]))
     );
     setSelectedFolderId(result.folder.id);
   }
@@ -384,32 +398,57 @@ export function FilePage() {
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
+        compactMobileActions
         title="Files"
         subtitle="Master file explorer with practical folders only."
         actionsSlot={
           <>
             <button
-              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-5 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="New event folder"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#17202a] transition hover:text-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-50 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-5 lg:text-sm lg:font-bold lg:shadow-sm lg:hover:border-[#1f4d73]/60 lg:hover:bg-[#eef4fa]"
               disabled={!canEdit}
               type="button"
               onClick={() => setIsNewEventFolderOpen(true)}
             >
-              New Event Folder
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6 lg:hidden"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path d="M3 6.5h6l2 2h10v10.5H3z" />
+                <path d="M12 11v5M9.5 13.5h5" />
+              </svg>
+              <span className="hidden lg:inline">New Event Folder</span>
             </button>
 
             <button
-              className="h-11 whitespace-nowrap rounded-xl bg-[#1f4d73] px-5 text-sm font-bold text-white shadow-sm transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Add file"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-5 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f]"
               disabled={!canEdit}
               type="button"
               onClick={() => setIsAddFileOpen(true)}
             >
-              Add File
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6 lg:hidden"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="1.8"
+              >
+                <path d="M6 3h8l4 4v14H6z" />
+                <path d="M14 3v5h4M12 11v6M9 14h6" />
+              </svg>
+              <span className="hidden lg:inline">Add File</span>
             </button>
           </>
         }
       />
 
-      <main className="min-h-0 flex-1 overflow-hidden p-3 sm:p-4">
+      <main className="min-h-0 flex-1 overflow-hidden p-2 sm:p-4">
         <div className="mx-auto grid h-full max-w-[1800px] gap-3 lg:grid-cols-[320px_minmax(0,1fr)]">
           <aside className="hidden min-h-0 overflow-hidden rounded-xl border border-[#d8dde5] lg:block">
             {folderPanel}
@@ -419,20 +458,34 @@ export function FilePage() {
             <>
               <button
                 aria-label="Close folder navigation"
-                className="fixed inset-0 z-60 bg-[#17202a]/40 lg:hidden"
+                className="fixed inset-0 z-60 bg-[#17202a]/35 backdrop-blur-sm lg:hidden"
                 onClick={() => setIsMobileFoldersOpen(false)}
                 type="button"
               />
 
-              <aside className="fixed bottom-0 left-0 top-0 z-70 w-[min(88vw,340px)] overflow-hidden border-r border-[#d8dde5] bg-white shadow-2xl lg:hidden">
+              <aside className="fixed bottom-0 left-0 top-0 z-70 w-[min(76vw,17rem)] overflow-hidden border-r border-[#d8dde5] bg-white shadow-2xl lg:hidden">
                 <div className="flex items-center justify-between border-b border-[#d8dde5] p-3">
                   <strong className="text-sm">Folder navigation</strong>
 
                   <button
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5]"
+                    aria-label="Close folder navigation"
+                    className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[0] leading-none text-[#17202a] hover:bg-[#eef4fa]"
                     onClick={() => setIsMobileFoldersOpen(false)}
                     type="button"
                   >
+                    <svg
+                      aria-hidden="true"
+                      className="absolute h-6 w-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M5 5 19 19M19 5 5 19"
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeWidth="2.25"
+                      />
+                    </svg>
                     ×
                   </button>
                 </div>
@@ -443,7 +496,7 @@ export function FilePage() {
           ) : null}
 
           <section className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
-            <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-4">
+            <div className="flex min-h-14 flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-3 py-2 sm:px-4">
               <div className="flex min-w-0 items-center gap-3">
                 <button
                   className="flex h-9 items-center gap-2 rounded-lg border border-[#d8dde5] px-3 text-sm font-black lg:hidden"
@@ -464,7 +517,7 @@ export function FilePage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 md:flex-row md:items-center">
               <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(180px,260px)_150px]">
                 <label className="sr-only" htmlFor="folder-search">
                   Search this folder
@@ -500,7 +553,7 @@ export function FilePage() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 sm:flex">
+              <div className="grid grid-cols-2 gap-2 sm:flex">
                 <button
                   className="h-10 whitespace-nowrap rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black transition hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={!canEdit}
@@ -521,7 +574,7 @@ export function FilePage() {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
               {visibleFolders.length > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {visibleFolders.map((folder) => (
@@ -578,6 +631,7 @@ export function FilePage() {
                             </span>
                           </button>
 
+                          {!folder.isPermanent ? (
                           <div className="relative" data-folder-actions-menu>
                             <button
                               aria-expanded={openFolderMenuId === folder.id}
@@ -620,6 +674,7 @@ export function FilePage() {
                               </div>
                             ) : null}
                           </div>
+                          ) : null}
                         </>
                       )}
                     </article>
@@ -644,7 +699,11 @@ export function FilePage() {
       </main>
 
       <AddFileDialog
-        folderPath={selectedFolderPath}
+        folderPath={
+          eventCoreFolder
+            ? getFolderPath(eventCoreFolder.id)
+            : selectedFolderPath
+        }
         onClose={() => setIsAddFileOpen(false)}
         onSave={() => setIsAddFileOpen(false)}
         open={isAddFileOpen}

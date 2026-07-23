@@ -277,7 +277,7 @@ export function DashboardTopbarBrand() {
         />
       </button>
       <button
-        className="dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-visible border border-transparent bg-transparent text-[#17202a] shadow-none transition hover:bg-transparent focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:hidden"
+        className="dashboard-sidebar-toggle group absolute left-4 flex h-10 w-10 shrink-0 items-center justify-center overflow-visible border border-transparent bg-transparent text-[#17202a] shadow-none transition-transform duration-150 ease-out hover:bg-transparent active:scale-90 focus:outline-none focus-visible:outline-none focus-visible:ring-0 lg:hidden"
         type="button"
         onClick={toggleSidebar}
         aria-label={sidebarToggleLabel}
@@ -288,21 +288,9 @@ export function DashboardTopbarBrand() {
           className="pointer-events-none absolute hidden h-10 w-10 rounded-lg bg-transparent transition-colors group-hover:bg-white/10 lg:block"
         />
         <span className="relative h-5 w-6 lg:hidden" aria-hidden="true">
-          <span
-            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
-              isMobileSidebarOpen ? "top-2.25 rotate-45" : "top-0.5"
-            }`}
-          />
-          <span
-            className={`absolute left-0 top-2.25 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
-              isMobileSidebarOpen ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100"
-            }`}
-          />
-          <span
-            className={`absolute left-0 h-0.5 w-6 rounded-full bg-current transition-all duration-200 ${
-              isMobileSidebarOpen ? "top-2.25 -rotate-45" : "top-4"
-            }`}
-          />
+          <span className="absolute left-0 top-0.5 h-0.5 w-6 rounded-full bg-current" />
+          <span className="absolute left-0 top-2.25 h-0.5 w-6 rounded-full bg-current" />
+          <span className="absolute left-0 top-4 h-0.5 w-6 rounded-full bg-current" />
         </span>
         <span
           aria-hidden="true"
@@ -431,7 +419,13 @@ export function DashboardTopbar({
     <>
       <header className="dashboard-topbar-content fixed right-0 top-0 z-50 bg-[#ffffff]/95 backdrop-blur-xl">
         <div className="flex min-h-14 items-stretch lg:min-h-20">
-          <div className="relative flex min-w-0 flex-1 flex-col gap-2 border-b border-[#d8dde5] pb-3 pl-20 pr-4 pt-3 lg:flex-row lg:items-center lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6">
+          <div
+            className={`relative flex min-w-0 flex-1 flex-col border-b border-[#d8dde5] pl-20 pr-4 lg:flex-row lg:items-center lg:gap-2 lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6 ${
+              compactMobileActions
+                ? "gap-0 pb-2.5 pt-2.5"
+                : "gap-2 pb-3 pt-3"
+            }`}
+          >
             <div className="order-1 flex h-9 min-w-0 shrink items-center pr-26 lg:order-0 lg:block lg:h-auto lg:grow lg:pr-0">
               <h1 className="truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg lg:text-2xl">
                 {title}

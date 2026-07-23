@@ -1522,6 +1522,57 @@ function KitchenItemCard({
 }
 
 function EventKitchenContent() {
+  type KitchenView = "Today" | "This Week" | "4 Weeks";
+  const initialKitchenDate = useMemo(() => new Date(2026, 6, 8, 12), []);
+  const [kitchenView, setKitchenView] = useState<KitchenView>("Today");
+  const [kitchenDate, setKitchenDate] = useState(initialKitchenDate);
+  const [currentTime, setCurrentTime] = useState("3:56 PM");
+
+  useEffect(() => {
+    const updateCurrentTime = () => {
+      setCurrentTime(
+        new Intl.DateTimeFormat("en-US", {
+          hour: "numeric",
+          minute: "2-digit"
+        }).format(new Date())
+      );
+    };
+
+    updateCurrentTime();
+    const timer = window.setInterval(updateCurrentTime, 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const moveKitchenDate = (direction: -1 | 1) => {
+    const increment =
+      kitchenView === "Today" ? 1 : kitchenView === "This Week" ? 7 : 28;
+    setKitchenDate((current) => {
+      const next = new Date(current);
+      next.setDate(next.getDate() + direction * increment);
+      return next;
+    });
+  };
+
+  const kitchenDateLabel = useMemo(() => {
+    const fullDate = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric"
+    });
+    if (kitchenView === "Today") return fullDate.format(kitchenDate);
+
+    const start = new Date(kitchenDate);
+    start.setDate(start.getDate() - start.getDay());
+    const end = new Date(start);
+    end.setDate(end.getDate() + (kitchenView === "This Week" ? 6 : 27));
+    const shortDate = new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric"
+    });
+    return `${kitchenView} · ${shortDate.format(start)} – ${shortDate.format(end)}, ${end.getFullYear()}`;
+  }, [kitchenDate, kitchenView]);
+
   const kitchenItems = [
     ["Challah rolls", "240", "COMPLETE", "Already prepared"],
     ["Chicken soup", "120 bowls", "IN PROGRESS", "Already in progress"],
@@ -1536,31 +1587,60 @@ function EventKitchenContent() {
         <div className="space-y-3 xl:hidden">
           <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2">
             <button
-              aria-label="Previous day"
-              className="flex h-10 w-10 items-center justify-center bg-white"
+              aria-label="Previous date range"
+              className="flex h-10 w-10 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+              onClick={() => moveKitchenDate(-1)}
               type="button"
             >
-              <LineIcon name="chevron" className="h-4 w-4 rotate-180" />
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="m15 4-8 8 8 8"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3.5"
+                />
+              </svg>
             </button>
             <h2 className="min-w-0 text-center text-base font-black leading-tight">
-              Wednesday, July 8, 2026
+              {kitchenDateLabel}
             </h2>
             <button
-              aria-label="Next day"
-              className="flex h-10 w-10 items-center justify-center bg-white"
+              aria-label="Next date range"
+              className="flex h-10 w-10 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+              onClick={() => moveKitchenDate(1)}
               type="button"
             >
-              <LineIcon name="chevron" />
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="m9 4 8 8-8 8"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="3.5"
+                />
+              </svg>
             </button>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {["Today", "This Week", "4 Weeks"].map((view, index) => (
+            {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map((view) => (
               <button
                 className={`h-10 min-w-0 px-2 text-sm font-black ${
-                  index === 0 ? "bg-[#f5c542]" : "bg-white"
+                  kitchenView === view ? "bg-[#f5c542]" : "bg-white"
                 }`}
                 key={view}
+                onClick={() => setKitchenView(view)}
                 type="button"
               >
                 {view}
@@ -1569,71 +1649,79 @@ function EventKitchenContent() {
           </div>
 
           <p className="text-center text-xl font-black text-[#ffe36e]">
-            3:56 PM
+            {currentTime}
           </p>
         </div>
 
         <div className="hidden xl:block">
-        <div className="flex flex-wrap items-start gap-3">
-          <button
-            className="inline-flex h-10 items-center gap-3 bg-white px-4 text-sm font-black"
-            type="button"
-          >
-            <LineIcon name="chevron" />
-            Main Menu
-          </button>
-          <button
-            className="flex h-10 w-10 items-center justify-center bg-white"
-            type="button"
-            aria-label="Kitchen document"
-          >
-            <LineIcon name="document" />
-          </button>
-          <button
-            className="flex h-10 w-10 items-center justify-center bg-white"
-            type="button"
-            aria-label="Previous day"
-          >
-            <LineIcon name="chevron" className="h-4 w-4 rotate-180" />
-          </button>
-          <h2 className="flex h-10 items-center text-2xl font-black">
-            Wednesday, July 8, 2026
-          </h2>
-          <button
-            className="flex h-10 w-10 items-center justify-center bg-white"
-            type="button"
-            aria-label="Next day"
-          >
-            <LineIcon name="chevron" />
-          </button>
-          <button
-            className="h-10 bg-white px-4 text-sm font-black"
-            type="button"
-          >
-            Today
-          </button>
-          <div className="ml-auto flex flex-wrap gap-3">
-            <button
-              className="h-10 bg-[#f5c542] px-5 text-sm font-black"
-              type="button"
-            >
-              Today
-            </button>
-            <button
-              className="h-10 bg-white px-5 text-sm font-black"
-              type="button"
-            >
-              This Week
-            </button>
-            <button
-              className="h-10 bg-white px-5 text-sm font-black"
-              type="button"
-            >
-              4 Weeks
-            </button>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <button
+                className="flex h-11 w-9 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+                onClick={() => moveKitchenDate(-1)}
+                type="button"
+                aria-label="Previous date range"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="m15 4-8 8 8 8"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="3.5"
+                  />
+                </svg>
+              </button>
+              <h2 className="flex h-10 min-w-0 items-center whitespace-nowrap text-2xl font-black">
+                {kitchenDateLabel}
+              </h2>
+              <button
+                className="flex h-11 w-9 shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73]"
+                onClick={() => moveKitchenDate(1)}
+                type="button"
+                aria-label="Next date range"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-8 w-8"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="m9 4 8 8-8 8"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="3.5"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <p className="flex h-10 items-center justify-center whitespace-nowrap px-1 text-2xl font-black text-[#ffe36e]">
+              {currentTime}
+            </p>
+
+            <div className="flex flex-wrap justify-end gap-3">
+              {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map((view) => (
+                <button
+                  className={`h-10 px-5 text-sm font-black ${
+                    kitchenView === view ? "bg-[#f5c542]" : "bg-white"
+                  }`}
+                  key={view}
+                  onClick={() => setKitchenView(view)}
+                  type="button"
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-        <p className="mt-3 text-2xl font-black text-[#ffe36e]">3:56 PM</p>
         </div>
       </section>
 
@@ -1893,7 +1981,7 @@ function EventWorkspace({ event }: { event: EventFile }) {
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
   return (
-    <section className="dashboard-panel-enter flex h-auto w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
+    <section className="flex h-auto w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
       <header className="shrink-0 border-b border-[#d8dde5] bg-white p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">

@@ -107,7 +107,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (!syncData) {
     return (
       <main
-        className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4"
+        className="dashboard-font flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4"
         aria-busy="true"
         aria-label={status}
       >
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const roleLabel = formatRole(syncData.user.role);
 
   return (
-    <main className="min-h-screen bg-[#f5f6f8] text-[#17202a]">
+    <main className="dashboard-font min-h-screen bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbarBrand />
       <DashboardSidebar
         user={syncData.user}

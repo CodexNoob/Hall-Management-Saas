@@ -183,7 +183,7 @@ function DiningTable({
   return (
     <button
       aria-label={`Table ${number}, ${seats} seats`}
-      className="flex h-17 w-17 flex-col items-center justify-center rounded-full border border-[#526c86] bg-white text-center shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef6fc]"
+      className="flex h-14 w-14 flex-col items-center justify-center rounded-full border border-[#526c86] bg-white text-center shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef6fc] sm:h-17 sm:w-17"
       type="button"
     >
       <strong className="text-[11px]">Table {number}</strong>
@@ -202,33 +202,40 @@ export function DiningManagerPage() {
     diningEvents[0];
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Dining Manager"
         subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
         showSearch={false}
+        compactMobileActions
         actionsSlot={
           <>
             <button
-              className="h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+              aria-label="Clear selection"
+              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#17202a] hover:text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-bold lg:shadow-sm lg:hover:bg-[#eef4fa]"
               onClick={() => setSelectedEventId(null)}
+              title="Clear selection"
               type="button"
             >
-              Clear selection
+              <svg aria-hidden="true" className="h-6 w-6 lg:hidden" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>
+              <span className="hidden lg:inline">Clear selection</span>
             </button>
             <button
-              className="h-11 whitespace-nowrap rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#15344f]"
+              aria-label="Save layout"
+              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] hover:text-[#15344f] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f]"
+              title="Save layout"
               type="button"
             >
-              Save layout
+              <svg aria-hidden="true" className="h-6 w-6 lg:hidden" fill="none" viewBox="0 0 24 24"><path d="M5 4h12l2 2v14H5ZM8 4v6h8V4M8 20v-6h8v6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>
+              <span className="hidden lg:inline">Save layout</span>
             </button>
           </>
         }
       />
 
-      <main className="min-h-0 flex-1 overflow-y-auto p-3">
-        <div className="mx-auto grid min-h-full max-w-[1800px] gap-3 xl:grid-cols-[258px_minmax(500px,1fr)_304px]">
-          <Panel>
+      <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
+        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[258px_minmax(500px,1fr)_304px]">
+          <Panel className="min-w-0">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Events</h2>
               <p className="mt-1 text-xs text-[#617086]">
@@ -248,7 +255,7 @@ export function DiningManagerPage() {
             </div>
           </Panel>
 
-          <Panel className="flex min-h-155 flex-col">
+          <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155">
             <header className="border-b border-[#d8dde5] p-2.5">
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-black text-[#17202a]">
@@ -259,10 +266,10 @@ export function DiningManagerPage() {
                 </p>
               </div>
 
-              <div className="mt-2 grid grid-cols-[minmax(140px,1fr)_auto_auto] gap-2">
+              <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(140px,1fr)_auto_auto]">
                 <select
                 aria-label="Dining hall"
-                className="h-8 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-semibold"
+                className="col-span-2 h-8 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-semibold sm:col-span-1"
                 defaultValue={selectedEvent.hall}
                 key={selectedEvent.id}
                 name="diningHall"
@@ -275,14 +282,14 @@ export function DiningManagerPage() {
                 </select>
 
               <button
-                className="h-8 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-[10px] font-black hover:bg-[#eef4fa]"
+                className="h-8 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] sm:px-3"
                 type="button"
               >
                 Load preset
               </button>
 
               <button
-                className="h-8 whitespace-nowrap rounded-lg bg-[#1f4d73] px-4 text-[10px] font-black text-white hover:bg-[#15344f]"
+                className="h-8 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-2 text-[10px] font-black text-white hover:bg-[#15344f] sm:px-4"
                 type="button"
               >
                 Save preset
@@ -292,7 +299,7 @@ export function DiningManagerPage() {
 
             <div className="min-h-0 flex-1 overflow-auto p-2">
               <div
-                className="relative min-h-133.75 min-w-127.5 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff]"
+                className="relative min-h-105 w-full min-w-0 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] sm:min-h-133.75"
                 style={{
                   backgroundImage:
                     "linear-gradient(#dce5ef 1px, transparent 1px), linear-gradient(90deg, #dce5ef 1px, transparent 1px)",
@@ -300,7 +307,7 @@ export function DiningManagerPage() {
                   backgroundSize: "21px 21px",
                 }}
               >
-                <div className="mx-auto mt-19 grid w-78.75 grid-cols-4 gap-x-5 gap-y-8">
+                <div className="mx-auto mt-12 grid w-full max-w-78.75 grid-cols-4 justify-items-center gap-x-1 gap-y-5 px-2 sm:mt-19 sm:gap-x-5 sm:gap-y-8 sm:px-0">
                   {tables.map((table) => (
                     <DiningTable
                       key={table.id}
@@ -310,11 +317,11 @@ export function DiningManagerPage() {
                   ))}
                 </div>
 
-                <div className="mx-auto mt-4 flex h-5 w-82.5 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
+                <div className="mx-auto mt-4 flex h-5 w-[calc(100%-1rem)] max-w-82.5 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
                   Mechitza
                 </div>
 
-                <div className="mx-auto mt-10 grid w-100.5 grid-cols-[1fr_114px_1fr] items-center gap-10">
+                <div className="mx-auto mt-8 grid w-full max-w-100.5 grid-cols-3 items-center gap-2 px-2 sm:mt-10 sm:grid-cols-[1fr_114px_1fr] sm:gap-10 sm:px-0">
                   <button
                     className="h-11 rounded-lg border border-dashed border-[#415d78] bg-[#f4f8fb] text-[10px] font-black"
                     type="button"
@@ -343,7 +350,7 @@ export function DiningManagerPage() {
             </div>
           </Panel>
 
-          <Panel>
+          <Panel className="min-w-0 lg:col-span-2 xl:col-span-1">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Dining details</h2>
               <p className="mt-1 text-xs text-[#617086]">
@@ -500,16 +507,16 @@ export function DiningManagerPage() {
                   only on tables marked Kids.
                 </p>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 xl:grid-cols-1">
                   <button
-                    className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa]"
+                    className="h-8 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1.5 text-[9px] font-black hover:bg-[#eef4fa] sm:px-2 sm:text-[10px]"
                     type="button"
                   >
                     Check seating
                   </button>
 
                   <button
-                    className="h-8 rounded-lg bg-[#1f4d73] px-2 text-[10px] font-black text-white hover:bg-[#15344f]"
+                    className="h-8 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-1.5 text-[9px] font-black text-white hover:bg-[#15344f] sm:px-2 sm:text-[10px]"
                     type="button"
                   >
                     Add required tables

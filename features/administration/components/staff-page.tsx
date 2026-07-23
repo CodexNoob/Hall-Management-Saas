@@ -213,14 +213,14 @@ function SectionHeader({
   action?: ReactNode;
 }) {
   return (
-    <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
-      <div>
+    <header className="flex min-h-14 flex-col items-stretch justify-between gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:px-4">
+      <div className="min-w-0">
         <h2 className="text-sm font-black">{title}</h2>
         {subtitle ? (
           <p className="mt-0.5 text-[10px] text-[#6a7483]">{subtitle}</p>
         ) : null}
       </div>
-      {action}
+      {action ? <div className="min-w-0">{action}</div> : null}
     </header>
   );
 }
@@ -319,27 +319,43 @@ export function StaffPage() {
   return (
     <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
+        compactMobileActions
         title="Staff"
         subtitle="Manage staff members, roles, departments, and permissions."
         actionsSlot={
           <>
             <button
-              className={secondaryButtonClass}
+              aria-label="Open today notes"
+              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] lg:h-9 lg:w-auto lg:gap-2 lg:rounded-lg lg:border lg:border-[#c7d0dc] lg:bg-white lg:px-3 lg:text-xs lg:font-black lg:shadow-sm lg:hover:bg-[#eef4fa]"
               onClick={() => setIsTodayNotesOpen(true)}
               type="button"
             >
-              Today notes
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6 lg:h-4 lg:w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.8"
+              >
+                <rect x="5" y="4" width="14" height="17" rx="2" />
+                <path d="M9 2v4M15 2v4M8.5 10h7M8.5 14h7M8.5 18h4" />
+              </svg>
+              <span className="hidden lg:inline">Today notes</span>
             </button>
             <button
-              className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Add staff"
+              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#1f4d73] hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto lg:gap-2 lg:whitespace-nowrap lg:rounded-lg lg:bg-[#1f4d73] lg:px-3 lg:text-xs lg:font-black lg:text-white lg:shadow-sm lg:hover:bg-[#15344f]"
               disabled={!canEdit}
               type="button"
             >
-              <LineIcon name="plus" />
-              Add staff
+              <LineIcon name="plus" className="h-6 w-6 lg:h-4 lg:w-4" />
+              <span className="hidden lg:inline">Add staff</span>
             </button>
             <button
-              className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+              className="hidden h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex"
               disabled={!canEdit}
               type="button"
             >
@@ -415,9 +431,9 @@ export function StaffPage() {
                 title="Staff directory"
                 subtitle={`${staffMembers.length} records`}
                 action={
-                  <div className="flex items-center gap-2">
+                  <div className="grid w-full gap-2 sm:flex sm:w-auto sm:items-center">
                     <label
-                      className="flex h-9 w-72 items-center gap-2 rounded-lg border border-[#c7d0dc] px-3 text-[#6a7483]"
+                      className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#c7d0dc] px-3 text-[#6a7483] sm:w-72"
                       htmlFor="staff-search"
                     >
                       <LineIcon name="search" />
@@ -532,11 +548,11 @@ export function StaffPage() {
                 </table>
               </div>
               <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dde5] px-4 py-2 text-[10px] text-[#6a7483]">
-                <span>
+                <span className="block w-full text-center sm:w-auto sm:text-left">
                   Showing 1 to {filteredStaff.length} of {staffMembers.length}{" "}
                   results
                 </span>
-                <div className="flex gap-2">
+                <div className="flex w-full max-w-full justify-center gap-1 overflow-x-auto pb-1 sm:w-auto sm:justify-start sm:gap-2">
                   <button
                     className="h-7 w-8 rounded border border-[#d3dae3]"
                     type="button"
@@ -687,7 +703,7 @@ export function StaffPage() {
 
             <section className="m-3 mt-4 rounded-xl border border-[#d8dde5] p-3">
               <h3 className="text-xs font-black">Quick actions</h3>
-              <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <button
                   className={`${secondaryButtonClass} justify-start`}
                   type="button"

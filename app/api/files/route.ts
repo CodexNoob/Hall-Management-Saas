@@ -28,10 +28,29 @@ const folderUpdateSchema = z.object({
   name: z.string().trim().min(1)
 });
 const folderDeleteSchema = z.object({ id: z.string().uuid() });
+const PERMANENT_FOLDER_NAME = "Event Core Files";
 
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewEventManager");
+    const permanentFolder = await prisma.fileFolder.findFirst({
+      where: {
+        organizationId: actor.organizationId,
+        parentId: null,
+        name: PERMANENT_FOLDER_NAME
+      },
+      select: { id: true }
+    });
+    if (!permanentFolder) {
+      await prisma.fileFolder.create({
+        data: {
+          organizationId: actor.organizationId,
+          name: PERMANENT_FOLDER_NAME,
+          parentId: null
+        }
+      });
+    }
+
     const [folders, files] = await Promise.all([
       prisma.fileFolder.findMany({
         where: { organizationId: actor.organizationId },
@@ -130,6 +149,21 @@ export async function PATCH(request: Request) {
   try {
     const actor = await requirePermission(request, "canEditFiles");
     const input = folderUpdateSchema.parse(await request.json());
+    const protectedFolder = await prisma.fileFolder.findFirst({
+      where: {
+        id: input.id,
+        organizationId: actor.organizationId,
+        parentId: null,
+        name: PERMANENT_FOLDER_NAME
+      },
+      select: { id: true }
+    });
+    if (protectedFolder) {
+      return NextResponse.json(
+        { error: `${PERMANENT_FOLDER_NAME} cannot be renamed.` },
+        { status: 409 }
+      );
+    }
     const result = await prisma.fileFolder.updateMany({
       where: { id: input.id, organizationId: actor.organizationId },
       data: { name: input.name }
@@ -146,6 +180,21 @@ export async function DELETE(request: Request) {
   try {
     const actor = await requirePermission(request, "canEditFiles");
     const input = folderDeleteSchema.parse(await request.json());
+    const protectedFolder = await prisma.fileFolder.findFirst({
+      where: {
+        id: input.id,
+        organizationId: actor.organizationId,
+        parentId: null,
+        name: PERMANENT_FOLDER_NAME
+      },
+      select: { id: true }
+    });
+    if (protectedFolder) {
+      return NextResponse.json(
+        { error: `${PERMANENT_FOLDER_NAME} cannot be deleted.` },
+        { status: 409 }
+      );
+    }
     const result = await prisma.fileFolder.deleteMany({
       where: { id: input.id, organizationId: actor.organizationId }
     });

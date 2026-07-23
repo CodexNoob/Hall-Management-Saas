@@ -65,6 +65,13 @@ const tabs: BillingTab[] = [
   "Event Billing",
   "Settings"
 ];
+const billingTabIcons: Record<BillingTab, IconName> = {
+  Dashboard: "bank",
+  Transactions: "payment",
+  Invoices: "invoice",
+  "Event Billing": "bank",
+  Settings: "settings"
+};
 const cashMovementBars = [
   { label: "$15k", day: "Mon", className: "h-24 bg-[#d8dde5]" },
   { label: "$1.8k", day: "Tue", className: "h-10 bg-[#d8dde5]" },
@@ -150,27 +157,38 @@ function TopAction({
   label,
   onClick,
   tone = "outline",
-  disabled = false
+  disabled = false,
+  compactOnMobile = false
 }: {
   icon?: IconName;
   label: string;
   onClick?: () => void;
   tone?: "outline" | "primary";
   disabled?: boolean;
+  compactOnMobile?: boolean;
 }) {
   return (
     <button
-      className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+      aria-label={label}
+      className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
+        compactOnMobile ? "w-8 border-transparent bg-transparent px-0 shadow-none lg:w-auto lg:px-3" : "px-3"
+      } ${
         tone === "primary"
-          ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md shadow-[#1f4d73]/15"
-          : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+          ? compactOnMobile
+            ? "text-[#1f4d73] lg:border-[#1f4d73] lg:bg-[#1f4d73] lg:text-white lg:shadow-md lg:shadow-[#1f4d73]/15"
+            : "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md shadow-[#1f4d73]/15"
+          : compactOnMobile
+            ? "text-[#17202a] hover:text-[#1f4d73] lg:border-[#b9c2cf] lg:bg-white lg:hover:bg-[#eef4fa]"
+            : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
       }`}
       onClick={onClick}
       disabled={disabled}
       type="button"
     >
-      {icon ? <LineIcon name={icon} /> : null}
-      {label}
+      {icon ? <LineIcon name={icon} className={compactOnMobile ? "h-6 w-6 lg:h-4 lg:w-4" : undefined} /> : null}
+      <span className={compactOnMobile ? "hidden lg:inline" : undefined}>
+        {label}
+      </span>
     </button>
   );
 }
@@ -236,24 +254,28 @@ function BillingHeader({
   setActiveTab: (tab: BillingTab) => void;
 }) {
   return (
-    <header className="border-b border-[#d8dde5] bg-white">
-      <nav className="flex flex-wrap gap-1 px-4 pt-3">
+    <div className="shrink-0 bg-white">
+      <nav className="scrollbar-none mt-2 flex min-h-12 shrink-0 flex-nowrap gap-2 overflow-x-auto border-b border-t border-[#d8dde5] px-3 [&::-webkit-scrollbar]:hidden sm:px-4 lg:mt-0 lg:border-t-0">
         {tabs.map((tab) => (
           <button
             key={tab}
-            className={`rounded-t-lg border px-5 py-3 text-sm font-black ${
+            className={`inline-flex h-12 shrink-0 items-center gap-2 border-b-3 px-2 text-sm font-black ${
               activeTab === tab
-                ? "border-[#b9c2cf] border-b-white bg-white text-[#17202a]"
-                : "border-transparent text-[#17202a] hover:bg-[#fbfcfd]"
+                ? "border-[#1f4d73] text-[#17202a]"
+                : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
             }`}
             type="button"
             onClick={() => setActiveTab(tab)}
           >
+            <LineIcon
+              name={billingTabIcons[tab]}
+              className="h-4 w-4 text-[#516174]"
+            />
             {tab}
           </button>
         ))}
       </nav>
-    </header>
+    </div>
   );
 }
 
@@ -281,8 +303,8 @@ function DashboardTab({
   ]);
 
   return (
-    <div className="space-y-4 p-4">
-      <div className="grid gap-3 lg:grid-cols-5">
+    <div className="max-w-full min-w-0 space-y-4 overflow-x-hidden p-2 sm:p-4">
+      <div className="grid min-w-0 grid-cols-1 gap-3 min-[380px]:grid-cols-2 lg:grid-cols-5">
         <StatCard
           label="Paid Income"
           value={currency(data.summary.paidCents)}
@@ -314,10 +336,10 @@ function DashboardTab({
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
-        <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-            <div>
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+          <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0">
               <h2 className="font-black text-[#17202a]">Billing dashboard</h2>
               <p className="text-sm text-[#6a7483]">
                 Daily office view for the finance team.
@@ -344,9 +366,9 @@ function DashboardTab({
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-            <div>
+        <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+          <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0">
               <h2 className="font-black text-[#17202a]">Cash movement</h2>
               <p className="text-sm text-[#6a7483]">Sample weekly activity.</p>
             </div>
@@ -358,7 +380,7 @@ function DashboardTab({
               Open event billing
             </button>
           </div>
-          <div className="flex h-52 items-end gap-3 p-6">
+          <div className="flex h-52 min-w-0 items-end gap-2 p-3 sm:gap-3 sm:p-6">
             {cashMovementBars.map((bar) => (
               <div
                 key={bar.day}
@@ -373,8 +395,8 @@ function DashboardTab({
         </section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_0.95fr]">
-        <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
           <div className="border-b border-[#d8dde5] p-4">
             <h2 className="font-black text-[#17202a]">
               Recent bank transactions
@@ -383,7 +405,7 @@ function DashboardTab({
               Imported from connected bank or file upload.
             </p>
           </div>
-          <div className="overflow-x-auto p-4">
+          <div className="max-w-full overflow-x-auto p-3 sm:p-4">
             <table className="w-full min-w-160 text-left text-sm">
               <thead className="text-xs uppercase tracking-[0.08em] text-[#6a7483]">
                 <tr>
@@ -420,9 +442,9 @@ function DashboardTab({
           </div>
         </section>
 
-        <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-            <div>
+        <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+          <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+            <div className="min-w-0">
               <h2 className="font-black text-[#17202a]">Open balances</h2>
               <p className="text-sm text-[#6a7483]">
                 Invoices that still need payment.
@@ -468,8 +490,8 @@ function DashboardTab({
 
 function TransactionsTab({ openModal }: { openModal: () => void }) {
   return (
-    <div className="grid gap-4 p-4 xl:grid-cols-[430px_1fr]">
-      <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+    <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <div className="border-b border-[#d8dde5] p-4">
           <h2 className="font-black">Transactions</h2>
           <p className="text-sm text-[#6a7483]">
@@ -485,9 +507,9 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
             name="transactionSearch"
             placeholder="Merchant, memo, client, amount"
           />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             <select
-              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
               aria-label="Transaction status filter"
               name="transactionStatusFilter"
               title="Transaction status filter"
@@ -495,7 +517,7 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
               <option>Needs review</option>
             </select>
             <select
-              className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
               aria-label="Transaction category filter"
               name="transactionCategoryFilter"
               title="Transaction category filter"
@@ -508,28 +530,28 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
             type="button"
             onClick={openModal}
           >
-            <div className="flex justify-between font-black">
-              <span>Zelle Yidel Graus</span>
-              <span className="text-[#146c43]">$3,900</span>
+            <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
+              <span className="min-w-0 wrap-break-word">Zelle Yidel Graus</span>
+              <span className="shrink-0 text-[#146c43]">$3,900</span>
             </div>
             <p className="text-xs text-[#6a7483]">
               Jun 29 - Zelle payment from YIDEL GRAUS XXXXXXX5312
             </p>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <Pill tone="gold">Unassigned</Pill>
               <Pill>Uncategorized</Pill>
               <Pill tone="gray">1 splits</Pill>
             </div>
           </button>
           <article className="rounded-lg border border-[#d8dde5] p-3">
-            <div className="flex justify-between font-black">
+            <div className="flex flex-wrap justify-between gap-x-3 font-black">
               <span>Payroll</span>
               <span className="text-[#a62b24]">-$5,200</span>
             </div>
             <p className="text-xs text-[#6a7483]">
               Jun 27 - Waiter payroll weekend events
             </p>
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-wrap gap-2">
               <Pill tone="gold">Unassigned</Pill>
               <Pill>Staff Payroll</Pill>
               <Pill tone="gray">1 splits</Pill>
@@ -538,9 +560,9 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
         </div>
       </section>
 
-      <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-          <div>
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+        <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="min-w-0">
             <h2 className="text-2xl font-black">Transaction review</h2>
             <p className="text-sm text-[#6a7483]">
               Open any bank transaction from the list. Review opens as a
@@ -558,7 +580,7 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
             note="Across invoices"
           />
         </div>
-        <div className="mx-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
+        <div className="mx-4 mb-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
           This area stays in the billing module. The transaction posting screen
           opens as a popup in the same tall ratio as the reference.
         </div>
@@ -569,8 +591,8 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
 
 function InvoicesTab() {
   return (
-    <div className="grid gap-4 p-4 xl:grid-cols-[430px_1fr]">
-      <section className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+    <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-black">Invoices</h2>
@@ -604,9 +626,9 @@ function InvoicesTab() {
               key={invoice}
               className={`rounded-lg border p-3 ${index === 1 ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5]"}`}
             >
-              <div className="flex justify-between font-black">
-                <span>{invoice}</span>
-                <span>
+              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
+                <span className="min-w-0 wrap-break-word">{invoice}</span>
+                <span className="shrink-0">
                   {["$48,220", "$17,560", "$22,855", "$9,040"][index]}
                 </span>
               </div>
@@ -620,7 +642,7 @@ function InvoicesTab() {
                   ][index]
                 }
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <Pill
                   tone={index === 2 ? "green" : index === 3 ? "gold" : "red"}
                 >
@@ -634,13 +656,13 @@ function InvoicesTab() {
           ))}
         </div>
       </section>
-      <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-          <div>
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+        <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="min-w-0">
             <h2 className="text-2xl font-black">INV-1029</h2>
             <p className="text-sm text-[#6a7483]">Klein - Sheva Brachos</p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid w-full gap-2 sm:flex sm:w-auto">
             <TopAction label="Record payment" />
             <TopAction icon="print" label="Print" />
             <TopAction label="Save invoice" tone="primary" />
@@ -713,8 +735,8 @@ function InvoicesTab() {
 
 function EventBillingTab() {
   return (
-    <div className="grid gap-4 p-4 xl:grid-cols-[430px_1fr]">
-      <section className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+    <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
         <h2 className="font-black">Event Billing</h2>
         <p className="text-sm text-[#6a7483]">
           Open a specific event billing workspace.
@@ -732,7 +754,7 @@ function EventBillingTab() {
         >
           <option>Open balance</option>
         </select>
-        <div className="mt-3 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
+        <div className="mt-3 wrap-break-word rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
           Events highlighted here have open invoice balances.
         </div>
         <div className="mt-3 space-y-2">
@@ -741,9 +763,9 @@ function EventBillingTab() {
               key={name}
               className="rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3"
             >
-              <div className="flex justify-between font-black">
-                <span>{name}</span>
-                <span>
+              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
+                <span className="min-w-0 wrap-break-word">{name}</span>
+                <span className="shrink-0">
                   {["$29,320", "$15,060", "$22,855", "$9,040"][index]}
                 </span>
               </div>
@@ -757,7 +779,7 @@ function EventBillingTab() {
                   ][index]
                 }
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap gap-2">
                 <Pill tone="gold">Open balance</Pill>
                 <Pill>
                   {index === 1
@@ -772,15 +794,15 @@ function EventBillingTab() {
           ))}
         </div>
       </section>
-      <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <div className="flex items-center justify-between border-b border-[#d8dde5] p-4">
-          <div>
+      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+        <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+          <div className="min-w-0">
             <h2 className="text-2xl font-black">Friedman</h2>
             <p className="text-sm text-[#6a7483]">
               Wedding - Jul 8, 2026 - Grand Hall
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid w-full gap-2 sm:flex sm:w-auto">
             <TopAction label="Create invoice" />
             <TopAction label="Record payment" />
             <TopAction icon="print" label="Print statement" tone="primary" />
@@ -1116,23 +1138,27 @@ export function BillingPage() {
   }
 
   return (
-    <div className="dashboard-readable-page min-h-screen overflow-x-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
+        compactMobileActions
         title="Billing"
         subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
         actionsSlot={
           <>
             <TopAction
+              compactOnMobile
               disabled={!canManagePayments}
               icon="upload"
               label="Import bank file"
             />
             <TopAction
+              compactOnMobile
               disabled={!canEditSettings}
               icon="settings"
               label="Invoice settings"
             />
             <TopAction
+              compactOnMobile
               icon="plus"
               label="New invoice"
               disabled={!canManagePayments}
@@ -1147,10 +1173,10 @@ export function BillingPage() {
         onSave={saveInvoice}
         open={canManagePayments && isNewInvoiceOpen}
       />
-      <section className="h-[calc(100vh-5rem)] bg-[#fbfcfd]">
-        <div className="flex h-full flex-col">
+      <section className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-hidden bg-[#fbfcfd]">
+        <div className="flex h-full min-w-0 flex-col">
           <BillingHeader activeTab={activeTab} setActiveTab={setActiveTab} />
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
             <BillingContent
               activeTab={activeTab}
               data={billingQuery.data}
