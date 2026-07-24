@@ -487,6 +487,11 @@ function FourWeekDay({
   day: KitchenDay;
   onAddKitchenEvent: (dateKey: string) => void;
 }) {
+  const weekdayLabel = day.shabbos
+    ? "Shabbos"
+    : new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(
+        new Date(`${day.dateKey}T12:00:00`)
+      );
   const borderColor = day.today || day.selected
     ? "border-[#009ee8]"
     : day.shabbos
@@ -495,33 +500,33 @@ function FourWeekDay({
 
   return (
     <article
-      className={`min-h-39 border-2 bg-white ${borderColor} ${
+      className={`min-h-39 min-w-0 overflow-hidden border-2 bg-white ${borderColor} ${
         day.today || day.selected ? "bg-[#edf9ff]" : ""
       }`}
     >
       <header
-        className={`flex items-center justify-between border-b px-2 py-1.5 ${
+        className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden border-b px-2 py-1.5 ${
           day.shabbos
             ? "border-[#a25bff] bg-[#fcf8ff]"
             : "border-[#d6dde5] bg-[#f7f9fb]"
         }`}
       >
         <strong
-          className={`text-sm ${
+          className={`min-w-0 truncate text-sm ${
             day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
           }`}
+          title={weekdayLabel}
         >
-          {day.dayName}
+          {weekdayLabel}
         </strong>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PlusButton
             label={`Add kitchen event on ${day.dateLabel}`}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />
-
           <strong
-            className={`whitespace-nowrap text-sm ${
+            className={`whitespace-nowrap text-xs sm:text-sm ${
               day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
             }`}
           >
@@ -530,7 +535,7 @@ function FourWeekDay({
         </div>
       </header>
 
-      <div className="space-y-1 p-2">
+      <div className="min-w-0 space-y-1 p-2">
         {day.events?.map((event) => (
           <KitchenEventCard compact event={event} key={event.id} />
         ))}
@@ -573,14 +578,18 @@ function FourWeeksView({
         ))}
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {days.map((day) => (
-          <FourWeekDay
-            day={day}
-            key={day.dateKey}
-            onAddKitchenEvent={onAddKitchenEvent}
-          />
-        ))}
+      <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-2">
+        <div className="w-full min-w-256 bg-[#a9a9a9] p-1.5">
+          <div className="grid grid-cols-7 gap-1.5">
+            {days.map((day) => (
+              <FourWeekDay
+                day={day}
+                key={day.dateKey}
+                onAddKitchenEvent={onAddKitchenEvent}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
