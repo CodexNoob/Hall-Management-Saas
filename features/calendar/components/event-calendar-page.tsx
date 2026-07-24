@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { CalendarBookingDialog } from "@/features/calendar/forms/calendar-booking-dialog";
 import {
@@ -10,7 +11,6 @@ import {
 } from "@/features/calendar/forms/date-range-picker-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import { addDays, addMonths, buildMonthGrid, dateKey, dateKeyFromIso, startOfDay, startOfMonth } from "@/lib/dates/calendar-date";
-import { formatHebrewDate } from "@/lib/dates/hebrew-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
 type CalendarStatus = "confirmed" | "hold" | "school";
@@ -451,14 +451,18 @@ const initialBlockedRanges: BlockedRange[] = [
   {
     id: "july-4",
     startLabel: "Sat, Jul 4, 2026",
-    hebrewLabel: "19 בתמוז 5786"
+    hebrewLabel: "19 בתמוז"
   },
-  { id: "july-18", startLabel: "Sat, Jul 18, 2026", hebrewLabel: "4 באב 5786" },
+  {
+    id: "july-18",
+    startLabel: "Sat, Jul 18, 2026",
+    hebrewLabel: "4 באב"
+  },
   {
     id: "july-22-24",
     startLabel: "Wed, Jul 22, 2026",
     endLabel: "Fri, Jul 24, 2026",
-    hebrewLabel: "8 באב 5786 to 10 באב 5786"
+    hebrewLabel: "8 באב to 10 באב"
   }
 ];
 
@@ -498,7 +502,9 @@ function CalendarSettingsView() {
           id: rangeId,
           startLabel: blockedStartLabel,
           endLabel: isSingleBlockedDay ? undefined : blockedEndLabel,
-          hebrewLabel: "16 בתמוז 5786"
+          hebrewLabel: isSingleBlockedDay
+            ? formatHebrewDateWithoutYear(blockedRangeDraft.startDate)
+            : `${formatHebrewDateWithoutYear(blockedRangeDraft.startDate)} to ${formatHebrewDateWithoutYear(blockedRangeDraft.endDate)}`
         },
         ...current
       ];
@@ -695,7 +701,7 @@ export function EventCalendarPage() {
             dayName: new Intl.DateTimeFormat("en-US", {
               weekday: "short"
             }).format(day),
-            hebrewDate: formatHebrewDate(day),
+            hebrewDate: formatHebrewDateWithoutYear(day),
             roomsAvailable: Math.max(0, halls.length - new Set(dayBookings.map((booking) => booking.hall)).size),
             status: dayBookings.some((booking) => booking.status === "hold")
               ? ("hold" as const)
@@ -914,9 +920,8 @@ export function EventCalendarPage() {
 
                           <div className="pointer-events-none relative z-1 flex items-start justify-between gap-2">
                             <strong className="text-sm">{calendarDay.day}</strong>
-
                             <span className="text-[9px] font-semibold" dir="rtl">
-                              {formatHebrewDate(calendarDay.date)}
+                              {formatHebrewDateWithoutYear(calendarDay.date)}
                             </span>
                           </div>
 

@@ -77,6 +77,15 @@ const tabs = [
   { label: "Add-ons", icon: "dollar" }
 ] satisfies Array<{ label: string; icon: IconName }>;
 
+const sampleMenuItems = [
+  { name: "Challah Rolls", category: "Appetizers" },
+  { name: "Traditional Chicken Soup", category: "Soups" },
+  { name: "Braised Short Ribs", category: "Main Courses" },
+  { name: "Herb Roasted Chicken", category: "Main Courses" },
+  { name: "Potato Kugel", category: "Side Dishes" },
+  { name: "Chocolate Mousse Cups", category: "Desserts" }
+];
+
 type MenuResponse = {
   items: Array<{
     id: string;
@@ -271,17 +280,17 @@ const platedSections = [
 function MenuItemCard({ category, name }: { category: string; name: string }) {
   return (
     <article className="flex h-50 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-      <div className="flex w-full flex-col">
+      <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
-          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">
+          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {category}
           </span>
-          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
-            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
           </span>
         </div>
-        <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] px-3 text-center text-sm font-black leading-4 text-[#17202a]">
-          {name}
+        <div className="flex h-16 min-w-0 items-center justify-center border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
+          <span className="line-clamp-3 wrap-break-word">{name}</span>
         </div>
       </div>
     </article>
@@ -321,19 +330,19 @@ function PackageAddCard({
 }) {
   return (
     <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
-      <div className="flex w-full flex-col">
+      <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
-          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">
+          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {category}
           </span>
-          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
-            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
           </span>
         </div>
-        <div className="flex h-16 flex-col items-center justify-center border-t border-[#d8dde5] px-2 text-center">
-          <p className="text-sm font-black leading-4 text-[#17202a]">{name}</p>
-          <p className="mt-1 text-xs leading-4 text-[#6a7483]">{rule}</p>
-          <p className="text-xs leading-4 text-[#6a7483]">{price}</p>
+        <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
+          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">{name}</p>
+          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{rule}</p>
+          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{price}</p>
         </div>
       </div>
     </article>
@@ -353,19 +362,19 @@ function MenuRuleCard({
 }) {
   return (
     <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
-      <div className="flex w-full flex-col">
+      <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
-          <span className="absolute left-3 top-3 rounded-full bg-white px-2 py-1 text-[10px] font-black text-[#17202a]">
+          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {category}
           </span>
-          <span className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf]">
-            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
           </span>
         </div>
-        <div className="flex h-16 flex-col items-center justify-center border-t border-[#d8dde5] px-2 text-center">
-          <p className="text-sm font-black leading-4 text-[#17202a]">{name}</p>
-          <p className="mt-1 text-xs leading-4 text-[#6a7483]">{rule}</p>
-          <p className="text-xs leading-4 text-[#6a7483]">{price}</p>
+        <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
+          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">{name}</p>
+          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{rule}</p>
+          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{price}</p>
         </div>
       </div>
     </article>
@@ -388,7 +397,7 @@ function MenuRuleSection({
         </span>
       </header>
       {items.length ? (
-        <div className="flex flex-col gap-3 p-3">
+        <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-col sm:gap-3">
           {items.map((item) => (
             <MenuRuleCard
               key={`${title}-${item.name}`}
@@ -459,14 +468,22 @@ export function MenuPage() {
   const [selectedPackage, setSelectedPackage] = useState("");
   const [isNewPackageOpen, setIsNewPackageOpen] = useState(false);
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
-  const allMenuItems = useMemo(
-    () =>
-      (menuQuery.data?.items ?? []).map((item) => ({
+  const allMenuItems = useMemo(() => {
+    const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
         name: item.name,
         category: item.category ?? "More"
-      })),
-    [menuQuery.data]
-  );
+      }));
+    const savedNames = new Set(
+      savedItems.map((item) => item.name.trim().toLowerCase())
+    );
+
+    return [
+      ...savedItems,
+      ...sampleMenuItems.filter(
+        (item) => !savedNames.has(item.name.toLowerCase())
+      )
+    ];
+  }, [menuQuery.data]);
   const allPackages = useMemo(
     () =>
       (menuQuery.data?.packages ?? []).map((item) => ({
@@ -685,14 +702,14 @@ export function MenuPage() {
                 </button>
               </header>
 
-              <div className="space-y-2 p-3">
+              <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-1">
                 {allPackages.map((item) => {
                   const isActive = selectedPackage === item.name;
 
                   return (
                     <button
                       key={item.name}
-                      className={`flex h-14 w-full items-center gap-3 overflow-hidden rounded-lg border px-3 text-left ${
+                      className={`flex min-h-24 w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border p-2 text-center sm:h-14 sm:min-h-0 sm:flex-row sm:justify-start sm:gap-3 sm:px-3 sm:text-left ${
                         isActive
                           ? "border-[#1f4d73] bg-[#eef4fa]"
                           : "border-[#d8dde5] bg-white hover:bg-[#eef4fa]"
@@ -700,18 +717,18 @@ export function MenuPage() {
                       type="button"
                       onClick={() => setSelectedPackage(item.name)}
                     >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73] sm:h-9 sm:w-9">
                         <LineIcon name="box" className="h-4 w-4" />
                       </span>
-                      <span className="grid min-w-0 flex-1 gap-0.5">
+                      <span className="grid min-w-0 max-w-full flex-1 gap-0.5">
                         <span className="truncate text-sm font-black leading-4 text-[#17202a]">
                           {item.name}
                         </span>
-                        <span className="truncate text-xs leading-4 text-[#6a7483]">
+                        <span className="hidden truncate text-xs leading-4 text-[#6a7483] sm:block">
                           {item.type} - {item.summary}
                         </span>
                       </span>
-                      <span className="shrink-0 rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-1.5 py-1 text-[10px] font-black leading-none text-[#1f4d73]">
+                      <span className="max-w-full shrink-0 truncate rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-1.5 py-1 text-[9px] font-black leading-none text-[#1f4d73] sm:text-[10px]">
                         {item.price}
                       </span>
                     </button>
@@ -776,7 +793,7 @@ export function MenuPage() {
                       Add Buffet or Plated items
                     </h3>
                   </header>
-                  <div className="flex flex-wrap gap-3 p-3">
+                  <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
                     {packageAddItems.map((item) => (
                       <PackageAddCard
                         key={item.name}
@@ -924,7 +941,7 @@ export function MenuPage() {
                   </div>
                 </div>
 
-                <div className="grid min-h-0 flex-1 gap-3 overflow-y-auto p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+                <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
                   {visibleItems.map((item) => (
                     <MenuItemCard
                       key={item.name}
