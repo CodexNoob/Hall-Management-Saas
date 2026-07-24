@@ -20,15 +20,9 @@ type BookingFormValues = {
   eventDate: string;
   hallId: string;
   eventTypeId: string;
-  status: "Inquiry" | "Hold" | "Confirmed";
+  status: "Hold" | "Confirmed";
   couples: string;
   children: string;
-  packageId: string;
-  paymentStatus:
-    | ""
-    | "Deposit Paid"
-    | "Paid Partially"
-    | "Paid in Full";
   notes: string;
 };
 
@@ -38,13 +32,8 @@ type BookingPayload = {
   eventDate: string;
   hallId: string;
   eventTypeId?: string;
-  packageId?: string;
-  bookingStatus: "INQUIRY" | "TENTATIVE_HOLD" | "CONFIRMED";
-  eventStatus: "Inquiry" | "Hold" | "Confirmed";
-  paymentStatus?:
-    | "Deposit Paid"
-    | "Paid Partially"
-    | "Paid in Full";
+  bookingStatus: "TENTATIVE_HOLD" | "CONFIRMED";
+  eventStatus: "Hold" | "Confirmed";
   couplesCount: number;
   kidsCount: number;
   notes?: string;
@@ -56,7 +45,6 @@ type CalendarBookingDialogProps = {
   selectedDate: string;
   halls: LookupOption[];
   eventTypes: LookupOption[];
-  packages: LookupOption[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 };
@@ -75,8 +63,6 @@ const initialValues: BookingFormValues = {
   status: "Hold",
   couples: "0",
   children: "0",
-  packageId: "",
-  paymentStatus: "",
   notes: ""
 };
 
@@ -118,7 +104,6 @@ export function CalendarBookingDialog({
   selectedDate,
   halls,
   eventTypes,
-  packages,
   onClose,
   onSaved
 }: CalendarBookingDialogProps) {
@@ -187,7 +172,6 @@ export function CalendarBookingDialog({
     event.preventDefault();
 
     const bookingStatuses = {
-      Inquiry: "INQUIRY",
       Hold: "TENTATIVE_HOLD",
       Confirmed: "CONFIRMED"
     } as const;
@@ -199,10 +183,8 @@ export function CalendarBookingDialog({
         eventDate: values.eventDate,
         hallId: values.hallId,
         eventTypeId: values.eventTypeId || undefined,
-        packageId: values.packageId || undefined,
         bookingStatus: bookingStatuses[values.status],
         eventStatus: values.status,
-        paymentStatus: values.paymentStatus || undefined,
         couplesCount: Number(values.couples) || 0,
         kidsCount: Number(values.children) || 0,
         notes: values.notes.trim() || undefined,
@@ -387,7 +369,6 @@ export function CalendarBookingDialog({
                   }
                   value={values.status}
                 >
-                  <option>Inquiry</option>
                   <option>Hold</option>
                   <option>Confirmed</option>
                 </select>
@@ -427,54 +408,6 @@ export function CalendarBookingDialog({
                 />
               </div>
 
-              <div>
-                <FieldLabel htmlFor="calendar-package">
-                  Menu package
-                </FieldLabel>
-
-                <select
-                  className={controlClass}
-                  id="calendar-package"
-                  onChange={(event) =>
-                    updateValue("packageId", event.target.value)
-                  }
-                  value={values.packageId}
-                >
-                  <option value="">Not assigned</option>
-
-                  {packages.map((eventPackage) => (
-                    <option
-                      key={eventPackage.id}
-                      value={eventPackage.id}
-                    >
-                      {eventPackage.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-payment-status">
-                  Payment status
-                </FieldLabel>
-
-                <select
-                  className={controlClass}
-                  id="calendar-payment-status"
-                  onChange={(event) =>
-                    updateValue(
-                      "paymentStatus",
-                      event.target.value
-                    )
-                  }
-                  value={values.paymentStatus}
-                >
-                  <option value="">Not sent</option>
-                  <option>Deposit Paid</option>
-                  <option>Paid Partially</option>
-                  <option>Paid in Full</option>
-                </select>
-              </div>
             </div>
 
             <div className="mt-2">

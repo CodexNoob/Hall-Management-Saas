@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { NewInvoiceDialog } from "@/features/billing/forms/new-invoice-dialog";
 import {
   clearCachedSyncedUser,
@@ -265,7 +266,10 @@ function BillingHeader({
                 : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
             }`}
             type="button"
-            onClick={() => setActiveTab(tab)}
+            onClick={(event) => {
+              setActiveTab(tab);
+              centerMobileTab(event.currentTarget);
+            }}
           >
             <LineIcon
               name={billingTabIcons[tab]}

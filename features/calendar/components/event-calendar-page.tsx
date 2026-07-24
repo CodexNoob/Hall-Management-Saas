@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { CalendarBookingDialog } from "@/features/calendar/forms/calendar-booking-dialog";
@@ -778,17 +779,17 @@ export function EventCalendarPage() {
 
       <nav className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0">
         <div className="grid w-full min-w-0 grid-cols-3 sm:flex sm:min-w-max sm:gap-2">
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "calendar" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={() => setActiveTab("calendar")} type="button">
+          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "calendar" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("calendar"); centerMobileTab(event.currentTarget); }} type="button">
             <CalendarIcon className="hidden h-4 w-4 sm:block" />
             Month Calendar
           </button>
 
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "availability" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={() => setActiveTab("availability")} type="button">
+          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "availability" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("availability"); centerMobileTab(event.currentTarget); }} type="button">
             <BuildingIcon className="hidden h-4 w-4 sm:block" />
             Availability
           </button>
 
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "settings" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={() => setActiveTab("settings")} type="button">
+          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "settings" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("settings"); centerMobileTab(event.currentTarget); }} type="button">
             <SettingsIcon className="hidden h-4 w-4 sm:block" />
             Settings
           </button>
@@ -1008,7 +1009,6 @@ export function EventCalendarPage() {
           await eventsQuery.refetch();
         }}
         open={isNewBookingOpen}
-        packages={eventsQuery.data?.packages ?? []}
         selectedDate={selectedDate}
       />
       <TodayNotesDrawer

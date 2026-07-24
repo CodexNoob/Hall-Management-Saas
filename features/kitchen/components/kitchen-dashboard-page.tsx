@@ -252,7 +252,7 @@ function KitchenHeader({
     });
 
   return (
-    <header className="border-b border-[#929292] bg-[#b0b0b0] px-4 py-3 xl:py-4">
+    <header className="border-b border-[#d6dde5] bg-white px-4 py-3 xl:py-4">
       <div className="xl:hidden">
         <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1">
           {previousButton(true)}
@@ -703,7 +703,7 @@ export function KitchenDashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#b0b0b0] text-[#07162d]">
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#07162d]">
       <DashboardTopbar
         title="Kitchen Dashboard"
         subtitle="Review kitchen events, production schedules, and assigned work."

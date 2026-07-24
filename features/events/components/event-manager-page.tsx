@@ -24,6 +24,7 @@ import {
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 
 type BadgeTone = "green" | "gold" | "red";
 type IconName =
@@ -566,7 +567,7 @@ function EventInformation({ event }: { event: EventFile }) {
             name="eventDate"
           />
         </Field>
-        <Field label="Time">
+        <Field label="Start Time">
           <input
             className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
             defaultValue={event.time}
@@ -624,39 +625,39 @@ function EventInformation({ event }: { event: EventFile }) {
 
 function TimelineInstructions() {
   return (
-    <section className="rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex min-h-12 items-center justify-between gap-2 border-b border-[#d8dde5] px-3 py-2 sm:h-11 sm:px-4 sm:py-0">
+    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+      <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2 sm:h-14 sm:px-4 sm:py-0">
         <div className="flex min-w-0 items-center gap-2">
-          <LineIcon name="clock" className="h-4 w-4 shrink-0" />
-          <h2 className="min-w-0 text-[13px] font-black leading-tight text-[#17202a] sm:text-sm">
+          <LineIcon name="clock" className="h-5 w-5 shrink-0" />
+          <h2 className="min-w-0 text-sm font-black leading-tight text-[#17202a] sm:text-base">
             Timeline instructions
           </h2>
         </div>
         <button
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+          className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
           type="button"
         >
-          <LineIcon name="plus" />
+          <LineIcon name="plus" className="h-5 w-5" />
           Add time
         </button>
       </header>
-      <div className="space-y-3 p-3">
+      <div className="space-y-3 p-3 sm:p-4">
         {timelineRows.map(([time, text, type]) => (
           <div
             key={time}
-            className="grid min-w-0 gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_38px]"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_40px]"
           >
-            <div className="flex h-10 items-center justify-between rounded-lg border border-[#d8dde5] bg-white px-3 text-sm">
+            <div className="flex h-11 min-w-0 items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm">
               {time}
-              <LineIcon name="clock" className="h-4 w-4" />
+              <LineIcon name="clock" className="h-4 w-4 shrink-0" />
             </div>
             <input
-              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="order-last col-span-3 h-11 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm sm:order-none sm:col-span-1"
               defaultValue={text}
               name={`timeline-${time}-text`}
             />
             <select
-              className="h-10 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
+              className="h-11 min-w-0 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
               defaultValue={type}
               aria-label={`${time} timeline type`}
               name={`timeline-${time}-type`}
@@ -666,25 +667,25 @@ function TimelineInstructions() {
               <option>Staff</option>
             </select>
             <button
-              className="flex h-10 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
+              className="flex h-11 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
               type="button"
               aria-label={`Remove ${time}`}
             >
-              <LineIcon name="close" />
+              <LineIcon name="close" className="h-5 w-5" />
             </button>
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap gap-2 px-3 pb-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 px-3 pb-3 sm:flex sm:flex-wrap sm:px-4 sm:pb-4">
         <button
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-medium text-white hover:bg-[#15344f] sm:justify-start sm:px-4 sm:text-sm"
           type="button"
         >
           <LineIcon name="save" />
           Save timeline
         </button>
         <button
-          className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black hover:bg-[#eef4fa]"
+          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-medium hover:bg-[#eef4fa] sm:justify-start sm:text-sm"
           type="button"
         >
           <LineIcon name="check" />
@@ -725,19 +726,19 @@ function MenuDishCard({
 }) {
   return (
     <button
-      className="dashboard-hover-card flex h-44 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left sm:h-50"
+      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left sm:h-40 lg:h-44"
       onClick={onClick}
       type="button"
     >
       <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
-        <div className="flex h-18 w-18 items-center justify-center rounded-full border border-[#b9c2cf]">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d8dde5] bg-white px-1 text-center text-[8px] font-black uppercase leading-3 tracking-[0.03em] text-[#1f4d73]">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
+          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
             {course}
           </span>
         </div>
       </div>
-      <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] px-3">
-        <h3 className="line-clamp-2 text-center text-[13px] font-black leading-4 text-[#17202a] sm:text-sm">{name}</h3>
+      <div className="flex h-10 items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+        <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">{name}</h3>
       </div>
     </button>
   );
@@ -752,19 +753,19 @@ function AddMenuCard({
 }) {
   return (
     <button
-      className="dashboard-hover-card flex h-44 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa] sm:h-50"
+      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa] sm:h-40 lg:h-44"
       onClick={onClick}
       type="button"
     >
       <div className="flex flex-1 items-center justify-center">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-dashed border-[#b9c2cf] bg-white text-[#1f4d73]">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#d8dde5]">
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-dashed border-[#b9c2cf] bg-white text-[#1f4d73] sm:h-14 sm:w-14 sm:rounded-2xl">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#d8dde5] sm:h-8 sm:w-8">
             <LineIcon name="plus" className="h-3.5 w-3.5" />
           </span>
         </span>
       </div>
-      <div className="flex h-12 w-full items-center justify-center border-t border-[#d8dde5] px-3">
-        <span className="line-clamp-2 text-center text-[13px] font-black leading-4 sm:text-sm">{label}</span>
+      <div className="flex h-10 w-full items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+        <span className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 sm:text-xs sm:leading-4 lg:text-sm">{label}</span>
       </div>
     </button>
   );
@@ -824,7 +825,7 @@ function EventMenuContent() {
             Confirm menu
           </button>
         </header>
-        <div className="grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
           {selectedItems.map((item) => (
             <MenuDishCard
               key={`${item.course}-${item.name}`}
@@ -1583,7 +1584,7 @@ function EventKitchenContent() {
 
   return (
     <div className="space-y-3">
-      <section className="min-w-0 bg-[#a9a9a9] p-3 text-[#17202a] sm:p-4">
+      <section className="hidden min-w-0 bg-[#a9a9a9] p-3 text-[#17202a] sm:p-4">
         <div className="space-y-3 xl:hidden">
           <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-2">
             <button
@@ -1726,7 +1727,7 @@ function EventKitchenContent() {
       </section>
 
       <button
-        className="flex h-11 w-full items-center gap-3 border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#6a7483]"
+        className="hidden h-11 w-full items-center gap-3 border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#6a7483]"
         type="button"
       >
         <LineIcon name="plus" />
@@ -1977,6 +1978,7 @@ function EventTabPlaceholder({ label }: { label: string }) {
 function EventWorkspace({ event }: { event: EventFile }) {
   const [activeTab, setActiveTab] =
     useState<EventWorkspaceTab>("Event details");
+  const [isEventDetailsExpanded, setIsEventDetailsExpanded] = useState(true);
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
@@ -2060,7 +2062,13 @@ function EventWorkspace({ event }: { event: EventFile }) {
                 : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
             }`}
             type="button"
-            onClick={() => setActiveTab(tab.label)}
+            onClick={(clickEvent) => {
+              setActiveTab(tab.label);
+              centerMobileTab(clickEvent.currentTarget);
+              if (tab.label === "Event details") {
+                setIsEventDetailsExpanded(true);
+              }
+            }}
           >
             <LineIcon name={tab.icon} className="h-3.5 w-3.5 text-[#516174]" />
             {tab.label}
@@ -2070,15 +2078,40 @@ function EventWorkspace({ event }: { event: EventFile }) {
 
       <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-visible p-3 xl:overflow-y-auto">
         {activeTab === "Event details" ? (
-          <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
-            <div className="space-y-3">
-              <EventInformation event={event} />
-              <TimelineInstructions />
+          <div className="min-w-0">
+            <button
+              aria-expanded={isEventDetailsExpanded}
+              className="mb-3 flex min-h-11 w-full items-center justify-between rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] xl:hidden"
+              onClick={() =>
+                setIsEventDetailsExpanded((isExpanded) => !isExpanded)
+              }
+              type="button"
+            >
+              <span className="flex items-center gap-2">
+                <LineIcon name="calendar" />
+                Event details
+              </span>
+              <LineIcon
+                name="chevron"
+                className={`h-4 w-4 transition-transform ${
+                  isEventDetailsExpanded ? "rotate-90" : ""
+                }`}
+              />
+            </button>
+            <div
+              className={`min-w-0 gap-3 overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_336px] ${
+                isEventDetailsExpanded ? "grid" : "hidden"
+              }`}
+            >
+              <div className="space-y-3">
+                <EventInformation event={event} />
+                <TimelineInstructions />
+              </div>
+              <aside className="space-y-3">
+                <ClientContact />
+                <ReadinessPanel />
+              </aside>
             </div>
-            <aside className="space-y-3">
-              <ClientContact />
-              <ReadinessPanel />
-            </aside>
           </div>
         ) : null}
 
@@ -2119,6 +2152,7 @@ export function EventManagerPage() {
     null
   );
   const [selectedEventTitle, setSelectedEventTitle] = useState("");
+  const [isEventListExpanded, setIsEventListExpanded] = useState(true);
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
     () =>
@@ -2324,16 +2358,42 @@ export function EventManagerPage() {
                   {allEvents.length} records
                 </p>
               </div>
-              <button
-                className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
-                type="button"
-              >
-                <LineIcon name="close" />
-                Clear
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  aria-expanded={isEventListExpanded}
+                  aria-label={
+                    isEventListExpanded
+                      ? "Collapse event list"
+                      : "Expand event list"
+                  }
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#1f4d73] hover:bg-[#eef4fa] xl:hidden"
+                  onClick={() =>
+                    setIsEventListExpanded((isExpanded) => !isExpanded)
+                  }
+                  type="button"
+                >
+                  <LineIcon
+                    name="chevron"
+                    className={`h-5 w-5 transition-transform ${
+                      isEventListExpanded ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+                <button
+                  className="hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] xl:inline-flex"
+                  type="button"
+                >
+                  <LineIcon name="close" />
+                  Clear
+                </button>
+              </div>
             </header>
 
-            <div className="shrink-0 border-b border-[#d8dde5] p-3">
+            <div
+              className={`shrink-0 border-b border-[#d8dde5] p-3 xl:block ${
+                isEventListExpanded ? "block" : "hidden"
+              }`}
+            >
               <div className="grid grid-cols-2 gap-2 xl:grid-cols-[minmax(0,1fr)_136px]">
                 <input
                   className="col-span-2 h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-1"
@@ -2364,13 +2424,20 @@ export function EventManagerPage() {
               </div>
             </div>
 
-            <div className="max-h-56 min-h-0 flex-none space-y-2 overflow-y-auto p-3 xl:max-h-none xl:flex-1">
+            <div
+              className={`max-h-56 min-h-0 flex-none space-y-2 overflow-y-auto p-3 xl:flex xl:max-h-none xl:flex-1 xl:flex-col ${
+                isEventListExpanded ? "block" : "hidden"
+              }`}
+            >
               {allEvents.map((event) => (
                 <EventListCard
                   key={event.title}
                   event={event}
                   selected={event.title === selectedEvent.title}
-                  onClick={() => setSelectedEventTitle(event.title)}
+                  onClick={() => {
+                    setSelectedEventTitle(event.title);
+                    setIsEventListExpanded(false);
+                  }}
                 />
               ))}
             </div>

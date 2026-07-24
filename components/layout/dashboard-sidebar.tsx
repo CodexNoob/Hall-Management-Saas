@@ -427,7 +427,7 @@ export function DashboardSidebar({
   const openProfileDestination = (route: string) => {
     setIsProfileMenuOpen(false);
     setIsMobileOpen(false);
-    router.push(route as Parameters<typeof router.push>[0]);
+    router.push(route as Parameters<typeof router.push>[0], { scroll: false });
   };
 
   const logout = async () => {
@@ -586,7 +586,8 @@ export function DashboardSidebar({
                                     router.push(
                                       item.route as Parameters<
                                         typeof router.push
-                                      >[0]
+                                      >[0],
+                                      { scroll: false }
                                     );
                                   }
                                 }}
@@ -681,7 +682,8 @@ export function DashboardSidebar({
                             setIsMobileOpen(false);
                             if (item.route)
                               router.push(
-                                item.route as Parameters<typeof router.push>[0]
+                                item.route as Parameters<typeof router.push>[0],
+                                { scroll: false }
                               );
                           }}
                           aria-label={item.label}

@@ -374,7 +374,9 @@ export function DashboardTopbar({
     setSearchQuery("");
     setIsSearchOpen(false);
     setIsMobileSearchExpanded(false);
-    router.push(target.route as Parameters<typeof router.push>[0]);
+    router.push(target.route as Parameters<typeof router.push>[0], {
+      scroll: false
+    });
   };
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {

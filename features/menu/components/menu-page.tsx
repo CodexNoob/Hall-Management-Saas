@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import {
   NewPackageDialog,
   type NewPackageFormValues
@@ -662,7 +663,10 @@ export function MenuPage() {
                   : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
               }`}
               type="button"
-              onClick={() => setActiveTab(tab.label)}
+              onClick={(event) => {
+                setActiveTab(tab.label);
+                centerMobileTab(event.currentTarget);
+              }}
             >
               <LineIcon name={tab.icon} className="h-4 w-4 text-[#516174]" />
               {tab.label}
