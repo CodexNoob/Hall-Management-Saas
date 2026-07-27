@@ -493,8 +493,12 @@ function DashboardTab({
 }
 
 function TransactionsTab({ openModal }: { openModal: () => void }) {
+  const [expandedTransaction, setExpandedTransaction] = useState<
+    "zelle" | "payroll" | null
+  >(null);
+
   return (
-    <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
+    <div className="min-w-0 p-2 sm:p-4">
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <div className="border-b border-[#d8dde5] p-4">
           <h2 className="font-black">Transactions</h2>
@@ -529,8 +533,91 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
               <option>All categories</option>
             </select>
           </div>
+          <div className="divide-y divide-[#d8dde5] overflow-hidden rounded-lg border border-[#d8dde5] xl:hidden">
+            <div>
+              <button
+                aria-expanded={expandedTransaction === "zelle"}
+                className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto_2rem] items-center gap-2 px-3 text-left hover:bg-[#eef4fa]"
+                onClick={() =>
+                  setExpandedTransaction((current) =>
+                    current === "zelle" ? null : "zelle"
+                  )
+                }
+                type="button"
+              >
+                <span className="truncate text-sm font-black">
+                  Zelle Yidel Graus
+                </span>
+                <span className="whitespace-nowrap text-sm font-black text-[#146c43]">
+                  $3,900
+                </span>
+                <LineIcon
+                  className={`h-4 w-4 justify-self-end transition-transform ${
+                    expandedTransaction === "zelle" ? "rotate-90" : ""
+                  }`}
+                  name="chevron"
+                />
+              </button>
+              {expandedTransaction === "zelle" ? (
+                <div className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
+                  <p className="text-xs leading-5 text-[#6a7483]">
+                    Jun 29 - Zelle payment from YIDEL GRAUS XXXXXXX5312
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Pill tone="gold">Unassigned</Pill>
+                    <Pill>Uncategorized</Pill>
+                    <Pill tone="gray">1 splits</Pill>
+                  </div>
+                  <button
+                    className="mt-3 h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+                    onClick={openModal}
+                    type="button"
+                  >
+                    Review transaction
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div>
+              <button
+                aria-expanded={expandedTransaction === "payroll"}
+                className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto_2rem] items-center gap-2 px-3 text-left hover:bg-[#eef4fa]"
+                onClick={() =>
+                  setExpandedTransaction((current) =>
+                    current === "payroll" ? null : "payroll"
+                  )
+                }
+                type="button"
+              >
+                <span className="truncate text-sm font-black">Payroll</span>
+                <span className="whitespace-nowrap text-sm font-black text-[#a62b24]">
+                  -$5,200
+                </span>
+                <LineIcon
+                  className={`h-4 w-4 justify-self-end transition-transform ${
+                    expandedTransaction === "payroll" ? "rotate-90" : ""
+                  }`}
+                  name="chevron"
+                />
+              </button>
+              {expandedTransaction === "payroll" ? (
+                <div className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
+                  <p className="text-xs leading-5 text-[#6a7483]">
+                    Jun 27 - Waiter payroll weekend events
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Pill tone="gold">Unassigned</Pill>
+                    <Pill>Staff Payroll</Pill>
+                    <Pill tone="gray">1 splits</Pill>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
           <button
-            className="w-full rounded-lg border border-[#1f4d73] bg-[#eef4fa] p-3 text-left"
+            className="hidden w-full rounded-lg border border-[#1f4d73] bg-[#eef4fa] p-3 text-left xl:block"
             type="button"
             onClick={openModal}
           >
@@ -547,7 +634,7 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
               <Pill tone="gray">1 splits</Pill>
             </div>
           </button>
-          <article className="rounded-lg border border-[#d8dde5] p-3">
+          <article className="hidden rounded-lg border border-[#d8dde5] p-3 xl:block">
             <div className="flex flex-wrap justify-between gap-x-3 font-black">
               <span>Payroll</span>
               <span className="text-[#a62b24]">-$5,200</span>
@@ -564,31 +651,6 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
         </div>
       </section>
 
-      <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-          <div className="min-w-0">
-            <h2 className="text-2xl font-black">Transaction review</h2>
-            <p className="text-sm text-[#6a7483]">
-              Open any bank transaction from the list. Review opens as a
-              centered posting popup.
-            </p>
-          </div>
-          <TopAction label="Review transactions" tone="primary" />
-        </div>
-        <div className="grid gap-3 p-4 md:grid-cols-3">
-          <StatCard label="Needs Review" value="2" note="Pending bank items" />
-          <StatCard label="Assigned" value="5" note="Posted or matched" />
-          <StatCard
-            label="Open Balance"
-            value="$54,325"
-            note="Across invoices"
-          />
-        </div>
-        <div className="mx-4 mb-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
-          This area stays in the billing module. The transaction posting screen
-          opens as a popup in the same tall ratio as the reference.
-        </div>
-      </section>
     </div>
   );
 }
@@ -1076,7 +1138,6 @@ function BillingContent({
 export function BillingPage() {
   const router = useRouter();
   const canManagePayments = useDashboardPermission("canManagePayments");
-  const canEditSettings = useDashboardPermission("canEditSettings");
   const billingQuery = useAuthenticatedQuery<BillingResponse>("/api/billing");
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
     null
@@ -1157,9 +1218,10 @@ export function BillingPage() {
             />
             <TopAction
               compactOnMobile
-              disabled={!canEditSettings}
-              icon="settings"
-              label="Invoice settings"
+              disabled={!canManagePayments}
+              icon="payment"
+              label="Review recent transaction"
+              onClick={() => setIsModalOpen(true)}
             />
             <TopAction
               compactOnMobile

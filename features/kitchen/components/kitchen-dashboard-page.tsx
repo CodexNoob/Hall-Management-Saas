@@ -361,8 +361,8 @@ function TodayView({
   onAddKitchenEvent: (dateKey: string) => void;
 }) {
   return (
-    <section className="min-h-120 border-2 border-[#009ee8] bg-[#edf9ff] p-2">
-      <header className="flex items-center justify-between border-b-2 border-[#009ee8] px-2 pb-2">
+    <section className="min-h-120 border border-[#d8dde5] bg-[#edf9ff] p-2">
+      <header className="flex items-center justify-between border-b border-[#d8dde5] px-2 pb-2">
         <h2 className="text-lg font-black text-[#0077b7]">{day.today ? "Today" : day.dayName}</h2>
 
         <div className="flex items-center gap-2">
@@ -413,30 +413,31 @@ function WeekDayColumn({
 
   return (
     <article
-      className={`flex min-h-120 flex-col border-2 bg-white p-2 ${outerBorderColor} ${
+      className={`flex min-h-120 min-w-0 flex-col border-2 bg-white p-2 md:p-1.5 xl:p-2 ${outerBorderColor} ${
         day.today || day.selected ? "bg-[#edf9ff]" : ""
       }`}
     >
       <header
-        className={`flex items-center justify-between border-b-2 pb-2 ${headerBorderColor}`}
+        className={`flex min-w-0 items-center justify-between border-b-2 pb-2 md:flex-col md:items-stretch md:gap-1 xl:flex-row xl:items-center ${headerBorderColor}`}
       >
         <h2
-          className={`font-black ${
+          className={`min-w-0 truncate font-black md:text-xs xl:text-base ${
             day.shabbos ? "text-sm" : "text-base"
           } ${headingColor}`}
+          title={day.dayName}
         >
           {day.dayName}
         </h2>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex min-w-0 shrink-0 items-center gap-1 md:justify-between xl:justify-start">
           <PlusButton
             label={`Add kitchen event on ${day.dateLabel}`}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />
           <strong
-            className={`whitespace-nowrap ${
+            className={`min-w-0 truncate whitespace-nowrap ${
               day.shabbos ? "text-xs" : "text-sm"
-            } ${
+            } md:text-[10px] xl:text-sm ${
               day.shabbos ? "text-[#8b37f5]" : "text-[#536780]"
             }`}
           >
@@ -468,7 +469,7 @@ function WeekView({
   onAddKitchenEvent: (dateKey: string) => void;
 }) {
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+    <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-7 md:gap-1 xl:gap-2">
       {days.map((day) => (
         <WeekDayColumn
           day={day}

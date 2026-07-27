@@ -348,7 +348,7 @@ export function HallRoomMapPage() {
             </button>
             <button
               aria-label="Save layout"
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition hover:text-[#15344f] lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f] lg:hover:text-white"
+              className="hidden h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition hover:text-[#15344f] md:flex lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f] lg:hover:text-white"
               type="button"
             >
               <svg
@@ -370,7 +370,7 @@ export function HallRoomMapPage() {
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
         <div className="mx-auto grid min-h-full min-w-0 max-w-[1800px] gap-3 md:grid-cols-2 xl:grid-cols-[250px_minmax(0,1fr)_270px]">
-          <Panel className="order-2 xl:order-1">
+          <Panel className="order-2 hidden md:block xl:order-1">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Shape library</h2>
               <p className="mt-1 text-[10px] text-[#617086]">
@@ -489,11 +489,15 @@ export function HallRoomMapPage() {
                 Hall Room Map
               </h2>
 
-              <span className="hidden rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-3 py-2 text-[10px] font-bold text-[#617086] sm:inline-flex">
+              <span className="hidden rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-3 py-2 text-[10px] font-bold text-[#617086] md:inline-flex">
                 Single-screen editor
               </span>
 
-              <div className="ml-auto flex shrink-0 gap-2">
+              <span className="ml-auto inline-flex rounded-lg border border-[#b9c2cf] bg-[#f5f6f8] px-3 py-2 text-[10px] font-black uppercase text-[#516174] md:hidden">
+                View only
+              </span>
+
+              <div className="ml-auto hidden shrink-0 gap-2 md:flex">
                 <button
                   className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
                   onClick={clearMap}
@@ -513,7 +517,7 @@ export function HallRoomMapPage() {
 
             <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
               <div
-                className="relative min-h-110 min-w-130 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px] sm:min-h-134.5 sm:min-w-0"
+                className="relative min-h-110 min-w-130 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px] max-md:pointer-events-none sm:min-h-134.5 sm:min-w-0"
                 onClick={() => setSelectedObjectId(null)}
                 role="presentation"
               >
@@ -529,7 +533,7 @@ export function HallRoomMapPage() {
             </div>
           </Panel>
 
-          <Panel className="order-3">
+          <Panel className="order-3 hidden md:block">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">
                 Object inspector

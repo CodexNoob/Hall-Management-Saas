@@ -157,32 +157,6 @@ function LineIcon({
   return <svg {...common}>{icons[name]}</svg>;
 }
 
-function MetricCard({
-  label,
-  value,
-  description,
-  accent
-}: {
-  label: string;
-  value: string;
-  description: string;
-  accent?: boolean;
-}) {
-  return (
-    <article className="min-h-27 rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
-      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#687588]">
-        {label}
-      </p>
-      <p
-        className={`mt-2 text-2xl font-black ${accent ? "text-[#078a58]" : "text-[#17202a]"}`}
-      >
-        {value}
-      </p>
-      <p className="mt-2 text-xs text-[#6a7483]">{description}</p>
-    </article>
-  );
-}
-
 function RoleBadge({ role }: { role: RoleName }) {
   return (
     <span
@@ -369,33 +343,6 @@ export function StaffPage() {
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
         <div className="mx-auto grid w-full max-w-450 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
           <div className="min-w-0 space-y-4">
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                label="Total staff"
-                value={String(staffMembers.length)}
-                description="All staff members"
-              />
-              <MetricCard
-                label="Active staff"
-                value={String(
-                  staffMembers.filter((staff) => staff.status === "Active")
-                    .length
-                )}
-                description="Currently active"
-                accent
-              />
-              <MetricCard
-                label="Departments"
-                value={String(Math.max(0, departments.length - 1))}
-                description="Across all operations"
-              />
-              <MetricCard
-                label="Role templates"
-                value={String(roleTemplates.length)}
-                description="Permission templates"
-              />
-            </section>
-
             <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
               <SectionHeader
                 title="Role templates"

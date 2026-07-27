@@ -31,15 +31,6 @@ type ScheduleRow = {
 };
 
 const TODAY_NOTES_READ_STORAGE_KEY = "dashboard-today-notes-read-date";
-const FALLBACK_OPEN_BALANCE_CENTS = 1_870_000;
-
-type DashboardBillingResponse = {
-  summary: {
-    openInvoiceCents: number;
-    openInvoices: number;
-  };
-};
-
 type DashboardEvent = {
   id: string;
   clientName: string;
@@ -179,7 +170,7 @@ const SAMPLE_FINANCIAL_TIMELINE: FinancialTimelinePoint[] = [
   { date: "2026-04-01", incomeCents: 1120000, expenseCents: 460000 },
   { date: "2026-05-01", incomeCents: 960000, expenseCents: 420000 },
   { date: "2026-06-01", incomeCents: 1210000, expenseCents: 560000 },
-  { date: "2026-07-01", incomeCents: 1340000, expenseCents: 610000 },
+  { date: "2026-07-01", incomeCents: 1500000, expenseCents: 610000 },
   { date: "2026-08-01", incomeCents: 980000, expenseCents: 390000 }
 ];
 
@@ -327,34 +318,94 @@ function EventCountGraph({
 }: {
   groups: Array<{ date: string; rows: ScheduleRow[] }>;
 }) {
-  const maxCount = Math.max(1, ...groups.map((group) => group.rows.length));
+  const maxCount = Math.max(10, ...groups.map((group) => group.rows.length));
 
   return (
-    <div className="mt-4 flex h-20 items-end gap-1.5 rounded-xl border border-[#d8dde5] bg-[#fbfcfd] px-3 py-2">
-      {groups.length === 0 ? (
-        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[#6a7483]">
-          No events in range
+    <div className="mt-5 border-t border-[#d8dde5] pt-5">
+      <h3 className="text-sm font-black text-[#17202a]">Events overview</h3>
+      <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2">
+        <div className="flex h-44 flex-col justify-between pb-6 text-[10px] font-bold text-[#6a7483]">
+          {[10, 8, 6, 4, 2, 0].map((value) => (
+            <span key={value}>{value}</span>
+          ))}
         </div>
-      ) : (
-        groups.map((group) => (
-          <div
-            className="flex min-w-0 flex-1 flex-col items-center gap-1"
-            key={group.date}
-          >
-            <div
-              className="w-full rounded-t-md bg-[#1f4d73]"
-              style={{
-                height: `${Math.max(12, (group.rows.length / maxCount) * 52)}px`
-              }}
-              title={`${formatEventDate(group.date)}: ${group.rows.length} events`}
+        <div className="relative h-44 border-b border-[#cbd5df]">
+          {[0, 1, 2, 3, 4].map((line) => (
+            <span
+              className="absolute left-0 right-0 border-t border-dashed border-[#d8dde5]"
+              key={line}
+              style={{ top: `${line * 20}%` }}
             />
-            <span className="max-w-full truncate text-[9px] font-bold text-[#6a7483]">
-              {formatEventDate(group.date)}
-            </span>
+          ))}
+          <div className="absolute inset-0 flex items-end gap-3 px-3">
+            {groups.length === 0 ? (
+              <div className="flex h-full w-full items-center justify-center pb-6 text-xs font-bold text-[#6a7483]">
+                No events in range
+              </div>
+            ) : (
+              groups.map((group) => (
+                <div
+                  className="flex h-full min-w-0 flex-1 flex-col justify-end"
+                  key={group.date}
+                >
+                  <div
+                    className="mx-auto w-full max-w-18 rounded-t-md bg-[#1261e8] shadow-sm"
+                    style={{
+                      height: `${Math.max(8, (group.rows.length / maxCount) * 142)}px`
+                    }}
+                    title={`${formatEventDate(group.date)}: ${group.rows.length} events`}
+                  />
+                  <span className="mt-2 h-5 truncate text-center text-[10px] font-bold text-[#6a7483]">
+                    {formatEventDate(group.date)}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
-        ))
-      )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function groupEventsByMonth(events: DashboardEvent[]) {
+  return events.reduce<TimelineGroup[]>((groups, event) => {
+    const row = toScheduleRow(event);
+    const monthDate = `${row.date.slice(0, 7)}-01`;
+    const existing = groups.find((group) => group.date === monthDate);
+
+    if (existing) {
+      existing.rows.push(row);
+    } else {
+      groups.push({ date: monthDate, rows: [row] });
+    }
+
+    return groups;
+  }, []);
+}
+
+function CalendarKpiIcon({ booked = false }: { booked?: boolean }) {
+  return (
+    <span
+      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${
+        booked ? "bg-[#eaf7ee] text-[#079447]" : "bg-[#edf4ff] text-[#1261e8]"
+      }`}
+    >
+      <svg
+        aria-hidden="true"
+        className="h-7 w-7"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.5"
+        viewBox="0 0 24 24"
+      >
+        <rect height="17" rx="2" width="18" x="3" y="4" />
+        <path d="M8 2v4M16 2v4M3 9h18" />
+        {booked ? <path d="m8 15 2.5 2.5L16 12" /> : null}
+      </svg>
+    </span>
   );
 }
 
@@ -363,10 +414,7 @@ function FinancialTimelineGraph({
 }: {
   points: FinancialTimelinePoint[];
 }) {
-  const maxValue = Math.max(
-    1,
-    ...points.flatMap((point) => [point.incomeCents, point.expenseCents])
-  );
+  const maxValue = 1_500_000;
   const hasData = points.some(
     (point) => point.incomeCents > 0 || point.expenseCents > 0
   );
@@ -391,8 +439,9 @@ function FinancialTimelineGraph({
       <div className="grid grid-cols-[3rem_minmax(0,1fr)] gap-3">
         <div className="grid grid-rows-[11rem_1.75rem] text-[10px] font-bold text-[#6a7483]">
           <div className="flex flex-col justify-between">
-            <span>{formatCompactCurrency(maxValue)}</span>
-            <span>{formatCompactCurrency(Math.round(maxValue / 2))}</span>
+            <span>$15000</span>
+            <span>$10000</span>
+            <span>$5000</span>
             <span>$0</span>
           </div>
         </div>
@@ -403,7 +452,7 @@ function FinancialTimelineGraph({
               <span
                 className="absolute left-0 right-0 border-t border-[#d8dde5]"
                 key={line}
-                style={{ top: `${line * 50}%` }}
+                style={{ top: `${line * (100 / 3)}%` }}
               />
             ))}
 
@@ -476,6 +525,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("week");
+  const [schedulePage, setSchedulePage] = useState(1);
   const [financeTimeFilter, setFinanceTimeFilter] =
     useState<TimeFilter>("month");
   const defaultCustomRange = useMemo(() => getRangeForFilter("week"), []);
@@ -501,6 +551,11 @@ export function DashboardShell({ access }: DashboardShellProps) {
     dashboardQueryUrl,
     access.canViewCalendar || access.canViewEventManager
   );
+  const annualDateRange = useMemo(() => getRangeForFilter("year"), []);
+  const annualDashboardQuery = useAuthenticatedQuery<DashboardEventsResponse>(
+    `/api/dashboard?startDate=${annualDateRange.startDate}&endDate=${annualDateRange.endDate}`,
+    access.canViewCalendar || access.canViewEventManager
+  );
   const financialDateRange = useMemo(
     () =>
       getRangeForFilter(
@@ -513,12 +568,6 @@ export function DashboardShell({ access }: DashboardShellProps) {
     financialQueryUrl,
     access.canViewCalendar || access.canViewEventManager
   );
-  const billingQuery = useAuthenticatedQuery<DashboardBillingResponse>(
-    "/api/billing",
-    access.canViewPaymentInfo
-  );
-  const openBalanceCents =
-    billingQuery.data?.summary.openInvoiceCents ?? FALLBACK_OPEN_BALANCE_CENTS;
   const dashboardEvents = useMemo(
     () => dashboardQuery.data?.events ?? [],
     [dashboardQuery.data?.events]
@@ -526,6 +575,19 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const scheduleRows = useMemo(
     () => dashboardEvents.map(toScheduleRow),
     [dashboardEvents]
+  );
+  const schedulePageCount = Math.max(1, Math.ceil(scheduleRows.length / 10));
+  const visibleScheduleRows = scheduleRows.slice(
+    (schedulePage - 1) * 10,
+    schedulePage * 10
+  );
+  const firstSchedulePage = Math.min(
+    Math.max(1, schedulePage - 4),
+    Math.max(1, schedulePageCount - 9)
+  );
+  const schedulePageNumbers = Array.from(
+    { length: Math.min(10, schedulePageCount) },
+    (_, index) => firstSchedulePage + index
   );
   const timelineGroups = useMemo(() => {
     const groups = groupEventsByDate(dashboardEvents);
@@ -535,56 +597,43 @@ export function DashboardShell({ access }: DashboardShellProps) {
     dashboardQuery.data?.summary.totalEvents ??
     SAMPLE_TIMELINE_GROUPS.reduce((sum, group) => sum + group.rows.length, 0);
   const rangeLabel = `${formatEventDate(dashboardDateRange.startDate)} - ${formatEventDate(dashboardDateRange.endDate)}`;
-  const confirmedEvents = dashboardEvents.filter(
-    (event) => statusFromEvent(event) === "Confirmed"
-  ).length;
-  const holdEvents = dashboardEvents.filter(
-    (event) => statusFromEvent(event) === "On hold"
-  ).length;
-  const balanceDueEvents = dashboardEvents.filter(
-    (event) => statusFromEvent(event) === "Balance due"
-  ).length;
+  const annualEvents = annualDashboardQuery.data?.events ?? [];
+  const annualTimelineGroups = groupEventsByMonth(annualEvents);
+  const annualTotalEvents =
+    annualDashboardQuery.data?.summary.totalEvents ?? totalEvents;
+  const annualRangeLabel = `${formatEventDate(annualDateRange.startDate)} - ${formatEventDate(annualDateRange.endDate)}`;
+  const liveBookedEvents = dashboardQuery.data?.summary.bookedEvents;
   const bookedEvents =
-    dashboardQuery.data?.summary.bookedEvents ?? SAMPLE_BOOKED_EVENTS;
-  const financialSummary = financialQuery.data?.summary.financial ?? {
-    canView: true,
-    incomeCents: SAMPLE_FINANCIAL_TIMELINE.reduce(
-      (sum, point) => sum + point.incomeCents,
-      0
-    ),
-    expenseCents: SAMPLE_FINANCIAL_TIMELINE.reduce(
-      (sum, point) => sum + point.expenseCents,
-      0
-    )
-  };
+    liveBookedEvents && liveBookedEvents.total > 0
+      ? liveBookedEvents
+      : SAMPLE_BOOKED_EVENTS;
   const financialTimeline = financialQuery.data?.financialTimeline?.some(
     (point) => point.incomeCents > 0 || point.expenseCents > 0
   )
     ? financialQuery.data.financialTimeline
     : SAMPLE_FINANCIAL_TIMELINE;
   const financialRangeLabel = `${formatEventDate(financialDateRange.startDate)} - ${formatEventDate(financialDateRange.endDate)}`;
-  const kpis = [
-    {
-      label: "Total Events",
-      value: dashboardQuery.isLoading ? "..." : String(totalEvents),
-      description: `${rangeLabel} - ${confirmedEvents} confirmed, ${holdEvents} on hold, ${balanceDueEvents} balance due`,
-      needsRevision: false,
-      graph: <EventCountGraph groups={timelineGroups} />
-    },
-    {
-      label: "Booked Events",
-      value: dashboardQuery.isLoading ? "..." : String(bookedEvents.total),
-      description: `${bookedEvents.confirmed} confirmed, ${bookedEvents.onHold} on hold upcoming`,
-      needsRevision: bookedEvents.onHold > 0
-    }
-  ];
-
+  const bookedConfirmedPercent = bookedEvents.total
+    ? Math.round((bookedEvents.confirmed / bookedEvents.total) * 100)
+    : 0;
+  const bookedOnHoldPercent = bookedEvents.total
+    ? Math.round((bookedEvents.onHold / bookedEvents.total) * 100)
+    : 0;
+  const nextUpcomingEvent = scheduleRows[0];
   useEffect(() => {
     setTodayNotesNeedRevision(
       window.localStorage.getItem(TODAY_NOTES_READ_STORAGE_KEY) !==
         getOperatingDateKey()
     );
   }, []);
+
+  useEffect(() => {
+    setSchedulePage(1);
+  }, [dashboardQueryUrl]);
+
+  useEffect(() => {
+    setSchedulePage((current) => Math.min(current, schedulePageCount));
+  }, [schedulePageCount]);
 
   const closeNewBooking = useCallback(() => {
     setIsNewBookingOpen(false);
@@ -646,33 +695,86 @@ export function DashboardShell({ access }: DashboardShellProps) {
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto w-full max-w-[1800px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
           <div className="grid gap-4 md:grid-cols-2">
-            {kpis.map((kpi) => (
-              <article
-                key={kpi.label}
-                className={`rounded-2xl border border-[#d8dde5] bg-white p-4 shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
-                  kpi.needsRevision
-                    ? "revision-gradient-stroke"
-                    : "hover:border-[#1f4d73]/60"
-                }`}
-                data-needs-revision={kpi.needsRevision || undefined}
-              >
-                <div className="relative z-1">
-                  <p className="text-sm font-black text-[#6a7483]">
-                    {kpi.label}
-                  </p>
-
-                  <p className="mt-4 text-3xl font-black tracking-tight text-[#17202a]">
-                    {kpi.value}
-                  </p>
-
-                  <p className="mt-3 text-sm font-medium text-[#6a7483]">
-                    {kpi.description}
-                  </p>
-
-                  {"graph" in kpi ? kpi.graph : null}
+            <article className="overflow-hidden rounded-3xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/6">
+              <div className="p-5 sm:p-7">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-black text-[#07162d] sm:text-xl">
+                      Total Events
+                    </h2>
+                    <p className="mt-4 text-4xl font-black tracking-tight text-[#07162d]">
+                      {annualDashboardQuery.isLoading ? "..." : annualTotalEvents}
+                    </p>
+                  </div>
+                  <CalendarKpiIcon />
                 </div>
-              </article>
-            ))}
+                <EventCountGraph groups={annualTimelineGroups} />
+                <div className="mt-5 flex items-center gap-3 rounded-xl bg-[#edf4ff] px-4 py-3 text-xs font-bold text-[#1261e8]">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-current text-xs">
+                    i
+                  </span>
+                  Showing data for {annualRangeLabel}
+                </div>
+              </div>
+            </article>
+
+            <article className="overflow-hidden rounded-3xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/6">
+              <div className="p-5 sm:p-7">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-black text-[#07162d] sm:text-xl">
+                      Booked Events
+                    </h2>
+                  </div>
+                  <CalendarKpiIcon booked />
+                </div>
+
+                <div className="mt-5 grid gap-6 border-t border-[#d8dde5] pt-5 sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)] sm:items-center">
+                  <div className="relative mx-auto h-44 w-44 rounded-full bg-[conic-gradient(#079447_0_56.25%,#ffb000_56.25%_75%,#1261e8_75%_100%)]">
+                    <div className="absolute inset-9 flex flex-col items-center justify-center rounded-full bg-white">
+                      <strong className="text-2xl font-black text-[#07162d]">
+                        {bookedEvents.total}
+                      </strong>
+                      <span className="text-sm font-bold text-[#607089]">Total</span>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-[#d8dde5]">
+                    {[
+                      ["Confirmed", bookedEvents.confirmed, bookedConfirmedPercent, "#079447", "bg-[#eaf7ee] text-[#079447]"],
+                      ["On Hold", bookedEvents.onHold, bookedOnHoldPercent, "#ffb000", "bg-[#fff5df] text-[#d88a00]"],
+                      ["Upcoming", bookedEvents.onHold, bookedOnHoldPercent, "#1261e8", "bg-[#edf4ff] text-[#1261e8]"]
+                    ].map(([label, value, percent, color, pillClass]) => (
+                      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 py-4 first:pt-0 last:pb-0" key={String(label)}>
+                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: String(color) }} />
+                        <span className="text-sm font-bold text-[#17202a]">{label}</span>
+                        <strong className="text-sm text-[#17202a]">{value}</strong>
+                        <span className={`rounded-full px-2 py-1 text-xs font-black ${pillClass}`}>
+                          {percent}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <button
+                className="flex w-full items-center gap-3 border-t border-[#d8dde5] bg-[#f7fcf9] px-5 py-4 text-left hover:bg-[#eef9f2] sm:px-7"
+                onClick={() => router.push("/dashboard/events", { scroll: false })}
+                type="button"
+              >
+                <CalendarKpiIcon booked />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-black text-[#079447]">
+                    Next upcoming event
+                  </span>
+                  <span className="mt-1 block truncate text-sm font-medium text-[#607089]">
+                    {nextUpcomingEvent
+                      ? `${formatEventDate(nextUpcomingEvent.date)} • ${nextUpcomingEvent.time}`
+                      : "No upcoming event scheduled"}
+                  </span>
+                </span>
+                <span className="text-2xl text-[#07162d]">›</span>
+              </button>
+            </article>
           </div>
 
           <section className="mt-5 overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
@@ -701,48 +803,8 @@ export function DashboardShell({ access }: DashboardShellProps) {
               </select>
             </div>
 
-            <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_16rem]">
+            <div className="p-5">
               <FinancialTimelineGraph points={financialTimeline} />
-
-              <div className="grid content-start gap-3 text-sm">
-                <div className="rounded-xl border border-[#d8dde5] p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
-                    Open balance
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-[#168a55]">
-                    {formatCompactCurrency(openBalanceCents)}
-                  </p>
-                  <p className="mt-1 text-xs font-bold text-[#6a7483]">
-                    {billingQuery.data
-                      ? `${billingQuery.data.summary.openInvoices} open invoices`
-                      : "Waiting on billing data"}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-[#d8dde5] p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
-                    Income
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-[#168a55]">
-                    {formatCompactCurrency(financialSummary?.incomeCents ?? 0)}
-                  </p>
-                </div>
-
-                <div className="rounded-xl border border-[#d8dde5] p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
-                    Expenses
-                  </p>
-                  <p className="mt-2 text-2xl font-black text-[#c4382f]">
-                    {formatCompactCurrency(financialSummary?.expenseCents ?? 0)}
-                  </p>
-                </div>
-
-                {financialSummary?.canView === false ? (
-                  <p className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs font-bold text-[#6a7483]">
-                    Payment permission is required to view income and expenses.
-                  </p>
-                ) : null}
-              </div>
             </div>
           </section>
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
@@ -826,7 +888,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                       : "No events in this time range."}
                   </div>
                 ) : (
-                  scheduleRows.map((row) => (
+                  visibleScheduleRows.map((row) => (
                     <article
                       className="rounded-xl border border-[#d8dde5] p-3"
                       key={row.id}
@@ -883,7 +945,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
                         </td>
                       </tr>
                     ) : (
-                      scheduleRows.map((row) => (
+                      visibleScheduleRows.map((row) => (
                         <tr key={row.id} className="align-middle">
                           <td className="px-4 py-4 text-sm font-semibold text-[#17202a]">
                             {row.time}
@@ -920,6 +982,53 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   </tbody>
                 </table>
               </div>
+
+              {scheduleRows.length > 0 ? (
+                <nav
+                  aria-label="Operating schedule pages"
+                  className="flex flex-wrap items-center justify-center gap-1 border-t border-[#d8dde5] px-3 py-4"
+                >
+                  <button
+                    aria-label="Previous schedule page"
+                    className="flex h-9 min-w-9 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm font-black text-[#17202a] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={schedulePage === 1}
+                    onClick={() =>
+                      setSchedulePage((current) => Math.max(1, current - 1))
+                    }
+                    type="button"
+                  >
+                    ‹
+                  </button>
+                  {schedulePageNumbers.map((page) => (
+                    <button
+                      aria-current={schedulePage === page ? "page" : undefined}
+                      className={`flex h-9 min-w-9 items-center justify-center rounded-lg border px-2 text-sm font-black ${
+                        schedulePage === page
+                          ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                          : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                      }`}
+                      key={page}
+                      onClick={() => setSchedulePage(page)}
+                      type="button"
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    aria-label="Next schedule page"
+                    className="flex h-9 min-w-9 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm font-black text-[#17202a] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={schedulePage === schedulePageCount}
+                    onClick={() =>
+                      setSchedulePage((current) =>
+                        Math.min(schedulePageCount, current + 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    ›
+                  </button>
+                </nav>
+              ) : null}
             </section>
 
             <div className="space-y-5">

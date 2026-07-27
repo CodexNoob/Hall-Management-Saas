@@ -907,6 +907,7 @@ export function EventCalendarPage() {
                     {calendarGridDays.map((calendarDay) => {
                       const dayBookings = filteredBookings.filter((booking) => booking.dateKey === calendarDay.dateKey);
                       const isSelected = calendarDay.dateKey === selectedDate;
+                      const isToday = calendarDay.dateKey === dateKey(today);
                       const bookedHallCount = new Set(bookings.filter((booking) => booking.dateKey === calendarDay.dateKey).map((booking) => booking.hall)).size;
                       const fullyBooked = calendarDay.currentMonth && halls.length > 0 && bookedHallCount >= halls.length;
                       const dateLabel = new Intl.DateTimeFormat("en-US", {
@@ -916,7 +917,7 @@ export function EventCalendarPage() {
                       }).format(calendarDay.date);
 
                       return (
-                        <div key={calendarDay.dateKey} className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}>
+                        <div key={calendarDay.dateKey} className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}>
                           <button aria-label={`Select ${dateLabel}`} className="absolute inset-0 z-0" onClick={() => selectDate(calendarDay.date)} type="button" />
 
                           <div className="pointer-events-none relative z-1 flex items-start justify-between gap-2">

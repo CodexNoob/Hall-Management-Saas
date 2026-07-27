@@ -410,36 +410,6 @@ function EventListCard({
   );
 }
 
-function SummaryTile({
-  label,
-  value,
-  icon,
-  emphasized = false
-}: {
-  label: string;
-  value: string;
-  icon: IconName;
-  emphasized?: boolean;
-}) {
-  return (
-    <article
-      className={`relative min-h-20 overflow-hidden rounded-lg border bg-white p-3 ${emphasized ? "border-[#1f4d73] shadow-sm shadow-[#1f4d73]/10" : "border-[#d8dde5]"}`}
-    >
-      <div className="min-w-0 pr-7">
-        <p className="wrap-break-wordbreak-words text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-          {label}
-        </p>
-        <p className="mt-2 wrap-break-words text-sm font-black leading-5 text-[#17202a]">
-          {value}
-        </p>
-      </div>
-      <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#6a7483]">
-        <LineIcon name={icon} className="h-3.5 w-3.5" />
-      </span>
-    </article>
-  );
-}
-
 function Field({
   label,
   children,
@@ -1384,7 +1354,7 @@ function HallMapContent() {
               </h2>
             </div>
             <button
-              className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+              className="hidden h-8 shrink-0 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] md:inline-flex"
               type="button"
             >
               <LineIcon name="plus" />
@@ -1395,7 +1365,7 @@ function HallMapContent() {
             {layoutRows.map(([time, label], index) => (
               <button
                 key={time}
-                className={`grid w-full grid-cols-[104px_minmax(0,1fr)] gap-2 rounded-lg border p-2 text-left ${
+                className={`grid w-full grid-cols-[104px_minmax(0,1fr)] gap-2 rounded-lg border p-2 text-left max-md:pointer-events-none max-md:cursor-default ${
                   index === 0
                     ? "border-[#1f4d73] bg-[#eef4fa]"
                     : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd]"
@@ -1415,13 +1385,18 @@ function HallMapContent() {
         </section>
 
         <section className="rounded-lg border border-[#d8dde5] bg-white p-3 text-sm leading-5 text-[#17202a]">
-          Hall map is view-only inside the event. Edit the timing or layout name
-          here. To change the actual room layout, open the official Hall Map
-          editor.
+          <span className="md:hidden">
+            Hall map is view-only on phone screens. Use a tablet, laptop, or
+            desktop to edit the layout.
+          </span>
+          <span className="hidden md:inline">
+            Edit the timing or layout name here. To change the actual room
+            layout, open the official Hall Map editor.
+          </span>
         </section>
 
         <button
-          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
+          className="hidden h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] md:inline-flex"
           type="button"
         >
           <LineIcon name="map" />
@@ -1435,7 +1410,12 @@ function HallMapContent() {
             <LineIcon name="map" />
             <h2 className="text-sm font-black text-[#17202a]">Setup layout</h2>
           </div>
-          <Badge tone="gold">Needs final review</Badge>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex rounded-full border border-[#b9c2cf] bg-[#f5f6f8] px-2 py-1 text-[10px] font-black uppercase text-[#516174] md:hidden">
+              View only
+            </span>
+            <Badge tone="gold">Needs final review</Badge>
+          </div>
         </header>
         <div className="px-4 pb-4">
           <div
@@ -1476,7 +1456,7 @@ function HallMapContent() {
             </div>
           </div>
           <button
-            className="mt-3 inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+            className="mt-3 hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] md:inline-flex"
             type="button"
           >
             <LineIcon name="check" />
@@ -2015,24 +1995,6 @@ function EventWorkspace({ event }: { event: EventFile }) {
               Print packet
             </ActionButton>
           </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2 xl:grid-cols-6">
-          <SummaryTile label="Guests" value={event.guests} icon="guests" />
-          <SummaryTile label="Couples" value={event.couples} icon="couples" />
-          <SummaryTile label="Menu" value="Confirmed" icon="document" />
-          <SummaryTile label="Layout" value="Needs final review" icon="map" />
-          <SummaryTile
-            label="Open balance"
-            value={event.balance}
-            icon="document"
-            emphasized
-          />
-          <SummaryTile
-            label="Today notes"
-            value="Unread"
-            icon="files"
-            emphasized
-          />
         </div>
       </header>
 
