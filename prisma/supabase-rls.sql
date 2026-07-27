@@ -96,7 +96,9 @@ BEGIN
     'file_folders',
     'organization_settings',
     'notification_preferences',
-    'clients'
+    'clients',
+    'today_notes',
+    'dining_plans'
   ]
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tenant_table);

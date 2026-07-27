@@ -5,6 +5,7 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type StaffStatus = "Active" | "Inactive";
@@ -206,7 +207,7 @@ export function StaffPage() {
   const canEdit = useDashboardPermission("canEditStaff");
   const staffQuery = useAuthenticatedQuery<StaffResponse>("/api/staff");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Staff");
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<"All" | StaffStatus>("All");
   const [selectedStaffId, setSelectedStaffId] = useState("");

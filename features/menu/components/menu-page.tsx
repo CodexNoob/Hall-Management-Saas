@@ -22,6 +22,7 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 type IconName = "box" | "chevron" | "dollar" | "document" | "filter" | "plus";
 
@@ -341,9 +342,15 @@ function PackageAddCard({
           </span>
         </div>
         <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
-          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">{name}</p>
-          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{rule}</p>
-          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{price}</p>
+          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">
+            {name}
+          </p>
+          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
+            {rule}
+          </p>
+          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
+            {price}
+          </p>
         </div>
       </div>
     </article>
@@ -373,9 +380,15 @@ function MenuRuleCard({
           </span>
         </div>
         <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
-          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">{name}</p>
-          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{rule}</p>
-          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">{price}</p>
+          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">
+            {name}
+          </p>
+          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
+            {rule}
+          </p>
+          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
+            {price}
+          </p>
         </div>
       </div>
     </article>
@@ -455,6 +468,7 @@ function AddOnCard({
 }
 
 export function MenuPage() {
+  const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
   const router = useRouter();
   const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
   const menuMutation = useAuthenticatedMutation<
@@ -471,18 +485,22 @@ export function MenuPage() {
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
   const allMenuItems = useMemo(() => {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
-        name: item.name,
-        category: item.category ?? "More"
-      }));
+      id: item.id,
+      name: item.name,
+      category: item.category ?? "More"
+    }));
     const savedNames = new Set(
       savedItems.map((item) => item.name.trim().toLowerCase())
     );
 
     return [
       ...savedItems,
-      ...sampleMenuItems.filter(
-        (item) => !savedNames.has(item.name.toLowerCase())
-      )
+      ...sampleMenuItems
+        .filter((item) => !savedNames.has(item.name.toLowerCase()))
+        .map((item, index) => ({
+          ...item,
+          id: `sample-${index}-${item.name}-${item.category}`
+        }))
     ];
   }, [menuQuery.data]);
   const allPackages = useMemo(
@@ -563,10 +581,30 @@ export function MenuPage() {
     );
   }
 
-  const visibleItems =
+  const normalizedSearch = pageSearchQuery.trim().toLowerCase();
+  const visibleItems = (
     selectedCategory === "All"
       ? allMenuItems
-      : allMenuItems.filter((item) => item.category === selectedCategory);
+      : allMenuItems.filter((item) => item.category === selectedCategory)
+  ).filter(
+    (item) =>
+      !normalizedSearch ||
+      `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
+  );
+  const visiblePackages = allPackages.filter(
+    (item) =>
+      !normalizedSearch ||
+      `${item.name} ${item.type} ${item.summary}`
+        .toLowerCase()
+        .includes(normalizedSearch)
+  );
+  const visibleAddOns = addOns.filter(
+    (item) =>
+      !normalizedSearch ||
+      `${item.name} ${item.description} ${item.tag}`
+        .toLowerCase()
+        .includes(normalizedSearch)
+  );
   const categoryNames = [
     "All",
     ...Array.from(
@@ -707,7 +745,7 @@ export function MenuPage() {
               </header>
 
               <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-1">
-                {allPackages.map((item) => {
+                {visiblePackages.map((item) => {
                   const isActive = selectedPackage === item.name;
 
                   return (
@@ -872,7 +910,7 @@ export function MenuPage() {
             </header>
 
             <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)]">
-              {addOns.map((item) => (
+              {visibleAddOns.map((item) => (
                 <AddOnCard
                   key={item.name}
                   name={item.name}
@@ -918,8 +956,12 @@ export function MenuPage() {
                     <input
                       className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73]"
                       name="menuSearch"
+                      onChange={(event) =>
+                        setPageSearchQuery(event.target.value)
+                      }
                       placeholder="Search menu items"
                       type="search"
+                      value={pageSearchQuery}
                     />
                     <select
                       className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]"
@@ -948,7 +990,7 @@ export function MenuPage() {
                 <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
                   {visibleItems.map((item) => (
                     <MenuItemCard
-                      key={item.name}
+                      key={item.id}
                       category={item.category}
                       name={item.name}
                     />

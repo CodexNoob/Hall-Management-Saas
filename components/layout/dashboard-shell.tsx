@@ -3,15 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import {
-  NewBookingDialog,
-  type NewBookingFormValues,
-  type NewBookingSubmitIntent
-} from "@/features/bookings/forms/new-booking-dialog";
+import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 type DashboardShellProps = {
   user: SyncedUser;
@@ -88,96 +85,6 @@ type TimeFilter = "today" | "week" | "month" | "year" | "custom";
 type TimelineGroup = {
   date: string;
   rows: ScheduleRow[];
-};
-
-const SAMPLE_TIMELINE_GROUPS: TimelineGroup[] = [
-  {
-    date: "2026-07-27",
-    rows: [
-      {
-        id: "sample-event-1",
-        date: "2026-07-27",
-        time: "5:30 PM",
-        event: "Rosenberg Bar Mitzvah",
-        details: "Bar Mitzvah - 240 guests",
-        room: "Grand Hall",
-        owner: "M. Mandelbaum",
-        status: "Confirmed",
-        next: "Dining setup 4:45 PM"
-      },
-      {
-        id: "sample-event-2",
-        date: "2026-07-27",
-        time: "6:15 PM",
-        event: "Klein Sheva Brachos",
-        details: "Sheva Brachos - 96 guests",
-        room: "Nachlas Yehuda A",
-        owner: "Y. Waldman",
-        status: "Menu review",
-        next: "Kitchen quantities"
-      }
-    ]
-  },
-  {
-    date: "2026-07-29",
-    rows: [
-      {
-        id: "sample-event-3",
-        date: "2026-07-29",
-        time: "7:00 PM",
-        event: "Levy Lchaim",
-        details: "Lchaim - 160 guests",
-        room: "Terrace Room",
-        owner: "J. Klein",
-        status: "On hold",
-        next: "Retainer payment"
-      }
-    ]
-  },
-  {
-    date: "2026-08-02",
-    rows: [
-      {
-        id: "sample-event-4",
-        date: "2026-08-02",
-        time: "8:30 PM",
-        event: "Friedman Dinner",
-        details: "Dinner - 144 guests",
-        room: "Small Hall",
-        owner: "M. Mandelbaum",
-        status: "Balance due",
-        next: "Billing follow-up"
-      },
-      {
-        id: "sample-event-5",
-        date: "2026-08-02",
-        time: "9:00 PM",
-        event: "Stein Vort",
-        details: "Vort - 120 guests",
-        room: "Terrace Room",
-        owner: "Y. Waldman",
-        status: "Confirmed",
-        next: "Print packet"
-      }
-    ]
-  }
-];
-
-const SAMPLE_FINANCIAL_TIMELINE: FinancialTimelinePoint[] = [
-  { date: "2026-01-01", incomeCents: 520000, expenseCents: 240000 },
-  { date: "2026-02-01", incomeCents: 840000, expenseCents: 310000 },
-  { date: "2026-03-01", incomeCents: 690000, expenseCents: 380000 },
-  { date: "2026-04-01", incomeCents: 1120000, expenseCents: 460000 },
-  { date: "2026-05-01", incomeCents: 960000, expenseCents: 420000 },
-  { date: "2026-06-01", incomeCents: 1210000, expenseCents: 560000 },
-  { date: "2026-07-01", incomeCents: 1500000, expenseCents: 610000 },
-  { date: "2026-08-01", incomeCents: 980000, expenseCents: 390000 }
-];
-
-const SAMPLE_BOOKED_EVENTS = {
-  confirmed: 12,
-  onHold: 4,
-  total: 16
 };
 
 function getOperatingDateKey() {
@@ -520,6 +427,7 @@ function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
 }
 
 export function DashboardShell({ access }: DashboardShellProps) {
+  const [pageSearchQuery] = useDashboardPageSearch("Dashboard");
   const router = useRouter();
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
@@ -572,10 +480,27 @@ export function DashboardShell({ access }: DashboardShellProps) {
     () => dashboardQuery.data?.events ?? [],
     [dashboardQuery.data?.events]
   );
-  const scheduleRows = useMemo(
-    () => dashboardEvents.map(toScheduleRow),
-    [dashboardEvents]
-  );
+  const scheduleRows = useMemo(() => {
+    const normalizedQuery = pageSearchQuery.trim().toLowerCase();
+    const rows = dashboardEvents.map(toScheduleRow);
+
+    if (!normalizedQuery) return rows;
+    return rows.filter((row) =>
+      [
+        row.event,
+        row.details,
+        row.room,
+        row.owner,
+        row.status,
+        row.next,
+        row.date,
+        row.time
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedQuery)
+    );
+  }, [dashboardEvents, pageSearchQuery]);
   const schedulePageCount = Math.max(1, Math.ceil(scheduleRows.length / 10));
   const visibleScheduleRows = scheduleRows.slice(
     (schedulePage - 1) * 10,
@@ -590,28 +515,23 @@ export function DashboardShell({ access }: DashboardShellProps) {
     (_, index) => firstSchedulePage + index
   );
   const timelineGroups = useMemo(() => {
-    const groups = groupEventsByDate(dashboardEvents);
-    return groups.length > 0 ? groups : SAMPLE_TIMELINE_GROUPS;
-  }, [dashboardEvents]);
-  const totalEvents =
-    dashboardQuery.data?.summary.totalEvents ??
-    SAMPLE_TIMELINE_GROUPS.reduce((sum, group) => sum + group.rows.length, 0);
+    const visibleIds = new Set(scheduleRows.map((row) => row.id));
+    return groupEventsByDate(
+      dashboardEvents.filter((event) => visibleIds.has(event.id))
+    );
+  }, [dashboardEvents, scheduleRows]);
+  const totalEvents = dashboardQuery.data?.summary.totalEvents ?? 0;
   const rangeLabel = `${formatEventDate(dashboardDateRange.startDate)} - ${formatEventDate(dashboardDateRange.endDate)}`;
   const annualEvents = annualDashboardQuery.data?.events ?? [];
   const annualTimelineGroups = groupEventsByMonth(annualEvents);
-  const annualTotalEvents =
-    annualDashboardQuery.data?.summary.totalEvents ?? totalEvents;
+  const annualTotalEvents = annualDashboardQuery.data?.summary.totalEvents ?? 0;
   const annualRangeLabel = `${formatEventDate(annualDateRange.startDate)} - ${formatEventDate(annualDateRange.endDate)}`;
-  const liveBookedEvents = dashboardQuery.data?.summary.bookedEvents;
-  const bookedEvents =
-    liveBookedEvents && liveBookedEvents.total > 0
-      ? liveBookedEvents
-      : SAMPLE_BOOKED_EVENTS;
-  const financialTimeline = financialQuery.data?.financialTimeline?.some(
-    (point) => point.incomeCents > 0 || point.expenseCents > 0
-  )
-    ? financialQuery.data.financialTimeline
-    : SAMPLE_FINANCIAL_TIMELINE;
+  const bookedEvents = dashboardQuery.data?.summary.bookedEvents ?? {
+    confirmed: 0,
+    onHold: 0,
+    total: 0
+  };
+  const financialTimeline = financialQuery.data?.financialTimeline ?? [];
   const financialRangeLabel = `${formatEventDate(financialDateRange.startDate)} - ${formatEventDate(financialDateRange.endDate)}`;
   const bookedConfirmedPercent = bookedEvents.total
     ? Math.round((bookedEvents.confirmed / bookedEvents.total) * 100)
@@ -652,25 +572,13 @@ export function DashboardShell({ access }: DashboardShellProps) {
     setIsTodayNotesOpen(true);
   }, []);
 
-  const continueNewBooking = useCallback(
-    (values: NewBookingFormValues, intent: NewBookingSubmitIntent) => {
-      const searchParams = new URLSearchParams({
-        clientName: values.clientName,
-        phone: values.phone,
-        email: values.email,
-        eventType: values.eventType,
-        eventDate: values.eventDate,
-        hall: values.hall,
-        guestCount: values.guestCount,
-        package: values.eventPackage,
-        intent
-      });
-
-      setIsNewBookingOpen(false);
-      router.push(`/dashboard/events?${searchParams.toString()}`);
-    },
-    [router]
-  );
+  const continueNewBooking = useCallback(async () => {
+    setIsNewBookingOpen(false);
+    await Promise.all([
+      dashboardQuery.refetch(),
+      annualDashboardQuery.refetch()
+    ]);
+  }, [annualDashboardQuery, dashboardQuery]);
 
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
@@ -703,7 +611,9 @@ export function DashboardShell({ access }: DashboardShellProps) {
                       Total Events
                     </h2>
                     <p className="mt-4 text-4xl font-black tracking-tight text-[#07162d]">
-                      {annualDashboardQuery.isLoading ? "..." : annualTotalEvents}
+                      {annualDashboardQuery.isLoading
+                        ? "..."
+                        : annualTotalEvents}
                     </p>
                   </div>
                   <CalendarKpiIcon />
@@ -735,20 +645,52 @@ export function DashboardShell({ access }: DashboardShellProps) {
                       <strong className="text-2xl font-black text-[#07162d]">
                         {bookedEvents.total}
                       </strong>
-                      <span className="text-sm font-bold text-[#607089]">Total</span>
+                      <span className="text-sm font-bold text-[#607089]">
+                        Total
+                      </span>
                     </div>
                   </div>
                   <div className="divide-y divide-[#d8dde5]">
                     {[
-                      ["Confirmed", bookedEvents.confirmed, bookedConfirmedPercent, "#079447", "bg-[#eaf7ee] text-[#079447]"],
-                      ["On Hold", bookedEvents.onHold, bookedOnHoldPercent, "#ffb000", "bg-[#fff5df] text-[#d88a00]"],
-                      ["Upcoming", bookedEvents.onHold, bookedOnHoldPercent, "#1261e8", "bg-[#edf4ff] text-[#1261e8]"]
+                      [
+                        "Confirmed",
+                        bookedEvents.confirmed,
+                        bookedConfirmedPercent,
+                        "#079447",
+                        "bg-[#eaf7ee] text-[#079447]"
+                      ],
+                      [
+                        "On Hold",
+                        bookedEvents.onHold,
+                        bookedOnHoldPercent,
+                        "#ffb000",
+                        "bg-[#fff5df] text-[#d88a00]"
+                      ],
+                      [
+                        "Upcoming",
+                        bookedEvents.onHold,
+                        bookedOnHoldPercent,
+                        "#1261e8",
+                        "bg-[#edf4ff] text-[#1261e8]"
+                      ]
                     ].map(([label, value, percent, color, pillClass]) => (
-                      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 py-4 first:pt-0 last:pb-0" key={String(label)}>
-                        <span className="h-3 w-3 rounded-full" style={{ backgroundColor: String(color) }} />
-                        <span className="text-sm font-bold text-[#17202a]">{label}</span>
-                        <strong className="text-sm text-[#17202a]">{value}</strong>
-                        <span className={`rounded-full px-2 py-1 text-xs font-black ${pillClass}`}>
+                      <div
+                        className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 py-4 first:pt-0 last:pb-0"
+                        key={String(label)}
+                      >
+                        <span
+                          className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: String(color) }}
+                        />
+                        <span className="text-sm font-bold text-[#17202a]">
+                          {label}
+                        </span>
+                        <strong className="text-sm text-[#17202a]">
+                          {value}
+                        </strong>
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-black ${pillClass}`}
+                        >
                           {percent}%
                         </span>
                       </div>
@@ -758,7 +700,9 @@ export function DashboardShell({ access }: DashboardShellProps) {
               </div>
               <button
                 className="flex w-full items-center gap-3 border-t border-[#d8dde5] bg-[#f7fcf9] px-5 py-4 text-left hover:bg-[#eef9f2] sm:px-7"
-                onClick={() => router.push("/dashboard/events", { scroll: false })}
+                onClick={() =>
+                  router.push("/dashboard/events", { scroll: false })
+                }
                 type="button"
               >
                 <CalendarKpiIcon booked />
@@ -840,7 +784,9 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   <button
                     className="h-10 min-w-32 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
                     type="button"
-                    onClick={() => router.push("/dashboard/event-manager")}
+                    onClick={() =>
+                      router.push("/dashboard/events", { scroll: false })
+                    }
                   >
                     Open events
                   </button>

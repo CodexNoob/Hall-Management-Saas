@@ -1,65 +1,101 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
+import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+
+type TableSide = "men" | "women" | "kids" | "head";
+
+type DiningTableData = {
+  id: string;
+  number: number;
+  seats: number;
+  side: TableSide;
+};
+
+type DiningPlan = {
+  id: string;
+  eventId: string;
+  hallMapPresetId: string | null;
+  countType: "People" | "Couples";
+  adultCount: number;
+  childrenCount: number;
+  menWaiters: number;
+  womenWaiters: number;
+  tablecloth: string | null;
+  washingTime: string | null;
+  specialNotes: string | null;
+  tables: unknown;
+};
+
+type HallMapObject = {
+  id: string;
+  type: string;
+  name: string;
+  seats: number;
+  seatingUse: "none" | "adult" | "kids" | "head";
+};
+
+type HallMapPreset = {
+  id: string;
+  hallId: string;
+  name: string;
+  objects: unknown;
+};
 
 type DiningEvent = {
   id: string;
-  name: string;
-  hall: string;
-  schedule: string;
-  portions: string;
-  status: string;
-  tablecloth: string;
+  clientName: string;
+  eventType: string | null;
+  eventDate: string;
+  startsAt: string | null;
+  eventStatus: string;
+  bookingStatus: string;
+  packageName: string | null;
+  couplesCount: number;
+  menCount: number;
+  ladiesCount: number;
+  boysCount: number;
+  girlsCount: number;
+  kidsCount: number;
+  waitersCount: number;
+  tableclothName: string | null;
+  washingTime: string | null;
+  notes: string | null;
+  hall: { id: string; name: string };
+  diningPlan: DiningPlan | null;
 };
 
-const diningEvents: DiningEvent[] = [
-  {
-    id: "rosenberg",
-    name: "Rosenberg Bar Mitzvah",
-    hall: "Grand Hall",
-    schedule: "Monday, June 22 · 5:30 PM",
-    portions: "240 portions",
-    status: "Confirmed",
-    tablecloth: "Ivory",
-  },
-  {
-    id: "klein",
-    name: "Klein Sheva Brachos",
-    hall: "Nachlas Yehuda A",
-    schedule: "Monday, June 22 · 6:15 PM",
-    portions: "96 couples",
-    status: "Menu locked",
-    tablecloth: "White",
-  },
-  {
-    id: "levy",
-    name: "Levy Lchaim",
-    hall: "Terrace Room",
-    schedule: "Wednesday, June 24 · 7:00 PM",
-    portions: "160 portions",
-    status: "Hold",
-    tablecloth: "Champagne",
-  },
-  {
-    id: "friedman",
-    name: "Friedman Dinner",
-    hall: "Small Hall",
-    schedule: "Monday, June 29 · 8:30 PM",
-    portions: "72 couples",
-    status: "Balance due",
-    tablecloth: "Ivory",
-  },
-];
+type DiningResponse = {
+  events: DiningEvent[];
+  hallMapPresets: HallMapPreset[];
+};
 
-const tables = Array.from({ length: 8 }, (_, index) => ({
-  id: index + 1,
-  seats: 10,
-}));
+type DiningPlanPayload = {
+  eventId: string;
+  hallMapPresetId?: string | null;
+  countType: "People" | "Couples";
+  adultCount: number;
+  childrenCount: number;
+  menWaiters: number;
+  womenWaiters: number;
+  tablecloth?: string;
+  washingTime?: string;
+  specialNotes?: string;
+  tables: DiningTableData[];
+};
+
+type DiningForm = Omit<DiningPlanPayload, "eventId" | "tables">;
+
+const tableclothOptions = ["Ivory", "White", "Champagne", "Black"];
 
 function Panel({
   children,
-  className = "",
+  className = ""
 }: {
   children: ReactNode;
   className?: string;
@@ -75,7 +111,7 @@ function Panel({
 
 function FieldLabel({
   children,
-  htmlFor,
+  htmlFor
 }: {
   children: ReactNode;
   htmlFor: string;
@@ -90,433 +126,748 @@ function FieldLabel({
   );
 }
 
+function validTables(value: unknown): DiningTableData[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((table): table is DiningTableData =>
+    Boolean(
+      table &&
+      typeof table === "object" &&
+      "id" in table &&
+      "number" in table &&
+      "seats" in table &&
+      "side" in table
+    )
+  );
+}
+
+function validPresetObjects(value: unknown): HallMapObject[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((object): object is HallMapObject =>
+    Boolean(
+      object &&
+        typeof object === "object" &&
+        "id" in object &&
+        "type" in object &&
+        "name" in object &&
+        "seats" in object &&
+        "seatingUse" in object
+    )
+  );
+}
+
+function defaultTables(): DiningTableData[] {
+  return Array.from({ length: 8 }, (_, index) => ({
+    id: crypto.randomUUID(),
+    number: index + 1,
+    seats: 10,
+    side: index < 4 ? "men" : "women"
+  }));
+}
+
+function eventTitle(event: DiningEvent) {
+  return `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`;
+}
+
+function eventSchedule(event: DiningEvent) {
+  const date = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(event.eventDate));
+  const time = event.startsAt
+    ? new Intl.DateTimeFormat("en-US", {
+        hour: "numeric",
+        minute: "2-digit"
+      }).format(new Date(event.startsAt))
+    : "Time not set";
+  return `${date} · ${time}`;
+}
+
+function eventCounts(event: DiningEvent) {
+  return {
+    adults: event.couplesCount * 2 + event.menCount + event.ladiesCount,
+    children: event.boysCount + event.girlsCount + event.kidsCount
+  };
+}
+
 function SeatingRow({
   current,
   label,
-  maximum,
-  note,
-  color,
+  maximum
 }: {
   current: number;
   label: string;
   maximum: number;
-  note: string;
-  color: string;
 }) {
-  const percentage = Math.min((current / maximum) * 100, 100);
+  const percentage = maximum ? Math.min((current / maximum) * 100, 100) : 100;
+  const complete = current >= maximum;
 
   return (
     <div>
       <div className="flex items-center gap-3">
         <strong className="w-14 shrink-0 text-xs">{label}</strong>
-
         <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e7edf3]">
           <div
-            className={`h-full rounded-full ${color}`}
+            className={`h-full rounded-full ${
+              complete ? "bg-[#178151]" : "bg-[#c0a048]"
+            }`}
             style={{ width: `${percentage}%` }}
           />
         </div>
-
-        <span className="w-11 shrink-0 text-right text-[10px] text-[#36465a]">
+        <span className="w-16 shrink-0 text-right text-[10px] text-[#36465a]">
           {current}/{maximum}
         </span>
       </div>
-
-      <p className="mt-1 text-[10px] text-[#617086]">{note}</p>
     </div>
   );
 }
 
-function EventCard({
-  event,
-  selected,
-  onSelect,
-}: {
-  event: DiningEvent;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const warning = event.status !== "Confirmed";
-
-  return (
-    <button
-      className={`w-full rounded-xl border p-3 text-left transition ${
-        selected
-          ? "border-[#1f5f91] bg-[#eef6fc]"
-          : "border-[#c9d2de] bg-white hover:bg-[#f8fafc]"
-      }`}
-      onClick={onSelect}
-      type="button"
-    >
-      <strong className="block text-sm font-black">{event.name}</strong>
-
-      <p className="mt-1 text-xs leading-5 text-[#55708d]">
-        {event.hall} · {event.schedule} · {event.portions}
-      </p>
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        <span
-          className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${
-            warning
-              ? "border-[#efc879] bg-[#fff7e7] text-[#925200]"
-              : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"
-          }`}
-        >
-          {event.status}
-        </span>
-
-        <span className="rounded-full border border-[#d8dde5] bg-white px-2 py-0.5 text-[10px] font-black">
-          {event.tablecloth}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function DiningTable({
-  number,
-  seats,
-}: {
-  number: number;
-  seats: number;
-}) {
-  return (
-    <button
-      aria-label={`Table ${number}, ${seats} seats`}
-      className="flex h-14 w-14 flex-col items-center justify-center rounded-full border border-[#526c86] bg-white text-center shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef6fc] sm:h-17 sm:w-17"
-      type="button"
-    >
-      <strong className="text-[11px]">Table {number}</strong>
-      <span className="text-[9px]">{seats} seats</span>
-    </button>
-  );
-}
-
 export function DiningManagerPage() {
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(
-    diningEvents[0].id,
+  const diningQuery = useAuthenticatedQuery<DiningResponse>("/api/dining");
+  const diningMutation = useAuthenticatedMutation<
+    DiningPlanPayload,
+    { plan: DiningPlan }
+  >("/api/dining", "PATCH");
+  const { resetError } = diningMutation;
+  const [pageSearchQuery] = useDashboardPageSearch("Dining Manager");
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [eventPage, setEventPage] = useState(1);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedPresetId, setSelectedPresetId] = useState("");
+  const [tables, setTables] = useState<DiningTableData[]>([]);
+  const [checkMessage, setCheckMessage] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+  const [form, setForm] = useState<DiningForm>({
+    countType: "People",
+    adultCount: 0,
+    childrenCount: 0,
+    menWaiters: 0,
+    womenWaiters: 0,
+    tablecloth: "",
+    washingTime: "",
+    specialNotes: ""
+  });
+
+  const events = useMemo(
+    () => diningQuery.data?.events ?? [],
+    [diningQuery.data]
+  );
+  const normalizedSearch = pageSearchQuery.trim().toLowerCase();
+  const visibleEvents = events.filter((event) =>
+    [
+      eventTitle(event),
+      event.hall.name,
+      event.packageName,
+      event.eventStatus,
+      eventSchedule(event)
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalizedSearch)
+  );
+  const eventPageCount = Math.max(1, Math.ceil(visibleEvents.length / 4));
+  const paginatedEvents = visibleEvents.slice(
+    (eventPage - 1) * 4,
+    eventPage * 4
+  );
+  const firstEventPage = Math.min(
+    Math.max(1, eventPage - 2),
+    Math.max(1, eventPageCount - 4)
+  );
+  const eventPageNumbers = Array.from(
+    { length: Math.min(5, eventPageCount) },
+    (_, index) => firstEventPage + index
+  );
+  const selectedEvent =
+    events.find((event) => event.id === selectedEventId) ?? events[0] ?? null;
+  const availableHallMapPresets = (diningQuery.data?.hallMapPresets ?? []).filter(
+    (preset) => preset.hallId === selectedEvent?.hall.id
   );
 
-  const selectedEvent =
-    diningEvents.find((event) => event.id === selectedEventId) ??
-    diningEvents[0];
+  useEffect(() => {
+    if (!selectedEventId && events[0]) {
+      setSelectedEventId(events[0].id);
+    }
+  }, [events, selectedEventId]);
+
+  useEffect(() => {
+    setEventPage(1);
+  }, [pageSearchQuery]);
+
+  useEffect(() => {
+    setEventPage((current) => Math.min(current, eventPageCount));
+  }, [eventPageCount]);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+    const counts = eventCounts(selectedEvent);
+    const plan = selectedEvent.diningPlan;
+    setForm({
+      countType: plan?.countType ?? "People",
+      adultCount: plan?.adultCount ?? counts.adults,
+      childrenCount: plan?.childrenCount ?? counts.children,
+      menWaiters: plan?.menWaiters ?? Math.ceil(selectedEvent.waitersCount / 2),
+      womenWaiters:
+        plan?.womenWaiters ?? Math.floor(selectedEvent.waitersCount / 2),
+      tablecloth: plan?.tablecloth ?? selectedEvent.tableclothName ?? "Ivory",
+      washingTime: plan?.washingTime ?? selectedEvent.washingTime ?? "",
+      specialNotes: plan?.specialNotes ?? selectedEvent.notes ?? ""
+    });
+    const storedTables = validTables(plan?.tables);
+    setTables(storedTables.length ? storedTables : defaultTables());
+    setSelectedPresetId(plan?.hallMapPresetId ?? "");
+    setSelectedTableId(null);
+    setCheckMessage("");
+    setSavedMessage("");
+    resetError();
+  }, [resetError, selectedEvent]);
+
+  const seatTotals = tables.reduce(
+    (totals, table) => ({
+      ...totals,
+      [table.side]: totals[table.side] + table.seats
+    }),
+    { men: 0, women: 0, kids: 0, head: 0 }
+  );
+  const menRequired = Math.ceil(form.adultCount / 2);
+  const womenRequired = form.adultCount - menRequired;
+
+  function updateForm<K extends keyof DiningForm>(
+    field: K,
+    value: DiningForm[K]
+  ) {
+    setSavedMessage("");
+    resetError();
+    setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function addTable(side: TableSide = "men") {
+    setTables((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        number: current.length + 1,
+        seats: side === "head" ? 12 : 10,
+        side
+      }
+    ]);
+  }
+
+  function addRequiredTables() {
+    const requirements: Array<[TableSide, number]> = [
+      ["men", Math.max(0, menRequired - seatTotals.men)],
+      ["women", Math.max(0, womenRequired - seatTotals.women)],
+      ["kids", Math.max(0, form.childrenCount - seatTotals.kids)]
+    ];
+    setTables((current) => {
+      const next = [...current];
+      for (const [side, missingSeats] of requirements) {
+        const count = Math.ceil(missingSeats / 10);
+        for (let index = 0; index < count; index += 1) {
+          next.push({
+            id: crypto.randomUUID(),
+            number: next.length + 1,
+            seats: 10,
+            side
+          });
+        }
+      }
+      return next;
+    });
+    setCheckMessage("Required tables were added to the dining layout.");
+  }
+
+  function applyHallMapPreset() {
+    const preset = diningQuery.data?.hallMapPresets.find(
+      (item) =>
+        item.id === selectedPresetId && item.hallId === selectedEvent?.hall.id
+    );
+    if (!preset) {
+      setCheckMessage("Select a map preset assigned to this event's hall.");
+      return;
+    }
+
+    let adultIndex = 0;
+    const presetTables = validPresetObjects(preset.objects)
+      .filter((object) => object.seats > 0 && object.seatingUse !== "none")
+      .map((object, index): DiningTableData => {
+        let side: TableSide;
+        if (object.seatingUse === "kids") {
+          side = "kids";
+        } else if (object.seatingUse === "head") {
+          side = "head";
+        } else {
+          side = adultIndex % 2 === 0 ? "men" : "women";
+          adultIndex += 1;
+        }
+        return {
+          id: crypto.randomUUID(),
+          number: index + 1,
+          seats: object.seats,
+          side
+        };
+      });
+
+    setTables(presetTables);
+    setSelectedTableId(null);
+    setSavedMessage("");
+    setCheckMessage(
+      `${preset.name} applied with ${presetTables.length} seating tables. Save the dining plan to keep it.`
+    );
+  }
+
+  function removeSelectedTable() {
+    if (!selectedTableId) return;
+    setTables((current) =>
+      current
+        .filter((table) => table.id !== selectedTableId)
+        .map((table, index) => ({ ...table, number: index + 1 }))
+    );
+    setSelectedTableId(null);
+  }
+
+  async function savePlan() {
+    if (!selectedEvent) return;
+    try {
+      await diningMutation.mutate({
+        eventId: selectedEvent.id,
+        hallMapPresetId: selectedPresetId || null,
+        ...form,
+        tablecloth: form.tablecloth || undefined,
+        washingTime: form.washingTime || undefined,
+        specialNotes: form.specialNotes || undefined,
+        tables
+      });
+      await diningQuery.refetch();
+      setSavedMessage("Dining plan saved.");
+    } catch {
+      // Mutation errors are rendered in the details panel.
+    }
+  }
+
+  if (diningQuery.isLoading || diningQuery.error || !diningQuery.data) {
+    return (
+      <DashboardPageState
+        error={diningQuery.error}
+        isLoading={diningQuery.isLoading}
+        onRetry={diningQuery.refetch}
+        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
+        title="Dining Manager"
+      />
+    );
+  }
+
+  if (!selectedEvent) {
+    return (
+      <DashboardPageState
+        emptyMessage="Create an event before preparing a dining plan."
+        emptyTitle="No dining events yet"
+        isEmpty
+        onRetry={diningQuery.refetch}
+        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
+        title="Dining Manager"
+      />
+    );
+  }
 
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
-        title="Dining Manager"
-        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
-        showSearch={false}
-        compactMobileActions
         actionsSlot={
           <>
             <button
-              aria-label="Clear selection"
-              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#17202a] hover:text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-bold lg:shadow-sm lg:hover:bg-[#eef4fa]"
-              onClick={() => setSelectedEventId(null)}
-              title="Clear selection"
+              className="hidden h-11 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold hover:bg-[#eef4fa] lg:block"
+              disabled={!selectedTableId}
+              onClick={removeSelectedTable}
               type="button"
             >
-              <svg aria-hidden="true" className="h-6 w-6 lg:hidden" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2" /></svg>
-              <span className="hidden lg:inline">Clear selection</span>
+              Remove table
             </button>
             <button
-              aria-label="Save layout"
-              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] hover:text-[#15344f] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f]"
-              title="Save layout"
+              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white"
+              disabled={diningMutation.isPending}
+              onClick={savePlan}
               type="button"
             >
-              <svg aria-hidden="true" className="h-6 w-6 lg:hidden" fill="none" viewBox="0 0 24 24"><path d="M5 4h12l2 2v14H5ZM8 4v6h8V4M8 20v-6h8v6" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" /></svg>
-              <span className="hidden lg:inline">Save layout</span>
+              <span className="text-xl lg:hidden">✓</span>
+              <span className="hidden lg:inline">
+                {diningMutation.isPending ? "Saving..." : "Save dining plan"}
+              </span>
             </button>
           </>
         }
+        compactMobileActions
+        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
+        title="Dining Manager"
       />
 
-      <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
-        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 lg:grid-cols-[240px_minmax(0,1fr)] xl:grid-cols-[258px_minmax(500px,1fr)_304px]">
-          <Panel className="min-w-0">
+      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
+        <div className="mx-auto grid min-h-full max-w-[1800px] gap-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
+          <Panel>
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Events</h2>
               <p className="mt-1 text-xs text-[#617086]">
-                Open an event workspace.
+                Select an organization event.
               </p>
             </header>
-
-            <div className="space-y-2 p-2">
-              {diningEvents.map((event) => (
-                <EventCard
-                  event={event}
-                  key={event.id}
-                  onSelect={() => setSelectedEventId(event.id)}
-                  selected={selectedEventId === event.id}
-                />
-              ))}
+            <div className="max-h-80 space-y-2 overflow-y-auto p-2 lg:max-h-none">
+              {paginatedEvents.map((event) => {
+                const counts = eventCounts(event);
+                return (
+                  <button
+                    className={`w-full rounded-xl border p-3 text-left ${
+                      selectedEvent.id === event.id
+                        ? "border-[#1f5f91] bg-[#eef6fc]"
+                        : "border-[#c9d2de] bg-white hover:bg-[#f8fafc]"
+                    }`}
+                    key={event.id}
+                    onClick={() => setSelectedEventId(event.id)}
+                    type="button"
+                  >
+                    <strong className="block truncate text-sm">
+                      {eventTitle(event)}
+                    </strong>
+                    <p className="mt-1 text-xs leading-5 text-[#55708d]">
+                      {event.hall.name} · {eventSchedule(event)} ·{" "}
+                      {counts.adults + counts.children} guests
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <span className="rounded-full border border-[#b9ddcf] bg-[#effbf6] px-2 py-0.5 text-[10px] font-black text-[#087047]">
+                        {event.eventStatus}
+                      </span>
+                      {event.diningPlan ? (
+                        <span className="rounded-full border border-[#b9c2cf] bg-white px-2 py-0.5 text-[10px] font-black">
+                          Plan saved
+                        </span>
+                      ) : null}
+                    </div>
+                  </button>
+                );
+              })}
+              {visibleEvents.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#617086]">
+                  No events match the search.
+                </p>
+              ) : null}
+              {visibleEvents.length > 0 ? (
+                <nav
+                  aria-label="Dining event pages"
+                  className="flex flex-wrap items-center justify-center gap-1 border-t border-[#d8dde5] pt-3"
+                >
+                  <button
+                    aria-label="Previous event page"
+                    className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black enabled:hover:bg-[#eef4fa] disabled:opacity-40"
+                    disabled={eventPage === 1}
+                    onClick={() =>
+                      setEventPage((current) => Math.max(1, current - 1))
+                    }
+                    type="button"
+                  >
+                    ‹
+                  </button>
+                  {eventPageNumbers.map((page) => (
+                    <button
+                      aria-current={eventPage === page ? "page" : undefined}
+                      className={`flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-black ${
+                        eventPage === page
+                          ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                          : "border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
+                      }`}
+                      key={page}
+                      onClick={() => setEventPage(page)}
+                      type="button"
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  <button
+                    aria-label="Next event page"
+                    className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black enabled:hover:bg-[#eef4fa] disabled:opacity-40"
+                    disabled={eventPage === eventPageCount}
+                    onClick={() =>
+                      setEventPage((current) =>
+                        Math.min(eventPageCount, current + 1)
+                      )
+                    }
+                    type="button"
+                  >
+                    ›
+                  </button>
+                </nav>
+              ) : null}
             </div>
           </Panel>
 
-          <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155">
-            <header className="border-b border-[#d8dde5] p-2.5">
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-black text-[#17202a]">
-                  {selectedEvent.name}
-                </h2>
-                <p className="mt-1 truncate text-[11px] font-semibold text-[#617086]">
-                  {selectedEvent.hall} · {selectedEvent.schedule} · {selectedEvent.portions}
-                </p>
+          <Panel className="flex min-h-125 flex-col sm:min-h-155">
+            <header className="border-b border-[#d8dde5] p-3">
+              <h2 className="truncate text-sm font-black">
+                {eventTitle(selectedEvent)}
+              </h2>
+              <p className="mt-1 truncate text-xs text-[#617086]">
+                {selectedEvent.hall.name} · {eventSchedule(selectedEvent)}
+              </p>
+              <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1">
+                  <FieldLabel htmlFor="hall-map-preset">
+                    Hall map preset
+                  </FieldLabel>
+                  <select
+                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs"
+                    id="hall-map-preset"
+                    onChange={(event) => {
+                      setSelectedPresetId(event.target.value);
+                      setSavedMessage("");
+                    }}
+                    value={selectedPresetId}
+                  >
+                    <option value="">
+                      {availableHallMapPresets.length
+                        ? "Select a preset"
+                        : `No presets assigned to ${selectedEvent.hall.name}`}
+                    </option>
+                    {availableHallMapPresets.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={!selectedPresetId}
+                  onClick={applyHallMapPreset}
+                  type="button"
+                >
+                  Apply preset
+                </button>
               </div>
-
-              <div className="mt-2 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-[minmax(140px,1fr)_auto_auto]">
-                <select
-                aria-label="Dining hall"
-                className="col-span-2 h-8 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-semibold sm:col-span-1"
-                defaultValue={selectedEvent.hall}
-                key={selectedEvent.id}
-                name="diningHall"
-              >
-                <option>Grand Hall</option>
-                <option>Nachlas Yehuda A</option>
-                <option>Nachlas Yehuda B</option>
-                <option>Terrace Room</option>
-                <option>Small Hall</option>
-                </select>
-
-              <button
-                className="h-8 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] sm:px-3"
-                type="button"
-              >
-                Load preset
-              </button>
-
-              <button
-                className="h-8 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-2 text-[10px] font-black text-white hover:bg-[#15344f] sm:px-4"
-                type="button"
-              >
-                Save preset
-              </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  onClick={() => addTable("men")}
+                  type="button"
+                >
+                  + Adult table
+                </button>
+                <button
+                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  onClick={() => addTable("kids")}
+                  type="button"
+                >
+                  + Kids table
+                </button>
+                <button
+                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  onClick={() => addTable("head")}
+                  type="button"
+                >
+                  + Head table
+                </button>
+                <button
+                  className="h-9 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40"
+                  disabled={!selectedTableId}
+                  onClick={removeSelectedTable}
+                  type="button"
+                >
+                  Remove selected
+                </button>
               </div>
             </header>
-
             <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div
-                className="relative min-h-105 w-full min-w-0 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] sm:min-h-133.75"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#dce5ef 1px, transparent 1px), linear-gradient(90deg, #dce5ef 1px, transparent 1px)",
-                  backgroundPosition: "-1px -1px",
-                  backgroundSize: "21px 21px",
-                }}
-              >
-                <div className="mx-auto mt-12 grid w-full max-w-78.75 grid-cols-4 justify-items-center gap-x-1 gap-y-5 px-2 sm:mt-19 sm:gap-x-5 sm:gap-y-8 sm:px-0">
+              <div className="min-h-105 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-5 sm:min-h-133.75">
+                <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
                   {tables.map((table) => (
-                    <DiningTable
+                    <button
+                      className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
+                        selectedTableId === table.id
+                          ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
+                          : "border-[#526c86]"
+                      }`}
                       key={table.id}
-                      number={table.id}
-                      seats={table.seats}
-                    />
+                      onClick={() => setSelectedTableId(table.id)}
+                      type="button"
+                    >
+                      <strong className="text-[10px]">
+                        Table {table.number}
+                      </strong>
+                      <span className="text-[9px]">{table.seats} seats</span>
+                      <span className="text-[8px] uppercase text-[#617086]">
+                        {table.side}
+                      </span>
+                    </button>
                   ))}
                 </div>
-
-                <div className="mx-auto mt-4 flex h-5 w-[calc(100%-1rem)] max-w-82.5 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
+                <div className="mx-auto mt-8 flex h-6 max-w-96 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
                   Mechitza
-                </div>
-
-                <div className="mx-auto mt-8 grid w-full max-w-100.5 grid-cols-3 items-center gap-2 px-2 sm:mt-10 sm:grid-cols-[1fr_114px_1fr] sm:gap-10 sm:px-0">
-                  <button
-                    className="h-11 rounded-lg border border-dashed border-[#415d78] bg-[#f4f8fb] text-[10px] font-black"
-                    type="button"
-                  >
-                    Buffet
-                  </button>
-
-                  <button
-                    className="h-11 rounded-lg border border-[#415d78] bg-white text-[10px] font-black"
-                    type="button"
-                  >
-                    Head table
-                    <span className="block text-[9px] font-medium">
-                      12 seats
-                    </span>
-                  </button>
-
-                  <button
-                    className="h-11 rounded-lg border border-dashed border-[#415d78] bg-[#f4f8fb] text-[10px] font-black"
-                    type="button"
-                  >
-                    Drinks
-                  </button>
                 </div>
               </div>
             </div>
           </Panel>
 
-          <Panel className="min-w-0 lg:col-span-2 xl:col-span-1">
+          <Panel className="lg:col-span-2 xl:col-span-1">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Dining details</h2>
               <p className="mt-1 text-xs text-[#617086]">
-                Event-specific setup.
+                Event-specific setup saved to Supabase.
               </p>
             </header>
-
-            <form className="space-y-3 p-3">
+            <div className="space-y-3 p-3">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <FieldLabel htmlFor="count-type">
-                    Count type
-                  </FieldLabel>
-
+                  <FieldLabel htmlFor="count-type">Count type</FieldLabel>
                   <select
                     className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
-                    defaultValue="People"
                     id="count-type"
-                    name="countType"
+                    onChange={(event) =>
+                      updateForm(
+                        "countType",
+                        event.target.value as DiningForm["countType"]
+                      )
+                    }
+                    value={form.countType}
                   >
                     <option>People</option>
                     <option>Couples</option>
                   </select>
                 </div>
-
+                {[
+                  ["adultCount", "Adults"],
+                  ["childrenCount", "Children"],
+                  ["menWaiters", "Men waiters"],
+                  ["womenWaiters", "Women waiters"]
+                ].map(([field, label]) => (
+                  <div key={field}>
+                    <FieldLabel htmlFor={field}>{label}</FieldLabel>
+                    <input
+                      className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
+                      id={field}
+                      min="0"
+                      onChange={(event) =>
+                        updateForm(
+                          field as keyof Pick<
+                            DiningForm,
+                            | "adultCount"
+                            | "childrenCount"
+                            | "menWaiters"
+                            | "womenWaiters"
+                          >,
+                          Number(event.target.value)
+                        )
+                      }
+                      type="number"
+                      value={form[field as keyof DiningForm] as number}
+                    />
+                  </div>
+                ))}
                 <div>
-                  <FieldLabel htmlFor="adult-count">Adults</FieldLabel>
-
-                  <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
-                    defaultValue="214"
-                    id="adult-count"
-                    min="0"
-                    name="adultCount"
-                    type="number"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel htmlFor="children-count">
-                    Children
-                  </FieldLabel>
-
-                  <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
-                    defaultValue="26"
-                    id="children-count"
-                    min="0"
-                    name="childrenCount"
-                    type="number"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel htmlFor="men-waiters">
-                    Men waiters
-                  </FieldLabel>
-
-                  <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
-                    defaultValue="8"
-                    id="men-waiters"
-                    min="0"
-                    name="menWaiters"
-                    type="number"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel htmlFor="ladies-waiters">
-                    Ladies waiters
-                  </FieldLabel>
-
-                  <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
-                    defaultValue="6"
-                    id="ladies-waiters"
-                    min="0"
-                    name="ladiesWaiters"
-                    type="number"
-                  />
-                </div>
-
-                <div>
-                  <FieldLabel htmlFor="tablecloth">
-                    Tablecloth
-                  </FieldLabel>
-
+                  <FieldLabel htmlFor="tablecloth">Tablecloth</FieldLabel>
                   <select
                     className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
-                    defaultValue="Ivory"
                     id="tablecloth"
-                    name="tablecloth"
+                    onChange={(event) =>
+                      updateForm("tablecloth", event.target.value)
+                    }
+                    value={form.tablecloth}
                   >
-                    <option>Ivory</option>
-                    <option>White</option>
-                    <option>Champagne</option>
-                    <option>Black</option>
+                    {tableclothOptions.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
                   </select>
                 </div>
-
                 <div>
-                  <FieldLabel htmlFor="washing-time">
-                    Washing time
-                  </FieldLabel>
-
+                  <FieldLabel htmlFor="washing-time">Washing time</FieldLabel>
                   <input
                     className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
-                    defaultValue="21:45"
                     id="washing-time"
-                    name="washingTime"
+                    onChange={(event) =>
+                      updateForm("washingTime", event.target.value)
+                    }
                     type="time"
+                    value={form.washingTime}
                   />
                 </div>
               </div>
 
-              <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-2">
+              {selectedTableId ? (
+                <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+                  <FieldLabel htmlFor="table-side">
+                    Selected table use
+                  </FieldLabel>
+                  <select
+                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
+                    id="table-side"
+                    onChange={(event) =>
+                      setTables((current) =>
+                        current.map((table) =>
+                          table.id === selectedTableId
+                            ? {
+                                ...table,
+                                side: event.target.value as TableSide
+                              }
+                            : table
+                        )
+                      )
+                    }
+                    value={
+                      tables.find((table) => table.id === selectedTableId)
+                        ?.side ?? "men"
+                    }
+                  >
+                    <option value="men">Men</option>
+                    <option value="women">Women</option>
+                    <option value="kids">Kids</option>
+                    <option value="head">Head table</option>
+                  </select>
+                </div>
+              ) : null}
+
+              <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
                 <h3 className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
                   Seating check
                 </h3>
-
-                <div className="mt-2 space-y-2">
+                <div className="mt-3 space-y-3">
                   <SeatingRow
-                    color="bg-[#b53737]"
-                    current={80}
+                    current={seatTotals.men}
                     label="Men"
-                    maximum={107}
-                    note="8 tables placed · minimum 11 needed"
+                    maximum={menRequired}
                   />
-
                   <SeatingRow
-                    color="bg-[#c0a048]"
-                    current={12}
+                    current={seatTotals.women}
                     label="Women"
-                    maximum={107}
-                    note="1 table placed · minimum 11 needed"
+                    maximum={womenRequired}
                   />
-
                   <SeatingRow
-                    color="bg-[#6285a4]"
-                    current={0}
+                    current={seatTotals.kids}
                     label="Kids"
-                    maximum={26}
-                    note="0 tables placed · minimum 4 needed"
+                    maximum={form.childrenCount}
                   />
                 </div>
-
-                <p className="mt-2 text-[10px] font-bold text-[#59677c]">
-                  Needs more seating: men side, women side, kids tables.
-                </p>
-
-                <p className="mt-1 text-[9px] leading-4 text-[#617086]">
-                  Adult tables are split by the mechitza. Kids are counted
-                  only on tables marked Kids.
-                </p>
-
-                <div className="mt-2 grid grid-cols-2 gap-2 xl:grid-cols-1">
+                {checkMessage ? (
+                  <p className="mt-3 text-xs font-bold text-[#315573]">
+                    {checkMessage}
+                  </p>
+                ) : null}
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
                   <button
-                    className="h-8 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1.5 text-[9px] font-black hover:bg-[#eef4fa] sm:px-2 sm:text-[10px]"
+                    className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa]"
+                    onClick={() =>
+                      setCheckMessage(
+                        seatTotals.men >= menRequired &&
+                          seatTotals.women >= womenRequired &&
+                          seatTotals.kids >= form.childrenCount
+                          ? "Seating is sufficient for all guests."
+                          : "More seating is required."
+                      )
+                    }
                     type="button"
                   >
                     Check seating
                   </button>
-
                   <button
-                    className="h-8 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-1.5 text-[9px] font-black text-white hover:bg-[#15344f] sm:px-2 sm:text-[10px]"
+                    className="h-9 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-[10px] font-black text-white hover:bg-[#15344f]"
+                    onClick={addRequiredTables}
                     type="button"
                   >
                     Add required tables
@@ -525,18 +876,35 @@ export function DiningManagerPage() {
               </section>
 
               <div>
-                <FieldLabel htmlFor="special-notes">
-                  Special notes
-                </FieldLabel>
-
+                <FieldLabel htmlFor="special-notes">Special notes</FieldLabel>
                 <textarea
-                  className="min-h-11 w-full resize-y rounded-lg border border-[#b9c2cf] px-2 py-2 text-xs"
-                  defaultValue="Reserved family tables near the front section."
+                  className="min-h-20 w-full resize-y rounded-lg border border-[#b9c2cf] px-2 py-2 text-xs"
                   id="special-notes"
-                  name="specialNotes"
+                  onChange={(event) =>
+                    updateForm("specialNotes", event.target.value)
+                  }
+                  value={form.specialNotes}
                 />
               </div>
-            </form>
+              {diningMutation.error ? (
+                <p className="text-xs font-bold text-[#b42318]">
+                  {diningMutation.error}
+                </p>
+              ) : null}
+              {savedMessage ? (
+                <p className="text-xs font-bold text-[#087047]">
+                  {savedMessage}
+                </p>
+              ) : null}
+              <button
+                className="h-10 w-full rounded-lg bg-[#1f4d73] text-sm font-black text-white hover:bg-[#15344f] disabled:opacity-50"
+                disabled={diningMutation.isPending}
+                onClick={savePlan}
+                type="button"
+              >
+                {diningMutation.isPending ? "Saving..." : "Save dining plan"}
+              </button>
+            </div>
           </Panel>
         </div>
       </main>

@@ -9,6 +9,7 @@ import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 
 type SettingsResponse = {
   organization: { id: string; name: string };
@@ -826,7 +827,11 @@ export function SettingsPage({
             </aside>
 
               <div className={isModal ? "contents" : "min-w-0 space-y-4"}>
-                {showAllSettingsContent || visibleSettingsHubItems.length > 0 ? (
+                {isModal && activeModalSection === "Halls" ? (
+                  <HallsSettingsPanel canEdit={canEditSettings} />
+                ) : null}
+                {(showAllSettingsContent || visibleSettingsHubItems.length > 0) &&
+                activeModalSection !== "Halls" ? (
               <section
                 className={`overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm ${
                   isModal

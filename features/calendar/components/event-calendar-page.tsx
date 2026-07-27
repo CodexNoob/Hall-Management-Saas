@@ -11,8 +11,17 @@ import {
   type DateRange
 } from "@/features/calendar/forms/date-range-picker-dialog";
 import { AsyncState } from "@/components/ui/async-state";
-import { addDays, addMonths, buildMonthGrid, dateKey, dateKeyFromIso, startOfDay, startOfMonth } from "@/lib/dates/calendar-date";
+import {
+  addDays,
+  addMonths,
+  buildMonthGrid,
+  dateKey,
+  dateKeyFromIso,
+  startOfDay,
+  startOfMonth
+} from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 type CalendarStatus = "confirmed" | "hold" | "school";
 
@@ -295,7 +304,16 @@ const availabilityDays: AvailabilityDay[] = [
 
 function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
       <rect height="17" rx="2" width="18" x="3" y="4" />
       <path d="M8 2v4M16 2v4M3 9h18" />
     </svg>
@@ -304,7 +322,14 @@ function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
 
 function BuildingIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
       <path d="M4 21h16M6 21V9l6-5 6 5v12M9 21v-7h6v7" />
     </svg>
   );
@@ -312,7 +337,14 @@ function BuildingIcon({ className = "h-4 w-4" }: { className?: string }) {
 
 function SettingsIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
-    <svg aria-hidden="true" className={className} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21h-4v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1-2.8-2.8.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3v-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.8.3 1.7 1.7 0 0 0 1-1.5V3h4v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.8 1.7 1.7 0 0 0 1.5 1h.2v4h-.2a1.7 1.7 0 0 0-1.4 1Z" />
     </svg>
@@ -357,10 +389,17 @@ function AvailabilityView({
             <BuildingIcon />
             <h1 className="text-sm font-black">Availability</h1>
           </div>
-          <p className="mt-1 text-xs text-[#6a7483]">Open the range picker, select the start date, then select the end date from the same open calendar.</p>
+          <p className="mt-1 text-xs text-[#6a7483]">
+            Open the range picker, select the start date, then select the end
+            date from the same open calendar.
+          </p>
         </div>
 
-        <button className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f]" onClick={onNewBooking} type="button">
+        <button
+          className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f]"
+          onClick={onNewBooking}
+          type="button"
+        >
           New booking
         </button>
       </header>
@@ -369,16 +408,22 @@ function AvailabilityView({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-xl font-black">Availability Range</h2>
-            <p className="text-xs font-bold text-[#617086]">{startDateLabel} to {endDateLabel}</p>
+            <p className="text-xs font-bold text-[#617086]">
+              {startDateLabel} to {endDateLabel}
+            </p>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-[156px_156px_auto]">
             <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
-              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
+              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                Start date
+              </span>
               <strong className="mt-1 block text-sm">{startDateLabel}</strong>
             </div>
             <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
-              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
+              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                End date
+              </span>
               <strong className="mt-1 block text-sm">{endDateLabel}</strong>
             </div>
             <div className="relative col-span-full flex w-full justify-end self-center lg:col-auto lg:w-auto lg:justify-self-end">
@@ -410,7 +455,10 @@ function AvailabilityView({
           {days.map((availabilityDay) => {
             const isHold = availabilityDay.status === "hold";
             return (
-              <article className="dashboard-hover-card flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between" key={availabilityDay.dateKey}>
+              <article
+                className="dashboard-hover-card flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                key={availabilityDay.dateKey}
+              >
                 <div>
                   <h3 className="text-sm font-black">
                     {availabilityDay.dateLabel}
@@ -421,8 +469,16 @@ function AvailabilityView({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
-                  <span className="text-xs text-[#617086]">{isHold ? `1 hold · ${availabilityDay.roomsAvailable} rooms still available` : `${availabilityDay.roomsAvailable} rooms available`}</span>
-                  <span className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${isHold ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]" : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"}`}>{isHold ? "Hold" : "Available"}</span>
+                  <span className="text-xs text-[#617086]">
+                    {isHold
+                      ? `1 hold · ${availabilityDay.roomsAvailable} rooms still available`
+                      : `${availabilityDay.roomsAvailable} rooms available`}
+                  </span>
+                  <span
+                    className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${isHold ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]" : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"}`}
+                  >
+                    {isHold ? "Hold" : "Available"}
+                  </span>
                   <button
                     className="h-8 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]"
                     onClick={() => onRemoveDay(availabilityDay.dateKey)}
@@ -436,7 +492,6 @@ function AvailabilityView({
           })}
         </div>
       </div>
-
     </section>
   );
 }
@@ -469,7 +524,16 @@ const initialBlockedRanges: BlockedRange[] = [
 
 function ClockIcon() {
   return (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+      viewBox="0 0 24 24"
+    >
       <circle cx="12" cy="12" r="8" />
       <path d="M12 7v5l3 2" />
     </svg>
@@ -489,13 +553,17 @@ function CalendarSettingsView() {
     day: "numeric",
     year: "numeric"
   });
-  const blockedStartLabel = rangeDateFormatter.format(blockedRangeDraft.startDate);
+  const blockedStartLabel = rangeDateFormatter.format(
+    blockedRangeDraft.startDate
+  );
   const blockedEndLabel = rangeDateFormatter.format(blockedRangeDraft.endDate);
 
   function addBlockedRange() {
     setBlockedRanges((current) => {
       const rangeId = `blocked-${dateKey(blockedRangeDraft.startDate)}-${dateKey(blockedRangeDraft.endDate)}`;
-      const isSingleBlockedDay = dateKey(blockedRangeDraft.startDate) === dateKey(blockedRangeDraft.endDate);
+      const isSingleBlockedDay =
+        dateKey(blockedRangeDraft.startDate) ===
+        dateKey(blockedRangeDraft.endDate);
       if (current.some((range) => range.id === rangeId)) return current;
 
       return [
@@ -513,7 +581,9 @@ function CalendarSettingsView() {
   }
 
   function removeBlockedRange(rangeId: string) {
-    setBlockedRanges((current) => current.filter((range) => range.id !== rangeId));
+    setBlockedRanges((current) =>
+      current.filter((range) => range.id !== rangeId)
+    );
   }
 
   return (
@@ -523,31 +593,45 @@ function CalendarSettingsView() {
           <SettingsIcon />
           <h1 className="text-sm font-black">Calendar Settings</h1>
         </div>
-        <p className="mt-1 text-xs text-[#6a7483]">Manage blocked date ranges.</p>
+        <p className="mt-1 text-xs text-[#6a7483]">
+          Manage blocked date ranges.
+        </p>
       </header>
 
       <div className="p-3">
         <div className="overflow-visible rounded-xl border border-[#d8dde5]">
           <div className="border-b border-[#d8dde5] px-3 py-2">
             <h2 className="text-sm font-black">Blocked ranges</h2>
-            <p className="mt-1 text-xs text-[#6a7483]">Blocked ranges will not show in Availability and cannot be booked.</p>
+            <p className="mt-1 text-xs text-[#6a7483]">
+              Blocked ranges will not show in Availability and cannot be booked.
+            </p>
           </div>
 
           <div className="p-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h3 className="text-base font-black">Add blocked range</h3>
-                <p className="text-xs font-bold text-[#617086]">{blockedStartLabel} to {blockedEndLabel}</p>
+                <p className="text-xs font-bold text-[#617086]">
+                  {blockedStartLabel} to {blockedEndLabel}
+                </p>
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[156px_156px_auto_auto]">
                 <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">Start date</span>
-                  <strong className="mt-1 block text-sm">{blockedStartLabel}</strong>
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                    Start date
+                  </span>
+                  <strong className="mt-1 block text-sm">
+                    {blockedStartLabel}
+                  </strong>
                 </div>
                 <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
-                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">End date</span>
-                  <strong className="mt-1 block text-sm">{blockedEndLabel}</strong>
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                    End date
+                  </span>
+                  <strong className="mt-1 block text-sm">
+                    {blockedEndLabel}
+                  </strong>
                 </div>
                 <div className="relative col-span-full flex w-full justify-end self-center lg:col-auto lg:w-auto lg:justify-self-end">
                   <button
@@ -566,7 +650,11 @@ function CalendarSettingsView() {
                     startDate={blockedRangeDraft.startDate}
                   />
                 </div>
-                <button className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]" onClick={addBlockedRange} type="button">
+                <button
+                  className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
+                  onClick={addBlockedRange}
+                  type="button"
+                >
                   Add blocked range
                 </button>
               </div>
@@ -574,7 +662,10 @@ function CalendarSettingsView() {
 
             <div className="mt-3 space-y-2">
               {blockedRanges.map((range) => (
-                <article className="flex min-h-14 flex-col gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between" key={range.id}>
+                <article
+                  className="flex min-h-14 flex-col gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  key={range.id}
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#bfd2e2] bg-[#f7fbff] text-[#1f4d73]">
                       <ClockIcon />
@@ -590,13 +681,21 @@ function CalendarSettingsView() {
                     </p>
                   </div>
 
-                  <button className="h-8 shrink-0 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]" onClick={() => removeBlockedRange(range.id)} type="button">
+                  <button
+                    className="h-8 shrink-0 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]"
+                    onClick={() => removeBlockedRange(range.id)}
+                    type="button"
+                  >
                     Remove
                   </button>
                 </article>
               ))}
 
-              {blockedRanges.length === 0 ? <p className="rounded-xl border border-dashed border-[#b9c2cf] p-6 text-center text-sm text-[#6a7483]">No blocked date ranges.</p> : null}
+              {blockedRanges.length === 0 ? (
+                <p className="rounded-xl border border-dashed border-[#b9c2cf] p-6 text-center text-sm text-[#6a7483]">
+                  No blocked date ranges.
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -605,32 +704,48 @@ function CalendarSettingsView() {
   );
 }
 
-function EventPill({ booking, onSelect }: { booking: CalendarBooking; onSelect: () => void }) {
+function EventPill({
+  booking,
+  onSelect
+}: {
+  booking: CalendarBooking;
+  onSelect: () => void;
+}) {
   const colors: Record<CalendarStatus, string> = {
-    confirmed: "border-[#b9ddcf] border-l-[#178151] bg-[#f5fbf8] text-[#17202a]",
+    confirmed:
+      "border-[#b9ddcf] border-l-[#178151] bg-[#f5fbf8] text-[#17202a]",
     hold: "border-[#ead8bb] border-l-[#b66b00] bg-[#fffaf2] text-[#17202a]",
     school: "border-[#d2cff9] border-l-[#5649dd] bg-[#f8f7ff] text-[#17202a]"
   };
 
   return (
     <button
-      className={["flex w-full items-center gap-2 overflow-hidden rounded-md border border-l-4 px-2 py-1 text-left", colors[booking.status]].join(" ")}
+      className={[
+        "flex w-full items-center gap-2 overflow-hidden rounded-md border border-l-4 px-2 py-1 text-left",
+        colors[booking.status]
+      ].join(" ")}
       onClick={(event) => {
         event.stopPropagation();
         onSelect();
       }}
       type="button"
     >
-      <strong className="min-w-0 flex-1 truncate text-[11px]">{booking.title}</strong>
+      <strong className="min-w-0 flex-1 truncate text-[11px]">
+        {booking.title}
+      </strong>
 
-      <span className="max-w-16 truncate text-[9px] text-[#6a7483]">{booking.hall.replace("Nachlas Yehuda", "NY")}</span>
+      <span className="max-w-16 truncate text-[9px] text-[#6a7483]">
+        {booking.hall.replace("Nachlas Yehuda", "NY")}
+      </span>
     </button>
   );
 }
 
 export function EventCalendarPage() {
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
-  const [activeTab, setActiveTab] = useState<"calendar" | "availability" | "settings">("calendar");
+  const [activeTab, setActiveTab] = useState<
+    "calendar" | "availability" | "settings"
+  >("calendar");
   const today = useMemo(() => startOfDay(new Date()), []);
   const [availabilityRange, setAvailabilityRange] = useState<DateRange>(() => {
     const startDate = startOfMonth(today);
@@ -645,7 +760,7 @@ export function EventCalendarPage() {
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
   const [selectedDateValue, setSelectedDateValue] = useState(today);
   const selectedDate = dateKey(selectedDateValue);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Calendar");
   const [hallFilter, setHallFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -664,13 +779,23 @@ export function EventCalendarPage() {
           hall: event.hall.name,
           type: event.eventType ?? "Event",
           packageName: event.packageName ?? undefined,
-          status: isSchoolEvent ? "school" : normalizedStatus.includes("confirm") ? "confirmed" : "hold"
+          status: isSchoolEvent
+            ? "school"
+            : normalizedStatus.includes("confirm")
+              ? "confirmed"
+              : "hold"
         };
       }),
     [eventsQuery.data]
   );
-  const halls = useMemo(() => (eventsQuery.data?.halls ?? []).map((hall) => hall.name), [eventsQuery.data]);
-  const calendarGridDays = useMemo(() => buildMonthGrid(visibleMonth), [visibleMonth]);
+  const halls = useMemo(
+    () => (eventsQuery.data?.halls ?? []).map((hall) => hall.name),
+    [eventsQuery.data]
+  );
+  const calendarGridDays = useMemo(
+    () => buildMonthGrid(visibleMonth),
+    [visibleMonth]
+  );
   const availabilityRangeDays = useMemo(() => {
     const days: Date[] = [];
 
@@ -689,7 +814,9 @@ export function EventCalendarPage() {
       availabilityRangeDays
         .map((day) => {
           const currentDateKey = dateKey(day);
-          const dayBookings = bookings.filter((booking) => booking.dateKey === currentDateKey);
+          const dayBookings = bookings.filter(
+            (booking) => booking.dateKey === currentDateKey
+          );
           return {
             dateKey: currentDateKey,
             dateLabel: new Intl.DateTimeFormat("en-US", {
@@ -703,7 +830,11 @@ export function EventCalendarPage() {
               weekday: "short"
             }).format(day),
             hebrewDate: formatHebrewDateWithoutYear(day),
-            roomsAvailable: Math.max(0, halls.length - new Set(dayBookings.map((booking) => booking.hall)).size),
+            roomsAvailable: Math.max(
+              0,
+              halls.length -
+                new Set(dayBookings.map((booking) => booking.hall)).size
+            ),
             status: dayBookings.some((booking) => booking.status === "hold")
               ? ("hold" as const)
               : ("available" as const)
@@ -717,11 +848,17 @@ export function EventCalendarPage() {
     const query = searchQuery.trim().toLowerCase();
 
     return bookings.filter((booking) => {
-      const matchesSearch = !query || [booking.title, booking.hall, booking.type, booking.packageName ?? ""].join(" ").toLowerCase().includes(query);
+      const matchesSearch =
+        !query ||
+        [booking.title, booking.hall, booking.type, booking.packageName ?? ""]
+          .join(" ")
+          .toLowerCase()
+          .includes(query);
 
       const matchesHall = hallFilter === "all" || booking.hall === hallFilter;
 
-      const matchesStatus = statusFilter === "all" || booking.status === statusFilter;
+      const matchesStatus =
+        statusFilter === "all" || booking.status === statusFilter;
 
       const matchesType = typeFilter === "all" || booking.type === typeFilter;
 
@@ -729,10 +866,15 @@ export function EventCalendarPage() {
     });
   }, [bookings, hallFilter, searchQuery, statusFilter, typeFilter]);
 
-  const selectedBookings = bookings.filter((booking) => booking.dateKey === selectedDate);
+  const selectedBookings = bookings.filter(
+    (booking) => booking.dateKey === selectedDate
+  );
 
   const selectedHallNames = selectedBookings.map((booking) => booking.hall);
-  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric" }).format(visibleMonth);
+  const monthLabel = new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric"
+  }).format(visibleMonth);
   const selectedDateLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -779,17 +921,38 @@ export function EventCalendarPage() {
 
       <nav className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0">
         <div className="grid w-full min-w-0 grid-cols-3 sm:flex sm:min-w-max sm:gap-2">
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "calendar" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("calendar"); centerMobileTab(event.currentTarget); }} type="button">
+          <button
+            className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "calendar" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`}
+            onClick={(event) => {
+              setActiveTab("calendar");
+              centerMobileTab(event.currentTarget);
+            }}
+            type="button"
+          >
             <CalendarIcon className="hidden h-4 w-4 sm:block" />
             Month Calendar
           </button>
 
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "availability" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("availability"); centerMobileTab(event.currentTarget); }} type="button">
+          <button
+            className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "availability" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`}
+            onClick={(event) => {
+              setActiveTab("availability");
+              centerMobileTab(event.currentTarget);
+            }}
+            type="button"
+          >
             <BuildingIcon className="hidden h-4 w-4 sm:block" />
             Availability
           </button>
 
-          <button className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "settings" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`} onClick={(event) => { setActiveTab("settings"); centerMobileTab(event.currentTarget); }} type="button">
+          <button
+            className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "settings" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`}
+            onClick={(event) => {
+              setActiveTab("settings");
+              centerMobileTab(event.currentTarget);
+            }}
+            type="button"
+          >
             <SettingsIcon className="hidden h-4 w-4 sm:block" />
             Settings
           </button>
@@ -797,7 +960,8 @@ export function EventCalendarPage() {
       </nav>
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
-        {activeTab === "calendar" && (eventsQuery.isLoading || eventsQuery.error) ? (
+        {activeTab === "calendar" &&
+        (eventsQuery.isLoading || eventsQuery.error) ? (
           <div className="flex h-full min-h-80 items-center justify-center">
             <AsyncState
               error={eventsQuery.error}
@@ -834,7 +998,9 @@ export function EventCalendarPage() {
                     <h1 className="text-sm font-black">Month Calendar</h1>
                   </div>
 
-                  <p className="mt-1 text-xs text-[#6a7483]">Click a day to book or review the schedule.</p>
+                  <p className="mt-1 text-xs text-[#6a7483]">
+                    Click a day to book or review the schedule.
+                  </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -850,24 +1016,50 @@ export function EventCalendarPage() {
                   <h2 className="text-xl font-black">{monthLabel}</h2>
 
                   <div className="grid grid-cols-3 gap-2">
-                    <button aria-label="Show previous month" className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={() => moveMonth(-1)} type="button">
+                    <button
+                      aria-label="Show previous month"
+                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                      onClick={() => moveMonth(-1)}
+                      type="button"
+                    >
                       Previous
                     </button>
 
-                    <button className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={goToToday} type="button">
+                    <button
+                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                      onClick={goToToday}
+                      type="button"
+                    >
                       Today
                     </button>
 
-                    <button aria-label="Show next month" className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]" onClick={() => moveMonth(1)} type="button">
+                    <button
+                      aria-label="Show next month"
+                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                      onClick={() => moveMonth(1)}
+                      type="button"
+                    >
                       Next
                     </button>
                   </div>
                 </div>
 
                 <div className="grid gap-2 md:grid-cols-[minmax(190px,2fr)_repeat(3,minmax(120px,1fr))]">
-                  <input className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73]" name="calendarSearch" onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search calendar" type="search" value={searchQuery} />
+                  <input
+                    className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73]"
+                    name="calendarSearch"
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search calendar"
+                    type="search"
+                    value={searchQuery}
+                  />
 
-                  <select className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" name="calendarHallFilter" onChange={(event) => setHallFilter(event.target.value)} value={hallFilter}>
+                  <select
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarHallFilter"
+                    onChange={(event) => setHallFilter(event.target.value)}
+                    value={hallFilter}
+                  >
                     <option value="all">All halls</option>
                     {halls.map((hall) => (
                       <option key={hall} value={hall}>
@@ -876,14 +1068,24 @@ export function EventCalendarPage() {
                     ))}
                   </select>
 
-                  <select className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" name="calendarStatusFilter" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
+                  <select
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarStatusFilter"
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                    value={statusFilter}
+                  >
                     <option value="all">All statuses</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="hold">Hold</option>
                     <option value="school">School</option>
                   </select>
 
-                  <select className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm" name="calendarTypeFilter" onChange={(event) => setTypeFilter(event.target.value)} value={typeFilter}>
+                  <select
+                    className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                    name="calendarTypeFilter"
+                    onChange={(event) => setTypeFilter(event.target.value)}
+                    value={typeFilter}
+                  >
                     <option value="all">All types</option>
                     <option value="Wedding">Wedding</option>
                     <option value="Sheva Brachos">Sheva Brachos</option>
@@ -897,7 +1099,10 @@ export function EventCalendarPage() {
                 <div className="min-w-212.5 overflow-hidden rounded-xl border border-[#d8dde5]">
                   <div className="grid grid-cols-7 bg-[#fbfcfd]">
                     {weekDays.map((day) => (
-                      <div key={day} className="border-r border-[#d8dde5] py-3 text-center text-[10px] font-black tracking-wider text-[#6a7483] last:border-r-0">
+                      <div
+                        key={day}
+                        className="border-r border-[#d8dde5] py-3 text-center text-[10px] font-black tracking-wider text-[#6a7483] last:border-r-0"
+                      >
                         {day}
                       </div>
                     ))}
@@ -905,11 +1110,22 @@ export function EventCalendarPage() {
 
                   <div className="grid grid-cols-7">
                     {calendarGridDays.map((calendarDay) => {
-                      const dayBookings = filteredBookings.filter((booking) => booking.dateKey === calendarDay.dateKey);
+                      const dayBookings = filteredBookings.filter(
+                        (booking) => booking.dateKey === calendarDay.dateKey
+                      );
                       const isSelected = calendarDay.dateKey === selectedDate;
                       const isToday = calendarDay.dateKey === dateKey(today);
-                      const bookedHallCount = new Set(bookings.filter((booking) => booking.dateKey === calendarDay.dateKey).map((booking) => booking.hall)).size;
-                      const fullyBooked = calendarDay.currentMonth && halls.length > 0 && bookedHallCount >= halls.length;
+                      const bookedHallCount = new Set(
+                        bookings
+                          .filter(
+                            (booking) => booking.dateKey === calendarDay.dateKey
+                          )
+                          .map((booking) => booking.hall)
+                      ).size;
+                      const fullyBooked =
+                        calendarDay.currentMonth &&
+                        halls.length > 0 &&
+                        bookedHallCount >= halls.length;
                       const dateLabel = new Intl.DateTimeFormat("en-US", {
                         month: "long",
                         day: "numeric",
@@ -917,23 +1133,44 @@ export function EventCalendarPage() {
                       }).format(calendarDay.date);
 
                       return (
-                        <div key={calendarDay.dateKey} className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}>
-                          <button aria-label={`Select ${dateLabel}`} className="absolute inset-0 z-0" onClick={() => selectDate(calendarDay.date)} type="button" />
+                        <div
+                          key={calendarDay.dateKey}
+                          className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}
+                        >
+                          <button
+                            aria-label={`Select ${dateLabel}`}
+                            className="absolute inset-0 z-0"
+                            onClick={() => selectDate(calendarDay.date)}
+                            type="button"
+                          />
 
                           <div className="pointer-events-none relative z-1 flex items-start justify-between gap-2">
-                            <strong className="text-sm">{calendarDay.day}</strong>
-                            <span className="text-[9px] font-semibold" dir="rtl">
+                            <strong className="text-sm">
+                              {calendarDay.day}
+                            </strong>
+                            <span
+                              className="text-[9px] font-semibold"
+                              dir="rtl"
+                            >
                               {formatHebrewDateWithoutYear(calendarDay.date)}
                             </span>
                           </div>
 
                           <div className="relative z-1 mt-2 space-y-1">
                             {dayBookings.map((booking) => (
-                              <EventPill booking={booking} key={booking.id} onSelect={() => selectDate(calendarDay.date)} />
+                              <EventPill
+                                booking={booking}
+                                key={booking.id}
+                                onSelect={() => selectDate(calendarDay.date)}
+                              />
                             ))}
                           </div>
 
-                          {fullyBooked ? <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">Fully booked</span> : null}
+                          {fullyBooked ? (
+                            <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">
+                              Fully booked
+                            </span>
+                          ) : null}
                         </div>
                       );
                     })}
@@ -951,7 +1188,9 @@ export function EventCalendarPage() {
                   </div>
 
                   <p className="mt-1 text-xs text-[#6a7483]">
-                    {selectedBookings.length} {selectedBookings.length === 1 ? "booking" : "bookings"} on this date
+                    {selectedBookings.length}{" "}
+                    {selectedBookings.length === 1 ? "booking" : "bookings"} on
+                    this date
                   </p>
                 </div>
 
@@ -966,33 +1205,51 @@ export function EventCalendarPage() {
 
               <div className="space-y-3 p-3">
                 {selectedBookings.map((booking) => (
-                  <article className="dashboard-hover-card rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3" key={booking.id}>
+                  <article
+                    className="dashboard-hover-card rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3"
+                    key={booking.id}
+                  >
                     <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5] bg-white text-[#1f4d73]">✓</span>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5] bg-white text-[#1f4d73]">
+                        ✓
+                      </span>
 
                       <div className="min-w-0 flex-1">
-                        <strong className="block truncate text-sm">{booking.title}</strong>
+                        <strong className="block truncate text-sm">
+                          {booking.title}
+                        </strong>
 
                         <p className="mt-1 truncate text-xs text-[#6a7483]">
                           {booking.hall} · {booking.type}
-                          {booking.packageName ? ` · ${booking.packageName}` : ""}
+                          {booking.packageName
+                            ? ` · ${booking.packageName}`
+                            : ""}
                         </p>
                       </div>
 
-                      <span className="rounded-full border border-[#b9ddcf] bg-white px-2 py-1 text-[9px] font-black text-[#178151]">Confirmed</span>
+                      <span className="rounded-full border border-[#b9ddcf] bg-white px-2 py-1 text-[9px] font-black text-[#178151]">
+                        Confirmed
+                      </span>
                     </div>
                   </article>
                 ))}
 
                 {halls.map((hall) => {
                   const booked = selectedHallNames.includes(hall);
-                  const booking = selectedBookings.find((item) => item.hall === hall);
+                  const booking = selectedBookings.find(
+                    (item) => item.hall === hall
+                  );
 
                   return (
-                    <article className={`dashboard-hover-card rounded-xl border p-3 ${booked ? "border-[#ebc7bd] bg-[#fff7f4]" : "border-[#b9ddcf] bg-[#f5fbf8]"}`} key={hall}>
+                    <article
+                      className={`dashboard-hover-card rounded-xl border p-3 ${booked ? "border-[#ebc7bd] bg-[#fff7f4]" : "border-[#b9ddcf] bg-[#f5fbf8]"}`}
+                      key={hall}
+                    >
                       <h3 className="text-sm font-black">{hall}</h3>
 
-                      <p className="mt-2 text-xs text-[#6a7483]">{booked ? "Booked by " + booking?.title : "Available"}</p>
+                      <p className="mt-2 text-xs text-[#6a7483]">
+                        {booked ? "Booked by " + booking?.title : "Available"}
+                      </p>
                     </article>
                   );
                 })}

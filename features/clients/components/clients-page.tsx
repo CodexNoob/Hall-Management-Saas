@@ -6,6 +6,7 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type ClientStatus = "Active" | "Inactive" | "Lead";
@@ -226,7 +227,7 @@ export function ClientsPage() {
     { id: string; status: ClientStatus },
     { client: ClientRecord }
   >("/api/clients", "PATCH");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useDashboardPageSearch("Clients");
   const [status, setStatus] = useState<"All" | ClientStatus>("All");
   const [selectedId, setSelectedId] = useState("");
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);

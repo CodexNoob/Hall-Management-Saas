@@ -11,6 +11,7 @@ import {
   type ReactNode
 } from "react";
 import { useRouter } from "next/navigation";
+import { DASHBOARD_PAGE_SEARCH_EVENT } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 type DashboardTopbarProps = {
   title: string;
@@ -87,6 +88,20 @@ const searchTargets: SearchTarget[] = [
     keywords: ["hall", "map", "layout", "rooms"]
   }
 ];
+
+const searchPlaceholders: Record<string, string> = {
+  Dashboard: "Search schedule and events",
+  Kitchen: "Search kitchen events and items",
+  Calendar: "Search bookings, clients and halls",
+  "Event Manager": "Search clients, halls and event types",
+  Menu: "Search menu items and packages",
+  Clients: "Search clients and contact details",
+  Vendors: "Search vendors and categories",
+  Files: "Search folders and files",
+  Billing: "Search transactions, invoices and events",
+  Staff: "Search staff, roles and departments",
+  Settings: "Search settings"
+};
 
 function TopbarIcon({
   name,
@@ -281,7 +296,9 @@ export function DashboardTopbarBrand() {
         type="button"
         onClick={toggleSidebar}
         aria-label={sidebarToggleLabel}
-        aria-expanded={isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed}
+        aria-expanded={
+          isMobileViewport ? isMobileSidebarOpen : !isSidebarCollapsed
+        }
       >
         <span
           aria-hidden="true"
@@ -381,11 +398,18 @@ export function DashboardTopbar({
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    searchInputRef.current?.blur();
+    setIsMobileSearchExpanded(false);
+  };
 
-    const [firstResult] = searchResults;
-    if (firstResult) {
-      goToSearchTarget(firstResult);
-    }
+  const updatePageSearch = (query: string) => {
+    setSearchQuery(query);
+    setIsSearchOpen(false);
+    window.dispatchEvent(
+      new CustomEvent(DASHBOARD_PAGE_SEARCH_EVENT, {
+        detail: { scope: title, query }
+      })
+    );
   };
 
   useEffect(() => {
@@ -407,7 +431,6 @@ export function DashboardTopbar({
 
       event.preventDefault();
       searchInputRef.current?.focus();
-      setIsSearchOpen(true);
     };
 
     window.addEventListener("keydown", focusSearchFromShortcut);
@@ -423,9 +446,7 @@ export function DashboardTopbar({
         <div className="flex min-h-14 items-stretch lg:min-h-20">
           <div
             className={`relative flex min-w-0 flex-1 flex-col border-b border-[#d8dde5] pl-20 pr-4 lg:flex-row lg:items-center lg:gap-2 lg:px-0 lg:py-0 lg:pl-6 lg:pr-8 xl:gap-6 ${
-              compactMobileActions
-                ? "gap-0 pb-3 pt-3"
-                : "gap-0 pb-3 pt-3"
+              compactMobileActions ? "gap-0 pb-3 pt-3" : "gap-0 pb-3 pt-3"
             }`}
           >
             <div className="order-1 flex h-9 min-w-0 shrink items-center pr-26 lg:order-0 lg:block lg:h-auto lg:grow lg:pr-0">
@@ -458,7 +479,10 @@ export function DashboardTopbar({
                       id={searchInputId}
                       ref={searchInputRef}
                       className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#17202a] outline-none placeholder:text-[#6a7483]"
-                      placeholder="Search events, clients, invoices"
+                      placeholder={
+                        searchPlaceholders[title] ??
+                        `Search ${title.toLowerCase()}`
+                      }
                       type="search"
                       value={searchQuery}
                       onBlur={() =>
@@ -467,11 +491,7 @@ export function DashboardTopbar({
                           setIsMobileSearchExpanded(false);
                         }, 120)
                       }
-                      onChange={(event) => {
-                        setSearchQuery(event.target.value);
-                        setIsSearchOpen(true);
-                      }}
-                      onFocus={() => setIsSearchOpen(true)}
+                      onChange={(event) => updatePageSearch(event.target.value)}
                     />
                   </label>
 
@@ -531,9 +551,11 @@ export function DashboardTopbar({
                     onClick={() => {
                       const nextExpanded = !isMobileSearchExpanded;
                       setIsMobileSearchExpanded(nextExpanded);
-                      setIsSearchOpen(nextExpanded);
                       if (nextExpanded) {
-                        window.setTimeout(() => searchInputRef.current?.focus(), 0);
+                        window.setTimeout(
+                          () => searchInputRef.current?.focus(),
+                          0
+                        );
                       }
                     }}
                     title="Search"
@@ -545,28 +567,36 @@ export function DashboardTopbar({
 
                 {actionsSlot ?? (
                   <>
-                  <button
-                    aria-label="Open today notes"
-                    type="button"
-                    onClick={onTodayNotes}
-                    title="Today notes"
-                    className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#17202a] transition hover:text-[#1f4d73] sm:text-sm lg:h-11 lg:w-auto lg:flex-none lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:shadow-sm lg:hover:bg-[#eef4fa] 2xl:px-5"
-                    data-needs-revision={todayNotesNeedRevision || undefined}
-                  >
-                    <TopbarIcon className="h-6 w-6 lg:h-4 lg:w-4" name="notes" />
-                    <span className="relative z-1 hidden lg:inline">Today notes</span>
-                  </button>
+                    <button
+                      aria-label="Open today notes"
+                      type="button"
+                      onClick={onTodayNotes}
+                      title="Today notes"
+                      className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#17202a] transition hover:text-[#1f4d73] sm:text-sm lg:h-11 lg:w-auto lg:flex-none lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:shadow-sm lg:hover:bg-[#eef4fa] 2xl:px-5"
+                      data-needs-revision={todayNotesNeedRevision || undefined}
+                    >
+                      <TopbarIcon
+                        className="h-6 w-6 lg:h-4 lg:w-4"
+                        name="notes"
+                      />
+                      <span className="relative z-1 hidden lg:inline">
+                        Today notes
+                      </span>
+                    </button>
 
-                  <button
-                    aria-label="Create new booking"
-                    type="button"
-                    onClick={onNewBooking}
-                    title="New booking"
-                    className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] sm:text-sm lg:h-11 lg:w-auto lg:flex-none lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-white lg:shadow-lg lg:shadow-[#17202a]/15 lg:hover:-translate-y-0.5 lg:hover:bg-[#15344f] lg:hover:text-white 2xl:px-5"
-                  >
-                    <TopbarIcon className="h-6.5 w-6.5 lg:h-4 lg:w-4" name="plus" />
-                    <span className="hidden lg:inline">New booking</span>
-                  </button>
+                    <button
+                      aria-label="Create new booking"
+                      type="button"
+                      onClick={onNewBooking}
+                      title="New booking"
+                      className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] sm:text-sm lg:h-11 lg:w-auto lg:flex-none lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-white lg:shadow-lg lg:shadow-[#17202a]/15 lg:hover:-translate-y-0.5 lg:hover:bg-[#15344f] lg:hover:text-white 2xl:px-5"
+                    >
+                      <TopbarIcon
+                        className="h-6.5 w-6.5 lg:h-4 lg:w-4"
+                        name="plus"
+                      />
+                      <span className="hidden lg:inline">New booking</span>
+                    </button>
                   </>
                 )}
               </div>

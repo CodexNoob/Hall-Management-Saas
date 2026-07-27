@@ -23,6 +23,7 @@ import {
 } from "@/lib/auth/client";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 
@@ -708,7 +709,9 @@ function MenuDishCard({
         </div>
       </div>
       <div className="flex h-10 items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
-        <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">{name}</h3>
+        <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
+          {name}
+        </h3>
       </div>
     </button>
   );
@@ -735,7 +738,9 @@ function AddMenuCard({
         </span>
       </div>
       <div className="flex h-10 w-full items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
-        <span className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 sm:text-xs sm:leading-4 lg:text-sm">{label}</span>
+        <span className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 sm:text-xs sm:leading-4 lg:text-sm">
+          {label}
+        </span>
       </div>
     </button>
   );
@@ -743,12 +748,9 @@ function AddMenuCard({
 
 function EventMenuContent() {
   const menuQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
-  const [selectedItems, setSelectedItems] = useState<
-    Array<{ course: MenuCourse; name: string }>
-  >(menuItems);
-  const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(
-    null
-  );
+  const [selectedItems, setSelectedItems] =
+    useState<Array<{ course: MenuCourse; name: string }>>(menuItems);
+  const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(null);
   const libraryItems = useMemo<MenuSelectorItem[]>(() => {
     const liveItems = (menuQuery.data?.items ?? []).map((item) => ({
       id: item.id,
@@ -974,7 +976,9 @@ function ClientPortalContent({ event }: { event: EventFile }) {
 
       <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
         <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
-          <h1 className="break-words text-xl font-black sm:text-2xl">{event.title}</h1>
+          <h1 className="break-words text-xl font-black sm:text-2xl">
+            {event.title}
+          </h1>
           <p className="mt-2 text-sm font-semibold">
             {event.date} - {event.time} - {event.room}
           </p>
@@ -1185,15 +1189,21 @@ function EventBillingContent() {
                 </div>
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
                   <div>
-                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Total</dt>
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">
+                      Total
+                    </dt>
                     <dd className="mt-1 font-bold">{total}</dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Paid</dt>
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">
+                      Paid
+                    </dt>
                     <dd className="mt-1 font-bold">{paid}</dd>
                   </div>
                   <div className="text-right">
-                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">Balance</dt>
+                    <dt className="text-[10px] font-black uppercase text-[#6a7483]">
+                      Balance
+                    </dt>
                     <dd className="mt-1 font-black">{balance}</dd>
                   </div>
                 </dl>
@@ -1615,18 +1625,20 @@ function EventKitchenContent() {
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map((view) => (
-              <button
-                className={`h-10 min-w-0 px-2 text-sm font-black ${
-                  kitchenView === view ? "bg-[#f5c542]" : "bg-white"
-                }`}
-                key={view}
-                onClick={() => setKitchenView(view)}
-                type="button"
-              >
-                {view}
-              </button>
-            ))}
+            {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map(
+              (view) => (
+                <button
+                  className={`h-10 min-w-0 px-2 text-sm font-black ${
+                    kitchenView === view ? "bg-[#f5c542]" : "bg-white"
+                  }`}
+                  key={view}
+                  onClick={() => setKitchenView(view)}
+                  type="button"
+                >
+                  {view}
+                </button>
+              )
+            )}
           </div>
 
           <p className="text-center text-xl font-black text-[#ffe36e]">
@@ -1689,18 +1701,20 @@ function EventKitchenContent() {
             </p>
 
             <div className="flex flex-wrap justify-end gap-3">
-              {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map((view) => (
-                <button
-                  className={`h-10 px-5 text-sm font-black ${
-                    kitchenView === view ? "bg-[#f5c542]" : "bg-white"
-                  }`}
-                  key={view}
-                  onClick={() => setKitchenView(view)}
-                  type="button"
-                >
-                  {view}
-                </button>
-              ))}
+              {(["Today", "This Week", "4 Weeks"] as KitchenView[]).map(
+                (view) => (
+                  <button
+                    className={`h-10 px-5 text-sm font-black ${
+                      kitchenView === view ? "bg-[#f5c542]" : "bg-white"
+                    }`}
+                    key={view}
+                    onClick={() => setKitchenView(view)}
+                    type="button"
+                  >
+                    {view}
+                  </button>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -2104,6 +2118,8 @@ function EventWorkspace({ event }: { event: EventFile }) {
 }
 
 export function EventManagerPage() {
+  const [pageSearchQuery, setPageSearchQuery] =
+    useDashboardPageSearch("Event Manager");
   const router = useRouter();
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
   const createEventMutation = useAuthenticatedMutation<
@@ -2228,6 +2244,22 @@ export function EventManagerPage() {
   const selectedEvent =
     allEvents.find((event) => event.title === selectedEventTitle) ??
     allEvents[0];
+  const normalizedSearch = pageSearchQuery.trim().toLowerCase();
+  const visibleEvents = allEvents.filter(
+    (event) =>
+      !normalizedSearch ||
+      [
+        event.title,
+        event.room,
+        event.packageName,
+        event.status,
+        event.paymentStatus,
+        event.date
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch)
+  );
 
   const createEvent = async (values: NewEventFormValues) => {
     const hall = eventsQuery.data?.halls.find(
@@ -2360,7 +2392,10 @@ export function EventManagerPage() {
                 <input
                   className="col-span-2 h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-1"
                   name="eventSearch"
+                  onChange={(event) => setPageSearchQuery(event.target.value)}
                   placeholder="Search client, hall, type"
+                  type="search"
+                  value={pageSearchQuery}
                 />
                 <select
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]"
@@ -2391,7 +2426,7 @@ export function EventManagerPage() {
                 isEventListExpanded ? "block" : "hidden"
               }`}
             >
-              {allEvents.map((event) => (
+              {visibleEvents.map((event) => (
                 <EventListCard
                   key={event.title}
                   event={event}
@@ -2402,6 +2437,11 @@ export function EventManagerPage() {
                   }}
                 />
               ))}
+              {visibleEvents.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
+                  No events match this search.
+                </p>
+              ) : null}
             </div>
           </aside>
 

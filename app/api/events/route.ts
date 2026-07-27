@@ -38,6 +38,7 @@ export async function GET(request: Request) {
         where: {
           organizationId: actor.organizationId,
           isActive: true,
+          isBookable: true,
           ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
         },
         orderBy: { name: "asc" }

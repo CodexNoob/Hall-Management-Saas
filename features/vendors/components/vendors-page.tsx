@@ -5,6 +5,7 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type VendorStatus = "Active" | "Pending" | "Inactive";
@@ -221,7 +222,7 @@ export function VendorsPage() {
   const canEdit = useDashboardPermission("canEditVendors");
   const vendorsQuery = useAuthenticatedQuery<VendorsResponse>("/api/vendors");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Vendors");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<"All" | VendorStatus>("All");
   const [ratingFilter, setRatingFilter] = useState("All");

@@ -9,8 +9,15 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
-import { addDays, dateKey, dateKeyFromIso, startOfDay, startOfWeek } from "@/lib/dates/calendar-date";
+import {
+  addDays,
+  dateKey,
+  dateKeyFromIso,
+  startOfDay,
+  startOfWeek
+} from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 type KitchenView = "today" | "week" | "four-weeks";
 
@@ -67,7 +74,8 @@ function kitchenViewInformation(activeView: KitchenView, anchorDate: Date) {
     month: "short",
     day: "numeric"
   });
-  const rangeStart = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+  const rangeStart =
+    activeView === "today" ? anchorDate : startOfWeek(anchorDate);
   const rangeEnd = addDays(rangeStart, activeView === "week" ? 6 : 27);
 
   return {
@@ -363,7 +371,9 @@ function TodayView({
   return (
     <section className="min-h-120 border border-[#d8dde5] bg-[#edf9ff] p-2">
       <header className="flex items-center justify-between border-b border-[#d8dde5] px-2 pb-2">
-        <h2 className="text-lg font-black text-[#0077b7]">{day.today ? "Today" : day.dayName}</h2>
+        <h2 className="text-lg font-black text-[#0077b7]">
+          {day.today ? "Today" : day.dayName}
+        </h2>
 
         <div className="flex items-center gap-2">
           <PlusButton
@@ -394,22 +404,25 @@ function WeekDayColumn({
   day: KitchenDay;
   onAddKitchenEvent: (dateKey: string) => void;
 }) {
-  const outerBorderColor = day.today || day.selected
-    ? "border-[#009ee8]"
-    : day.shabbos
-      ? "border-[#a25bff]"
-      : "border-transparent";
-  const headerBorderColor = day.today || day.selected
-    ? "border-[#009ee8]"
-    : day.shabbos
-      ? "border-[#a25bff]"
-      : "border-[#07162d]";
+  const outerBorderColor =
+    day.today || day.selected
+      ? "border-[#009ee8]"
+      : day.shabbos
+        ? "border-[#a25bff]"
+        : "border-transparent";
+  const headerBorderColor =
+    day.today || day.selected
+      ? "border-[#009ee8]"
+      : day.shabbos
+        ? "border-[#a25bff]"
+        : "border-[#07162d]";
 
-  const headingColor = day.today || day.selected
-    ? "text-[#0077b7]"
-    : day.shabbos
-      ? "text-[#8b37f5]"
-      : "text-[#07162d]";
+  const headingColor =
+    day.today || day.selected
+      ? "text-[#0077b7]"
+      : day.shabbos
+        ? "text-[#8b37f5]"
+        : "text-[#07162d]";
 
   return (
     <article
@@ -493,11 +506,12 @@ function FourWeekDay({
     : new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(
         new Date(`${day.dateKey}T12:00:00`)
       );
-  const borderColor = day.today || day.selected
-    ? "border-[#009ee8]"
-    : day.shabbos
-      ? "border-[#a25bff]"
-      : "border-[#aeb6bf]";
+  const borderColor =
+    day.today || day.selected
+      ? "border-[#009ee8]"
+      : day.shabbos
+        ? "border-[#a25bff]"
+        : "border-[#aeb6bf]";
 
   return (
     <article
@@ -597,6 +611,7 @@ function FourWeeksView({
 }
 
 export function KitchenDashboardPage() {
+  const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
   const [activeView, setActiveView] = useState<KitchenView>("today");
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -612,6 +627,7 @@ export function KitchenDashboardPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const days = useMemo<KitchenDay[]>(() => {
+    const normalizedSearch = pageSearchQuery.trim().toLowerCase();
     const eventsByDate = new Map<string, KitchenEvent[]>();
     for (const event of kitchenQuery.data?.events ?? []) {
       const key = dateKeyFromIso(event.eventDate);
@@ -623,7 +639,7 @@ export function KitchenDashboardPage() {
         event.girlsCount +
         event.kidsCount;
       const current = eventsByDate.get(key) ?? [];
-      current.push({
+      const kitchenEvent: KitchenEvent = {
         id: event.id,
         category: event.hall.name,
         title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
@@ -633,7 +649,22 @@ export function KitchenDashboardPage() {
         statusType: event.eventStatus.toLowerCase().includes("hold")
           ? "hold"
           : undefined
-      });
+      };
+      if (
+        !normalizedSearch ||
+        [
+          kitchenEvent.title,
+          kitchenEvent.category,
+          kitchenEvent.portions,
+          kitchenEvent.packageName,
+          kitchenEvent.status
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch)
+      ) {
+        current.push(kitchenEvent);
+      }
       eventsByDate.set(key, current);
     }
 
@@ -666,9 +697,17 @@ export function KitchenDashboardPage() {
         events: eventsByDate.get(key)
       };
     });
-  }, [activeView, anchorDate, createdKitchenEvents, kitchenQuery.data, today]);
+  }, [
+    activeView,
+    anchorDate,
+    createdKitchenEvents,
+    kitchenQuery.data,
+    pageSearchQuery,
+    today
+  ]);
 
-  const navigationStep = activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
+  const navigationStep =
+    activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
 
   function navigate(amount: number) {
     setAnchorDate((current) => addDays(current, amount * navigationStep));

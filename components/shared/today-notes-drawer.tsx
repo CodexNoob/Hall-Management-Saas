@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
+import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
 type TodayNotesDrawerProps = {
   open: boolean;
@@ -8,26 +10,54 @@ type TodayNotesDrawerProps = {
 };
 
 type TodayNote = {
-  id: number;
+  id: string;
   message: string;
   tone: "attention" | "default";
+  createdAt: string;
+  createdBy: { name: string } | null;
 };
 
-const initialNotes: TodayNote[] = [
-  { id: 1, message: "Royal Linen delivery still not marked received.", tone: "attention" },
-  { id: 2, message: "Rosenberg client requested family tables near the front section.", tone: "default" },
-  { id: 3, message: "Nachlas Yehuda B cannot use a separate menu tonight if booked.", tone: "default" },
-];
+type TodayNotesResponse = {
+  date: string;
+  notes: TodayNote[];
+};
+
+type CreateTodayNoteResponse = {
+  date: string;
+  note: TodayNote;
+};
+
+function operatingDateKey() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(
+    parts.map(({ type, value }) => [type, value])
+  );
+  return `${values.year}-${values.month}-${values.day}`;
+}
 
 function formatOperatingDate() {
-  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric" }).format(new Date());
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    day: "numeric"
+  }).format(new Date());
 }
 
 export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
   const titleId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [notes, setNotes] = useState(initialNotes);
   const [newNote, setNewNote] = useState("");
+  const dateKey = operatingDateKey();
+  const notesUrl = `/api/today-notes?date=${dateKey}`;
+  const notesQuery = useAuthenticatedQuery<TodayNotesResponse>(notesUrl, open);
+  const noteMutation = useAuthenticatedMutation<
+    { message: string; tone: "default" },
+    CreateTodayNoteResponse
+  >(notesUrl);
+  const notes = notesQuery.data?.notes ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +79,7 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
 
   if (!open) return null;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const message = newNote.trim();
 
@@ -58,15 +88,23 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
       return;
     }
 
-    setNotes((current) => [...current, { id: Date.now(), message, tone: "default" }]);
-    setNewNote("");
-    textareaRef.current?.focus();
+    try {
+      await noteMutation.mutate({ message, tone: "default" });
+      await notesQuery.refetch();
+      setNewNote("");
+      textareaRef.current?.focus();
+    } catch {
+      // The mutation error is displayed below the note field.
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-100 bg-[#17202a]/25" onMouseDown={(event) => {
-      if (event.currentTarget === event.target) onClose();
-    }}>
+    <div
+      className="fixed inset-0 z-100 bg-[#17202a]/25"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
       <aside
         aria-labelledby={titleId}
         aria-modal="true"
@@ -75,8 +113,12 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div>
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>Today notes</h2>
-            <p className="mt-0.5 text-xs text-[#6a7483]">Internal notes for {formatOperatingDate()} operating day.</p>
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>
+              Today notes
+            </h2>
+            <p className="mt-0.5 text-xs text-[#6a7483]">
+              Internal notes for {formatOperatingDate()} operating day.
+            </p>
           </div>
           <button
             aria-label="Close today notes"
@@ -103,21 +145,52 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="space-y-3">
-              {notes.map((note) => (
-                <article
-                  className={`min-h-18 rounded-lg border px-3 py-3 text-xs leading-5 text-[#516174] ${
-                    note.tone === "attention"
-                      ? "border-[#ead9b8] bg-[#fffaf0]"
-                      : "border-[#d8dde5] bg-[#f7f9fc]"
-                  }`}
-                  key={note.id}
-                >
-                  {note.message}
-                </article>
-              ))}
+              {notesQuery.isLoading ? (
+                <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
+                  Loading today&apos;s notes...
+                </p>
+              ) : notesQuery.error ? (
+                <div className="rounded-lg border border-[#efb5ad] bg-[#fff4f2] p-4 text-xs text-[#a92217]">
+                  <p className="font-black">{notesQuery.error}</p>
+                  <button
+                    className="mt-2 font-black underline"
+                    onClick={() => notesQuery.refetch()}
+                    type="button"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : notes.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
+                  No notes have been added for today.
+                </p>
+              ) : (
+                notes.map((note) => (
+                  <article
+                    className={`min-h-18 rounded-lg border px-3 py-3 text-xs leading-5 text-[#516174] ${
+                      note.tone === "attention"
+                        ? "border-[#ead9b8] bg-[#fffaf0]"
+                        : "border-[#d8dde5] bg-[#f7f9fc]"
+                    }`}
+                    key={note.id}
+                  >
+                    {note.message}
+                    <p className="mt-2 text-[10px] font-bold text-[#7b8797]">
+                      {note.createdBy?.name ?? "Team member"} ·{" "}
+                      {new Intl.DateTimeFormat("en-US", {
+                        hour: "numeric",
+                        minute: "2-digit"
+                      }).format(new Date(note.createdAt))}
+                    </p>
+                  </article>
+                ))
+              )}
             </div>
 
-            <label className="mt-4 block text-xs font-black text-[#59677c]" htmlFor="today-note-message">
+            <label
+              className="mt-4 block text-xs font-black text-[#59677c]"
+              htmlFor="today-note-message"
+            >
               Add note
             </label>
             <textarea
@@ -128,15 +201,20 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
               ref={textareaRef}
               value={newNote}
             />
+            {noteMutation.error ? (
+              <p className="mt-2 text-xs font-bold text-[#b42318]">
+                {noteMutation.error}
+              </p>
+            ) : null}
           </div>
 
           <footer className="flex shrink-0 justify-end border-t border-[#d8dde5] bg-white px-4 py-3">
             <button
               className="h-10 rounded-lg bg-[#1f4d73] px-5 text-sm font-black text-white shadow-sm transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={!newNote.trim()}
+              disabled={!newNote.trim() || noteMutation.isPending}
               type="submit"
             >
-              Save note
+              {noteMutation.isPending ? "Saving..." : "Save note"}
             </button>
           </footer>
         </form>

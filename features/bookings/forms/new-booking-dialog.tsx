@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
+import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
 export type NewBookingFormValues = {
   clientName: string;
@@ -18,43 +20,105 @@ export type NewBookingSubmitIntent = "save" | "proposal";
 type NewBookingDialogProps = {
   open: boolean;
   onClose: () => void;
-  onSubmit: (values: NewBookingFormValues, intent: NewBookingSubmitIntent) => void;
+  onSubmit?: (
+    values: NewBookingFormValues,
+    intent: NewBookingSubmitIntent
+  ) => void | Promise<void>;
+};
+
+type LookupOption = {
+  id: string;
+  name: string;
+};
+
+type EventsLookupResponse = {
+  halls: LookupOption[];
+  eventTypes: LookupOption[];
+  packages: LookupOption[];
+};
+
+type BookingPayload = {
+  clientName: string;
+  phone: string;
+  email?: string;
+  eventDate: string;
+  hallId: string;
+  eventTypeId?: string;
+  packageId?: string;
+  bookingStatus: "TENTATIVE_HOLD" | "CONFIRMED";
+  eventStatus: "Hold" | "Confirmed";
+  couplesCount: number;
+  idempotencyKey: string;
 };
 
 const initialValues: NewBookingFormValues = {
   clientName: "",
   phone: "",
   email: "",
-  eventType: "Wedding",
+  eventType: "",
   eventDate: "",
-  hall: "Grand Hall",
+  hall: "",
   guestCount: "",
-  eventPackage: "Standard fleishig",
+  eventPackage: ""
 };
 
 const steps = ["Client", "Event", "Availability", "Proposal", "Confirm"];
-const eventTypes = ["Wedding", "Bar Mitzvah", "Sheva Brachos", "Lchaim", "School event"];
-const halls = ["Grand Hall", "Nachlas Yehuda A", "Nachlas Yehuda B", "Terrace Room", "Small Hall"];
-const packages = ["Standard fleishig", "Premium fleishig", "Milchig brunch", "School lunch"];
 
 const controlClass =
   "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
-function FieldLabel({ children, htmlFor }: { children: string; htmlFor: string }) {
+function hallReady(data: EventsLookupResponse | null) {
+  return Boolean(data?.halls.length);
+}
+
+function FieldLabel({
+  children,
+  htmlFor
+}: {
+  children: string;
+  htmlFor: string;
+}) {
   return (
-    <label className="mb-1.5 block text-xs font-black text-[#59677c]" htmlFor={htmlFor}>
+    <label
+      className="mb-1.5 block text-xs font-black text-[#59677c]"
+      htmlFor={htmlFor}
+    >
       {children}
     </label>
   );
 }
 
-export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogProps) {
+export function NewBookingDialog({
+  open,
+  onClose,
+  onSubmit
+}: NewBookingDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
+  const eventsQuery = useAuthenticatedQuery<EventsLookupResponse>(
+    "/api/events",
+    open
+  );
+  const bookingMutation = useAuthenticatedMutation<
+    BookingPayload,
+    { event: { id: string } }
+  >("/api/events");
+  const { resetError } = bookingMutation;
+  const halls = eventsQuery.data?.halls ?? [];
+  const eventTypes = eventsQuery.data?.eventTypes ?? [];
+  const packages = eventsQuery.data?.packages ?? [];
 
   useEffect(() => {
     if (!open) return;
+
+    setValues({
+      ...initialValues,
+      hall: eventsQuery.data?.halls[0]?.name ?? "",
+      eventType: eventsQuery.data?.eventTypes[0]?.name ?? "",
+      eventPackage: eventsQuery.data?.packages[0]?.name ?? ""
+    });
+    resetError();
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -70,25 +134,60 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [eventsQuery.data, onClose, open, resetError]);
 
   if (!open) return null;
 
   const updateValue = (field: keyof NewBookingFormValues, value: string) => {
+    resetError();
     setValues((current) => ({ ...current, [field]: value }));
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const submitter = (event.nativeEvent as SubmitEvent).submitter;
-    const intent = submitter instanceof HTMLButtonElement && submitter.value === "proposal" ? "proposal" : "save";
-    onSubmit(values, intent);
+    const intent =
+      submitter instanceof HTMLButtonElement && submitter.value === "proposal"
+        ? "proposal"
+        : "save";
+    const hall = halls.find((option) => option.name === values.hall);
+    const eventType = eventTypes.find(
+      (option) => option.name === values.eventType
+    );
+    const eventPackage = packages.find(
+      (option) => option.name === values.eventPackage
+    );
+
+    if (!hall) {
+      return;
+    }
+
+    try {
+      await bookingMutation.mutate({
+        clientName: values.clientName.trim(),
+        phone: values.phone.trim(),
+        email: values.email.trim() || undefined,
+        eventDate: values.eventDate,
+        hallId: hall.id,
+        eventTypeId: eventType?.id,
+        packageId: eventPackage?.id,
+        bookingStatus: intent === "proposal" ? "TENTATIVE_HOLD" : "CONFIRMED",
+        eventStatus: intent === "proposal" ? "Hold" : "Confirmed",
+        couplesCount: Number(values.guestCount) || 0,
+        idempotencyKey: crypto.randomUUID()
+      });
+      await onSubmit?.(values, intent);
+      onClose();
+    } catch {
+      // The mutation error is rendered inside the form.
+    }
   };
 
   const formattedDate = values.eventDate
-    ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric" }).format(
-        new Date(`${values.eventDate}T00:00:00`),
-      )
+    ? new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        day: "numeric"
+      }).format(new Date(`${values.eventDate}T00:00:00`))
     : "the selected date";
 
   return (
@@ -106,8 +205,13 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
           <div>
-            <h2 className="text-lg font-black text-[#17202a]" id={titleId}>New booking</h2>
-            <p className="mt-1 text-sm text-[#64748b]">Create a client, check availability, prepare proposal, and confirm the event.</p>
+            <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
+              New booking
+            </h2>
+            <p className="mt-1 text-sm text-[#64748b]">
+              Create a client, check availability, prepare proposal, and confirm
+              the event.
+            </p>
           </div>
           <button
             aria-label="Close new booking"
@@ -150,12 +254,16 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
 
             <div className="mt-4 grid gap-x-4 gap-y-3 sm:grid-cols-2">
               <div>
-                <FieldLabel htmlFor="booking-client-name">Client name</FieldLabel>
+                <FieldLabel htmlFor="booking-client-name">
+                  Client name
+                </FieldLabel>
                 <input
                   className={controlClass}
                   id="booking-client-name"
                   name="clientName"
-                  onChange={(event) => updateValue("clientName", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("clientName", event.target.value)
+                  }
                   ref={firstInputRef}
                   required
                   value={values.clientName}
@@ -188,12 +296,17 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
                 <FieldLabel htmlFor="booking-event-type">Event type</FieldLabel>
                 <select
                   className={controlClass}
+                  disabled={eventsQuery.isLoading || eventTypes.length === 0}
                   id="booking-event-type"
                   name="eventType"
-                  onChange={(event) => updateValue("eventType", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("eventType", event.target.value)
+                  }
                   value={values.eventType}
                 >
-                  {eventTypes.map((eventType) => <option key={eventType}>{eventType}</option>)}
+                  {eventTypes.map((eventType) => (
+                    <option key={eventType.id}>{eventType.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -203,7 +316,9 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
                   id="booking-date"
                   min={new Date().toISOString().slice(0, 10)}
                   name="eventDate"
-                  onChange={(event) => updateValue("eventDate", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("eventDate", event.target.value)
+                  }
                   required
                   type="date"
                   value={values.eventDate}
@@ -213,22 +328,29 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
                 <FieldLabel htmlFor="booking-hall">Hall / room</FieldLabel>
                 <select
                   className={controlClass}
+                  disabled={eventsQuery.isLoading || halls.length === 0}
                   id="booking-hall"
                   name="hall"
                   onChange={(event) => updateValue("hall", event.target.value)}
                   value={values.hall}
                 >
-                  {halls.map((hall) => <option key={hall}>{hall}</option>)}
+                  {halls.map((hall) => (
+                    <option key={hall.id}>{hall.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
-                <FieldLabel htmlFor="booking-guests">Guests / couples</FieldLabel>
+                <FieldLabel htmlFor="booking-guests">
+                  Guests / couples
+                </FieldLabel>
                 <input
                   className={controlClass}
                   id="booking-guests"
                   min="1"
                   name="guestCount"
-                  onChange={(event) => updateValue("guestCount", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("guestCount", event.target.value)
+                  }
                   placeholder="180"
                   required
                   type="number"
@@ -239,30 +361,52 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
                 <FieldLabel htmlFor="booking-package">Package</FieldLabel>
                 <select
                   className={controlClass}
+                  disabled={eventsQuery.isLoading || packages.length === 0}
                   id="booking-package"
                   name="eventPackage"
-                  onChange={(event) => updateValue("eventPackage", event.target.value)}
+                  onChange={(event) =>
+                    updateValue("eventPackage", event.target.value)
+                  }
                   value={values.eventPackage}
                 >
-                  {packages.map((eventPackage) => <option key={eventPackage}>{eventPackage}</option>)}
+                  <option value="">No package</option>
+                  {packages.map((eventPackage) => (
+                    <option key={eventPackage.id}>{eventPackage.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
 
             <p className="mt-4 rounded-lg border border-[#c9dced] bg-[#f2f7fb] px-3 py-3 text-xs leading-5 text-[#315573]">
-              <strong>Availability check:</strong> {values.hall} will be checked for {formattedDate} before the booking is confirmed.
+              <strong>Availability check:</strong> {values.hall} will be checked
+              for {formattedDate} before the booking is confirmed.
             </p>
             <p className="mt-2 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs leading-5 text-[#80500c]">
-              <strong>Workflow:</strong> Saving continues to the event workflow, where availability, pricing, proposal, and retainer details are finalized.
+              <strong>Workflow:</strong> Saving continues to the event workflow,
+              where availability, pricing, proposal, and retainer details are
+              finalized.
             </p>
+            {eventsQuery.error || bookingMutation.error ? (
+              <p className="mt-2 rounded-lg border border-[#efb5ad] bg-[#fff4f2] px-3 py-3 text-xs font-bold text-[#a92217]">
+                {eventsQuery.error ?? bookingMutation.error}
+              </p>
+            ) : null}
           </div>
 
           <footer className="grid shrink-0 grid-cols-2 gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 sm:flex sm:flex-wrap sm:justify-end sm:px-5">
-            <button className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4" onClick={onClose} type="button">
+            <button
+              className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4"
+              disabled={bookingMutation.isPending}
+              onClick={onClose}
+              type="button"
+            >
               Cancel
             </button>
             <button
               className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4"
+              disabled={
+                bookingMutation.isPending || !hallReady(eventsQuery.data)
+              }
               type="submit"
               value="proposal"
             >
@@ -270,10 +414,13 @@ export function NewBookingDialog({ open, onClose, onSubmit }: NewBookingDialogPr
             </button>
             <button
               className="col-span-2 h-10 w-full rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f] sm:w-auto"
+              disabled={
+                bookingMutation.isPending || !hallReady(eventsQuery.data)
+              }
               type="submit"
               value="save"
             >
-              Save booking
+              {bookingMutation.isPending ? "Saving..." : "Save booking"}
             </button>
           </footer>
         </form>

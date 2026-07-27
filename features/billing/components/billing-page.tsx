@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type BillingTab =
@@ -172,7 +173,9 @@ function TopAction({
     <button
       aria-label={label}
       className={`inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border text-xs font-black transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
-        compactOnMobile ? "w-8 border-transparent bg-transparent px-0 shadow-none lg:w-auto lg:px-3" : "px-3"
+        compactOnMobile
+          ? "w-8 border-transparent bg-transparent px-0 shadow-none lg:w-auto lg:px-3"
+          : "px-3"
       } ${
         tone === "primary"
           ? compactOnMobile
@@ -186,7 +189,12 @@ function TopAction({
       disabled={disabled}
       type="button"
     >
-      {icon ? <LineIcon name={icon} className={compactOnMobile ? "h-6 w-6 lg:h-4 lg:w-4" : undefined} /> : null}
+      {icon ? (
+        <LineIcon
+          name={icon}
+          className={compactOnMobile ? "h-6 w-6 lg:h-4 lg:w-4" : undefined}
+        />
+      ) : null}
       <span className={compactOnMobile ? "hidden lg:inline" : undefined}>
         {label}
       </span>
@@ -492,7 +500,15 @@ function DashboardTab({
   );
 }
 
-function TransactionsTab({ openModal }: { openModal: () => void }) {
+function TransactionsTab({
+  openModal,
+  searchQuery,
+  setSearchQuery
+}: {
+  openModal: () => void;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}) {
   const [expandedTransaction, setExpandedTransaction] = useState<
     "zelle" | "payroll" | null
   >(null);
@@ -513,7 +529,10 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
           <input
             className="h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
             name="transactionSearch"
+            onChange={(event) => setSearchQuery(event.target.value)}
             placeholder="Merchant, memo, client, amount"
+            type="search"
+            value={searchQuery}
           />
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             <select
@@ -650,12 +669,26 @@ function TransactionsTab({ openModal }: { openModal: () => void }) {
           </article>
         </div>
       </section>
-
     </div>
   );
 }
 
-function InvoicesTab() {
+function InvoicesTab({
+  searchQuery,
+  setSearchQuery
+}: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}) {
+  const invoiceNames = [
+    "INV-1028 - Friedman",
+    "INV-1029 - Klein",
+    "INV-1030 - Weiss",
+    "INV-1031 - Green"
+  ];
+  const visibleInvoices = invoiceNames.filter((invoice) =>
+    invoice.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
   return (
     <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
@@ -671,7 +704,10 @@ function InvoicesTab() {
         <input
           className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           name="invoiceSearch"
+          onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Invoice, client, status"
+          type="search"
+          value={searchQuery}
         />
         <select
           className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
@@ -682,44 +718,42 @@ function InvoicesTab() {
           <option>All invoices</option>
         </select>
         <div className="mt-3 space-y-2">
-          {[
-            "INV-1028 - Friedman",
-            "INV-1029 - Klein",
-            "INV-1030 - Weiss",
-            "INV-1031 - Green"
-          ].map((invoice, index) => (
-            <article
-              key={invoice}
-              className={`rounded-lg border p-3 ${index === 1 ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5]"}`}
-            >
-              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
-                <span className="min-w-0 wrap-break-word">{invoice}</span>
-                <span className="shrink-0">
-                  {["$48,220", "$17,560", "$22,855", "$9,040"][index]}
-                </span>
-              </div>
-              <p className="text-xs text-[#6a7483]">
-                {
-                  [
-                    "Jun 12, 2026 - Due Jul 1, 2026",
-                    "Jun 16, 2026 - Due Jul 5, 2026",
-                    "Jun 20, 2026 - Due Paid",
-                    "Jun 24, 2026 - Due Jul 12, 2026"
-                  ][index]
-                }
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Pill
-                  tone={index === 2 ? "green" : index === 3 ? "gold" : "red"}
-                >
-                  {index === 2 ? "Paid" : index === 3 ? "Draft" : "Open"}
-                </Pill>
-                <Pill>
-                  Balance {["$30,220", "$15,060", "$5", "$9,040"][index]}
-                </Pill>
-              </div>
-            </article>
-          ))}
+          {visibleInvoices.map((invoice) => {
+            const index = invoiceNames.indexOf(invoice);
+            return (
+              <article
+                key={invoice}
+                className={`rounded-lg border p-3 ${index === 1 ? "border-[#1f4d73] bg-[#eef4fa]" : "border-[#d8dde5]"}`}
+              >
+                <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
+                  <span className="min-w-0 wrap-break-word">{invoice}</span>
+                  <span className="shrink-0">
+                    {["$48,220", "$17,560", "$22,855", "$9,040"][index]}
+                  </span>
+                </div>
+                <p className="text-xs text-[#6a7483]">
+                  {
+                    [
+                      "Jun 12, 2026 - Due Jul 1, 2026",
+                      "Jun 16, 2026 - Due Jul 5, 2026",
+                      "Jun 20, 2026 - Due Paid",
+                      "Jun 24, 2026 - Due Jul 12, 2026"
+                    ][index]
+                  }
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Pill
+                    tone={index === 2 ? "green" : index === 3 ? "gold" : "red"}
+                  >
+                    {index === 2 ? "Paid" : index === 3 ? "Draft" : "Open"}
+                  </Pill>
+                  <Pill>
+                    Balance {["$30,220", "$15,060", "$5", "$9,040"][index]}
+                  </Pill>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
@@ -799,7 +833,17 @@ function InvoicesTab() {
   );
 }
 
-function EventBillingTab() {
+function EventBillingTab({
+  searchQuery,
+  setSearchQuery
+}: {
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+}) {
+  const eventNames = ["Friedman", "Klein", "Weiss", "Green"];
+  const visibleEventNames = eventNames.filter((name) =>
+    name.toLowerCase().includes(searchQuery.trim().toLowerCase())
+  );
   return (
     <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
@@ -810,7 +854,10 @@ function EventBillingTab() {
         <input
           className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           name="eventBillingSearch"
+          onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Client, hall, date, status"
+          type="search"
+          value={searchQuery}
         />
         <select
           className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
@@ -824,40 +871,43 @@ function EventBillingTab() {
           Events highlighted here have open invoice balances.
         </div>
         <div className="mt-3 space-y-2">
-          {["Friedman", "Klein", "Weiss", "Green"].map((name, index) => (
-            <article
-              key={name}
-              className="rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3"
-            >
-              <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
-                <span className="min-w-0 wrap-break-word">{name}</span>
-                <span className="shrink-0">
-                  {["$29,320", "$15,060", "$22,855", "$9,040"][index]}
-                </span>
-              </div>
-              <p className="text-xs text-[#6a7483]">
-                {
-                  [
-                    "Jul 8, 2026 - Wedding - Grand Hall",
-                    "Jul 11, 2026 - Sheva Brachos - Nachlas Yehuda A",
-                    "Jul 14, 2026 - Bar Mitzvah - Terrace Room",
-                    "Jul 20, 2026 - Dinner - Small Hall"
-                  ][index]
-                }
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Pill tone="gold">Open balance</Pill>
-                <Pill>
-                  {index === 1
-                    ? "Hold"
-                    : index === 3
-                      ? "Proposal"
-                      : "Confirmed"}
-                </Pill>
-                {index < 3 ? <Pill tone="gold">Needs review</Pill> : null}
-              </div>
-            </article>
-          ))}
+          {visibleEventNames.map((name) => {
+            const index = eventNames.indexOf(name);
+            return (
+              <article
+                key={name}
+                className="rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3"
+              >
+                <div className="flex min-w-0 flex-wrap justify-between gap-x-3 font-black">
+                  <span className="min-w-0 wrap-break-word">{name}</span>
+                  <span className="shrink-0">
+                    {["$29,320", "$15,060", "$22,855", "$9,040"][index]}
+                  </span>
+                </div>
+                <p className="text-xs text-[#6a7483]">
+                  {
+                    [
+                      "Jul 8, 2026 - Wedding - Grand Hall",
+                      "Jul 11, 2026 - Sheva Brachos - Nachlas Yehuda A",
+                      "Jul 14, 2026 - Bar Mitzvah - Terrace Room",
+                      "Jul 20, 2026 - Dinner - Small Hall"
+                    ][index]
+                  }
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Pill tone="gold">Open balance</Pill>
+                  <Pill>
+                    {index === 1
+                      ? "Hold"
+                      : index === 3
+                        ? "Proposal"
+                        : "Confirmed"}
+                  </Pill>
+                  {index < 3 ? <Pill tone="gold">Needs review</Pill> : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
@@ -1120,22 +1170,43 @@ function BillingContent({
   activeTab,
   setActiveTab,
   openModal,
-  data
+  data,
+  searchQuery,
+  setSearchQuery
 }: {
   activeTab: BillingTab;
   setActiveTab: (tab: BillingTab) => void;
   openModal: () => void;
   data: BillingResponse;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
 }) {
   if (activeTab === "Transactions")
-    return <TransactionsTab openModal={openModal} />;
-  if (activeTab === "Invoices") return <InvoicesTab />;
-  if (activeTab === "Event Billing") return <EventBillingTab />;
+    return (
+      <TransactionsTab
+        openModal={openModal}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
+    );
+  if (activeTab === "Invoices")
+    return (
+      <InvoicesTab searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
+    );
+  if (activeTab === "Event Billing")
+    return (
+      <EventBillingTab
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+      />
+    );
   if (activeTab === "Settings") return <SettingsTab />;
   return <DashboardTab data={data} setActiveTab={setActiveTab} />;
 }
 
 export function BillingPage() {
+  const [pageSearchQuery, setPageSearchQuery] =
+    useDashboardPageSearch("Billing");
   const router = useRouter();
   const canManagePayments = useDashboardPermission("canManagePayments");
   const billingQuery = useAuthenticatedQuery<BillingResponse>("/api/billing");
@@ -1246,8 +1317,10 @@ export function BillingPage() {
             <BillingContent
               activeTab={activeTab}
               data={billingQuery.data}
-              setActiveTab={setActiveTab}
               openModal={() => setIsModalOpen(true)}
+              searchQuery={pageSearchQuery}
+              setActiveTab={setActiveTab}
+              setSearchQuery={setPageSearchQuery}
             />
           </div>
         </div>

@@ -14,6 +14,7 @@ import {
 } from "@/features/files/forms/new-folder-dialog";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type Folder = {
@@ -115,7 +116,7 @@ export function FilePage() {
 
   const [expandedFolderIds, setExpandedFolderIds] = useState<string[]>([]);
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Files");
   const [fileType, setFileType] = useState("all");
   const [isMobileFoldersOpen, setIsMobileFoldersOpen] = useState(false);
   const [isAddFileOpen, setIsAddFileOpen] = useState(false);
@@ -632,48 +633,48 @@ export function FilePage() {
                           </button>
 
                           {!folder.isPermanent ? (
-                          <div className="relative" data-folder-actions-menu>
-                            <button
-                              aria-expanded={openFolderMenuId === folder.id}
-                              aria-haspopup="menu"
-                              aria-label={`More actions for ${folder.name}`}
-                              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
-                              onClick={() =>
-                                setOpenFolderMenuId((current) =>
-                                  current === folder.id ? null : folder.id
-                                )
-                              }
-                              type="button"
-                            >
-                              <MoreIcon />
-                            </button>
-
-                            {openFolderMenuId === folder.id ? (
-                              <div
-                                className="absolute right-0 top-11 z-30 w-32 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-1 shadow-xl"
-                                role="menu"
+                            <div className="relative" data-folder-actions-menu>
+                              <button
+                                aria-expanded={openFolderMenuId === folder.id}
+                                aria-haspopup="menu"
+                                aria-label={`More actions for ${folder.name}`}
+                                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
+                                onClick={() =>
+                                  setOpenFolderMenuId((current) =>
+                                    current === folder.id ? null : folder.id
+                                  )
+                                }
+                                type="button"
                               >
-                                <button
-                                  className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#17202a] hover:bg-[#eef4fa]"
-                                  disabled={!canEdit}
-                                  onClick={() => startEditingFolder(folder)}
-                                  role="menuitem"
-                                  type="button"
+                                <MoreIcon />
+                              </button>
+
+                              {openFolderMenuId === folder.id ? (
+                                <div
+                                  className="absolute right-0 top-11 z-30 w-32 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-1 shadow-xl"
+                                  role="menu"
                                 >
-                                  Edit
-                                </button>
-                                <button
-                                  className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]"
-                                  disabled={!canEdit}
-                                  onClick={() => deleteFolder(folder.id)}
-                                  role="menuitem"
-                                  type="button"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
+                                  <button
+                                    className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#17202a] hover:bg-[#eef4fa]"
+                                    disabled={!canEdit}
+                                    onClick={() => startEditingFolder(folder)}
+                                    role="menuitem"
+                                    type="button"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]"
+                                    disabled={!canEdit}
+                                    onClick={() => deleteFolder(folder.id)}
+                                    role="menuitem"
+                                    type="button"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           ) : null}
                         </>
                       )}
