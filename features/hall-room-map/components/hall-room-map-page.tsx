@@ -287,8 +287,13 @@ export function HallRoomMapPage() {
         (hall) => hall.id === currentHallId
       )
         ? currentHallId
-        : (nextMaps[0]?.hallId ?? hallMapData.halls[0]?.id ?? "");
+        : "";
       setSelectedMapId((currentMapId) => {
+        if (!nextHallId) {
+          setObjects([]);
+          setSelectedObjectId(null);
+          return "";
+        }
         const currentMap = nextMaps.find(
           (map) =>
             map.id === currentMapId && map.hallId === nextHallId
@@ -551,9 +556,7 @@ export function HallRoomMapPage() {
   function openCreateMapDialog() {
     setMapDialogMode("create");
     setMapName("");
-    setMapHallId(
-      selectedHallId || hallMapsQuery.data?.halls[0]?.id || ""
-    );
+    setMapHallId(selectedHallId);
     setIsMapDialogOpen(true);
   }
 
