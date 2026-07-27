@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
@@ -19,6 +19,8 @@ type DashboardShellProps = {
 };
 
 type ScheduleRow = {
+  id: string;
+  date: string;
   time: string;
   event: string;
   details: string;
@@ -28,7 +30,6 @@ type ScheduleRow = {
   next: string;
 };
 
-const OPEN_BALANCE_REVISION_THRESHOLD_CENTS = 200_000;
 const TODAY_NOTES_READ_STORAGE_KEY = "dashboard-today-notes-read-date";
 const FALLBACK_OPEN_BALANCE_CENTS = 1_870_000;
 
@@ -37,6 +38,155 @@ type DashboardBillingResponse = {
     openInvoiceCents: number;
     openInvoices: number;
   };
+};
+
+type DashboardEvent = {
+  id: string;
+  clientName: string;
+  eventDate: string;
+  eventStatus: string;
+  bookingStatus: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  hallName: string | null;
+  eventType: string | null;
+  packageName: string | null;
+  couplesCount: number;
+  menCount: number;
+  ladiesCount: number;
+  boysCount: number;
+  girlsCount: number;
+  kidsCount: number;
+  waitersCount: number;
+  paymentStatus: string | null;
+  amountDue: string | null;
+  hall: { name: string } | null;
+  createdBy: { name: string | null } | null;
+};
+
+type FinancialTimelinePoint = {
+  date: string;
+  incomeCents: number;
+  expenseCents: number;
+};
+
+type DashboardEventsResponse = {
+  filters: {
+    startDate: string;
+    endDate: string;
+  };
+  summary: {
+    totalEvents: number;
+    bookedEvents: {
+      confirmed: number;
+      onHold: number;
+      total: number;
+    };
+    financial: {
+      canView: boolean;
+      incomeCents: number;
+      expenseCents: number;
+    };
+  };
+  financialTimeline: FinancialTimelinePoint[];
+  events: DashboardEvent[];
+};
+
+type TimeFilter = "today" | "week" | "month" | "year" | "custom";
+
+type TimelineGroup = {
+  date: string;
+  rows: ScheduleRow[];
+};
+
+const SAMPLE_TIMELINE_GROUPS: TimelineGroup[] = [
+  {
+    date: "2026-07-27",
+    rows: [
+      {
+        id: "sample-event-1",
+        date: "2026-07-27",
+        time: "5:30 PM",
+        event: "Rosenberg Bar Mitzvah",
+        details: "Bar Mitzvah - 240 guests",
+        room: "Grand Hall",
+        owner: "M. Mandelbaum",
+        status: "Confirmed",
+        next: "Dining setup 4:45 PM"
+      },
+      {
+        id: "sample-event-2",
+        date: "2026-07-27",
+        time: "6:15 PM",
+        event: "Klein Sheva Brachos",
+        details: "Sheva Brachos - 96 guests",
+        room: "Nachlas Yehuda A",
+        owner: "Y. Waldman",
+        status: "Menu review",
+        next: "Kitchen quantities"
+      }
+    ]
+  },
+  {
+    date: "2026-07-29",
+    rows: [
+      {
+        id: "sample-event-3",
+        date: "2026-07-29",
+        time: "7:00 PM",
+        event: "Levy Lchaim",
+        details: "Lchaim - 160 guests",
+        room: "Terrace Room",
+        owner: "J. Klein",
+        status: "On hold",
+        next: "Retainer payment"
+      }
+    ]
+  },
+  {
+    date: "2026-08-02",
+    rows: [
+      {
+        id: "sample-event-4",
+        date: "2026-08-02",
+        time: "8:30 PM",
+        event: "Friedman Dinner",
+        details: "Dinner - 144 guests",
+        room: "Small Hall",
+        owner: "M. Mandelbaum",
+        status: "Balance due",
+        next: "Billing follow-up"
+      },
+      {
+        id: "sample-event-5",
+        date: "2026-08-02",
+        time: "9:00 PM",
+        event: "Stein Vort",
+        details: "Vort - 120 guests",
+        room: "Terrace Room",
+        owner: "Y. Waldman",
+        status: "Confirmed",
+        next: "Print packet"
+      }
+    ]
+  }
+];
+
+const SAMPLE_FINANCIAL_TIMELINE: FinancialTimelinePoint[] = [
+  { date: "2026-01-01", incomeCents: 520000, expenseCents: 240000 },
+  { date: "2026-02-01", incomeCents: 840000, expenseCents: 310000 },
+  { date: "2026-03-01", incomeCents: 690000, expenseCents: 380000 },
+  { date: "2026-04-01", incomeCents: 1120000, expenseCents: 460000 },
+  { date: "2026-05-01", incomeCents: 960000, expenseCents: 420000 },
+  { date: "2026-06-01", incomeCents: 1210000, expenseCents: 560000 },
+  { date: "2026-07-01", incomeCents: 1340000, expenseCents: 610000 },
+  { date: "2026-08-01", incomeCents: 980000, expenseCents: 390000 }
+];
+
+const SAMPLE_BOOKED_EVENTS = {
+  confirmed: 12,
+  onHold: 4,
+  total: 16
 };
 
 function getOperatingDateKey() {
@@ -63,45 +213,246 @@ function formatCompactCurrency(cents: number) {
     .replace("K", "k");
 }
 
-const scheduleRows: ScheduleRow[] = [
-  {
-    time: "5:30 PM",
-    event: "Rosenberg Bar Mitzvah",
-    details: "240 portions",
-    room: "Grand Hall",
-    owner: "M. Mandelbaum",
-    status: "Confirmed",
-    next: "Dining setup 4:45 PM"
-  },
-  {
-    time: "6:15 PM",
-    event: "Klein Sheva Brachos",
-    details: "96 couples",
-    room: "Nachlas Yehuda A",
-    owner: "Y. Waldman",
-    status: "Menu review",
-    next: "Kitchen quantities"
-  },
-  {
-    time: "7:00 PM",
-    event: "Levy Lchaim",
-    details: "160 portions",
-    room: "Terrace Room",
-    owner: "J. Klein",
-    status: "On hold",
-    next: "Retainer payment"
-  },
-  {
-    time: "8:30 PM",
-    event: "Friedman Dinner",
-    details: "72 couples",
-    room: "Small Hall",
-    owner: "M. Mandelbaum",
-    status: "Balance due",
-    next: "Billing follow-up"
-  }
-];
+function dateKeyFromLocalDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
 
+  return `${year}-${month}-${day}`;
+}
+
+function getRangeForFilter(filter: TimeFilter) {
+  const today = new Date();
+  const start = new Date(today);
+  const end = new Date(today);
+
+  if (filter === "week") {
+    const mondayOffset = (today.getDay() + 6) % 7;
+    start.setDate(today.getDate() - mondayOffset);
+    end.setDate(start.getDate() + 6);
+  }
+
+  if (filter === "month") {
+    start.setDate(1);
+    end.setMonth(start.getMonth() + 1, 0);
+  }
+
+  if (filter === "year") {
+    start.setMonth(0, 1);
+    end.setMonth(11, 31);
+  }
+
+  return {
+    startDate: dateKeyFromLocalDate(start),
+    endDate: dateKeyFromLocalDate(end)
+  };
+}
+
+function formatEventDate(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric"
+  }).format(new Date(`${value.slice(0, 10)}T00:00:00`));
+}
+
+function formatEventTime(value: string | null) {
+  if (!value) return "All day";
+
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+}
+
+function eventGuestCount(event: DashboardEvent) {
+  return (
+    event.couplesCount * 2 +
+    event.menCount +
+    event.ladiesCount +
+    event.boysCount +
+    event.girlsCount +
+    event.kidsCount
+  );
+}
+
+function statusFromEvent(event: DashboardEvent): ScheduleRow["status"] {
+  if (event.amountDue && Number(event.amountDue) > 0) return "Balance due";
+  if (event.bookingStatus === "HOLD") return "On hold";
+  if (event.eventStatus.toLowerCase().includes("menu")) return "Menu review";
+  return "Confirmed";
+}
+
+function toScheduleRow(event: DashboardEvent): ScheduleRow {
+  const guestCount = eventGuestCount(event);
+  const status = statusFromEvent(event);
+
+  return {
+    id: event.id,
+    date: event.eventDate.slice(0, 10),
+    time: formatEventTime(event.startsAt),
+    event: event.clientName,
+    details:
+      [event.eventType, guestCount ? `${guestCount} guests` : null]
+        .filter(Boolean)
+        .join(" - ") || "Event details pending",
+    room: event.hallName ?? event.hall?.name ?? "Unassigned hall",
+    owner: event.createdBy?.name ?? "Unassigned",
+    status,
+    next:
+      status === "Balance due"
+        ? "Billing follow-up"
+        : status === "On hold"
+          ? "Confirm booking"
+          : (event.packageName ?? "Review event file")
+  };
+}
+
+function groupEventsByDate(events: DashboardEvent[]) {
+  return events.reduce<TimelineGroup[]>((groups, event) => {
+    const row = toScheduleRow(event);
+    const existing = groups.find((group) => group.date === row.date);
+
+    if (existing) {
+      existing.rows.push(row);
+    } else {
+      groups.push({ date: row.date, rows: [row] });
+    }
+
+    return groups;
+  }, []);
+}
+
+function EventCountGraph({
+  groups
+}: {
+  groups: Array<{ date: string; rows: ScheduleRow[] }>;
+}) {
+  const maxCount = Math.max(1, ...groups.map((group) => group.rows.length));
+
+  return (
+    <div className="mt-4 flex h-20 items-end gap-1.5 rounded-xl border border-[#d8dde5] bg-[#fbfcfd] px-3 py-2">
+      {groups.length === 0 ? (
+        <div className="flex h-full w-full items-center justify-center text-xs font-bold text-[#6a7483]">
+          No events in range
+        </div>
+      ) : (
+        groups.map((group) => (
+          <div
+            className="flex min-w-0 flex-1 flex-col items-center gap-1"
+            key={group.date}
+          >
+            <div
+              className="w-full rounded-t-md bg-[#1f4d73]"
+              style={{
+                height: `${Math.max(12, (group.rows.length / maxCount) * 52)}px`
+              }}
+              title={`${formatEventDate(group.date)}: ${group.rows.length} events`}
+            />
+            <span className="max-w-full truncate text-[9px] font-bold text-[#6a7483]">
+              {formatEventDate(group.date)}
+            </span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function FinancialTimelineGraph({
+  points
+}: {
+  points: FinancialTimelinePoint[];
+}) {
+  const maxValue = Math.max(
+    1,
+    ...points.flatMap((point) => [point.incomeCents, point.expenseCents])
+  );
+  const hasData = points.some(
+    (point) => point.incomeCents > 0 || point.expenseCents > 0
+  );
+  const visiblePoints =
+    points.length > 14
+      ? points.filter((_, index) => index % Math.ceil(points.length / 14) === 0)
+      : points;
+
+  return (
+    <div className="relative overflow-hidden p-1">
+      <div className="mb-3 flex items-center gap-4 text-xs font-black text-[#6a7483]">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm bg-[#168a55]" />
+          Income
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-sm bg-[#c4382f]" />
+          Expenses
+        </span>
+      </div>
+
+      <div className="grid grid-cols-[3rem_minmax(0,1fr)] gap-3">
+        <div className="grid grid-rows-[11rem_1.75rem] text-[10px] font-bold text-[#6a7483]">
+          <div className="flex flex-col justify-between">
+            <span>{formatCompactCurrency(maxValue)}</span>
+            <span>{formatCompactCurrency(Math.round(maxValue / 2))}</span>
+            <span>$0</span>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 grid-rows-[11rem_1.75rem]">
+          <div className="relative border-b border-l border-[#d8dde5]">
+            {[0, 1, 2].map((line) => (
+              <span
+                className="absolute left-0 right-0 border-t border-[#d8dde5]"
+                key={line}
+                style={{ top: `${line * 50}%` }}
+              />
+            ))}
+
+            <div className="relative z-1 flex h-full items-end gap-2 px-2">
+              {visiblePoints.map((point) => (
+                <div
+                  className="flex min-w-0 flex-1 items-end justify-center gap-1"
+                  key={point.date}
+                >
+                  <div
+                    className="w-full max-w-4 rounded-t-sm bg-[#168a55] shadow-sm shadow-[#17202a]/10"
+                    style={{
+                      height: `${Math.max(3, (point.incomeCents / maxValue) * 176)}px`
+                    }}
+                    title={`${formatEventDate(point.date)} income: ${formatCompactCurrency(point.incomeCents)}`}
+                  />
+                  <div
+                    className="w-full max-w-4 rounded-t-sm bg-[#c4382f] shadow-sm shadow-[#17202a]/10"
+                    style={{
+                      height: `${Math.max(3, (point.expenseCents / maxValue) * 176)}px`
+                    }}
+                    title={`${formatEventDate(point.date)} expenses: ${formatCompactCurrency(point.expenseCents)}`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="ml-px flex min-w-0 gap-2 px-2 pt-2">
+            {visiblePoints.map((point) => (
+              <span
+                className="min-w-0 flex-1 truncate text-center text-[10px] font-bold text-[#6a7483]"
+                key={point.date}
+              >
+                {formatEventDate(point.date)}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <div className="absolute inset-0 flex items-center justify-center px-6 pt-8 text-center text-sm font-bold text-[#6a7483]">
+          No income or expense activity for this filter.
+        </div>
+      ) : null}
+    </div>
+  );
+}
 function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
   const classes: Record<ScheduleRow["status"], string> = {
     Confirmed: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
@@ -124,26 +475,107 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>("week");
+  const [financeTimeFilter, setFinanceTimeFilter] =
+    useState<TimeFilter>("month");
+  const defaultCustomRange = useMemo(() => getRangeForFilter("week"), []);
+  const [customStartDate, setCustomStartDate] = useState(
+    defaultCustomRange.startDate
+  );
+  const [customEndDate, setCustomEndDate] = useState(
+    defaultCustomRange.endDate
+  );
+  const dashboardDateRange = useMemo(() => {
+    if (timeFilter === "custom") {
+      return {
+        startDate: customStartDate,
+        endDate:
+          customEndDate < customStartDate ? customStartDate : customEndDate
+      };
+    }
+
+    return getRangeForFilter(timeFilter);
+  }, [customEndDate, customStartDate, timeFilter]);
+  const dashboardQueryUrl = `/api/dashboard?startDate=${dashboardDateRange.startDate}&endDate=${dashboardDateRange.endDate}`;
+  const dashboardQuery = useAuthenticatedQuery<DashboardEventsResponse>(
+    dashboardQueryUrl,
+    access.canViewCalendar || access.canViewEventManager
+  );
+  const financialDateRange = useMemo(
+    () =>
+      getRangeForFilter(
+        financeTimeFilter === "custom" ? "month" : financeTimeFilter
+      ),
+    [financeTimeFilter]
+  );
+  const financialQueryUrl = `/api/dashboard?startDate=${financialDateRange.startDate}&endDate=${financialDateRange.endDate}`;
+  const financialQuery = useAuthenticatedQuery<DashboardEventsResponse>(
+    financialQueryUrl,
+    access.canViewCalendar || access.canViewEventManager
+  );
   const billingQuery = useAuthenticatedQuery<DashboardBillingResponse>(
     "/api/billing",
     access.canViewPaymentInfo
   );
   const openBalanceCents =
     billingQuery.data?.summary.openInvoiceCents ?? FALLBACK_OPEN_BALANCE_CENTS;
+  const dashboardEvents = useMemo(
+    () => dashboardQuery.data?.events ?? [],
+    [dashboardQuery.data?.events]
+  );
+  const scheduleRows = useMemo(
+    () => dashboardEvents.map(toScheduleRow),
+    [dashboardEvents]
+  );
+  const timelineGroups = useMemo(() => {
+    const groups = groupEventsByDate(dashboardEvents);
+    return groups.length > 0 ? groups : SAMPLE_TIMELINE_GROUPS;
+  }, [dashboardEvents]);
+  const totalEvents =
+    dashboardQuery.data?.summary.totalEvents ??
+    SAMPLE_TIMELINE_GROUPS.reduce((sum, group) => sum + group.rows.length, 0);
+  const rangeLabel = `${formatEventDate(dashboardDateRange.startDate)} - ${formatEventDate(dashboardDateRange.endDate)}`;
+  const confirmedEvents = dashboardEvents.filter(
+    (event) => statusFromEvent(event) === "Confirmed"
+  ).length;
+  const holdEvents = dashboardEvents.filter(
+    (event) => statusFromEvent(event) === "On hold"
+  ).length;
+  const balanceDueEvents = dashboardEvents.filter(
+    (event) => statusFromEvent(event) === "Balance due"
+  ).length;
+  const bookedEvents =
+    dashboardQuery.data?.summary.bookedEvents ?? SAMPLE_BOOKED_EVENTS;
+  const financialSummary = financialQuery.data?.summary.financial ?? {
+    canView: true,
+    incomeCents: SAMPLE_FINANCIAL_TIMELINE.reduce(
+      (sum, point) => sum + point.incomeCents,
+      0
+    ),
+    expenseCents: SAMPLE_FINANCIAL_TIMELINE.reduce(
+      (sum, point) => sum + point.expenseCents,
+      0
+    )
+  };
+  const financialTimeline = financialQuery.data?.financialTimeline?.some(
+    (point) => point.incomeCents > 0 || point.expenseCents > 0
+  )
+    ? financialQuery.data.financialTimeline
+    : SAMPLE_FINANCIAL_TIMELINE;
+  const financialRangeLabel = `${formatEventDate(financialDateRange.startDate)} - ${formatEventDate(financialDateRange.endDate)}`;
   const kpis = [
     {
-      label: "Events today",
-      value: "6",
-      description: "3 confirmed, 2 in setup, 1 on hold",
-      needsRevision: false
+      label: "Total Events",
+      value: dashboardQuery.isLoading ? "..." : String(totalEvents),
+      description: `${rangeLabel} - ${confirmedEvents} confirmed, ${holdEvents} on hold, ${balanceDueEvents} balance due`,
+      needsRevision: false,
+      graph: <EventCountGraph groups={timelineGroups} />
     },
     {
-      label: "Open balance",
-      value: formatCompactCurrency(openBalanceCents),
-      description: billingQuery.data
-        ? `${billingQuery.data.summary.openInvoices} open invoices`
-        : "Includes two retainers due",
-      needsRevision: openBalanceCents >= OPEN_BALANCE_REVISION_THRESHOLD_CENTS
+      label: "Booked Events",
+      value: dashboardQuery.isLoading ? "..." : String(bookedEvents.total),
+      description: `${bookedEvents.confirmed} confirmed, ${bookedEvents.onHold} on hold upcoming`,
+      needsRevision: bookedEvents.onHold > 0
     }
   ];
 
@@ -218,7 +650,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
               <article
                 key={kpi.label}
                 className={`rounded-2xl border border-[#d8dde5] bg-white p-4 shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 ${
-                  kpi.label === "Open balance"
+                  kpi.needsRevision
                     ? "revision-gradient-stroke"
                     : "hover:border-[#1f4d73]/60"
                 }`}
@@ -236,11 +668,83 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   <p className="mt-3 text-sm font-medium text-[#6a7483]">
                     {kpi.description}
                   </p>
+
+                  {"graph" in kpi ? kpi.graph : null}
                 </div>
               </article>
             ))}
           </div>
 
+          <section className="mt-5 overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+            <div className="flex flex-col gap-4 border-b border-[#d8dde5] p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-lg font-black text-[#17202a]">
+                  Income timeline
+                </h2>
+                <p className="mt-1 text-sm font-medium text-[#6a7483]">
+                  Income and expenses by period for {financialRangeLabel}.
+                </p>
+              </div>
+
+              <select
+                aria-label="Income timeline filter"
+                className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+                onChange={(event) =>
+                  setFinanceTimeFilter(event.target.value as TimeFilter)
+                }
+                value={financeTimeFilter}
+              >
+                <option value="today">Today</option>
+                <option value="week">This week</option>
+                <option value="month">This month</option>
+                <option value="year">This year</option>
+              </select>
+            </div>
+
+            <div className="grid gap-4 p-5 lg:grid-cols-[minmax(0,1fr)_16rem]">
+              <FinancialTimelineGraph points={financialTimeline} />
+
+              <div className="grid content-start gap-3 text-sm">
+                <div className="rounded-xl border border-[#d8dde5] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
+                    Open balance
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[#168a55]">
+                    {formatCompactCurrency(openBalanceCents)}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-[#6a7483]">
+                    {billingQuery.data
+                      ? `${billingQuery.data.summary.openInvoices} open invoices`
+                      : "Waiting on billing data"}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-[#d8dde5] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
+                    Income
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[#168a55]">
+                    {formatCompactCurrency(financialSummary?.incomeCents ?? 0)}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-[#d8dde5] p-4">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
+                    Expenses
+                  </p>
+                  <p className="mt-2 text-2xl font-black text-[#c4382f]">
+                    {formatCompactCurrency(financialSummary?.expenseCents ?? 0)}
+                  </p>
+                </div>
+
+                {financialSummary?.canView === false ? (
+                  <p className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs font-bold text-[#6a7483]">
+                    Payment permission is required to view income and expenses.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </section>
           <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
             <section className="min-w-0 overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
               <div className="flex flex-col gap-4 border-b border-[#d8dde5] p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -255,42 +759,102 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   </p>
                 </div>
 
-                <button
-                  className="h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa] sm:w-auto"
-                  type="button"
-                  onClick={() => router.push("/dashboard/event-manager")}
-                >
-                  Open events
-                </button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
+                  <select
+                    aria-label="Dashboard time filter"
+                    className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+                    onChange={(event) =>
+                      setTimeFilter(event.target.value as TimeFilter)
+                    }
+                    value={timeFilter}
+                  >
+                    <option value="today">Today</option>
+                    <option value="week">This week</option>
+                    <option value="month">This month</option>
+                    <option value="year">This year</option>
+                    <option value="custom">Custom</option>
+                  </select>
+
+                  <button
+                    className="h-10 min-w-32 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+                    type="button"
+                    onClick={() => router.push("/dashboard/event-manager")}
+                  >
+                    Open events
+                  </button>
+                </div>
               </div>
 
+              {timeFilter === "custom" ? (
+                <div className="grid gap-3 border-b border-[#d8dde5] bg-[#fbfcfd] p-4 sm:grid-cols-2">
+                  <label className="text-xs font-black text-[#6a7483]">
+                    Start date
+                    <input
+                      className="mt-1 h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-bold text-[#17202a]"
+                      onChange={(event) =>
+                        setCustomStartDate(event.target.value)
+                      }
+                      type="date"
+                      value={customStartDate}
+                    />
+                  </label>
+
+                  <label className="text-xs font-black text-[#6a7483]">
+                    End date
+                    <input
+                      className="mt-1 h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-bold text-[#17202a]"
+                      min={customStartDate}
+                      onChange={(event) => setCustomEndDate(event.target.value)}
+                      type="date"
+                      value={customEndDate}
+                    />
+                  </label>
+                </div>
+              ) : null}
+
+              {dashboardQuery.error ? (
+                <div className="border-b border-[#d8dde5] bg-[#fff7ed] p-4 text-sm font-bold text-[#9a5b00]">
+                  {dashboardQuery.error}
+                </div>
+              ) : null}
+
               <div className="space-y-2 p-3 md:hidden">
-                {scheduleRows.map((row) => (
-                  <article
-                    className="rounded-xl border border-[#d8dde5] p-3"
-                    key={`${row.time}-${row.event}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <strong className="block text-sm">{row.event}</strong>
-                        <span className="mt-1 block text-xs text-[#6a7483]">
-                          {row.time} · {row.room}
-                        </span>
+                {scheduleRows.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#c7d0dc] p-4 text-sm font-bold text-[#6a7483]">
+                    {dashboardQuery.isLoading
+                      ? "Loading events..."
+                      : "No events in this time range."}
+                  </div>
+                ) : (
+                  scheduleRows.map((row) => (
+                    <article
+                      className="rounded-xl border border-[#d8dde5] p-3"
+                      key={row.id}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <strong className="block text-sm">{row.event}</strong>
+                          <span className="mt-1 block text-xs text-[#6a7483]">
+                            {row.time} · {row.room}
+                          </span>
+                        </div>
+                        <StatusBadge status={row.status} />
                       </div>
-                      <StatusBadge status={row.status} />
-                    </div>
-                    <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div>
-                        <dt className="font-black text-[#6a7483]">Owner</dt>
-                        <dd className="mt-1">{row.owner}</dd>
-                      </div>
-                      <div>
-                        <dt className="font-black text-[#6a7483]">Next item</dt>
-                        <dd className="mt-1">{row.next}</dd>
-                      </div>
-                    </dl>
-                  </article>
-                ))}
+                      <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <dt className="font-black text-[#6a7483]">Owner</dt>
+                          <dd className="mt-1">{row.owner}</dd>
+                        </div>
+                        <div>
+                          <dt className="font-black text-[#6a7483]">
+                            Next item
+                          </dt>
+                          <dd className="mt-1">{row.next}</dd>
+                        </div>
+                      </dl>
+                    </article>
+                  ))
+                )}
               </div>
 
               <div className="hidden overflow-x-auto md:block">
@@ -307,48 +871,118 @@ export function DashboardShell({ access }: DashboardShellProps) {
                   </thead>
 
                   <tbody className="divide-y divide-[#d8dde5]">
-                    {scheduleRows.map((row) => (
-                      <tr
-                        key={`${row.time}-${row.event}`}
-                        className="align-middle"
-                      >
-                        <td className="px-4 py-4 text-sm font-semibold text-[#17202a]">
-                          {row.time}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <p className="text-sm font-black text-[#17202a]">
-                            {row.event}
-                          </p>
-
-                          <p className="mt-1 text-sm font-medium text-[#6a7483]">
-                            {row.details}
-                          </p>
-                        </td>
-
-                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
-                          {row.room}
-                        </td>
-
-                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
-                          {row.owner}
-                        </td>
-
-                        <td className="px-4 py-4">
-                          <StatusBadge status={row.status} />
-                        </td>
-
-                        <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
-                          {row.next}
+                    {scheduleRows.length === 0 ? (
+                      <tr>
+                        <td
+                          className="px-4 py-8 text-center text-sm font-bold text-[#6a7483]"
+                          colSpan={6}
+                        >
+                          {dashboardQuery.isLoading
+                            ? "Loading events..."
+                            : "No events in this time range."}
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      scheduleRows.map((row) => (
+                        <tr key={row.id} className="align-middle">
+                          <td className="px-4 py-4 text-sm font-semibold text-[#17202a]">
+                            {row.time}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-black text-[#17202a]">
+                              {row.event}
+                            </p>
+
+                            <p className="mt-1 text-sm font-medium text-[#6a7483]">
+                              {row.details}
+                            </p>
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
+                            {row.room}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
+                            {row.owner}
+                          </td>
+
+                          <td className="px-4 py-4">
+                            <StatusBadge status={row.status} />
+                          </td>
+
+                          <td className="px-4 py-4 text-sm font-medium text-[#17202a]">
+                            {row.next}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </section>
 
             <div className="space-y-5">
+              <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
+                <div className="border-b border-[#d8dde5] p-5">
+                  <h2 className="text-base font-black text-[#17202a]">
+                    Events timeline
+                  </h2>
+
+                  <p className="mt-1 text-xs font-medium text-[#6a7483]">
+                    {totalEvents} events from {rangeLabel}.
+                  </p>
+                </div>
+
+                <div className="max-h-96 space-y-4 overflow-y-auto p-4">
+                  {timelineGroups.length === 0 ? (
+                    <p className="rounded-xl border border-dashed border-[#c7d0dc] p-4 text-sm font-bold text-[#6a7483]">
+                      {dashboardQuery.isLoading
+                        ? "Loading timeline..."
+                        : "No timeline items for this filter."}
+                    </p>
+                  ) : (
+                    timelineGroups.map((group) => (
+                      <div className="relative pl-5" key={group.date}>
+                        <span className="absolute bottom-0 left-1.5 top-7 w-px bg-[#d8dde5]" />
+                        <div className="flex items-center gap-2">
+                          <span className="h-3 w-3 rounded-full bg-[#1f4d73]" />
+                          <h3 className="text-sm font-black text-[#17202a]">
+                            {formatEventDate(group.date)}
+                          </h3>
+                          <span className="rounded-full bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#1f4d73]">
+                            {group.rows.length}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 space-y-2">
+                          {group.rows.map((row) => (
+                            <button
+                              className="w-full rounded-xl border border-[#d8dde5] bg-white p-3 text-left transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]"
+                              key={row.id}
+                              onClick={() => router.push("/dashboard/events")}
+                              type="button"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-black text-[#17202a]">
+                                    {row.event}
+                                  </p>
+                                  <p className="mt-1 text-xs font-medium text-[#6a7483]">
+                                    {row.time} - {row.room}
+                                  </p>
+                                </div>
+                                <StatusBadge status={row.status} />
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
+
               <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
                 <div className="border-b border-[#d8dde5] p-5">
                   <h2 className="text-base font-black text-[#17202a]">
