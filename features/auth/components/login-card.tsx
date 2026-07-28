@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -157,6 +157,23 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
 
+  useEffect(() => {
+    if (!isDesktopApp) {
+      return;
+    }
+
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [isDesktopApp]);
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -206,8 +223,8 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
   };
 
   return (
-        <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-w-lg" : "lg:grid-cols-2"}`}>
-          <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "hidden" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
+    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-h-[760px] max-w-6xl grid-cols-[0.92fr_1fr]" : "lg:grid-cols-2"}`}>
+          <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "block p-8" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
             <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -225,17 +242,17 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 </Link>
               )}
 
-              <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>Welcome Back!</p>
-              <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
+              <p className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>Welcome Back!</p>
+              <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.12] tracking-tight text-[#0F172A]`}>
                 Login to your account
               </h1>
-              <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
+              <p className={`${isDesktopApp ? "mt-4 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
                 Access your dashboard to manage bookings, events, payments, and hall operations all in one place.
               </p>
 
-              {!compact ? <DashboardIllustration /> : <div className="hidden lg:block"><DashboardIllustration /></div>}
+              {isDesktopApp ? null : !compact ? <DashboardIllustration /> : <div className="hidden lg:block"><DashboardIllustration /></div>}
 
-              <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
+              <div className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
                   <ShieldIcon />
                 </div>
@@ -247,19 +264,8 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
             </div>
           </div>
 
-          <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${isDesktopApp ? "p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
+          <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${isDesktopApp ? "p-8" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
             <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
-              {isDesktopApp ? (
-                <Image
-                  src="/images/branding/hms-logo-header.png"
-                  alt="Event Core"
-                  width={612}
-                  height={408}
-                  priority
-                  unoptimized
-                  className="mb-3 h-auto w-44 max-w-full object-contain"
-                />
-              ) : null}
               <h2 id="login-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Employee Login</h2>
               <p className={`${isDesktopApp ? "mt-2 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Use your organization account to continue.</p>
 
