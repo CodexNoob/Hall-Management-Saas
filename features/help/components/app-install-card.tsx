@@ -1,76 +1,41 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
-};
+const desktopInstallerUrl = process.env.NEXT_PUBLIC_DESKTOP_INSTALLER_URL;
 
 export function AppInstallCard() {
-  const [installPrompt, setInstallPrompt] =
-    useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
-  const [message, setMessage] = useState(
-    "If your browser supports app installation, an install button will appear here."
-  );
-
-  useEffect(() => {
-    if (window.matchMedia("(display-mode: standalone)").matches) {
-      setInstalled(true);
-      setMessage("Event Core is already installed on this device.");
-    }
-
-    function captureInstallPrompt(event: Event) {
-      event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
-      setMessage("Event Core is ready to install on this device.");
-    }
-
-    function markInstalled() {
-      setInstalled(true);
-      setInstallPrompt(null);
-      setMessage("Event Core was installed successfully.");
-    }
-
-    window.addEventListener("beforeinstallprompt", captureInstallPrompt);
-    window.addEventListener("appinstalled", markInstalled);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", captureInstallPrompt);
-      window.removeEventListener("appinstalled", markInstalled);
-    };
-  }, []);
-
-  async function installApp() {
-    if (!installPrompt) return;
-
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    setInstallPrompt(null);
-    setMessage(
-      choice.outcome === "accepted"
-        ? "Event Core is installing now."
-        : "Install was dismissed. You can try again from your browser menu."
-    );
-  }
-
   return (
     <section className="rounded-xl border border-[#c8d6e3] bg-[#f8fbff] p-4">
       <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1f4d73]">
-        Install app
+        Windows desktop app
       </p>
-      <h2 className="mt-2 text-lg font-black">Install Event Core</h2>
-      <p className="mt-2 text-sm leading-6 text-[#59677c]">{message}</p>
+      <h2 className="mt-2 text-lg font-black">Download Event Core</h2>
+      <p className="mt-2 text-sm leading-6 text-[#59677c]">
+        Install the Event Core desktop app on Windows. After installation, the
+        app opens the dashboard and asks the user to log in before showing any
+        organization data.
+      </p>
 
-      <button
-        className="mt-4 h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={!installPrompt || installed}
-        onClick={installApp}
-        type="button"
-      >
-        {installed ? "Installed" : "Install on this device"}
-      </button>
+      {desktopInstallerUrl ? (
+        <a
+          className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#15344f]"
+          href={desktopInstallerUrl}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Download Windows app
+        </a>
+      ) : (
+        <button
+          className="mt-4 h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm opacity-50"
+          disabled
+          type="button"
+        >
+          Download link not ready
+        </button>
+      )}
+
+      <p className="mt-3 text-xs leading-5 text-[#6a7483]">
+        The installer download URL is controlled by
+        NEXT_PUBLIC_DESKTOP_INSTALLER_URL.
+      </p>
     </section>
   );
 }

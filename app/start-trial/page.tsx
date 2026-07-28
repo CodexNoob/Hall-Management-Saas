@@ -1,4 +1,5 @@
 import { FreeTrialCard } from "@/features/auth/components/free-trial-card";
+import { Suspense } from "react";
 
 export default function StartTrialPage() {
   return (
@@ -8,7 +9,9 @@ export default function StartTrialPage() {
       <div className="pointer-events-none absolute left-1/2 top-0 h-48 w-2xl -translate-x-1/2 rounded-full bg-white/70 blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] max-w-7xl items-center justify-center sm:min-h-[calc(100dvh-4rem)]">
-        <FreeTrialCard />
+        <Suspense fallback={null}>
+          <FreeTrialCard />
+        </Suspense>
       </div>
     </main>
   );

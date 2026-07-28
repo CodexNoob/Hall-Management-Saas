@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { syncSignedInUser } from "@/lib/auth/client";
+import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function UserIcon() {
@@ -161,6 +162,7 @@ type FreeTrialCardProps = {
 
 export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardProps) {
   const router = useRouter();
+  const isDesktopApp = useDesktopAppMode();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
@@ -242,8 +244,8 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
   };
 
   return (
-    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
+    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-w-lg" : "lg:grid-cols-2"}`}>
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${isDesktopApp ? "hidden" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#E7E3DA]/75 blur-2xl" />
@@ -263,9 +265,13 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
 
         <div className={`relative ${compact ? "lg:sticky lg:top-0 lg:flex lg:min-h-[calc(90vh-80px)] lg:flex-col lg:justify-between lg:gap-6" : ""}`}>
           <div>
-            <Link href="/" aria-label="Back to Hall Management SaaS home">
-              <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-            </Link>
+            {isDesktopApp ? (
+              <Image src="/images/branding/hms-logo-header.png" alt="Event Core" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+            ) : (
+              <Link href="/" aria-label="Back to Hall Management SaaS home">
+                <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+              </Link>
+            )}
 
             <p className="mt-10 text-base font-black text-[#1f4d73]">
               Welcome! <span aria-hidden="true">&#128075;</span>
@@ -294,16 +300,27 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
         </div>
       </div>
 
-      <div className={`order-1 box-border w-full min-w-0 bg-white ${compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
-        <div className="mx-auto flex h-full w-full min-w-0 max-w-xl flex-col justify-center">
-          <h2 id="free-trial-modal-title" className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Start Your Free Trial</h2>
-          <p className="mt-3 text-base text-[#64748B] sm:mt-4 sm:text-lg">Create the owner account for a new hall organization.</p>
+      <div className={`order-1 box-border w-full min-w-0 bg-white ${isDesktopApp ? "p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
+        <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
+          {isDesktopApp ? (
+            <Image
+              src="/images/branding/hms-logo-header.png"
+              alt="Event Core"
+              width={612}
+              height={408}
+              priority
+              unoptimized
+              className="mb-2 h-auto w-40 max-w-full object-contain"
+            />
+          ) : null}
+          <h2 id="free-trial-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Start Your Free Trial</h2>
+          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Create the owner account for a new hall organization.</p>
 
-          <form className="mt-8" onSubmit={submit}>
-            <label className="text-base font-bold text-[#0F172A]" htmlFor="fullName">
+          <form className={isDesktopApp ? "mt-3" : "mt-8"} onSubmit={submit}>
+            <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="fullName">
               Full Name
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <UserIcon />
               <input
                 id="fullName"
@@ -316,10 +333,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="freeTrialEmail">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialEmail">
               Email Address
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <EmailIcon />
               <input
                 id="freeTrialEmail"
@@ -333,10 +350,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="phone">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="phone">
               Phone Number
             </label>
-            <div className="login-field mt-3 flex h-14 w-full min-w-0 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex w-full min-w-0 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <div className="flex items-center px-3 sm:px-4">
                 <PhoneIcon />
               </div>
@@ -366,10 +383,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="venue">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="venue">
               Company or Venue Name
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <BuildingIcon />
               <input
                 id="venue"
@@ -382,10 +399,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               />
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="freeTrialPassword">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialPassword">
               Password
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <LockIcon />
               <input
                 id="freeTrialPassword"
@@ -402,10 +419,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               </button>
             </div>
 
-            <label className="mt-5 block text-base font-bold text-[#0F172A]" htmlFor="confirmPassword">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="confirmPassword">
               Confirm Password
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <LockIcon />
               <input
                 id="confirmPassword"
@@ -422,7 +439,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               </button>
             </div>
 
-            <label className="mt-6 flex cursor-pointer items-start gap-3 text-sm font-medium leading-6 text-[#64748B] sm:text-base" htmlFor="terms">
+            <label className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-6 text-sm leading-6 sm:text-base"} flex cursor-pointer items-start gap-3 font-medium text-[#64748B]`} htmlFor="terms">
               <input
                 id="terms"
                 className="login-checkbox mt-0.5 h-5 w-5 shrink-0 border border-[#E5E0D6] accent-[#1f4d73]"
@@ -442,7 +459,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-7 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-3 h-10 text-sm" : "mt-7 h-16 text-lg"}`}
               type="submit"
               disabled={isSubmitting}
             >
@@ -450,14 +467,14 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               {isSubmitting ? "Creating organization..." : "Create organization"}
             </button>
 
-            <p className="mt-9 text-center text-base text-[#64748B]">
+            <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-9 text-base"} text-center text-[#64748B]`}>
               Already have an account?{" "}
               {onLoginClick ? (
                 <button className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onLoginClick}>
                   Login
                 </button>
               ) : (
-                <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="/login">
+                <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href={isDesktopApp ? "/login?desktop=1" : "/login"}>
                   Login
                 </Link>
               )}

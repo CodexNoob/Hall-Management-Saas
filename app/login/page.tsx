@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginCard } from "@/features/auth/components/login-card";
 
 export default function LoginPage() {
@@ -6,7 +7,9 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
       <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
       <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] max-w-7xl items-center justify-center sm:min-h-[calc(100dvh-4rem)]">
-        <LoginCard />
+        <Suspense fallback={null}>
+          <LoginCard />
+        </Suspense>
       </div>
     </main>
   );

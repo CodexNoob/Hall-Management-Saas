@@ -81,7 +81,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         if (error || !data.session?.access_token) {
           clearCachedSyncedUser();
-          router.replace("/");
+          const isDesktopApp =
+            window.localStorage.getItem("eventCoreDesktopApp") === "true";
+          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
           return;
         }
 
@@ -97,7 +99,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       } catch {
         if (!cachedSyncData) {
           clearCachedSyncedUser();
-          router.replace("/");
+          const isDesktopApp =
+            window.localStorage.getItem("eventCoreDesktopApp") === "true";
+          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
         }
       }
     }

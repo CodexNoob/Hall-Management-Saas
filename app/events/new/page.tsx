@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { LoginCard } from "@/features/auth/components/login-card";
 
 export default function NewEventPage() {
@@ -8,7 +9,9 @@ export default function NewEventPage() {
       <div className="pointer-events-none absolute left-1/2 top-0 h-48 w-2xl -translate-x-1/2 rounded-full bg-white/70 blur-3xl" />
 
       <div className="relative mx-auto flex min-h-[calc(100vh-64px)] max-w-7xl items-center justify-center">
-        <LoginCard />
+        <Suspense fallback={null}>
+          <LoginCard />
+        </Suspense>
       </div>
     </main>
   );

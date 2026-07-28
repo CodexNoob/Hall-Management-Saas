@@ -30,7 +30,9 @@ export function DashboardAuthGuard() {
 
         if (error || !data.session?.access_token) {
           clearCachedSyncedUser();
-          router.replace("/");
+          const isDesktopApp =
+            window.localStorage.getItem("eventCoreDesktopApp") === "true";
+          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
           return;
         }
 

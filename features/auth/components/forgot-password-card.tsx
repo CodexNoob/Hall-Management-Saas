@@ -3,6 +3,7 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function EmailIcon() {
@@ -107,6 +108,7 @@ type ForgotPasswordCardProps = {
 };
 
 export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPasswordCardProps) {
+  const isDesktopApp = useDesktopAppMode();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -146,8 +148,8 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className="mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl lg:grid-cols-2">
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
+    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-w-lg" : "lg:grid-cols-2"}`}>
+      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "hidden" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -160,9 +162,13 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
         </svg>
 
         <div className="relative">
-          <Link href="/" aria-label="Back to Hall Management SaaS home">
+          {isDesktopApp ? (
             <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-          </Link>
+          ) : (
+            <Link href="/" aria-label="Back to Hall Management SaaS home">
+              <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+            </Link>
+          )}
 
           <p className={`${compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
             No worries! <span aria-hidden="true">&#128075;</span>
@@ -188,16 +194,27 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
         </div>
       </div>
 
-      <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
-        <div className="mx-auto flex h-full w-full min-w-0 max-w-xl flex-col justify-center">
-          <h2 id="forgot-password-modal-title" className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">Forgot Password</h2>
-          <p className="mt-3 max-w-md text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8">Enter your email address and we will send you a reset link.</p>
+      <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${isDesktopApp ? "p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
+        <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
+          {isDesktopApp ? (
+            <Image
+              src="/images/branding/hms-logo-header.png"
+              alt="Event Core"
+              width={612}
+              height={408}
+              priority
+              unoptimized
+              className="mb-3 h-auto w-44 max-w-full object-contain"
+            />
+          ) : null}
+          <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
+          <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
 
-          <form className={compact ? "mt-10" : "mt-12"} onSubmit={submit}>
-            <label className="text-base font-bold text-[#0F172A]" htmlFor="forgotEmail">
+          <form className={isDesktopApp ? "mt-4" : compact ? "mt-10" : "mt-12"} onSubmit={submit}>
+            <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="forgotEmail">
               Email Address
             </label>
-            <div className="login-field mt-3 flex h-14 items-center gap-4 border border-[#E5E0D6] bg-white px-4 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)]">
+            <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
               <EmailIcon />
               <input
                 id="forgotEmail"
@@ -215,7 +232,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               />
             </div>
 
-            <div className="mt-7 flex gap-4 text-base font-bold leading-7 text-[#65718d]">
+            <div className={`${isDesktopApp ? "mt-5 text-sm leading-6" : "mt-7 text-base leading-7"} flex gap-4 font-bold text-[#65718d]`}>
               <p>We&apos;ll send a secure password reset link to this email address.</p>
             </div>
 
@@ -223,7 +240,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-9 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+              className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-9 h-16 text-lg"}`}
               type="submit"
               disabled={isSubmitting}
             >
@@ -231,24 +248,25 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               {isSubmitting ? "Sending..." : "Send Reset Link"}
             </button>
 
-            <div className="my-10 flex items-center gap-5 text-sm font-medium text-[#64748B]">
+            <div className={`${isDesktopApp ? "my-5" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
               <span className="h-px flex-1 bg-[#E5E0D6]" />
               or
               <span className="h-px flex-1 bg-[#E5E0D6]" />
             </div>
 
             {onBackToLogin ? (
-              <button className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onBackToLogin}>
+              <button className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} type="button" onClick={onBackToLogin}>
                 <span aria-hidden="true"></span>
                 Back to Login
               </button>
             ) : (
-              <Link className="mx-auto flex items-center justify-center gap-3 text-lg font-black text-[#1f4d73] transition hover:text-[#1f4d73]" href="/">
+              <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
                 <span aria-hidden="true"></span>
                 Back to Login
               </Link>
             )}
 
+            {!isDesktopApp ? (
             <p className="mt-10 flex flex-wrap items-center justify-center gap-2 text-center text-sm text-[#64748B] sm:mt-14 sm:text-base">
               Need help?{" "}
               <Link className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="#support">
@@ -256,6 +274,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
                 <ExternalLinkIcon />
               </Link>
             </p>
+            ) : null}
           </form>
         </div>
       </div>

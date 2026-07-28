@@ -62,19 +62,19 @@ export const helpPages: Record<
   "download-apps": {
     eyebrow: "Apps",
     title: "Download Apps",
-    subtitle: "Install Event Core as a desktop app or mobile app wrapper.",
+    subtitle: "Install Event Core as a Windows desktop app.",
     sections: [
       {
         title: "Desktop and laptop",
-        body: "For a client-ready desktop installer, build the Electron wrapper after setting EVENT_CORE_APP_URL to your deployed Event Core domain. Browser install is also available as a PWA fallback."
+        body: "Download and run the Windows installer. After installation, Event Core opens directly to the dashboard and requires the user to log in before any data is shown."
       },
       {
-        title: "Android phones and tablets",
-        body: "For Android, use the Capacitor wrapper and open the generated Android project in Android Studio. As a fallback, users can install the PWA from Chrome."
+        title: "Staff access",
+        body: "Staff members use the same installer. Their dashboard access depends on the account and permissions assigned by the subscribed organization."
       },
       {
-        title: "iPhone and iPad",
-        body: "For iPhone and iPad, use the Capacitor wrapper and build from macOS with Xcode. As a fallback, users can add the PWA to the home screen from Safari."
+        title: "Mobile apps",
+        body: "Android and iPhone app packaging will be handled later after the desktop workflow and core platform are finalized."
       }
     ]
   },

@@ -446,7 +446,9 @@ export function DashboardSidebar({
     clearAuthenticatedQueryCache();
     clearCachedSyncedUser();
     setIsLogoutDialogOpen(false);
-    router.replace("/");
+    const isDesktopApp =
+      window.localStorage.getItem("eventCoreDesktopApp") === "true";
+    router.replace(isDesktopApp ? "/login?desktop=1" : "/");
     router.refresh();
   };
 
