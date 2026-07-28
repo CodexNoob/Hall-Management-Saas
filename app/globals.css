@@ -599,106 +599,93 @@ svg {
 
 .auth-slide-page {
   opacity: 1;
-  transform: translateX(0) scale(1);
-  transform-origin: center left;
-  transform-style: preserve-3d;
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: center;
+  backface-visibility: hidden;
   transition:
-    opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),
-    transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+    opacity 170ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 170ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform;
 }
 
 .auth-slide-page.is-switching-forward {
   opacity: 0;
-  transform: perspective(1400px) rotateY(-24deg) translateX(-18px) scale(0.985);
+  pointer-events: none;
+  transform: translate3d(-16px, 0, 0) scale(0.985);
 }
 
 .auth-slide-page.is-switching-back {
   opacity: 0;
-  transform-origin: center right;
-  transform: perspective(1400px) rotateY(24deg) translateX(18px) scale(0.985);
+  pointer-events: none;
+  transform: translate3d(16px, 0, 0) scale(0.985);
 }
 
 .auth-slide-page.is-entered-forward {
-  animation: authPageFlipInForward 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: authSlideInForward 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .auth-slide-page.is-entered-back {
-  animation: authPageFlipInBack 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: authSlideInBack 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-@keyframes authPageFlipInForward {
+@keyframes authSlideInForward {
   from {
     opacity: 0;
-    transform: perspective(1400px) rotateY(22deg) translateX(18px) scale(0.985);
+    transform: translate3d(16px, 0, 0) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: perspective(1400px) rotateY(0deg) translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
-@keyframes authPageFlipInBack {
+@keyframes authSlideInBack {
   from {
     opacity: 0;
-    transform: perspective(1400px) rotateY(-22deg) translateX(-18px) scale(0.985);
+    transform: translate3d(-16px, 0, 0) scale(0.985);
   }
   to {
     opacity: 1;
-    transform: perspective(1400px) rotateY(0deg) translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
-.desktop-auth-page {
-  animation-duration: 680ms;
+.desktop-auth-soft-page {
+  animation-duration: 170ms;
   animation-fill-mode: both;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  transform-style: preserve-3d;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   backface-visibility: hidden;
+  transform-origin: center;
   will-change: opacity, transform;
 }
 
-.desktop-auth-page-login {
-  animation-name: desktopAuthPageFlipBack;
-  transform-origin: center right;
+.desktop-auth-soft-forward {
+  animation-name: desktopAuthSoftForward;
 }
 
-.desktop-auth-page-forgot {
-  animation-name: desktopAuthPageFlipForward;
-  transform-origin: center left;
+.desktop-auth-soft-back {
+  animation-name: desktopAuthSoftBack;
 }
 
-@keyframes desktopAuthPageFlipForward {
+@keyframes desktopAuthSoftForward {
   from {
     opacity: 0;
-    filter: blur(1.5px);
-    transform: perspective(1800px) rotateY(10deg) translateX(14px) scale(0.992);
-  }
-  55% {
-    opacity: 1;
-    filter: blur(0);
+    transform: translate3d(16px, 0, 0) scale(0.985);
   }
   to {
     opacity: 1;
-    filter: blur(0);
-    transform: perspective(1800px) rotateY(0deg) translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
-@keyframes desktopAuthPageFlipBack {
+@keyframes desktopAuthSoftBack {
   from {
     opacity: 0;
-    filter: blur(1.5px);
-    transform: perspective(1800px) rotateY(-10deg) translateX(-14px) scale(0.992);
-  }
-  55% {
-    opacity: 1;
-    filter: blur(0);
+    transform: translate3d(-16px, 0, 0) scale(0.985);
   }
   to {
     opacity: 1;
-    filter: blur(0);
-    transform: perspective(1800px) rotateY(0deg) translateX(0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
@@ -1266,7 +1253,7 @@ svg {
 @media (prefers-reduced-motion: reduce) {
   .auth-slide-page.is-entered-forward,
   .auth-slide-page.is-entered-back,
-  .desktop-auth-page,
+  .desktop-auth-soft-page,
   .saas-animate-navbar,
   .saas-animate-up,
   .saas-fade-reveal.is-visible,
@@ -1286,7 +1273,7 @@ svg {
 
   .saas-hover-lift,
   .auth-slide-page,
-  .desktop-auth-page,
+  .desktop-auth-soft-page,
   .saas-nav-link::after,
   .saas-fade-reveal,
   .saas-feature-card,
@@ -1311,7 +1298,7 @@ svg {
   .auth-slide-page.is-switching-back,
   .auth-slide-page.is-entered-forward,
   .auth-slide-page.is-entered-back,
-  .desktop-auth-page,
+  .desktop-auth-soft-page,
   .saas-scale-reveal,
   .saas-fade-reveal,
   .saas-flip-reveal,

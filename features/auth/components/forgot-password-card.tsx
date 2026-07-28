@@ -204,7 +204,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-page desktop-auth-page-forgot max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
+    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
       <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${isDesktopApp ? "order-2 block p-8" : "order-2 lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />

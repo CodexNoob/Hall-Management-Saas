@@ -114,7 +114,7 @@ export function AuthModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 180);
+    }, 55);
 
     finishTimerRef.current = setTimeout(() => {
       setIsSwitching(false);
@@ -124,7 +124,7 @@ export function AuthModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 460);
+    }, 170);
   };
 
   const closeOnOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -159,7 +159,7 @@ export function AuthModal() {
       onMouseDown={closeOnOverlayClick}
     >
       <div
-        className="relative mx-auto max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-275 overflow-hidden rounded-2xl shadow-[0_30px_90px_rgba(15,23,42,0.32)] sm:max-h-[90vh] sm:w-[calc(100vw-3rem)] sm:rounded-4xl"
+        className="auth-modal-frame relative mx-auto max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-275 overflow-hidden rounded-2xl shadow-[0_30px_90px_rgba(15,23,42,0.32)] sm:max-h-[90vh] sm:w-[calc(100vw-3rem)] sm:rounded-4xl"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <button
