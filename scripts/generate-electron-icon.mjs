@@ -7,30 +7,16 @@ const outputIcon = "electron/assets/icon.ico";
 const backgroundSvg = Buffer.from(`
 <svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
   <rect width="256" height="256" rx="56" fill="#071427"/>
-  <circle cx="128" cy="128" r="104" fill="#1f4d73" opacity="0.32"/>
+  <circle cx="128" cy="128" r="104" fill="#f5f5f5"/>
 </svg>
 `);
 
-const logoMask = await sharp(sourceLogo)
+const logo = await sharp(sourceLogo)
   .resize({
-    width: 210,
-    height: 210,
+    width: 256,
+    height: 256,
     fit: "inside"
   })
-  .ensureAlpha()
-  .extractChannel("alpha")
-  .toBuffer();
-
-const logoMetadata = await sharp(logoMask).metadata();
-const logo = await sharp({
-  create: {
-    width: logoMetadata.width ?? 210,
-    height: logoMetadata.height ?? 210,
-    channels: 4,
-    background: "#ffffff"
-  }
-})
-  .joinChannel(logoMask)
   .png()
   .toBuffer();
 
