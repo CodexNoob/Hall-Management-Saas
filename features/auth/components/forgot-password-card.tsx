@@ -102,6 +102,45 @@ function ResetIllustration() {
   );
 }
 
+function DesktopResetIllustration() {
+  return (
+    <div className="relative mt-8 h-44 overflow-hidden">
+      <div className="absolute bottom-0 left-6 h-28 w-40 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
+      <div className="absolute right-8 top-0 h-28 w-28 rounded-full bg-[#1f4d73]/60 blur-3xl" />
+
+      <div className="relative mx-auto h-36 w-[86%] rotate-[-3deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/18">
+        <div className="grid h-full grid-cols-[74px_1fr]">
+          <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-4">
+            <div className="h-2.5 w-12 rounded-full bg-white/80" />
+            <div className="mt-5 space-y-2.5">
+              <span className="block h-2.5 w-12 rounded-full bg-white/50" />
+              <span className="block h-2.5 w-9 rounded-full bg-white/30" />
+              <span className="block h-2.5 w-13 rounded-full bg-white/30" />
+            </div>
+          </div>
+          <div className="p-4">
+            <div className="h-9 rounded-2xl bg-[#F7F4ED]" />
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div className="h-13 rounded-2xl bg-[#F7F4ED]" />
+              <div className="h-13 rounded-2xl bg-[#F7F4ED]" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="absolute left-1/2 top-12 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
+        <LockIcon />
+      </div>
+
+      <div className="absolute bottom-3 right-12 flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 type ForgotPasswordCardProps = {
   compact?: boolean;
   onBackToLogin?: () => void;
@@ -197,9 +236,9 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             Enter your email address and we&apos;ll send you a secure link to reset your password.
           </p>
 
-          {isDesktopApp ? null : <ResetIllustration />}
+          {isDesktopApp ? <DesktopResetIllustration /> : <ResetIllustration />}
 
-          <div className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
+          <div className={`${isDesktopApp ? "mt-6" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
               <ShieldIcon />
             </div>
