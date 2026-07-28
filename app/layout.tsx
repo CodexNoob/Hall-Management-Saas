@@ -10,7 +10,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Hall Management",
+  title: "Event Core",
   description:
     "Hall, event, kitchen, payment, and calendar management platform."
 };

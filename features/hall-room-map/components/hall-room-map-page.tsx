@@ -1357,7 +1357,7 @@ export function HallRoomMapPage() {
           <section
             aria-labelledby="hall-map-dialog-title"
             aria-modal="true"
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
+            className="w-full max-w-md overflow-visible rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
             role="dialog"
           >
             <header className="flex items-center gap-3 border-b border-[#d8dde5] px-5 py-4">

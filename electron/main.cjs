@@ -5,7 +5,7 @@ const path = require("path");
 
 const APP_URL =
   process.env.EVENT_CORE_APP_URL ||
-  "https://hall-management-saas-platform.vercel.app/login?desktop=1";
+  "https://event-core-saas.vercel.app/login?desktop=1";
 const APP_ORIGIN = new URL(APP_URL).origin;
 const DESKTOP_LOGIN_URL = `${APP_ORIGIN}/login?desktop=1`;
 const APP_ICON = path.join(__dirname, "assets", "icon.ico");
