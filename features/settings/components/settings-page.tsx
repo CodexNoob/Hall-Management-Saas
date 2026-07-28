@@ -433,11 +433,12 @@ export function SettingsPage({
     activeModalSection === "Google Calendar" ||
     activeModalSection === "Payments & Gmail";
   const modalGridClass =
-    activeModalSection === "User Access" ||
-    activeModalSection === "PDF & Branding" ||
-    activeModalSection === "Payments & Gmail" ||
-    activeModalSection === "Google Calendar"
+    activeModalSection === "User Access"
       ? "max-w-full lg:grid-cols-2"
+      : activeModalSection === "Payments & Gmail" ||
+          activeModalSection === "Google Calendar" ||
+          activeModalSection === "PDF & Branding"
+        ? "max-w-3xl"
       : "max-w-3xl";
 
   if (settingsQuery.isLoading || settingsQuery.error) {
@@ -876,7 +877,13 @@ export function SettingsPage({
 
                 <div
                 className={`grid gap-4 ${
-                  isModal ? "sm:grid-cols-2" : "lg:grid-cols-3 xl:pt-px"
+                  isModal
+                    ? activeModalSection === "Payments & Gmail" ||
+                      activeModalSection === "Google Calendar" ||
+                      activeModalSection === "PDF & Branding"
+                      ? "grid-cols-1"
+                      : "sm:grid-cols-2"
+                    : "lg:grid-cols-3 xl:pt-px"
                 }`}
               >
                 {showAllSettingsContent ||
