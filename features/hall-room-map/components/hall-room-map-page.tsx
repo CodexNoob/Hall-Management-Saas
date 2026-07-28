@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -8,6 +9,7 @@ import {
   type ReactNode
 } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { CompactSelect } from "@/components/ui/compact-select";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
@@ -60,6 +62,35 @@ type SaveHallMapInput = {
 const HALL_MAP_STORAGE_KEY = "event-core-hall-room-maps";
 
 const initialHallMaps: SavedHallMap[] = [];
+
+const DESIGN_MAP_WIDTH = 760;
+const DESIGN_MAP_HEIGHT = 520;
+const MAP_VIEWPORT_PADDING = 24;
+
+function clampViewportPosition(value: number, max: number) {
+  return Math.min(Math.max(0, value), Math.max(0, max));
+}
+
+function getMapObjectBounds(objects: MapObject[]) {
+  if (objects.length === 0) {
+    return null;
+  }
+
+  return objects.reduce(
+    (bounds, object) => ({
+      minX: Math.min(bounds.minX, object.x),
+      minY: Math.min(bounds.minY, object.y),
+      maxX: Math.max(bounds.maxX, object.x + object.width),
+      maxY: Math.max(bounds.maxY, object.y + object.height)
+    }),
+    {
+      minX: Number.POSITIVE_INFINITY,
+      minY: Number.POSITIVE_INFINITY,
+      maxX: Number.NEGATIVE_INFINITY,
+      maxY: Number.NEGATIVE_INFINITY
+    }
+  );
+}
 
 const shapeOptions: Array<{
   type: ShapeType;
@@ -178,6 +209,7 @@ function MapObjectView({
   return (
     <button
       aria-label={`Select ${object.name}`}
+      data-map-object="true"
       className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-hidden px-1.5 py-1 text-center text-[9px] leading-[1.05] font-black select-none ${
         isTable ? "rounded-full" : "rounded-md"
       } ${
@@ -220,7 +252,8 @@ function MapObjectView({
 }
 
 export function HallRoomMapPage() {
-  const hallMapsQuery = useAuthenticatedQuery<HallMapsResponse>("/api/hall-maps");
+  const hallMapsQuery =
+    useAuthenticatedQuery<HallMapsResponse>("/api/hall-maps");
   const createMapMutation = useAuthenticatedMutation<
     SaveHallMapInput,
     { preset: SavedHallMap }
@@ -245,7 +278,20 @@ export function HallRoomMapPage() {
   const [mapName, setMapName] = useState("");
   const [mapHallId, setMapHallId] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [mapScale, setMapScale] = useState(1);
   const mapRef = useRef<HTMLDivElement>(null);
+  const mapViewportRef = useRef<HTMLDivElement>(null);
+  const latestObjectsRef = useRef<MapObject[]>(objects);
+  const mapScaleRef = useRef(1);
+  const panRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+    moved: boolean;
+  } | null>(null);
+  const suppressNextMapClickRef = useRef(false);
   const dragRef = useRef<{
     id: string;
     pointerId: number;
@@ -256,10 +302,73 @@ export function HallRoomMapPage() {
   } | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    latestObjectsRef.current = objects;
+  }, [objects]);
+
+  useEffect(() => {
+    mapScaleRef.current = mapScale;
+  }, [mapScale]);
+
+  const centerMapViewport = useCallback((nextObjects?: MapObject[]) => {
+    window.requestAnimationFrame(() => {
+      const viewport = mapViewportRef.current;
+      const map = mapRef.current;
+
+      if (!viewport || !map) {
+        return;
+      }
+
+      const targetObjects = nextObjects ?? latestObjectsRef.current;
+      const bounds = getMapObjectBounds(targetObjects);
+      const maxLeft = viewport.scrollWidth - viewport.clientWidth;
+      const maxTop = viewport.scrollHeight - viewport.clientHeight;
+
+      if (!bounds) {
+        viewport.scrollTo({
+          left: clampViewportPosition(maxLeft / 2, maxLeft),
+          top: clampViewportPosition(maxTop / 2, maxTop)
+        });
+        return;
+      }
+
+      const scale = mapScaleRef.current;
+      const centerX = ((bounds.minX + bounds.maxX) / 2) * scale;
+      const centerY = ((bounds.minY + bounds.maxY) / 2) * scale;
+
+      viewport.scrollTo({
+        left: clampViewportPosition(
+          centerX - viewport.clientWidth / 2 + MAP_VIEWPORT_PADDING,
+          maxLeft
+        ),
+        top: clampViewportPosition(
+          centerY - viewport.clientHeight / 2 + MAP_VIEWPORT_PADDING,
+          maxTop
+        )
+      });
+    });
+  }, []);
+
+  const updateMapScale = useCallback(() => {
+    const viewport = mapViewportRef.current;
+
+    if (!viewport) {
+      return;
+    }
+
+    const availableWidth = Math.max(0, viewport.clientWidth - 16);
+    const nextScale = Math.min(1, availableWidth / DESIGN_MAP_WIDTH);
+
+    mapScaleRef.current = nextScale;
+    setMapScale((current) =>
+      Math.abs(current - nextScale) < 0.01 ? current : nextScale
+    );
+    centerMapViewport();
+  }, [centerMapViewport]);
+
   const selectedObject =
     objects.find((object) => object.id === selectedObjectId) ?? null;
-  const selectedMap =
-    hallMaps.find((map) => map.id === selectedMapId) ?? null;
+  const selectedMap = hallMaps.find((map) => map.id === selectedMapId) ?? null;
   const hasSelectedHall = Boolean(selectedHallId);
   const hasSelectedMap = Boolean(
     selectedMap && selectedMap.hallId === selectedHallId
@@ -271,16 +380,36 @@ export function HallRoomMapPage() {
   useEffect(() => {
     window.localStorage.removeItem(HALL_MAP_STORAGE_KEY);
     setHallMaps((current) => current.filter((map) => Boolean(map.hallId)));
-  }, []);
+    centerMapViewport();
+  }, [centerMapViewport]);
+
+  useEffect(() => {
+    updateMapScale();
+
+    const viewport = mapViewportRef.current;
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && viewport
+        ? new ResizeObserver(updateMapScale)
+        : null;
+
+    if (resizeObserver && viewport) {
+      resizeObserver.observe(viewport);
+    }
+
+    window.addEventListener("resize", updateMapScale);
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateMapScale);
+    };
+  }, [selectedMapId, updateMapScale]);
 
   useEffect(() => {
     if (!hallMapsQuery.data) return;
     const hallMapData = hallMapsQuery.data;
 
     window.localStorage.removeItem(HALL_MAP_STORAGE_KEY);
-    const nextMaps = hallMapData.presets.filter((map) =>
-      Boolean(map.hallId)
-    );
+    const nextMaps = hallMapData.presets.filter((map) => Boolean(map.hallId));
     setHallMaps(nextMaps);
     setSelectedHallId((currentHallId) => {
       const nextHallId = hallMapData.halls.some(
@@ -295,8 +424,7 @@ export function HallRoomMapPage() {
           return "";
         }
         const currentMap = nextMaps.find(
-          (map) =>
-            map.id === currentMapId && map.hallId === nextHallId
+          (map) => map.id === currentMapId && map.hallId === nextHallId
         );
         const nextMap =
           currentMap ??
@@ -398,6 +526,66 @@ export function HallRoomMapPage() {
     showFeedback(`${newObject.name} added.`);
   }
 
+  function startMapPan(event: ReactPointerEvent<HTMLDivElement>) {
+    const viewport = mapViewportRef.current;
+
+    if (event.button !== 0 || !viewport) {
+      return;
+    }
+
+    const target = event.target;
+
+    if (target instanceof Element && target.closest("[data-map-object]")) {
+      return;
+    }
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    panRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startScrollLeft: viewport.scrollLeft,
+      startScrollTop: viewport.scrollTop,
+      moved: false
+    };
+  }
+
+  function panMap(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = panRef.current;
+    const viewport = mapViewportRef.current;
+
+    if (!pan || pan.pointerId !== event.pointerId || !viewport) {
+      return;
+    }
+
+    event.preventDefault();
+    const deltaX = event.clientX - pan.startClientX;
+    const deltaY = event.clientY - pan.startClientY;
+
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      pan.moved = true;
+    }
+
+    viewport.scrollLeft = pan.startScrollLeft - deltaX;
+    viewport.scrollTop = pan.startScrollTop - deltaY;
+  }
+
+  function stopMapPan(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = panRef.current;
+
+    if (!pan || pan.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    suppressNextMapClickRef.current = pan.moved;
+    panRef.current = null;
+  }
+
   function startDragging(
     event: ReactPointerEvent<HTMLButtonElement>,
     object: MapObject
@@ -428,29 +616,28 @@ export function HallRoomMapPage() {
     }
 
     event.preventDefault();
-    const mapBounds = map.getBoundingClientRect();
-
     setObjects((current) =>
       current.map((object) => {
         if (object.id !== drag.id) {
           return object;
         }
 
-        const nextX = drag.startX + event.clientX - drag.startClientX;
-        const nextY = drag.startY + event.clientY - drag.startClientY;
+        const scale = mapScaleRef.current || 1;
+        const nextX = drag.startX + (event.clientX - drag.startClientX) / scale;
+        const nextY = drag.startY + (event.clientY - drag.startClientY) / scale;
 
         return {
           ...object,
           x: Math.round(
             Math.min(
               Math.max(0, nextX),
-              Math.max(0, mapBounds.width - object.width)
+              Math.max(0, DESIGN_MAP_WIDTH - object.width)
             )
           ),
           y: Math.round(
             Math.min(
               Math.max(0, nextY),
-              Math.max(0, mapBounds.height - object.height)
+              Math.max(0, DESIGN_MAP_HEIGHT - object.height)
             )
           )
         };
@@ -516,8 +703,10 @@ export function HallRoomMapPage() {
       return;
     }
 
-    setObjects(selectedMap.objects.map((object) => ({ ...object })));
+    const nextObjects = selectedMap.objects.map((object) => ({ ...object }));
+    setObjects(nextObjects);
     setSelectedObjectId(null);
+    centerMapViewport(nextObjects);
     showFeedback(`${selectedMap.name} loaded.`);
   }
 
@@ -543,7 +732,9 @@ export function HallRoomMapPage() {
       });
       setSelectedMapId(result.preset.id);
       await hallMapsQuery.refetch();
-      showFeedback(`${result.preset.name} saved to ${result.preset.hall?.name}.`);
+      showFeedback(
+        `${result.preset.name} saved to ${result.preset.hall?.name}.`
+      );
     } catch {
       showFeedback(
         createMapMutation.error ??
@@ -600,9 +791,7 @@ export function HallRoomMapPage() {
         setObjects([]);
         setSelectedObjectId(null);
         await hallMapsQuery.refetch();
-        showFeedback(
-          `${trimmedName} created for ${result.preset.hall?.name}.`
-        );
+        showFeedback(`${trimmedName} created for ${result.preset.hall?.name}.`);
       }
 
       setIsMapDialogOpen(false);
@@ -686,8 +875,8 @@ export function HallRoomMapPage() {
       />
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
-        <div className="mx-auto grid min-h-full min-w-0 max-w-[1800px] gap-3 md:grid-cols-2 xl:grid-cols-[250px_minmax(0,1fr)_270px]">
-          <Panel className="order-2 hidden md:block xl:order-1">
+        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 md:grid-cols-2 xl:grid-cols-[250px_minmax(0,1fr)_270px]">
+          <Panel className="order-2 block md:block xl:order-1">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Shape library</h2>
               <p className="mt-1 text-[10px] text-[#617086]">
@@ -696,7 +885,7 @@ export function HallRoomMapPage() {
             </header>
 
             <div className="p-2">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
                 {shapeOptions.map((shape) => (
                   <ShapeButton
                     disabled={!hasSelectedMap}
@@ -709,7 +898,7 @@ export function HallRoomMapPage() {
               </div>
 
               <button
-                className="mt-2 flex min-h-14 w-full flex-col items-center justify-center gap-2 rounded-lg border border-[#d1dae5] text-[10px] font-black enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef6fc] disabled:cursor-not-allowed disabled:opacity-45"
+                className="mt-2 flex min-h-14 w-full flex-col items-center justify-center gap-2 rounded-lg border border-[#d1dae5] text-[10px] font-black enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef6fc] disabled:cursor-not-allowed disabled:opacity-45 max-md:pointer-events-none max-md:opacity-60"
                 disabled={!hasSelectedMap}
                 onClick={() => addObject("divider")}
                 type="button"
@@ -728,15 +917,11 @@ export function HallRoomMapPage() {
                   Preset
                 </label>
 
-                <select
-                  className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm disabled:cursor-not-allowed disabled:bg-[#f5f6f8] disabled:text-[#8a95a5]"
+                <CompactSelect
                   disabled={!hasSelectedHall || selectedHallMaps.length === 0}
                   id="hall-preset"
-                  name="hallPreset"
-                  onChange={(event) => {
-                    const nextMap = hallMaps.find(
-                      (map) => map.id === event.target.value
-                    );
+                  onChange={(value) => {
+                    const nextMap = hallMaps.find((map) => map.id === value);
                     if (!nextMap) {
                       return;
                     }
@@ -746,17 +931,16 @@ export function HallRoomMapPage() {
                     );
                     setSelectedObjectId(null);
                   }}
+                  options={
+                    selectedHallMaps.length === 0
+                      ? [{ label: "No presets for this hall", value: "" }]
+                      : selectedHallMaps.map((map) => ({
+                          label: map.name,
+                          value: map.id
+                        }))
+                  }
                   value={selectedMapId}
-                >
-                  {selectedHallMaps.length === 0 ? (
-                    <option value="">No presets for this hall</option>
-                  ) : null}
-                  {selectedHallMaps.map((map) => (
-                    <option key={map.id} value={map.id}>
-                      {map.name}
-                    </option>
-                  ))}
-                </select>
+                />
 
                 <label
                   className="mt-2 block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
@@ -764,12 +948,10 @@ export function HallRoomMapPage() {
                 >
                   Assigned hall
                 </label>
-                <select
-                  className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm disabled:bg-[#f5f6f8]"
+                <CompactSelect
                   disabled={hallMapsQuery.data?.halls.length === 0}
                   id="assigned-hall"
-                  onChange={(event) => {
-                    const hallId = event.target.value;
+                  onChange={(hallId) => {
                     const nextMap =
                       hallMaps.find((map) => map.hallId === hallId) ?? null;
                     setSelectedHallId(hallId);
@@ -779,17 +961,17 @@ export function HallRoomMapPage() {
                     );
                     setSelectedObjectId(null);
                   }}
+                  options={[
+                    { label: "Select a hall", value: "" },
+                    ...(hallMapsQuery.data?.halls ?? []).map((hall) => ({
+                      label: hall.name,
+                      value: hall.id
+                    }))
+                  ]}
                   value={selectedHallId}
-                >
-                  <option value="">Select a hall</option>
-                  {(hallMapsQuery.data?.halls ?? []).map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name}
-                    </option>
-                  ))}
-                </select>
+                />
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
                   <button
                     className="h-9 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1 text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45"
                     disabled={!hasSelectedMap}
@@ -810,14 +992,14 @@ export function HallRoomMapPage() {
                 </div>
 
                 <button
-                  className="mt-2 h-9 w-full whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa]"
+                  className="mt-2 h-9 w-full whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] max-md:pointer-events-none max-md:opacity-60"
                   onClick={openCreateMapDialog}
                   type="button"
                 >
                   New hall room map
                 </button>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
                   <button
                     className="h-9 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1 text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={!hasSelectedMap}
@@ -837,7 +1019,7 @@ export function HallRoomMapPage() {
                 </div>
               </section>
 
-              <section className="mt-3 rounded-lg border border-[#d8dde5] p-2">
+              <section className="mt-3 rounded-lg border border-[#d8dde5] p-2 max-md:pointer-events-none max-md:opacity-60">
                 <h3 className="text-[10px] font-black">Actions</h3>
 
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -898,29 +1080,62 @@ export function HallRoomMapPage() {
               </div>
             </header>
 
-            <div className="min-h-0 min-w-0 flex-1 overflow-auto p-2">
+            <div
+              className="min-h-[360px] min-w-0 flex-1 cursor-grab touch-none overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] p-2 active:cursor-grabbing md:min-h-[430px] lg:min-h-[500px] xl:min-h-0"
+              onPointerCancel={stopMapPan}
+              onPointerDown={startMapPan}
+              onPointerMove={panMap}
+              onPointerUp={stopMapPan}
+              ref={mapViewportRef}
+              style={{
+                backgroundImage:
+                  "linear-gradient(#dce5ef 1px, transparent 1px), linear-gradient(90deg, #dce5ef 1px, transparent 1px)",
+                backgroundSize: "20px 20px"
+              }}
+            >
               <div
-                className="relative h-[360px] min-w-130 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px] max-md:pointer-events-none sm:h-[400px] sm:min-w-0 lg:h-[500px] xl:h-full xl:min-h-[520px]"
-                onClick={() => setSelectedObjectId(null)}
-                ref={mapRef}
-                role="presentation"
+                className="relative mx-auto"
+                style={{
+                  height: DESIGN_MAP_HEIGHT * mapScale,
+                  width: DESIGN_MAP_WIDTH * mapScale
+                }}
               >
-                {objects.map((object) => (
-                  <MapObjectView
-                    key={object.id}
-                    object={object}
-                    onDragEnd={stopDragging}
-                    onDragMove={dragObject}
-                    onDragStart={(event) => startDragging(event, object)}
-                    onSelect={() => setSelectedObjectId(object.id)}
-                    selected={selectedObjectId === object.id}
-                  />
-                ))}
+                <div
+                  className="relative max-md:pointer-events-none"
+                  onClick={() => {
+                    if (suppressNextMapClickRef.current) {
+                      suppressNextMapClickRef.current = false;
+                      return;
+                    }
+
+                    setSelectedObjectId(null);
+                  }}
+                  ref={mapRef}
+                  role="presentation"
+                  style={{
+                    height: DESIGN_MAP_HEIGHT,
+                    transform: `scale(${mapScale})`,
+                    transformOrigin: "top left",
+                    width: DESIGN_MAP_WIDTH
+                  }}
+                >
+                  {objects.map((object) => (
+                    <MapObjectView
+                      key={object.id}
+                      object={object}
+                      onDragEnd={stopDragging}
+                      onDragMove={dragObject}
+                      onDragStart={(event) => startDragging(event, object)}
+                      onSelect={() => setSelectedObjectId(object.id)}
+                      selected={selectedObjectId === object.id}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </Panel>
 
-          <Panel className="order-3 hidden md:block">
+          <Panel className="order-3 block md:block">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Object inspector</h2>
 
@@ -956,7 +1171,7 @@ export function HallRoomMapPage() {
                 <InspectorField htmlFor="object-name">Name</InspectorField>
 
                 <input
-                  className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                  className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                   disabled={!selectedObject}
                   id="object-name"
                   name="objectName"
@@ -973,7 +1188,7 @@ export function HallRoomMapPage() {
                   <InspectorField htmlFor="object-width">Width</InspectorField>
 
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                     disabled={!selectedObject}
                     id="object-width"
                     min="10"
@@ -994,7 +1209,7 @@ export function HallRoomMapPage() {
                   </InspectorField>
 
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                     disabled={!selectedObject}
                     id="object-height"
                     min="10"
@@ -1013,7 +1228,7 @@ export function HallRoomMapPage() {
                   <InspectorField htmlFor="object-seats">Seats</InspectorField>
 
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                     disabled={!selectedObject}
                     id="object-seats"
                     min="0"
@@ -1033,30 +1248,29 @@ export function HallRoomMapPage() {
                     Seating use
                   </InspectorField>
 
-                  <select
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm disabled:bg-[#f5f6f8]"
+                  <CompactSelect
                     disabled={!selectedObject}
                     id="seating-use"
-                    name="seatingUse"
-                    onChange={(event) =>
+                    onChange={(value) =>
                       updateSelectedObject({
-                        seatingUse: event.target.value as SeatingUse
+                        seatingUse: value as SeatingUse
                       })
                     }
+                    options={[
+                      { label: "No seating", value: "none" },
+                      { label: "Adult seating", value: "adult" },
+                      { label: "Kids seating", value: "kids" },
+                      { label: "Head table", value: "head" }
+                    ]}
                     value={selectedObject?.seatingUse ?? "none"}
-                  >
-                    <option value="none">No seating</option>
-                    <option value="adult">Adult seating</option>
-                    <option value="kids">Kids seating</option>
-                    <option value="head">Head table</option>
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <InspectorField htmlFor="object-x">X</InspectorField>
 
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                     disabled={!selectedObject}
                     id="object-x"
                     name="objectX"
@@ -1074,7 +1288,7 @@ export function HallRoomMapPage() {
                   <InspectorField htmlFor="object-y">Y</InspectorField>
 
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                     disabled={!selectedObject}
                     id="object-y"
                     name="objectY"
@@ -1095,7 +1309,7 @@ export function HallRoomMapPage() {
                 </InspectorField>
 
                 <input
-                  className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm disabled:bg-[#f5f6f8]"
+                  className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
                   disabled={!selectedObject}
                   id="object-rotation"
                   max="360"
@@ -1191,19 +1405,18 @@ export function HallRoomMapPage() {
               >
                 Assign to hall
               </label>
-              <select
-                className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+              <CompactSelect
                 id="hall-map-assignment"
-                onChange={(event) => setMapHallId(event.target.value)}
+                onChange={(value) => setMapHallId(value)}
+                options={[
+                  { label: "Select a hall", value: "" },
+                  ...(hallMapsQuery.data?.halls ?? []).map((hall) => ({
+                    label: hall.name,
+                    value: hall.id
+                  }))
+                ]}
                 value={mapHallId}
-              >
-                <option value="">Select a hall</option>
-                {(hallMapsQuery.data?.halls ?? []).map((hall) => (
-                  <option key={hall.id} value={hall.id}>
-                    {hall.name}
-                  </option>
-                ))}
-              </select>
+              />
               <div className="mt-5 flex justify-end gap-2">
                 <button
                   className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold hover:bg-[#eef4fa]"

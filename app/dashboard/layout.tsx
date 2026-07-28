@@ -45,6 +45,11 @@ function getDashboardActiveLabel(pathname: string | null): string {
   if (path.startsWith("/dashboard/events")) return "Events";
   if (path.startsWith("/dashboard/staff")) return "Staff";
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
+  if (path.startsWith("/dashboard/help-center")) return "Help Center";
+  if (path.startsWith("/dashboard/release-notes")) return "Help Center";
+  if (path.startsWith("/dashboard/download-apps")) return "Help Center";
+  if (path.startsWith("/dashboard/terms-of-service")) return "Help Center";
+  if (path.startsWith("/dashboard/privacy-policy")) return "Help Center";
 
   return "Dashboard";
 }

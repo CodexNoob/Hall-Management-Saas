@@ -1,0 +1,9 @@
+{
+  "appId": "com.eventcore.hallmanagement",
+  "appName": "Event Core",
+  "webDir": "public",
+  "server": {
+    "url": "https://replace-with-your-event-core-domain.com",
+    "cleartext": false
+  }
+}

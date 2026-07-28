@@ -581,7 +581,7 @@ export function DashboardShell({ access }: DashboardShellProps) {
   }, [annualDashboardQuery, dashboardQuery]);
 
   return (
-    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="dashboard-scrollbars flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <header className="relative z-40 shrink-0 bg-white">
         <DashboardTopbar
           title="Dashboard"

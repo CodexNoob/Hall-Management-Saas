@@ -7,6 +7,8 @@ import { EditProfileDialog } from "@/components/forms/edit-profile-dialog";
 import { LogoutConfirmationDialog } from "@/components/forms/logout-confirmation-dialog";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 import { SettingsDialog } from "@/features/settings/components/settings-dialog";
+import { HelpDialog } from "@/features/help/components/help-dialog";
+import type { HelpPageKind } from "@/features/help/components/help-page";
 import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
@@ -72,7 +74,7 @@ const sidebarSections: SidebarSection[] = [
         label: "Events",
         route: "/dashboard/events"
       },
-      { icon: "menu", label: "Menu", route: "/dashboard/menu" },
+      { icon: "menu", label: "Menu", route: "/dashboard/menu" }
     ]
   },
   {
@@ -251,6 +253,9 @@ export function DashboardSidebar({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
+  const [helpDialogKind, setHelpDialogKind] = useState<HelpPageKind | null>(
+    null
+  );
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -463,11 +468,7 @@ export function DashboardSidebar({
       <aside
         className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(76vw,17rem)] flex-col border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        } ${
-          isSidebarTransitionReady
-            ? ""
-            : "transition-none"
-        } ${
+        } ${isSidebarTransitionReady ? "" : "transition-none"} ${
           showCollapsed
             ? "overflow-visible lg:w-18"
             : "overflow-visible lg:w-64"
@@ -617,7 +618,6 @@ export function DashboardSidebar({
                             );
                           })}
                         </div>
-
                       </div>
                     ) : null}
                   </div>
@@ -866,28 +866,44 @@ export function DashboardSidebar({
                     }`}
                     role="menu"
                   >
-                    {[
-                      "Help Center",
-                      "Release Notes",
-                      "Download Apps",
-                      "Terms of Service",
-                      "Privacy Policy"
-                    ].map((label) => (
+                    {(
+                      [
+                        { label: "Help Center", kind: "help-center" },
+                        {
+                          label: "Release Notes",
+                          kind: "release-notes"
+                        },
+                        {
+                          label: "Download Apps",
+                          kind: "download-apps"
+                        },
+                        {
+                          label: "Terms of Service",
+                          kind: "terms-of-service"
+                        },
+                        {
+                          label: "Privacy Policy",
+                          kind: "privacy-policy"
+                        }
+                      ] satisfies Array<{ label: string; kind: HelpPageKind }>
+                    ).map((item) => (
                       <button
                         className={`relative block w-full whitespace-nowrap rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
-                          label === "Download Apps"
+                          item.label === "Download Apps"
                             ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
                             : ""
                         }`}
-                        key={label}
+                        key={item.label}
                         onClick={() => {
                           setIsHelpMenuOpen(false);
                           setIsProfileMenuOpen(false);
+                          setIsMobileOpen(false);
+                          setHelpDialogKind(item.kind as HelpPageKind);
                         }}
                         role="menuitem"
                         type="button"
                       >
-                        {label}
+                        {item.label}
                       </button>
                     ))}
                   </div>
@@ -976,6 +992,11 @@ export function DashboardSidebar({
       <SettingsDialog
         onClose={() => setIsSettingsDialogOpen(false)}
         open={isSettingsDialogOpen}
+      />
+      <HelpDialog
+        kind={helpDialogKind ?? "help-center"}
+        onClose={() => setHelpDialogKind(null)}
+        open={Boolean(helpDialogKind)}
       />
       <UpgradePlanDialog
         onClose={() => setIsUpgradePlanDialogOpen(false)}

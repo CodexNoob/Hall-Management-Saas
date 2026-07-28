@@ -34,19 +34,127 @@ const diningPermissions = [
   "canViewKitchenDashboard"
 ] as const;
 
+type HallMapPresetRow = {
+  id: string;
+  hallId: string;
+  name: string;
+  objects: unknown;
+};
+
+type DiningPlanRow = {
+  id: string;
+  organizationId: string;
+  eventId: string;
+  hallMapPresetId: string | null;
+  countType: string;
+  adultCount: number;
+  childrenCount: number;
+  menWaiters: number;
+  womenWaiters: number;
+  tablecloth: string | null;
+  washingTime: string | null;
+  specialNotes: string | null;
+  tables: unknown;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function normalizeTables(tables: unknown) {
+  const parsed = z.array(tableSchema).safeParse(tables);
+  return parsed.success ? parsed.data : [];
+}
+
+function formatDiningPlan(row: DiningPlanRow) {
+  return {
+    id: row.id,
+    organizationId: row.organizationId,
+    eventId: row.eventId,
+    hallMapPresetId: row.hallMapPresetId,
+    countType: row.countType,
+    adultCount: row.adultCount,
+    childrenCount: row.childrenCount,
+    menWaiters: row.menWaiters,
+    womenWaiters: row.womenWaiters,
+    tablecloth: row.tablecloth,
+    washingTime: row.washingTime,
+    specialNotes: row.specialNotes,
+    tables: normalizeTables(row.tables),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt
+  };
+}
+
+async function listHallMapPresets(organizationId: string) {
+  const rows = await prisma.$queryRaw<HallMapPresetRow[]>`
+    SELECT id, hall_id AS "hallId", name, objects
+    FROM hall_map_presets
+    WHERE organization_id = ${organizationId}::uuid
+    ORDER BY name ASC
+  `;
+
+  return rows.map((row) => ({
+    ...row,
+    objects: Array.isArray(row.objects) ? row.objects : []
+  }));
+}
+
+async function listDiningPlans(organizationId: string, eventIds: string[]) {
+  if (eventIds.length === 0) return [];
+
+  const rows = await prisma.$queryRaw<DiningPlanRow[]>`
+    SELECT
+      id,
+      organization_id AS "organizationId",
+      event_id AS "eventId",
+      hall_map_preset_id AS "hallMapPresetId",
+      count_type AS "countType",
+      adult_count AS "adultCount",
+      children_count AS "childrenCount",
+      men_waiters AS "menWaiters",
+      women_waiters AS "womenWaiters",
+      tablecloth,
+      washing_time AS "washingTime",
+      special_notes AS "specialNotes",
+      tables,
+      created_at AS "createdAt",
+      updated_at AS "updatedAt"
+    FROM dining_plans
+    WHERE organization_id = ${organizationId}::uuid
+      AND event_id = ANY(${eventIds}::uuid[])
+  `;
+
+  return rows.map(formatDiningPlan);
+}
+
+async function findHallPreset(
+  id: string,
+  organizationId: string,
+  hallId: string
+) {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT id
+    FROM hall_map_presets
+    WHERE id = ${id}::uuid
+      AND organization_id = ${organizationId}::uuid
+      AND hall_id = ${hallId}::uuid
+    LIMIT 1
+  `;
+
+  return rows[0] ?? null;
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [...diningPermissions]);
-    const [events, hallMapPresets] = await Promise.all([
-      prisma.event.findMany({
-        where: {
-          organizationId: actor.organizationId,
-          deleted: false,
-          bookingStatus: { notIn: ["CANCELLED", "EXPIRED"] }
-        },
-        orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
-        take: 100,
-        select: {
+    const events = await prisma.event.findMany({
+      where: {
+        organizationId: actor.organizationId,
+        deleted: false,
+        bookingStatus: { notIn: ["CANCELLED", "EXPIRED"] }
+      },
+      orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
+      take: 100,
+      select: {
         id: true,
         clientName: true,
         eventType: true,
@@ -65,18 +173,27 @@ export async function GET(request: Request) {
         tableclothName: true,
         washingTime: true,
         notes: true,
-        hall: { select: { id: true, name: true } },
-          diningPlan: true
-        }
-      }),
-      prisma.hallMapPreset.findMany({
-        where: { organizationId: actor.organizationId },
-        orderBy: { name: "asc" },
-        select: { id: true, hallId: true, name: true, objects: true }
-      })
+        hall: { select: { id: true, name: true } }
+      }
+    });
+    const [hallMapPresets, diningPlans] = await Promise.all([
+      listHallMapPresets(actor.organizationId),
+      listDiningPlans(
+        actor.organizationId,
+        events.map((event) => event.id)
+      )
     ]);
+    const diningPlanByEventId = new Map(
+      diningPlans.map((plan) => [plan.eventId, plan])
+    );
 
-    return NextResponse.json({ events, hallMapPresets });
+    return NextResponse.json({
+      events: events.map((event) => ({
+        ...event,
+        diningPlan: diningPlanByEventId.get(event.id) ?? null
+      })),
+      hallMapPresets
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -103,14 +220,11 @@ export async function PATCH(request: Request) {
     }
 
     if (input.hallMapPresetId) {
-      const preset = await prisma.hallMapPreset.findFirst({
-        where: {
-          id: input.hallMapPresetId,
-          organizationId: actor.organizationId,
-          hallId: event.hallId
-        },
-        select: { id: true }
-      });
+      const preset = await findHallPreset(
+        input.hallMapPresetId,
+        actor.organizationId,
+        event.hallId
+      );
       if (!preset) {
         return NextResponse.json(
           { error: "This map preset is not assigned to the event's hall." },
@@ -119,26 +233,65 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const data = {
-      organizationId: actor.organizationId,
-      hallMapPresetId: input.hallMapPresetId ?? null,
-      countType: input.countType,
-      adultCount: input.adultCount,
-      childrenCount: input.childrenCount,
-      menWaiters: input.menWaiters,
-      womenWaiters: input.womenWaiters,
-      tablecloth: input.tablecloth || null,
-      washingTime: input.washingTime || null,
-      specialNotes: input.specialNotes || null,
-      tables: input.tables
-    };
-    const plan = await prisma.diningPlan.upsert({
-      where: { eventId: input.eventId },
-      create: { ...data, eventId: input.eventId },
-      update: data
-    });
+    const [plan] = await prisma.$queryRaw<DiningPlanRow[]>`
+      INSERT INTO dining_plans (
+        organization_id,
+        event_id,
+        hall_map_preset_id,
+        count_type,
+        adult_count,
+        children_count,
+        men_waiters,
+        women_waiters,
+        tablecloth,
+        washing_time,
+        special_notes,
+        tables
+      ) VALUES (
+        ${actor.organizationId}::uuid,
+        ${input.eventId}::uuid,
+        ${input.hallMapPresetId ?? null}::uuid,
+        ${input.countType},
+        ${input.adultCount},
+        ${input.childrenCount},
+        ${input.menWaiters},
+        ${input.womenWaiters},
+        ${input.tablecloth || null},
+        ${input.washingTime || null},
+        ${input.specialNotes || null},
+        ${JSON.stringify(input.tables)}::jsonb
+      )
+      ON CONFLICT (event_id) DO UPDATE SET
+        hall_map_preset_id = EXCLUDED.hall_map_preset_id,
+        count_type = EXCLUDED.count_type,
+        adult_count = EXCLUDED.adult_count,
+        children_count = EXCLUDED.children_count,
+        men_waiters = EXCLUDED.men_waiters,
+        women_waiters = EXCLUDED.women_waiters,
+        tablecloth = EXCLUDED.tablecloth,
+        washing_time = EXCLUDED.washing_time,
+        special_notes = EXCLUDED.special_notes,
+        tables = EXCLUDED.tables,
+        updated_at = NOW()
+      RETURNING
+        id,
+        organization_id AS "organizationId",
+        event_id AS "eventId",
+        hall_map_preset_id AS "hallMapPresetId",
+        count_type AS "countType",
+        adult_count AS "adultCount",
+        children_count AS "childrenCount",
+        men_waiters AS "menWaiters",
+        women_waiters AS "womenWaiters",
+        tablecloth,
+        washing_time AS "washingTime",
+        special_notes AS "specialNotes",
+        tables,
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+    `;
 
-    return NextResponse.json({ plan });
+    return NextResponse.json({ plan: formatDiningPlan(plan) });
   } catch (error) {
     return createApiErrorResponse(error);
   }

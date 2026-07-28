@@ -5,6 +5,27 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
+type HallMapPresetCount = {
+  hall_id: string;
+  count: bigint;
+};
+
+function withHallMapPresetCounts<
+  THall extends { id: string; _count: Record<string, number> }
+>(halls: THall[], counts: HallMapPresetCount[]) {
+  const countByHallId = new Map(
+    counts.map((item) => [item.hall_id, Number(item.count)])
+  );
+
+  return halls.map((hall) => ({
+    ...hall,
+    _count: {
+      ...hall._count,
+      hallMapPresets: countByHallId.get(hall.id) ?? 0
+    }
+  }));
+}
+
 const hallFieldsSchema = z.object({
   name: z.string().trim().min(1).max(100),
   capacity: z.number().int().min(1).max(100000).nullable().optional(),
@@ -39,13 +60,24 @@ export async function GET(request: Request) {
         _count: {
           select: {
             events: true,
-            bookingReservations: true,
-            hallMapPresets: true
+            bookingReservations: true
           }
         }
       }
     });
-    return NextResponse.json({ halls });
+    const hallMapPresetCounts = halls.length
+      ? await prisma.$queryRaw<HallMapPresetCount[]>`
+          SELECT hall_id, COUNT(*)::bigint AS count
+          FROM hall_map_presets
+          WHERE organization_id = ${actor.organizationId}::uuid
+            AND hall_id = ANY(${halls.map((hall) => hall.id)}::uuid[])
+          GROUP BY hall_id
+        `
+      : [];
+
+    return NextResponse.json({
+      halls: withHallMapPresetCounts(halls, hallMapPresetCounts)
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -142,8 +174,7 @@ export async function DELETE(request: Request) {
         _count: {
           select: {
             events: true,
-            bookingReservations: true,
-            hallMapPresets: true
+            bookingReservations: true
           }
         }
       }
@@ -152,10 +183,17 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Hall not found." }, { status: 404 });
     }
 
+    const [hallMapPresetCount] = await prisma.$queryRaw<HallMapPresetCount[]>`
+      SELECT hall_id, COUNT(*)::bigint AS count
+      FROM hall_map_presets
+      WHERE organization_id = ${actor.organizationId}::uuid
+        AND hall_id = ${hall.id}::uuid
+      GROUP BY hall_id
+    `;
     const references =
       hall._count.events +
       hall._count.bookingReservations +
-      hall._count.hallMapPresets;
+      Number(hallMapPresetCount?.count ?? 0);
     if (references > 0) {
       return NextResponse.json(
         {

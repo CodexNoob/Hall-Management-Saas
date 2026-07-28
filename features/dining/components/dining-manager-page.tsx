@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { CompactSelect } from "@/components/ui/compact-select";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -102,7 +103,7 @@ function Panel({
 }) {
   return (
     <section
-      className={`overflow-hidden rounded-xl border border-[#d8dde5] bg-white ${className}`}
+      className={`min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white ${className}`}
     >
       {children}
     </section>
@@ -145,12 +146,12 @@ function validPresetObjects(value: unknown): HallMapObject[] {
   return value.filter((object): object is HallMapObject =>
     Boolean(
       object &&
-        typeof object === "object" &&
-        "id" in object &&
-        "type" in object &&
-        "name" in object &&
-        "seats" in object &&
-        "seatingUse" in object
+      typeof object === "object" &&
+      "id" in object &&
+      "type" in object &&
+      "name" in object &&
+      "seats" in object &&
+      "seatingUse" in object
     )
   );
 }
@@ -282,9 +283,9 @@ export function DiningManagerPage() {
   );
   const selectedEvent =
     events.find((event) => event.id === selectedEventId) ?? events[0] ?? null;
-  const availableHallMapPresets = (diningQuery.data?.hallMapPresets ?? []).filter(
-    (preset) => preset.hallId === selectedEvent?.hall.id
-  );
+  const availableHallMapPresets = (
+    diningQuery.data?.hallMapPresets ?? []
+  ).filter((preset) => preset.hallId === selectedEvent?.hall.id);
 
   useEffect(() => {
     if (!selectedEventId && events[0]) {
@@ -504,7 +505,7 @@ export function DiningManagerPage() {
       />
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
-        <div className="mx-auto grid min-h-full max-w-[1800px] gap-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
+        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
           <Panel>
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Events</h2>
@@ -600,7 +601,7 @@ export function DiningManagerPage() {
             </div>
           </Panel>
 
-          <Panel className="flex min-h-125 flex-col sm:min-h-155">
+          <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
             <header className="border-b border-[#d8dde5] p-3">
               <h2 className="truncate text-sm font-black">
                 {eventTitle(selectedEvent)}
@@ -613,26 +614,26 @@ export function DiningManagerPage() {
                   <FieldLabel htmlFor="hall-map-preset">
                     Hall map preset
                   </FieldLabel>
-                  <select
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs"
+                  <CompactSelect
                     id="hall-map-preset"
-                    onChange={(event) => {
-                      setSelectedPresetId(event.target.value);
+                    onChange={(value) => {
+                      setSelectedPresetId(value);
                       setSavedMessage("");
                     }}
+                    options={[
+                      {
+                        label: availableHallMapPresets.length
+                          ? "Select a preset"
+                          : `No presets assigned to ${selectedEvent.hall.name}`,
+                        value: ""
+                      },
+                      ...availableHallMapPresets.map((preset) => ({
+                        label: preset.name,
+                        value: preset.id
+                      }))
+                    ]}
                     value={selectedPresetId}
-                  >
-                    <option value="">
-                      {availableHallMapPresets.length
-                        ? "Select a preset"
-                        : `No presets assigned to ${selectedEvent.hall.name}`}
-                    </option>
-                    {availableHallMapPresets.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.name}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
                 <button
                   className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
@@ -645,28 +646,28 @@ export function DiningManagerPage() {
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
-                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
                   onClick={() => addTable("men")}
                   type="button"
                 >
                   + Adult table
                 </button>
                 <button
-                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
                   onClick={() => addTable("kids")}
                   type="button"
                 >
                   + Kids table
                 </button>
                 <button
-                  className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa]"
+                  className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
                   onClick={() => addTable("head")}
                   type="button"
                 >
                   + Head table
                 </button>
                 <button
-                  className="h-9 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40"
+                  className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40 sm:flex-none"
                   disabled={!selectedTableId}
                   onClick={removeSelectedTable}
                   type="button"
@@ -675,8 +676,8 @@ export function DiningManagerPage() {
                 </button>
               </div>
             </header>
-            <div className="min-h-0 flex-1 overflow-auto p-2">
-              <div className="min-h-105 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-5 sm:min-h-133.75">
+            <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2">
+              <div className="min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
                 <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
                   {tables.map((table) => (
                     <button
@@ -706,7 +707,7 @@ export function DiningManagerPage() {
             </div>
           </Panel>
 
-          <Panel className="lg:col-span-2 xl:col-span-1">
+          <Panel className="min-w-0 lg:col-span-2 xl:col-span-1">
             <header className="border-b border-[#d8dde5] px-3 py-2">
               <h2 className="text-sm font-black">Dining details</h2>
               <p className="mt-1 text-xs text-[#617086]">
@@ -714,23 +715,20 @@ export function DiningManagerPage() {
               </p>
             </header>
             <div className="space-y-3 p-3">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div>
                   <FieldLabel htmlFor="count-type">Count type</FieldLabel>
-                  <select
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
+                  <CompactSelect
                     id="count-type"
-                    onChange={(event) =>
-                      updateForm(
-                        "countType",
-                        event.target.value as DiningForm["countType"]
-                      )
+                    onChange={(value) =>
+                      updateForm("countType", value as DiningForm["countType"])
                     }
+                    options={[
+                      { label: "People", value: "People" },
+                      { label: "Couples", value: "Couples" }
+                    ]}
                     value={form.countType}
-                  >
-                    <option>People</option>
-                    <option>Couples</option>
-                  </select>
+                  />
                 </div>
                 {[
                   ["adultCount", "Adults"],
@@ -741,7 +739,7 @@ export function DiningManagerPage() {
                   <div key={field}>
                     <FieldLabel htmlFor={field}>{label}</FieldLabel>
                     <input
-                      className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
+                      className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
                       id={field}
                       min="0"
                       onChange={(event) =>
@@ -763,23 +761,20 @@ export function DiningManagerPage() {
                 ))}
                 <div>
                   <FieldLabel htmlFor="tablecloth">Tablecloth</FieldLabel>
-                  <select
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
+                  <CompactSelect
                     id="tablecloth"
-                    onChange={(event) =>
-                      updateForm("tablecloth", event.target.value)
-                    }
-                    value={form.tablecloth}
-                  >
-                    {tableclothOptions.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => updateForm("tablecloth", value)}
+                    options={tableclothOptions.map((option) => ({
+                      label: option,
+                      value: option
+                    }))}
+                    value={form.tablecloth ?? ""}
+                  />
                 </div>
                 <div>
                   <FieldLabel htmlFor="washing-time">Washing time</FieldLabel>
                   <input
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] px-2 text-sm"
+                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
                     id="washing-time"
                     onChange={(event) =>
                       updateForm("washingTime", event.target.value)
@@ -795,31 +790,31 @@ export function DiningManagerPage() {
                   <FieldLabel htmlFor="table-side">
                     Selected table use
                   </FieldLabel>
-                  <select
-                    className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm"
+                  <CompactSelect
                     id="table-side"
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setTables((current) =>
                         current.map((table) =>
                           table.id === selectedTableId
                             ? {
                                 ...table,
-                                side: event.target.value as TableSide
+                                side: value as TableSide
                               }
                             : table
                         )
                       )
                     }
+                    options={[
+                      { label: "Men", value: "men" },
+                      { label: "Women", value: "women" },
+                      { label: "Kids", value: "kids" },
+                      { label: "Head table", value: "head" }
+                    ]}
                     value={
                       tables.find((table) => table.id === selectedTableId)
                         ?.side ?? "men"
                     }
-                  >
-                    <option value="men">Men</option>
-                    <option value="women">Women</option>
-                    <option value="kids">Kids</option>
-                    <option value="head">Head table</option>
-                  </select>
+                  />
                 </div>
               ) : null}
 

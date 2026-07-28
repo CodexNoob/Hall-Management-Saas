@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
+import { AppServiceWorkerRegistration } from "@/components/layout/service-worker-registration";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -10,7 +11,8 @@ const manrope = Manrope({
 
 export const metadata: Metadata = {
   title: "Hall Management",
-  description: "Hall, event, kitchen, payment, and calendar management platform."
+  description:
+    "Hall, event, kitchen, payment, and calendar management platform."
 };
 
 export default function RootLayout({
@@ -19,12 +21,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      className={manrope.variable}
-      lang="en"
-      data-scroll-behavior="smooth"
-    >
-      <body>{children}</body>
+    <html className={manrope.variable} lang="en" data-scroll-behavior="smooth">
+      <body>
+        <AppServiceWorkerRegistration />
+        {children}
+      </body>
     </html>
   );
 }

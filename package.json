@@ -30,7 +30,14 @@
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "db:rls": "prisma db execute --file prisma/supabase-rls.sql",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "desktop:dev": "electron electron/main.cjs",
+    "desktop:build": "electron-builder",
+    "mobile:add:android": "capacitor add android",
+    "mobile:add:ios": "capacitor add ios",
+    "mobile:sync": "capacitor sync",
+    "mobile:open:android": "capacitor open android",
+    "mobile:open:ios": "capacitor open ios"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
@@ -71,5 +78,20 @@
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.eventcore.hallmanagement",
+    "productName": "Event Core",
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    }
   }
 }
