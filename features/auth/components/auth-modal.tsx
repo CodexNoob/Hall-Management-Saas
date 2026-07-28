@@ -114,7 +114,7 @@ export function AuthModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 90);
+    }, 180);
 
     finishTimerRef.current = setTimeout(() => {
       setIsSwitching(false);
@@ -124,7 +124,7 @@ export function AuthModal() {
       requestAnimationFrame(() => {
         resetModalScroll();
       });
-    }, 260);
+    }, 460);
   };
 
   const closeOnOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
