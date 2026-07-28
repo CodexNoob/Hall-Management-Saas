@@ -104,36 +104,36 @@ function ResetIllustration() {
 
 function DesktopResetIllustration() {
   return (
-    <div className="relative mt-8 h-44 overflow-hidden">
-      <div className="absolute bottom-0 left-6 h-28 w-40 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
-      <div className="absolute right-8 top-0 h-28 w-28 rounded-full bg-[#1f4d73]/60 blur-3xl" />
+    <div className="relative mt-5 h-31 overflow-hidden">
+      <div className="absolute bottom-0 left-6 h-20 w-32 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
+      <div className="absolute right-8 top-0 h-20 w-24 rounded-full bg-[#1f4d73]/60 blur-3xl" />
 
-      <div className="relative mx-auto h-36 w-[86%] rotate-[-3deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/18">
-        <div className="grid h-full grid-cols-[74px_1fr]">
-          <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-4">
-            <div className="h-2.5 w-12 rounded-full bg-white/80" />
-            <div className="mt-5 space-y-2.5">
-              <span className="block h-2.5 w-12 rounded-full bg-white/50" />
-              <span className="block h-2.5 w-9 rounded-full bg-white/30" />
-              <span className="block h-2.5 w-13 rounded-full bg-white/30" />
+      <div className="relative mx-auto h-25 w-[82%] rotate-[-3deg] overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/18">
+        <div className="grid h-full grid-cols-[58px_1fr]">
+          <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-3">
+            <div className="h-2 w-9 rounded-full bg-white/80" />
+            <div className="mt-4 space-y-2">
+              <span className="block h-2 w-9 rounded-full bg-white/50" />
+              <span className="block h-2 w-7 rounded-full bg-white/30" />
+              <span className="block h-2 w-10 rounded-full bg-white/30" />
             </div>
           </div>
-          <div className="p-4">
-            <div className="h-9 rounded-2xl bg-[#F7F4ED]" />
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div className="h-13 rounded-2xl bg-[#F7F4ED]" />
-              <div className="h-13 rounded-2xl bg-[#F7F4ED]" />
+          <div className="p-3">
+            <div className="h-7 rounded-xl bg-[#F7F4ED]" />
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="h-9 rounded-xl bg-[#F7F4ED]" />
+              <div className="h-9 rounded-xl bg-[#F7F4ED]" />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="absolute left-1/2 top-12 flex h-20 w-20 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
+      <div className="absolute left-1/2 top-8 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
         <LockIcon />
       </div>
 
-      <div className="absolute bottom-3 right-12 flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
-        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <div className="absolute bottom-2 right-12 flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
@@ -204,8 +204,8 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   };
 
   return (
-    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-h-[720px] max-w-6xl grid-cols-[0.92fr_1fr]" : "lg:grid-cols-2"}`}>
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "block p-8" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
+    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
+      <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${isDesktopApp ? "order-2 block p-8" : "order-2 lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -226,19 +226,19 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             </Link>
           )}
 
-          <p className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
+          <p className={`${isDesktopApp ? "mt-7" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
             No worries! <span aria-hidden="true">&#128075;</span>
           </p>
-          <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.12] tracking-tight text-[#0F172A]`}>
+          <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.08] tracking-tight text-[#0F172A]`}>
             Recover your account
           </h1>
-          <p className={`${isDesktopApp ? "mt-4 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
+          <p className={`${isDesktopApp ? "mt-3 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
             Enter your email address and we&apos;ll send you a secure link to reset your password.
           </p>
 
           {isDesktopApp ? <DesktopResetIllustration /> : <ResetIllustration />}
 
-          <div className={`${isDesktopApp ? "mt-6" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
+          <div className={`${isDesktopApp ? "mt-5" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
               <ShieldIcon />
             </div>
@@ -250,7 +250,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
         </div>
       </div>
 
-      <div className={`order-1 box-border w-full min-w-0 bg-white lg:order-2 ${isDesktopApp ? "p-8" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-16"}`}>
+      <div className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "order-1 p-8" : compact ? "order-1 p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
           <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
           <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
