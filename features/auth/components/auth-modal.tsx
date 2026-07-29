@@ -180,7 +180,6 @@ export function AuthModal() {
           <div className={`${contentClassName} w-full min-w-0`}>
             {authView === "login" ? (
               <LoginCard
-                compact
                 onStartTrialClick={() => switchAuthView("trial")}
                 onForgotPasswordClick={() => switchAuthView("forgot")}
               />
