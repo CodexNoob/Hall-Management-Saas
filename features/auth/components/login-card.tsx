@@ -319,7 +319,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 </div>
 
                 <div className={`${isDesktopApp ? "mt-3 text-sm" : "mt-6 text-base"} flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4`}>
-                  <label className="flex cursor-pointer items-center gap-3 font-medium text-[#64748B]" htmlFor="remember">
+                  <label className={`flex cursor-pointer items-center gap-3 font-medium ${isDesktopApp ? "text-slate-200" : "text-[#64748B]"}`} htmlFor="remember">
                     <input
                       id="remember"
                       className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#1f4d73]"
@@ -330,11 +330,11 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                     Remember me
                   </label>
                   {onForgotPasswordClick ? (
-                    <button className={`font-bold transition ${isDesktopApp ? "text-white hover:text-slate-200" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} type="button" onClick={onForgotPasswordClick}>
+                    <button className={`font-bold transition ${isDesktopApp ? "text-[#f5d26b] hover:text-white" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} type="button" onClick={onForgotPasswordClick}>
                       Forgot password?
                     </button>
                   ) : (
-                    <Link className={`font-bold transition ${isDesktopApp ? "text-white hover:text-slate-200" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} href={isDesktopApp ? "/forgot-password?desktop=1" : "/forgot-password"}>
+                    <Link className={`font-bold transition ${isDesktopApp ? "text-[#f5d26b] hover:text-white" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} href={isDesktopApp ? "/forgot-password?desktop=1" : "/forgot-password"}>
                       Forgot password?
                     </Link>
                   )}
@@ -378,12 +378,14 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   </button>
                 </div>
 
-                <div className={`${isDesktopApp ? "mt-4 border-white/10 bg-white/10 p-3 text-sm" : "mt-9 border-[#E5E0D6] bg-[#F7F4ED] p-4"} rounded-2xl border text-center`}>
+                {!isDesktopApp ? (
+                <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
                   <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
                   <p className="mt-1 text-sm leading-6 text-[#64748B]">
                     Ask your administrator for an invitation, then open the secure link sent to your email.
                   </p>
                 </div>
+                ) : null}
 
                 {!isDesktopApp ? (
                 <p className="mt-5 text-center text-base text-[#64748B]">

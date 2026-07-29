@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import sharp from "sharp";
 
-const sourceLogo = "public/images/branding/logo.png";
+const sourceLogo = "public/images/branding/Footer-logo.png";
 const outputIcon = "electron/assets/icon.ico";
 
 const backgroundSvg = Buffer.from(`
