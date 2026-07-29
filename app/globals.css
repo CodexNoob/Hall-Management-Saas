@@ -680,6 +680,12 @@ svg {
   animation-fill-mode: both;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   backface-visibility: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  box-shadow:
+    0 34px 90px rgba(7, 20, 39, 0.34),
+    0 18px 44px rgba(31, 77, 115, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.86) inset;
+  filter: drop-shadow(0 18px 38px rgba(7, 20, 39, 0.12));
   transform-origin: center;
   will-change: opacity, transform;
 }

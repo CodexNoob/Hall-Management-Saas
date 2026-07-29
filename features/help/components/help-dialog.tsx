@@ -199,18 +199,18 @@ function HelpCenterHub({ onClose }: { onClose: () => void }) {
 
                 return (
                   <button
-                    className="grid min-h-11 grid-cols-[auto_minmax(0,180px)_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]"
+                    className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#fbfcfd] md:grid md:grid-cols-[auto_minmax(0,180px)_minmax(0,1fr)_auto]"
                     key={row.title}
                     type="button"
                   >
-                    <Icon className="h-5 w-5 text-[#1f4d73]" />
-                    <span className="text-xs font-black text-[#071427] sm:text-sm">
+                    <Icon className="h-5 w-5 shrink-0 text-[#1f4d73]" />
+                    <span className="min-w-0 flex-1 text-xs font-black text-[#071427] sm:text-sm md:flex-none">
                       {row.title}
                     </span>
                     <span className="hidden min-w-0 text-xs font-medium text-[#617086] md:block">
                       {row.body}
                     </span>
-                    <ChevronDown className="h-4 w-4 text-[#1f4d73]" />
+                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-[#1f4d73] md:ml-0" />
                   </button>
                 );
               })}

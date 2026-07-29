@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
+import {
+  FREE_TRIAL_NOT_ALLOWED_MESSAGE,
+  isFreeTrialEmailAllowed
+} from "@/lib/auth/free-trial-allowlist";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -9,6 +13,13 @@ class InvitationRequiredError extends Error {
       "No employee account was found for this email. Ask your organization administrator for an invitation."
     );
     this.name = "InvitationRequiredError";
+  }
+}
+
+class FreeTrialAccessDeniedError extends Error {
+  constructor() {
+    super(FREE_TRIAL_NOT_ALLOWED_MESSAGE);
+    this.name = "FreeTrialAccessDeniedError";
   }
 }
 
@@ -102,6 +113,10 @@ export async function POST(request: NextRequest) {
         } else {
           if (accountType !== "organization_owner") {
             throw new InvitationRequiredError();
+          }
+
+          if (!isFreeTrialEmailAllowed(authEmail)) {
+            throw new FreeTrialAccessDeniedError();
           }
 
           const organizationName = venueName ?? `${name}'s Organization`;
@@ -224,6 +239,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof InvitationRequiredError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+
+    if (error instanceof FreeTrialAccessDeniedError) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 

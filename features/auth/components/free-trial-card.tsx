@@ -208,6 +208,25 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
     setSuccess("");
 
     try {
+      const accessResponse = await fetch("/api/auth/free-trial-access", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ email: form.email.trim() })
+      });
+
+      if (!accessResponse.ok) {
+        const payload = (await accessResponse.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setError(
+          payload?.error ??
+            "Free trial access is currently limited. Please contact the Event Core team for access."
+        );
+        return;
+      }
+
       const supabase = createSupabaseBrowserClient();
       const { data, error: freeTrialError } = await supabase.auth.signUp({
         email: form.email.trim(),
