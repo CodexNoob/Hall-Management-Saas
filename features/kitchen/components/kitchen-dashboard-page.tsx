@@ -243,7 +243,7 @@ function KitchenEventDetailsDialog({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm">
+    <div className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm">
       <section
         aria-labelledby="kitchen-event-details-title"
         aria-modal="true"

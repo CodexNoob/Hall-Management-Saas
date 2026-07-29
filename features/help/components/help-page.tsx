@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import type { Route } from "next";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { AppInstallCard } from "@/features/help/components/app-install-card";
 
@@ -71,10 +69,6 @@ export const helpPages: Record<
       {
         title: "Staff access",
         body: "Staff members use the same installer. Their dashboard access depends on the account and permissions assigned by the subscribed organization."
-      },
-      {
-        title: "Mobile apps",
-        body: "Android and iPhone app packaging will be handled later after the desktop workflow and core platform are finalized."
       }
     ]
   },
@@ -118,14 +112,6 @@ export const helpPages: Record<
   }
 };
 
-const relatedLinks: Array<{ href: Route; label: string }> = [
-  { href: "/dashboard/help-center", label: "Help Center" },
-  { href: "/dashboard/release-notes", label: "Release Notes" },
-  { href: "/dashboard/download-apps", label: "Download Apps" },
-  { href: "/dashboard/terms-of-service", label: "Terms of Service" },
-  { href: "/dashboard/privacy-policy", label: "Privacy Policy" }
-];
-
 export function HelpPage({ kind }: { kind: HelpPageKind }) {
   const page = helpPages[kind];
 
@@ -138,7 +124,7 @@ export function HelpPage({ kind }: { kind: HelpPageKind }) {
       />
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
-        <div className="mx-auto grid w-full max-w-6xl gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="mx-auto grid w-full max-w-6xl gap-4">
           <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
             <header className="border-b border-[#d8dde5] p-4 sm:p-5">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1f4d73]">
@@ -155,7 +141,7 @@ export function HelpPage({ kind }: { kind: HelpPageKind }) {
             <div className="grid gap-3 p-4 sm:p-5">
               {kind === "download-apps" ? <AppInstallCard /> : null}
 
-              {page.sections.map((section) => (
+              {kind !== "download-apps" ? page.sections.map((section) => (
                 <article
                   className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-4"
                   key={section.title}
@@ -165,30 +151,10 @@ export function HelpPage({ kind }: { kind: HelpPageKind }) {
                     {section.body}
                   </p>
                 </article>
-              ))}
+              )) : null}
             </div>
           </section>
 
-          <aside className="h-fit overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:sticky xl:top-4">
-            <header className="border-b border-[#d8dde5] px-4 py-3">
-              <h2 className="text-sm font-black">Help pages</h2>
-            </header>
-            <nav className="grid gap-1 p-2" aria-label="Help pages">
-              {relatedLinks.map((link) => (
-                <Link
-                  className={`rounded-lg px-3 py-2 text-sm font-bold transition hover:bg-[#eef4fa] ${
-                    link.href.endsWith(kind)
-                      ? "bg-[#1f4d73] text-white hover:bg-[#1f4d73]"
-                      : "text-[#17202a]"
-                  }`}
-                  href={link.href}
-                  key={link.href}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </aside>
         </div>
       </main>
     </div>

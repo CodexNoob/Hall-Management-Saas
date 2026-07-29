@@ -205,7 +205,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
   return (
     <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
-      <div className={`relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${isDesktopApp ? "order-2 block p-8" : "order-2 lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
+      <div className={`relative overflow-hidden p-5 sm:p-10 ${isDesktopApp ? "order-2 block bg-linear-to-br from-[#061224] via-[#0F172A] to-[#1f4d73] p-8" : "order-2 bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -226,13 +226,13 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
             </Link>
           )}
 
-          <p className={`${isDesktopApp ? "mt-7" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
+          <p className={`${isDesktopApp ? "mt-7 text-white/80" : compact ? "mt-8 text-[#1f4d73]" : "mt-10 text-[#1f4d73]"} text-base font-black`}>
             No worries! <span aria-hidden="true">&#128075;</span>
           </p>
-          <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.08] tracking-tight text-[#0F172A]`}>
+          <h1 className={`${isDesktopApp ? "mt-4 text-4xl text-white" : "mt-5 text-3xl text-[#0F172A] sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.08] tracking-tight`}>
             Recover your account
           </h1>
-          <p className={`${isDesktopApp ? "mt-3 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
+          <p className={`${isDesktopApp ? "mt-3 text-base leading-7 text-slate-300" : "mt-4 text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8"} max-w-md`}>
             Enter your email address and we&apos;ll send you a secure link to reset your password.
           </p>
 
@@ -243,20 +243,20 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               <ShieldIcon />
             </div>
             <div>
-              <p className="font-black text-[#0F172A]">Your security is our priority.</p>
-              <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption to keep your data safe.</p>
+              <p className={`font-black ${isDesktopApp ? "text-white" : "text-[#0F172A]"}`}>Your security is our priority.</p>
+              <p className={`mt-1 text-sm font-medium ${isDesktopApp ? "text-slate-300" : "text-[#64748B]"}`}>We use industry-standard encryption to keep your data safe.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "order-1 p-8" : compact ? "order-1 p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
+      <div className={`box-border w-full min-w-0 ${isDesktopApp ? "order-1 bg-[#0F172A] p-8" : compact ? "order-1 bg-white p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 bg-white p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
-          <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
-          <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
+          <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl text-white" : "text-3xl text-[#0F172A] sm:text-4xl"} font-black tracking-tight`}>Forgot Password</h2>
+          <p className={`${isDesktopApp ? "mt-2 text-sm leading-6 text-slate-300" : "mt-3 text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8"} max-w-md`}>Enter your email address and we will send you a reset link.</p>
 
           <form className={isDesktopApp ? "mt-4" : compact ? "mt-10" : "mt-12"} onSubmit={submit}>
-            <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="forgotEmail">
+            <label className={`${isDesktopApp ? "text-sm text-white" : "text-base text-[#0F172A]"} font-bold`} htmlFor="forgotEmail">
               Email Address
             </label>
             <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
@@ -277,7 +277,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               />
             </div>
 
-            <div className={`${isDesktopApp ? "mt-5 text-sm leading-6" : "mt-7 text-base leading-7"} flex gap-4 font-bold text-[#65718d]`}>
+            <div className={`${isDesktopApp ? "mt-5 text-sm leading-6 text-slate-300" : "mt-7 text-base leading-7 text-[#65718d]"} flex gap-4 font-bold`}>
               <p>We&apos;ll send a secure password reset link to this email address.</p>
             </div>
 
@@ -293,25 +293,25 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
               {isSubmitting ? "Sending..." : "Send Reset Link"}
             </button>
 
-            <div className={`${isDesktopApp ? "my-5" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
+            <div className={`${isDesktopApp ? "my-5 text-slate-300" : "my-10 text-[#64748B]"} flex items-center gap-5 text-sm font-medium`}>
               <span className="h-px flex-1 bg-[#E5E0D6]" />
               or
               <span className="h-px flex-1 bg-[#E5E0D6]" />
             </div>
 
             {onBackToLogin ? (
-              <button className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} type="button" onClick={onBackToLogin}>
+              <button className={`mx-auto flex items-center justify-center gap-3 font-black transition ${isDesktopApp ? "text-base text-white hover:text-slate-200" : "text-lg text-[#1f4d73] hover:text-[#1f4d73]"}`} type="button" onClick={onBackToLogin}>
                 <span aria-hidden="true"></span>
                 Back to Login
               </button>
             ) : (
-              <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
+              <Link className={`mx-auto flex items-center justify-center gap-3 font-black transition ${isDesktopApp ? "text-base text-white hover:text-slate-200" : "text-lg text-[#1f4d73] hover:text-[#1f4d73]"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
                 <span aria-hidden="true"></span>
                 Back to Login
               </Link>
             )}
 
-            <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
+            <p className={`${isDesktopApp ? "mt-5 text-sm text-slate-300" : "mt-10 text-sm text-[#64748B] sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center`}>
               Need help?{" "}
               <Link className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="#support">
                 Contact support

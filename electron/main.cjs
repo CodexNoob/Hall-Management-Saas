@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserView, BrowserWindow, dialog, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 
@@ -11,6 +11,19 @@ const DESKTOP_LOGIN_URL = `${APP_ORIGIN}/login?desktop=1`;
 const APP_ICON = path.join(__dirname, "assets", "icon.ico");
 const UPDATE_FEED_URL = process.env.EVENT_CORE_UPDATE_FEED_URL;
 const UPDATE_CHECK_INTERVAL_MS = 1000 * 60 * 60 * 4;
+const MIN_LOADING_SCREEN_MS = 850;
+const STARTUP_FADE_MS = 200;
+const STARTUP_REVEAL_FALLBACK_MS = 7000;
+const APP_BACKGROUND_COLOR = "#0F172A";
+const DEFAULT_WINDOW_OPTIONS = {
+  width: 1440,
+  height: 900,
+  minWidth: 1024,
+  minHeight: 720,
+  title: "Event Core",
+  backgroundColor: APP_BACKGROUND_COLOR,
+  icon: APP_ICON
+};
 const LOADING_SCREEN_HTML = `
 <!doctype html>
 <html>
@@ -35,6 +48,12 @@ const LOADING_SCREEN_HTML = `
         font-family: "Segoe UI", Arial, sans-serif;
         justify-content: center;
         overflow: hidden;
+        opacity: 1;
+        transition: opacity 200ms ease;
+      }
+
+      body.is-leaving {
+        opacity: 0;
       }
 
       .loader {
@@ -108,6 +127,66 @@ const LOADING_SCREEN_HTML = `
   </body>
 </html>`;
 
+function wait(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForRendererToBeReady(webContents) {
+  if (!webContents || webContents.isDestroyed()) {
+    return;
+  }
+
+  try {
+    await webContents.executeJavaScript(
+      `new Promise((resolve) => {
+        const waitForFonts = document.fonts && document.fonts.ready
+          ? Promise.race([
+              document.fonts.ready,
+              new Promise((fontResolve) => setTimeout(fontResolve, 1500))
+            ])
+          : Promise.resolve();
+
+        const waitForDom = new Promise((domResolve) => {
+          const hasRenderedContent = () => {
+            const nextRoot = document.querySelector("#__next");
+            const appRoot = document.querySelector("main, form, section, [data-event-core-auth]");
+            return Boolean((nextRoot && nextRoot.childElementCount > 0) || appRoot);
+          };
+
+          if (hasRenderedContent()) {
+            domResolve();
+            return;
+          }
+
+          const observer = new MutationObserver(() => {
+            if (!hasRenderedContent()) return;
+            observer.disconnect();
+            domResolve();
+          });
+
+          observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true
+          });
+
+          setTimeout(() => {
+            observer.disconnect();
+            domResolve();
+          }, 1800);
+        });
+
+        Promise.all([waitForFonts, waitForDom]).then(resolve);
+      })`,
+      true
+    );
+  } catch {
+    // If renderer inspection fails, fall back to did-finish-load instead of
+    // leaving users stuck on the startup screen.
+  }
+}
+
 function isMarketingRoot(url) {
   try {
     const nextUrl = new URL(url);
@@ -159,98 +238,40 @@ function configureAutoUpdater(mainWindow) {
   }, UPDATE_CHECK_INTERVAL_MS);
 }
 
-function createWindow() {
-  const mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 720,
-    title: "Event Core",
-    backgroundColor: "#f5f6f8",
-    icon: APP_ICON,
-    show: false,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
+function attachAppWindowHandlers(webContents) {
+  webContents.on("did-finish-load", () => {
+    const currentUrl = webContents.getURL();
+
+    if (!currentUrl.startsWith(APP_ORIGIN)) {
+      return;
     }
-  });
 
-  const loadingWindow = new BrowserWindow({
-    width: 420,
-    height: 320,
-    resizable: false,
-    movable: true,
-    minimizable: false,
-    maximizable: false,
-    closable: false,
-    frame: false,
-    transparent: false,
-    show: true,
-    title: "Event Core",
-    backgroundColor: "#f7f4ed",
-    icon: APP_ICON,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true
-    }
-  });
-
-  mainWindow.setMenuBarVisibility(false);
-  loadingWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_SCREEN_HTML)}`);
-  mainWindow.loadURL(APP_URL);
-  configureAutoUpdater(mainWindow);
-
-  mainWindow.webContents.on("did-finish-load", () => {
-    mainWindow.webContents
+    webContents
       .executeJavaScript(
         "window.localStorage.setItem('eventCoreDesktopApp', 'true');",
         true
       )
       .catch(() => {});
-
-    if (!loadingWindow.isDestroyed()) {
-      loadingWindow.close();
-    }
-
-    if (!mainWindow.isVisible()) {
-      mainWindow.show();
-    }
   });
 
-  mainWindow.once("ready-to-show", () => {
-    if (!loadingWindow.isDestroyed()) {
-      loadingWindow.close();
-    }
-
-    mainWindow.show();
-  });
-
-  mainWindow.on("closed", () => {
-    if (!loadingWindow.isDestroyed()) {
-      loadingWindow.close();
-    }
-  });
-
-  mainWindow.webContents.on("will-navigate", (event, url) => {
+  webContents.on("will-navigate", (event, url) => {
     if (!isMarketingRoot(url)) return;
 
     event.preventDefault();
-    mainWindow.loadURL(DESKTOP_LOGIN_URL);
+    webContents.loadURL(DESKTOP_LOGIN_URL);
   });
 
-  mainWindow.webContents.on("did-navigate-in-page", (_event, url) => {
+  webContents.on("did-navigate-in-page", (_event, url) => {
     if (isMarketingRoot(url)) {
-      mainWindow.loadURL(DESKTOP_LOGIN_URL);
+      webContents.loadURL(DESKTOP_LOGIN_URL);
     }
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  webContents.setWindowOpenHandler(({ url }) => {
     const isSameApp = new URL(url).origin === APP_ORIGIN;
 
     if (isMarketingRoot(url)) {
-      mainWindow.loadURL(DESKTOP_LOGIN_URL);
+      webContents.loadURL(DESKTOP_LOGIN_URL);
       return { action: "deny" };
     }
 
@@ -261,6 +282,90 @@ function createWindow() {
     shell.openExternal(url);
     return { action: "deny" };
   });
+}
+
+function createWindow() {
+  const mainWindow = new BrowserWindow({
+    ...DEFAULT_WINDOW_OPTIONS,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_SCREEN_HTML)}`);
+
+  const appView = new BrowserView({
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true
+    }
+  });
+
+  const resizeAppView = () => {
+    if (mainWindow.isDestroyed()) {
+      return;
+    }
+
+    const [width, height] = mainWindow.getContentSize();
+    appView.setBounds({ x: 0, y: 0, width, height });
+  };
+
+  const hideAppView = () => {
+    appView.setBounds({ x: -10, y: -10, width: 1, height: 1 });
+  };
+
+  mainWindow.setBrowserView(appView);
+  hideAppView();
+  appView.setAutoResize({ width: true, height: true });
+  mainWindow.on("resize", resizeAppView);
+
+  attachAppWindowHandlers(appView.webContents);
+  configureAutoUpdater(mainWindow);
+
+  const startedAt = Date.now();
+  const rendererLoaded = new Promise((resolve) => {
+    appView.webContents.once("did-finish-load", resolve);
+    appView.webContents.once("did-fail-load", resolve);
+  });
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+    mainWindow.focus();
+  });
+
+  let didRevealAppView = false;
+  const revealAppView = async () => {
+    if (didRevealAppView) {
+      return;
+    }
+
+    didRevealAppView = true;
+    await waitForRendererToBeReady(appView.webContents);
+
+    const elapsed = Date.now() - startedAt;
+    await wait(Math.max(0, MIN_LOADING_SCREEN_MS - elapsed));
+
+    if (mainWindow.isDestroyed()) {
+      return;
+    }
+
+    await mainWindow.webContents
+      .executeJavaScript("document.body.classList.add('is-leaving');", true)
+      .catch(() => {});
+    await wait(STARTUP_FADE_MS);
+
+    resizeAppView();
+    appView.webContents.focus();
+  };
+
+  rendererLoaded.then(revealAppView);
+  setTimeout(revealAppView, STARTUP_REVEAL_FALLBACK_MS);
+  appView.webContents.loadURL(APP_URL);
 }
 
 app.whenReady().then(() => {

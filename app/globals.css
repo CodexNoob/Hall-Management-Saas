@@ -388,6 +388,9 @@ svg {
 .app-sidebar {
   will-change: width, transform;
 }
+
+.dashboard-font,
+.dashboard-font *,
 .dashboard-scrollbars,
 .dashboard-scrollbars *,
 .app-sidebar,
@@ -396,14 +399,18 @@ svg {
   scrollbar-width: thin;
 }
 
+.dashboard-font::-webkit-scrollbar,
+.dashboard-font *::-webkit-scrollbar,
 .dashboard-scrollbars::-webkit-scrollbar,
 .dashboard-scrollbars *::-webkit-scrollbar,
 .app-sidebar::-webkit-scrollbar,
 .app-sidebar *::-webkit-scrollbar {
-  width: 0.65rem;
-  height: 0.65rem;
+  width: 0.625rem;
+  height: 0.625rem;
 }
 
+.dashboard-font::-webkit-scrollbar-track,
+.dashboard-font *::-webkit-scrollbar-track,
 .dashboard-scrollbars::-webkit-scrollbar-track,
 .dashboard-scrollbars *::-webkit-scrollbar-track,
 .app-sidebar::-webkit-scrollbar-track,
@@ -411,17 +418,21 @@ svg {
   background: transparent;
 }
 
+.dashboard-font::-webkit-scrollbar-thumb,
+.dashboard-font *::-webkit-scrollbar-thumb,
 .dashboard-scrollbars::-webkit-scrollbar-thumb,
 .dashboard-scrollbars *::-webkit-scrollbar-thumb,
 .app-sidebar::-webkit-scrollbar-thumb,
 .app-sidebar *::-webkit-scrollbar-thumb {
   min-height: 2.5rem;
-  border: 0.18rem solid transparent;
+  border: 0.16rem solid transparent;
   border-radius: 999px;
   background: linear-gradient(180deg, #b8c4d2, #8294aa) border-box;
   box-shadow: inset 0 0 0 1px rgba(23, 32, 42, 0.08);
 }
 
+.dashboard-font::-webkit-scrollbar-thumb:hover,
+.dashboard-font *::-webkit-scrollbar-thumb:hover,
 .dashboard-scrollbars::-webkit-scrollbar-thumb:hover,
 .dashboard-scrollbars *::-webkit-scrollbar-thumb:hover,
 .app-sidebar::-webkit-scrollbar-thumb:hover,
@@ -429,11 +440,25 @@ svg {
   background: linear-gradient(180deg, #8fa0b5, #52657b) border-box;
 }
 
+.dashboard-font::-webkit-scrollbar-corner,
+.dashboard-font *::-webkit-scrollbar-corner,
 .dashboard-scrollbars::-webkit-scrollbar-corner,
 .dashboard-scrollbars *::-webkit-scrollbar-corner,
 .app-sidebar::-webkit-scrollbar-corner,
 .app-sidebar *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+.dashboard-font .scrollbar-none,
+.dashboard-font .scrollbar-none *,
+.dashboard-font [class*="[&::-webkit-scrollbar]:hidden"] {
+  scrollbar-width: none;
+}
+
+.dashboard-font .scrollbar-none::-webkit-scrollbar,
+.dashboard-font .scrollbar-none *::-webkit-scrollbar,
+.dashboard-font [class*="[&::-webkit-scrollbar]:hidden"]::-webkit-scrollbar {
+  display: none;
 }
 
 .sidebar-will-change-width {
