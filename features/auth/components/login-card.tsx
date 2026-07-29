@@ -224,7 +224,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
 
   return (
     <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-back max-h-[760px] max-w-6xl grid-cols-[0.92fr_1fr]" : "lg:grid-cols-2"}`}>
-          <div className={`order-2 relative overflow-hidden p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "block bg-linear-to-br from-[#061224] via-[#0F172A] to-[#1f4d73] p-8" : compact ? "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-10" : "bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:p-14"}`}>
+          <div className={`order-2 relative overflow-hidden p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : compact ? "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-10" : "bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:p-14"}`}>
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
             <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -242,11 +242,11 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 </Link>
               )}
 
-              <p className={`${isDesktopApp ? "mt-8 text-white/80" : compact ? "mt-8 text-[#1f4d73]" : "mt-10 text-[#1f4d73]"} text-base font-black`}>Welcome Back!</p>
-              <h1 className={`${isDesktopApp ? "mt-4 text-4xl text-white" : "mt-5 text-3xl text-[#0F172A] sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.12] tracking-tight`}>
+              <p className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>Welcome Back!</p>
+              <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.12] tracking-tight text-[#0F172A]`}>
                 Login to your account
               </h1>
-              <p className={`${isDesktopApp ? "mt-4 text-base leading-7 text-slate-300" : "mt-4 text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8"} max-w-md`}>
+              <p className={`${isDesktopApp ? "mt-4 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
                 Access your dashboard to manage bookings, events, payments, and hall operations all in one place.
               </p>
 
@@ -257,20 +257,20 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   <ShieldIcon />
                 </div>
                 <div>
-                  <p className={`font-black ${isDesktopApp ? "text-white" : "text-[#0F172A]"}`}>Your data is secure with us.</p>
-                  <p className={`mt-1 text-sm font-medium ${isDesktopApp ? "text-slate-300" : "text-[#64748B]"}`}>We use industry-standard encryption.</p>
+                  <p className="font-black text-[#0F172A]">Your data is secure with us.</p>
+                  <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption.</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className={`order-1 box-border w-full min-w-0 lg:order-2 ${isDesktopApp ? "bg-[#0F172A] p-8" : compact ? "bg-white p-5 pt-16 sm:p-10 lg:p-10" : "bg-white p-5 sm:p-10 lg:p-16"}`}>
+          <div className={`order-1 box-border w-full min-w-0 lg:order-2 ${isDesktopApp ? "bg-white p-8" : compact ? "bg-white p-5 pt-16 sm:p-10 lg:p-10" : "bg-white p-5 sm:p-10 lg:p-16"}`}>
             <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
-              <h2 id="login-modal-title" className={`${isDesktopApp ? "text-xl text-white" : "text-3xl text-[#0F172A] sm:text-4xl"} font-black tracking-tight`}>Employee Login</h2>
-              <p className={`${isDesktopApp ? "mt-2 text-sm text-slate-300" : "mt-3 text-base text-[#64748B] sm:mt-4 sm:text-lg"}`}>Use your organization account to continue.</p>
+              <h2 id="login-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Employee Login</h2>
+              <p className={`${isDesktopApp ? "mt-2 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Use your organization account to continue.</p>
 
               <form className={isDesktopApp ? "mt-4" : compact ? "mt-8" : "mt-10"} onSubmit={submit}>
-                <label className={`${isDesktopApp ? "text-sm text-white" : "text-base text-[#0F172A]"} font-bold`} htmlFor="email">
+                <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="email">
                   Email Address
                 </label>
                 <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
@@ -290,7 +290,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   />
                 </div>
 
-                <label className={`${isDesktopApp ? "mt-4 text-sm text-white" : compact ? "mt-5 text-base text-[#0F172A]" : "mt-7 text-base text-[#0F172A]"} block font-bold`} htmlFor="password">
+                <label className={`${isDesktopApp ? "mt-4 text-sm" : compact ? "mt-5 text-base" : "mt-7 text-base"} block font-bold text-[#0F172A]`} htmlFor="password">
                   Password
                 </label>
                 <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
@@ -319,7 +319,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                 </div>
 
                 <div className={`${isDesktopApp ? "mt-3 text-sm" : "mt-6 text-base"} flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4`}>
-                  <label className={`flex cursor-pointer items-center gap-3 font-medium ${isDesktopApp ? "text-slate-200" : "text-[#64748B]"}`} htmlFor="remember">
+                  <label className="flex cursor-pointer items-center gap-3 font-medium text-[#64748B]" htmlFor="remember">
                     <input
                       id="remember"
                       className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#1f4d73]"
@@ -330,11 +330,11 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                     Remember me
                   </label>
                   {onForgotPasswordClick ? (
-                    <button className={`font-bold transition ${isDesktopApp ? "text-[#f5d26b] hover:text-white" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} type="button" onClick={onForgotPasswordClick}>
+                    <button className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onForgotPasswordClick}>
                       Forgot password?
                     </button>
                   ) : (
-                    <Link className={`font-bold transition ${isDesktopApp ? "text-[#f5d26b] hover:text-white" : "text-[#1f4d73] hover:text-[#1f4d73]"}`} href={isDesktopApp ? "/forgot-password?desktop=1" : "/forgot-password"}>
+                    <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href={isDesktopApp ? "/forgot-password?desktop=1" : "/forgot-password"}>
                       Forgot password?
                     </Link>
                   )}
@@ -351,7 +351,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   {isSubmitting ? "Logging in..." : "Login"}
                 </button>
 
-                <div className={`${isDesktopApp ? "my-5 text-slate-300" : compact ? "my-7 text-[#64748B]" : "my-10 text-[#64748B]"} flex items-center gap-5 text-sm font-medium`}>
+                <div className={`${isDesktopApp ? "my-5" : compact ? "my-7" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
                   <span className="h-px flex-1 bg-[#E5E0D6]" />
                   or continue with
                   <span className="h-px flex-1 bg-[#E5E0D6]" />
@@ -378,14 +378,12 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   </button>
                 </div>
 
-                {!isDesktopApp ? (
-                <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
+                <div className={`${isDesktopApp ? "mt-4 p-3 text-sm" : "mt-9 p-4"} rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] text-center`}>
                   <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
                   <p className="mt-1 text-sm leading-6 text-[#64748B]">
                     Ask your administrator for an invitation, then open the secure link sent to your email.
                   </p>
                 </div>
-                ) : null}
 
                 {!isDesktopApp ? (
                 <p className="mt-5 text-center text-base text-[#64748B]">
