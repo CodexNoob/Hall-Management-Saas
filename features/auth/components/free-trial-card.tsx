@@ -7,78 +7,7 @@ import { useRouter } from "next/navigation";
 import { syncSignedInUser } from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-function UserIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function EmailIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function PhoneIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 4 4.5 6.5c-.6.6-.7 1.5-.3 2.3 2.3 4.8 6.2 8.7 11 11 .8.4 1.7.3 2.3-.3L20 17l-4-3-2 2c-2.5-1.1-4.5-3.1-5.6-5.6l2-2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function BuildingIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 21h16M6 21V7l6-3 6 3v14M9 10h2M13 10h2M9 14h2M13 14h2M9 18h2M13 18h2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6zM12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function EyeIcon({ isVisible }: { isVisible: boolean }) {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      {isVisible ? (
-        <>
-          <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" />
-        </>
-      ) : (
-        <path d="M3 12s3.5-6 9-6c2 0 3.8.8 5.2 1.8M21 12s-3.5 6-9 6c-2 0-3.8-.8-5.2-1.8M4 4l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
-  );
-}
-
-function ArrowLoginIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M10 7 15 12l-5 5M15 12H3M14 4h5v16h-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="h-7 w-7 text-[#1f4d73]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+import { ArrowLoginIcon, BuildingIcon, EmailIcon, EyeIcon, LockIcon, PhoneIcon, ShieldIcon, UserIcon } from "@/features/auth/components/auth-icons";
 
 function FreeTrialIllustration() {
   return (

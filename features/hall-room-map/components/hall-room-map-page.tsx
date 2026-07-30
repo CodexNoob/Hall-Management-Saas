@@ -5,252 +5,36 @@ import {
   useEffect,
   useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode
+  type PointerEvent as ReactPointerEvent
 } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { CompactSelect } from "@/components/ui/compact-select";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 
-type ShapeType =
-  | "round-table"
-  | "rect-table"
-  | "kids-table"
-  | "box"
-  | "circle"
-  | "divider"
-  | "buffet"
-  | "head-table"
-  | "drinks";
-
-type SeatingUse = "none" | "adult" | "kids" | "head";
-
-type MapObject = {
-  id: string;
-  type: ShapeType;
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  seats: number;
-  seatingUse: SeatingUse;
-};
-
-type SavedHallMap = {
-  id: string;
-  name: string;
-  objects: MapObject[];
-  hallId: string;
-  hall?: { id: string; name: string };
-};
-
-type HallMapsResponse = {
-  halls: Array<{ id: string; name: string; capacity: number | null }>;
-  presets: SavedHallMap[];
-};
-
-type SaveHallMapInput = {
-  id?: string;
-  name: string;
-  hallId: string;
-  objects: MapObject[];
-};
-
-const HALL_MAP_STORAGE_KEY = "event-core-hall-room-maps";
-
-const initialHallMaps: SavedHallMap[] = [];
-
-const DESIGN_MAP_WIDTH = 760;
-const DESIGN_MAP_HEIGHT = 520;
-const MAP_VIEWPORT_PADDING = 24;
-
-function clampViewportPosition(value: number, max: number) {
-  return Math.min(Math.max(0, value), Math.max(0, max));
-}
-
-function getMapObjectBounds(objects: MapObject[]) {
-  if (objects.length === 0) {
-    return null;
-  }
-
-  return objects.reduce(
-    (bounds, object) => ({
-      minX: Math.min(bounds.minX, object.x),
-      minY: Math.min(bounds.minY, object.y),
-      maxX: Math.max(bounds.maxX, object.x + object.width),
-      maxY: Math.max(bounds.maxY, object.y + object.height)
-    }),
-    {
-      minX: Number.POSITIVE_INFINITY,
-      minY: Number.POSITIVE_INFINITY,
-      maxX: Number.NEGATIVE_INFINITY,
-      maxY: Number.NEGATIVE_INFINITY
-    }
-  );
-}
-
-const shapeOptions: Array<{
-  type: ShapeType;
-  label: string;
-}> = [
-  { type: "round-table", label: "Round table" },
-  { type: "rect-table", label: "Rect table" },
-  { type: "kids-table", label: "Kids table" },
-  { type: "head-table", label: "Head table" },
-  { type: "buffet", label: "Buffet" },
-  { type: "drinks", label: "Drinks" },
-  { type: "box", label: "Box" },
-  { type: "circle", label: "Circle" }
-];
-
-function Panel({
-  children,
-  className = ""
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`overflow-hidden rounded-xl border border-[#d8dde5] bg-white ${className}`}
-    >
-      {children}
-    </section>
-  );
-}
-
-function ShapePreview({ type }: { type: ShapeType }) {
-  if (type === "divider") {
-    return <span className="h-1 w-6 bg-[#36516b]" />;
-  }
-
-  const isCircle =
-    type === "round-table" || type === "kids-table" || type === "circle";
-
-  return (
-    <span
-      className={`h-5 w-5 border-2 border-[#36516b] bg-[#f7fbff] ${
-        isCircle ? "rounded-full" : ""
-      }`}
-    />
-  );
-}
-
-function ShapeButton({
-  disabled,
-  label,
-  onClick,
-  type
-}: {
-  disabled?: boolean;
-  label: string;
-  onClick: () => void;
-  type: ShapeType;
-}) {
-  return (
-    <button
-      className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg border border-[#d1dae5] bg-white px-1.5 text-[10px] font-black whitespace-nowrap transition enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef6fc] disabled:cursor-not-allowed disabled:opacity-45"
-      disabled={disabled}
-      onClick={onClick}
-      type="button"
-    >
-      <ShapePreview type={type} />
-      {label}
-    </button>
-  );
-}
-
-function InspectorField({
-  children,
-  htmlFor
-}: {
-  children: ReactNode;
-  htmlFor: string;
-}) {
-  return (
-    <label
-      className="mb-1 block text-[10px] font-black uppercase tracking-[0.04em] text-[#59677c]"
-      htmlFor={htmlFor}
-    >
-      {children}
-    </label>
-  );
-}
-
-function MapObjectView({
-  object,
-  onDragEnd,
-  onDragMove,
-  onDragStart,
-  selected,
-  onSelect
-}: {
-  object: MapObject;
-  onDragEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onDragMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  onDragStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const isTable =
-    object.type === "round-table" ||
-    object.type === "kids-table" ||
-    object.type === "circle";
-
-  const isDashed = object.type === "buffet" || object.type === "drinks";
-
-  const isDivider = object.type === "divider";
-  const renderedWidth = isTable ? Math.max(object.width, 68) : object.width;
-  const renderedHeight = isTable ? Math.max(object.height, 68) : object.height;
-
-  return (
-    <button
-      aria-label={`Select ${object.name}`}
-      data-map-object="true"
-      className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-hidden px-1.5 py-1 text-center text-[9px] leading-[1.05] font-black select-none ${
-        isTable ? "rounded-full" : "rounded-md"
-      } ${
-        isDashed
-          ? "border border-dashed border-[#36516b] bg-[#f7fbff]"
-          : isDivider
-            ? "rounded-sm bg-[#344a60] text-white"
-            : "border border-[#526c86] bg-white"
-      } ${
-        selected
-          ? "z-10 ring-2 ring-[#1f5f91] ring-offset-2"
-          : "hover:ring-2 hover:ring-[#8fbce3]"
-      }`}
-      onClick={(event) => {
-        event.stopPropagation();
-        onSelect();
-      }}
-      onPointerCancel={onDragEnd}
-      onPointerDown={onDragStart}
-      onPointerMove={onDragMove}
-      onPointerUp={onDragEnd}
-      style={{
-        height: renderedHeight,
-        left: object.x,
-        top: object.y,
-        transform: `rotate(${object.rotation}deg)`,
-        width: renderedWidth
-      }}
-      type="button"
-    >
-      <span className="max-w-full wrap-break-word">{object.name}</span>
-
-      {object.seats > 0 ? (
-        <span className="mt-1 shrink-0 whitespace-nowrap text-[7px] leading-none font-semibold">
-          {object.seats} seats
-        </span>
-      ) : null}
-    </button>
-  );
-}
-
+import { InspectorField } from "@/features/hall-room-map/components/hall-map-inspector-field";
+import { MapObjectView } from "@/features/hall-room-map/components/hall-map-object-view";
+import { Panel } from "@/features/hall-room-map/components/hall-map-panel";
+import {
+  ShapeButton,
+  ShapePreview
+} from "@/features/hall-room-map/components/hall-map-shape-library";
+import {
+  DESIGN_MAP_HEIGHT,
+  DESIGN_MAP_WIDTH,
+  HALL_MAP_STORAGE_KEY,
+  MAP_VIEWPORT_PADDING,
+  clampViewportPosition,
+  getMapObjectBounds,
+  initialHallMaps,
+  shapeOptions,
+  type HallMapsResponse,
+  type MapObject,
+  type SaveHallMapInput,
+  type SeatingUse,
+  type SavedHallMap,
+  type ShapeType
+} from "@/features/hall-room-map/components/hall-map-shared";
 export function HallRoomMapPage() {
   const hallMapsQuery =
     useAuthenticatedQuery<HallMapsResponse>("/api/hall-maps");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
@@ -9,222 +9,23 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
-type TableSide = "men" | "women" | "kids" | "head";
-
-type DiningTableData = {
-  id: string;
-  number: number;
-  seats: number;
-  side: TableSide;
-};
-
-type DiningPlan = {
-  id: string;
-  eventId: string;
-  hallMapPresetId: string | null;
-  countType: "People" | "Couples";
-  adultCount: number;
-  childrenCount: number;
-  menWaiters: number;
-  womenWaiters: number;
-  tablecloth: string | null;
-  washingTime: string | null;
-  specialNotes: string | null;
-  tables: unknown;
-};
-
-type HallMapObject = {
-  id: string;
-  type: string;
-  name: string;
-  seats: number;
-  seatingUse: "none" | "adult" | "kids" | "head";
-};
-
-type HallMapPreset = {
-  id: string;
-  hallId: string;
-  name: string;
-  objects: unknown;
-};
-
-type DiningEvent = {
-  id: string;
-  clientName: string;
-  eventType: string | null;
-  eventDate: string;
-  startsAt: string | null;
-  eventStatus: string;
-  bookingStatus: string;
-  packageName: string | null;
-  couplesCount: number;
-  menCount: number;
-  ladiesCount: number;
-  boysCount: number;
-  girlsCount: number;
-  kidsCount: number;
-  waitersCount: number;
-  tableclothName: string | null;
-  washingTime: string | null;
-  notes: string | null;
-  hall: { id: string; name: string };
-  diningPlan: DiningPlan | null;
-};
-
-type DiningResponse = {
-  events: DiningEvent[];
-  hallMapPresets: HallMapPreset[];
-};
-
-type DiningPlanPayload = {
-  eventId: string;
-  hallMapPresetId?: string | null;
-  countType: "People" | "Couples";
-  adultCount: number;
-  childrenCount: number;
-  menWaiters: number;
-  womenWaiters: number;
-  tablecloth?: string;
-  washingTime?: string;
-  specialNotes?: string;
-  tables: DiningTableData[];
-};
-
-type DiningForm = Omit<DiningPlanPayload, "eventId" | "tables">;
-
-const tableclothOptions = ["Ivory", "White", "Champagne", "Black"];
-
-function Panel({
-  children,
-  className = ""
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <section
-      className={`min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white ${className}`}
-    >
-      {children}
-    </section>
-  );
-}
-
-function FieldLabel({
-  children,
-  htmlFor
-}: {
-  children: ReactNode;
-  htmlFor: string;
-}) {
-  return (
-    <label
-      className="mb-1 block text-[10px] font-black uppercase tracking-wider text-[#59677c]"
-      htmlFor={htmlFor}
-    >
-      {children}
-    </label>
-  );
-}
-
-function validTables(value: unknown): DiningTableData[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((table): table is DiningTableData =>
-    Boolean(
-      table &&
-      typeof table === "object" &&
-      "id" in table &&
-      "number" in table &&
-      "seats" in table &&
-      "side" in table
-    )
-  );
-}
-
-function validPresetObjects(value: unknown): HallMapObject[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter((object): object is HallMapObject =>
-    Boolean(
-      object &&
-      typeof object === "object" &&
-      "id" in object &&
-      "type" in object &&
-      "name" in object &&
-      "seats" in object &&
-      "seatingUse" in object
-    )
-  );
-}
-
-function defaultTables(): DiningTableData[] {
-  return Array.from({ length: 8 }, (_, index) => ({
-    id: crypto.randomUUID(),
-    number: index + 1,
-    seats: 10,
-    side: index < 4 ? "men" : "women"
-  }));
-}
-
-function eventTitle(event: DiningEvent) {
-  return `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`;
-}
-
-function eventSchedule(event: DiningEvent) {
-  const date = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC"
-  }).format(new Date(event.eventDate));
-  const time = event.startsAt
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit"
-      }).format(new Date(event.startsAt))
-    : "Time not set";
-  return `${date} · ${time}`;
-}
-
-function eventCounts(event: DiningEvent) {
-  return {
-    adults: event.couplesCount * 2 + event.menCount + event.ladiesCount,
-    children: event.boysCount + event.girlsCount + event.kidsCount
-  };
-}
-
-function SeatingRow({
-  current,
-  label,
-  maximum
-}: {
-  current: number;
-  label: string;
-  maximum: number;
-}) {
-  const percentage = maximum ? Math.min((current / maximum) * 100, 100) : 100;
-  const complete = current >= maximum;
-
-  return (
-    <div>
-      <div className="flex items-center gap-3">
-        <strong className="w-14 shrink-0 text-xs">{label}</strong>
-        <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e7edf3]">
-          <div
-            className={`h-full rounded-full ${
-              complete ? "bg-[#178151]" : "bg-[#c0a048]"
-            }`}
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-        <span className="w-16 shrink-0 text-right text-[10px] text-[#36465a]">
-          {current}/{maximum}
-        </span>
-      </div>
-    </div>
-  );
-}
-
+import { Panel, FieldLabel } from "@/features/dining/components/dining-panel";
+import { SeatingRow } from "@/features/dining/components/dining-seating-row";
+import {
+  defaultTables,
+  eventCounts,
+  eventSchedule,
+  eventTitle,
+  tableclothOptions,
+  validPresetObjects,
+  validTables,
+  type DiningForm,
+  type DiningPlan,
+  type DiningPlanPayload,
+  type DiningResponse,
+  type DiningTableData,
+  type TableSide
+} from "@/features/dining/components/dining-shared";
 export function DiningManagerPage() {
   const diningQuery = useAuthenticatedQuery<DiningResponse>("/api/dining");
   const diningMutation = useAuthenticatedMutation<

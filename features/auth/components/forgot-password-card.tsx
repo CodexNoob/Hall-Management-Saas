@@ -1,51 +1,18 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-function EmailIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="h-7 w-7 text-[#1f4d73]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6zM12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function SendIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m21 3-8.5 18-3-7-6.5-3zM21 3 9.5 14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ExternalLinkIcon() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M14 4h6v6M20 4l-9 9M10 5H5v14h14v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
+import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
+import {
+  EmailIcon,
+  ExternalLinkIcon,
+  LockIcon,
+  SendIcon,
+  ShieldIcon
+} from "@/features/auth/components/auth-icons";
 
 function ResetIllustration() {
   return (
@@ -76,7 +43,7 @@ function ResetIllustration() {
         </div>
 
         <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
-          <LockIcon />
+          <LockIcon className="h-10 w-10" />
         </div>
 
         <div className="absolute -right-2 top-28 w-32 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
@@ -129,7 +96,7 @@ function DesktopResetIllustration() {
       </div>
 
       <div className="absolute left-1/2 top-8 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
-        <LockIcon />
+        <LockIcon className="h-10 w-10" />
       </div>
 
       <div className="absolute bottom-2 right-12 flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
@@ -153,22 +120,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (!isDesktopApp) {
-      return;
-    }
-
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, [isDesktopApp]);
+  useDesktopAuthScrollLock(isDesktopApp);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

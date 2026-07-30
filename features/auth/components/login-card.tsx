@@ -1,84 +1,25 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-function EmailIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function LockIcon() {
-  return (
-    <svg className="h-5 w-5 text-[#64748B]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M7 10V8a5 5 0 0 1 10 0v2M6 10h12v10H6zM12 14v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function EyeIcon({ isVisible }: { isVisible: boolean }) {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      {isVisible ? (
-        <>
-          <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" stroke="currentColor" strokeWidth="2" />
-        </>
-      ) : (
-        <>
-          <path d="M3 12s3.5-6 9-6c2 0 3.8.8 5.2 1.8M21 12s-3.5 6-9 6c-2 0-3.8-.8-5.2-1.8M4 4l16 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      )}
-    </svg>
-  );
-}
-
-function ArrowLoginIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M10 7 15 12l-5 5M15 12H3M14 4h5v16h-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg className="h-7 w-7 text-[#1f4d73]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 6v6c0 5-3.4 8-8 9-4.6-1-8-4-8-9V6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
-      <path d="m8.5 12 2.2 2.2 4.8-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function GoogleIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.3h6a5.1 5.1 0 0 1-2.2 3.3v2.8h3.6c2.1-1.9 3.2-4.8 3.2-8.2Z" />
-      <path fill="#34A853" d="M12 23c3 0 5.5-1 7.4-2.6l-3.6-2.8c-1 .7-2.3 1-3.8 1-2.9 0-5.3-1.9-6.1-4.5H2.2V17A11 11 0 0 0 12 23Z" />
-      <path fill="#FBBC05" d="M5.9 14.1a6.6 6.6 0 0 1 0-4.2V7H2.2a11 11 0 0 0 0 10l3.7-2.9Z" />
-      <path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.2 1.7l3.2-3.2A10.8 10.8 0 0 0 12 1 11 11 0 0 0 2.2 7l3.7 2.9c.8-2.6 3.2-4.5 6.1-4.5Z" />
-    </svg>
-  );
-}
-
-function MicrosoftIcon() {
-  return (
-    <svg className="h-6 w-6" viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#F35325" d="M3 3h8.5v8.5H3z" />
-      <path fill="#81BC06" d="M12.5 3H21v8.5h-8.5z" />
-      <path fill="#05A6F0" d="M3 12.5h8.5V21H3z" />
-      <path fill="#FFBA08" d="M12.5 12.5H21V21h-8.5z" />
-    </svg>
-  );
-}
+import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
+import {
+  ArrowLoginIcon,
+  EmailIcon,
+  EyeIcon,
+  LockIcon,
+  ShieldIcon
+} from "@/features/auth/components/auth-icons";
+import {
+  AuthDivider,
+  AuthSocialButtons,
+  type AuthProvider
+} from "@/features/auth/components/auth-social-buttons";
 
 function DashboardIllustration() {
   return (
@@ -155,24 +96,9 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [oauthProvider, setOauthProvider] = useState<"google" | "azure" | null>(null);
+  const [oauthProvider, setOauthProvider] = useState<AuthProvider | null>(null);
 
-  useEffect(() => {
-    if (!isDesktopApp) {
-      return;
-    }
-
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousBodyOverflow = document.body.style.overflow;
-
-    document.documentElement.style.overflow = "hidden";
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.documentElement.style.overflow = previousHtmlOverflow;
-      document.body.style.overflow = previousBodyOverflow;
-    };
-  }, [isDesktopApp]);
+  useDesktopAuthScrollLock(isDesktopApp);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -210,7 +136,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
     }
   };
 
-  const signInWithProvider = async (provider: "google" | "azure") => {
+  const signInWithProvider = async (provider: AuthProvider) => {
     setOauthProvider(provider);
     setError("");
 
@@ -224,7 +150,7 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
 
   return (
     <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-back max-h-[760px] max-w-6xl grid-cols-[0.92fr_1fr]" : "lg:grid-cols-2"}`}>
-          <div className={`order-2 relative overflow-hidden p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "desktop-auth-info-panel block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : compact ? "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-10" : "bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:p-14"}`}>
+          <div className={`order-2 relative overflow-hidden p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "desktop-auth-info-panel block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : compact ? "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-10" : "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-14"}`}>
             <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
             <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
             <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -351,41 +277,24 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   {isSubmitting ? "Logging in..." : "Login"}
                 </button>
 
-                <div className={`${isDesktopApp ? "my-5" : compact ? "my-7" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
-                  <span className="h-px flex-1 bg-[#E5E0D6]" />
-                  or continue with
-                  <span className="h-px flex-1 bg-[#E5E0D6]" />
-                </div>
+                <AuthDivider
+                  className={
+                    isDesktopApp ? "my-5" : compact ? "my-7" : "my-10"
+                  }
+                />
 
-                <div className={isDesktopApp ? "space-y-3" : "space-y-4"}>
-                  <button
-                    className={`login-social flex w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-10 text-sm" : "h-14 text-base"}`}
-                    type="button"
-                    disabled={oauthProvider !== null}
-                    onClick={() => signInWithProvider("google")}
-                  >
-                    <GoogleIcon />
-                    {oauthProvider === "google" ? "Opening Google..." : "Continue with Google"}
-                  </button>
-                  <button
-                    className={`login-social flex w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-10 text-sm" : "h-14 text-base"}`}
-                    type="button"
-                    disabled={oauthProvider !== null}
-                    onClick={() => signInWithProvider("azure")}
-                  >
-                    <MicrosoftIcon />
-                    {oauthProvider === "azure" ? "Opening Microsoft..." : "Continue with Microsoft"}
-                  </button>
-                </div>
+                <AuthSocialButtons
+                  isCompact={isDesktopApp}
+                  oauthProvider={oauthProvider}
+                  onProviderClick={signInWithProvider}
+                />
 
-                {!isDesktopApp ? (
-                  <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
-                    <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
-                    <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                      Ask your administrator for an invitation, then open the secure link sent to your email.
-                    </p>
-                  </div>
-                ) : null}
+                <div className={`${isDesktopApp ? "mt-4 p-3 text-sm" : "mt-9 p-4"} rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] text-center`}>
+                  <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
+                  <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                    Ask your administrator for an invitation, then open the secure link sent to your email.
+                  </p>
+                </div>
 
                 {!isDesktopApp ? (
                 <p className="mt-5 text-center text-base text-[#64748B]">
