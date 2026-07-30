@@ -18,8 +18,8 @@ const APP_BACKGROUND_COLOR = "#0F172A";
 const DEFAULT_WINDOW_OPTIONS = {
   width: 1440,
   height: 900,
-  minWidth: 1024,
-  minHeight: 720,
+  minWidth: 390,
+  minHeight: 640,
   title: "Event Core",
   backgroundColor: APP_BACKGROUND_COLOR,
   icon: APP_ICON

@@ -432,9 +432,9 @@ function DashboardTab({
               </thead>
               <tbody>
                 {transactions.map(
-                  ([date, name, category, event, amount, tone]) => (
+                  ([date, name, category, event, amount, tone], index) => (
                     <tr
-                      key={`${date}-${name}`}
+                      key={`${date}-${name}-${category}-${event}-${amount}-${index}`}
                       className="border-b border-[#d8dde5]"
                     >
                       <td className="py-3">{date}</td>

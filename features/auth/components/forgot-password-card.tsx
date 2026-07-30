@@ -205,7 +205,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
   return (
     <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
-      <div className={`relative overflow-hidden p-5 sm:p-10 ${isDesktopApp ? "order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : "order-2 bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
+      <div className={`relative overflow-hidden p-5 sm:p-10 ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : "order-2 bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
         <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
         <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
@@ -250,7 +250,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
         </div>
       </div>
 
-      <div className={`box-border w-full min-w-0 ${isDesktopApp ? "order-1 bg-white p-8" : compact ? "order-1 bg-white p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 bg-white p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
+      <div className={`box-border w-full min-w-0 ${isDesktopApp ? "desktop-auth-form-panel order-1 bg-white p-8" : compact ? "order-1 bg-white p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 bg-white p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
           <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
           <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>

@@ -57,7 +57,7 @@ function DownloadButton() {
   if (!desktopInstallerUrl) {
     return (
       <button
-        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white opacity-50 shadow-lg shadow-[#1f4d73]/20"
+        className="flex h-10 w-full items-center justify-center gap-2.5 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white opacity-50 shadow-lg shadow-[#1f4d73]/20"
         disabled
         type="button"
       >
@@ -70,7 +70,7 @@ function DownloadButton() {
 
   return (
     <a
-      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg bg-linear-to-r from-[#1f4d73] to-[#1246c8] px-4 text-sm font-black text-white shadow-xl shadow-[#1f4d73]/25 transition hover:brightness-110"
+      className="flex h-10 w-full items-center justify-center gap-2.5 rounded-lg bg-linear-to-r from-[#1f4d73] to-[#1246c8] px-4 text-xs font-black text-white shadow-xl shadow-[#1f4d73]/25 transition hover:brightness-110"
       href={desktopInstallerUrl}
       rel="noreferrer"
       target="_blank"
@@ -84,11 +84,11 @@ function DownloadButton() {
 
 function LaptopPreview() {
   return (
-    <div className="relative mx-auto w-full max-w-sm">
+    <div className="relative mx-auto w-full max-w-xs">
       <div className="pointer-events-none absolute inset-x-8 bottom-2 h-12 rounded-full bg-[#071427]/20 blur-2xl" />
       <Image
         alt="Event Core desktop app preview on laptop"
-        className="relative h-auto w-full object-contain drop-shadow-2xl"
+        className="relative h-auto w-full object-contain drop-shadow-xl"
         height={560}
         priority
         src="/images/features/laptop.png"
@@ -102,7 +102,7 @@ export function AppInstallCard() {
   return (
     <section className="grid gap-3">
       <article className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <div className="grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,0.92fr)_minmax(280px,1fr)] lg:items-center">
+        <div className="grid gap-3 p-3 lg:grid-cols-[minmax(0,0.84fr)_minmax(250px,1fr)] lg:items-center">
           <LaptopPreview />
 
           <div className="min-w-0">
@@ -118,19 +118,19 @@ export function AppInstallCard() {
               </span>
             </div>
 
-            <h2 className="mt-2 text-xl font-black tracking-tight text-[#071427] sm:text-2xl">
+            <h2 className="mt-1.5 text-lg font-black tracking-tight text-[#071427] sm:text-xl">
               EventCore Desktop
             </h2>
-            <p className="mt-2 max-w-xl text-xs leading-5 text-[#59677c] sm:text-sm">
+            <p className="mt-1.5 max-w-xl text-xs leading-5 text-[#59677c]">
               Install the EventCore desktop app on Windows. The app opens directly
               to login, then routes staff to the dashboard based on their
               organization permissions.
             </p>
 
-            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {appDetails.map((detail) => (
                 <div className="flex min-w-0 items-center gap-2" key={detail.label}>
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md border border-[#d8dde5] bg-[#f8fbff] text-lg text-[#1259ff]">
+                  <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[#d8dde5] bg-[#f8fbff] text-[#1259ff]">
                     <detail.icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0">
@@ -141,14 +141,14 @@ export function AppInstallCard() {
               ))}
             </div>
 
-            <div className="mt-4">
+            <div className="mt-3">
               <DownloadButton />
-              <p className="mt-3 text-xs font-bold text-[#617086]">Windows 10 or later</p>
+              <p className="mt-2 text-[11px] font-bold text-[#617086]">Windows 10 or later</p>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] p-3 sm:grid-cols-3 sm:p-4">
+        <div className="grid gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] p-3 sm:grid-cols-3">
           {[
             ["Secure & Verified", "Digitally signed installer"],
             ["Auto Updates", "Always up to date"],
@@ -168,11 +168,11 @@ export function AppInstallCard() {
       </article>
 
       <div className="grid gap-3 lg:grid-cols-3">
-        <article className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+        <article className="rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm">
           <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-[#1259ff]">
             System Requirements
           </h3>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid gap-2.5">
             {requirements.map(([label, value]) => (
               <div className="grid grid-cols-[72px_1fr] gap-2 text-xs" key={label}>
                 <span className="font-black text-[#071427]">{label}</span>
@@ -182,14 +182,14 @@ export function AppInstallCard() {
           </div>
         </article>
 
-        <article className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+        <article className="rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm">
           <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-[#1259ff]">
             Installation Steps
           </h3>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid gap-2.5">
             {installSteps.map(([title, body], index) => (
-              <div className="grid grid-cols-[32px_1fr] gap-2.5" key={title}>
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#1259ff] text-xs font-black text-white">
+              <div className="grid grid-cols-[28px_1fr] gap-2.5" key={title}>
+                <span className="grid h-7 w-7 place-items-center rounded-full bg-[#1259ff] text-[11px] font-black text-white">
                   {index + 1}
                 </span>
                 <span>
@@ -201,7 +201,7 @@ export function AppInstallCard() {
           </div>
         </article>
 
-        <article className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+        <article className="rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-[11px] font-black uppercase tracking-[0.16em] text-[#1259ff]">
               What&apos;s New
@@ -210,7 +210,7 @@ export function AppInstallCard() {
               v2.1.0
             </span>
           </div>
-          <div className="mt-4 grid gap-3">
+          <div className="mt-3 grid gap-2.5">
             {updates.map((item) => (
               <div className="flex items-center gap-2.5 text-xs text-[#59677c]" key={item}>
                 <Check className="h-4 w-4 text-emerald-600" />
@@ -218,16 +218,16 @@ export function AppInstallCard() {
               </div>
             ))}
           </div>
-          <p className="mt-4 text-xs font-black text-[#1259ff]">
+          <p className="mt-3 text-xs font-black text-[#1259ff]">
             Release notes are available from the Help menu.
           </p>
         </article>
       </div>
 
-      <article className="flex flex-col gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+      <article className="flex flex-col gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-full bg-[#eef4ff] text-3xl text-[#1259ff]">
-            <Headphones className="h-6 w-6" />
+          <span className="grid h-9 w-9 place-items-center rounded-full bg-[#eef4ff] text-[#1259ff]">
+            <Headphones className="h-5 w-5" />
           </span>
           <div>
             <h3 className="text-sm font-black text-[#071427]">Need help installing?</h3>

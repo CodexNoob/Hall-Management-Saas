@@ -319,7 +319,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
         </div>
       </div>
 
-      <div className={`order-1 box-border w-full min-w-0 bg-white ${isDesktopApp ? "p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
+      <div className={`order-1 box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
           {isDesktopApp ? (
             <Image

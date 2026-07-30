@@ -690,6 +690,69 @@ svg {
   will-change: opacity, transform;
 }
 
+.desktop-auth-soft-page.desktop-auth-soft-page {
+  max-width: min(72rem, calc(100vw - 2rem));
+}
+
+@media (max-width: 900px) {
+  .desktop-auth-soft-page.desktop-auth-soft-page {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    max-height: calc(100dvh - 1.25rem) !important;
+    max-width: min(32rem, calc(100vw - 1.25rem)) !important;
+    overflow-y: auto !important;
+  }
+
+  .desktop-auth-soft-page .desktop-auth-info-panel {
+    display: none !important;
+  }
+
+  .desktop-auth-soft-page .desktop-auth-form-panel {
+    order: 1 !important;
+    padding: 1.5rem !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .desktop-auth-soft-page.desktop-auth-soft-page {
+    border-radius: 1rem;
+    max-width: calc(100vw - 0.75rem);
+  }
+
+  .desktop-auth-soft-page .desktop-auth-form-panel {
+    padding: 1rem !important;
+  }
+
+  .desktop-auth-soft-page h2 {
+    font-size: 1.35rem !important;
+    line-height: 1.15 !important;
+  }
+
+  .desktop-auth-soft-page label,
+  .desktop-auth-soft-page p,
+  .desktop-auth-soft-page button,
+  .desktop-auth-soft-page a {
+    font-size: 0.875rem;
+  }
+
+  .desktop-auth-soft-page input {
+    font-size: 0.875rem !important;
+  }
+
+  .desktop-auth-soft-page .login-field,
+  .desktop-auth-soft-page .login-social,
+  .desktop-auth-soft-page .login-button {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+  }
+
+  .desktop-auth-soft-page .login-social {
+    gap: 0.625rem !important;
+  }
+}
+
 .desktop-auth-soft-forward {
   animation-name: desktopAuthSoftForward;
 }
