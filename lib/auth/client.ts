@@ -49,6 +49,12 @@ export type SyncedOrganization = {
   name: string;
   slug: string;
   role: string;
+  trialStartedAt: string | null;
+  trialEndsAt: string | null;
+  subscriptionStatus: string;
+  subscriptionPlan: string | null;
+  subscriptionStartedAt: string | null;
+  subscriptionEndsAt: string | null;
 };
 
 export type SyncSignedInUserResponse = {

@@ -6,6 +6,7 @@ import {
   FREE_TRIAL_NOT_ALLOWED_MESSAGE,
   isFreeTrialEmailAllowed
 } from "@/lib/auth/free-trial-allowlist";
+import { getTrialDates } from "@/lib/subscription/trial";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -120,10 +121,14 @@ export async function POST(request: NextRequest) {
           }
 
           const organizationName = venueName ?? `${name}'s Organization`;
+          const { trialStartedAt, trialEndsAt } = getTrialDates();
           const organization = await transaction.organization.create({
             data: {
               name: organizationName,
-              slug: createOrganizationSlug(organizationName, authUserId)
+              slug: createOrganizationSlug(organizationName, authUserId),
+              subscriptionStatus: "trialing",
+              trialStartedAt,
+              trialEndsAt
             }
           });
 
@@ -234,7 +239,15 @@ export async function POST(request: NextRequest) {
         id: membership.organization.id,
         name: membership.organization.name,
         slug: membership.organization.slug,
-        role: membership.role
+        role: membership.role,
+        trialStartedAt: membership.organization.trialStartedAt?.toISOString() ?? null,
+        trialEndsAt: membership.organization.trialEndsAt?.toISOString() ?? null,
+        subscriptionStatus: membership.organization.subscriptionStatus,
+        subscriptionPlan: membership.organization.subscriptionPlan,
+        subscriptionStartedAt:
+          membership.organization.subscriptionStartedAt?.toISOString() ?? null,
+        subscriptionEndsAt:
+          membership.organization.subscriptionEndsAt?.toISOString() ?? null
       }))
     });
   } catch (error) {

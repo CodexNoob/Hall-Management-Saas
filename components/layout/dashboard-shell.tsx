@@ -5,14 +5,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import type { SyncedUser, SyncedUserAccess } from "@/lib/auth/client";
+import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
+import type {
+  SyncedOrganization,
+  SyncedUser,
+  SyncedUserAccess
+} from "@/lib/auth/client";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { DashboardOverview } from "@/features/dashboard/components/dashboard-overview";
+import {
+  getTrialDaysRemaining,
+  isTrialExpired
+} from "@/lib/subscription/trial";
 
 type DashboardShellProps = {
   user: SyncedUser;
   access: SyncedUserAccess;
+  activeOrganizationId: string;
+  organizations: SyncedOrganization[];
 };
 
 import {
@@ -26,7 +37,12 @@ import {
   type DashboardEventsResponse,
   type TimeFilter
 } from "@/components/layout/dashboard-shell-shared";
-export function DashboardShell({ access }: DashboardShellProps) {
+export function DashboardShell({
+  access,
+  activeOrganizationId,
+  organizations,
+  user
+}: DashboardShellProps) {
   const [pageSearchQuery] = useDashboardPageSearch("Dashboard");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
@@ -133,6 +149,17 @@ export function DashboardShell({ access }: DashboardShellProps) {
   const financialTimeline = financialQuery.data?.financialTimeline ?? [];
   const financialRangeLabel = `${formatEventDate(financialDateRange.startDate)} - ${formatEventDate(financialDateRange.endDate)}`;
   const nextUpcomingEvent = scheduleRows[0];
+  const activeOrganization =
+    organizations.find((organization) => organization.id === activeOrganizationId) ??
+    null;
+  const trialExpired = isTrialExpired({
+    email: user.email,
+    subscriptionStatus: activeOrganization?.subscriptionStatus,
+    trialEndsAt: activeOrganization?.trialEndsAt
+  });
+  const trialDaysRemaining = getTrialDaysRemaining(
+    activeOrganization?.trialEndsAt
+  );
   useEffect(() => {
     setTodayNotesNeedRevision(
       window.localStorage.getItem(TODAY_NOTES_READ_STORAGE_KEY) !==
@@ -191,6 +218,18 @@ export function DashboardShell({ access }: DashboardShellProps) {
         onClose={closeNewBooking}
         onSubmit={continueNewBooking}
         open={isNewBookingOpen}
+      />
+
+      <UpgradePlanDialog
+        description={
+          trialDaysRemaining === 0
+            ? "Your 14-day free trial has ended. Choose a subscription plan to continue using Event Core."
+            : "Choose a subscription plan to continue using Event Core."
+        }
+        forceSelection={trialExpired}
+        onClose={() => {}}
+        open={trialExpired}
+        title="Your free trial has ended"
       />
 
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

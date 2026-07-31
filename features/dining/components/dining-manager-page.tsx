@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
@@ -16,6 +22,7 @@ import {
   eventCounts,
   eventSchedule,
   eventTitle,
+  isDiningSeatingTable,
   tableclothOptions,
   validPresetObjects,
   validTables,
@@ -39,6 +46,16 @@ export function DiningManagerPage() {
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [tables, setTables] = useState<DiningTableData[]>([]);
+  const dragRef = useRef<{
+    id: string;
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startX: number;
+    startY: number;
+    scaleX: number;
+    scaleY: number;
+  } | null>(null);
   const [checkMessage, setCheckMessage] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const [form, setForm] = useState<DiningForm>({
@@ -127,14 +144,24 @@ export function DiningManagerPage() {
   }, [resetError, selectedEvent]);
 
   const seatTotals = tables.reduce(
-    (totals, table) => ({
-      ...totals,
-      [table.side]: totals[table.side] + table.seats
-    }),
+    (totals, table) =>
+      isDiningSeatingTable(table)
+        ? {
+            ...totals,
+            [table.side]: totals[table.side] + table.seats
+          }
+        : totals,
     { men: 0, women: 0, kids: 0, head: 0 }
   );
   const menRequired = Math.ceil(form.adultCount / 2);
   const womenRequired = form.adultCount - menRequired;
+  const hasPresetCoordinates = tables.some(
+    (table) =>
+      typeof table.x === "number" &&
+      typeof table.y === "number" &&
+      typeof table.width === "number" &&
+      typeof table.height === "number"
+  );
 
   function updateForm<K extends keyof DiningForm>(
     field: K,
@@ -145,14 +172,28 @@ export function DiningManagerPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function mapTypeForSide(side: TableSide) {
+    if (side === "kids") return "kids-table";
+    if (side === "head") return "head-table";
+    return "round-table";
+  }
+
   function addTable(side: TableSide = "men") {
+    setSavedMessage("");
+    resetError();
     setTables((current) => [
       ...current,
       {
         id: crypto.randomUUID(),
+        height: side === "head" ? 46 : 58,
+        isSeating: true,
+        mapType: mapTypeForSide(side),
         number: current.length + 1,
         seats: side === "head" ? 12 : 10,
-        side
+        side,
+        width: side === "head" ? 98 : 58,
+        x: 330 + ((current.length % 5) - 2) * 22,
+        y: 225 + (Math.floor(current.length / 5) % 5) * 22
       }
     ]);
   }
@@ -163,6 +204,16 @@ export function DiningManagerPage() {
       ["women", Math.max(0, womenRequired - seatTotals.women)],
       ["kids", Math.max(0, form.childrenCount - seatTotals.kids)]
     ];
+    const requiredTableCount = requirements.reduce(
+      (total, [, missingSeats]) => total + Math.ceil(missingSeats / 10),
+      0
+    );
+    if (requiredTableCount === 0) {
+      setCheckMessage("Seating is already sufficient for this event.");
+      return;
+    }
+    setSavedMessage("");
+    resetError();
     setTables((current) => {
       const next = [...current];
       for (const [side, missingSeats] of requirements) {
@@ -170,9 +221,15 @@ export function DiningManagerPage() {
         for (let index = 0; index < count; index += 1) {
           next.push({
             id: crypto.randomUUID(),
+            height: 58,
+            isSeating: true,
+            mapType: mapTypeForSide(side),
             number: next.length + 1,
             seats: 10,
-            side
+            side,
+            width: 58,
+            x: 330 + ((next.length % 5) - 2) * 22,
+            y: 225 + (Math.floor(next.length / 5) % 5) * 22
           });
         }
       }
@@ -192,42 +249,109 @@ export function DiningManagerPage() {
     }
 
     let adultIndex = 0;
-    const presetTables = validPresetObjects(preset.objects)
-      .filter((object) => object.seats > 0 && object.seatingUse !== "none")
-      .map((object, index): DiningTableData => {
+    const presetTables = validPresetObjects(preset.objects).map(
+      (object, index): DiningTableData => {
         let side: TableSide;
         if (object.seatingUse === "kids") {
           side = "kids";
         } else if (object.seatingUse === "head") {
           side = "head";
-        } else {
+        } else if (object.seatingUse === "adult") {
           side = adultIndex % 2 === 0 ? "men" : "women";
           adultIndex += 1;
+        } else {
+          side = "men";
         }
+        const isSeating = object.seats > 0 && object.seatingUse !== "none";
         return {
           id: crypto.randomUUID(),
+          isSeating,
+          mapObjectId: object.id,
+          mapType: object.type,
+          name: object.name,
           number: index + 1,
+          rotation: object.rotation,
           seats: object.seats,
-          side
+          side,
+          x: object.x,
+          y: object.y,
+          width: object.width,
+          height: object.height
         };
-      });
+      }
+    );
 
     setTables(presetTables);
     setSelectedTableId(null);
     setSavedMessage("");
     setCheckMessage(
-      `${preset.name} applied with ${presetTables.length} seating tables. Save the dining plan to keep it.`
+      `${preset.name} applied with ${
+        presetTables.filter(isDiningSeatingTable).length
+      } seating tables. Save the dining plan to keep it.`
     );
   }
 
   function removeSelectedTable() {
     if (!selectedTableId) return;
+    setSavedMessage("");
+    resetError();
     setTables((current) =>
       current
         .filter((table) => table.id !== selectedTableId)
         .map((table, index) => ({ ...table, number: index + 1 }))
     );
     setSelectedTableId(null);
+  }
+
+  function startTableDrag(
+    event: ReactPointerEvent<HTMLButtonElement>,
+    table: DiningTableData
+  ) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setSelectedTableId(table.id);
+    setSavedMessage("");
+    resetError();
+    const container = event.currentTarget.parentElement;
+    const bounds = container?.getBoundingClientRect();
+    dragRef.current = {
+      id: table.id,
+      pointerId: event.pointerId,
+      scaleX: bounds ? 760 / bounds.width : 1,
+      scaleY: bounds ? 520 / bounds.height : 1,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startX: table.x ?? 0,
+      startY: table.y ?? 0
+    };
+  }
+
+  function dragTable(event: ReactPointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    setTables((current) =>
+      current.map((table) => {
+        if (table.id !== drag.id) return table;
+        const width = table.width ?? 72;
+        const height = table.height ?? 72;
+        const nextX =
+          drag.startX + (event.clientX - drag.startClientX) * drag.scaleX;
+        const nextY =
+          drag.startY + (event.clientY - drag.startClientY) * drag.scaleY;
+        return {
+          ...table,
+          x: Math.min(Math.max(0, nextX), 760 - width),
+          y: Math.min(Math.max(0, nextY), 520 - height)
+        };
+      })
+    );
+  }
+
+  function stopTableDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (dragRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragRef.current = null;
   }
 
   async function savePlan() {
@@ -479,31 +603,104 @@ export function DiningManagerPage() {
             </header>
             <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2">
               <div className="min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
-                <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
-                  {tables.map((table) => (
-                    <button
-                      className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
-                        selectedTableId === table.id
-                          ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
-                          : "border-[#526c86]"
-                      }`}
-                      key={table.id}
-                      onClick={() => setSelectedTableId(table.id)}
-                      type="button"
-                    >
-                      <strong className="text-[10px]">
-                        Table {table.number}
-                      </strong>
-                      <span className="text-[9px]">{table.seats} seats</span>
-                      <span className="text-[8px] uppercase text-[#617086]">
-                        {table.side}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="mx-auto mt-8 flex h-6 max-w-96 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
-                  Mechitza
-                </div>
+                {hasPresetCoordinates ? (
+                  <div className="relative mx-auto aspect-[760/520] w-full max-w-[760px]">
+                    {tables.map((table) => {
+                      const isRound =
+                        table.mapType === "round-table" ||
+                        table.mapType === "kids-table" ||
+                        table.mapType === "circle";
+                      const isDivider = table.mapType === "divider";
+                      const isServiceShape =
+                        table.mapType === "buffet" ||
+                        table.mapType === "drinks";
+                      const isSeating = isDiningSeatingTable(table);
+
+                      return (
+                        <button
+                          className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-hidden px-1 text-center select-none ${
+                            isDivider
+                              ? "rounded bg-[#344a60] text-white shadow-none"
+                              : "border bg-white shadow-sm"
+                          } ${
+                            selectedTableId === table.id
+                              ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
+                              : isServiceShape
+                                ? "border-dashed border-[#526c86]"
+                                : "border-[#526c86]"
+                          } ${isRound ? "rounded-full" : "rounded-lg"}`}
+                          key={table.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setSelectedTableId(table.id);
+                          }}
+                          onPointerCancel={stopTableDrag}
+                          onPointerDown={(event) =>
+                            startTableDrag(event, table)
+                          }
+                          onPointerMove={dragTable}
+                          onPointerUp={stopTableDrag}
+                          style={{
+                            left: `${((table.x ?? 0) / 760) * 100}%`,
+                            top: `${((table.y ?? 0) / 520) * 100}%`,
+                            width: `${((table.width ?? 72) / 760) * 100}%`,
+                            height: `${((table.height ?? 72) / 520) * 100}%`,
+                            transform: `rotate(${table.rotation ?? 0}deg)`
+                          }}
+                          type="button"
+                        >
+                          <strong
+                            className={`line-clamp-2 leading-3 ${
+                              isDivider ? "text-[10px]" : "text-[10px]"
+                            }`}
+                          >
+                            {table.name || `Table ${table.number}`}
+                          </strong>
+                          {isSeating ? (
+                            <>
+                              <span className="text-[8px] leading-3">
+                                {table.seats} seats
+                              </span>
+                              <span className="text-[7px] uppercase leading-3 text-[#617086]">
+                                {table.side}
+                              </span>
+                            </>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
+                      {tables.map((table) => (
+                        <button
+                          className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
+                            selectedTableId === table.id
+                              ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
+                              : "border-[#526c86]"
+                          }`}
+                          key={table.id}
+                          onClick={() => setSelectedTableId(table.id)}
+                          type="button"
+                        >
+                          <strong className="text-[10px]">
+                            {table.name || `Table ${table.number}`}
+                          </strong>
+                          <span className="text-[9px]">
+                            {table.seats} seats
+                          </span>
+                          <span className="text-[8px] uppercase text-[#617086]">
+                            {table.side}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mx-auto mt-8 flex h-6 max-w-96 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
+                      Mechitza
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </Panel>
@@ -588,6 +785,16 @@ export function DiningManagerPage() {
 
               {selectedTableId ? (
                 <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+                  <p className="mb-2 text-xs font-black text-[#17202a]">
+                    {tables.find((table) => table.id === selectedTableId)
+                      ?.name ?? "Selected table"}
+                  </p>
+                  {hasPresetCoordinates ? (
+                    <p className="mb-3 text-[11px] font-medium text-[#617086]">
+                      Loaded from Hall Room Map preset with saved position and
+                      size.
+                    </p>
+                  ) : null}
                   <FieldLabel htmlFor="table-side">
                     Selected table use
                   </FieldLabel>
@@ -599,6 +806,7 @@ export function DiningManagerPage() {
                           table.id === selectedTableId
                             ? {
                                 ...table,
+                                isSeating: true,
                                 side: value as TableSide
                               }
                             : table

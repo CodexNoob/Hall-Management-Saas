@@ -31,15 +31,15 @@ const requirements = [
 const installSteps = [
   ["1. Download", "Download the installer for Windows."],
   ["2. Install", "Run the installer and follow the instructions."],
-  ["3. Login", "Open Event Core and login to your account."],
-  ["4. Start Managing", "You're all set. Start managing your events."]
+  ["3. Login", "Open Event Core and sign in with your organization account."],
+  ["4. Open Dashboard", "Manage bookings, events, billing, kitchen, dining, files, and staff."]
 ];
 
 const updates = [
-  "Improved calendar performance",
-  "Enhanced dining and kitchen modules",
-  "Faster report generation",
-  "Bug fixes and stability improvements"
+  "Smoother desktop startup loading screen",
+  "Dashboard-only desktop login flow",
+  "Responsive dashboard module layouts",
+  "Hall map, billing, kitchen, and dining fixes"
 ];
 
 function WindowsMark() {
@@ -122,9 +122,9 @@ export function AppInstallCard() {
               EventCore Desktop
             </h2>
             <p className="mt-1.5 max-w-xl text-xs leading-5 text-[#59677c]">
-              Install the EventCore desktop app on Windows. The app opens directly
-              to login, then routes staff to the dashboard based on their
-              organization permissions.
+              Install the EventCore desktop app on Windows. The app opens
+              directly to the employee login, then routes staff into the
+              dashboard modules allowed by their organization permissions.
             </p>
 
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -151,8 +151,8 @@ export function AppInstallCard() {
         <div className="grid gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] p-3 sm:grid-cols-3">
           {[
             ["Secure & Verified", "Digitally signed installer"],
-            ["Auto Updates", "Always up to date"],
-            ["Safe & Trusted", "Scanned for security"]
+            ["Dashboard Ready", "Opens directly to Event Core"],
+            ["Organization Access", "Uses your dashboard permissions"]
           ].map(([title, body]) => (
             <div className="flex items-center gap-2.5" key={title}>
               <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-100 text-emerald-700">

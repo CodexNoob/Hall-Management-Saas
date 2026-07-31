@@ -4,6 +4,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { getActiveHallLimit } from "@/lib/subscription/limits";
 
 type HallMapPresetCount = {
   hall_id: string;
@@ -47,24 +48,34 @@ const deleteHallSchema = z.object({ id: z.string().uuid() });
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewSettings");
-    const halls = await prisma.hall.findMany({
-      where: { organizationId: actor.organizationId },
-      orderBy: [{ isActive: "desc" }, { name: "asc" }],
-      select: {
-        id: true,
-        name: true,
-        capacity: true,
-        color: true,
-        isActive: true,
-        isBookable: true,
-        _count: {
-          select: {
-            events: true,
-            bookingReservations: true
+    const [organization, halls] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: actor.organizationId },
+        select: { subscriptionPlan: true, subscriptionStatus: true }
+      }),
+      prisma.hall.findMany({
+        where: { organizationId: actor.organizationId },
+        orderBy: [{ isActive: "desc" }, { name: "asc" }],
+        select: {
+          id: true,
+          name: true,
+          capacity: true,
+          color: true,
+          isActive: true,
+          isBookable: true,
+          _count: {
+            select: {
+              events: true,
+              bookingReservations: true
+            }
           }
         }
-      }
-    });
+      })
+    ]);
+    const hallLimit = getActiveHallLimit(
+      organization?.subscriptionStatus,
+      organization?.subscriptionPlan
+    );
     const hallMapPresetCounts = halls.length
       ? await prisma.$queryRaw<HallMapPresetCount[]>`
           SELECT hall_id, COUNT(*)::bigint AS count
@@ -76,7 +87,12 @@ export async function GET(request: Request) {
       : [];
 
     return NextResponse.json({
-      halls: withHallMapPresetCounts(halls, hallMapPresetCounts)
+      halls: withHallMapPresetCounts(halls, hallMapPresetCounts),
+      limits: {
+        activeHallLimit: hallLimit,
+        subscriptionPlan: organization?.subscriptionPlan ?? null,
+        subscriptionStatus: organization?.subscriptionStatus ?? "active"
+      }
     });
   } catch (error) {
     return createApiErrorResponse(error);
@@ -87,6 +103,34 @@ export async function POST(request: Request) {
   try {
     const actor = await requirePermission(request, "canEditSettings");
     const input = createHallSchema.parse(await request.json());
+    const organization = await prisma.organization.findUnique({
+      where: { id: actor.organizationId },
+      select: { subscriptionPlan: true, subscriptionStatus: true }
+    });
+    const hallLimit = getActiveHallLimit(
+      organization?.subscriptionStatus,
+      organization?.subscriptionPlan
+    );
+
+    if (hallLimit !== null) {
+      const activeHallCount = await prisma.hall.count({
+        where: {
+          organizationId: actor.organizationId,
+          isActive: true
+        }
+      });
+
+      if ((input.isActive ?? true) && activeHallCount >= hallLimit) {
+        return NextResponse.json(
+          {
+            error:
+              "Free trial organizations can only use 1 active hall. Upgrade your plan to add more halls."
+          },
+          { status: 403 }
+        );
+      }
+    }
+
     const duplicate = await prisma.hall.findFirst({
       where: {
         organizationId: actor.organizationId,
@@ -123,7 +167,7 @@ export async function PATCH(request: Request) {
     const input = updateHallSchema.parse(await request.json());
     const current = await prisma.hall.findFirst({
       where: { id: input.id, organizationId: actor.organizationId },
-      select: { id: true }
+      select: { id: true, isActive: true }
     });
     if (!current) {
       return NextResponse.json({ error: "Hall not found." }, { status: 404 });
@@ -142,6 +186,37 @@ export async function PATCH(request: Request) {
           { error: "A hall with this name already exists." },
           { status: 409 }
         );
+      }
+    }
+
+    if (input.isActive === true && !current.isActive) {
+      const organization = await prisma.organization.findUnique({
+        where: { id: actor.organizationId },
+        select: { subscriptionPlan: true, subscriptionStatus: true }
+      });
+      const hallLimit = getActiveHallLimit(
+        organization?.subscriptionStatus,
+        organization?.subscriptionPlan
+      );
+
+      if (hallLimit !== null) {
+        const activeHallCount = await prisma.hall.count({
+          where: {
+            organizationId: actor.organizationId,
+            isActive: true,
+            id: { not: current.id }
+          }
+        });
+
+        if (activeHallCount >= hallLimit) {
+          return NextResponse.json(
+            {
+              error:
+                "Free trial organizations can only use 1 active hall. Upgrade your plan to activate more halls."
+            },
+            { status: 403 }
+          );
+        }
       }
     }
 

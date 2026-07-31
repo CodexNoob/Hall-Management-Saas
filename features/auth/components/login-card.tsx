@@ -289,12 +289,27 @@ export function LoginCard({ compact = false, onStartTrialClick, onForgotPassword
                   onProviderClick={signInWithProvider}
                 />
 
-                <div className={`${isDesktopApp ? "mt-4 p-3 text-sm" : "mt-9 p-4"} rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] text-center`}>
-                  <p className="font-bold text-[#0F172A]">Joining an existing organization?</p>
-                  <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                    Ask your administrator for an invitation, then open the secure link sent to your email.
-                  </p>
-                </div>
+                {isDesktopApp ? (
+                  <div className="mt-3 shrink-0 rounded-xl border border-[#E5E0D6] bg-[#F7F4ED] p-3 text-center text-xs">
+                    <p className="font-bold text-[#0F172A]">
+                      Joining an existing organization?
+                    </p>
+                    <p className="mt-1 leading-5 text-[#64748B]">
+                      Ask your administrator for an invitation, then open the
+                      secure link sent to your email.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
+                    <p className="font-bold text-[#0F172A]">
+                      Joining an existing organization?
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                      Ask your administrator for an invitation, then open the
+                      secure link sent to your email.
+                    </p>
+                  </div>
+                )}
 
                 {!isDesktopApp ? (
                 <p className="mt-5 text-center text-base text-[#64748B]">

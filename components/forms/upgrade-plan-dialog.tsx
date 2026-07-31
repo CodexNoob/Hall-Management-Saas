@@ -2,61 +2,15 @@
 
 import { useEffect, useId, useRef } from "react";
 
+import { subscriptionPlans } from "@/lib/subscription/plans";
+
 type UpgradePlanDialogProps = {
+  description?: string;
+  forceSelection?: boolean;
   open: boolean;
   onClose: () => void;
+  title?: string;
 };
-
-type SubscriptionPlan = {
-  name: string;
-  price: string;
-  description: string;
-  features: string[];
-  popular?: boolean;
-};
-
-const subscriptionPlans: SubscriptionPlan[] = [
-  {
-    name: "Starter",
-    price: "$149",
-    description: "Perfect for small venues",
-    features: [
-      "Up to 2 Halls",
-      "Unlimited Bookings",
-      "Calendar & Scheduling",
-      "Client Management",
-      "Invoicing & Payments",
-      "Email Support"
-    ]
-  },
-  {
-    name: "Professional",
-    price: "$299",
-    description: "Best for growing venues",
-    features: [
-      "Up to 10 Halls",
-      "All Starter Features",
-      "Staff Management",
-      "Reports & Analytics",
-      "PDF Contracts",
-      "Priority Support"
-    ],
-    popular: true
-  },
-  {
-    name: "Enterprise",
-    price: "$599",
-    description: "For large venues & chains",
-    features: [
-      "Unlimited Halls",
-      "All Professional Features",
-      "Advanced Analytics",
-      "API Access",
-      "Dedicated Account Manager",
-      "24/7 Premium Support"
-    ]
-  }
-];
 
 function CheckIcon() {
   return (
@@ -77,7 +31,13 @@ function CheckIcon() {
   );
 }
 
-export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
+export function UpgradePlanDialog({
+  description = "Choose the plan that fits your hall management operation.",
+  forceSelection = false,
+  open,
+  onClose,
+  title = "Subscription Plan"
+}: UpgradePlanDialogProps) {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -89,7 +49,7 @@ export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
     closeButtonRef.current?.focus();
 
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && !forceSelection) onClose();
     }
 
     window.addEventListener("keydown", closeOnEscape);
@@ -98,7 +58,7 @@ export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [onClose, open]);
+  }, [forceSelection, onClose, open]);
 
   if (!open) return null;
 
@@ -106,7 +66,7 @@ export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
     <div
       className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-[#17202a]/40 p-3 backdrop-blur-[1px] sm:p-5"
       onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onClose();
+        if (event.currentTarget === event.target && !forceSelection) onClose();
       }}
     >
       <section
@@ -118,35 +78,37 @@ export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] bg-white px-5 py-4">
           <div>
             <h2 className="text-xl font-black text-[#17202a]" id={titleId}>
-              Subscription Plan
+              {title}
             </h2>
             <p className="mt-1 text-sm text-[#6a7483]">
-              Choose the plan that fits your hall management operation.
+              {description}
             </p>
           </div>
 
-          <button
-            aria-label="Close subscription plans"
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[0] leading-none text-[#233144] transition hover:bg-[#eef4fa]"
-            onClick={onClose}
-            ref={closeButtonRef}
-            type="button"
-          >
-            <svg
-              aria-hidden="true"
-              className="absolute h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
+          {forceSelection ? null : (
+            <button
+              aria-label="Close subscription plans"
+              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[0] leading-none text-[#233144] transition hover:bg-[#eef4fa]"
+              onClick={onClose}
+              ref={closeButtonRef}
+              type="button"
             >
-              <path
-                d="M5 5 19 19M19 5 5 19"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2.25"
-              />
-            </svg>
-            <span aria-hidden="true">×</span>
-          </button>
+              <svg
+                aria-hidden="true"
+                className="absolute h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M5 5 19 19M19 5 5 19"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeWidth="2.25"
+                />
+              </svg>
+              <span aria-hidden="true">?</span>
+            </button>
+          )}
         </header>
 
         <div className="grid gap-5 p-4 md:grid-cols-3 sm:p-6">
@@ -180,7 +142,9 @@ export function UpgradePlanDialog({ open, onClose }: UpgradePlanDialogProps) {
                   /month
                 </span>
               </p>
-              <p className="mt-1 text-sm text-[#6a7483]">Billed annually</p>
+              <p className="mt-1 text-sm text-[#6a7483]">
+                {plan.billingLabel}
+              </p>
 
               <ul className="mt-8 space-y-4 text-sm font-bold text-[#17202a]">
                 {plan.features.map((feature) => (

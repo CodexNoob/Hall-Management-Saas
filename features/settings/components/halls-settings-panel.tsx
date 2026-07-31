@@ -22,7 +22,13 @@ type Hall = {
   };
 };
 
-type HallsResponse = { halls: Hall[] };
+type HallsResponse = {
+  halls: Hall[];
+  limits?: {
+    activeHallLimit: number | null;
+    subscriptionStatus: string;
+  };
+};
 
 type HallInput = {
   id?: string;
@@ -62,6 +68,11 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
     createMutation.isPending ||
     updateMutation.isPending ||
     deleteMutation.isPending;
+  const halls = hallsQuery.data?.halls ?? [];
+  const activeHallLimit = hallsQuery.data?.limits?.activeHallLimit ?? null;
+  const activeHallCount = halls.filter((hall) => hall.isActive).length;
+  const reachedActiveHallLimit =
+    activeHallLimit !== null && activeHallCount >= activeHallLimit;
 
   function refreshHallConsumers() {
     invalidateAuthenticatedQuery("/api/events");
@@ -70,6 +81,12 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
   }
 
   function openCreate() {
+    if (reachedActiveHallLimit) {
+      setMessage(
+        "Free trial organizations can only use 1 active hall. Upgrade your plan to add more halls."
+      );
+      return;
+    }
     setForm(emptyHall);
     setMessage("");
     setDialogOpen(true);
@@ -152,12 +169,23 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
             <p className="mt-1 text-[10px] text-[#6a7483]">
               Active, bookable halls appear in booking and map-assignment forms.
             </p>
+            {activeHallLimit !== null ? (
+              <p className="mt-1 text-[10px] font-bold text-[#b26a00]">
+                Free trial limit: {activeHallCount}/{activeHallLimit} active
+                hall used.
+              </p>
+            ) : null}
           </div>
           <button
             className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!canEdit || pending}
+            disabled={!canEdit || pending || reachedActiveHallLimit}
             onClick={openCreate}
             type="button"
+            title={
+              reachedActiveHallLimit
+                ? "Free trial organizations can only use 1 active hall."
+                : undefined
+            }
           >
             + Add hall
           </button>
@@ -182,7 +210,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
           </div>
         ) : (
           <div className="grid gap-3 p-4 sm:grid-cols-2">
-            {(hallsQuery.data?.halls ?? []).map((hall) => (
+            {halls.map((hall) => (
               <article
                 className={`rounded-xl border p-3 ${
                   hall.isActive
@@ -230,9 +258,18 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   </button>
                   <button
                     className="h-8 rounded-lg border border-[#b9c2cf] bg-white text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:opacity-45"
-                    disabled={!canEdit || pending}
+                    disabled={
+                      !canEdit ||
+                      pending ||
+                      (!hall.isActive && reachedActiveHallLimit)
+                    }
                     onClick={() => void toggleHall(hall)}
                     type="button"
+                    title={
+                      !hall.isActive && reachedActiveHallLimit
+                        ? "Free trial organizations can only use 1 active hall."
+                        : undefined
+                    }
                   >
                     {hall.isActive ? "Deactivate" : "Activate"}
                   </button>
@@ -247,7 +284,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 </div>
               </article>
             ))}
-            {hallsQuery.data?.halls.length === 0 ? (
+            {halls.length === 0 ? (
               <p className="rounded-xl border border-dashed border-[#c7d0dc] p-6 text-center text-xs text-[#617086] sm:col-span-2">
                 No halls yet. Add the first hall to start accepting bookings.
               </p>

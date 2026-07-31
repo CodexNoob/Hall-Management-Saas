@@ -16,21 +16,21 @@ import { useState } from "react";
 const privacyCards = [
   {
     accent: "blue",
-    body: "Event Core stores information needed to run bookings, events, dining plans, billing, and team workflows.",
+    body: "Event Core stores the operational data needed for dashboard modules: bookings, events, menus, kitchen plans, dining setup, hall maps, files, billing, staff, clients, and vendors.",
     icon: Server,
     illustration: Database,
     title: "Operational data"
   },
   {
     accent: "green",
-    body: "User roles and permissions should limit access to the information each team member needs for their work.",
+    body: "Dashboard roles and permissions should limit each staff member to the calendar, event, billing, files, settings, and operations data needed for their work.",
     icon: UserRoundCheck,
     illustration: LockKeyhole,
     title: "Access control"
   },
   {
     accent: "purple",
-    body: "Client names, schedules, payments, and internal notes should be treated as private business information.",
+    body: "Client names, event schedules, payment records, uploaded files, hall layouts, vendor details, and Today Notes should be treated as private business information.",
     icon: FileText,
     illustration: FolderLock,
     title: "Responsible handling"

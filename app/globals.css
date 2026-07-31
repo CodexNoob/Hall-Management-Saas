@@ -389,14 +389,16 @@ svg {
   will-change: width, transform;
 }
 
-.dashboard-font,
-.dashboard-font *,
-.dashboard-scrollbars,
-.dashboard-scrollbars *,
-.app-sidebar,
-.app-sidebar * {
-  scrollbar-color: #8fa0b5 transparent;
-  scrollbar-width: thin;
+@supports (-moz-appearance: none) {
+  .dashboard-font,
+  .dashboard-font *,
+  .dashboard-scrollbars,
+  .dashboard-scrollbars *,
+  .app-sidebar,
+  .app-sidebar * {
+    scrollbar-color: #8fa0b5 transparent;
+    scrollbar-width: thin;
+  }
 }
 
 .dashboard-font::-webkit-scrollbar,
@@ -449,10 +451,12 @@ svg {
   background: transparent;
 }
 
-.dashboard-font .scrollbar-none,
-.dashboard-font .scrollbar-none *,
-.dashboard-font [class*="[&::-webkit-scrollbar]:hidden"] {
-  scrollbar-width: none;
+@supports (-moz-appearance: none) {
+  .dashboard-font .scrollbar-none,
+  .dashboard-font .scrollbar-none *,
+  .dashboard-font [class*="[&::-webkit-scrollbar]:hidden"] {
+    scrollbar-width: none;
+  }
 }
 
 .dashboard-font .scrollbar-none::-webkit-scrollbar,

@@ -3,8 +3,17 @@ export type TableSide = "men" | "women" | "kids" | "head";
 export type DiningTableData = {
   id: string;
   number: number;
+  name?: string;
   seats: number;
   side: TableSide;
+  isSeating?: boolean;
+  mapObjectId?: string;
+  mapType?: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
 };
 
 export type DiningPlan = {
@@ -26,6 +35,11 @@ export type HallMapObject = {
   id: string;
   type: string;
   name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
   seats: number;
   seatingUse: "none" | "adult" | "kids" | "head";
 };
@@ -97,6 +111,10 @@ export function validTables(value: unknown): DiningTableData[] {
   );
 }
 
+export function isDiningSeatingTable(table: DiningTableData) {
+  return table.isSeating !== false && table.seats > 0;
+}
+
 export function validPresetObjects(value: unknown): HallMapObject[] {
   if (!Array.isArray(value)) return [];
   return value.filter((object): object is HallMapObject =>
@@ -106,6 +124,11 @@ export function validPresetObjects(value: unknown): HallMapObject[] {
       "id" in object &&
       "type" in object &&
       "name" in object &&
+      "x" in object &&
+      "y" in object &&
+      "width" in object &&
+      "height" in object &&
+      "rotation" in object &&
       "seats" in object &&
       "seatingUse" in object
     )

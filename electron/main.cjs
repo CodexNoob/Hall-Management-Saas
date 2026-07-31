@@ -2,12 +2,15 @@
 const { app, BrowserView, BrowserWindow, dialog, shell } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
+const packageJson = require("../package.json");
 
+const APP_VERSION = packageJson.version || "2.1.0";
+const DESKTOP_AUTH_QUERY = `desktop=1&appVersion=${encodeURIComponent(APP_VERSION)}`;
 const APP_URL =
   process.env.EVENT_CORE_APP_URL ||
-  "https://event-core-saas.vercel.app/login?desktop=1";
+  `https://event-core-saas.vercel.app/login?${DESKTOP_AUTH_QUERY}`;
 const APP_ORIGIN = new URL(APP_URL).origin;
-const DESKTOP_LOGIN_URL = `${APP_ORIGIN}/login?desktop=1`;
+const DESKTOP_LOGIN_URL = `${APP_ORIGIN}/login?${DESKTOP_AUTH_QUERY}`;
 const APP_ICON = path.join(__dirname, "assets", "icon.ico");
 const UPDATE_FEED_URL = process.env.EVENT_CORE_UPDATE_FEED_URL;
 const UPDATE_CHECK_INTERVAL_MS = 1000 * 60 * 60 * 4;
@@ -365,7 +368,12 @@ function createWindow() {
 
   rendererLoaded.then(revealAppView);
   setTimeout(revealAppView, STARTUP_REVEAL_FALLBACK_MS);
-  appView.webContents.loadURL(APP_URL);
+  appView.webContents.session
+    .clearCache()
+    .catch(() => {})
+    .finally(() => {
+      appView.webContents.loadURL(APP_URL);
+    });
 }
 
 app.whenReady().then(() => {

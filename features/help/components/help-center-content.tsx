@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
   Building2,
   CalendarPlus,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   ClipboardList,
@@ -14,10 +16,10 @@ import {
   Headphones,
   HelpCircle,
   Lightbulb,
-  PlaySquare,
   Rocket,
   Search,
   Send,
+  Settings,
   ShieldQuestion,
   Users,
   Utensils,
@@ -26,71 +28,186 @@ import {
 } from "lucide-react";
 
 const popularTopics = [
-  { label: "Create Booking", icon: CalendarPlus },
-  { label: "Manage Halls", icon: Building2 },
-  { label: "Dining Manager", icon: Utensils },
-  { label: "Billing & Payments", icon: CreditCard },
-  { label: "Staff & Roles", icon: Users },
-  { label: "Files & Documents", icon: FolderOpen }
+  { label: "New Booking", icon: CalendarPlus },
+  { label: "Calendar", icon: CalendarDays },
+  { label: "Events", icon: ClipboardList },
+  { label: "Kitchen", icon: Utensils },
+  { label: "Billing", icon: CreditCard },
+  { label: "Hall Maps", icon: Building2 }
 ];
 
 const helpRows = [
   {
-    title: "Getting Started",
-    body: "Learn the basics and set up your account.",
+    title: "Dashboard Overview",
+    body: "Read total events, booked events, income timeline, operating schedule, and urgent action items.",
+    details: [
+      "Use Total Events for the whole-year event count.",
+      "Use Booked Events to compare confirmed and on-hold bookings.",
+      "Use Operating Schedule for the next active work items."
+    ],
     icon: Rocket
   },
   {
-    title: "Event Workflow",
-    body: "Step-by-step workflow from booking to event completion.",
+    title: "Bookings & Calendar",
+    body: "Create bookings, review room availability, select date ranges, and open Today Notes.",
+    details: [
+      "Click New booking from the top bar to start a booking.",
+      "Use Month Calendar to review event dates and room activity.",
+      "Use Availability and Settings to manage date ranges and closed dates."
+    ],
+    icon: CalendarDays
+  },
+  {
+    title: "Event Manager",
+    body: "Manage event details, menus, billing, client portal sharing, files, vendors, timeline, and kitchen views.",
+    details: [
+      "Select an event from the event list first.",
+      "Open sections like Event details, Menu, Billing, Client portal, Kitchen, Files, Vendors, and Timeline.",
+      "On mobile, expand the selected event to view its sections cleanly."
+    ],
     icon: ClipboardList
   },
   {
-    title: "Hall Management",
-    body: "Manage halls, availability, layouts, and rates.",
-    icon: Building2
-  },
-  {
-    title: "Dining & Kitchen",
-    body: "Manage menus, kitchen orders, and dining services.",
+    title: "Menu & Kitchen",
+    body: "Build menu libraries, packages, buffet/plated items, and track kitchen production by day, week, or four weeks.",
+    details: [
+      "Use Menu Library, Packages, Buffet Menu, Plated Menu, and Add-ons to build reusable menu items.",
+      "Use Kitchen Dashboard to view production by Today, This Week, or 4 Weeks.",
+      "Click a kitchen event to open full production details."
+    ],
     icon: Utensils
   },
   {
-    title: "Billing & Payments",
-    body: "Invoices, payments, refunds, and financial reports.",
+    title: "Dining Manager",
+    body: "Select an event, check seating, add required tables, and prepare dining setup work.",
+    details: [
+      "Choose an organization event from the Events panel.",
+      "Use Check seating before finalizing required tables.",
+      "Add required tables for the selected event workspace."
+    ],
+    icon: BarChart3
+  },
+  {
+    title: "Halls & Room Maps",
+    body: "Create halls, assign map presets, place shapes, and keep phone users in view-only mode.",
+    details: [
+      "Create a hall before assigning a room map preset.",
+      "Use the shape library to add tables and objects to the map.",
+      "Phone-sized screens are view-only to prevent accidental layout edits."
+    ],
+    icon: Building2
+  },
+  {
+    title: "Files, Clients & Vendors",
+    body: "Organize Event Core Files, client records, vendor records, and documents for each organization.",
+    details: [
+      "New folders and files go inside Event Core Files by default.",
+      "Use Clients for contact and event relationship records.",
+      "Use Vendors for outside services connected to events."
+    ],
+    icon: FolderOpen
+  },
+  {
+    title: "Billing & Invoices",
+    body: "Review transactions, create invoices, record payments, print statements, and track open balances.",
+    details: [
+      "Use Dashboard for financial summary and timeline.",
+      "Use Transactions to review imported or manually recorded payments.",
+      "Use Invoices and Event Billing to create invoices, record payments, and print statements."
+    ],
     icon: CreditCard
   },
   {
     title: "Staff & Permissions",
-    body: "Manage staff accounts and set role-based access.",
+    body: "Add staff, assign roles, manage access, and keep dashboard permissions aligned with each team member.",
+    details: [
+      "Add staff from the Staff page.",
+      "Assign roles based on the pages each staff member should access.",
+      "Review role templates before giving billing, settings, or file permissions."
+    ],
     icon: Users
   },
   {
-    title: "Reports & Analytics",
-    body: "View reports and insights about your events.",
-    icon: BarChart3
+    title: "Settings & Integrations",
+    body: "Configure language, halls, Google Calendar, Payments & Gmail, PDF branding, and activity logs.",
+    details: [
+      "Use Halls to manage the rooms shown in booking forms.",
+      "Use Payments & Gmail and Google Calendar to check integration status.",
+      "Use PDF & Branding to control exported document identity."
+    ],
+    icon: Settings
   },
   {
     title: "Troubleshooting",
-    body: "Solutions to common issues and error messages.",
+    body: "Fix login/session errors, missing deployment updates, Supabase access issues, and desktop app startup problems.",
+    details: [
+      "If the desktop app shows old UI, deploy the web app first and reopen the app.",
+      "If a section says invalid session, sign out and sign back in.",
+      "If Vercel production does not update, confirm the production domain is assigned to the newest deployment."
+    ],
     icon: ShieldQuestion
   }
 ];
 
 const quickActions = [
-  { label: "Watch Video Tutorials", icon: PlaySquare },
-  { label: "Browse All Articles", icon: FileText },
-  { label: "Contact Administrator", icon: Headphones },
-  { label: "Report an Issue", icon: AlertTriangle },
-  { label: "Request a Feature", icon: Lightbulb }
+  {
+    label: "Create a Booking Guide",
+    detail: "Open New booking, enter the client/event details, choose hall/date, then save or create proposal.",
+    icon: CalendarPlus
+  },
+  {
+    label: "Event Manager Checklist",
+    detail: "Confirm event details, menu, billing, client portal sharing, hall map, vendors, files, and timeline.",
+    icon: ClipboardList
+  },
+  {
+    label: "Billing & Invoice Help",
+    detail: "Use Event Billing to create invoices, record payments, and print statements for the selected event.",
+    icon: CreditCard
+  },
+  {
+    label: "Desktop App Install Guide",
+    detail: "Download the Windows installer, install Event Core, then log in with your organization account.",
+    icon: FileText
+  },
+  {
+    label: "Contact Administrator",
+    detail: "Ask your organization admin for permission changes, staff access, or integration setup help.",
+    icon: Headphones
+  },
+  {
+    label: "Report an Issue",
+    detail: "Include the page name, event name, screenshot, and the steps that caused the issue.",
+    icon: AlertTriangle
+  }
 ];
 
 const faqs = [
-  "How do I create a new booking?",
-  "How do I cancel or reschedule an event?",
-  "How do I send an invoice to a client?",
-  "Can I duplicate an existing event?",
-  "How do I archive a completed event?"
+  {
+    question: "Why does the dashboard show different Total Events and Booked Events?",
+    answer:
+      "Total Events counts the selected year. Booked Events focuses on confirmed and on-hold bookings for the active dashboard period."
+  },
+  {
+    question: "How do I add another hall to the Hall / Room dropdown?",
+    answer:
+      "Create the hall in Settings or Hall Room Map hall controls. Once saved, it becomes available in booking hall/room dropdowns."
+  },
+  {
+    question: "How do I assign a hall room map preset to a hall?",
+    answer:
+      "Open Hall Room Map, select a map preset, choose a hall in Assign to Hall, then save the map assignment."
+  },
+  {
+    question: "Why can phone users only view the hall map instead of editing it?",
+    answer:
+      "Phone screens are view-only to prevent accidental drag, resize, or delete actions while reviewing layouts."
+  },
+  {
+    question: "How do I create an invoice or record a payment for an event?",
+    answer:
+      "Open Billing or Event Manager > Billing, choose the event, then use Create invoice or Record payment."
+  }
 ];
 
 function IconTile({ children }: { children: React.ReactNode }) {
@@ -102,6 +219,11 @@ function IconTile({ children }: { children: React.ReactNode }) {
 }
 
 export function HelpCenterContent({ onClose }: { onClose: () => void }) {
+  const [openGuide, setOpenGuide] = useState("");
+  const [openAction, setOpenAction] = useState<string | null>(null);
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
+  const [showAllFaqs, setShowAllFaqs] = useState(false);
+
   return (
     <>
       <header className="border-b border-[#d8dde5] bg-white px-4 py-4 sm:px-5">
@@ -121,8 +243,8 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               Help Center
             </h2>
             <p className="mt-1.5 max-w-3xl text-xs leading-5 text-[#617086] sm:text-sm">
-              Find answers and guides to help you manage your halls and events
-              with Event Core.
+              Find dashboard-specific guides for bookings, kitchen production,
+              dining, hall maps, files, billing, staff, vendors, and settings.
             </p>
           </div>
 
@@ -144,7 +266,7 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               <Search className="h-5 w-5 text-[#1f4d73]" />
               <input
                 className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[#071427] outline-none placeholder:text-[#7a879a] sm:text-sm"
-                placeholder="Search help articles... (e.g. how to create a booking, cancel event, print invoice)"
+                placeholder="Search help articles... (e.g. create booking, assign hall map, record payment)"
                 type="search"
               />
               <span className="hidden rounded-lg bg-[#f1f4f8] px-3 py-1.5 text-xs font-black text-[#7a879a] sm:inline">
@@ -179,22 +301,54 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
             <section className="grid gap-2">
               {helpRows.map((row) => {
                 const Icon = row.icon;
+                const isOpen = openGuide === row.title;
 
                 return (
-                  <button
-                    className="flex min-h-11 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2.5 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#fbfcfd] md:grid md:grid-cols-[auto_minmax(0,180px)_minmax(0,1fr)_auto]"
+                  <article
+                    className="overflow-hidden rounded-lg border border-[#d8dde5] bg-white shadow-sm transition hover:border-[#1f4d73]"
                     key={row.title}
-                    type="button"
                   >
-                    <Icon className="h-5 w-5 shrink-0 text-[#1f4d73]" />
-                    <span className="min-w-0 flex-1 text-xs font-black text-[#071427] sm:text-sm md:flex-none">
-                      {row.title}
-                    </span>
-                    <span className="hidden min-w-0 text-xs font-medium text-[#617086] md:block">
-                      {row.body}
-                    </span>
-                    <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-[#1f4d73] md:ml-0" />
-                  </button>
+                    <button
+                      aria-expanded={isOpen}
+                      className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#fbfcfd] md:grid md:grid-cols-[auto_minmax(0,180px)_minmax(0,1fr)_auto]"
+                      onClick={() =>
+                        setOpenGuide(isOpen ? "" : row.title)
+                      }
+                      type="button"
+                    >
+                      <Icon className="h-5 w-5 shrink-0 text-[#1f4d73]" />
+                      <span className="min-w-0 flex-1 text-xs font-black text-[#071427] sm:text-sm md:flex-none">
+                        {row.title}
+                      </span>
+                      <span className="hidden min-w-0 text-xs font-medium text-[#617086] md:block">
+                        {row.body}
+                      </span>
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 shrink-0 text-[#1f4d73] transition-transform md:ml-0 ${
+                          isOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isOpen ? (
+                      <div className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
+                        <p className="text-xs font-semibold leading-5 text-[#617086] md:hidden">
+                          {row.body}
+                        </p>
+                        <ul className="mt-2 grid gap-1.5 text-xs font-medium leading-5 text-[#334155] md:mt-0">
+                          {row.details.map((detail) => (
+                            <li
+                              className="grid grid-cols-[8px_minmax(0,1fr)] gap-2"
+                              key={detail}
+                            >
+                              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
+                              <span>{detail}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                  </article>
                 );
               })}
             </section>
@@ -227,21 +381,39 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               <div className="grid gap-1">
                 {quickActions.map((action) => {
                   const Icon = action.icon;
+                  const isOpen = openAction === action.label;
 
                   return (
-                    <button
-                      className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-[#eef4fa]"
+                    <div
+                      className="rounded-lg transition hover:bg-[#eef4fa]"
                       key={action.label}
-                      type="button"
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa]">
-                        <Icon className="h-4 w-4 text-[#1f4d73]" />
-                      </span>
-                      <span className="min-w-0 flex-1 text-xs font-bold text-[#334155]">
-                        {action.label}
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-[#1f4d73]" />
-                    </button>
+                      <button
+                        aria-expanded={isOpen}
+                        className="flex w-full items-center gap-2.5 px-2 py-2 text-left"
+                        onClick={() =>
+                          setOpenAction(isOpen ? null : action.label)
+                        }
+                        type="button"
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa]">
+                          <Icon className="h-4 w-4 text-[#1f4d73]" />
+                        </span>
+                        <span className="min-w-0 flex-1 text-xs font-bold text-[#334155]">
+                          {action.label}
+                        </span>
+                        <ChevronRight
+                          className={`h-4 w-4 text-[#1f4d73] transition-transform ${
+                            isOpen ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+                      {isOpen ? (
+                        <p className="px-2 pb-2 pl-11 text-xs font-medium leading-5 text-[#617086]">
+                          {action.detail}
+                        </p>
+                      ) : null}
+                    </div>
                   );
                 })}
               </div>
@@ -255,25 +427,51 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                 </h3>
               </div>
               <div className="grid gap-1">
-                {faqs.map((faq) => (
-                  <button
-                    className="flex items-center gap-2 rounded-lg py-1.5 text-left transition hover:bg-[#eef4fa]"
-                    key={faq}
-                    type="button"
-                  >
-                    <span className="min-w-0 flex-1 text-xs font-bold text-[#334155]">
-                      {faq}
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-[#1f4d73]" />
-                  </button>
-                ))}
+                {faqs.map((faq) => {
+                  const isOpen = showAllFaqs || openFaq === faq.question;
+
+                  return (
+                    <div className="rounded-lg transition hover:bg-[#eef4fa]" key={faq.question}>
+                      <button
+                        aria-expanded={isOpen}
+                        className="flex w-full items-center gap-2 py-1.5 text-left"
+                        onClick={() =>
+                          setOpenFaq(openFaq === faq.question ? null : faq.question)
+                        }
+                        type="button"
+                      >
+                        <span className="min-w-0 flex-1 text-xs font-bold text-[#334155]">
+                          {faq.question}
+                        </span>
+                        <ChevronRight
+                          className={`h-4 w-4 text-[#1f4d73] transition-transform ${
+                            isOpen ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+                      {isOpen ? (
+                        <p className="pb-2 pr-2 text-xs font-medium leading-5 text-[#617086]">
+                          {faq.answer}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
               <button
                 className="mt-2 inline-flex items-center gap-1.5 text-xs font-black text-[#1f4d73]"
+                onClick={() => {
+                  setShowAllFaqs((current) => !current);
+                  setOpenFaq(null);
+                }}
                 type="button"
               >
-                View all FAQs
-                <ChevronRight className="h-4 w-4" />
+                {showAllFaqs ? "Collapse FAQs" : "View all FAQs"}
+                <ChevronRight
+                  className={`h-4 w-4 transition-transform ${
+                    showAllFaqs ? "rotate-90" : ""
+                  }`}
+                />
               </button>
             </section>
 
@@ -287,8 +485,8 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                     Need more help?
                   </h3>
                   <p className="mt-1.5 text-xs leading-5 text-[#617086]">
-                    Our team is here to help you. Contact your administrator for
-                    personalized support.
+                    Need help with a booking, invoice, hall map, or staff
+                    permission? Contact your administrator for support.
                   </p>
                 </div>
               </div>

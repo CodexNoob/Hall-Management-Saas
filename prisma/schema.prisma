@@ -11,6 +11,12 @@ model Organization {
   name      String
   slug      String   @unique
   isActive  Boolean  @default(true) @map("is_active")
+  trialStartedAt        DateTime? @map("trial_started_at")
+  trialEndsAt           DateTime? @map("trial_ends_at")
+  subscriptionStatus    String    @default("active") @map("subscription_status")
+  subscriptionPlan      String?   @map("subscription_plan")
+  subscriptionStartedAt DateTime? @map("subscription_started_at")
+  subscriptionEndsAt    DateTime? @map("subscription_ends_at")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

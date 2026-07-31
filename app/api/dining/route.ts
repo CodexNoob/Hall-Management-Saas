@@ -8,8 +8,17 @@ import { prisma } from "@/lib/prisma";
 const tableSchema = z.object({
   id: z.string().min(1).max(100),
   number: z.number().int().positive(),
-  seats: z.number().int().min(1).max(100),
-  side: z.enum(["men", "women", "kids", "head"])
+  name: z.string().max(120).optional(),
+  seats: z.number().int().min(0).max(100),
+  side: z.enum(["men", "women", "kids", "head"]),
+  isSeating: z.boolean().optional(),
+  mapObjectId: z.string().max(100).optional(),
+  mapType: z.string().max(40).optional(),
+  x: z.number().optional(),
+  y: z.number().optional(),
+  width: z.number().optional(),
+  height: z.number().optional(),
+  rotation: z.number().optional()
 });
 
 const saveDiningPlanSchema = z.object({

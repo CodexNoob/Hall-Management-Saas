@@ -73,5 +73,12 @@ export function DashboardAuthGuard() {
     );
   }
 
-  return <DashboardShell access={syncData.access} user={syncData.user} />;
+  return (
+    <DashboardShell
+      access={syncData.access}
+      activeOrganizationId={syncData.activeOrganizationId}
+      organizations={syncData.organizations}
+      user={syncData.user}
+    />
+  );
 }

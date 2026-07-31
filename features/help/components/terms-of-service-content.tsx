@@ -16,21 +16,21 @@ import { useState } from "react";
 const termsCards = [
   {
     accent: "green",
-    body: "Use Event Core only for legitimate venue, booking, event, dining, billing, and operational management work.",
+    body: "Use Event Core only for legitimate hall operations: bookings, events, menus, kitchen, dining, hall maps, files, billing, staff, clients, and vendors.",
     icon: Users,
     illustration: CalendarDays,
     title: "Authorized use"
   },
   {
     accent: "blue",
-    body: "Each user is responsible for activity performed under their account and should keep login access secure.",
+    body: "Each user is responsible for dashboard activity under their account, including invoices, event edits, files, notes, and staff permission changes.",
     icon: UserCheck,
     illustration: LockKeyhole,
     title: "Account responsibility"
   },
   {
     accent: "purple",
-    body: "Your organization is responsible for entering accurate booking, client, event, and financial information.",
+    body: "Your organization is responsible for accurate booking dates, hall assignments, client/vendor records, menu counts, invoices, payments, and internal notes.",
     icon: FileText,
     illustration: BarChart3,
     title: "Data accuracy"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Bug,
   CalendarDays,
@@ -19,8 +20,9 @@ const releaseGroups = [
     color: "green",
     icon: Sparkles,
     items: [
-      "Added Download Apps page for easy access to the desktop application.",
-      "Added Today Notes to quickly capture important reminders."
+      "Added dashboard-focused Help Center content for bookings, kitchen, dining, hall maps, files, billing, staff, clients, vendors, and settings.",
+      "Added Download Apps modal for Windows desktop installation directly from the dashboard.",
+      "Added Today Notes access across dashboard workflows for operating-day reminders."
     ],
     status: "New",
     title: "New Features"
@@ -29,12 +31,12 @@ const releaseGroups = [
     color: "blue",
     icon: TrendingUp,
     items: [
-      "Dashboard financial and event timeline widgets now provide clearer visual summaries for filtered periods.",
-      "Hall room map presets now scale better across devices and support compact dropdown controls.",
-      "Dining manager setup screens now adapt more cleanly on phone, tablet, laptop, and desktop layouts.",
-      "Improved performance when loading large events and bookings.",
-      "Enhanced filtering and sorting in events, bookings, and billing.",
-      "UI and responsiveness improvements across the application."
+      "Dashboard Total Events, Booked Events, Income Timeline, and Operating Schedule now provide clearer operational summaries.",
+      "Calendar, Kitchen, Events, Menu, Dining Manager, Hall Room Map, Files, Billing, Staff, Clients, and Vendors pages now use cleaner responsive layouts.",
+      "Hall room map presets can be assigned to halls and are view-only on phone-sized screens.",
+      "Dining Manager event selection, required tables, and seating actions now fit better on mobile and desktop.",
+      "Billing transactions, invoices, event billing, and payment actions are easier to scan on smaller screens.",
+      "Settings integrations for Payments & Gmail, Google Calendar, and PDF & Branding now align better with the dashboard design."
     ],
     status: "Improved",
     title: "Improvements"
@@ -43,11 +45,11 @@ const releaseGroups = [
     color: "orange",
     icon: Bug,
     items: [
-      "Fixed duplicate booking issue in certain conditions.",
-      "Fixed hall room map alignment on smaller screens.",
-      "Fixed dining manager save error on slow connections.",
-      "Fixed incorrect total in billing summary after discounts.",
-      "Fixed calendar not showing updated events immediately."
+      "Fixed dashboard sidebar highlight after opening Events from dashboard actions.",
+      "Fixed hall room map dropdown visibility and map canvas spacing issues.",
+      "Fixed duplicate React keys in Menu and Billing lists.",
+      "Fixed mobile route loader covering too much of the interface on several dashboard pages.",
+      "Fixed desktop app startup white flash by keeping the splash/loading screen visible until the login UI is ready."
     ],
     status: "Fixed",
     title: "Bug Fixes"
@@ -55,7 +57,10 @@ const releaseGroups = [
   {
     color: "purple",
     icon: Shield,
-    items: ["Enhanced session security and token refresh handling."],
+    items: [
+      "Enhanced session handling for dashboard pages and desktop app login redirects.",
+      "Improved SaaS data separation readiness through organization-scoped dashboard access."
+    ],
     status: "Security",
     title: "Security"
   }
@@ -93,6 +98,22 @@ function IconTile({ children }: { children: React.ReactNode }) {
 }
 
 export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
+  const [openGroups, setOpenGroups] = useState(() => new Set<string>());
+
+  const toggleGroup = (title: string) => {
+    setOpenGroups((current) => {
+      const next = new Set(current);
+
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+
+      return next;
+    });
+  };
+
   return (
     <div className="grid min-h-0 flex-1 overflow-hidden bg-white lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="hidden border-r border-[#d8dde5] bg-linear-to-b from-white to-[#f7fbff] p-4 lg:block">
@@ -196,6 +217,7 @@ export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
             {releaseGroups.map((group) => {
               const Icon = group.icon;
               const color = releaseColorClasses[group.color];
+              const isOpen = openGroups.has(group.title);
 
               return (
                 <article
@@ -209,7 +231,12 @@ export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
                       <Icon className="h-4 w-4" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <button
+                        aria-expanded={isOpen}
+                        className="flex w-full flex-wrap items-center justify-between gap-3 text-left"
+                        onClick={() => toggleGroup(group.title)}
+                        type="button"
+                      >
                         <h3 className={`text-base font-black ${color.title}`}>
                           {group.title}
                         </h3>
@@ -219,25 +246,31 @@ export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
                           >
                             {group.status}
                           </span>
-                          <ChevronDown className="h-4 w-4 text-[#1f4d73]" />
+                          <ChevronDown
+                            className={`h-4 w-4 text-[#1f4d73] transition-transform ${
+                              isOpen ? "rotate-180" : ""
+                            }`}
+                          />
                         </div>
-                      </div>
+                      </button>
 
-                      <ul className="mt-2 space-y-1.5 text-xs font-medium leading-5 text-[#071427] sm:text-sm">
-                        {group.items.map((item) => (
-                          <li
-                            className="grid grid-cols-[14px_minmax(0,1fr)_120px] gap-2 max-md:grid-cols-[14px_minmax(0,1fr)]"
-                            key={item}
-                          >
-                            <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#071427]" />
-                            <span>{item}</span>
-                            <span className="inline-flex items-center justify-end gap-2 text-xs font-bold text-[#617086] max-md:hidden">
-                              <CalendarDays className="h-4 w-4" />
-                              Jul 29, 2026
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                      {isOpen ? (
+                        <ul className="mt-2 space-y-1.5 text-xs font-medium leading-5 text-[#071427] sm:text-sm">
+                          {group.items.map((item) => (
+                            <li
+                              className="grid grid-cols-[14px_minmax(0,1fr)_120px] gap-2 max-md:grid-cols-[14px_minmax(0,1fr)]"
+                              key={item}
+                            >
+                              <span className="mt-2 h-1.5 w-1.5 rounded-full bg-[#071427]" />
+                              <span>{item}</span>
+                              <span className="inline-flex items-center justify-end gap-2 text-xs font-bold text-[#617086] max-md:hidden">
+                                <CalendarDays className="h-4 w-4" />
+                                Jul 29, 2026
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                   </div>
                 </article>
