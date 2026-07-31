@@ -32,7 +32,7 @@ import {
   getOperatingDateKey,
   getRangeForFilter,
   groupEventsByDate,
-  groupEventsByMonth,
+  groupEventsByMonthRange,
   toScheduleRow,
   type DashboardEventsResponse,
   type TimeFilter
@@ -138,7 +138,11 @@ export function DashboardShell({
   const totalEvents = dashboardQuery.data?.summary.totalEvents ?? 0;
   const rangeLabel = `${formatEventDate(dashboardDateRange.startDate)} - ${formatEventDate(dashboardDateRange.endDate)}`;
   const annualEvents = annualDashboardQuery.data?.events ?? [];
-  const annualTimelineGroups = groupEventsByMonth(annualEvents);
+  const annualTimelineGroups = groupEventsByMonthRange(
+    annualEvents,
+    annualDateRange.startDate,
+    annualDateRange.endDate
+  );
   const annualTotalEvents = annualDashboardQuery.data?.summary.totalEvents ?? 0;
   const annualRangeLabel = `${formatEventDate(annualDateRange.startDate)} - ${formatEventDate(annualDateRange.endDate)}`;
   const bookedEvents = dashboardQuery.data?.summary.bookedEvents ?? {

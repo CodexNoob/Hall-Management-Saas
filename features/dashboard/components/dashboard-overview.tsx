@@ -84,6 +84,7 @@ export function DashboardOverview({
         annualRangeLabel={annualRangeLabel}
         annualTotalEvents={annualTotalEvents}
         bookedEvents={bookedEvents}
+        isDashboardLoading={isDashboardLoading}
         isAnnualLoading={isAnnualLoading}
         nextUpcomingEvent={nextUpcomingEvent}
       />
@@ -92,6 +93,7 @@ export function DashboardOverview({
         financialRangeLabel={financialRangeLabel}
         financialTimeline={financialTimeline}
         financeTimeFilter={financeTimeFilter}
+        isLoading={isDashboardLoading}
         onFinanceTimeFilterChange={onFinanceTimeFilterChange}
       />
 

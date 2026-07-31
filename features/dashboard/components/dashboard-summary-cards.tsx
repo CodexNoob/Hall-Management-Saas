@@ -21,6 +21,7 @@ type DashboardSummaryCardsProps = {
   annualRangeLabel: string;
   annualTotalEvents: number;
   bookedEvents: BookedEventsSummary;
+  isDashboardLoading: boolean;
   isAnnualLoading: boolean;
   nextUpcomingEvent?: ScheduleRow;
 };
@@ -30,6 +31,7 @@ export function DashboardSummaryCards({
   annualRangeLabel,
   annualTotalEvents,
   bookedEvents,
+  isDashboardLoading,
   isAnnualLoading,
   nextUpcomingEvent
 }: DashboardSummaryCardsProps) {
@@ -43,6 +45,7 @@ export function DashboardSummaryCards({
       />
       <BookedEventsCard
         bookedEvents={bookedEvents}
+        isDashboardLoading={isDashboardLoading}
         nextUpcomingEvent={nextUpcomingEvent}
       />
     </div>
@@ -88,8 +91,12 @@ function TotalEventsCard({
 
 function BookedEventsCard({
   bookedEvents,
+  isDashboardLoading,
   nextUpcomingEvent
-}: Pick<DashboardSummaryCardsProps, "bookedEvents" | "nextUpcomingEvent">) {
+}: Pick<
+  DashboardSummaryCardsProps,
+  "bookedEvents" | "isDashboardLoading" | "nextUpcomingEvent"
+>) {
   const router = useRouter();
   const bookedConfirmedPercent = bookedEvents.total
     ? Math.round((bookedEvents.confirmed / bookedEvents.total) * 100)
@@ -97,6 +104,12 @@ function BookedEventsCard({
   const bookedOnHoldPercent = bookedEvents.total
     ? Math.round((bookedEvents.onHold / bookedEvents.total) * 100)
     : 0;
+  const confirmedArc = bookedEvents.total
+    ? (bookedEvents.confirmed / bookedEvents.total) * 100
+    : 0;
+  const chartBackground = bookedEvents.total
+    ? `conic-gradient(#079447 0 ${confirmedArc}%, #ffb000 ${confirmedArc}% 100%)`
+    : "conic-gradient(#d8dde5 0 100%)";
 
   return (
     <article className="overflow-hidden rounded-3xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/6">
@@ -111,10 +124,13 @@ function BookedEventsCard({
         </div>
 
         <div className="mt-5 grid gap-6 border-t border-[#d8dde5] pt-5 sm:grid-cols-[minmax(150px,0.8fr)_minmax(0,1.2fr)] sm:items-center">
-          <div className="relative mx-auto h-44 w-44 rounded-full bg-[conic-gradient(#079447_0_56.25%,#ffb000_56.25%_75%,#1261e8_75%_100%)]">
+          <div
+            className="relative mx-auto h-44 w-44 rounded-full"
+            style={{ background: chartBackground }}
+          >
             <div className="absolute inset-9 flex flex-col items-center justify-center rounded-full bg-white">
               <strong className="text-2xl font-black text-[#07162d]">
-                {bookedEvents.total}
+                {isDashboardLoading ? "..." : bookedEvents.total}
               </strong>
               <span className="text-sm font-bold text-[#607089]">Total</span>
             </div>
@@ -135,13 +151,6 @@ function BookedEventsCard({
                 bookedOnHoldPercent,
                 "#ffb000",
                 "bg-[#fff5df] text-[#d88a00]"
-              ],
-              [
-                "Upcoming",
-                bookedEvents.onHold,
-                bookedOnHoldPercent,
-                "#1261e8",
-                "bg-[#edf4ff] text-[#1261e8]"
               ]
             ].map(([label, value, percent, color, pillClass]) => (
               <div

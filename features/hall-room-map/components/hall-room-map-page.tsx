@@ -11,14 +11,10 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { CompactSelect } from "@/components/ui/compact-select";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
-
-import { InspectorField } from "@/features/hall-room-map/components/hall-map-inspector-field";
+import { HallMapLibraryPanel } from "@/features/hall-room-map/components/hall-map-library-panel";
 import { MapObjectView } from "@/features/hall-room-map/components/hall-map-object-view";
+import { HallMapObjectInspector } from "@/features/hall-room-map/components/hall-map-object-inspector";
 import { Panel } from "@/features/hall-room-map/components/hall-map-panel";
-import {
-  ShapeButton,
-  ShapePreview
-} from "@/features/hall-room-map/components/hall-map-shape-library";
 import {
   DESIGN_MAP_HEIGHT,
   DESIGN_MAP_WIDTH,
@@ -27,11 +23,9 @@ import {
   clampViewportPosition,
   getMapObjectBounds,
   initialHallMaps,
-  shapeOptions,
   type HallMapsResponse,
   type MapObject,
   type SaveHallMapInput,
-  type SeatingUse,
   type SavedHallMap,
   type ShapeType
 } from "@/features/hall-room-map/components/hall-map-shared";
@@ -660,174 +654,39 @@ export function HallRoomMapPage() {
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
         <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 md:grid-cols-2 xl:grid-cols-[250px_minmax(0,1fr)_270px]">
-          <Panel className="order-2 block md:block xl:order-1">
-            <header className="border-b border-[#d8dde5] px-3 py-2">
-              <h2 className="text-sm font-black">Shape library</h2>
-              <p className="mt-1 text-[10px] text-[#617086]">
-                Click to add to the map.
-              </p>
-            </header>
-
-            <div className="p-2">
-              <div className="grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
-                {shapeOptions.map((shape) => (
-                  <ShapeButton
-                    disabled={!hasSelectedMap}
-                    key={shape.type}
-                    label={shape.label}
-                    onClick={() => addObject(shape.type)}
-                    type={shape.type}
-                  />
-                ))}
-              </div>
-
-              <button
-                className="mt-2 flex min-h-14 w-full flex-col items-center justify-center gap-2 rounded-lg border border-[#d1dae5] text-[10px] font-black enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef6fc] disabled:cursor-not-allowed disabled:opacity-45 max-md:pointer-events-none max-md:opacity-60"
-                disabled={!hasSelectedMap}
-                onClick={() => addObject("divider")}
-                type="button"
-              >
-                <ShapePreview type="divider" />
-                Mechitza divider
-              </button>
-
-              <section className="mt-3 rounded-lg border border-[#d8dde5] p-2">
-                <h3 className="text-[10px] font-black">Hall presets</h3>
-
-                <label
-                  className="mt-2 block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
-                  htmlFor="hall-preset"
-                >
-                  Preset
-                </label>
-
-                <CompactSelect
-                  disabled={!hasSelectedHall || selectedHallMaps.length === 0}
-                  id="hall-preset"
-                  onChange={(value) => {
-                    const nextMap = hallMaps.find((map) => map.id === value);
-                    if (!nextMap) {
-                      return;
-                    }
-                    setSelectedMapId(nextMap.id);
-                    setObjects(
-                      nextMap.objects.map((object) => ({ ...object }))
-                    );
-                    setSelectedObjectId(null);
-                  }}
-                  options={
-                    selectedHallMaps.length === 0
-                      ? [{ label: "No presets for this hall", value: "" }]
-                      : selectedHallMaps.map((map) => ({
-                          label: map.name,
-                          value: map.id
-                        }))
-                  }
-                  value={selectedMapId}
-                />
-
-                <label
-                  className="mt-2 block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
-                  htmlFor="assigned-hall"
-                >
-                  Assigned hall
-                </label>
-                <CompactSelect
-                  disabled={hallMapsQuery.data?.halls.length === 0}
-                  id="assigned-hall"
-                  onChange={(hallId) => {
-                    const nextMap =
-                      hallMaps.find((map) => map.hallId === hallId) ?? null;
-                    setSelectedHallId(hallId);
-                    setSelectedMapId(nextMap?.id ?? "");
-                    setObjects(
-                      nextMap?.objects.map((object) => ({ ...object })) ?? []
-                    );
-                    setSelectedObjectId(null);
-                  }}
-                  options={[
-                    { label: "Select a hall", value: "" },
-                    ...(hallMapsQuery.data?.halls ?? []).map((hall) => ({
-                      label: hall.name,
-                      value: hall.id
-                    }))
-                  ]}
-                  value={selectedHallId}
-                />
-
-                <div className="mt-2 grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
-                  <button
-                    className="h-9 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1 text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!hasSelectedMap}
-                    onClick={loadPreset}
-                    type="button"
-                  >
-                    Load preset
-                  </button>
-
-                  <button
-                    className="h-9 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-1 text-[10px] font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-                    disabled={!hasSelectedMap}
-                    onClick={saveCurrentMap}
-                    type="button"
-                  >
-                    Save preset
-                  </button>
-                </div>
-
-                <button
-                  className="mt-2 h-9 w-full whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] max-md:pointer-events-none max-md:opacity-60"
-                  onClick={openCreateMapDialog}
-                  type="button"
-                >
-                  New hall room map
-                </button>
-
-                <div className="mt-2 grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
-                  <button
-                    className="h-9 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-1 text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!hasSelectedMap}
-                    onClick={openRenameMapDialog}
-                    type="button"
-                  >
-                    Rename
-                  </button>
-                  <button
-                    className="h-9 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-1 text-[10px] font-black text-[#c3291b] enabled:hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!hasSelectedMap}
-                    onClick={deleteCurrentMap}
-                    type="button"
-                  >
-                    Delete map
-                  </button>
-                </div>
-              </section>
-
-              <section className="mt-3 rounded-lg border border-[#d8dde5] p-2 max-md:pointer-events-none max-md:opacity-60">
-                <h3 className="text-[10px] font-black">Actions</h3>
-
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button
-                    className="h-9 rounded-lg border border-[#b9c2cf] bg-white text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!selectedObject}
-                    onClick={duplicateSelectedObject}
-                    type="button"
-                  >
-                    Duplicate
-                  </button>
-
-                  <button
-                    className="h-9 rounded-lg border border-[#efb5ad] bg-white text-[10px] font-black text-[#c3291b] enabled:hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={!selectedObject}
-                    onClick={deleteSelectedObject}
-                    type="button"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </section>
-            </div>
-          </Panel>
+          <HallMapLibraryPanel
+            hallMaps={hallMaps}
+            halls={hallMapsQuery.data?.halls ?? []}
+            hasSelectedHall={hasSelectedHall}
+            hasSelectedMap={hasSelectedMap}
+            onAddObject={addObject}
+            onDeleteMap={deleteCurrentMap}
+            onDeleteSelectedObject={deleteSelectedObject}
+            onDuplicateSelectedObject={duplicateSelectedObject}
+            onLoadPreset={loadPreset}
+            onNewMap={openCreateMapDialog}
+            onRenameMap={openRenameMapDialog}
+            onSavePreset={saveCurrentMap}
+            onSelectHall={(hallId) => {
+              const nextMap =
+                hallMaps.find((map) => map.hallId === hallId) ?? null;
+              setSelectedHallId(hallId);
+              setSelectedMapId(nextMap?.id ?? "");
+              setObjects(
+                nextMap?.objects.map((object) => ({ ...object })) ?? []
+              );
+              setSelectedObjectId(null);
+            }}
+            onSelectMap={(nextMap) => {
+              setSelectedMapId(nextMap.id);
+              setObjects(nextMap.objects.map((object) => ({ ...object })));
+              setSelectedObjectId(null);
+            }}
+            selectedHallId={selectedHallId}
+            selectedHallMaps={selectedHallMaps}
+            selectedMapId={selectedMapId}
+            selectedObjectExists={Boolean(selectedObject)}
+          />
 
           <Panel className="order-1 flex min-h-0 min-w-0 flex-col md:col-span-2 xl:order-2 xl:col-span-1">
             <header className="flex items-center gap-2 border-b border-[#d8dde5] p-2">
@@ -919,202 +778,10 @@ export function HallRoomMapPage() {
             </div>
           </Panel>
 
-          <Panel className="order-3 block md:block">
-            <header className="border-b border-[#d8dde5] px-3 py-2">
-              <h2 className="text-sm font-black">Object inspector</h2>
-
-              <p className="mt-1 text-[10px] text-[#617086]">
-                Selected shape settings.
-              </p>
-            </header>
-
-            <div className="p-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2">
-                  <strong className="block truncate text-base">
-                    {selectedObject?.type ?? "None"}
-                  </strong>
-
-                  <span className="mt-2 block text-[9px] font-black uppercase text-[#617086]">
-                    Type
-                  </span>
-                </div>
-
-                <div className="rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2">
-                  <strong className="block text-base">
-                    {selectedObject?.rotation ?? 0}°
-                  </strong>
-
-                  <span className="mt-2 block text-[9px] font-black uppercase text-[#617086]">
-                    Rotation
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <InspectorField htmlFor="object-name">Name</InspectorField>
-
-                <input
-                  className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                  disabled={!selectedObject}
-                  id="object-name"
-                  name="objectName"
-                  onChange={(event) =>
-                    updateSelectedObject({ name: event.target.value })
-                  }
-                  placeholder="Select object"
-                  value={selectedObject?.name ?? ""}
-                />
-              </div>
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <div>
-                  <InspectorField htmlFor="object-width">Width</InspectorField>
-
-                  <input
-                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                    disabled={!selectedObject}
-                    id="object-width"
-                    min="10"
-                    name="objectWidth"
-                    onChange={(event) =>
-                      updateSelectedObject({
-                        width: Number(event.target.value)
-                      })
-                    }
-                    type="number"
-                    value={selectedObject?.width ?? ""}
-                  />
-                </div>
-
-                <div>
-                  <InspectorField htmlFor="object-height">
-                    Height
-                  </InspectorField>
-
-                  <input
-                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                    disabled={!selectedObject}
-                    id="object-height"
-                    min="10"
-                    name="objectHeight"
-                    onChange={(event) =>
-                      updateSelectedObject({
-                        height: Number(event.target.value)
-                      })
-                    }
-                    type="number"
-                    value={selectedObject?.height ?? ""}
-                  />
-                </div>
-
-                <div>
-                  <InspectorField htmlFor="object-seats">Seats</InspectorField>
-
-                  <input
-                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                    disabled={!selectedObject}
-                    id="object-seats"
-                    min="0"
-                    name="objectSeats"
-                    onChange={(event) =>
-                      updateSelectedObject({
-                        seats: Number(event.target.value)
-                      })
-                    }
-                    type="number"
-                    value={selectedObject?.seats ?? ""}
-                  />
-                </div>
-
-                <div>
-                  <InspectorField htmlFor="seating-use">
-                    Seating use
-                  </InspectorField>
-
-                  <CompactSelect
-                    disabled={!selectedObject}
-                    id="seating-use"
-                    onChange={(value) =>
-                      updateSelectedObject({
-                        seatingUse: value as SeatingUse
-                      })
-                    }
-                    options={[
-                      { label: "No seating", value: "none" },
-                      { label: "Adult seating", value: "adult" },
-                      { label: "Kids seating", value: "kids" },
-                      { label: "Head table", value: "head" }
-                    ]}
-                    value={selectedObject?.seatingUse ?? "none"}
-                  />
-                </div>
-
-                <div>
-                  <InspectorField htmlFor="object-x">X</InspectorField>
-
-                  <input
-                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                    disabled={!selectedObject}
-                    id="object-x"
-                    name="objectX"
-                    onChange={(event) =>
-                      updateSelectedObject({
-                        x: Number(event.target.value)
-                      })
-                    }
-                    type="number"
-                    value={selectedObject?.x ?? ""}
-                  />
-                </div>
-
-                <div>
-                  <InspectorField htmlFor="object-y">Y</InspectorField>
-
-                  <input
-                    className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                    disabled={!selectedObject}
-                    id="object-y"
-                    name="objectY"
-                    onChange={(event) =>
-                      updateSelectedObject({
-                        y: Number(event.target.value)
-                      })
-                    }
-                    type="number"
-                    value={selectedObject?.y ?? ""}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <InspectorField htmlFor="object-rotation">
-                  Rotation
-                </InspectorField>
-
-                <input
-                  className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]"
-                  disabled={!selectedObject}
-                  id="object-rotation"
-                  max="360"
-                  min="0"
-                  name="objectRotation"
-                  onChange={(event) =>
-                    updateSelectedObject({
-                      rotation: Number(event.target.value)
-                    })
-                  }
-                  type="number"
-                  value={selectedObject?.rotation ?? ""}
-                />
-              </div>
-
-              <p className="mt-3 text-[10px] leading-5 text-[#617086]">
-                The inspector updates one selected object. Tables have a seat
-                count and seating use. Edit the name field to rename a shape.
-              </p>
-            </div>
-          </Panel>
+          <HallMapObjectInspector
+            onUpdateSelectedObject={updateSelectedObject}
+            selectedObject={selectedObject}
+          />
         </div>
       </main>
 

@@ -143,10 +143,10 @@ function MobileScheduleList({
 >) {
   return (
     <div className="space-y-2 p-3 md:hidden">
-      {scheduleRows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#c7d0dc] p-4 text-sm font-bold text-[#6a7483]">
-          {isLoading ? "Loading events..." : "No events in this time range."}
-        </div>
+      {isLoading ? (
+        <MobileScheduleSkeleton />
+      ) : scheduleRows.length === 0 ? (
+        <ScheduleEmptyState />
       ) : (
         visibleScheduleRows.map((row) => (
           <article
@@ -202,13 +202,15 @@ function DesktopScheduleTable({
         </thead>
 
         <tbody className="divide-y divide-[#d8dde5]">
-          {scheduleRows.length === 0 ? (
+          {isLoading ? (
+            <DesktopScheduleSkeleton />
+          ) : scheduleRows.length === 0 ? (
             <tr>
               <td
-                className="px-4 py-8 text-center text-sm font-bold text-[#6a7483]"
+                className="px-4 py-8"
                 colSpan={6}
               >
-                {isLoading ? "Loading events..." : "No events in this time range."}
+                <ScheduleEmptyState />
               </td>
             </tr>
           ) : (
@@ -242,6 +244,107 @@ function DesktopScheduleTable({
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function SkeletonLine({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={`block h-3 animate-pulse rounded-full bg-[#dbe4ee] ${className}`}
+    />
+  );
+}
+
+function MobileScheduleSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 3 }, (_, index) => (
+        <article
+          className="rounded-xl border border-[#d8dde5] p-3"
+          key={index}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <SkeletonLine className="w-2/3" />
+              <SkeletonLine className="mt-2 w-1/2" />
+            </div>
+            <SkeletonLine className="h-6 w-20" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <SkeletonLine />
+            <SkeletonLine />
+          </div>
+        </article>
+      ))}
+    </>
+  );
+}
+
+function DesktopScheduleSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 5 }, (_, index) => (
+        <tr className="align-middle" key={index}>
+          <td className="px-4 py-5">
+            <SkeletonLine className="w-16" />
+          </td>
+          <td className="px-4 py-5">
+            <SkeletonLine className="w-36" />
+            <SkeletonLine className="mt-2 w-48" />
+          </td>
+          <td className="px-4 py-5">
+            <SkeletonLine className="w-28" />
+          </td>
+          <td className="px-4 py-5">
+            <SkeletonLine className="w-24" />
+          </td>
+          <td className="px-4 py-5">
+            <SkeletonLine className="h-6 w-24" />
+          </td>
+          <td className="px-4 py-5">
+            <SkeletonLine className="w-32" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+function ScheduleEmptyState() {
+  const router = useRouter();
+
+  return (
+    <div className="mx-auto flex max-w-lg flex-col items-center justify-center rounded-2xl border border-dashed border-[#c7d0dc] bg-[#fbfcfd] px-5 py-8 text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef4fa] text-[#1f4d73]">
+        <svg
+          aria-hidden="true"
+          className="h-6 w-6"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2.25"
+          viewBox="0 0 24 24"
+        >
+          <rect height="17" rx="2" width="18" x="3" y="4" />
+          <path d="M8 2v4M16 2v4M3 9h18M8 13h4M8 17h8" />
+        </svg>
+      </span>
+      <p className="mt-3 text-sm font-black text-[#17202a]">
+        No events in this time range
+      </p>
+      <p className="mt-1 text-xs font-medium text-[#6a7483]">
+        Change the filter or open Event Manager to create and review upcoming
+        bookings.
+      </p>
+      <button
+        className="mt-4 h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#15344f]"
+        onClick={() => router.push("/dashboard/events", { scroll: false })}
+        type="button"
+      >
+        Open Event Manager
+      </button>
     </div>
   );
 }

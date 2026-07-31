@@ -212,14 +212,18 @@ export function EventCountGraph({
 }: {
   groups: Array<{ date: string; rows: ScheduleRow[] }>;
 }) {
-  const maxCount = Math.max(10, ...groups.map((group) => group.rows.length));
+  const largestCount = Math.max(0, ...groups.map((group) => group.rows.length));
+  const maxCount = Math.max(4, Math.ceil(largestCount / 2) * 2);
+  const ticks = Array.from({ length: 5 }, (_, index) =>
+    Math.round(maxCount - index * (maxCount / 4))
+  );
 
   return (
     <div className="mt-5 border-t border-[#d8dde5] pt-5">
       <h3 className="text-sm font-black text-[#17202a]">Events overview</h3>
       <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2">
         <div className="flex h-44 flex-col justify-between pb-6 text-[10px] font-bold text-[#6a7483]">
-          {[10, 8, 6, 4, 2, 0].map((value) => (
+          {ticks.map((value) => (
             <span key={value}>{value}</span>
           ))}
         </div>
@@ -278,6 +282,34 @@ export function groupEventsByMonth(events: DashboardEvent[]) {
   }, []);
 }
 
+export function groupEventsByMonthRange(
+  events: DashboardEvent[],
+  startDate: string,
+  endDate: string
+) {
+  const groupedEvents = groupEventsByMonth(events);
+  const rowsByMonth = new Map(
+    groupedEvents.map((group) => [group.date, group.rows])
+  );
+  const start = new Date(`${startDate.slice(0, 7)}-01T00:00:00`);
+  const end = new Date(`${endDate.slice(0, 7)}-01T00:00:00`);
+  const groups: TimelineGroup[] = [];
+
+  for (
+    const cursor = new Date(start);
+    cursor <= end;
+    cursor.setMonth(cursor.getMonth() + 1)
+  ) {
+    const monthDate = dateKeyFromLocalDate(cursor);
+    groups.push({
+      date: monthDate,
+      rows: rowsByMonth.get(monthDate) ?? []
+    });
+  }
+
+  return groups;
+}
+
 export function CalendarKpiIcon({ booked = false }: { booked?: boolean }) {
   return (
     <span
@@ -304,8 +336,10 @@ export function CalendarKpiIcon({ booked = false }: { booked?: boolean }) {
 }
 
 export function FinancialTimelineGraph({
+  isLoading = false,
   points
 }: {
+  isLoading?: boolean;
   points: FinancialTimelinePoint[];
 }) {
   const maxValue = 1_500_000;
@@ -351,7 +385,24 @@ export function FinancialTimelineGraph({
             ))}
 
             <div className="relative z-1 flex h-full items-end gap-2 px-2">
-              {visiblePoints.map((point) => (
+              {isLoading
+                ? Array.from({ length: 8 }, (_, index) => (
+                    <div
+                      className="flex min-w-0 flex-1 items-end justify-center gap-1"
+                      key={index}
+                    >
+                      <div
+                        className="w-full max-w-4 animate-pulse rounded-t-sm bg-[#dbe4ee]"
+                        style={{ height: `${52 + (index % 4) * 28}px` }}
+                      />
+                      <div
+                        className="w-full max-w-4 animate-pulse rounded-t-sm bg-[#edf1f6]"
+                        style={{ height: `${28 + (index % 3) * 18}px` }}
+                      />
+                    </div>
+                  ))
+                : null}
+              {!isLoading ? visiblePoints.map((point) => (
                 <div
                   className="flex min-w-0 flex-1 items-end justify-center gap-1"
                   key={point.date}
@@ -371,26 +422,34 @@ export function FinancialTimelineGraph({
                     title={`${formatEventDate(point.date)} expenses: ${formatCompactCurrency(point.expenseCents)}`}
                   />
                 </div>
-              ))}
+              )) : null}
             </div>
           </div>
 
           <div className="ml-px flex min-w-0 gap-2 px-2 pt-2">
-            {visiblePoints.map((point) => (
+            {(isLoading ? Array.from({ length: 8 }) : visiblePoints).map((point, index) => (
               <span
                 className="min-w-0 flex-1 truncate text-center text-[10px] font-bold text-[#6a7483]"
-                key={point.date}
+                key={isLoading ? index : (point as FinancialTimelinePoint).date}
               >
-                {formatEventDate(point.date)}
+                {isLoading ? "..." : formatEventDate((point as FinancialTimelinePoint).date)}
               </span>
             ))}
           </div>
         </div>
       </div>
 
-      {!hasData ? (
-        <div className="absolute inset-0 flex items-center justify-center px-6 pt-8 text-center text-sm font-bold text-[#6a7483]">
-          No income or expense activity for this filter.
+      {!isLoading && !hasData ? (
+        <div className="absolute inset-x-6 top-24 flex justify-center text-center">
+          <div className="rounded-2xl border border-[#d8dde5] bg-white/95 px-5 py-4 shadow-sm">
+            <p className="text-sm font-black text-[#17202a]">
+              No financial activity yet
+            </p>
+            <p className="mt-1 max-w-sm text-xs font-medium text-[#6a7483]">
+              Paid invoices and processed refunds will appear here once billing
+              activity is recorded for this period.
+            </p>
+          </div>
         </div>
       ) : null}
     </div>

@@ -10,6 +10,7 @@ type DashboardIncomeTimelineProps = {
   financialRangeLabel: string;
   financeTimeFilter: TimeFilter;
   financialTimeline: FinancialTimelinePoint[];
+  isLoading: boolean;
   onFinanceTimeFilterChange: (filter: TimeFilter) => void;
 };
 
@@ -17,6 +18,7 @@ export function DashboardIncomeTimeline({
   financialRangeLabel,
   financeTimeFilter,
   financialTimeline,
+  isLoading,
   onFinanceTimeFilterChange
 }: DashboardIncomeTimelineProps) {
   return (
@@ -47,7 +49,10 @@ export function DashboardIncomeTimeline({
       </div>
 
       <div className="p-5">
-        <FinancialTimelineGraph points={financialTimeline} />
+        <FinancialTimelineGraph
+          isLoading={isLoading}
+          points={financialTimeline}
+        />
       </div>
     </section>
   );
