@@ -17,7 +17,7 @@ export function TodayView({
   onSelectEvent: (event: KitchenEvent) => void;
 }) {
   return (
-    <section className="min-h-120 border border-[#d8dde5] bg-[#edf9ff] p-2">
+    <section className="min-h-120 border border-[#d8dde5] bg-white p-2">
       <header className="flex items-center justify-between border-b border-[#d8dde5] px-2 pb-2">
         <h2 className="text-lg font-black text-[#0077b7]">
           {day.today ? "Today" : day.dayName}

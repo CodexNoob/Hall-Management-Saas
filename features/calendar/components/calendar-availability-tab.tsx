@@ -115,8 +115,8 @@ export function AvailabilityView({
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
                   <span className="text-xs text-[#617086]">
                     {isHold
-                      ? `1 hold · ${availabilityDay.roomsAvailable} rooms still available`
-                      : `${availabilityDay.roomsAvailable} rooms available`}
+                      ? `1 hold · ${availabilityDay.roomsAvailable} event slots still available`
+                      : `${availabilityDay.roomsAvailable} event slots available`}
                   </span>
                   <span
                     className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${isHold ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]" : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"}`}

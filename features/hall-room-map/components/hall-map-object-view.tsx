@@ -1,6 +1,9 @@
 "use client";
 
-import { type PointerEvent as ReactPointerEvent } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent
+} from "react";
 import { type MapObject } from "@/features/hall-room-map/components/hall-map-shared";
 
 export function MapObjectView({
@@ -16,7 +19,7 @@ export function MapObjectView({
   onDragMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onDragStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (event: ReactMouseEvent<HTMLButtonElement>) => void;
 }) {
   const isTable =
     object.type === "round-table" ||
@@ -48,7 +51,7 @@ export function MapObjectView({
       }`}
       onClick={(event) => {
         event.stopPropagation();
-        onSelect();
+        onSelect(event);
       }}
       onPointerCancel={onDragEnd}
       onPointerDown={onDragStart}

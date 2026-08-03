@@ -31,6 +31,7 @@ export type IconName =
   | "user";
 
 export type EventFile = {
+  id: string;
   title: string;
   date: string;
   time: string;

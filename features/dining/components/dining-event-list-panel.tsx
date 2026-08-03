@@ -2,6 +2,7 @@
 
 import { type SetStateAction } from "react";
 import { Panel } from "@/features/dining/components/dining-panel";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
   eventCounts,
   eventSchedule,
@@ -16,8 +17,10 @@ type DiningEventListPanelProps = {
   paginatedEvents: DiningEvent[];
   selectedEvent: DiningEvent;
   visibleEventsCount: number;
+  isExpanded: boolean;
   onSelectEvent: (eventId: string) => void;
   onSetEventPage: (updater: SetStateAction<number>) => void;
+  onToggleExpanded: () => void;
 };
 
 export function DiningEventListPanel({
@@ -27,18 +30,40 @@ export function DiningEventListPanel({
   paginatedEvents,
   selectedEvent,
   visibleEventsCount,
+  isExpanded,
   onSelectEvent,
-  onSetEventPage
+  onSetEventPage,
+  onToggleExpanded
 }: DiningEventListPanelProps) {
   return (
     <Panel>
-      <header className="border-b border-[#d8dde5] px-3 py-2">
-        <h2 className="text-sm font-black">Events</h2>
-        <p className="mt-1 text-xs text-[#617086]">
-          Select an organization event.
-        </p>
+      <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
+        <div>
+          <h2 className="text-sm font-black">Events</h2>
+          <p className="mt-1 text-xs text-[#617086]">
+            Select an organization event.
+          </p>
+        </div>
+        <button
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? "Collapse events" : "Expand events"}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] lg:hidden"
+          onClick={onToggleExpanded}
+          type="button"
+        >
+          <LineIcon
+            name="chevron"
+            className={`h-5 w-5 transition-transform ${
+              isExpanded ? "rotate-90" : ""
+            }`}
+          />
+        </button>
       </header>
-      <div className="max-h-80 space-y-2 overflow-y-auto p-2 lg:max-h-none">
+      <div
+        className={`max-h-80 space-y-2 overflow-y-auto p-2 lg:block lg:max-h-none ${
+          isExpanded ? "block" : "hidden"
+        }`}
+      >
         {paginatedEvents.map((event) => {
           const counts = eventCounts(event);
           return (

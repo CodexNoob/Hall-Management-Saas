@@ -25,6 +25,7 @@ export function BillingContent({
   if (activeTab === "Transactions")
     return (
       <TransactionsTab
+        data={data}
         openModal={openModal}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}

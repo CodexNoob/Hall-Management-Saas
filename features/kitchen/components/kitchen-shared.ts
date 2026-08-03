@@ -10,6 +10,16 @@ export type KitchenEvent = {
   packageName: string;
   status?: string;
   statusType?: "hold" | "kitchen";
+  menuItems?: KitchenMenuItem[];
+};
+
+export type KitchenMenuItem = {
+  id: string;
+  name: string;
+  category?: string | null;
+  status?: "PENDING" | "COMPLETE" | null;
+  assignedWorkerId?: string | null;
+  assignedWorkerName?: string | null;
 };
 
 export type KitchenDay = {
@@ -38,8 +48,21 @@ export type KitchenResponse = {
     girlsCount: number;
     kidsCount: number;
     hall: { name: string };
+    menuItems: KitchenMenuItem[];
   }>;
   workers: Array<{ id: string; name: string }>;
+  menuItems: Array<{
+    id: string;
+    name: string;
+    category?: string | null;
+    usageType: string;
+  }>;
+  permissions: {
+    canEditMenu: boolean;
+    canAssignWorkers: boolean;
+    canUpdateKitchenStatus: boolean;
+    canAddKitchenEvents: boolean;
+  };
 };
 
 export const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];

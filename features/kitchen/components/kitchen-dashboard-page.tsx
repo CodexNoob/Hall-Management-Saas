@@ -10,6 +10,7 @@ import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import { addDays, dateKey, dateKeyFromIso, startOfDay, startOfWeek } from "@/lib/dates/calendar-date";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
@@ -23,6 +24,37 @@ import { dayNames, kitchenViewInformation, type KitchenDay, type KitchenEvent, t
 export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
+  const kitchenMutation = useAuthenticatedMutation<
+    | {
+        action: "status";
+        eventId: string;
+        menuItemId: string;
+        status: "PENDING" | "COMPLETE";
+      }
+    | {
+        action: "reset-status";
+        eventId: string;
+        menuItemId: string;
+      }
+    | {
+        action: "assign-worker";
+        eventId: string;
+        menuItemId: string;
+        assignedWorkerId: string | null;
+      }
+    | {
+        action: "replace-menu-item";
+        eventId: string;
+        menuItemId: string;
+        replacementMenuItemId: string;
+      }
+    | {
+        action: "remove-menu-item";
+        eventId: string;
+        menuItemId: string;
+      },
+    unknown
+  >("/api/kitchen", "PATCH");
   const [activeView, setActiveView] = useState<KitchenView>("today");
   const today = useMemo(() => startOfDay(new Date()), []);
   const [anchorDate, setAnchorDate] = useState(today);
@@ -60,7 +92,8 @@ export function KitchenDashboardPage() {
         status: event.eventStatus,
         statusType: event.eventStatus.toLowerCase().includes("hold")
           ? "hold"
-          : undefined
+          : undefined,
+        menuItems: event.menuItems
       };
       if (
         !normalizedSearch ||
@@ -154,6 +187,13 @@ export function KitchenDashboardPage() {
     setIsAddKitchenEventOpen(true);
   }
 
+  async function saveKitchenItemAction(
+    input: Parameters<typeof kitchenMutation.mutate>[0]
+  ) {
+    await kitchenMutation.mutate(input);
+    await kitchenQuery.refetch();
+  }
+
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#07162d]">
       <DashboardTopbar
@@ -236,7 +276,19 @@ export function KitchenDashboardPage() {
 
       <KitchenEventDetailsDialog
         event={selectedKitchenEvent}
+        isSaving={kitchenMutation.isPending}
+        menuItems={kitchenQuery.data?.menuItems ?? []}
         onClose={() => setSelectedKitchenEvent(null)}
+        onSaveItemAction={saveKitchenItemAction}
+        permissions={
+          kitchenQuery.data?.permissions ?? {
+            canAddKitchenEvents: false,
+            canAssignWorkers: false,
+            canEditMenu: false,
+            canUpdateKitchenStatus: false
+          }
+        }
+        workers={kitchenQuery.data?.workers ?? []}
       />
     </div>
   );

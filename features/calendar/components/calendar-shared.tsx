@@ -25,6 +25,9 @@ export type EventsResponse = {
   halls: Array<{ id: string; name: string }>;
   eventTypes: Array<{ id: string; name: string }>;
   packages: Array<{ id: string; name: string }>;
+  calendarSettings?: {
+    dailyEventLimit: number;
+  };
 };
 
 export const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];

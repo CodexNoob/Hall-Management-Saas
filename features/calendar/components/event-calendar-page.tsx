@@ -18,6 +18,7 @@ import {
   startOfMonth
 } from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 import { AvailabilityView } from "@/features/calendar/components/calendar-availability-tab";
@@ -36,6 +37,10 @@ import {
 } from "@/features/calendar/components/calendar-shared";
 export function EventCalendarPage() {
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
+  const settingsMutation = useAuthenticatedMutation<
+    { dailyEventLimit: number },
+    unknown
+  >("/api/settings", "PATCH");
   const [activeTab, setActiveTab] = useState<
     "calendar" | "availability" | "settings"
   >("calendar");
@@ -59,6 +64,8 @@ export function EventCalendarPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  const dailyEventLimit =
+    eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -123,18 +130,14 @@ export function EventCalendarPage() {
               weekday: "short"
             }).format(day),
             hebrewDate: formatHebrewDateWithoutYear(day),
-            roomsAvailable: Math.max(
-              0,
-              halls.length -
-                new Set(dayBookings.map((booking) => booking.hall)).size
-            ),
+            roomsAvailable: Math.max(0, dailyEventLimit - dayBookings.length),
             status: dayBookings.some((booking) => booking.status === "hold")
               ? ("hold" as const)
               : ("available" as const)
           };
         })
         .filter((day) => !removedAvailabilityDays.includes(day.dateKey)),
-    [availabilityRangeDays, bookings, halls.length, removedAvailabilityDays]
+    [availabilityRangeDays, bookings, dailyEventLimit, removedAvailabilityDays]
   );
 
   const filteredBookings = useMemo(() => {
@@ -280,7 +283,15 @@ export function EventCalendarPage() {
             startDateLabel={availabilityStartDateLabel}
           />
         ) : activeTab === "settings" ? (
-          <CalendarSettingsView />
+          <CalendarSettingsView
+            dailyEventLimit={dailyEventLimit}
+            isSavingDailyEventLimit={settingsMutation.isPending}
+            onSaveDailyEventLimit={async (nextLimit) => {
+              await settingsMutation.mutate({ dailyEventLimit: nextLimit });
+              await eventsQuery.refetch();
+            }}
+            saveDailyEventLimitError={settingsMutation.error}
+          />
         ) : (
           <div className="mx-auto grid w-full min-w-0 max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
             <section className="dashboard-panel-enter min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
@@ -408,17 +419,10 @@ export function EventCalendarPage() {
                       );
                       const isSelected = calendarDay.dateKey === selectedDate;
                       const isToday = calendarDay.dateKey === dateKey(today);
-                      const bookedHallCount = new Set(
-                        bookings
-                          .filter(
-                            (booking) => booking.dateKey === calendarDay.dateKey
-                          )
-                          .map((booking) => booking.hall)
-                      ).size;
                       const fullyBooked =
                         calendarDay.currentMonth &&
-                        halls.length > 0 &&
-                        bookedHallCount >= halls.length;
+                        dailyEventLimit > 0 &&
+                        dayBookings.length >= dailyEventLimit;
                       const dateLabel = new Intl.DateTimeFormat("en-US", {
                         month: "long",
                         day: "numeric",

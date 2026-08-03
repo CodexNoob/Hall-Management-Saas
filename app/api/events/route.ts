@@ -12,6 +12,25 @@ import {
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
+function dailyEventLimitFromIntegrations(integrations: unknown) {
+  if (
+    integrations &&
+    typeof integrations === "object" &&
+    "calendar" in integrations
+  ) {
+    const calendar = (integrations as { calendar?: unknown }).calendar;
+    if (calendar && typeof calendar === "object") {
+      const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
+        .dailyEventLimit;
+      if (typeof dailyEventLimit === "number" && Number.isFinite(dailyEventLimit)) {
+        return dailyEventLimit;
+      }
+    }
+  }
+
+  return 2;
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -23,7 +42,7 @@ export async function GET(request: Request) {
       !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
 
     await expireOrganizationHolds(actor.organizationId);
-    const [events, halls, eventTypes, packages] = await Promise.all([
+    const [events, halls, eventTypes, packages, settings] = await Promise.all([
       prisma.event.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -50,10 +69,23 @@ export async function GET(request: Request) {
       prisma.eventPackage.findMany({
         where: { organizationId: actor.organizationId, isActive: true },
         orderBy: { name: "asc" }
+      }),
+      prisma.organizationSetting.upsert({
+        where: { organizationId: actor.organizationId },
+        update: {},
+        create: { organizationId: actor.organizationId }
       })
     ]);
 
-    return NextResponse.json({ events, halls, eventTypes, packages });
+    return NextResponse.json({
+      events,
+      halls,
+      eventTypes,
+      packages,
+      calendarSettings: {
+        dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations)
+      }
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -9,11 +10,54 @@ const settingsSchema = z.object({
   timezone: z.string().trim().min(1).optional(),
   twoFactorRequired: z.boolean().optional(),
   sessionTimeoutMinutes: z.number().int().min(5).max(1440).optional(),
+  dailyEventLimit: z.number().int().min(1).max(50).optional(),
   emailNotifications: z.boolean().optional(),
   eventConfirmations: z.boolean().optional(),
   billingAlerts: z.boolean().optional(),
   systemAnnouncements: z.boolean().optional()
 });
+
+function calendarSettingsFromIntegrations(integrations: unknown) {
+  if (
+    integrations &&
+    typeof integrations === "object" &&
+    "calendar" in integrations
+  ) {
+    const calendar = (integrations as { calendar?: unknown }).calendar;
+    if (calendar && typeof calendar === "object") {
+      const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
+        .dailyEventLimit;
+      if (typeof dailyEventLimit === "number" && Number.isFinite(dailyEventLimit)) {
+        return { dailyEventLimit };
+      }
+    }
+  }
+
+  return { dailyEventLimit: 2 };
+}
+
+function mergeCalendarSettings(
+  integrations: unknown,
+  dailyEventLimit: number | undefined
+): Prisma.InputJsonValue | undefined {
+  if (dailyEventLimit === undefined) return undefined;
+  const base =
+    integrations && typeof integrations === "object"
+      ? { ...(integrations as Record<string, unknown>) }
+      : {};
+  const calendar =
+    base.calendar && typeof base.calendar === "object"
+      ? { ...(base.calendar as Record<string, unknown>) }
+      : {};
+
+  return {
+    ...base,
+    calendar: {
+      ...calendar,
+      dailyEventLimit
+    }
+  };
+}
 
 export async function GET(request: Request) {
   try {
@@ -39,7 +83,14 @@ export async function GET(request: Request) {
       })
     ]);
 
-    return NextResponse.json({ organization, settings, notifications });
+    return NextResponse.json({
+      organization,
+      settings: {
+        ...settings,
+        calendar: calendarSettingsFromIntegrations(settings.integrations)
+      },
+      notifications
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -53,15 +104,25 @@ export async function PATCH(request: Request) {
       input.language !== undefined ||
       input.timezone !== undefined ||
       input.twoFactorRequired !== undefined ||
-      input.sessionTimeoutMinutes !== undefined
+      input.sessionTimeoutMinutes !== undefined ||
+      input.dailyEventLimit !== undefined
     ) {
       await requirePermission(request, "canEditSettings");
     }
+    const currentSettings = await prisma.organizationSetting.upsert({
+      where: { organizationId: actor.organizationId },
+      update: {},
+      create: { organizationId: actor.organizationId }
+    });
     const organizationChanges = {
       language: input.language,
       timezone: input.timezone,
       twoFactorRequired: input.twoFactorRequired,
-      sessionTimeoutMinutes: input.sessionTimeoutMinutes
+      sessionTimeoutMinutes: input.sessionTimeoutMinutes,
+      integrations: mergeCalendarSettings(
+        currentSettings.integrations,
+        input.dailyEventLimit
+      )
     };
     const notificationChanges = {
       emailNotifications: input.emailNotifications,
@@ -92,7 +153,13 @@ export async function PATCH(request: Request) {
       })
     ]);
 
-    return NextResponse.json({ settings, notifications });
+    return NextResponse.json({
+      settings: {
+        ...settings,
+        calendar: calendarSettingsFromIntegrations(settings.integrations)
+      },
+      notifications
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }

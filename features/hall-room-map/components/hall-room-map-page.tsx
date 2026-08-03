@@ -47,6 +47,7 @@ export function HallRoomMapPage() {
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [hallMaps, setHallMaps] = useState<SavedHallMap[]>(initialHallMaps);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [selectedMapId, setSelectedMapId] = useState("");
   const [selectedHallId, setSelectedHallId] = useState("");
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
@@ -60,6 +61,8 @@ export function HallRoomMapPage() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
   const latestObjectsRef = useRef<MapObject[]>(objects);
+  const objectClipboardRef = useRef<MapObject[]>([]);
+  const undoStackRef = useRef<MapObject[][]>([]);
   const mapScaleRef = useRef(1);
   const panRef = useRef<{
     pointerId: number;
@@ -146,6 +149,7 @@ export function HallRoomMapPage() {
 
   const selectedObject =
     objects.find((object) => object.id === selectedObjectId) ?? null;
+  const selectedObjectIdSet = new Set(selectedObjectIds);
   const selectedMap = hallMaps.find((map) => map.id === selectedMapId) ?? null;
   const hasSelectedHall = Boolean(selectedHallId);
   const hasSelectedMap = Boolean(
@@ -198,7 +202,7 @@ export function HallRoomMapPage() {
       setSelectedMapId((currentMapId) => {
         if (!nextHallId) {
           setObjects([]);
-          setSelectedObjectId(null);
+          clearObjectSelection();
           return "";
         }
         const currentMap = nextMaps.find(
@@ -231,6 +235,197 @@ export function HallRoomMapPage() {
     }
     feedbackTimerRef.current = setTimeout(() => setFeedback(""), 2600);
   }
+
+  function rememberObjectsSnapshot(snapshot = latestObjectsRef.current) {
+    undoStackRef.current = [
+      ...undoStackRef.current.slice(-24),
+      snapshot.map((object) => ({ ...object }))
+    ];
+  }
+
+  function clearObjectSelection() {
+    setSelectedObjectId(null);
+    setSelectedObjectIds([]);
+  }
+
+  function selectSingleObject(objectId: string | null) {
+    setSelectedObjectId(objectId);
+    setSelectedObjectIds(objectId ? [objectId] : []);
+  }
+
+  function selectObjectFromPointer(
+    objectId: string,
+    event: Pick<ReactPointerEvent<HTMLButtonElement>, "ctrlKey" | "metaKey">
+  ) {
+    if (!event.ctrlKey && !event.metaKey) {
+      selectSingleObject(objectId);
+      return;
+    }
+
+    setSelectedObjectIds((current) => {
+      const exists = current.includes(objectId);
+      const next = exists
+        ? current.filter((id) => id !== objectId)
+        : [...current, objectId];
+
+      setSelectedObjectId(next.at(-1) ?? null);
+      return next;
+    });
+  }
+
+  function clampObjectPosition(object: MapObject, x: number, y: number) {
+    return {
+      x: Math.round(
+        Math.min(Math.max(0, x), Math.max(0, DESIGN_MAP_WIDTH - object.width))
+      ),
+      y: Math.round(
+        Math.min(Math.max(0, y), Math.max(0, DESIGN_MAP_HEIGHT - object.height))
+      )
+    };
+  }
+
+  function getActiveObjectIds() {
+    return selectedObjectIds.length
+      ? selectedObjectIds
+      : selectedObjectId
+        ? [selectedObjectId]
+        : [];
+  }
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      return Boolean(
+        target.closest("input, textarea, select, [contenteditable='true']")
+      );
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      const isModifier = event.ctrlKey || event.metaKey;
+
+      if (isModifier && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void saveCurrentMap();
+        return;
+      }
+
+      if (!hasSelectedMap || isTypingTarget(event.target)) {
+        return;
+      }
+
+      const activeIds = getActiveObjectIds();
+      const activeIdSet = new Set(activeIds);
+
+      if (isModifier && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        const allIds = latestObjectsRef.current.map((object) => object.id);
+        setSelectedObjectIds(allIds);
+        setSelectedObjectId(allIds.at(-1) ?? null);
+        showFeedback(allIds.length ? `${allIds.length} shapes selected.` : "No shapes to select.");
+        return;
+      }
+
+      if (isModifier && event.key.toLowerCase() === "c") {
+        if (!activeIds.length) return;
+        event.preventDefault();
+        objectClipboardRef.current = latestObjectsRef.current
+          .filter((object) => activeIdSet.has(object.id))
+          .map((object) => ({ ...object }));
+        showFeedback(`${objectClipboardRef.current.length} shape copied.`);
+        return;
+      }
+
+      if (isModifier && event.key.toLowerCase() === "v") {
+        const copiedObjects = objectClipboardRef.current;
+        if (!copiedObjects.length) return;
+        event.preventDefault();
+        rememberObjectsSnapshot();
+        const pastedObjects = copiedObjects.map((object, index) => {
+          const nextPosition = clampObjectPosition(
+            object,
+            object.x + 24 + index * 6,
+            object.y + 24 + index * 6
+          );
+
+          return {
+            ...object,
+            id: `${object.type}-${crypto.randomUUID()}`,
+            name: `${object.name} copy`,
+            ...nextPosition
+          };
+        });
+        setObjects((current) => [...current, ...pastedObjects]);
+        setSelectedObjectIds(pastedObjects.map((object) => object.id));
+        setSelectedObjectId(pastedObjects.at(-1)?.id ?? null);
+        showFeedback(`${pastedObjects.length} shape pasted.`);
+        return;
+      }
+
+      if (isModifier && event.key.toLowerCase() === "z") {
+        const previousSnapshot = undoStackRef.current.at(-1);
+        if (!previousSnapshot) return;
+        event.preventDefault();
+        undoStackRef.current = undoStackRef.current.slice(0, -1);
+        setObjects(previousSnapshot.map((object) => ({ ...object })));
+        clearObjectSelection();
+        showFeedback("Undo applied.");
+        return;
+      }
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (!activeIds.length) return;
+        event.preventDefault();
+        rememberObjectsSnapshot();
+        setObjects((current) =>
+          current.filter((object) => !activeIdSet.has(object.id))
+        );
+        clearObjectSelection();
+        showFeedback(
+          activeIds.length === 1 ? "Shape deleted." : `${activeIds.length} shapes deleted.`
+        );
+        return;
+      }
+
+      const movementByKey: Record<string, { x: number; y: number }> = {
+        ArrowUp: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 }
+      };
+      const movement = movementByKey[event.key];
+
+      if (!movement || !activeIds.length) {
+        return;
+      }
+
+      event.preventDefault();
+      rememberObjectsSnapshot();
+      const step = event.shiftKey ? 10 : 1;
+      setObjects((current) =>
+        current.map((object) => {
+          if (!activeIdSet.has(object.id)) {
+            return object;
+          }
+
+          return {
+            ...object,
+            ...clampObjectPosition(
+              object,
+              object.x + movement.x * step,
+              object.y + movement.y * step
+            )
+          };
+        })
+      );
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [hasSelectedMap, objects, selectedMap, selectedObjectId, selectedObjectIds]);
 
   function updateSelectedObject(updates: Partial<Omit<MapObject, "id">>) {
     if (!selectedObjectId) {
@@ -299,8 +494,9 @@ export function HallRoomMapPage() {
               : "none"
     };
 
+    rememberObjectsSnapshot();
     setObjects((current) => [...current, newObject]);
-    setSelectedObjectId(id);
+    selectSingleObject(id);
     showFeedback(`${newObject.name} added.`);
   }
 
@@ -374,7 +570,10 @@ export function HallRoomMapPage() {
 
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    setSelectedObjectId(object.id);
+    if (!selectedObjectIds.includes(object.id)) {
+      selectObjectFromPointer(object.id, event);
+    }
+    rememberObjectsSnapshot();
     dragRef.current = {
       id: object.id,
       pointerId: event.pointerId,
@@ -439,29 +638,39 @@ export function HallRoomMapPage() {
       return;
     }
 
+    rememberObjectsSnapshot();
     const duplicate: MapObject = {
       ...selectedObject,
       id: `${selectedObject.type}-${crypto.randomUUID()}`,
       name: `${selectedObject.name} copy`,
-      x: selectedObject.x + 20,
-      y: selectedObject.y + 20
+      ...clampObjectPosition(
+        selectedObject,
+        selectedObject.x + 20,
+        selectedObject.y + 20
+      )
     };
 
     setObjects((current) => [...current, duplicate]);
-    setSelectedObjectId(duplicate.id);
+    selectSingleObject(duplicate.id);
     showFeedback(`${selectedObject.name} duplicated.`);
   }
 
   function deleteSelectedObject() {
-    if (!selectedObjectId) {
+    const activeIds = getActiveObjectIds();
+
+    if (!activeIds.length) {
       return;
     }
 
+    const activeIdSet = new Set(activeIds);
+    rememberObjectsSnapshot();
     setObjects((current) =>
-      current.filter((object) => object.id !== selectedObjectId)
+      current.filter((object) => !activeIdSet.has(object.id))
     );
-    setSelectedObjectId(null);
-    showFeedback("Shape deleted.");
+    clearObjectSelection();
+    showFeedback(
+      activeIds.length === 1 ? "Shape deleted." : `${activeIds.length} shapes deleted.`
+    );
   }
 
   function clearMap() {
@@ -471,8 +680,9 @@ export function HallRoomMapPage() {
     if (!window.confirm("Clear every shape from this hall room map?")) {
       return;
     }
+    rememberObjectsSnapshot();
     setObjects([]);
-    setSelectedObjectId(null);
+    clearObjectSelection();
     showFeedback("Map cleared. Save the map to keep this change.");
   }
 
@@ -483,7 +693,7 @@ export function HallRoomMapPage() {
 
     const nextObjects = selectedMap.objects.map((object) => ({ ...object }));
     setObjects(nextObjects);
-    setSelectedObjectId(null);
+    clearObjectSelection();
     centerMapViewport(nextObjects);
     showFeedback(`${selectedMap.name} loaded.`);
   }
@@ -567,7 +777,7 @@ export function HallRoomMapPage() {
         setSelectedMapId(result.preset.id);
         setSelectedHallId(result.preset.hallId);
         setObjects([]);
-        setSelectedObjectId(null);
+        clearObjectSelection();
         await hallMapsQuery.refetch();
         showFeedback(`${trimmedName} created for ${result.preset.hall?.name}.`);
       }
@@ -604,7 +814,7 @@ export function HallRoomMapPage() {
           ? nextSelectedMap.objects.map((object) => ({ ...object }))
           : []
       );
-      setSelectedObjectId(null);
+      clearObjectSelection();
       showFeedback(`${deletedMapName} deleted.`);
     } catch {
       showFeedback(deleteMapMutation.error ?? "Unable to delete this map.");
@@ -622,8 +832,8 @@ export function HallRoomMapPage() {
           <>
             <button
               className="hidden h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition enabled:hover:border-[#1f4d73]/60 enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45 lg:block"
-              disabled={!selectedObject}
-              onClick={() => setSelectedObjectId(null)}
+              disabled={!selectedObjectIds.length && !selectedObject}
+              onClick={clearObjectSelection}
               type="button"
             >
               Clear selection
@@ -675,12 +885,12 @@ export function HallRoomMapPage() {
               setObjects(
                 nextMap?.objects.map((object) => ({ ...object })) ?? []
               );
-              setSelectedObjectId(null);
+              clearObjectSelection();
             }}
             onSelectMap={(nextMap) => {
               setSelectedMapId(nextMap.id);
               setObjects(nextMap.objects.map((object) => ({ ...object })));
-              setSelectedObjectId(null);
+              clearObjectSelection();
             }}
             selectedHallId={selectedHallId}
             selectedHallMaps={selectedHallMaps}
@@ -751,7 +961,7 @@ export function HallRoomMapPage() {
                       return;
                     }
 
-                    setSelectedObjectId(null);
+                    clearObjectSelection();
                   }}
                   ref={mapRef}
                   role="presentation"
@@ -769,8 +979,8 @@ export function HallRoomMapPage() {
                       onDragEnd={stopDragging}
                       onDragMove={dragObject}
                       onDragStart={(event) => startDragging(event, object)}
-                      onSelect={() => setSelectedObjectId(object.id)}
-                      selected={selectedObjectId === object.id}
+                      onSelect={(event) => selectObjectFromPointer(object.id, event)}
+                      selected={selectedObjectIdSet.has(object.id)}
                     />
                   ))}
                 </div>

@@ -18,6 +18,7 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 import { DiningDetailsPanel } from "@/features/dining/components/dining-details-panel";
 import { DiningEventListPanel } from "@/features/dining/components/dining-event-list-panel";
 import { Panel, FieldLabel } from "@/features/dining/components/dining-panel";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
   defaultTables,
   eventCounts,
@@ -43,9 +44,14 @@ export function DiningManagerPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Dining Manager");
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventPage, setEventPage] = useState(1);
+  const [isEventListExpanded, setIsEventListExpanded] = useState(true);
+  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [tables, setTables] = useState<DiningTableData[]>([]);
+  const [tableClipboard, setTableClipboard] = useState<DiningTableData[]>([]);
+  const undoStackRef = useRef<DiningTableData[][]>([]);
   const dragRef = useRef<{
     id: string;
     pointerId: number;
@@ -138,6 +144,7 @@ export function DiningManagerPage() {
     setTables(storedTables.length ? storedTables : defaultTables());
     setSelectedPresetId(plan?.hallMapPresetId ?? "");
     setSelectedTableId(null);
+    setSelectedTableIds([]);
     setCheckMessage("");
     setSavedMessage("");
     resetError();
@@ -172,6 +179,43 @@ export function DiningManagerPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  function rememberTablesSnapshot(snapshot = tables) {
+    undoStackRef.current = [...undoStackRef.current.slice(-24), snapshot];
+  }
+
+  function setDiningSelection(
+    tableId: string | null,
+    options: { toggle?: boolean } = {}
+  ) {
+    setSelectedTableIds((current) => {
+      if (!tableId) {
+        setSelectedTableId(null);
+        return [];
+      }
+
+      if (!options.toggle) {
+        setSelectedTableId(tableId);
+        return [tableId];
+      }
+
+      const next = current.includes(tableId)
+        ? current.filter((id) => id !== tableId)
+        : [...current, tableId];
+      setSelectedTableId(next.at(-1) ?? null);
+      return next;
+    });
+  }
+
+  function clampTablePosition(table: DiningTableData, x: number, y: number) {
+    const width = table.width ?? 72;
+    const height = table.height ?? 72;
+
+    return {
+      x: Math.min(Math.max(0, x), 760 - width),
+      y: Math.min(Math.max(0, y), 520 - height)
+    };
+  }
+
   function mapTypeForSide(side: TableSide) {
     if (side === "kids") return "kids-table";
     if (side === "head") return "head-table";
@@ -181,10 +225,12 @@ export function DiningManagerPage() {
   function addTable(side: TableSide = "men") {
     setSavedMessage("");
     resetError();
+    rememberTablesSnapshot();
+    const id = crypto.randomUUID();
     setTables((current) => [
       ...current,
       {
-        id: crypto.randomUUID(),
+        id,
         height: side === "head" ? 46 : 58,
         isSeating: true,
         mapType: mapTypeForSide(side),
@@ -196,6 +242,7 @@ export function DiningManagerPage() {
         y: 225 + (Math.floor(current.length / 5) % 5) * 22
       }
     ]);
+    setDiningSelection(id);
   }
 
   function addRequiredTables() {
@@ -214,6 +261,7 @@ export function DiningManagerPage() {
     }
     setSavedMessage("");
     resetError();
+    rememberTablesSnapshot();
     setTables((current) => {
       const next = [...current];
       for (const [side, missingSeats] of requirements) {
@@ -283,6 +331,7 @@ export function DiningManagerPage() {
 
     setTables(presetTables);
     setSelectedTableId(null);
+    setSelectedTableIds([]);
     setSavedMessage("");
     setCheckMessage(
       `${preset.name} applied with ${
@@ -292,15 +341,17 @@ export function DiningManagerPage() {
   }
 
   function removeSelectedTable() {
-    if (!selectedTableId) return;
+    if (!selectedTableIds.length) return;
     setSavedMessage("");
     resetError();
+    rememberTablesSnapshot();
     setTables((current) =>
       current
-        .filter((table) => table.id !== selectedTableId)
+        .filter((table) => !selectedTableIds.includes(table.id))
         .map((table, index) => ({ ...table, number: index + 1 }))
     );
     setSelectedTableId(null);
+    setSelectedTableIds([]);
   }
 
   function startTableDrag(
@@ -308,9 +359,14 @@ export function DiningManagerPage() {
     table: DiningTableData
   ) {
     event.currentTarget.setPointerCapture(event.pointerId);
-    setSelectedTableId(table.id);
+    if (event.ctrlKey || event.metaKey) {
+      setDiningSelection(table.id, { toggle: true });
+    } else if (!selectedTableIds.includes(table.id)) {
+      setDiningSelection(table.id);
+    }
     setSavedMessage("");
     resetError();
+    rememberTablesSnapshot();
     const container = event.currentTarget.parentElement;
     const bounds = container?.getBoundingClientRect();
     dragRef.current = {
@@ -373,6 +429,151 @@ export function DiningManagerPage() {
     }
   }
 
+  useEffect(() => {
+    function isEditableElement(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      const tagName = target.tagName.toLowerCase();
+      return (
+        target.isContentEditable ||
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select"
+      );
+    }
+
+    function handleKeyboardShortcuts(event: KeyboardEvent) {
+      const isCtrl = event.ctrlKey || event.metaKey;
+
+      if (isCtrl && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        void savePlan();
+        return;
+      }
+
+      if (isEditableElement(event.target)) return;
+
+      const selectedIds = selectedTableIds.length
+        ? selectedTableIds
+        : selectedTableId
+          ? [selectedTableId]
+          : [];
+
+      if (isCtrl && event.key.toLowerCase() === "a") {
+        event.preventDefault();
+        const allIds = tables.map((table) => table.id);
+        setSelectedTableIds(allIds);
+        setSelectedTableId(allIds.at(-1) ?? null);
+        return;
+      }
+
+      if (isCtrl && event.key.toLowerCase() === "c") {
+        if (!selectedIds.length) return;
+        event.preventDefault();
+        setTableClipboard(
+          tables.filter((table) => selectedIds.includes(table.id))
+        );
+        return;
+      }
+
+      if (isCtrl && event.key.toLowerCase() === "v") {
+        if (!tableClipboard.length) return;
+        event.preventDefault();
+        rememberTablesSnapshot();
+        const pastedTables = tableClipboard.map((table, index) => {
+          const nextPosition = clampTablePosition(
+            table,
+            (table.x ?? 0) + 24,
+            (table.y ?? 0) + 24
+          );
+
+          return {
+            ...table,
+            ...nextPosition,
+            id: crypto.randomUUID(),
+            number: tables.length + index + 1
+          };
+        });
+        setTables((current) => [...current, ...pastedTables]);
+        setSelectedTableIds(pastedTables.map((table) => table.id));
+        setSelectedTableId(pastedTables.at(-1)?.id ?? null);
+        setSavedMessage("");
+        resetError();
+        return;
+      }
+
+      if (isCtrl && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        const previous = undoStackRef.current.at(-1);
+        if (!previous) return;
+        undoStackRef.current = undoStackRef.current.slice(0, -1);
+        setTables(previous);
+        setSelectedTableId(null);
+        setSelectedTableIds([]);
+        setSavedMessage("");
+        resetError();
+        return;
+      }
+
+      if (event.key === "Delete" || event.key === "Backspace") {
+        if (!selectedIds.length) return;
+        event.preventDefault();
+        rememberTablesSnapshot();
+        setTables((current) =>
+          current
+            .filter((table) => !selectedIds.includes(table.id))
+            .map((table, index) => ({ ...table, number: index + 1 }))
+        );
+        setSelectedTableId(null);
+        setSelectedTableIds([]);
+        setSavedMessage("");
+        resetError();
+        return;
+      }
+
+      const movementByKey: Record<string, [number, number]> = {
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1]
+      };
+      const movement = movementByKey[event.key];
+
+      if (!movement || !selectedIds.length) return;
+
+      event.preventDefault();
+      rememberTablesSnapshot();
+      const step = event.shiftKey ? 10 : 1;
+      setTables((current) =>
+        current.map((table) => {
+          if (!selectedIds.includes(table.id)) return table;
+          return {
+            ...table,
+            ...clampTablePosition(
+              table,
+              (table.x ?? 0) + movement[0] * step,
+              (table.y ?? 0) + movement[1] * step
+            )
+          };
+        })
+      );
+      setSavedMessage("");
+      resetError();
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcuts);
+
+    return () => window.removeEventListener("keydown", handleKeyboardShortcuts);
+  }, [
+    resetError,
+    form,
+    selectedTableId,
+    selectedTableIds,
+    selectedEvent,
+    selectedPresetId,
+    tableClipboard,
+    tables
+  ]);
+
   if (diningQuery.isLoading || diningQuery.error || !diningQuery.data) {
     return (
       <DashboardPageState
@@ -405,7 +606,7 @@ export function DiningManagerPage() {
           <>
             <button
               className="hidden h-11 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold hover:bg-[#eef4fa] lg:block"
-              disabled={!selectedTableId}
+              disabled={!selectedTableIds.length}
               onClick={removeSelectedTable}
               type="button"
             >
@@ -435,8 +636,12 @@ export function DiningManagerPage() {
             eventPage={eventPage}
             eventPageCount={eventPageCount}
             eventPageNumbers={eventPageNumbers}
+            isExpanded={isEventListExpanded}
             onSelectEvent={setSelectedEventId}
             onSetEventPage={setEventPage}
+            onToggleExpanded={() =>
+              setIsEventListExpanded((isExpanded) => !isExpanded)
+            }
             paginatedEvents={paginatedEvents}
             selectedEvent={selectedEvent}
             visibleEventsCount={visibleEvents.length}
@@ -444,13 +649,41 @@ export function DiningManagerPage() {
 
           <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
             <header className="border-b border-[#d8dde5] p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
               <h2 className="truncate text-sm font-black">
                 {eventTitle(selectedEvent)}
               </h2>
               <p className="mt-1 truncate text-xs text-[#617086]">
                 {selectedEvent.hall.name} · {eventSchedule(selectedEvent)}
               </p>
-              <div className="mt-3 flex flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2 sm:flex-row sm:items-end">
+                </div>
+                <button
+                  aria-expanded={isWorkspaceExpanded}
+                  aria-label={
+                    isWorkspaceExpanded
+                      ? "Collapse dining workspace"
+                      : "Expand dining workspace"
+                  }
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] lg:hidden"
+                  onClick={() =>
+                    setIsWorkspaceExpanded((isExpanded) => !isExpanded)
+                  }
+                  type="button"
+                >
+                  <LineIcon
+                    name="chevron"
+                    className={`h-5 w-5 transition-transform ${
+                      isWorkspaceExpanded ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+              <div
+                className={`mt-3 flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2 sm:flex-row sm:items-end lg:flex ${
+                  isWorkspaceExpanded ? "flex" : "hidden"
+                }`}
+              >
                 <div className="min-w-0 flex-1">
                   <FieldLabel htmlFor="hall-map-preset">
                     Hall map preset
@@ -485,7 +718,11 @@ export function DiningManagerPage() {
                   Apply preset
                 </button>
               </div>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div
+                className={`mt-3 flex-wrap gap-2 lg:flex ${
+                  isWorkspaceExpanded ? "flex" : "hidden"
+                }`}
+              >
                 <button
                   className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
                   onClick={() => addTable("men")}
@@ -509,7 +746,7 @@ export function DiningManagerPage() {
                 </button>
                 <button
                   className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40 sm:flex-none"
-                  disabled={!selectedTableId}
+                  disabled={!selectedTableIds.length}
                   onClick={removeSelectedTable}
                   type="button"
                 >
@@ -517,7 +754,11 @@ export function DiningManagerPage() {
                 </button>
               </div>
             </header>
-            <div className="min-h-0 flex-1 overflow-auto overscroll-contain p-2">
+            <div
+              className={`min-h-0 flex-1 overflow-auto overscroll-contain p-2 lg:block ${
+                isWorkspaceExpanded ? "block" : "hidden"
+              }`}
+            >
               <div className="min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
                 {hasPresetCoordinates ? (
                   <div className="relative mx-auto aspect-[760/520] w-full max-w-[760px]">
@@ -539,7 +780,7 @@ export function DiningManagerPage() {
                               ? "rounded bg-[#344a60] text-white shadow-none"
                               : "border bg-white shadow-sm"
                           } ${
-                            selectedTableId === table.id
+                            selectedTableIds.includes(table.id)
                               ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
                               : isServiceShape
                                 ? "border-dashed border-[#526c86]"
@@ -548,7 +789,9 @@ export function DiningManagerPage() {
                           key={table.id}
                           onClick={(event) => {
                             event.stopPropagation();
-                            setSelectedTableId(table.id);
+                            setDiningSelection(table.id, {
+                              toggle: event.ctrlKey || event.metaKey
+                            });
                           }}
                           onPointerCancel={stopTableDrag}
                           onPointerDown={(event) =>
@@ -592,12 +835,16 @@ export function DiningManagerPage() {
                       {tables.map((table) => (
                         <button
                           className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
-                            selectedTableId === table.id
+                            selectedTableIds.includes(table.id)
                               ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
                               : "border-[#526c86]"
                           }`}
                           key={table.id}
-                          onClick={() => setSelectedTableId(table.id)}
+                          onClick={(event) =>
+                            setDiningSelection(table.id, {
+                              toggle: event.ctrlKey || event.metaKey
+                            })
+                          }
                           type="button"
                         >
                           <strong className="text-[10px]">
@@ -621,26 +868,30 @@ export function DiningManagerPage() {
             </div>
           </Panel>
 
-          <DiningDetailsPanel
-            checkMessage={checkMessage}
-            diningError={diningMutation.error}
-            form={form}
-            hasPresetCoordinates={hasPresetCoordinates}
-            isSaving={diningMutation.isPending}
-            menRequired={menRequired}
-            onAddRequiredTables={addRequiredTables}
-            onSavePlan={savePlan}
-            onSetCheckMessage={setCheckMessage}
-            onSetTables={setTables}
-            onUpdateForm={updateForm}
-            savedMessage={savedMessage}
-            seatTotals={seatTotals}
-            selectedTable={
-              tables.find((table) => table.id === selectedTableId) ?? null
-            }
-            selectedTableId={selectedTableId}
-            womenRequired={womenRequired}
-          />
+          <div
+            className={`xl:block ${isWorkspaceExpanded ? "block" : "hidden"}`}
+          >
+            <DiningDetailsPanel
+              checkMessage={checkMessage}
+              diningError={diningMutation.error}
+              form={form}
+              hasPresetCoordinates={hasPresetCoordinates}
+              isSaving={diningMutation.isPending}
+              menRequired={menRequired}
+              onAddRequiredTables={addRequiredTables}
+              onSavePlan={savePlan}
+              onSetCheckMessage={setCheckMessage}
+              onSetTables={setTables}
+              onUpdateForm={updateForm}
+              savedMessage={savedMessage}
+              seatTotals={seatTotals}
+              selectedTable={
+                tables.find((table) => table.id === selectedTableId) ?? null
+              }
+              selectedTableId={selectedTableId}
+              womenRequired={womenRequired}
+            />
+          </div>
         </div>
       </main>
     </div>

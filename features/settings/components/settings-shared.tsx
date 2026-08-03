@@ -4,7 +4,11 @@ import { type ReactNode } from "react";
 
 export type SettingsResponse = {
   organization: { id: string; name: string };
-  settings: { language: string; timezone: string };
+  settings: {
+    language: string;
+    timezone: string;
+    calendar?: { dailyEventLimit: number };
+  };
   notifications: {
     emailNotifications: boolean;
     eventConfirmations: boolean;

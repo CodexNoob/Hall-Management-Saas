@@ -1,14 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DateRangePickerDialog, type DateRange } from "@/features/calendar/forms/date-range-picker-dialog";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
 import { dateKey } from "@/lib/dates/calendar-date";
 import { ClockIcon, SettingsIcon, initialBlockedRanges } from "@/features/calendar/components/calendar-shared";
 
-export function CalendarSettingsView() {
+export function CalendarSettingsView({
+  dailyEventLimit,
+  isSavingDailyEventLimit,
+  saveDailyEventLimitError,
+  onSaveDailyEventLimit
+}: {
+  dailyEventLimit: number;
+  isSavingDailyEventLimit: boolean;
+  saveDailyEventLimitError: string | null;
+  onSaveDailyEventLimit: (limit: number) => Promise<void>;
+}) {
   const [blockedRanges, setBlockedRanges] = useState(initialBlockedRanges);
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
+  const [dailyEventLimitDraft, setDailyEventLimitDraft] =
+    useState(dailyEventLimit);
   const [blockedRangeDraft, setBlockedRangeDraft] = useState<DateRange>(() => ({
     startDate: new Date(2026, 6, 1),
     endDate: new Date(2026, 6, 2)
@@ -23,6 +35,10 @@ export function CalendarSettingsView() {
     blockedRangeDraft.startDate
   );
   const blockedEndLabel = rangeDateFormatter.format(blockedRangeDraft.endDate);
+
+  useEffect(() => {
+    setDailyEventLimitDraft(dailyEventLimit);
+  }, [dailyEventLimit]);
 
   function addBlockedRange() {
     setBlockedRanges((current) => {
@@ -65,6 +81,50 @@ export function CalendarSettingsView() {
       </header>
 
       <div className="p-3">
+        <div className="mb-3 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+          <div className="border-b border-[#d8dde5] px-3 py-2">
+            <h2 className="text-sm font-black">Daily event limit</h2>
+            <p className="mt-1 text-xs text-[#6a7483]">
+              Choose how many active events can be booked on the same date.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:justify-between">
+            <label className="min-w-0 flex-1">
+              <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                Events allowed per day
+              </span>
+              <input
+                className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] outline-none focus:border-[#1f4d73] focus:ring-3 focus:ring-[#1f4d73]/15 sm:max-w-56"
+                min={1}
+                max={50}
+                onChange={(event) =>
+                  setDailyEventLimitDraft(
+                    Math.max(1, Number(event.target.value) || 1)
+                  )
+                }
+                type="number"
+                value={dailyEventLimitDraft}
+              />
+            </label>
+            <button
+              className="h-10 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                isSavingDailyEventLimit ||
+                dailyEventLimitDraft === dailyEventLimit
+              }
+              onClick={() => onSaveDailyEventLimit(dailyEventLimitDraft)}
+              type="button"
+            >
+              {isSavingDailyEventLimit ? "Saving..." : "Save limit"}
+            </button>
+          </div>
+          {saveDailyEventLimitError ? (
+            <p className="border-t border-[#f1c4bd] bg-[#fff5f3] px-3 py-2 text-xs font-bold text-[#b42318]">
+              {saveDailyEventLimitError}
+            </p>
+          ) : null}
+        </div>
+
         <div className="overflow-visible rounded-xl border border-[#d8dde5]">
           <div className="border-b border-[#d8dde5] px-3 py-2">
             <h2 className="text-sm font-black">Blocked ranges</h2>

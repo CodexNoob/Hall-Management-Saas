@@ -30,7 +30,7 @@ import {
 export function EventWorkspace({ event }: { event: EventFile }) {
   const [activeTab, setActiveTab] =
     useState<EventWorkspaceTab>("Event details");
-  const [isEventDetailsExpanded, setIsEventDetailsExpanded] = useState(true);
+  const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
 
@@ -39,11 +39,33 @@ export function EventWorkspace({ event }: { event: EventFile }) {
       <header className="shrink-0 border-b border-[#d8dde5] bg-white p-3">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2">
               <LineIcon name="calendar" />
               <h1 className="truncate text-xl font-black text-[#17202a]">
                 {event.title}
               </h1>
+              </div>
+              <button
+                aria-expanded={isWorkspaceExpanded}
+                aria-label={
+                  isWorkspaceExpanded
+                    ? "Collapse event sections"
+                    : "Expand event sections"
+                }
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] xl:hidden"
+                onClick={() =>
+                  setIsWorkspaceExpanded((isExpanded) => !isExpanded)
+                }
+                type="button"
+              >
+                <LineIcon
+                  name="chevron"
+                  className={`h-5 w-5 transition-transform ${
+                    isWorkspaceExpanded ? "rotate-90" : ""
+                  }`}
+                />
+              </button>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge tone="green">Confirmed</Badge>
@@ -52,7 +74,11 @@ export function EventWorkspace({ event }: { event: EventFile }) {
               <Badge tone="gold">Needs review</Badge>
             </div>
           </div>
-          <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-nowrap sm:items-center sm:justify-end">
+          <div
+            className={`w-full shrink-0 grid-cols-2 gap-2 sm:ml-auto sm:w-auto sm:flex-nowrap sm:items-center sm:justify-end xl:flex ${
+              isWorkspaceExpanded ? "grid sm:flex" : "hidden"
+            }`}
+          >
             <ActionButton
               icon="document"
               onClick={() => setIsPortalPreviewOpen(true)}
@@ -86,7 +112,11 @@ export function EventWorkspace({ event }: { event: EventFile }) {
         open={isPortalPreviewOpen}
       />
 
-      <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-3">
+      <nav
+        className={`scrollbar-none shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-3 xl:flex ${
+          isWorkspaceExpanded ? "flex" : "hidden"
+        }`}
+      >
         {tabs.map((tab) => (
           <button
             key={tab.label}
@@ -99,9 +129,7 @@ export function EventWorkspace({ event }: { event: EventFile }) {
             onClick={(clickEvent) => {
               setActiveTab(tab.label);
               centerMobileTab(clickEvent.currentTarget);
-              if (tab.label === "Event details") {
-                setIsEventDetailsExpanded(true);
-              }
+              setIsWorkspaceExpanded(true);
             }}
           >
             <LineIcon name={tab.icon} className="h-3.5 w-3.5 text-[#516174]" />
@@ -110,33 +138,14 @@ export function EventWorkspace({ event }: { event: EventFile }) {
         ))}
       </nav>
 
-      <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-visible p-3 xl:overflow-y-auto">
+      <div
+        className={`min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-visible p-3 xl:block xl:overflow-y-auto ${
+          isWorkspaceExpanded ? "block" : "hidden"
+        }`}
+      >
         {activeTab === "Event details" ? (
           <div className="min-w-0">
-            <button
-              aria-expanded={isEventDetailsExpanded}
-              className="mb-3 flex min-h-11 w-full items-center justify-between rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] xl:hidden"
-              onClick={() =>
-                setIsEventDetailsExpanded((isExpanded) => !isExpanded)
-              }
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <LineIcon name="calendar" />
-                Event details
-              </span>
-              <LineIcon
-                name="chevron"
-                className={`h-4 w-4 transition-transform ${
-                  isEventDetailsExpanded ? "rotate-90" : ""
-                }`}
-              />
-            </button>
-            <div
-              className={`min-w-0 gap-3 overflow-hidden xl:grid xl:grid-cols-[minmax(0,1fr)_336px] ${
-                isEventDetailsExpanded ? "grid" : "hidden"
-              }`}
-            >
+            <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
               <div className="space-y-3">
                 <EventInformation event={event} />
                 <TimelineInstructions />

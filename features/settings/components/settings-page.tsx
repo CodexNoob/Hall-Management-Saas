@@ -11,6 +11,7 @@ import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authentica
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { SettingsSidebar } from "@/features/settings/components/settings-sidebar";
+import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 
 import {
   Icon,
@@ -191,7 +192,7 @@ export function SettingsPage({
           {isModal ? (
             <nav
               aria-label="Settings sections"
-              className="flex shrink-0 gap-2 overflow-x-auto border-b border-[#d8dde5] bg-[#061126] px-3 py-2 lg:hidden"
+              className="scrollbar-none flex shrink-0 gap-2 overflow-x-auto border-b border-[#d8dde5] bg-[#061126] px-3 py-2 lg:hidden"
             >
               {modalSettingsNavItems.map((item) => (
                 <button
@@ -201,7 +202,10 @@ export function SettingsPage({
                       : "text-white/70 hover:bg-white/10 hover:text-white"
                   }`}
                   key={item.label}
-                  onClick={() => setActiveModalSection(item.label)}
+                  onClick={(event) => {
+                    setActiveModalSection(item.label);
+                    centerMobileTab(event.currentTarget);
+                  }}
                   type="button"
                 >
                   <Icon className="h-4 w-4 shrink-0" name={item.icon} />

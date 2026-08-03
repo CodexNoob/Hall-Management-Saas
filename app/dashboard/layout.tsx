@@ -42,7 +42,11 @@ function getDashboardActiveLabel(pathname: string | null): string {
   if (path.startsWith("/dashboard/menu")) return "Menu";
   if (path.startsWith("/dashboard/kitchen")) return "Kitchen";
   if (path.startsWith("/dashboard/calendar")) return "Calendar";
-  if (path.startsWith("/dashboard/events")) return "Events";
+  if (
+    path.startsWith("/dashboard/events") ||
+    path.startsWith("/dashboard/event-manager")
+  )
+    return "Events";
   if (path.startsWith("/dashboard/staff")) return "Staff";
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
 

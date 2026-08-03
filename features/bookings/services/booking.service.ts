@@ -10,6 +10,25 @@ import type {
 
 type Transaction = Prisma.TransactionClient;
 
+function dailyEventLimitFromIntegrations(integrations: unknown) {
+  if (
+    integrations &&
+    typeof integrations === "object" &&
+    "calendar" in integrations
+  ) {
+    const calendar = (integrations as { calendar?: unknown }).calendar;
+    if (calendar && typeof calendar === "object") {
+      const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
+        .dailyEventLimit;
+      if (typeof dailyEventLimit === "number" && Number.isFinite(dailyEventLimit)) {
+        return dailyEventLimit;
+      }
+    }
+  }
+
+  return 2;
+}
+
 type BookingActor = {
   id: string;
   name: string;
@@ -388,6 +407,31 @@ export async function createBooking(
         hall.id
       );
       if (activeStatuses.has(status)) {
+        const settings = await transaction.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: {},
+          create: { organizationId: actor.organizationId }
+        });
+        const dailyEventLimit = dailyEventLimitFromIntegrations(
+          settings.integrations
+        );
+        const activeBookingsOnDate = await transaction.event.count({
+          where: {
+            organizationId: actor.organizationId,
+            deleted: false,
+            eventDate,
+            bookingStatus: { in: Array.from(activeStatuses) }
+          }
+        });
+
+        if (activeBookingsOnDate >= dailyEventLimit) {
+          throw new BookingError(
+            `This date already has ${activeBookingsOnDate} active bookings. The daily event limit is ${dailyEventLimit}.`,
+            409,
+            "DAILY_EVENT_LIMIT_REACHED"
+          );
+        }
+
         await assertAvailable(
           transaction,
           actor.organizationId,

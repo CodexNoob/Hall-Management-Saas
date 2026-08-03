@@ -35,7 +35,7 @@ export function EventManagerPage() {
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
     null
   );
-  const [selectedEventTitle, setSelectedEventTitle] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
@@ -51,6 +51,7 @@ export function EventManagerPage() {
           event.kidsCount;
 
         return {
+          id: event.id,
           title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
           date: new Intl.DateTimeFormat("en-US", {
             month: "short",
@@ -123,6 +124,21 @@ export function EventManagerPage() {
     };
   }, [router]);
 
+  useEffect(() => {
+    if (allEvents.length === 0) return;
+    const eventIdFromUrl = new URLSearchParams(window.location.search).get(
+      "eventId"
+    );
+    const nextSelectedEvent =
+      allEvents.find((event) => event.id === eventIdFromUrl) ??
+      allEvents.find((event) => event.id === selectedEventId) ??
+      allEvents[0];
+
+    if (nextSelectedEvent.id !== selectedEventId) {
+      setSelectedEventId(nextSelectedEvent.id);
+    }
+  }, [allEvents, selectedEventId]);
+
   if (!syncData || eventsQuery.isLoading) {
     return (
       <DashboardPageState
@@ -148,8 +164,7 @@ export function EventManagerPage() {
   }
 
   const selectedEvent =
-    allEvents.find((event) => event.title === selectedEventTitle) ??
-    allEvents[0];
+    allEvents.find((event) => event.id === selectedEventId) ?? allEvents[0];
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
   const visibleEvents = allEvents.filter(
     (event) =>
@@ -191,7 +206,7 @@ export function EventManagerPage() {
       ).toISOString();
     }
 
-    await createEventMutation.mutate({
+    const created = await createEventMutation.mutate({
       clientName: values.clientName,
       phone: "Not provided",
       eventDate: values.date,
@@ -215,7 +230,7 @@ export function EventManagerPage() {
       notes: values.initialNotes || undefined
     });
     await eventsQuery.refetch();
-    setSelectedEventTitle(`${values.clientName} ${values.eventType}`.trim());
+    setSelectedEventId(created.event.id);
     setIsNewEventOpen(false);
   };
 
@@ -334,11 +349,11 @@ export function EventManagerPage() {
             >
               {visibleEvents.map((event) => (
                 <EventListCard
-                  key={event.title}
+                  key={event.id}
                   event={event}
-                  selected={event.title === selectedEvent.title}
+                  selected={event.id === selectedEvent.id}
                   onClick={() => {
-                    setSelectedEventTitle(event.title);
+                    setSelectedEventId(event.id);
                     setIsEventListExpanded(false);
                   }}
                 />

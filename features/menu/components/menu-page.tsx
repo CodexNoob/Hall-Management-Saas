@@ -265,7 +265,7 @@ export function MenuPage() {
       />
 
       <div className="shrink-0 bg-white">
-        <nav className="mt-2 flex min-h-12 shrink-0 flex-nowrap gap-2 overflow-x-auto border-b border-t border-[#d8dde5] px-3 sm:px-4 lg:mt-0 lg:border-t-0">
+        <nav className="scrollbar-none mt-2 flex min-h-12 shrink-0 flex-nowrap gap-2 overflow-x-auto border-b border-t border-[#d8dde5] px-3 sm:px-4 lg:mt-0 lg:border-t-0">
           {tabs.map((tab) => (
             <button
               key={tab.label}
