@@ -51,6 +51,39 @@ function statusLabel(status: KitchenMenuItem["status"]) {
   return "Not started";
 }
 
+function productionAmountLabel(itemName: string) {
+  const normalizedName = itemName.toLowerCase();
+
+  if (normalizedName.includes("challah")) return "4 trays needed";
+  if (normalizedName.includes("gefilte")) return "5 pans needed";
+  if (normalizedName.includes("soup")) return "4 pots needed";
+  if (normalizedName.includes("salmon")) return "8 platters needed";
+  if (normalizedName.includes("egg roll")) return "4 trays needed";
+  if (normalizedName.includes("capon")) return "7 pans needed";
+  if (normalizedName.includes("kugel")) return "4 trays needed";
+  if (normalizedName.includes("vegetable")) return "4 trays needed";
+  if (normalizedName.includes("salad")) return "5 bowls needed";
+  if (normalizedName.includes("dessert")) return "6 trays needed";
+  if (normalizedName.includes("drink")) return "10 cases needed";
+
+  return "1 tray needed";
+}
+
+function productionRatioLabel(itemName: string) {
+  const normalizedName = itemName.toLowerCase();
+
+  if (normalizedName.includes("challah")) return "1 tray per 50 portions";
+  if (normalizedName.includes("gefilte")) return "1 pan per 40 portions";
+  if (normalizedName.includes("soup")) return "1 pot per 60 portions";
+  if (normalizedName.includes("salmon")) return "1 platter per 25 portions";
+  if (normalizedName.includes("capon")) return "1 pan per 30 portions";
+  if (normalizedName.includes("salad")) return "1 bowl per 40 portions";
+  if (normalizedName.includes("dessert")) return "1 tray per 35 portions";
+  if (normalizedName.includes("drink")) return "1 case per 20 portions";
+
+  return "1 tray per 50 portions";
+}
+
 export function KitchenEventDetailsDialog({
   event,
   isSaving,
@@ -257,9 +290,15 @@ export function KitchenEventDetailsDialog({
                     onDoubleClick={() => void handleItemDoubleClick(item)}
                     type="button"
                   >
-                    {item.assignedWorkerName ? (
-                      <p className="mb-2 rounded-sm bg-[#0f5132] px-2 py-1 text-[10px] font-black text-white">
-                        {item.assignedWorkerName}
+                    {item.assignedWorkerName || item.category ? (
+                      <p
+                        className={`mb-2 rounded-sm px-2 py-1 text-[10px] font-black text-white ${
+                          item.assignedWorkerName
+                            ? "bg-[#0f5132]"
+                            : "bg-[#07162d]"
+                        }`}
+                      >
+                        {item.assignedWorkerName ?? item.category}
                       </p>
                     ) : null}
 
@@ -267,14 +306,16 @@ export function KitchenEventDetailsDialog({
                       {item.name}
                     </h4>
                     <p className="mt-2 text-[11px] font-black leading-tight text-[#617086]">
-                      {item.category ?? "Menu item"}
+                      {productionRatioLabel(item.name)}
                     </p>
                     <div className="mt-auto pt-3">
-                      <p className="border border-[#d8dde5] bg-[#eef4fa] px-2 py-1 text-xs font-black leading-tight text-[#07162d]">
-                        {event.portions}
-                      </p>
-                      <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                        {statusLabel(item.status)}
+                      {item.status ? (
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                          {statusLabel(item.status)}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 border border-[#d8dde5] bg-[#eef4fa] px-2 py-1 text-xs font-black leading-tight text-[#07162d]">
+                        {productionAmountLabel(item.name)}
                       </p>
                     </div>
                   </button>
