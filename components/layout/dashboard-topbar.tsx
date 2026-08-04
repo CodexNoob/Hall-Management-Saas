@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { DASHBOARD_PAGE_SEARCH_EVENT } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { DashboardTrialBadge } from "@/components/layout/dashboard-trial-pill";
 
 type DashboardTopbarProps = {
   title: string;
@@ -449,10 +450,18 @@ export function DashboardTopbar({
               compactMobileActions ? "gap-0 pb-3 pt-3" : "gap-0 pb-3 pt-3"
             }`}
           >
-            <div className="order-1 flex h-9 min-w-0 shrink items-center pr-26 lg:order-0 lg:block lg:h-auto lg:grow lg:pr-0">
-              <h1 className="truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg lg:text-2xl">
-                {title}
-              </h1>
+            <div className="order-1 flex min-h-9 min-w-0 shrink items-center pr-26 lg:order-0 lg:block lg:h-auto lg:grow lg:pr-0">
+              <div className="flex min-w-0 flex-col lg:flex-row lg:items-center lg:gap-3">
+                <h1 className="truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg lg:text-2xl">
+                  {title}
+                </h1>
+                <span className="hidden lg:inline-flex">
+                  <DashboardTrialBadge />
+                </span>
+                <span className="mt-1 inline-flex lg:hidden">
+                  <DashboardTrialBadge />
+                </span>
+              </div>
               {subtitle ? (
                 <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] lg:block">
                   {subtitle}
@@ -607,7 +616,7 @@ export function DashboardTopbar({
         </div>
       </header>
 
-      <div className="h-14 lg:h-20" aria-hidden="true" />
+      <div className="h-[5.25rem] lg:h-20" aria-hidden="true" />
     </>
   );
 }

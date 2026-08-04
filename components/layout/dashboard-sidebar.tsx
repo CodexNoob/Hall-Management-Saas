@@ -22,12 +22,14 @@ import {
 type DashboardSidebarProps = {
   user: SyncedUser;
   roleLabel: string;
+  profileSubtitle?: string;
   activeLabel?: string;
 };
 
 export function DashboardSidebar({
   user,
   roleLabel,
+  profileSubtitle,
   activeLabel = "Dashboard"
 }: DashboardSidebarProps) {
   const router = useRouter();
@@ -57,6 +59,7 @@ export function DashboardSidebar({
   const [isSidebarTransitionReady, setIsSidebarTransitionReady] =
     useState(false);
   const initials = getInitials(profileName);
+  const isUpgradePrompt = profileSubtitle === "Upgrade Now";
 
   useEffect(() => {
     const toggleMobileSidebar = (event: Event) => {
@@ -701,6 +704,7 @@ export function DashboardSidebar({
               </div>
             ) : null}
 
+            <div className="relative">
             <button
               className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-white/10 ${
                 showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
@@ -723,8 +727,12 @@ export function DashboardSidebar({
                     <span className="block truncate text-sm font-black text-white">
                       {profileName}
                     </span>
-                    <span className="block truncate text-xs font-semibold text-white/60">
-                      {roleLabel}
+                    <span
+                      className={`block truncate text-xs font-semibold ${
+                        isUpgradePrompt ? "text-[#F1B84B]" : "text-white/60"
+                      }`}
+                    >
+                      {profileSubtitle ?? roleLabel}
                     </span>
                   </span>
                   <span className="text-white/55">›</span>
@@ -735,6 +743,7 @@ export function DashboardSidebar({
                 </span>
               ) : null}
             </button>
+            </div>
           </div>
         ) : (
           <div className="border-t border-white/10 p-2">

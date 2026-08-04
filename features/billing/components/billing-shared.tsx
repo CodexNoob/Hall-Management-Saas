@@ -17,6 +17,8 @@ export type IconName =
   | "settings"
   | "upload"
   | "print"
+  | "edit"
+  | "more"
   | "payment"
   | "back"
   | "chevron";
@@ -125,6 +127,19 @@ export function LineIcon({
         <path d="M7 8V3h10v5" />
         <path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
         <path d="M7 14h10v7H7Z" />
+      </>
+    ),
+    edit: (
+      <>
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+      </>
+    ),
+    more: (
+      <>
+        <circle cx="5" cy="12" r="1" />
+        <circle cx="12" cy="12" r="1" />
+        <circle cx="19" cy="12" r="1" />
       </>
     ),
     payment: (

@@ -151,7 +151,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
         } | null;
         setError(
           payload?.error ??
-            "Free trial access is currently limited. Please contact the Event Core team for access."
+            "Unable to start your free trial right now. Please try again."
         );
         return;
       }

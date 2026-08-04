@@ -1,8 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  FREE_TRIAL_NOT_ALLOWED_MESSAGE,
-  isFreeTrialEmailAllowed
-} from "@/lib/auth/free-trial-allowlist";
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,13 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Please enter your email address." },
         { status: 400 }
-      );
-    }
-
-    if (!isFreeTrialEmailAllowed(email)) {
-      return NextResponse.json(
-        { error: FREE_TRIAL_NOT_ALLOWED_MESSAGE },
-        { status: 403 }
       );
     }
 

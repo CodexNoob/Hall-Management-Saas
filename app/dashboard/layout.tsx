@@ -12,6 +12,9 @@ import {
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardStartupScreen } from "@/components/layout/dashboard-startup-screen";
 import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
+import { DashboardTrialProvider } from "@/components/layout/dashboard-trial-pill";
+import { getSubscriptionPlan } from "@/lib/subscription/plans";
+import { isTesterBypassEmail } from "@/lib/subscription/trial";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {
@@ -51,6 +54,44 @@ function getDashboardActiveLabel(pathname: string | null): string {
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
 
   return "Dashboard";
+}
+
+function getSidebarProfileSubtitle(syncData: SyncSignedInUserResponse) {
+  const roleLabel = formatRole(syncData.user.role);
+  const activeOrganization =
+    syncData.organizations.find(
+      (organization) => organization.id === syncData.activeOrganizationId
+    ) ?? syncData.organizations[0];
+
+  if (!activeOrganization) {
+    return roleLabel;
+  }
+
+  const isOrganizationOwner = activeOrganization.role === "owner";
+
+  if (!isOrganizationOwner) {
+    return roleLabel;
+  }
+
+  const isTrialing =
+    activeOrganization.subscriptionStatus === "trialing" &&
+    !isTesterBypassEmail(syncData.user.email);
+
+  if (isTrialing) {
+    return "Upgrade Now";
+  }
+
+  const subscribedPlan = getSubscriptionPlan(activeOrganization.subscriptionPlan);
+
+  if (
+    subscribedPlan &&
+    subscribedPlan.id !== "free_trial" &&
+    activeOrganization.subscriptionStatus === "active"
+  ) {
+    return subscribedPlan.name;
+  }
+
+  return roleLabel;
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -127,11 +168,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <DashboardSidebar
             user={syncData.user}
             roleLabel={formatRole(syncData.user.role)}
+            profileSubtitle={getSidebarProfileSubtitle(syncData)}
             activeLabel={getDashboardActiveLabel(pathname)}
           />
 
           <section className="dashboard-shell-main min-h-screen lg:pl-64">
-            {children}
+            <DashboardTrialProvider syncData={syncData}>
+              {children}
+            </DashboardTrialProvider>
           </section>
         </main>
       )}

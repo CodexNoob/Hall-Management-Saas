@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
-import {
-  FREE_TRIAL_NOT_ALLOWED_MESSAGE,
-  isFreeTrialEmailAllowed
-} from "@/lib/auth/free-trial-allowlist";
-import { getTrialDates } from "@/lib/subscription/trial";
+import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -14,13 +10,6 @@ class InvitationRequiredError extends Error {
       "No employee account was found for this email. Ask your organization administrator for an invitation."
     );
     this.name = "InvitationRequiredError";
-  }
-}
-
-class FreeTrialAccessDeniedError extends Error {
-  constructor() {
-    super(FREE_TRIAL_NOT_ALLOWED_MESSAGE);
-    this.name = "FreeTrialAccessDeniedError";
   }
 }
 
@@ -87,6 +76,7 @@ export async function POST(request: NextRequest) {
       typeof metadata.account_type === "string"
         ? metadata.account_type.trim()
         : null;
+    const isPermanentTester = isTesterBypassEmail(authEmail);
 
     const { user, access, memberships } = await prisma.$transaction(
       async (transaction) => {
@@ -116,19 +106,16 @@ export async function POST(request: NextRequest) {
             throw new InvitationRequiredError();
           }
 
-          if (!isFreeTrialEmailAllowed(authEmail)) {
-            throw new FreeTrialAccessDeniedError();
-          }
-
           const organizationName = venueName ?? `${name}'s Organization`;
           const { trialStartedAt, trialEndsAt } = getTrialDates();
           const organization = await transaction.organization.create({
             data: {
               name: organizationName,
               slug: createOrganizationSlug(organizationName, authUserId),
-              subscriptionStatus: "trialing",
-              trialStartedAt,
-              trialEndsAt
+              subscriptionStatus: isPermanentTester ? "active" : "trialing",
+              trialStartedAt: isPermanentTester ? null : trialStartedAt,
+              trialEndsAt: isPermanentTester ? null : trialEndsAt,
+              subscriptionStartedAt: isPermanentTester ? new Date() : null
             }
           });
 
@@ -141,6 +128,18 @@ export async function POST(request: NextRequest) {
               phone,
               venueName,
               role: "admin"
+            }
+          });
+        }
+
+        if (isPermanentTester) {
+          await transaction.organization.update({
+            where: { id: user.organizationId },
+            data: {
+              subscriptionStatus: "active",
+              trialStartedAt: null,
+              trialEndsAt: null,
+              subscriptionStartedAt: new Date()
             }
           });
         }
@@ -252,10 +251,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof InvitationRequiredError) {
-      return NextResponse.json({ error: error.message }, { status: 403 });
-    }
-
-    if (error instanceof FreeTrialAccessDeniedError) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 

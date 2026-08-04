@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { subscriptionPlans } from "@/lib/subscription/plans";
 
@@ -40,6 +41,11 @@ export function UpgradePlanDialog({
 }: UpgradePlanDialogProps) {
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -60,11 +66,11 @@ export function UpgradePlanDialog({
     };
   }, [forceSelection, onClose, open]);
 
-  if (!open) return null;
+  if (!open || !isMounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto bg-[#17202a]/40 p-3 backdrop-blur-[1px] sm:p-5"
+      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-[#17202a]/40 p-3 backdrop-blur-[1px] sm:p-5"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target && !forceSelection) onClose();
       }}
@@ -88,14 +94,14 @@ export function UpgradePlanDialog({
           {forceSelection ? null : (
             <button
               aria-label="Close subscription plans"
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[0] leading-none text-[#233144] transition hover:bg-[#eef4fa]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#233144] transition hover:bg-[#eef4fa]"
               onClick={onClose}
               ref={closeButtonRef}
               type="button"
             >
               <svg
                 aria-hidden="true"
-                className="absolute h-6 w-6"
+                className="h-6 w-6"
                 fill="none"
                 viewBox="0 0 24 24"
               >
@@ -106,7 +112,6 @@ export function UpgradePlanDialog({
                   strokeWidth="2.25"
                 />
               </svg>
-              <span aria-hidden="true">?</span>
             </button>
           )}
         </header>
@@ -169,6 +174,7 @@ export function UpgradePlanDialog({
           ))}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }
