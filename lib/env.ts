@@ -6,8 +6,8 @@ const booleanFlag = z
   .transform((value) => value === "true");
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
-  NEXT_PUBLIC_APP_URL: z.string().url(),
+  DATABASE_URL: z.string().min(1).default("postgresql://localhost:5432/eventcore"),
+  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
@@ -17,6 +17,9 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_REDIRECT_URI: z.string().optional(),
+  PLAID_CLIENT_ID: z.string().optional(),
+  PLAID_SECRET: z.string().optional(),
+  PLAID_ENV: z.enum(["sandbox", "development", "production"]).default("sandbox"),
   GMAIL_SENDER_EMAIL: z.string().optional(),
   GMAIL_ENCRYPTED_REFRESH_TOKEN: z.string().optional(),
   GMAIL_ALLOWED_SENDER_DOMAIN: z.string().optional(),

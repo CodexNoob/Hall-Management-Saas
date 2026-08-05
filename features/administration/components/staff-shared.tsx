@@ -20,6 +20,8 @@ export type IconName =
   | "shield"
   | "check"
   | "edit"
+  | "mail"
+  | "trash"
   | "eye"
   | "plus";
 
@@ -34,6 +36,7 @@ export type StaffMember = {
   lastLogin: string;
   phone: string;
   color: string;
+  access?: Record<string, unknown> | null;
 };
 
 export type StaffResponse = {
@@ -45,6 +48,7 @@ export type StaffResponse = {
     department: string;
     role: string;
     status: StaffStatus;
+    access?: Record<string, unknown> | null;
     createdAt: string;
   }>;
 };
@@ -139,6 +143,17 @@ export function LineIcon({
     edit: (
       <>
         <path d="m14 5 5 5M4 20l4-1 11-11-4-4L4 15Z" />
+      </>
+    ),
+    mail: (
+      <>
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <path d="m4 7 8 6 8-6" />
+      </>
+    ),
+    trash: (
+      <>
+        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" />
       </>
     ),
     eye: (

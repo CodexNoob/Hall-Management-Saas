@@ -1,7 +1,5 @@
 "use client";
 
-import { LineIcon } from "@/features/billing/components/billing-shared";
-
 export function SettingsTab() {
   const categories = [
     "Uncategorized",
@@ -69,12 +67,25 @@ export function SettingsTab() {
         <div className="border-b border-[#d8dde5] p-4">
           <h2 className="font-black">Bank and categories</h2>
           <p className="text-sm text-[#6a7483]">
-            Rules for transaction review.
+            Company-level bank connections and transaction review rules.
           </p>
         </div>
-        <div className="m-4 rounded-lg border border-[#9a5b00] bg-[#fbfcfd] p-3 text-sm text-[#9a5b00]">
-          In production, bank transactions would come from a bank connection or
-          CSV import. This prototype shows the approval workflow.
+        <div className="m-4 rounded-lg border border-[#1f4d73] bg-[#fbfcfd] p-3 text-sm text-[#1f4d73]">
+          <p className="font-black">Plaid connection flow</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>
+              The authorized person from each organization or company (owner,
+              admin, or billing manager) can connect that company’s bank account.
+            </li>
+            <li>
+              Plaid securely handles the bank sign-in and approval process, and
+              Event Core never stores the bank username or password.
+            </li>
+            <li>
+              After approval, transactions appear only in that organization’s
+              Billing module and remain separated from other companies.
+            </li>
+          </ul>
         </div>
         <table className="w-full text-left text-sm">
           <thead className="text-xs uppercase text-[#6a7483]">

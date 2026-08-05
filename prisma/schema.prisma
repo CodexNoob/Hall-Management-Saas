@@ -47,6 +47,8 @@ model Organization {
   paymentRefunds          PaymentRefund[]
   paymentReceipts         PaymentReceipt[]
   paymentWebhookEvents    PaymentProviderWebhookEvent[]
+  bankConnections         BankConnection[]
+  bankTransactions        BankTransaction[]
   vendors                 Vendor[]
   invoices                Invoice[]
   invoiceLineItems        InvoiceLineItem[]
@@ -113,6 +115,7 @@ model User {
   confirmedPaymentTransactions     PaymentTransaction[]     @relation("PaymentTransactionConfirmedBy")
   processedPaymentRefunds          PaymentRefund[]          @relation("PaymentRefundProcessedBy")
   issuedPaymentReceipts            PaymentReceipt[]         @relation("PaymentReceiptIssuedBy")
+  bankConnections                  BankConnection[]
   notificationPreferences          NotificationPreference[]
   createdTodayNotes                TodayNote[]              @relation("TodayNoteCreatedBy")
 
@@ -520,6 +523,54 @@ model PaymentSetting {
 
   @@unique([organizationId])
   @@map("payment_settings")
+}
+
+model BankConnection {
+  id               String    @id @default(uuid()) @db.Uuid
+  organizationId   String    @map("organization_id") @db.Uuid
+  userId           String?   @map("user_id") @db.Uuid
+  plaidItemId      String    @map("plaid_item_id")
+  plaidAccessToken String    @map("plaid_access_token")
+  institutionId    String?   @map("institution_id")
+  institutionName  String?   @map("institution_name")
+  accountId        String?   @map("account_id")
+  accountName      String?   @map("account_name")
+  accountType      String?   @map("account_type")
+  status           String    @default("CONNECTED")
+  lastSyncedAt     DateTime? @map("last_synced_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  transactions BankTransaction[]
+
+  @@unique([organizationId, plaidItemId])
+  @@index([organizationId, status])
+  @@map("bank_connections")
+}
+
+model BankTransaction {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  bankConnectionId   String    @map("bank_connection_id") @db.Uuid
+  plaidTransactionId String?   @map("plaid_transaction_id")
+  accountId          String?   @map("account_id")
+  description        String?
+  amountCents        Int       @map("amount_cents")
+  currency           String    @default("USD")
+  transactionDate    DateTime  @map("transaction_date") @db.Date
+  status             String    @default("PENDING")
+  metadata           Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  bankConnection BankConnection @relation(fields: [bankConnectionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, transactionDate])
+  @@index([bankConnectionId, transactionDate])
+  @@map("bank_transactions")
 }
 
 model TableclothOption {

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
+import { createActivityLog } from "@/lib/audit/activity-log";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -216,6 +217,18 @@ export async function POST(request: NextRequest) {
           },
           include: { organization: true },
           orderBy: { createdAt: "asc" }
+        });
+
+        await createActivityLog(transaction, {
+          organizationId: user.organizationId,
+          userId: user.id,
+          userName: user.name,
+          actionType: "auth.login.success",
+          message: `User signed in successfully as ${user.email}.`,
+          newValue: {
+            email: user.email,
+            organizationId: user.organizationId
+          }
         });
 
         return { user, access, memberships };
