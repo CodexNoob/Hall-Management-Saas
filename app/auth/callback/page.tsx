@@ -6,11 +6,16 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { syncSignedInUser } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [message, setMessage] = useState("Confirming your email and preparing your workspace...");
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [message, setMessage] = useState(
+    "Confirming your email and preparing your workspace..."
+  );
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading"
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -29,13 +34,21 @@ export default function AuthCallbackPage() {
         if (isMounted) {
           setStatus("success");
           setMessage("Email confirmed. Taking you to your dashboard...");
-          router.replace("/dashboard");
+          router.replace(
+            getSafeDashboardReturnPath(
+              new URLSearchParams(window.location.search).get("next")
+            ) as Parameters<typeof router.replace>[0]
+          );
           router.refresh();
         }
       } catch (error) {
         if (isMounted) {
           setStatus("error");
-          setMessage(error instanceof Error ? error.message : "Unable to complete sign in.");
+          setMessage(
+            error instanceof Error
+              ? error.message
+              : "Unable to complete sign in."
+          );
         }
       }
     }
@@ -68,7 +81,11 @@ export default function AuthCallbackPage() {
           Event Core
         </p>
         <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-          {isLoading ? "Confirming your email" : isSuccess ? "Email confirmed" : "Confirmation needs attention"}
+          {isLoading
+            ? "Confirming your email"
+            : isSuccess
+              ? "Email confirmed"
+              : "Confirmation needs attention"}
         </h1>
         <p className="mx-auto mt-4 max-w-sm text-base font-semibold leading-7 text-[#64748B]">
           {message}
@@ -84,7 +101,8 @@ export default function AuthCallbackPage() {
                 Secure workspace setup
               </p>
               <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                We verify your email, create your organization access, and then send you straight to the dashboard.
+                We verify your email, create your organization access, and then
+                send you straight to the dashboard.
               </p>
             </div>
           </div>

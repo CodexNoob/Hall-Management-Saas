@@ -70,12 +70,10 @@ const SYNCED_USER_CACHE_TIME_KEY = "hms.syncedUser.syncedAt";
 const SYNC_TIMEOUT_MS = 12000;
 const SYNC_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
-let syncInFlight:
-  | {
-      subject: string | null;
-      promise: Promise<SyncSignedInUserResponse>;
-    }
-  | null = null;
+let syncInFlight: {
+  subject: string | null;
+  promise: Promise<SyncSignedInUserResponse>;
+} | null = null;
 
 function getAccessTokenSubject(accessToken: string) {
   try {
@@ -250,10 +248,11 @@ export function syncSignedInUser(
 }
 
 export async function signInWithOAuthProvider(
-  provider: Extract<Provider, "google" | "azure">
+  provider: Extract<Provider, "google" | "azure">,
+  returnPath = "/dashboard"
 ) {
   const supabase = createSupabaseBrowserClient();
-  const redirectTo = `${window.location.origin}/auth/callback`;
+  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnPath)}`;
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider,

@@ -3,25 +3,26 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
-import { clearCachedSyncedUser, getCachedSyncedUser, syncSignedInUser, type SyncSignedInUserResponse } from "@/lib/auth/client";
+import {
+  clearCachedSyncedUser,
+  syncSignedInUser,
+  type SyncSignedInUserResponse
+} from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { getDashboardLoginPath } from "@/lib/auth/redirect";
 
 export function DashboardAuthGuard() {
   const router = useRouter();
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(null);
+  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
+    null
+  );
   const [status, setStatus] = useState("Preparing your dashboard...");
 
   useEffect(() => {
     let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
-
-    if (cachedSyncData) {
-      setSyncData(cachedSyncData);
-    }
-
     async function loadUser() {
       try {
-        if (isMounted && !cachedSyncData) {
+        if (isMounted) {
           setStatus("Checking your session...");
         }
 
@@ -32,11 +33,15 @@ export function DashboardAuthGuard() {
           clearCachedSyncedUser();
           const isDesktopApp =
             window.localStorage.getItem("eventCoreDesktopApp") === "true";
-          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
+          router.replace(
+            isDesktopApp
+              ? "/login?desktop=1"
+              : getDashboardLoginPath("/dashboard")
+          );
           return;
         }
 
-        if (isMounted && !cachedSyncData) {
+        if (isMounted) {
           setStatus("Loading dashboard data...");
         }
 
@@ -45,14 +50,15 @@ export function DashboardAuthGuard() {
         if (isMounted) {
           setSyncData(synced);
         }
-      } catch (error) {
-        if (cachedSyncData) {
-          return;
-        }
-
-        if (isMounted) {
-          setStatus(error instanceof Error ? error.message : "Unable to load dashboard.");
-        }
+      } catch {
+        clearCachedSyncedUser();
+        const isDesktopApp =
+          window.localStorage.getItem("eventCoreDesktopApp") === "true";
+        router.replace(
+          isDesktopApp
+            ? "/login?desktop=1"
+            : getDashboardLoginPath("/dashboard")
+        );
       }
     }
 

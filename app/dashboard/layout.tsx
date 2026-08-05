@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   clearCachedSyncedUser,
-  getCachedSyncedUser,
   syncSignedInUser,
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
@@ -15,6 +14,7 @@ import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
 import { DashboardTrialProvider } from "@/components/layout/dashboard-trial-pill";
 import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
+import { getDashboardLoginPath } from "@/lib/auth/redirect";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {
@@ -81,7 +81,9 @@ function getSidebarProfileSubtitle(syncData: SyncSignedInUserResponse) {
     return "Upgrade Now";
   }
 
-  const subscribedPlan = getSubscriptionPlan(activeOrganization.subscriptionPlan);
+  const subscribedPlan = getSubscriptionPlan(
+    activeOrganization.subscriptionPlan
+  );
 
   if (
     subscribedPlan &&
@@ -104,15 +106,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
-
-    if (cachedSyncData) {
-      setSyncData(cachedSyncData);
-    }
-
     async function loadUser() {
       try {
-        if (isMounted && !cachedSyncData) {
+        if (isMounted) {
           setStatus("Checking your session...");
         }
 
@@ -123,11 +119,15 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           clearCachedSyncedUser();
           const isDesktopApp =
             window.localStorage.getItem("eventCoreDesktopApp") === "true";
-          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
+          router.replace(
+            isDesktopApp
+              ? "/login?desktop=1"
+              : getDashboardLoginPath(pathname ?? "/dashboard")
+          );
           return;
         }
 
-        if (isMounted && !cachedSyncData) {
+        if (isMounted) {
           setStatus("Loading dashboard data...");
         }
 
@@ -137,12 +137,14 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           setSyncData(synced);
         }
       } catch {
-        if (!cachedSyncData) {
-          clearCachedSyncedUser();
-          const isDesktopApp =
-            window.localStorage.getItem("eventCoreDesktopApp") === "true";
-          router.replace(isDesktopApp ? "/login?desktop=1" : "/");
-        }
+        clearCachedSyncedUser();
+        const isDesktopApp =
+          window.localStorage.getItem("eventCoreDesktopApp") === "true";
+        router.replace(
+          isDesktopApp
+            ? "/login?desktop=1"
+            : getDashboardLoginPath(pathname ?? "/dashboard")
+        );
       }
     }
 
@@ -151,7 +153,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+  }, [pathname, router]);
 
   return (
     <>
