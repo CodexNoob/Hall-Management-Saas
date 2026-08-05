@@ -196,7 +196,9 @@ export function MenuPage() {
         : allMenuItems.filter((item) => item.category === label).length
   }));
   const activePackage =
-    allPackages.find((item) => item.name === selectedPackage) ?? allPackages[0];
+    allPackages.find((item) => item.name === selectedPackage) ??
+    allPackages[0] ??
+    null;
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const ruleSections =
     activeTab === "Plated Menu" ? platedSections : buffetSections;
@@ -354,74 +356,99 @@ export function MenuPage() {
             </aside>
 
             <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-              <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
-                <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
-                      <h2 className="truncate text-sm font-black text-[#17202a]">
-                        {activePackage.name}
-                      </h2>
-                    </div>
-                    <p className="mt-1 text-xs text-[#6a7483]">
-                      {activePackage.type} - Base {activePackage.price} - $95.00
-                      per couple
-                    </p>
-                  </div>
-                  <button
-                    className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] sm:self-auto"
-                    type="button"
-                  >
-                    Edit package
-                  </button>
-                </header>
-
-                <div className="space-y-2 p-3">
-                  {packageItems.map((item) => (
-                    <article
-                      key={`${activePackage.name}-${item.name}`}
-                      className="flex min-h-14 min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 sm:flex-nowrap sm:gap-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-black text-[#17202a]">
-                          {item.name}
-                        </h3>
-                        <p className="mt-0.5 text-xs text-[#516174]">
-                          {item.mode} - {item.rule} - {item.price}
-                        </p>
+              {activePackage ? (
+                <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+                  <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <LineIcon
+                          name="box"
+                          className="h-4 w-4 text-[#17202a]"
+                        />
+                        <h2 className="truncate text-sm font-black text-[#17202a]">
+                          {activePackage.name}
+                        </h2>
                       </div>
-                      <span className="shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73] sm:w-22">
-                        {item.mode}
-                      </span>
-                      <button
-                        className="shrink-0 rounded-md border border-[#f0b4ae] bg-white px-2 py-1 text-xs font-black text-[#a62b24] hover:bg-[#fff5f4]"
-                        type="button"
-                      >
-                        Remove
-                      </button>
-                    </article>
-                  ))}
-                </div>
-
-                <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-                  <header className="flex h-11 items-center border-b border-[#d8dde5] px-3">
-                    <h3 className="text-sm font-black text-[#17202a]">
-                      Add Buffet or Plated items
-                    </h3>
+                      <p className="mt-1 text-xs text-[#6a7483]">
+                        {activePackage.type} - Base {activePackage.price} -
+                        $95.00 per couple
+                      </p>
+                    </div>
+                    <button
+                      className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] sm:self-auto"
+                      type="button"
+                    >
+                      Edit package
+                    </button>
                   </header>
-                  <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
-                    {packageAddItems.map((item) => (
-                      <PackageAddCard
-                        key={item.name}
-                        category={item.category}
-                        name={item.name}
-                        rule={item.rule}
-                        price={item.price}
-                      />
+
+                  <div className="space-y-2 p-3">
+                    {packageItems.map((item) => (
+                      <article
+                        key={`${activePackage.name}-${item.name}`}
+                        className="flex min-h-14 min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 sm:flex-nowrap sm:gap-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-black text-[#17202a]">
+                            {item.name}
+                          </h3>
+                          <p className="mt-0.5 text-xs text-[#516174]">
+                            {item.mode} - {item.rule} - {item.price}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73] sm:w-22">
+                          {item.mode}
+                        </span>
+                        <button
+                          className="shrink-0 rounded-md border border-[#f0b4ae] bg-white px-2 py-1 text-xs font-black text-[#a62b24] hover:bg-[#fff5f4]"
+                          type="button"
+                        >
+                          Remove
+                        </button>
+                      </article>
                     ))}
                   </div>
-                </section>
-              </div>
+
+                  <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+                    <header className="flex h-11 items-center border-b border-[#d8dde5] px-3">
+                      <h3 className="text-sm font-black text-[#17202a]">
+                        Add Buffet or Plated items
+                      </h3>
+                    </header>
+                    <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
+                      {packageAddItems.map((item) => (
+                        <PackageAddCard
+                          key={item.name}
+                          category={item.category}
+                          name={item.name}
+                          rule={item.rule}
+                          price={item.price}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 py-10 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8dde5] bg-[#eef4fa] text-[#1f4d73]">
+                    <LineIcon name="box" className="h-5 w-5" />
+                  </span>
+                  <h2 className="mt-4 text-base font-black text-[#17202a]">
+                    No packages yet
+                  </h2>
+                  <p className="mt-2 max-w-sm text-sm text-[#6a7483]">
+                    Create a package to bundle menu items for weddings, buffets,
+                    and other events.
+                  </p>
+                  <button
+                    className="mt-5 inline-flex h-10 items-center justify-center rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-md shadow-[#1f4d73]/20 hover:bg-[#173a56]"
+                    type="button"
+                    onClick={() => setIsNewPackageOpen(true)}
+                  >
+                    + New package
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         ) : isRuleMenu ? (

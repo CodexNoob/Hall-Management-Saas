@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { AppServiceWorkerRegistration } from "@/components/layout/service-worker-registration";
 import "./globals.css";
@@ -13,6 +13,12 @@ export const metadata: Metadata = {
   title: "Event Core",
   description:
     "Hall, event, kitchen, payment, and calendar management platform."
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover"
 };
 
 export default function RootLayout({

@@ -90,6 +90,37 @@ export function DashboardSidebar({
   }, [isMobileOpen]);
 
   useEffect(() => {
+    if (!isMobileOpen) return;
+
+    const scrollY = window.scrollY;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscrollBehavior =
+      document.documentElement.style.overscrollBehavior;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior =
+        previousHtmlOverscrollBehavior;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [isMobileOpen]);
+
+  useEffect(() => {
     const saved = window.localStorage.getItem("sidebarCollapsed");
     if (saved === "true") {
       setIsCollapsed(true);
@@ -249,7 +280,7 @@ export function DashboardSidebar({
     <>
       <button
         aria-label="Close navigation"
-        className={`fixed inset-0 z-55 bg-[#17202a]/45 backdrop-blur-[2px] transition-[opacity,backdrop-filter] duration-300 ease-out lg:hidden ${
+        className={`fixed inset-x-0 top-0 z-55 h-dvh bg-[#17202a]/45 backdrop-blur-[2px] transition-[opacity,backdrop-filter] duration-300 ease-out lg:hidden ${
           isMobileOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0 backdrop-blur-none"
@@ -259,7 +290,7 @@ export function DashboardSidebar({
         type="button"
       />
       <aside
-        className={`app-sidebar fixed bottom-0 left-0 top-0 z-70 flex w-[min(76vw,17rem)] flex-col border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:top-20 lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
+        className={`app-sidebar fixed left-0 top-0 z-70 flex h-dvh max-h-dvh w-[min(76vw,17rem)] flex-col overscroll-none border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:bottom-0 lg:top-20 lg:h-auto lg:max-h-none lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isSidebarTransitionReady ? "" : "transition-none"} ${
           showCollapsed
@@ -295,7 +326,7 @@ export function DashboardSidebar({
           className={`flex-1 ${
             showCollapsed
               ? "overflow-visible px-2 py-4"
-              : "space-y-5 overflow-x-hidden overflow-y-auto px-3 py-4"
+              : "space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4"
           }`}
         >
           {showCollapsed ? (

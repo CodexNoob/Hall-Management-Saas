@@ -1,14 +1,14 @@
 "use client";
 
 import { type ReactNode } from "react";
+import {
+  permissionColumns,
+  roleTemplates,
+  type StaffRoleName
+} from "@/lib/auth/permissions";
 
 export type StaffStatus = "Active" | "Inactive";
-export type RoleName =
-  | "Administrator"
-  | "Event Manager"
-  | "Kitchen Staff"
-  | "Billing Staff"
-  | "Viewer";
+export type RoleName = StaffRoleName;
 export type IconName =
   | "users"
   | "building"
@@ -51,15 +51,15 @@ export type StaffResponse = {
     access?: Record<string, unknown> | null;
     createdAt: string;
   }>;
+  matrix?: {
+    roles: typeof roleTemplates;
+    columns: typeof permissionColumns;
+    access?: Record<string, Record<string, boolean>>;
+  };
+  canCustomizePermissions?: boolean;
 };
 
-export const roleTemplates: Array<{ role: RoleName; description: string }> = [
-  { role: "Administrator", description: "Full access" },
-  { role: "Event Manager", description: "Manage events" },
-  { role: "Kitchen Staff", description: "Kitchen access" },
-  { role: "Billing Staff", description: "Billing access" },
-  { role: "Viewer", description: "Read only" }
-];
+export { permissionColumns, roleTemplates };
 
 export const roleColors: Record<RoleName, string> = {
   Administrator: "border-[#9bc8f2] bg-[#edf6ff] text-[#1769aa]",
@@ -68,18 +68,6 @@ export const roleColors: Record<RoleName, string> = {
   "Billing Staff": "border-[#d2c6f7] bg-[#f5f2ff] text-[#6550c4]",
   Viewer: "border-[#cdd5df] bg-[#f4f6f8] text-[#536172]"
 };
-
-export const permissionColumns = [
-  "Dashboard",
-  "Events",
-  "Kitchen",
-  "Menu",
-  "Billing",
-  "Staff",
-  "Files",
-  "Clients",
-  "Settings"
-];
 
 export function LineIcon({
   name,

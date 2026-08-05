@@ -163,7 +163,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           aria-label={status}
         />
       ) : (
-        <main className="dashboard-font min-h-screen bg-[#f5f6f8] text-[#17202a]">
+        <main className="dashboard-font min-h-dvh bg-[#f5f6f8] text-[#17202a]">
           <DashboardTopbarBrand />
           <DashboardSidebar
             user={syncData.user}
@@ -172,7 +172,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             activeLabel={getDashboardActiveLabel(pathname)}
           />
 
-          <section className="dashboard-shell-main min-h-screen lg:pl-64">
+          <section className="dashboard-shell-main min-h-dvh lg:pl-64">
             <DashboardTrialProvider syncData={syncData}>
               {children}
             </DashboardTrialProvider>

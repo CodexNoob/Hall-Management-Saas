@@ -5,198 +5,107 @@ import {
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
-
-const roleAccess = {
-  owner: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: true,
-    canViewEventManager: true,
-    canViewKitchenDashboard: true,
-    canViewMenu: true,
-    canEditMenu: true,
-    canViewSettings: true,
-    canEditSettings: true,
-    canEditStaff: true,
-    canEditVendors: true,
-    canEditClients: true,
-    canEditFiles: true,
-    canAssignWorkers: true,
-    canUpdateKitchenStatus: true,
-    canAddKitchenEvents: true,
-    canManageSchoolSchedule: true,
-    canSeeSchoolEvents: true,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: true,
-    canManagePayments: true,
-    canSendPaymentEmail: true,
-    canUseNiceHomeBackground: true
-  },
-  admin: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: true,
-    canViewEventManager: true,
-    canViewKitchenDashboard: true,
-    canViewMenu: true,
-    canEditMenu: true,
-    canViewSettings: true,
-    canEditSettings: true,
-    canEditStaff: true,
-    canEditVendors: true,
-    canEditClients: true,
-    canEditFiles: true,
-    canAssignWorkers: true,
-    canUpdateKitchenStatus: true,
-    canAddKitchenEvents: true,
-    canManageSchoolSchedule: true,
-    canSeeSchoolEvents: true,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: true,
-    canManagePayments: true,
-    canSendPaymentEmail: true,
-    canUseNiceHomeBackground: true
-  },
-  manager: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: true,
-    canViewEventManager: true,
-    canViewKitchenDashboard: true,
-    canViewMenu: true,
-    canEditMenu: true,
-    canViewSettings: false,
-    canEditSettings: false,
-    canEditStaff: false,
-    canEditVendors: true,
-    canEditClients: true,
-    canEditFiles: true,
-    canAssignWorkers: true,
-    canUpdateKitchenStatus: true,
-    canAddKitchenEvents: true,
-    canManageSchoolSchedule: true,
-    canSeeSchoolEvents: true,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: true,
-    canManagePayments: false,
-    canSendPaymentEmail: false,
-    canUseNiceHomeBackground: false
-  },
-  kitchen: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: false,
-    canViewEventManager: false,
-    canViewKitchenDashboard: true,
-    canViewMenu: true,
-    canEditMenu: false,
-    canViewSettings: false,
-    canEditSettings: false,
-    canEditStaff: false,
-    canEditVendors: false,
-    canEditClients: false,
-    canEditFiles: false,
-    canAssignWorkers: true,
-    canUpdateKitchenStatus: true,
-    canAddKitchenEvents: true,
-    canManageSchoolSchedule: false,
-    canSeeSchoolEvents: false,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: false,
-    canManagePayments: false,
-    canSendPaymentEmail: false,
-    canUseNiceHomeBackground: false
-  },
-  billing: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: false,
-    canViewEventManager: true,
-    canViewKitchenDashboard: false,
-    canViewMenu: false,
-    canEditMenu: false,
-    canViewSettings: false,
-    canEditSettings: false,
-    canEditStaff: false,
-    canEditVendors: false,
-    canEditClients: true,
-    canEditFiles: true,
-    canAssignWorkers: false,
-    canUpdateKitchenStatus: false,
-    canAddKitchenEvents: false,
-    canManageSchoolSchedule: false,
-    canSeeSchoolEvents: false,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: true,
-    canManagePayments: true,
-    canSendPaymentEmail: true,
-    canUseNiceHomeBackground: false
-  },
-  viewer: {
-    canViewHome: true,
-    canViewCalendar: true,
-    canCreateBooking: false,
-    canViewEventManager: true,
-    canViewKitchenDashboard: true,
-    canViewMenu: true,
-    canEditMenu: false,
-    canViewSettings: false,
-    canEditSettings: false,
-    canEditStaff: false,
-    canEditVendors: false,
-    canEditClients: false,
-    canEditFiles: false,
-    canAssignWorkers: false,
-    canUpdateKitchenStatus: false,
-    canAddKitchenEvents: false,
-    canManageSchoolSchedule: false,
-    canSeeSchoolEvents: false,
-    canSeeSimchaEvents: true,
-    canViewPaymentInfo: false,
-    canManagePayments: false,
-    canSendPaymentEmail: false,
-    canUseNiceHomeBackground: false
-  }
-} as const;
-
-type StaffRole = keyof typeof roleAccess;
-
-function normalizeStaffRole(value: unknown): StaffRole {
-  const role = String(value ?? "viewer").toLowerCase().trim();
-
-  if (role === "administrator") return "admin";
-  if (role === "event manager") return "manager";
-  if (role === "kitchen staff") return "kitchen";
-  if (role === "billing staff") return "billing";
-
-  return role in roleAccess ? (role as StaffRole) : "viewer";
-}
+import { isAdministrativeRole } from "@/lib/auth/roles";
+import {
+  accessPermissionKeys,
+  accessForRole,
+  normalizeStaffRole,
+  permissionColumns,
+  roleAccess,
+  roleTemplates,
+  staffRoleValues,
+  type RoleAccessMatrix,
+  type StaffRoleValue
+} from "@/lib/auth/permissions";
 
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function accessForRole(role: StaffRole) {
-  return roleAccess[role];
+function canCustomizeStaffPermissions(
+  actor: Awaited<ReturnType<typeof requireAnyPermission>>
+) {
+  return isAdministrativeRole(actor.membership.role);
+}
+
+function cleanAccessPayload(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const input = value as Record<string, unknown>;
+  return accessPermissionKeys.reduce(
+    (access, key) => ({
+      ...access,
+      [key]: input[key] === true
+    }),
+    {} as RoleAccessMatrix
+  );
+}
+
+function cleanRoleAccessOverrides(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const input = value as Record<string, unknown>;
+  return staffRoleValues.reduce(
+    (roles, role) => {
+      const access = cleanAccessPayload(input[role]);
+      roles[role] = access ?? roleAccess[role];
+      return roles;
+    },
+    {} as Record<StaffRoleValue, RoleAccessMatrix>
+  );
+}
+
+function getRoleAccessOverrides(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const integrations = value as Record<string, unknown>;
+  return cleanRoleAccessOverrides(integrations.roleAccessOverrides);
+}
+
+function mergeIntegrationsWithRoleAccess(
+  current: unknown,
+  roleAccessOverrides: Record<StaffRoleValue, RoleAccessMatrix>
+) {
+  const base =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  return {
+    ...base,
+    roleAccessOverrides
+  };
 }
 
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
+      "canEditStaff",
       "canViewSettings",
       "canEditSettings"
     ]);
-    const memberships = await prisma.organizationMembership.findMany({
-      where: { organizationId: actor.organizationId },
-      include: {
-        user: {
-          include: {
-            access: { where: { organizationId: actor.organizationId } }
+    const [memberships, organizationSettings] = await Promise.all([
+      prisma.organizationMembership.findMany({
+        where: { organizationId: actor.organizationId },
+        include: {
+          user: {
+            include: {
+              access: { where: { organizationId: actor.organizationId } }
+            }
           }
-        }
-      },
-      orderBy: { user: { name: "asc" } }
-    });
+        },
+        orderBy: { user: { name: "asc" } }
+      }),
+      prisma.organizationSetting.findUnique({
+        where: { organizationId: actor.organizationId },
+        select: { integrations: true }
+      })
+    ]);
+
+    const roleAccessOverrides =
+      getRoleAccessOverrides(organizationSettings?.integrations) ?? roleAccess;
 
     return NextResponse.json({
       staff: memberships.map((membership) => ({
@@ -213,7 +122,13 @@ export async function GET(request: Request) {
             : "Inactive",
         access: membership.user.access[0] ?? null,
         createdAt: membership.createdAt
-      }))
+      })),
+      matrix: {
+        roles: roleTemplates,
+        columns: permissionColumns,
+        access: roleAccessOverrides
+      },
+      canCustomizePermissions: canCustomizeStaffPermissions(actor)
     });
   } catch (error) {
     return createApiErrorResponse(error);
@@ -255,6 +170,7 @@ export async function POST(request: Request) {
         status: "Active" | "Inactive";
         membershipId: string;
         createdAt: Date;
+        access: Awaited<ReturnType<typeof transaction.userAccess.upsert>>;
       }> = [];
 
       for (const inviteEmail of inviteEmails) {
@@ -302,7 +218,7 @@ export async function POST(request: Request) {
           }
         });
 
-        await transaction.userAccess.upsert({
+        const access = await transaction.userAccess.upsert({
           where: {
             organizationId_userId: {
               organizationId: actor.organizationId,
@@ -326,7 +242,8 @@ export async function POST(request: Request) {
           role: updatedUser.role,
           status: updatedUser.isActive && membership.isActive ? "Active" : "Inactive",
           membershipId: membership.id,
-          createdAt: membership.createdAt
+          createdAt: membership.createdAt,
+          access
         });
       }
 
@@ -343,7 +260,7 @@ export async function POST(request: Request) {
         department: item.department,
         role: item.role,
         status: item.status,
-        access: null,
+        access: item.access,
         createdAt: item.createdAt
       }))
     });
@@ -359,6 +276,78 @@ export async function PATCH(request: Request) {
       | Record<string, unknown>
       | null;
     const id = cleanText(input?.id);
+    const roleAccessOverrides = cleanRoleAccessOverrides(
+      input?.roleAccessOverrides
+    );
+
+    if (roleAccessOverrides) {
+      if (!canCustomizeStaffPermissions(actor)) {
+        return NextResponse.json(
+          {
+            error:
+              "Only an admin or organization owner can customize staff permissions."
+          },
+          { status: 403 }
+        );
+      }
+
+      await prisma.$transaction(async (transaction) => {
+        const currentSettings = await transaction.organizationSetting.findUnique({
+          where: { organizationId: actor.organizationId },
+          select: { integrations: true }
+        });
+
+        await transaction.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: {
+            integrations: mergeIntegrationsWithRoleAccess(
+              currentSettings?.integrations,
+              roleAccessOverrides
+            )
+          },
+          create: {
+            organizationId: actor.organizationId,
+            integrations: mergeIntegrationsWithRoleAccess(
+              null,
+              roleAccessOverrides
+            )
+          }
+        });
+
+        const memberships = await transaction.organizationMembership.findMany({
+          where: { organizationId: actor.organizationId },
+          select: { userId: true, role: true }
+        });
+
+        for (const membership of memberships) {
+          const normalizedRole = normalizeStaffRole(membership.role);
+          const accessData = roleAccessOverrides[normalizedRole];
+
+          await transaction.userAccess.upsert({
+            where: {
+              organizationId_userId: {
+                organizationId: actor.organizationId,
+                userId: membership.userId
+              }
+            },
+            update: accessData,
+            create: {
+              organizationId: actor.organizationId,
+              userId: membership.userId,
+              ...accessData
+            }
+          });
+        }
+      });
+
+      return NextResponse.json({
+        matrix: {
+          roles: roleTemplates,
+          columns: permissionColumns,
+          access: roleAccessOverrides
+        }
+      });
+    }
 
     if (!id) {
       return NextResponse.json(
@@ -368,12 +357,38 @@ export async function PATCH(request: Request) {
     }
 
     const role = input?.role ? normalizeStaffRole(input.role) : null;
+    const customAccess = cleanAccessPayload(input?.access);
     const status = cleanText(input?.status);
+
+    if (id === actor.id && status === "Inactive") {
+      return NextResponse.json(
+        { error: "You cannot deactivate your own staff access." },
+        { status: 400 }
+      );
+    }
+
+    if (customAccess && !canCustomizeStaffPermissions(actor)) {
+      return NextResponse.json(
+        {
+          error:
+            "Only an admin or organization owner can customize staff permissions."
+        },
+        { status: 403 }
+      );
+    }
+
+    if (id === actor.id && customAccess?.canEditStaff === false) {
+      return NextResponse.json(
+        { error: "You cannot remove your own staff management permission." },
+        { status: 400 }
+      );
+    }
+
     const userUpdates: {
       name?: string;
       phone?: string | null;
       venueName?: string;
-      role?: StaffRole;
+      role?: StaffRoleValue;
       isActive?: boolean;
     } = {};
 
@@ -411,7 +426,8 @@ export async function PATCH(request: Request) {
         data: userUpdates
       });
 
-      const access = role
+      const accessData = customAccess ?? (role ? accessForRole(role) : null);
+      const access = accessData
         ? await transaction.userAccess.upsert({
             where: {
               organizationId_userId: {
@@ -419,11 +435,11 @@ export async function PATCH(request: Request) {
                 userId: id
               }
             },
-            update: accessForRole(role),
+            update: accessData,
             create: {
               organizationId: actor.organizationId,
               userId: id,
-              ...accessForRole(role)
+              ...accessData
             }
           })
         : await transaction.userAccess.findUnique({
@@ -469,6 +485,13 @@ export async function DELETE(request: Request) {
     if (!id) {
       return NextResponse.json(
         { error: "Staff member is required." },
+        { status: 400 }
+      );
+    }
+
+    if (id === actor.id) {
+      return NextResponse.json(
+        { error: "You cannot remove your own staff access." },
         { status: 400 }
       );
     }

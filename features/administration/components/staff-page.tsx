@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
@@ -27,53 +27,20 @@ import {
   type StaffStatus
 } from "@/features/administration/components/staff-shared";
 import { normalizeInviteEmails } from "@/features/administration/components/staff-invite-utils";
+import {
+  accessPermissionKeys,
+  accessForRole,
+  activePermissionLabelsForRole,
+  formatStaffRoleName,
+  hasPermissionGroup,
+  roleAccess,
+  staffRoleValueByName,
+  type RoleAccessMatrix,
+  type StaffRoleValue
+} from "@/lib/auth/permissions";
 
 const apiUrl = "/api/staff";
 const rowsPerPage = 10;
-
-const roleValueByName: Record<RoleName, string> = {
-  Administrator: "admin",
-  "Event Manager": "manager",
-  "Kitchen Staff": "kitchen",
-  "Billing Staff": "billing",
-  Viewer: "viewer"
-};
-
-const roleNameByValue: Record<string, RoleName> = {
-  owner: "Administrator",
-  admin: "Administrator",
-  administrator: "Administrator",
-  manager: "Event Manager",
-  kitchen: "Kitchen Staff",
-  billing: "Billing Staff",
-  viewer: "Viewer",
-  member: "Viewer"
-};
-
-const permissionByRole: Record<RoleName, string[]> = {
-  Administrator: [
-    "Dashboard",
-    "Events",
-    "Kitchen",
-    "Menu",
-    "Billing",
-    "Staff",
-    "Files",
-    "Clients",
-    "Settings"
-  ],
-  "Event Manager": [
-    "Dashboard",
-    "Events",
-    "Kitchen",
-    "Menu",
-    "Files",
-    "Clients"
-  ],
-  "Kitchen Staff": ["Dashboard", "Kitchen", "Menu"],
-  "Billing Staff": ["Dashboard", "Events", "Billing", "Files", "Clients"],
-  Viewer: ["Dashboard", "Events", "Kitchen", "Menu"]
-};
 
 type StaffDialogMode = "add" | "edit" | "role" | null;
 
@@ -96,7 +63,7 @@ function initialsForName(name: string) {
 }
 
 function formatStaffRole(role: string): RoleName {
-  return roleNameByValue[role.toLowerCase()] ?? "Viewer";
+  return formatStaffRoleName(role);
 }
 
 function emptyForm(): StaffFormState {
@@ -117,6 +84,22 @@ function staffToForm(staff: StaffMember): StaffFormState {
     department: staff.department,
     role: staff.role
   };
+}
+
+function accessFromStaff(staff: StaffMember): RoleAccessMatrix {
+  const fallback = accessForRole(staffRoleValueByName[staff.role]);
+  const savedAccess = staff.access ?? {};
+
+  return accessPermissionKeys.reduce(
+    (access, key) => ({
+      ...access,
+      [key]:
+        typeof savedAccess[key] === "boolean"
+          ? savedAccess[key] === true
+          : fallback[key]
+    }),
+    {} as RoleAccessMatrix
+  );
 }
 
 async function readMutationResponse(response: Response) {
@@ -334,7 +317,7 @@ function StaffDialog({
               </Field>
               <div className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs text-[#425166] sm:col-span-2">
                 <strong className="text-[#17202a]">Role preview:</strong>{" "}
-                {permissionByRole[form.role].join(", ")}
+                {activePermissionLabelsForRole(staffRoleValueByName[form.role]).join(", ")}
               </div>
             </>
           ) : null}
@@ -387,6 +370,11 @@ export function StaffPage() {
   const [mutationError, setMutationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [selectedAccess, setSelectedAccess] = useState<RoleAccessMatrix | null>(
+    null
+  );
+  const [roleMatrixAccess, setRoleMatrixAccess] =
+    useState<Record<StaffRoleValue, RoleAccessMatrix>>(roleAccess);
 
   const staffMembers = useMemo<StaffMember[]>(
     () =>
@@ -444,6 +432,34 @@ export function StaffPage() {
     staffMembers.find((staff) => staff.id === selectedStaffId) ??
     staffMembers[0] ??
     null;
+  const matrixRoles = staffQuery.data?.matrix?.roles ?? roleTemplates;
+  const matrixColumns = staffQuery.data?.matrix?.columns ?? permissionColumns;
+  const canCustomizePermissions =
+    canEdit && staffQuery.data?.canCustomizePermissions === true;
+
+  useEffect(() => {
+    setSelectedAccess(selectedStaff ? accessFromStaff(selectedStaff) : null);
+  }, [selectedStaff]);
+
+  useEffect(() => {
+    const matrixAccess = staffQuery.data?.matrix?.access;
+    if (!matrixAccess) {
+      setRoleMatrixAccess(roleAccess);
+      return;
+    }
+
+    setRoleMatrixAccess(
+      Object.fromEntries(
+        Object.entries(roleAccess).map(([role, defaults]) => [
+          role,
+          {
+            ...defaults,
+            ...(matrixAccess[role] ?? {})
+          }
+        ])
+      ) as Record<StaffRoleValue, RoleAccessMatrix>
+    );
+  }, [staffQuery.data?.matrix?.access]);
 
   function showNotice(message: string) {
     setNotice(message);
@@ -486,7 +502,7 @@ export function StaffPage() {
     setIsSaving(true);
 
     try {
-      const role = roleValueByName[form.role];
+      const role = staffRoleValueByName[form.role];
       const body =
         dialogMode === "role"
           ? { id: selectedStaff?.id, role }
@@ -581,6 +597,80 @@ export function StaffPage() {
     }
   }
 
+  function togglePermissionGroup(
+    permissions: Array<keyof RoleAccessMatrix>,
+    checked: boolean
+  ) {
+    if (!canCustomizePermissions || !selectedAccess) return;
+
+    setSelectedAccess((current) => {
+      if (!current) return current;
+      return permissions.reduce(
+        (nextAccess, permission) => ({
+          ...nextAccess,
+          [permission]: checked
+        }),
+        { ...current }
+      );
+    });
+  }
+
+  function toggleRolePermissionGroup(
+    role: StaffRoleValue,
+    permissions: Array<keyof RoleAccessMatrix>,
+    checked: boolean
+  ) {
+    if (!canCustomizePermissions) return;
+
+    setRoleMatrixAccess((current) => ({
+      ...current,
+      [role]: permissions.reduce(
+        (nextAccess, permission) => ({
+          ...nextAccess,
+          [permission]: checked
+        }),
+        { ...current[role] }
+      )
+    }));
+
+    if (selectedStaff && staffRoleValueByName[selectedStaff.role] === role) {
+      setSelectedAccess((current) => {
+        const base = current ?? roleMatrixAccess[role] ?? roleAccess[role];
+        return permissions.reduce(
+          (nextAccess, permission) => ({
+            ...nextAccess,
+            [permission]: checked
+          }),
+          { ...base }
+        );
+      });
+    }
+  }
+
+  async function saveRoleMatrixPermissions() {
+    if (!canCustomizePermissions) return;
+
+    setIsSaving(true);
+    try {
+      const response = await authenticatedFetch(apiUrl, {
+        method: "PATCH",
+        body: JSON.stringify({
+          roleAccessOverrides: roleMatrixAccess
+        })
+      });
+      await readMutationResponse(response);
+      await refreshStaff("Permission matrix updated.");
+    } catch (error) {
+      showNotice(
+        error instanceof Error
+          ? error.message
+          : "Unable to save permission matrix."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   if (staffQuery.isLoading || staffQuery.error || !selectedStaff) {
     return (
       <DashboardPageState
@@ -640,7 +730,7 @@ export function StaffPage() {
       />
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
-        <div className="mx-auto grid w-full max-w-450 gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
+        <div className="mx-auto grid w-full max-w-450 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
           <div className="min-w-0 space-y-4">
             {notice ? (
               <div className="rounded-xl border border-[#a9dfc9] bg-[#effaf5] px-4 py-3 text-xs font-black text-[#147653] shadow-sm">
@@ -879,20 +969,44 @@ export function StaffPage() {
                 title="Permission matrix"
                 subtitle="Overview of role permissions across key modules."
               />
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef1f5] px-4 py-3 text-[10px] text-[#6a7483]">
+                <span>
+                  Admins and organization owners can click any checkmark to
+                  customize each role.
+                </span>
+                <button
+                  className="rounded-lg border border-[#b9c2cf] px-3 py-1.5 text-[10px] font-black text-[#1f4d73] transition hover:bg-[#edf3f8] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!canCustomizePermissions || isSaving}
+                  onClick={saveRoleMatrixPermissions}
+                  type="button"
+                >
+                  Save matrix
+                </button>
+              </div>
+              {!canCustomizePermissions ? (
+                <p className="mx-4 mb-3 rounded-lg border border-[#f1d49a] bg-[#fff8e8] px-3 py-2 text-[10px] font-bold leading-snug text-[#9a6400]">
+                  Only an admin or organization owner can edit staff permissions.
+                </p>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full min-w-185 text-left">
                   <thead className="bg-[#fbfcfd] text-[9px] font-black uppercase text-[#687588]">
                     <tr>
                       <th className="px-4 py-3">Role</th>
-                      {permissionColumns.map((column) => (
-                        <th className="px-3 py-3 text-center" key={column}>
-                          {column}
+                      {matrixColumns.map((column) => (
+                        <th className="px-3 py-3 text-center" key={column.label}>
+                          {column.label}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {roleTemplates.map((template) => (
+                    {matrixRoles.map((template) => {
+                      const roleValue = staffRoleValueByName[template.role];
+                      const rowAccess =
+                        roleMatrixAccess[roleValue] ?? accessForRole(roleValue);
+
+                      return (
                       <tr
                         className="border-t border-[#e2e6ec]"
                         key={template.role}
@@ -900,9 +1014,34 @@ export function StaffPage() {
                         <td className="px-4 py-3">
                           <RoleBadge role={template.role} />
                         </td>
-                        {permissionColumns.map((column) => (
-                          <td className="px-3 py-3 text-center" key={column}>
-                            {permissionByRole[template.role].includes(column) ? (
+                        {matrixColumns.map((column) => {
+                          const isChecked = hasPermissionGroup(
+                            rowAccess,
+                            column.permissions
+                          );
+
+                          return (
+                          <td
+                            className={`px-3 py-3 text-center ${
+                              canCustomizePermissions
+                                ? "cursor-pointer hover:bg-[#edf3f8]"
+                                : ""
+                            }`}
+                            key={column.label}
+                            onClick={() =>
+                              toggleRolePermissionGroup(
+                                roleValue,
+                                column.permissions,
+                                !isChecked
+                              )
+                            }
+                            title={
+                              canCustomizePermissions
+                                ? `Toggle ${column.label} for ${template.role}`
+                                : column.description
+                            }
+                          >
+                            {isChecked ? (
                               <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#70c9a5] text-[#078a58]">
                                 <LineIcon name="check" className="h-3 w-3" />
                               </span>
@@ -910,9 +1049,11 @@ export function StaffPage() {
                               <span className="text-[#c1c8d0]">—</span>
                             )}
                           </td>
-                        ))}
+                          );
+                        })}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -955,24 +1096,86 @@ export function StaffPage() {
                 </p>
                 <p className="flex items-center gap-3">
                   <LineIcon name="shield" />
-                  {permissionByRole[selectedStaff.role].length} permissions
+                  {activePermissionLabelsForRole(
+                    staffRoleValueByName[selectedStaff.role]
+                  ).length} permission groups
                 </p>
               </div>
             </div>
 
             <section className="mx-3 rounded-xl border border-[#d8dde5] p-3">
-              <h3 className="text-xs font-black">Permission summary</h3>
-              <ul className="mt-3 space-y-3 text-[10px]">
-                {permissionColumns.map((permission) => (
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xs font-black">Permission summary</h3>
+                  <p className="mt-1 text-[9px] leading-snug text-[#6a7483]">
+                    Current access for the selected staff member.
+                  </p>
+                </div>
+              </div>
+              <label className="mt-3 block">
+                <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#687588]">
+                  Permission group
+                </span>
+                <select className="h-10 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold text-[#17202a] outline-none focus:border-[#1f4d73]">
+                  {matrixColumns.map((permission) => {
+                    const hasAccess = hasPermissionGroup(
+                      selectedAccess ??
+                        selectedStaff.access ??
+                        accessForRole(staffRoleValueByName[selectedStaff.role]),
+                      permission.permissions
+                    );
+
+                    return (
+                      <option key={permission.label} value={permission.label}>
+                        {permission.label} - {hasAccess ? "Allowed" : "No access"}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              <p className="mt-2 text-[9px] leading-snug text-[#6a7483]">
+                Edit access by clicking the checkmarks in the Permission matrix.
+              </p>
+              <ul className="hidden">
+                {matrixColumns.map((permission) => (
                   <li
-                    className="flex items-center justify-between gap-3"
-                    key={permission}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-[#edf0f4] p-2 transition hover:bg-[#f8fafc]"
+                    key={permission.label}
                   >
-                    <span className="flex items-center gap-2">
+                    <label className="flex min-w-0 flex-1 cursor-default items-start gap-2">
+                      <input
+                        checked={hasPermissionGroup(
+                          selectedAccess ??
+                            selectedStaff.access ??
+                            accessForRole(staffRoleValueByName[selectedStaff.role]),
+                          permission.permissions
+                        )}
+                        className="hidden"
+                        disabled
+                        onChange={(event) =>
+                          togglePermissionGroup(
+                            permission.permissions,
+                            event.target.checked
+                          )
+                        }
+                        type="checkbox"
+                      />
+                      <span className="flex min-w-0 items-start gap-2">
                       <LineIcon name="shield" />
-                      {permission}
-                    </span>
-                    {permissionByRole[selectedStaff.role].includes(permission) ? (
+                      <span>
+                        <span className="block font-black">{permission.label}</span>
+                        <span className="mt-0.5 block text-[9px] leading-snug text-[#6a7483]">
+                          {permission.description}
+                        </span>
+                      </span>
+                      </span>
+                    </label>
+                    {hasPermissionGroup(
+                      selectedAccess ??
+                        selectedStaff.access ??
+                        accessForRole(staffRoleValueByName[selectedStaff.role]),
+                      permission.permissions
+                    ) ? (
                       <LineIcon name="check" className="h-4 w-4 text-[#078a58]" />
                     ) : (
                       <span className="text-[#c1c8d0]">—</span>
