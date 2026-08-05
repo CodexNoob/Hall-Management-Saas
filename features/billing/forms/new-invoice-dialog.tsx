@@ -1,176 +1,247 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent
+} from "react";
+import type { BillingResponse } from "@/features/billing/components/billing-shared";
 
 export type NewInvoiceFormValues = {
-  event: string;
-  status: string;
+  eventId: string;
+  clientName: string;
+  status: "Draft" | "Open";
+  dueDate: string;
   firstItem: string;
   amount: string;
 };
 
-type NewInvoiceDialogProps = {
+type Props = {
+  events: BillingResponse["events"];
   open: boolean;
   onClose: () => void;
-  onSave: (values: NewInvoiceFormValues) => void;
-};
-
-const initialValues: NewInvoiceFormValues = {
-  event: "Friedman - Wedding",
-  status: "Draft",
-  firstItem: "Event package",
-  amount: "1000",
+  onSave: (values: NewInvoiceFormValues) => Promise<void>;
 };
 
 const controlClass =
-  "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+  "mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
-export function NewInvoiceDialog({ open, onClose, onSave }: NewInvoiceDialogProps) {
+function dateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
   const titleId = useId();
   const firstControlRef = useRef<HTMLSelectElement>(null);
+  const initialValues = useMemo<NewInvoiceFormValues>(() => {
+    const event = events[0];
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 30);
+    return {
+      eventId: event?.id ?? "",
+      clientName: event?.clientName ?? "",
+      status: "Draft",
+      dueDate: dateInputValue(dueDate),
+      firstItem: "Event package",
+      amount: event?.amountDue ? String(event.amountDue) : ""
+    };
+  }, [events]);
   const [values, setValues] = useState(initialValues);
+  const [error, setError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
-
+    setValues(initialValues);
+    setError("");
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    firstControlRef.current?.focus();
-
+    window.requestAnimationFrame(() => firstControlRef.current?.focus());
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
-
     window.addEventListener("keydown", handleKeyDown);
-
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [initialValues, onClose, open]);
 
   if (!open) return null;
 
-  const updateValue = (field: keyof NewInvoiceFormValues, value: string) => {
-    setValues((current) => ({ ...current, [field]: value }));
-  };
+  const update = <K extends keyof NewInvoiceFormValues>(
+    field: K,
+    value: NewInvoiceFormValues[K]
+  ) => setValues((current) => ({ ...current, [field]: value }));
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onSave(values);
-    setValues(initialValues);
-  };
+    setError("");
+    if (!values.eventId)
+      return setError("Create an event before creating an invoice.");
+    if (!Number.isFinite(Number(values.amount)) || Number(values.amount) <= 0)
+      return setError("Enter an amount greater than zero.");
+    setIsSaving(true);
+    try {
+      await onSave(values);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : "Unable to create invoice."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
 
   return (
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/30 p-4"
-      onMouseDown={(event) => {
-        if (event.currentTarget === event.target) onClose();
-      }}
+      className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/30 p-3"
+      onMouseDown={(event) =>
+        event.currentTarget === event.target && !isSaving && onClose()
+      }
     >
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-3xl overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="max-h-[calc(100dvh-24px)] w-full max-w-3xl overflow-y-auto rounded-xl border border-[#d8dde5] bg-white shadow-2xl"
         role="dialog"
       >
-        <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
-          <h2 className="text-base font-black text-[#17202a]" id={titleId}>New invoice</h2>
+        <header className="flex items-center justify-between border-b border-[#d8dde5] px-4 py-3">
+          <div>
+            <h2 className="font-black" id={titleId}>
+              New invoice
+            </h2>
+            <p className="text-sm text-[#6a7483]">
+              Create an invoice from an existing event.
+            </p>
+          </div>
           <button
             aria-label="Close new invoice"
-            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[0] leading-none text-[#17202a] hover:bg-[#eef4fa]"
+            className="h-10 w-10 rounded-full text-2xl hover:bg-[#eef4fa]"
+            disabled={isSaving}
             onClick={onClose}
             type="button"
           >
-            <svg
-              aria-hidden="true"
-              className="absolute h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M5 5 19 19M19 5 5 19"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2.25"
-              />
-            </svg>
-            <span aria-hidden="true">×</span>
+            ×
           </button>
         </header>
-
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+          <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+            <label className="text-xs font-black uppercase text-[#64748b]">
               Event
               <select
-                className={`${controlClass} mt-1`}
-                name="invoiceEvent"
-                onChange={(event) => updateValue("event", event.target.value)}
+                className={controlClass}
+                disabled={!events.length}
+                onChange={(event) => {
+                  const selected = events.find(
+                    (item) => item.id === event.target.value
+                  );
+                  setValues((current) => ({
+                    ...current,
+                    eventId: event.target.value,
+                    clientName: selected?.clientName ?? "",
+                    amount: selected?.amountDue
+                      ? String(selected.amountDue)
+                      : current.amount
+                  }));
+                }}
                 ref={firstControlRef}
-                value={values.event}
+                required
+                value={values.eventId}
               >
-                <option>Friedman - Wedding</option>
-                <option>Klein - Sheva Brachos</option>
-                <option>Weiss - Bar Mitzvah</option>
-                <option>Green - Dinner</option>
+                {!events.length ? (
+                  <option value="">No events available</option>
+                ) : null}
+                {events.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.clientName} —{" "}
+                    {new Date(item.eventDate).toLocaleDateString()}
+                  </option>
+                ))}
               </select>
             </label>
-
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-xs font-black uppercase text-[#64748b]">
+              Client
+              <input
+                className={`${controlClass} bg-[#f5f6f8]`}
+                readOnly
+                value={values.clientName}
+              />
+            </label>
+            <label className="text-xs font-black uppercase text-[#64748b]">
               Status
               <select
-                className={`${controlClass} mt-1`}
-                name="invoiceStatus"
-                onChange={(event) => updateValue("status", event.target.value)}
+                className={controlClass}
+                onChange={(event) =>
+                  update("status", event.target.value as "Draft" | "Open")
+                }
                 value={values.status}
               >
                 <option>Draft</option>
                 <option>Open</option>
-                <option>Paid</option>
-                <option>Void</option>
               </select>
             </label>
-
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              First item
+            <label className="text-xs font-black uppercase text-[#64748b]">
+              Due date
               <input
-                className={`${controlClass} mt-1`}
-                name="firstInvoiceItem"
-                onChange={(event) => updateValue("firstItem", event.target.value)}
+                className={controlClass}
+                min={dateInputValue(new Date())}
+                onChange={(event) => update("dueDate", event.target.value)}
+                required
+                type="date"
+                value={values.dueDate}
+              />
+            </label>
+            <label className="text-xs font-black uppercase text-[#64748b]">
+              Line item
+              <input
+                className={controlClass}
+                onChange={(event) => update("firstItem", event.target.value)}
                 required
                 value={values.firstItem}
               />
             </label>
-
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+            <label className="text-xs font-black uppercase text-[#64748b]">
               Amount
               <input
-                className={`${controlClass} mt-1`}
-                min="0"
-                name="invoiceAmount"
-                onChange={(event) => updateValue("amount", event.target.value)}
+                className={controlClass}
+                min="0.01"
+                onChange={(event) => update("amount", event.target.value)}
                 required
                 step="0.01"
                 type="number"
                 value={values.amount}
               />
             </label>
+            {error ? (
+              <p
+                className="sm:col-span-2 rounded-lg bg-[#fff1f0] px-3 py-2 text-sm font-semibold text-[#a62b24]"
+                role="alert"
+              >
+                {error}
+              </p>
+            ) : null}
           </div>
-
           <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
             <button
-              className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+              className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black"
+              disabled={isSaving}
               onClick={onClose}
               type="button"
             >
               Cancel
             </button>
             <button
-              className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f]"
+              className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white disabled:opacity-60"
+              disabled={isSaving || !events.length}
               type="submit"
             >
-              Save
+              {isSaving ? "Creating…" : "Create invoice"}
             </button>
           </footer>
         </form>

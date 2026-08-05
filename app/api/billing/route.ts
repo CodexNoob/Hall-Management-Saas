@@ -12,39 +12,63 @@ const invoiceLineItemSchema = z.object({
   taxCents: z.number().int().nonnegative().default(0)
 });
 
-const invoiceSchema = z.object({
-  eventId: z.string().uuid().optional(),
-  invoiceNumber: z.string().trim().min(1),
-  clientName: z.string().trim().min(1),
-  status: z.enum(["Draft", "Open"]).default("Draft"),
-  currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).default("USD"),
-  dueDate: z.string().date().optional(),
-  totalCents: z.number().int().nonnegative().optional(),
-  lineItems: z.array(invoiceLineItemSchema).default([]),
-  discounts: z.array(z.object({
-    name: z.string().trim().min(1),
-    discountType: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
-    value: z.number().nonnegative(),
-    amountCents: z.number().int().nonnegative(),
-    reason: z.string().trim().optional()
-  })).default([]),
-  taxes: z.array(z.object({
-    name: z.string().trim().min(1),
-    taxType: z.enum(["FIXED", "PERCENTAGE"]).default("PERCENTAGE"),
-    rate: z.number().nonnegative().optional(),
-    amountCents: z.number().int().nonnegative(),
-    jurisdiction: z.string().trim().optional()
-  })).default([]),
-  paymentSchedule: z.array(z.object({
-    scheduleType: z.enum(["DEPOSIT", "INSTALLMENT", "FINAL"]).default("INSTALLMENT"),
-    label: z.string().trim().min(1),
-    dueDate: z.string().date(),
-    amountCents: z.number().int().positive()
-  })).default([]),
-  notes: z.string().trim().optional()
-}).refine((input) => input.lineItems.length > 0 || input.totalCents !== undefined, {
-  message: "Provide at least one line item or totalCents."
-});
+const invoiceSchema = z
+  .object({
+    eventId: z.string().uuid().optional(),
+    invoiceNumber: z.string().trim().min(1).optional(),
+    clientName: z.string().trim().min(1),
+    status: z.enum(["Draft", "Open"]).default("Draft"),
+    currency: z
+      .string()
+      .trim()
+      .length(3)
+      .transform((value) => value.toUpperCase())
+      .default("USD"),
+    dueDate: z.string().date().optional(),
+    totalCents: z.number().int().nonnegative().optional(),
+    lineItems: z.array(invoiceLineItemSchema).default([]),
+    discounts: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1),
+          discountType: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
+          value: z.number().nonnegative(),
+          amountCents: z.number().int().nonnegative(),
+          reason: z.string().trim().optional()
+        })
+      )
+      .default([]),
+    taxes: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1),
+          taxType: z.enum(["FIXED", "PERCENTAGE"]).default("PERCENTAGE"),
+          rate: z.number().nonnegative().optional(),
+          amountCents: z.number().int().nonnegative(),
+          jurisdiction: z.string().trim().optional()
+        })
+      )
+      .default([]),
+    paymentSchedule: z
+      .array(
+        z.object({
+          scheduleType: z
+            .enum(["DEPOSIT", "INSTALLMENT", "FINAL"])
+            .default("INSTALLMENT"),
+          label: z.string().trim().min(1),
+          dueDate: z.string().date(),
+          amountCents: z.number().int().positive()
+        })
+      )
+      .default([]),
+    notes: z.string().trim().optional()
+  })
+  .refine(
+    (input) => input.lineItems.length > 0 || input.totalCents !== undefined,
+    {
+      message: "Provide at least one line item or totalCents."
+    }
+  );
 
 export async function GET(request: Request) {
   try {
@@ -78,7 +102,10 @@ export async function GET(request: Request) {
           eventDate: true,
           finalTotal: true,
           amountDue: true,
-          paymentStatus: true
+          paymentStatus: true,
+          hallName: true,
+          eventType: true,
+          eventStatus: true
         },
         orderBy: { eventDate: "desc" },
         take: 50
@@ -87,7 +114,10 @@ export async function GET(request: Request) {
 
     const paidCents = transactions
       .filter((item) => item.status === "paid")
-      .reduce((sum, item) => sum + item.amountCents - item.refundedAmountCents, 0);
+      .reduce(
+        (sum, item) => sum + item.amountCents - item.refundedAmountCents,
+        0
+      );
     const openInvoiceCents = invoices.reduce(
       (sum, invoice) => sum + invoice.balanceDueCents,
       0
@@ -128,21 +158,36 @@ export async function POST(request: Request) {
     }
 
     const computedLineItems = input.lineItems.map((lineItem, index) => {
-      const subtotalCents = Math.round(lineItem.quantity * lineItem.unitAmountCents);
+      const subtotalCents = Math.round(
+        lineItem.quantity * lineItem.unitAmountCents
+      );
       return {
         ...lineItem,
         subtotalCents,
-        totalCents: Math.max(0, subtotalCents - lineItem.discountCents + lineItem.taxCents),
+        totalCents: Math.max(
+          0,
+          subtotalCents - lineItem.discountCents + lineItem.taxCents
+        ),
         sortOrder: index
       };
     });
-    const subtotalCents = computedLineItems.length > 0
-      ? computedLineItems.reduce((sum, lineItem) => sum + lineItem.subtotalCents, 0)
-      : (input.totalCents ?? 0);
-    const discountCents = input.discounts.reduce((sum, discount) => sum + discount.amountCents, 0);
+    const subtotalCents =
+      computedLineItems.length > 0
+        ? computedLineItems.reduce(
+            (sum, lineItem) => sum + lineItem.subtotalCents,
+            0
+          )
+        : (input.totalCents ?? 0);
+    const discountCents = input.discounts.reduce(
+      (sum, discount) => sum + discount.amountCents,
+      0
+    );
     const taxCents = input.taxes.reduce((sum, tax) => sum + tax.amountCents, 0);
     const totalCents = Math.max(0, subtotalCents - discountCents + taxCents);
-    const scheduledCents = input.paymentSchedule.reduce((sum, schedule) => sum + schedule.amountCents, 0);
+    const scheduledCents = input.paymentSchedule.reduce(
+      (sum, schedule) => sum + schedule.amountCents,
+      0
+    );
 
     if (scheduledCents > totalCents) {
       return NextResponse.json(
@@ -152,16 +197,21 @@ export async function POST(request: Request) {
     }
 
     const invoice = await prisma.$transaction(async (transaction) => {
+      const invoiceNumber =
+        input.invoiceNumber ??
+        `INV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
       const created = await transaction.invoice.create({
         data: {
           organizationId: actor.organizationId,
           eventId: input.eventId,
           clientId: event?.clientId,
-          invoiceNumber: input.invoiceNumber,
+          invoiceNumber,
           clientName: input.clientName,
           status: input.status,
           currency: input.currency,
-          dueDate: input.dueDate ? new Date(`${input.dueDate}T00:00:00.000Z`) : undefined,
+          dueDate: input.dueDate
+            ? new Date(`${input.dueDate}T00:00:00.000Z`)
+            : undefined,
           issuedAt: input.status === "Open" ? new Date() : undefined,
           subtotalCents,
           discountCents,

@@ -80,7 +80,7 @@ export function BillingDashboardTab({
           <div className="grid gap-3 p-4 md:grid-cols-3">
             {[
               "Assign card batch payout to the correct events or split it across events.",
-              "Friedman and Klein have open balances before event week.",
+              `${data.summary.openInvoices} invoice${data.summary.openInvoices === 1 ? " has" : "s have"} an open balance.`,
               "Review payroll and linen transactions before closing the week."
             ].map((text, index) => (
               <article

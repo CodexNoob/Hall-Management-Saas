@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 
 export type BillingTab =
@@ -26,20 +26,46 @@ export type IconName =
 export type BillingResponse = {
   transactions: Array<{
     id: string;
+    eventId: string | null;
     amountCents: number;
-    provider: string;
+    provider: string | null;
     status: string;
     createdAt: string;
-    event: { clientName: string } | null;
+    event: { clientName: string; eventDate: string } | null;
   }>;
   invoices: Array<{
     id: string;
+    eventId: string | null;
     invoiceNumber: string;
     clientName: string;
     status: string;
     dueDate: string | null;
     totalCents: number;
     amountPaidCents: number;
+    balanceDueCents: number;
+    currency: string;
+    createdAt: string;
+    issuedAt: string | null;
+    notes: string | null;
+    event: { eventDate: string; hallName: string } | null;
+    lineItems: Array<{
+      id: string;
+      description: string;
+      quantity: number | string;
+      unitAmountCents: number;
+      totalCents: number;
+    }>;
+  }>;
+  events: Array<{
+    id: string;
+    clientName: string;
+    eventDate: string;
+    finalTotal: string | number | null;
+    amountDue: string | number;
+    paymentStatus: string;
+    hallName: string;
+    eventType: string;
+    eventStatus: string;
   }>;
   summary: {
     paidCents: number;

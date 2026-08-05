@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
-import { NewInvoiceDialog } from "@/features/billing/forms/new-invoice-dialog";
+import {
+  NewInvoiceDialog,
+  type NewInvoiceFormValues
+} from "@/features/billing/forms/new-invoice-dialog";
 import {
   clearCachedSyncedUser,
   getCachedSyncedUser,
@@ -13,13 +16,18 @@ import {
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { BillingContent } from "@/features/billing/components/billing-content";
 import { BillingHeader } from "@/features/billing/components/billing-header";
 import { PendingTransactionModal } from "@/features/billing/components/pending-transaction-modal";
-import { TopAction, type BillingResponse, type BillingTab } from "@/features/billing/components/billing-shared";
+import {
+  TopAction,
+  type BillingResponse,
+  type BillingTab
+} from "@/features/billing/components/billing-shared";
 export function BillingPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Billing");
@@ -33,9 +41,33 @@ export function BillingPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
 
-  const saveInvoice = () => {
+  const saveInvoice = async (values: NewInvoiceFormValues) => {
+    const amountCents = Math.round(Number(values.amount) * 100);
+    const response = await authenticatedFetch("/api/billing", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        eventId: values.eventId,
+        clientName: values.clientName,
+        status: values.status,
+        dueDate: values.dueDate || undefined,
+        lineItems: [
+          {
+            description: values.firstItem,
+            quantity: 1,
+            unitAmountCents: amountCents
+          }
+        ]
+      })
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    if (!response.ok)
+      throw new Error(payload?.error ?? "Unable to create invoice.");
     setIsNewInvoiceOpen(false);
     setActiveTab("Invoices");
+    await billingQuery.refetch();
   };
 
   useEffect(() => {
@@ -122,6 +154,7 @@ export function BillingPage() {
         }
       />
       <NewInvoiceDialog
+        events={billingQuery.data.events}
         onClose={() => setIsNewInvoiceOpen(false)}
         onSave={saveInvoice}
         open={canManagePayments && isNewInvoiceOpen}
@@ -137,6 +170,7 @@ export function BillingPage() {
               searchQuery={pageSearchQuery}
               setActiveTab={setActiveTab}
               setSearchQuery={setPageSearchQuery}
+              openNewInvoice={() => setIsNewInvoiceOpen(true)}
             />
           </div>
         </div>
@@ -146,4 +180,4 @@ export function BillingPage() {
       ) : null}
     </div>
   );
-} 
+}

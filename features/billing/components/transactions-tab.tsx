@@ -210,7 +210,10 @@ function normalizeStatus(status: string): TransactionStatus {
   return "Pending";
 }
 
-function buildRows(data: BillingResponse): TransactionRow[] {
+export function buildRows(data: BillingResponse): TransactionRow[] {
+  // Keep the transaction screen empty when the tenant has no billing records.
+  // The former sample fallback made UI-only rows look like production data.
+  void sampleRows;
   const apiRows = data.transactions.map((transaction, index) => {
     const amount = transaction.amountCents / 100;
     const date = new Date(transaction.createdAt);
@@ -221,15 +224,15 @@ function buildRows(data: BillingResponse): TransactionRow[] {
       id: transaction.id,
       bookingId: `BK-${String(index + 1).padStart(4, "0")}`,
       customer,
-      email: "client@example.com",
-      phone: "+1 718 555 0142",
+      email: "",
+      phone: "",
       event: transaction.event?.clientName
         ? `${transaction.event.clientName} Event`
         : "Unassigned Event",
       eventType: amount < 0 ? "Refund" : "Event Payment",
-      venue: index % 2 === 0 ? "Hall 1" : "Hall 2",
-      venueLocation: "Event Core venue",
-      venueCapacity: index % 2 === 0 ? "200 pax" : "120 pax",
+      venue: "Not linked",
+      venueLocation: "",
+      venueCapacity: "",
       type: amount < 0 ? "Refund" : "Payment",
       date: date.toLocaleDateString("en-US", {
         day: "numeric",
@@ -237,8 +240,8 @@ function buildRows(data: BillingResponse): TransactionRow[] {
         year: "numeric"
       }),
       dateValue: date.getTime(),
-      startTime: "09:00 AM",
-      endTime: "05:00 PM",
+      startTime: "",
+      endTime: "",
       amount,
       paidAmount: status === "Paid" ? amount : 0,
       paymentMethod: transaction.provider || "Manual Entry",
@@ -270,7 +273,7 @@ function buildRows(data: BillingResponse): TransactionRow[] {
     } satisfies TransactionRow;
   });
 
-  return apiRows.length ? apiRows : sampleRows;
+  return apiRows;
 }
 
 function statusBadge(status: TransactionStatus) {
@@ -334,7 +337,9 @@ export function TransactionsTab({
   useEffect(() => {
     async function hydrateConnectionState() {
       try {
-        const response = await authenticatedFetch("/api/billing/plaid/connection");
+        const response = await authenticatedFetch(
+          "/api/billing/plaid/connection"
+        );
         if (!response.ok) return;
         const payload = await response.json();
         if (payload?.connected) {
@@ -347,9 +352,9 @@ export function TransactionsTab({
 
     void hydrateConnectionState();
   }, []);
-  const [detailsTransactionId, setDetailsTransactionId] = useState<string | null>(
-    null
-  );
+  const [detailsTransactionId, setDetailsTransactionId] = useState<
+    string | null
+  >(null);
   const rows = useMemo(() => {
     const allRows = [...manualRows, ...buildRows(data)];
 
@@ -361,7 +366,8 @@ export function TransactionsTab({
         return overrideStatus
           ? {
               ...row,
-              paidAmount: overrideStatus === "Paid" ? row.amount : row.paidAmount,
+              paidAmount:
+                overrideStatus === "Paid" ? row.amount : row.paidAmount,
               status: overrideStatus
             }
           : row;
@@ -390,10 +396,12 @@ export function TransactionsTab({
             .join(" ")
             .toLowerCase()
             .includes(lowerSearch);
-        const matchesType = typeFilter === "All types" || row.type === typeFilter;
+        const matchesType =
+          typeFilter === "All types" || row.type === typeFilter;
         const matchesStatus =
           statusFilter === "All statuses" || row.status === statusFilter;
-        const matchesVenue = venueFilter === "All venues" || row.venue === venueFilter;
+        const matchesVenue =
+          venueFilter === "All venues" || row.venue === venueFilter;
         const matchesReview =
           reviewFilter === "All" ||
           (reviewFilter === "Needs review" &&
@@ -499,14 +507,28 @@ export function TransactionsTab({
       }
 
       const plaidScript = await ensurePlaidScript();
-      const plaid = (window as typeof window & { Plaid?: { create: (config: unknown) => { open: () => void } } }).Plaid;
+      const plaid = (
+        window as typeof window & {
+          Plaid?: { create: (config: unknown) => { open: () => void } };
+        }
+      ).Plaid;
       if (!plaid?.create) {
-        throw new Error(plaidScript ? "Plaid Link could not be initialized." : "Plaid is not available in this browser session.");
+        throw new Error(
+          plaidScript
+            ? "Plaid Link could not be initialized."
+            : "Plaid is not available in this browser session."
+        );
       }
 
       const handler = plaid.create({
         token: linkToken,
-        onSuccess: async (publicToken: string, metadata: { institution?: { name?: string; institution_id?: string }; accounts?: Array<{ id?: string; name?: string; type?: string }> }) => {
+        onSuccess: async (
+          publicToken: string,
+          metadata: {
+            institution?: { name?: string; institution_id?: string };
+            accounts?: Array<{ id?: string; name?: string; type?: string }>;
+          }
+        ) => {
           try {
             const exchangeResponse = await authenticatedFetch(
               "/api/billing/plaid/exchange",
@@ -527,14 +549,20 @@ export function TransactionsTab({
 
             if (!exchangeResponse.ok) {
               const payload = await exchangeResponse.json().catch(() => ({}));
-              throw new Error(payload.error ?? "Unable to save the bank connection.");
+              throw new Error(
+                payload.error ?? "Unable to save the bank connection."
+              );
             }
 
             setIsBankConnected(true);
             setIsPlaidDialogOpen(false);
             showActionMessage("Bank account connected for this organization.");
           } catch (error) {
-            showActionMessage(error instanceof Error ? error.message : "Could not complete the connection.");
+            showActionMessage(
+              error instanceof Error
+                ? error.message
+                : "Could not complete the connection."
+            );
           } finally {
             setIsPlaidBusy(false);
           }
@@ -547,7 +575,11 @@ export function TransactionsTab({
       handler.open();
     } catch (error) {
       setIsPlaidBusy(false);
-      showActionMessage(error instanceof Error ? error.message : "Could not start the connection flow.");
+      showActionMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not start the connection flow."
+      );
     }
   }
 
@@ -794,12 +826,20 @@ export function TransactionsTab({
 
               if (!response.ok) {
                 const payload = await response.json().catch(() => ({}));
-                throw new Error(payload.error ?? "Unable to sync transactions.");
+                throw new Error(
+                  payload.error ?? "Unable to sync transactions."
+                );
               }
 
-              showActionMessage("Bank transactions sync started for this organization.");
+              showActionMessage(
+                "Bank transactions sync started for this organization."
+              );
             } catch (error) {
-              showActionMessage(error instanceof Error ? error.message : "Unable to sync transactions.");
+              showActionMessage(
+                error instanceof Error
+                  ? error.message
+                  : "Unable to sync transactions."
+              );
             } finally {
               setIsPlaidBusy(false);
             }
@@ -1595,9 +1635,17 @@ function PlaidConnectDialog({
               What we still need for live Plaid
             </h3>
             <ul className="mt-2 space-y-1 text-sm text-[#526274]">
-              <li>• Plaid credentials must be configured in the server environment.</li>
-              <li>• The connection is stored only for the active organization.</li>
-              <li>• Bank transactions will sync into this billing workspace after the account is linked.</li>
+              <li>
+                • Plaid credentials must be configured in the server
+                environment.
+              </li>
+              <li>
+                • The connection is stored only for the active organization.
+              </li>
+              <li>
+                • Bank transactions will sync into this billing workspace after
+                the account is linked.
+              </li>
             </ul>
           </div>
 
@@ -1615,7 +1663,11 @@ function PlaidConnectDialog({
               onClick={onConnect}
               type="button"
             >
-              {busy ? "Connecting…" : connected ? "Reconnect bank" : "Continue to Plaid"}
+              {busy
+                ? "Connecting…"
+                : connected
+                  ? "Reconnect bank"
+                  : "Continue to Plaid"}
             </button>
           </div>
         </div>
@@ -1713,7 +1765,9 @@ function DesktopTransactionSidePanel({
             <DesktopTransactionDetailRow
               icon="more"
               label="Transaction type*"
-              value={transaction.type === "Payment" ? "Expense" : transaction.type}
+              value={
+                transaction.type === "Payment" ? "Expense" : transaction.type
+              }
             />
             <DesktopTransactionDetailRow
               icon="invoice"
@@ -2020,7 +2074,10 @@ function DetailCard({
       <h3 className="text-sm font-black text-[#1f4d73]">{title}</h3>
       <dl className="mt-4 space-y-3 text-sm">
         {rows.map(([label, value]) => (
-          <div className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3" key={label || value}>
+          <div
+            className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-3"
+            key={label || value}
+          >
             <dt className="text-xs font-semibold text-[#6a7483]">{label}</dt>
             <dd className="min-w-0 font-semibold text-[#17202a]">{value}</dd>
           </div>
