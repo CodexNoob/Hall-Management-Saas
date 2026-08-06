@@ -6,7 +6,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  createSupabaseBrowserClient,
+  setAuthSessionPersistence
+} from "@/lib/supabase/browser";
 import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
 import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
 import {
@@ -132,6 +135,7 @@ export function LoginCard({
     setError("");
 
     try {
+      setAuthSessionPersistence(rememberMe);
       const supabase = createSupabaseBrowserClient();
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
@@ -166,6 +170,7 @@ export function LoginCard({
     setError("");
 
     try {
+      setAuthSessionPersistence(rememberMe);
       await signInWithOAuthProvider(provider, returnPath);
     } catch (error) {
       setError(

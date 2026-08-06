@@ -55,8 +55,7 @@ export async function recordRefundWithAudit(
         );
       }
 
-      const refundableCents =
-        payment.amountCents - payment.refundedAmountCents;
+      const refundableCents = payment.amountCents - payment.refundedAmountCents;
 
       if (input.amountCents > refundableCents) {
         throw new BillingError(
@@ -114,8 +113,15 @@ export async function recordRefundWithAudit(
           data: {
             amountPaidCents: nextAmountPaidCents,
             balanceDueCents: invoiceBalanceCents,
-            status: invoiceBalanceCents === 0 ? "Paid" : "Open",
-            paidAt: invoiceBalanceCents === 0 ? payment.invoice.paidAt : null
+            paidAt: invoiceBalanceCents === 0 ? payment.invoice.paidAt : null,
+            status:
+              invoiceBalanceCents === 0
+                ? "Paid"
+                : nextAmountPaidCents > 0
+                  ? "Partially Paid"
+                  : payment.invoice.issuedAt
+                    ? "Sent"
+                    : "Draft"
           }
         });
 
@@ -145,14 +151,13 @@ export async function recordRefundWithAudit(
         });
 
         if (payment.paymentScheduleId) {
-          const schedule =
-            await transaction.invoicePaymentSchedule.findFirst({
-              where: {
-                id: payment.paymentScheduleId,
-                organizationId: actor.organizationId,
-                invoiceId: payment.invoice.id
-              }
-            });
+          const schedule = await transaction.invoicePaymentSchedule.findFirst({
+            where: {
+              id: payment.paymentScheduleId,
+              organizationId: actor.organizationId,
+              invoiceId: payment.invoice.id
+            }
+          });
 
           if (schedule) {
             const nextSchedulePaidCents = Math.max(
@@ -168,9 +173,7 @@ export async function recordRefundWithAudit(
               data: {
                 paidCents: nextSchedulePaidCents,
                 status:
-                  nextSchedulePaidCents === 0
-                    ? "PENDING"
-                    : "PARTIALLY_PAID",
+                  nextSchedulePaidCents === 0 ? "PENDING" : "PARTIALLY_PAID",
                 paidAt: null
               }
             });

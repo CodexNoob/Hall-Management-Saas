@@ -13,7 +13,7 @@ import type { BillingResponse } from "@/features/billing/components/billing-shar
 export type NewInvoiceFormValues = {
   eventId: string;
   clientName: string;
-  status: "Draft" | "Open";
+  status: "Draft" | "Sent";
   dueDate: string;
   firstItem: string;
   amount: string;
@@ -178,12 +178,12 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
               <select
                 className={controlClass}
                 onChange={(event) =>
-                  update("status", event.target.value as "Draft" | "Open")
+                  update("status", event.target.value as "Draft" | "Sent")
                 }
                 value={values.status}
               >
                 <option>Draft</option>
-                <option>Open</option>
+                <option>Sent</option>
               </select>
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">

@@ -12,6 +12,7 @@ import type { HelpPageKind } from "@/features/help/components/help-page";
 import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { DashboardSidebarMobileHeader } from "@/components/layout/dashboard-sidebar-mobile-header";
 
 import {
   SidebarIcon,
@@ -298,29 +299,7 @@ export function DashboardSidebar({
             : "overflow-visible lg:w-64"
         }`}
       >
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/10 px-4 lg:hidden">
-          <Image
-            src="/images/branding/Footer-logo.png"
-            alt="Hall Management SaaS"
-            width={612}
-            height={408}
-            priority
-            unoptimized
-            className="h-14 w-auto object-contain"
-          />
-
-          <button
-            aria-label="Close navigation"
-            className="flex h-10 w-10 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
-            onClick={() => setIsMobileOpen(false)}
-            type="button"
-          >
-            <span className="relative h-5 w-5" aria-hidden="true">
-              <span className="absolute left-0 top-2 h-0.5 w-5 rotate-45 rounded-full bg-current" />
-              <span className="absolute left-0 top-2 h-0.5 w-5 -rotate-45 rounded-full bg-current" />
-            </span>
-          </button>
-        </div>
+        <DashboardSidebarMobileHeader onClose={() => setIsMobileOpen(false)} />
 
         <nav
           className={`flex-1 ${

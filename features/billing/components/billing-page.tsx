@@ -1,20 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import {
   NewInvoiceDialog,
   type NewInvoiceFormValues
 } from "@/features/billing/forms/new-invoice-dialog";
-import {
-  clearCachedSyncedUser,
-  getCachedSyncedUser,
-  syncSignedInUser,
-  type SyncSignedInUserResponse
-} from "@/lib/auth/client";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -31,15 +23,53 @@ import {
 export function BillingPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Billing");
-  const router = useRouter();
   const canManagePayments = useDashboardPermission("canManagePayments");
   const billingQuery = useAuthenticatedQuery<BillingResponse>("/api/billing");
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
-    null
-  );
   const [activeTab, setActiveTab] = useState<BillingTab>("Dashboard");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importMessage, setImportMessage] = useState("");
+
+  async function importBankFile(file: File) {
+    try {
+      const lines = (await file.text()).split(/\r?\n/).filter(Boolean);
+      const rows = lines
+        .slice(1)
+        .map((line) => {
+          const [date, description, amount, currency = "USD"] = line
+            .split(",")
+            .map((value) => value.trim().replace(/^"|"$/g, ""));
+          return {
+            date,
+            description,
+            amountCents: Math.round(Number(amount) * 100),
+            currency
+          };
+        })
+        .filter(
+          (row) =>
+            row.date && row.description && Number.isFinite(row.amountCents)
+        );
+      if (!rows.length)
+        throw new Error(
+          "The CSV must contain date, description, amount, and optional currency columns."
+        );
+      const response = await authenticatedFetch("/api/billing/import", {
+        method: "POST",
+        body: JSON.stringify({ rows })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error ?? "Unable to import bank file.");
+      setImportMessage(`${payload.imported} bank transactions imported.`);
+      setActiveTab("Transactions");
+    } catch (error) {
+      setImportMessage(
+        error instanceof Error ? error.message : "Unable to import bank file."
+      );
+    }
+  }
 
   const saveInvoice = async (values: NewInvoiceFormValues) => {
     const amountCents = Math.round(Number(values.amount) * 100);
@@ -70,50 +100,11 @@ export function BillingPage() {
     await billingQuery.refetch();
   };
 
-  useEffect(() => {
-    let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
-
-    if (cachedSyncData) setSyncData(cachedSyncData);
-
-    async function loadUser() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
-          router.replace("/");
-          return;
-        }
-
-        const synced = await syncSignedInUser(data.session.access_token);
-        if (isMounted) setSyncData(synced);
-      } catch {
-        if (!cachedSyncData) {
-          clearCachedSyncedUser();
-          router.replace("/");
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  if (
-    !syncData ||
-    billingQuery.isLoading ||
-    billingQuery.error ||
-    !billingQuery.data
-  ) {
+  if (billingQuery.isLoading || billingQuery.error || !billingQuery.data) {
     return (
       <DashboardPageState
         error={billingQuery.error}
-        isLoading={!syncData || billingQuery.isLoading}
+        isLoading={billingQuery.isLoading}
         onRetry={billingQuery.refetch}
         subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
         title="Billing"
@@ -134,10 +125,13 @@ export function BillingPage() {
               disabled={!canManagePayments}
               icon="upload"
               label="Import bank file"
+              onClick={() => importInputRef.current?.click()}
             />
             <TopAction
               compactOnMobile
-              disabled={!canManagePayments}
+              disabled={
+                !canManagePayments || !billingQuery.data.transactions.length
+              }
               icon="payment"
               label="Review recent transaction"
               onClick={() => setIsModalOpen(true)}
@@ -153,6 +147,22 @@ export function BillingPage() {
           </>
         }
       />
+      <input
+        accept=".csv,text/csv"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void importBankFile(file);
+          event.target.value = "";
+        }}
+        ref={importInputRef}
+        type="file"
+      />
+      {importMessage ? (
+        <div className="mx-3 mt-2 rounded-lg bg-[#eef4fa] px-3 py-2 text-sm font-bold text-[#1f4d73]">
+          {importMessage}
+        </div>
+      ) : null}
       <NewInvoiceDialog
         events={billingQuery.data.events}
         onClose={() => setIsNewInvoiceOpen(false)}
@@ -165,18 +175,23 @@ export function BillingPage() {
           <div className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
             <BillingContent
               activeTab={activeTab}
+              canManagePayments={canManagePayments}
               data={billingQuery.data}
-              openModal={() => setIsModalOpen(true)}
               searchQuery={pageSearchQuery}
               setActiveTab={setActiveTab}
               setSearchQuery={setPageSearchQuery}
               openNewInvoice={() => setIsNewInvoiceOpen(true)}
+              refreshBilling={billingQuery.refetch}
             />
           </div>
         </div>
       </section>
-      {isModalOpen ? (
-        <PendingTransactionModal onClose={() => setIsModalOpen(false)} />
+      {isModalOpen && billingQuery.data.transactions[0] ? (
+        <PendingTransactionModal
+          onClose={() => setIsModalOpen(false)}
+          onSaved={billingQuery.refetch}
+          transaction={billingQuery.data.transactions[0]}
+        />
       ) : null}
     </div>
   );

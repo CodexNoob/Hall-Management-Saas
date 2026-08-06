@@ -2,7 +2,6 @@
 
 import {
   cashMovementBars,
-  LineIcon,
   StatCard,
   TopAction,
   type BillingResponse,
@@ -75,7 +74,10 @@ export function BillingDashboardTab({
                 Daily office view for the finance team.
               </p>
             </div>
-            <TopAction label="Review transactions" />
+            <TopAction
+              label="Review transactions"
+              onClick={() => setActiveTab("Transactions")}
+            />
           </div>
           <div className="grid gap-3 p-4 md:grid-cols-3">
             {[

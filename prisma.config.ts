@@ -28,6 +28,7 @@ loadEnvFile(".env");
 // dependency installation; the application still requires DATABASE_URL at
 // runtime in lib/prisma.ts.
 const databaseUrl =
+  process.env.DIRECT_URL ||
   process.env.DATABASE_URL ||
   "postgresql://unused:unused@localhost:5432/unused";
 

@@ -11,7 +11,8 @@ export async function POST(request: Request) {
     if (!config.enabled) {
       return NextResponse.json(
         {
-          error: "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
+          error:
+            "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
         },
         { status: 503 }
       );
@@ -40,7 +41,8 @@ export async function POST(request: Request) {
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: payload?.error_message ?? "Unable to create a Plaid link token."
+          error:
+            payload?.error_message ?? "Unable to create a Plaid link token."
         },
         { status: 502 }
       );

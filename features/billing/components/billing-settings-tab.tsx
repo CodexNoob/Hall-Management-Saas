@@ -1,6 +1,41 @@
 "use client";
 
+import { useState } from "react";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+
 export function SettingsTab() {
+  const [businessName, setBusinessName] = useState("Event Core Hall");
+  const [paymentTerms, setPaymentTerms] = useState("Due before event");
+  const [invoiceFooter, setInvoiceFooter] = useState(
+    "Thank you. Please submit payment according to the agreed terms."
+  );
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function saveSettings() {
+    setSaving(true);
+    setMessage("");
+    try {
+      const response = await authenticatedFetch("/api/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          billing: { businessName, paymentTerms, invoiceFooter }
+        })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error ?? "Unable to save billing settings.");
+      setMessage("Billing settings saved.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save billing settings."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   const categories = [
     "Uncategorized",
     "Event Deposit",
@@ -31,7 +66,8 @@ export function SettingsTab() {
               Business Name
               <input
                 className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
-                defaultValue="Event Core Demo Hall"
+                value={businessName}
+                onChange={(event) => setBusinessName(event.target.value)}
                 name="businessName"
               />
             </label>
@@ -41,6 +77,8 @@ export function SettingsTab() {
                 className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
                 aria-label="Payment terms"
                 name="paymentTerms"
+                value={paymentTerms}
+                onChange={(event) => setPaymentTerms(event.target.value)}
                 title="Payment terms"
               >
                 <option>Due before event</option>
@@ -51,16 +89,22 @@ export function SettingsTab() {
             Invoice Footer
             <textarea
               className="mt-1 h-24 w-full rounded-lg border border-[#b9c2cf] p-3 text-sm"
-              defaultValue="Thank you. Please submit payment according to the agreed terms."
+              value={invoiceFooter}
+              onChange={(event) => setInvoiceFooter(event.target.value)}
               name="invoiceFooter"
             />
           </label>
           <button
             className="h-10 w-full rounded-lg bg-[#1f4d73] text-sm font-black text-white"
             type="button"
+            disabled={saving}
+            onClick={() => void saveSettings()}
           >
-            Save settings
+            {saving ? "Saving…" : "Save settings"}
           </button>
+          {message ? (
+            <p className="text-sm font-bold text-[#1f4d73]">{message}</p>
+          ) : null}
         </div>
       </section>
       <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
@@ -75,7 +119,8 @@ export function SettingsTab() {
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
               The authorized person from each organization or company (owner,
-              admin, or billing manager) can connect that company’s bank account.
+              admin, or billing manager) can connect that company’s bank
+              account.
             </li>
             <li>
               Plaid securely handles the bank sign-in and approval process, and

@@ -5,6 +5,7 @@ import { EventBillingTab } from "@/features/billing/components/event-billing-tab
 import { InvoicesTab } from "@/features/billing/components/invoices-tab";
 import { SettingsTab } from "@/features/billing/components/billing-settings-tab";
 import { TransactionsTab } from "@/features/billing/components/transactions-tab";
+import { BillingReportsTab } from "@/features/billing/components/billing-reports-tab";
 import {
   type BillingResponse,
   type BillingTab
@@ -12,35 +13,38 @@ import {
 
 export function BillingContent({
   activeTab,
+  canManagePayments,
   setActiveTab,
-  openModal,
   data,
   searchQuery,
   setSearchQuery,
-  openNewInvoice
+  openNewInvoice,
+  refreshBilling
 }: {
   activeTab: BillingTab;
+  canManagePayments: boolean;
   setActiveTab: (tab: BillingTab) => void;
-  openModal: () => void;
   data: BillingResponse;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
   openNewInvoice: () => void;
+  refreshBilling: () => Promise<BillingResponse | null>;
 }) {
   if (activeTab === "Transactions")
     return (
       <TransactionsTab
         data={data}
-        openModal={openModal}
+        onRefresh={refreshBilling}
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
       />
     );
   if (activeTab === "Invoices")
     return (
       <InvoicesTab
         data={data}
+        canManagePayments={canManagePayments}
         onNewInvoice={openNewInvoice}
+        onRefresh={refreshBilling}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />
@@ -55,5 +59,6 @@ export function BillingContent({
       />
     );
   if (activeTab === "Settings") return <SettingsTab />;
+  if (activeTab === "Reports") return <BillingReportsTab />;
   return <BillingDashboardTab data={data} setActiveTab={setActiveTab} />;
 }

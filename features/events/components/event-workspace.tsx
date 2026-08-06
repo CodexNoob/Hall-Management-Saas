@@ -41,10 +41,10 @@ export function EventWorkspace({ event }: { event: EventFile }) {
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
-              <LineIcon name="calendar" />
-              <h1 className="truncate text-xl font-black text-[#17202a]">
-                {event.title}
-              </h1>
+                <LineIcon name="calendar" />
+                <h1 className="truncate text-xl font-black text-[#17202a]">
+                  {event.title}
+                </h1>
               </div>
               <button
                 aria-expanded={isWorkspaceExpanded}
@@ -148,17 +148,17 @@ export function EventWorkspace({ event }: { event: EventFile }) {
             <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
               <div className="space-y-3">
                 <EventInformation event={event} />
-                <TimelineInstructions />
+                <TimelineInstructions event={event} />
               </div>
               <aside className="space-y-3">
-                <ClientContact />
+                <ClientContact event={event} />
                 <ReadinessPanel />
               </aside>
             </div>
           </div>
         ) : null}
 
-        {activeTab === "Menu" ? <EventMenuContent /> : null}
+        {activeTab === "Menu" ? <EventMenuContent event={event} /> : null}
         {activeTab === "Client portal" ? (
           <ClientPortalContent event={event} />
         ) : null}

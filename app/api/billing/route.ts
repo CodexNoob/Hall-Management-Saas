@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { refreshOverdueInvoices } from "@/features/billing/services/invoice-lifecycle.service";
 
 const invoiceLineItemSchema = z.object({
   description: z.string().trim().min(1),
@@ -17,7 +18,7 @@ const invoiceSchema = z
     eventId: z.string().uuid().optional(),
     invoiceNumber: z.string().trim().min(1).optional(),
     clientName: z.string().trim().min(1),
-    status: z.enum(["Draft", "Open"]).default("Draft"),
+    status: z.enum(["Draft", "Sent", "Open"]).default("Draft"),
     currency: z
       .string()
       .trim()
@@ -73,7 +74,8 @@ const invoiceSchema = z
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewPaymentInfo");
-    const [transactions, invoices, events] = await Promise.all([
+    await refreshOverdueInvoices(actor.organizationId);
+    const [transactions, invoices, events, invoiceHistory] = await Promise.all([
       prisma.paymentTransaction.findMany({
         where: { organizationId: actor.organizationId },
         include: { event: { select: { clientName: true, eventDate: true } } },
@@ -109,6 +111,25 @@ export async function GET(request: Request) {
         },
         orderBy: { eventDate: "desc" },
         take: 50
+      }),
+      prisma.activityLog.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          actionType: {
+            in: ["Invoice Created", "Invoice Updated", "Invoice Status Changed"]
+          }
+        },
+        select: {
+          id: true,
+          actionType: true,
+          message: true,
+          newValue: true,
+          oldValue: true,
+          userName: true,
+          createdAt: true
+        },
+        orderBy: { createdAt: "desc" },
+        take: 200
       })
     ]);
 
@@ -127,6 +148,7 @@ export async function GET(request: Request) {
       transactions,
       invoices,
       events,
+      invoiceHistory,
       summary: {
         paidCents,
         openInvoiceCents,
@@ -207,12 +229,12 @@ export async function POST(request: Request) {
           clientId: event?.clientId,
           invoiceNumber,
           clientName: input.clientName,
-          status: input.status,
+          status: input.status === "Open" ? "Sent" : input.status,
           currency: input.currency,
           dueDate: input.dueDate
             ? new Date(`${input.dueDate}T00:00:00.000Z`)
             : undefined,
-          issuedAt: input.status === "Open" ? new Date() : undefined,
+          issuedAt: input.status === "Draft" ? undefined : new Date(),
           subtotalCents,
           discountCents,
           taxCents,

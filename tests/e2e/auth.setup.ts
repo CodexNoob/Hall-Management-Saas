@@ -15,7 +15,7 @@ async function authenticate(
   await page.getByLabel("Email Address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page
-    .getByRole("dialog", { name: "Login", exact: true })
+    .getByRole("dialog", { name: "Employee Login", exact: true })
     .getByRole("button", { name: "Login", exact: true })
     .click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });

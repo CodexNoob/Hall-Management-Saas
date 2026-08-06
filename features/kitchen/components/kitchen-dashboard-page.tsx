@@ -9,7 +9,13 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
-import { addDays, dateKey, dateKeyFromIso, startOfDay, startOfWeek } from "@/lib/dates/calendar-date";
+import {
+  addDays,
+  dateKey,
+  dateKeyFromIso,
+  startOfDay,
+  startOfWeek
+} from "@/lib/dates/calendar-date";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -20,7 +26,13 @@ import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
 import { TodayView } from "@/features/kitchen/components/kitchen-today-view";
 import { WeekView } from "@/features/kitchen/components/kitchen-week-view";
-import { dayNames, kitchenViewInformation, type KitchenDay, type KitchenEvent, type KitchenResponse, type KitchenView } from "@/features/kitchen/components/kitchen-shared";
+import {
+  dayNames,
+  type KitchenDay,
+  type KitchenEvent,
+  type KitchenResponse,
+  type KitchenView
+} from "@/features/kitchen/components/kitchen-shared";
 export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");

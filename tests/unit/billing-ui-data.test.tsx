@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { InvoicesTab } from "@/features/billing/components/invoices-tab";
-import { buildRows } from "@/features/billing/components/transactions-tab";
+import { buildTransactionRows } from "@/features/billing/transactions/transaction-model";
 import type { BillingResponse } from "@/features/billing/components/billing-shared";
 
 const emptyBilling: BillingResponse = {
@@ -14,14 +14,16 @@ const emptyBilling: BillingResponse = {
 
 describe("billing UI data", () => {
   it("does not manufacture sample transactions for an empty tenant", () => {
-    expect(buildRows(emptyBilling)).toEqual([]);
+    expect(buildTransactionRows(emptyBilling)).toEqual([]);
   });
 
   it("shows an invoice empty state instead of sample invoices", () => {
     render(
       <InvoicesTab
+        canManagePayments
         data={emptyBilling}
         onNewInvoice={vi.fn()}
+        onRefresh={vi.fn().mockResolvedValue(emptyBilling)}
         searchQuery=""
         setSearchQuery={vi.fn()}
       />

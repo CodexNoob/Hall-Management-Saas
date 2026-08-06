@@ -19,7 +19,8 @@ vi.mock("@/lib/prisma", () => ({
     event: { findMany: vi.fn() },
     hall: { findMany: vi.fn() },
     eventType: { findMany: vi.fn() },
-    eventPackage: { findMany: vi.fn() }
+    eventPackage: { findMany: vi.fn() },
+    organizationSetting: { upsert: vi.fn() }
   }
 }));
 vi.mock("@/features/bookings/services/booking.service", () => ({
@@ -47,6 +48,9 @@ describe("event tenant isolation", () => {
     vi.mocked(prisma.hall.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventType.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.organizationSetting.upsert).mockResolvedValue({
+      integrations: null
+    } as never);
   });
 
   it("always scopes event reads to the verified organization", async () => {

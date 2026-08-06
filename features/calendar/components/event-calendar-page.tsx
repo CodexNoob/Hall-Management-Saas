@@ -32,7 +32,6 @@ import {
   weekDays,
   type AvailabilityDay,
   type CalendarBooking,
-  type CalendarStatus,
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
 export function EventCalendarPage() {

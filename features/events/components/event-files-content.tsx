@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { ActionButton, LineIcon } from "@/features/events/components/event-manager-shared";
+import { useRouter } from "next/navigation";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
 
 export function EventFilesContent() {
+  const router = useRouter();
   const [selectedFileCategory, setSelectedFileCategory] = useState("All files");
 
   const categories = [
@@ -84,6 +86,7 @@ export function EventFilesContent() {
           <button
             className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
             type="button"
+            onClick={() => router.push("/dashboard/files")}
           >
             <LineIcon name="upload" className="h-3.5 w-3.5" />
             Upload file

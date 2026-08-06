@@ -1,7 +1,12 @@
 "use client";
 
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
-import { billingTabIcons, LineIcon, tabs, type BillingTab } from "@/features/billing/components/billing-shared";
+import {
+  billingTabIcons,
+  LineIcon,
+  tabs,
+  type BillingTab
+} from "@/features/billing/components/billing-shared";
 
 export function BillingHeader({
   activeTab,

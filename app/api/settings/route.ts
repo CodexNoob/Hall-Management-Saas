@@ -14,7 +14,14 @@ const settingsSchema = z.object({
   emailNotifications: z.boolean().optional(),
   eventConfirmations: z.boolean().optional(),
   billingAlerts: z.boolean().optional(),
-  systemAnnouncements: z.boolean().optional()
+  systemAnnouncements: z.boolean().optional(),
+  billing: z
+    .object({
+      businessName: z.string().trim().min(1).max(200),
+      paymentTerms: z.string().trim().min(1).max(100),
+      invoiceFooter: z.string().trim().max(2000)
+    })
+    .optional()
 });
 
 function calendarSettingsFromIntegrations(integrations: unknown) {
@@ -27,7 +34,10 @@ function calendarSettingsFromIntegrations(integrations: unknown) {
     if (calendar && typeof calendar === "object") {
       const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
         .dailyEventLimit;
-      if (typeof dailyEventLimit === "number" && Number.isFinite(dailyEventLimit)) {
+      if (
+        typeof dailyEventLimit === "number" &&
+        Number.isFinite(dailyEventLimit)
+      ) {
         return { dailyEventLimit };
       }
     }
@@ -57,6 +67,18 @@ function mergeCalendarSettings(
       dailyEventLimit
     }
   };
+}
+
+function mergeBillingSettings(
+  integrations: unknown,
+  billing: z.infer<typeof settingsSchema>["billing"]
+): Prisma.InputJsonValue | undefined {
+  if (!billing) return undefined;
+  const base =
+    integrations && typeof integrations === "object"
+      ? { ...(integrations as Record<string, unknown>) }
+      : {};
+  return { ...base, billing } as Prisma.InputJsonValue;
 }
 
 export async function GET(request: Request) {
@@ -105,7 +127,8 @@ export async function PATCH(request: Request) {
       input.timezone !== undefined ||
       input.twoFactorRequired !== undefined ||
       input.sessionTimeoutMinutes !== undefined ||
-      input.dailyEventLimit !== undefined
+      input.dailyEventLimit !== undefined ||
+      input.billing !== undefined
     ) {
       await requirePermission(request, "canEditSettings");
     }
@@ -119,10 +142,18 @@ export async function PATCH(request: Request) {
       timezone: input.timezone,
       twoFactorRequired: input.twoFactorRequired,
       sessionTimeoutMinutes: input.sessionTimeoutMinutes,
-      integrations: mergeCalendarSettings(
-        currentSettings.integrations,
-        input.dailyEventLimit
-      )
+      integrations:
+        mergeBillingSettings(
+          mergeCalendarSettings(
+            currentSettings.integrations,
+            input.dailyEventLimit
+          ) ?? currentSettings.integrations,
+          input.billing
+        ) ??
+        mergeCalendarSettings(
+          currentSettings.integrations,
+          input.dailyEventLimit
+        )
     };
     const notificationChanges = {
       emailNotifications: input.emailNotifications,

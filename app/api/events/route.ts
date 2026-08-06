@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         orderBy: { name: "asc" }
       }),
       prisma.eventType.findMany({
-        where: { organizationId: actor.organizationId },
+        where: { organizationId: actor.organizationId, isActive: true },
         orderBy: { name: "asc" }
       }),
       prisma.eventPackage.findMany({

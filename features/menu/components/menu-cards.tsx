@@ -2,7 +2,13 @@
 
 import { LineIcon } from "@/features/menu/components/menu-shared";
 
-export function MenuItemCard({ category, name }: { category: string; name: string }) {
+export function MenuItemCard({
+  category,
+  name
+}: {
+  category: string;
+  name: string;
+}) {
   return (
     <article className="flex h-50 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
       <div className="flex min-w-0 w-full flex-col">
@@ -22,10 +28,11 @@ export function MenuItemCard({ category, name }: { category: string; name: strin
   );
 }
 
-export function AddItemCard() {
+export function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
     <button
       className="flex h-50 overflow-hidden rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] text-[#17202a]"
+      onClick={onClick}
       type="button"
     >
       <div className="flex w-full flex-col">

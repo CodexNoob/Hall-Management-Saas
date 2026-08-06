@@ -23,8 +23,12 @@ describe("calendar date helpers", () => {
   });
 
   it("moves safely between months when the destination is shorter", () => {
-    expect(dateKey(moveDateByMonth(new Date(2026, 0, 31), 1))).toBe("2026-02-28");
-    expect(dateKey(moveDateByMonth(new Date(2024, 0, 31), 1))).toBe("2024-02-29");
+    expect(dateKey(moveDateByMonth(new Date(2026, 0, 31), 1))).toBe(
+      "2026-02-28"
+    );
+    expect(dateKey(moveDateByMonth(new Date(2024, 0, 31), 1))).toBe(
+      "2024-02-29"
+    );
   });
 
   it("handles week and day navigation across month boundaries", () => {

@@ -99,6 +99,7 @@ function IconTile({ children }: { children: React.ReactNode }) {
 
 export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
   const [openGroups, setOpenGroups] = useState(() => new Set<string>());
+  const [feedback, setFeedback] = useState<"yes" | "no" | null>(null);
 
   const toggleGroup = (title: string) => {
     setOpenGroups((current) => {
@@ -300,6 +301,7 @@ export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
             </span>
             <button
               className="flex h-10 items-center gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-4 text-sm font-black text-[#071427] transition hover:bg-[#eef4fa]"
+              onClick={() => setFeedback("yes")}
               type="button"
             >
               <ThumbsUp className="h-5 w-5 text-[#1f4d73]" />
@@ -307,11 +309,17 @@ export function ReleaseNotesContent({ onClose }: { onClose: () => void }) {
             </button>
             <button
               className="flex h-10 items-center gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-4 text-sm font-black text-[#071427] transition hover:bg-[#eef4fa]"
+              onClick={() => setFeedback("no")}
               type="button"
             >
               <ThumbsDown className="h-5 w-5 text-[#1f4d73]" />
               No
             </button>
+            {feedback ? (
+              <span className="text-xs font-bold text-[#1f4d73]">
+                Thanks for your feedback.
+              </span>
+            ) : null}
           </div>
         </footer>
       </main>

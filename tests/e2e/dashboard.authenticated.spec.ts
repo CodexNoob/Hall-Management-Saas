@@ -52,3 +52,32 @@ test("authenticated layouts do not overflow the mobile viewport", async ({
     page.getByRole("button", { name: /Open navigation|Expand sidebar/ })
   ).toBeVisible();
 });
+
+const dashboardPages = [
+  "/dashboard",
+  "/dashboard/kitchen",
+  "/dashboard/calendar",
+  "/dashboard/events",
+  "/dashboard/menu",
+  "/dashboard/dining-manager",
+  "/dashboard/hall-room-map",
+  "/dashboard/files",
+  "/dashboard/billing",
+  "/dashboard/staff",
+  "/dashboard/vendors",
+  "/dashboard/settings"
+];
+
+for (const route of dashboardPages) {
+  test(`dashboard page renders without a fatal error: ${route}`, async ({ page }) => {
+    await page.goto(route);
+    await expect(page).toHaveURL(new RegExp(route.replaceAll("/", "\\/")));
+    await expect(page.locator("body")).not.toContainText("Application error");
+    await expect(page.locator("body")).not.toContainText("Internal Server Error");
+    const dimensions = await page.evaluate(() => ({
+      viewport: document.documentElement.clientWidth,
+      content: document.documentElement.scrollWidth
+    }));
+    expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+  });
+}

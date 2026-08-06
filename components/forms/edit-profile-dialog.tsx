@@ -95,10 +95,9 @@ export function EditProfileDialog({
                 {initials}
               </div>
 
-              <button
-                aria-label="Change profile picture"
-                className="absolute bottom-2 right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/40 bg-[#15344f] text-white transition hover:bg-[#102d45]"
-                type="button"
+              <span
+                aria-hidden="true"
+                className="absolute bottom-2 right-1 flex h-8 w-8 items-center justify-center rounded-full border border-white/40 bg-[#15344f] text-white"
               >
                 <svg
                   aria-hidden="true"
@@ -113,7 +112,7 @@ export function EditProfileDialog({
                   <path d="M14.5 5 13 3h-2L9.5 5H6a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3Z" />
                   <circle cx="12" cy="12" r="4" />
                 </svg>
-              </button>
+              </span>
             </div>
           </div>
 

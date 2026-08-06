@@ -1,13 +1,13 @@
 "use client";
 
 import React, { type ReactNode } from "react";
-import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 
 export type BillingTab =
   | "Dashboard"
   | "Transactions"
   | "Invoices"
   | "Event Billing"
+  | "Reports"
   | "Settings";
 export type IconName =
   | "bank"
@@ -24,11 +24,23 @@ export type IconName =
   | "chevron";
 
 export type BillingResponse = {
+  invoiceHistory?: Array<{
+    id: string;
+    actionType: string;
+    message: string;
+    oldValue: unknown;
+    newValue: unknown;
+    userName: string | null;
+    createdAt: string;
+  }>;
   transactions: Array<{
     id: string;
     eventId: string | null;
     amountCents: number;
+    currency: string;
     provider: string | null;
+    providerReference: string | null;
+    note: string | null;
     status: string;
     createdAt: string;
     event: { clientName: string; eventDate: string } | null;
@@ -40,6 +52,9 @@ export type BillingResponse = {
     clientName: string;
     status: string;
     dueDate: string | null;
+    subtotalCents: number;
+    discountCents: number;
+    taxCents: number;
     totalCents: number;
     amountPaidCents: number;
     balanceDueCents: number;
@@ -79,6 +94,7 @@ export const tabs: BillingTab[] = [
   "Transactions",
   "Invoices",
   "Event Billing",
+  "Reports",
   "Settings"
 ];
 export const billingTabIcons: Record<BillingTab, IconName> = {
@@ -86,6 +102,7 @@ export const billingTabIcons: Record<BillingTab, IconName> = {
   Transactions: "payment",
   Invoices: "invoice",
   "Event Billing": "bank",
+  Reports: "print",
   Settings: "settings"
 };
 export const cashMovementBars = [

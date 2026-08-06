@@ -7,11 +7,13 @@ import {
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
   addMenuItems,
   fallbackMenuLibrary,
   menuItems,
+  type EventFile,
   type EventMenuResponse
 } from "@/features/events/components/event-manager-shared";
 
@@ -94,11 +96,12 @@ function AddMenuCard({
   );
 }
 
-export function EventMenuContent() {
+export function EventMenuContent({ event }: { event: EventFile }) {
   const menuQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
   const [selectedItems, setSelectedItems] =
     useState<Array<{ course: MenuCourse; name: string }>>(menuItems);
   const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
   const libraryItems = useMemo<MenuSelectorItem[]>(() => {
     const liveItems = (menuQuery.data?.items ?? []).map((item) => ({
       id: item.id,
@@ -140,10 +143,28 @@ export function EventMenuContent() {
           <button
             className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#15344f] sm:px-4 sm:text-xs"
             type="button"
+            onClick={async () => {
+              const response = await authenticatedFetch(
+                `/api/events/${event.id}`,
+                {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ menuConfirmed: true })
+                }
+              );
+              setConfirmMessage(
+                response.ok ? "Menu confirmed." : "Could not confirm menu."
+              );
+            }}
           >
             <LineIcon name="check" />
             Confirm menu
           </button>
+          {confirmMessage ? (
+            <span className="text-xs text-[#516174]" role="status">
+              {confirmMessage}
+            </span>
+          ) : null}
         </header>
         <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
           {selectedItems.map((item) => (

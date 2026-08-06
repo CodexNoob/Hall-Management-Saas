@@ -28,30 +28,36 @@ export async function POST(request: Request) {
     if (!config.enabled) {
       return NextResponse.json(
         {
-          error: "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
+          error:
+            "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
         },
         { status: 503 }
       );
     }
 
-    const response = await fetch(`${config.baseUrl}/item/public_token/exchange`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        client_id: config.clientId,
-        secret: config.secret,
-        public_token: input.publicToken
-      })
-    });
+    const response = await fetch(
+      `${config.baseUrl}/item/public_token/exchange`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          client_id: config.clientId,
+          secret: config.secret,
+          public_token: input.publicToken
+        })
+      }
+    );
 
     const payload = await response.json();
 
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: payload?.error_message ?? "Unable to exchange the Plaid public token."
+          error:
+            payload?.error_message ??
+            "Unable to exchange the Plaid public token."
         },
         { status: 502 }
       );

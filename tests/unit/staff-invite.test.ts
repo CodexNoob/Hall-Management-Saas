@@ -4,11 +4,9 @@ import { normalizeInviteEmails } from "../../features/administration/components/
 
 describe("normalizeInviteEmails", () => {
   it("splits comma or semicolon separated emails and trims whitespace", () => {
-    expect(normalizeInviteEmails("one@gmail.com, two@gmail.com; three@gmail.com")).toEqual([
-      "one@gmail.com",
-      "two@gmail.com",
-      "three@gmail.com"
-    ]);
+    expect(
+      normalizeInviteEmails("one@gmail.com, two@gmail.com; three@gmail.com")
+    ).toEqual(["one@gmail.com", "two@gmail.com", "three@gmail.com"]);
   });
 
   it("returns an empty array for blank input", () => {

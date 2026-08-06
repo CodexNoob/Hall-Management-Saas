@@ -1,12 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import {
+  VendorDialog,
+  type VendorDialogValues
+} from "@/features/vendors/components/vendor-dialog";
 
 import {
   CategoryBadge,
@@ -20,6 +26,7 @@ import {
   type VendorStatus
 } from "@/features/vendors/components/vendors-shared";
 export function VendorsPage() {
+  const router = useRouter();
   const canEdit = useDashboardPermission("canEditVendors");
   const vendorsQuery = useAuthenticatedQuery<VendorsResponse>("/api/vendors");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
@@ -28,6 +35,7 @@ export function VendorsPage() {
   const [statusFilter, setStatusFilter] = useState<"All" | VendorStatus>("All");
   const [ratingFilter, setRatingFilter] = useState("All");
   const [selectedVendorId, setSelectedVendorId] = useState("");
+  const [vendorDialogMode, setVendorDialogMode] = useState<"create" | "edit" | null>(null);
   const vendors = useMemo<Vendor[]>(
     () =>
       (vendorsQuery.data?.vendors ?? []).map((vendor, index) => ({
@@ -84,6 +92,57 @@ export function VendorsPage() {
   const selectedVendor =
     vendors.find((vendor) => vendor.id === selectedVendorId) ?? vendors[0];
 
+  const createVendor = async ({ name, category }: VendorDialogValues) => {
+    const response = await authenticatedFetch("/api/vendors", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, category, status: "Active" })
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error ?? "Unable to create vendor.");
+    await vendorsQuery.refetch();
+  };
+
+  const editVendor = async ({ name, category }: VendorDialogValues) => {
+    if (!selectedVendor) return;
+    const response = await authenticatedFetch(
+      `/api/vendors/${selectedVendor.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, category })
+      }
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error ?? "Unable to update vendor.");
+    await vendorsQuery.refetch();
+  };
+
+  const exportVendors = () => {
+    const escape = (value: string | number) =>
+      `"${String(value).replaceAll('"', '""')}"`;
+    const csv = [
+      ["Name", "Category", "Contact", "Phone", "Email", "Status", "Rating"],
+      ...filteredVendors.map((vendor) => [
+        vendor.name,
+        vendor.category,
+        vendor.contact,
+        vendor.phone,
+        vendor.email,
+        vendor.status,
+        vendor.rating
+      ])
+    ]
+      .map((row) => row.map(escape).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "vendors.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (vendorsQuery.isLoading || vendorsQuery.error || !selectedVendor) {
     return (
       <main className="flex min-h-dvh items-center justify-center bg-[#f5f6f8] p-4">
@@ -98,12 +157,27 @@ export function VendorsPage() {
           emptyTitle="No vendors yet"
           onRetry={vendorsQuery.refetch}
         />
+        {!vendorsQuery.isLoading && !vendorsQuery.error && !selectedVendor ? (
+          <button
+            className="ml-3 h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
+            onClick={() => setVendorDialogMode("create")}
+            type="button"
+          >
+            Add vendor
+          </button>
+        ) : null}
       </main>
     );
   }
 
   return (
     <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+      <VendorDialog
+        initialValues={vendorDialogMode === "edit" ? { name: selectedVendor.name, category: selectedVendor.category } : undefined}
+        onClose={() => setVendorDialogMode(null)}
+        onSave={vendorDialogMode === "edit" ? editVendor : createVendor}
+        open={vendorDialogMode !== null}
+      />
       <DashboardTopbar
         title="Vendors"
         subtitle="Manage suppliers, service providers, contacts, contracts, and vendor activity."
@@ -119,18 +193,24 @@ export function VendorsPage() {
             <button
               className={secondaryButton}
               disabled={!canEdit}
+              onClick={exportVendors}
               type="button"
             >
               <Icon name="export" />
               Export
             </button>
-            <button className={secondaryButton} type="button">
+            <button
+              className={secondaryButton}
+              onClick={() => router.push("/dashboard/events")}
+              type="button"
+            >
               <Icon name="users" />
               Assign to event
             </button>
             <button
               className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!canEdit}
+              onClick={() => setVendorDialogMode("create")}
               type="button"
             >
               <Icon name="plus" />
@@ -191,6 +271,7 @@ export function VendorsPage() {
                     <button
                       className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={!canEdit}
+                      onClick={() => setVendorDialogMode("create")}
                       type="button"
                     >
                       New vendor
@@ -253,6 +334,9 @@ export function VendorsPage() {
                   aria-label="Additional filters"
                   className="flex h-9 items-center justify-center rounded-lg border border-[#c7d0dc] bg-white"
                   type="button"
+                  onClick={() =>
+                    setRatingFilter(ratingFilter === "All" ? "4" : "All")
+                  }
                 >
                   <Icon name="filter" />
                 </button>
@@ -342,24 +426,28 @@ export function VendorsPage() {
                 <div className="flex gap-2">
                   <button
                     className="h-7 w-8 rounded border border-[#d3dae3]"
+                    disabled
                     type="button"
                   >
                     ‹
                   </button>
                   <button
                     className="h-7 w-8 rounded bg-[#1f4d73] font-black text-white"
+                    disabled
                     type="button"
                   >
                     1
                   </button>
                   <button
                     className="h-7 w-8 rounded border border-[#d3dae3]"
+                    disabled
                     type="button"
                   >
                     2
                   </button>
                   <button
                     className="h-7 w-8 rounded border border-[#d3dae3]"
+                    disabled
                     type="button"
                   >
                     ›
@@ -474,6 +562,7 @@ export function VendorsPage() {
                   aria-label="Vendor actions"
                   className="flex h-8 w-8 items-center justify-center"
                   type="button"
+                  onClick={() => setSelectedVendorId(selectedVendor.id)}
                 >
                   <Icon name="more" />
                 </button>
@@ -520,6 +609,7 @@ export function VendorsPage() {
                 <button
                   className={secondaryButton}
                   disabled={!canEdit}
+                  onClick={() => setVendorDialogMode("edit")}
                   type="button"
                 >
                   <Icon name="edit" />
@@ -528,18 +618,32 @@ export function VendorsPage() {
                 <button
                   className={secondaryButton}
                   disabled={!canEdit}
+                  onClick={() =>
+                    router.push(
+                      `/dashboard/events?vendorId=${selectedVendor.id}`
+                    )
+                  }
                   type="button"
                 >
                   <Icon name="users" />
                   Assign to event
                 </button>
-                <button className={secondaryButton} type="button">
+                <button
+                  className={secondaryButton}
+                  onClick={() =>
+                    window.location.assign(
+                      `mailto:${selectedVendor.email === "Not provided" ? "" : selectedVendor.email}`
+                    )
+                  }
+                  type="button"
+                >
                   <Icon name="history" />
                   View history
                 </button>
                 <button
                   className={secondaryButton}
                   disabled={!canEdit}
+                  onClick={() => setVendorDialogMode("edit")}
                   type="button"
                 >
                   <Icon name="more" />

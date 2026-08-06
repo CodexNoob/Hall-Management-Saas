@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
@@ -14,15 +13,13 @@ import {
   type NewLibraryItemFormValues
 } from "@/features/menu/forms/new-library-item-dialog";
 import {
-  clearCachedSyncedUser,
-  getCachedSyncedUser,
-  syncSignedInUser,
-  type SyncSignedInUserResponse
-} from "@/lib/auth/client";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+  NewAddOnDialog,
+  type NewAddOnValues
+} from "@/features/menu/forms/new-addon-dialog";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
 import {
   AddItemCard,
@@ -35,27 +32,23 @@ import {
   LineIcon,
   buffetSections,
   packageAddItems,
-  packageItems,
   platedSections,
-  sampleMenuItems,
   tabs,
   type MenuResponse
 } from "@/features/menu/components/menu-shared";
 export function MenuPage() {
   const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
-  const router = useRouter();
   const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
   const menuMutation = useAuthenticatedMutation<
     Record<string, unknown>,
     Record<string, unknown>
   >("/api/menu");
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
-    null
-  );
   const [activeTab, setActiveTab] = useState("Menu Library");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedPackage, setSelectedPackage] = useState("");
   const [isNewPackageOpen, setIsNewPackageOpen] = useState(false);
+  const [isEditingPackage, setIsEditingPackage] = useState(false);
+  const [isNewAddOnOpen, setIsNewAddOnOpen] = useState(false);
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
   const allMenuItems = useMemo(() => {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
@@ -63,24 +56,14 @@ export function MenuPage() {
       name: item.name,
       category: item.category ?? "More"
     }));
-    const savedNames = new Set(
-      savedItems.map((item) => item.name.trim().toLowerCase())
-    );
-
-    return [
-      ...savedItems,
-      ...sampleMenuItems
-        .filter((item) => !savedNames.has(item.name.toLowerCase()))
-        .map((item, index) => ({
-          ...item,
-          id: `sample-${index}-${item.name}-${item.category}`
-        }))
-    ];
+    return savedItems;
   }, [menuQuery.data]);
   const allPackages = useMemo(
     () =>
       (menuQuery.data?.packages ?? []).map((item) => ({
+        id: item.id,
         name: item.name,
+        includedMenuItemIds: item.includedMenuItemIds,
         type: "Package",
         summary: `${item.includedMenuItemIds.length} included items`,
         price: new Intl.NumberFormat("en-US", {
@@ -104,50 +87,11 @@ export function MenuPage() {
     [menuQuery.data]
   );
 
-  useEffect(() => {
-    let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
-
-    if (cachedSyncData) {
-      setSyncData(cachedSyncData);
-    }
-
-    async function loadUser() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
-          router.replace("/");
-          return;
-        }
-
-        const synced = await syncSignedInUser(data.session.access_token);
-
-        if (isMounted) {
-          setSyncData(synced);
-        }
-      } catch {
-        if (!cachedSyncData) {
-          clearCachedSyncedUser();
-          router.replace("/");
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  if (!syncData || menuQuery.isLoading || menuQuery.error) {
+  if (menuQuery.isLoading || menuQuery.error) {
     return (
       <DashboardPageState
         error={menuQuery.error}
-        isLoading={!syncData || menuQuery.isLoading}
+        isLoading={menuQuery.isLoading}
         onRetry={menuQuery.refetch}
         subtitle="Menu library, packages, buffet, plated and add-ons."
         title="Menu"
@@ -199,12 +143,40 @@ export function MenuPage() {
     allPackages.find((item) => item.name === selectedPackage) ??
     allPackages[0] ??
     null;
+  const activePackageItems = activePackage
+    ? allMenuItems.filter((item) =>
+        activePackage.includedMenuItemIds.includes(item.id)
+      )
+    : [];
+
+  const updatePackage = async (changes: Record<string, unknown>) => {
+    if (!activePackage) return;
+    const response = await authenticatedFetch(
+      `/api/menu/packages/${activePackage.id}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(changes)
+      }
+    );
+    if (response.ok) await menuQuery.refetch();
+  };
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const ruleSections =
     activeTab === "Plated Menu" ? platedSections : buffetSections;
   const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
 
   const savePackage = async (values: NewPackageFormValues) => {
+    if (isEditingPackage) {
+      await updatePackage({
+        name: values.name,
+        regularPrice: Number(values.basePrice)
+      });
+      setSelectedPackage(values.name);
+      setIsEditingPackage(false);
+      setIsNewPackageOpen(false);
+      return;
+    }
     await menuMutation.mutate({
       resource: "package",
       name: values.name,
@@ -217,6 +189,17 @@ export function MenuPage() {
     setSelectedPackage(values.name);
     setActiveTab("Packages");
     setIsNewPackageOpen(false);
+  };
+
+  const saveAddOn = async (values: NewAddOnValues) => {
+    await menuMutation.mutate({
+      resource: "addon",
+      name: values.name,
+      price: Number(values.price),
+      pricingType: "fixed",
+      hallIds: []
+    });
+    await menuQuery.refetch();
   };
 
   const saveLibraryItem = async (values: NewLibraryItemFormValues) => {
@@ -290,9 +273,20 @@ export function MenuPage() {
       </div>
 
       <NewPackageDialog
-        onClose={() => setIsNewPackageOpen(false)}
+        initialValues={isEditingPackage && activePackage ? {
+          name: activePackage.name,
+          type: activePackage.type,
+          basePrice: activePackage.price.replace(/[^0-9.]/g, ""),
+          perCouplePrice: "0"
+        } : undefined}
+        onClose={() => { setIsNewPackageOpen(false); setIsEditingPackage(false); }}
         onSave={savePackage}
         open={isNewPackageOpen}
+      />
+      <NewAddOnDialog
+        onClose={() => setIsNewAddOnOpen(false)}
+        onSave={saveAddOn}
+        open={isNewAddOnOpen}
       />
       <NewLibraryItemDialog
         onClose={() => setIsNewLibraryItemOpen(false)}
@@ -376,6 +370,7 @@ export function MenuPage() {
                     </div>
                     <button
                       className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] sm:self-auto"
+                      onClick={() => { setIsEditingPackage(true); setIsNewPackageOpen(true); }}
                       type="button"
                     >
                       Edit package
@@ -383,9 +378,9 @@ export function MenuPage() {
                   </header>
 
                   <div className="space-y-2 p-3">
-                    {packageItems.map((item) => (
+                    {activePackageItems.map((item) => (
                       <article
-                        key={`${activePackage.name}-${item.name}`}
+                        key={`${activePackage.name}-${item.id}`}
                         className="flex min-h-14 min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 sm:flex-nowrap sm:gap-3"
                       >
                         <div className="min-w-0 flex-1">
@@ -393,15 +388,23 @@ export function MenuPage() {
                             {item.name}
                           </h3>
                           <p className="mt-0.5 text-xs text-[#516174]">
-                            {item.mode} - {item.rule} - {item.price}
+                            {item.category}
                           </p>
                         </div>
                         <span className="shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73] sm:w-22">
-                          {item.mode}
+                          Included
                         </span>
                         <button
                           className="shrink-0 rounded-md border border-[#f0b4ae] bg-white px-2 py-1 text-xs font-black text-[#a62b24] hover:bg-[#fff5f4]"
                           type="button"
+                          onClick={() =>
+                            void updatePackage({
+                              includedMenuItemIds:
+                                activePackage.includedMenuItemIds.filter(
+                                  (id) => id !== item.id
+                                )
+                            })
+                          }
                         >
                           Remove
                         </button>
@@ -505,6 +508,7 @@ export function MenuPage() {
               <button
                 className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
                 type="button"
+                onClick={() => setIsNewAddOnOpen(true)}
               >
                 New add-on
               </button>
@@ -596,7 +600,7 @@ export function MenuPage() {
                       name={item.name}
                     />
                   ))}
-                  <AddItemCard />
+                  <AddItemCard onClick={() => setIsNewLibraryItemOpen(true)} />
                 </div>
               </div>
             </section>

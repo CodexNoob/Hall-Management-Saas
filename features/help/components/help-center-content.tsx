@@ -152,39 +152,46 @@ const helpRows = [
 const quickActions = [
   {
     label: "Create a Booking Guide",
-    detail: "Open New booking, enter the client/event details, choose hall/date, then save or create proposal.",
+    detail:
+      "Open New booking, enter the client/event details, choose hall/date, then save or create proposal.",
     icon: CalendarPlus
   },
   {
     label: "Event Manager Checklist",
-    detail: "Confirm event details, menu, billing, client portal sharing, hall map, vendors, files, and timeline.",
+    detail:
+      "Confirm event details, menu, billing, client portal sharing, hall map, vendors, files, and timeline.",
     icon: ClipboardList
   },
   {
     label: "Billing & Invoice Help",
-    detail: "Use Event Billing to create invoices, record payments, and print statements for the selected event.",
+    detail:
+      "Use Event Billing to create invoices, record payments, and print statements for the selected event.",
     icon: CreditCard
   },
   {
     label: "Desktop App Install Guide",
-    detail: "Download the Windows installer, install Event Core, then log in with your organization account.",
+    detail:
+      "Download the Windows installer, install Event Core, then log in with your organization account.",
     icon: FileText
   },
   {
     label: "Contact Administrator",
-    detail: "Ask your organization admin for permission changes, staff access, or integration setup help.",
+    detail:
+      "Ask your organization admin for permission changes, staff access, or integration setup help.",
     icon: Headphones
   },
   {
     label: "Report an Issue",
-    detail: "Include the page name, event name, screenshot, and the steps that caused the issue.",
+    detail:
+      "Include the page name, event name, screenshot, and the steps that caused the issue.",
     icon: AlertTriangle
   }
 ];
 
 const faqs = [
   {
-    question: "Why does the dashboard show different Total Events and Booked Events?",
+    question:
+      "Why does the dashboard show different Total Events and Booked Events?",
     answer:
       "Total Events counts the selected year. Booked Events focuses on confirmed and on-hold bookings for the active dashboard period."
   },
@@ -199,7 +206,8 @@ const faqs = [
       "Open Hall Room Map, select a map preset, choose a hall in Assign to Hall, then save the map assignment."
   },
   {
-    question: "Why can phone users only view the hall map instead of editing it?",
+    question:
+      "Why can phone users only view the hall map instead of editing it?",
     answer:
       "Phone screens are view-only to prevent accidental drag, resize, or delete actions while reviewing layouts."
   },
@@ -223,6 +231,13 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
   const [openAction, setOpenAction] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [showAllFaqs, setShowAllFaqs] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const normalizedSearch = searchQuery.trim().toLowerCase();
+  const visibleHelpRows = helpRows.filter((row) =>
+    `${row.title} ${row.body} ${row.details.join(" ")}`
+      .toLowerCase()
+      .includes(normalizedSearch)
+  );
 
   return (
     <>
@@ -267,7 +282,9 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               <input
                 className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[#071427] outline-none placeholder:text-[#7a879a] sm:text-sm"
                 placeholder="Search help articles... (e.g. create booking, assign hall map, record payment)"
+                onChange={(event) => setSearchQuery(event.target.value)}
                 type="search"
+                value={searchQuery}
               />
               <span className="hidden rounded-lg bg-[#f1f4f8] px-3 py-1.5 text-xs font-black text-[#7a879a] sm:inline">
                 Ctrl + K
@@ -286,6 +303,15 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                     <button
                       className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-2.5 text-center transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
                       key={topic.label}
+                      onClick={() => {
+                        setSearchQuery(topic.label);
+                        const match = helpRows.find((row) =>
+                          `${row.title} ${row.body}`
+                            .toLowerCase()
+                            .includes(topic.label.toLowerCase())
+                        );
+                        setOpenGuide(match?.title ?? "");
+                      }}
                       type="button"
                     >
                       <Icon className="h-6 w-6 text-[#1f4d73]" />
@@ -299,7 +325,7 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
             </section>
 
             <section className="grid gap-2">
-              {helpRows.map((row) => {
+              {visibleHelpRows.map((row) => {
                 const Icon = row.icon;
                 const isOpen = openGuide === row.title;
 
@@ -311,9 +337,7 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                     <button
                       aria-expanded={isOpen}
                       className="flex min-h-11 w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-[#fbfcfd] md:grid md:grid-cols-[auto_minmax(0,180px)_minmax(0,1fr)_auto]"
-                      onClick={() =>
-                        setOpenGuide(isOpen ? "" : row.title)
-                      }
+                      onClick={() => setOpenGuide(isOpen ? "" : row.title)}
                       type="button"
                     >
                       <Icon className="h-5 w-5 shrink-0 text-[#1f4d73]" />
@@ -362,6 +386,9 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               </div>
               <button
                 className="hidden shrink-0 font-bold text-[#617086] sm:inline"
+                onClick={(event) =>
+                  event.currentTarget.closest("div")?.remove()
+                }
                 type="button"
               >
                 Don&apos;t show tips again
@@ -431,12 +458,17 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                   const isOpen = showAllFaqs || openFaq === faq.question;
 
                   return (
-                    <div className="rounded-lg transition hover:bg-[#eef4fa]" key={faq.question}>
+                    <div
+                      className="rounded-lg transition hover:bg-[#eef4fa]"
+                      key={faq.question}
+                    >
                       <button
                         aria-expanded={isOpen}
                         className="flex w-full items-center gap-2 py-1.5 text-left"
                         onClick={() =>
-                          setOpenFaq(openFaq === faq.question ? null : faq.question)
+                          setOpenFaq(
+                            openFaq === faq.question ? null : faq.question
+                          )
                         }
                         type="button"
                       >
@@ -492,6 +524,10 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               </div>
               <button
                 className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-lg shadow-[#1f4d73]/18 transition hover:bg-[#15344f]"
+                onClick={() => {
+                  window.location.href =
+                    "mailto:?subject=Event%20Core%20support%20request";
+                }}
                 type="button"
               >
                 Contact Administrator

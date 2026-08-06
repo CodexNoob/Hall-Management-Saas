@@ -45,6 +45,9 @@ export type EventFile = {
   status: "Confirmed" | "Hold";
   paymentStatus: string;
   notes: string[];
+  phone: string;
+  email: string;
+  workspaceData: Record<string, unknown>;
 };
 
 export type EventsResponse = {
@@ -70,6 +73,9 @@ export type EventsResponse = {
     girlsCount: number;
     kidsCount: number;
     notes: string | null;
+    phone: string;
+    email: string | null;
+    workspaceData: Record<string, unknown> | null;
     hall: { id: string; name: string };
   }>;
   halls: Array<{ id: string; name: string }>;
@@ -284,7 +290,13 @@ export function LineIcon({
   return <svg {...common}>{paths[name]}</svg>;
 }
 
-export function Badge({ children, tone }: { children: ReactNode; tone: BadgeTone }) {
+export function Badge({
+  children,
+  tone
+}: {
+  children: ReactNode;
+  tone: BadgeTone;
+}) {
   const classes = {
     green: "border-[#146c43]/30 bg-[#eef4fa] text-[#146c43]",
     gold: "border-[#9a5b00]/35 bg-[#fbfcfd] text-[#9a5b00]",

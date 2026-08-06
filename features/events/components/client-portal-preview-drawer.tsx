@@ -17,14 +17,25 @@ type ClientPortalPreviewDrawerProps = {
 
 function PortalIcon() {
   return (
-    <svg aria-hidden="true" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <svg
+      aria-hidden="true"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      viewBox="0 0 24 24"
+    >
       <rect height="14" rx="1" width="18" x="3" y="5" />
       <path d="M3 9h18M7 13h4" />
     </svg>
   );
 }
 
-export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortalPreviewDrawerProps) {
+export function ClientPortalPreviewDrawer({
+  event,
+  open,
+  onClose
+}: ClientPortalPreviewDrawerProps) {
   const titleId = useId();
   const [copyLabel, setCopyLabel] = useState("Copy link");
 
@@ -77,7 +88,9 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
             <PortalIcon />
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>Client portal preview</h2>
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>
+              Client portal preview
+            </h2>
           </div>
           <button
             aria-label="Close client portal preview"
@@ -92,8 +105,12 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
             <header className="bg-[#1f4d73] px-5 py-6 text-white">
-              <h3 className="wrap-break-word text-xl font-black leading-tight sm:text-2xl">{event.title}</h3>
-              <p className="mt-1 text-sm text-white/85">{event.date} · {event.room}</p>
+              <h3 className="wrap-break-word text-xl font-black leading-tight sm:text-2xl">
+                {event.title}
+              </h3>
+              <p className="mt-1 text-sm text-white/85">
+                {event.date} · {event.room}
+              </p>
             </header>
 
             <div className="space-y-3 p-4">
@@ -117,7 +134,13 @@ export function ClientPortalPreviewDrawer({ event, open, onClose }: ClientPortal
           >
             {copyLabel}
           </button>
-          <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f]" type="button">
+          <button
+            className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f]"
+            onClick={() => {
+              window.location.href = `mailto:?subject=${encodeURIComponent(`Event portal: ${event.title}`)}&body=${encodeURIComponent(`${window.location.origin}/dashboard/client-portal?event=${event.title}`)}`;
+            }}
+            type="button"
+          >
             Send to client
           </button>
         </footer>

@@ -8,7 +8,10 @@ import {
   syncSignedInUser,
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  createSupabaseBrowserClient,
+  isRememberedAuthSessionExpired
+} from "@/lib/supabase/browser";
 import { getDashboardLoginPath } from "@/lib/auth/redirect";
 
 export function DashboardAuthGuard() {
@@ -20,6 +23,17 @@ export function DashboardAuthGuard() {
 
   useEffect(() => {
     let isMounted = true;
+    let expirationCheck: number | null = null;
+
+    const returnToLogin = () => {
+      clearCachedSyncedUser();
+      const isDesktopApp =
+        window.localStorage.getItem("eventCoreDesktopApp") === "true";
+      router.replace(
+        isDesktopApp ? "/login?desktop=1" : getDashboardLoginPath("/dashboard")
+      );
+    };
+
     async function loadUser() {
       try {
         if (isMounted) {
@@ -27,17 +41,15 @@ export function DashboardAuthGuard() {
         }
 
         const supabase = createSupabaseBrowserClient();
+        if (isRememberedAuthSessionExpired()) {
+          await supabase.auth.signOut({ scope: "local" });
+          returnToLogin();
+          return;
+        }
         const { data, error } = await supabase.auth.getSession();
 
         if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
-          const isDesktopApp =
-            window.localStorage.getItem("eventCoreDesktopApp") === "true";
-          router.replace(
-            isDesktopApp
-              ? "/login?desktop=1"
-              : getDashboardLoginPath("/dashboard")
-          );
+          returnToLogin();
           return;
         }
 
@@ -50,15 +62,13 @@ export function DashboardAuthGuard() {
         if (isMounted) {
           setSyncData(synced);
         }
+        expirationCheck = window.setInterval(async () => {
+          if (!isRememberedAuthSessionExpired()) return;
+          await supabase.auth.signOut({ scope: "local" });
+          if (isMounted) returnToLogin();
+        }, 60_000);
       } catch {
-        clearCachedSyncedUser();
-        const isDesktopApp =
-          window.localStorage.getItem("eventCoreDesktopApp") === "true";
-        router.replace(
-          isDesktopApp
-            ? "/login?desktop=1"
-            : getDashboardLoginPath("/dashboard")
-        );
+        returnToLogin();
       }
     }
 
@@ -66,6 +76,7 @@ export function DashboardAuthGuard() {
 
     return () => {
       isMounted = false;
+      if (expirationCheck) window.clearInterval(expirationCheck);
     };
   }, [router]);
 

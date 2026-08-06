@@ -34,7 +34,10 @@ export async function POST(request: Request) {
     });
 
     if (!connection) {
-      return NextResponse.json({ error: "No connected bank account found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "No connected bank account found." },
+        { status: 404 }
+      );
     }
 
     const response = await fetch(`${config.baseUrl}/transactions/sync`, {
@@ -51,7 +54,9 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       return NextResponse.json(
-        { error: payload?.error_message ?? "Unable to sync Plaid transactions." },
+        {
+          error: payload?.error_message ?? "Unable to sync Plaid transactions."
+        },
         { status: 502 }
       );
     }
@@ -68,7 +73,11 @@ export async function POST(request: Request) {
             bankConnectionId: connection.id,
             plaidTransactionId: item.transaction_id,
             accountId: item.account_id,
-            description: item.name ?? item.merchant_name ?? item.original_description ?? null,
+            description:
+              item.name ??
+              item.merchant_name ??
+              item.original_description ??
+              null,
             amountCents: Math.round(Number(item.amount ?? 0) * 100),
             currency: item.iso_currency_code ?? "USD",
             transactionDate: new Date(item.date ?? new Date()),
@@ -90,7 +99,10 @@ export async function POST(request: Request) {
         actionType: "plaid.sync.completed",
         message: `Synced ${addedTransactions.length} Plaid transaction(s).`,
         oldValue: { count: 0 },
-        newValue: { count: addedTransactions.length, bankConnectionId: connection.id }
+        newValue: {
+          count: addedTransactions.length,
+          bankConnectionId: connection.id
+        }
       });
     });
 

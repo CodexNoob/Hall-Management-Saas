@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { subscriptionPlans } from "@/lib/subscription/plans";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
 type UpgradePlanDialogProps = {
   description?: string;
@@ -42,6 +43,40 @@ export function UpgradePlanDialog({
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function choosePlan(planId: string) {
+    setPendingPlan(planId);
+    setErrorMessage("");
+    try {
+      const response = await authenticatedFetch(
+        "/api/billing/stripe/subscription-checkout",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId })
+        }
+      );
+      const result = (await response.json()) as {
+        checkoutUrl?: string;
+        error?: string;
+      };
+      if (!response.ok || !result.checkoutUrl) {
+        throw new Error(
+          result.error ?? "Could not start subscription checkout."
+        );
+      }
+      window.location.assign(result.checkoutUrl);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not start subscription checkout."
+      );
+      setPendingPlan("");
+    }
+  }
 
   useEffect(() => {
     setIsMounted(true);
@@ -86,9 +121,7 @@ export function UpgradePlanDialog({
             <h2 className="text-xl font-black text-[#17202a]" id={titleId}>
               {title}
             </h2>
-            <p className="mt-1 text-sm text-[#6a7483]">
-              {description}
-            </p>
+            <p className="mt-1 text-sm text-[#6a7483]">{description}</p>
           </div>
 
           {forceSelection ? null : (
@@ -147,9 +180,7 @@ export function UpgradePlanDialog({
                   /month
                 </span>
               </p>
-              <p className="mt-1 text-sm text-[#6a7483]">
-                {plan.billingLabel}
-              </p>
+              <p className="mt-1 text-sm text-[#6a7483]">{plan.billingLabel}</p>
 
               <ul className="mt-8 space-y-4 text-sm font-bold text-[#17202a]">
                 {plan.features.map((feature) => (
@@ -167,11 +198,21 @@ export function UpgradePlanDialog({
                     : "border-[#b9c2cf] bg-white text-[#17202a] hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
                 }`}
                 type="button"
+                disabled={Boolean(pendingPlan)}
+                onClick={() => void choosePlan(plan.id)}
               >
-                Get Started
+                {pendingPlan === plan.id ? "Opening checkout…" : "Get Started"}
               </button>
             </article>
           ))}
+          {errorMessage ? (
+            <p
+              className="md:col-span-3 text-center text-sm font-bold text-[#a62b24]"
+              role="alert"
+            >
+              {errorMessage}
+            </p>
+          ) : null}
         </div>
       </section>
     </div>,

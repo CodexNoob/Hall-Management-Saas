@@ -13,6 +13,6 @@ test("public landing page fits the mobile viewport", async ({
 
   expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
   await expect(
-    page.getByRole("heading", { name: /Manage Your Hall Bookings/i })
+    page.getByRole("heading", { name: /Everything You Need to Manage Your Simcha Hall/i })
   ).toBeVisible();
 });

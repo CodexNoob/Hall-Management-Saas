@@ -21,7 +21,7 @@ export function SettingsSidebar({
 
       <nav
         aria-label="Settings sections"
-        className="min-h-0 flex-1 space-y-1 overflow-hidden px-3 py-3"
+        className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
       >
         {modalSettingsNavItems.map((item) => (
           <button

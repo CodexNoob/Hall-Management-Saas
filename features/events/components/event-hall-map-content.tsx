@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import {
-  ActionButton,
   Badge,
   LineIcon
 } from "@/features/events/components/event-manager-shared";
 
 export function HallMapContent() {
+  const router = useRouter();
   const layoutRows = [
     ["03:00 PM", "Setup layout"],
     ["06:30 PM", "Guest arrival layout"],
@@ -34,6 +35,7 @@ export function HallMapContent() {
             <button
               className="hidden h-8 shrink-0 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] md:inline-flex"
               type="button"
+              onClick={() => router.push("/dashboard/hall-room-map")}
             >
               <LineIcon name="plus" />
               Add layout
@@ -49,6 +51,7 @@ export function HallMapContent() {
                     : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd]"
                 }`}
                 type="button"
+                onClick={() => router.push("/dashboard/hall-room-map")}
               >
                 <span className="flex h-9 items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm">
                   {time}
@@ -76,6 +79,7 @@ export function HallMapContent() {
         <button
           className="hidden h-9 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] md:inline-flex"
           type="button"
+          onClick={() => router.push("/dashboard/hall-room-map")}
         >
           <LineIcon name="map" />
           Edit layout
@@ -136,6 +140,7 @@ export function HallMapContent() {
           <button
             className="mt-3 hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] md:inline-flex"
             type="button"
+            onClick={() => router.push("/dashboard/hall-room-map")}
           >
             <LineIcon name="check" />
             Confirm hall map

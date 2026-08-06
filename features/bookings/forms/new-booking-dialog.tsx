@@ -299,15 +299,31 @@ export function NewBookingDialog({
                   disabled={eventsQuery.isLoading || eventTypes.length === 0}
                   id="booking-event-type"
                   name="eventType"
+                  required
                   onChange={(event) =>
                     updateValue("eventType", event.target.value)
                   }
                   value={values.eventType}
                 >
+                  {!eventTypes.length ? (
+                    <option value="">No event types configured</option>
+                  ) : null}
                   {eventTypes.map((eventType) => (
                     <option key={eventType.id}>{eventType.name}</option>
                   ))}
                 </select>
+                {!eventsQuery.isLoading && eventTypes.length === 0 ? (
+                  <p className="mt-1.5 text-xs font-semibold text-[#b26a00]">
+                    Add an event type in{" "}
+                    <a
+                      className="font-black text-[#1f4d73] underline"
+                      href="/dashboard/settings"
+                    >
+                      Settings
+                    </a>{" "}
+                    before creating a booking.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <FieldLabel htmlFor="booking-date">Date</FieldLabel>
@@ -405,7 +421,9 @@ export function NewBookingDialog({
             <button
               className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4"
               disabled={
-                bookingMutation.isPending || !hallReady(eventsQuery.data)
+                bookingMutation.isPending ||
+                !hallReady(eventsQuery.data) ||
+                eventTypes.length === 0
               }
               type="submit"
               value="proposal"
@@ -415,7 +433,9 @@ export function NewBookingDialog({
             <button
               className="col-span-2 h-10 w-full rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f] sm:w-auto"
               disabled={
-                bookingMutation.isPending || !hallReady(eventsQuery.data)
+                bookingMutation.isPending ||
+                !hallReady(eventsQuery.data) ||
+                eventTypes.length === 0
               }
               type="submit"
               value="save"

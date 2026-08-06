@@ -94,8 +94,7 @@ describe("file access isolation", () => {
       body: JSON.stringify({
         resource: "file",
         bucket: "event-files",
-        storagePath:
-          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/private.pdf",
+        storagePath: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/private.pdf",
         fileName: "private.pdf"
       })
     });

@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import {
-  ActionButton,
   LineIcon,
   type IconName
 } from "@/features/events/components/event-manager-shared";
@@ -45,6 +46,7 @@ function BillingStatCard({
 }
 
 export function EventBillingContent() {
+  const router = useRouter();
   const invoices = [
     ["INV-1028", "Open", "$48,200.00", "$18,000.00", "$30,200.00"],
     ["RET-881", "Paid", "$7,000.00", "$7,000.00", "$0.00"]
@@ -98,6 +100,7 @@ export function EventBillingContent() {
             <button
               className="inline-flex h-8 shrink-0 items-center justify-center gap-2 self-end rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
               type="button"
+              onClick={() => router.push("/dashboard/billing")}
             >
               <LineIcon name="plus" />
               Create invoice
@@ -194,6 +197,7 @@ export function EventBillingContent() {
                 key={action}
                 className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
                 type="button"
+                onClick={() => router.push("/dashboard/billing")}
               >
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
                   <LineIcon name="document" />

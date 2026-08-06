@@ -251,6 +251,7 @@ model Event {
   notes                   String?
   daveningNote            String?   @map("davening_note")
   sideBoxes               Json?     @map("side_boxes")
+  workspaceData           Json?     @map("workspace_data")
   menuItemIds             String[]  @default([]) @map("menu_item_ids")
   drinkItemIds            String[]  @default([]) @map("drink_item_ids")
   addOnIds                String[]  @default([]) @map("add_on_ids")

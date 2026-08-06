@@ -637,6 +637,14 @@ svg {
   will-change: opacity, transform;
 }
 
+/* Keep the fixed dashboard brand in the same visual depth as the rest of the
+   application whenever a dialog or drawer is open. Some dialogs are rendered
+   inside page content while the brand lives in its own fixed stacking layer. */
+body:has([aria-modal="true"]) .dashboard-topbar-brand {
+  filter: blur(2px);
+  pointer-events: none;
+}
+
 .auth-slide-page.is-switching-forward {
   opacity: 0;
   pointer-events: none;

@@ -57,15 +57,6 @@ export const tabs = [
   { label: "Add-ons", icon: "dollar" }
 ] satisfies Array<{ label: string; icon: IconName }>;
 
-export const sampleMenuItems = [
-  { name: "Challah Rolls", category: "Appetizers" },
-  { name: "Traditional Chicken Soup", category: "Soups" },
-  { name: "Braised Short Ribs", category: "Main Courses" },
-  { name: "Herb Roasted Chicken", category: "Main Courses" },
-  { name: "Potato Kugel", category: "Side Dishes" },
-  { name: "Chocolate Mousse Cups", category: "Desserts" }
-];
-
 export type MenuResponse = {
   items: Array<{
     id: string;

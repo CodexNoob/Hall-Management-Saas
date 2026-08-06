@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ActionButton, LineIcon } from "@/features/events/components/event-manager-shared";
+import { useRouter } from "next/navigation";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
 
 function KitchenItemCard({
   title,
@@ -38,6 +39,7 @@ function KitchenItemCard({
 }
 
 export function EventKitchenContent() {
+  const router = useRouter();
   type KitchenView = "Today" | "This Week" | "4 Weeks";
   const initialKitchenDate = useMemo(() => new Date(2026, 6, 8, 12), []);
   const [kitchenView, setKitchenView] = useState<KitchenView>("Today");
@@ -248,6 +250,7 @@ export function EventKitchenContent() {
       <button
         className="hidden h-11 w-full items-center gap-3 border border-[#d8dde5] bg-white px-4 text-sm font-black text-[#6a7483]"
         type="button"
+        onClick={() => router.push("/dashboard/kitchen")}
       >
         <LineIcon name="plus" />
         Kitchen live view
@@ -266,6 +269,7 @@ export function EventKitchenContent() {
               <button
                 className="mt-3 inline-flex h-7 items-center gap-2 border border-[#c77cff] bg-[#f7eaff] px-3 text-xs font-black text-[#8a3fd1]"
                 type="button"
+                onClick={() => router.push("/dashboard/kitchen")}
               >
                 <LineIcon name="document" className="h-3.5 w-3.5" />
                 Kitchen live

@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 import {
   Badge,
   LineIcon,
@@ -96,6 +99,9 @@ function LayoutPreview() {
 }
 
 export function ClientPortalContent({ event }: { event: EventFile }) {
+  const router = useRouter();
+  const [portalUrl, setPortalUrl] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   return (
     <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside className="min-w-0 space-y-3">
@@ -133,13 +139,17 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
           </h2>
           <input
             className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
-            defaultValue="https://eventcore.app/client/e1"
+            readOnly
+            value={portalUrl}
             name="clientPortalUrl"
           />
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
               type="button"
+              onClick={() =>
+                setPortalUrl(`${window.location.origin}/client/${event.id}`)
+              }
             >
               <LineIcon name="document" />
               Generate link
@@ -147,10 +157,24 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
             <button
               className="inline-flex h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black"
               type="button"
+              onClick={async () => {
+                if (!portalUrl)
+                  return setCopyMessage("Generate the link first.");
+                await navigator.clipboard.writeText(portalUrl);
+                setCopyMessage("Link copied.");
+              }}
             >
               <LineIcon name="files" />
               Copy link
             </button>
+            {copyMessage ? (
+              <span
+                className="self-center text-xs text-[#516174]"
+                role="status"
+              >
+                {copyMessage}
+              </span>
+            ) : null}
           </div>
         </section>
       </aside>
@@ -242,6 +266,7 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
             <button
               className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
               type="button"
+              onClick={() => router.push("/dashboard/billing")}
             >
               <LineIcon name="document" />
               Pay balance

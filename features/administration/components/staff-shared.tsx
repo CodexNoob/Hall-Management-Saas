@@ -49,6 +49,7 @@ export type StaffResponse = {
     role: string;
     status: StaffStatus;
     access?: Record<string, unknown> | null;
+    lastLoginAt: string | null;
     createdAt: string;
   }>;
   matrix?: {

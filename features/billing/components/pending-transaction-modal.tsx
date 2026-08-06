@@ -1,96 +1,338 @@
 "use client";
 
-import { LineIcon, Pill } from "@/features/billing/components/billing-shared";
+import { useEffect, useState } from "react";
+import {
+  LineIcon,
+  Pill,
+  type BillingResponse,
+  type IconName
+} from "@/features/billing/components/billing-shared";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
-export function PendingTransactionModal({ onClose }: { onClose: () => void }) {
+const reviewFields: Array<{
+  icon: IconName;
+  label: string;
+  value: string;
+}> = [
+  { icon: "invoice", label: "Category", value: "Uncategorized" },
+  { icon: "settings", label: "Split transaction", value: "1 split line" },
+  { icon: "payment", label: "Event", value: "Unassigned" },
+  { icon: "invoice", label: "Invoice", value: "No invoice selected" },
+  { icon: "upload", label: "Attachment", value: "No file attached" }
+];
+
+type Transaction = BillingResponse["transactions"][number];
+
+function formatCurrency(cents: number, currency: string) {
+  return new Intl.NumberFormat("en-US", {
+    currency,
+    style: "currency"
+  }).format(cents / 100);
+}
+
+export function PendingTransactionModal({
+  onClose,
+  onSaved,
+  transaction
+}: {
+  onClose: () => void;
+  onSaved: () => Promise<unknown>;
+  transaction: Transaction;
+}) {
+  const [mode, setMode] = useState<"Categorize" | "Match" | "Transfer">(
+    "Categorize"
+  );
+  const [copied, setCopied] = useState(false);
+  const [category, setCategory] = useState("Uncategorized");
+  const [split, setSplit] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState("");
+  const reference = transaction.providerReference?.trim() || transaction.id;
+  const transactionDate = new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long"
+  }).format(new Date(transaction.createdAt));
+
+  async function copyReference() {
+    try {
+      await navigator.clipboard.writeText(reference);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function postTransaction() {
+    setPosting(true);
+    setError("");
+    try {
+      const action = split
+        ? "split"
+        : mode === "Match"
+          ? "match"
+          : "categorize";
+      const half = Math.trunc(transaction.amountCents / 2);
+      const body =
+        action === "split"
+          ? {
+              action,
+              splits: [
+                { category, amountCents: half },
+                {
+                  category: "Uncategorized",
+                  amountCents: transaction.amountCents - half
+                }
+              ]
+            }
+          : action === "match"
+            ? { action, eventId: transaction.eventId }
+            : { action, category };
+      if (action === "match" && !transaction.eventId)
+        throw new Error(
+          "Assign this transaction to an event before matching it."
+        );
+      const response = await authenticatedFetch(
+        `/api/billing/transactions/${transaction.id}`,
+        { method: "PATCH", body: JSON.stringify(body) }
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(payload.error ?? "Unable to post transaction.");
+      await onSaved();
+      onClose();
+    } catch (cause) {
+      setError(
+        cause instanceof Error ? cause.message : "Unable to post transaction."
+      );
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/45 p-4">
-      <section className="max-h-[92vh] w-full max-w-130 overflow-hidden rounded-3xl border border-white/40 bg-white shadow-2xl">
-        <header className="bg-[#146c43] p-5 text-white">
-          <div className="flex items-center justify-between">
+    <div
+      className="fixed inset-0 z-100 flex items-end justify-center bg-[#17202a]/45 p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
+      onMouseDown={(event) => {
+        if (event.currentTarget === event.target) onClose();
+      }}
+    >
+      <section
+        aria-labelledby="transaction-review-title"
+        aria-modal="true"
+        className="flex max-h-[calc(100dvh-12px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#d8dde5] bg-[#f5f6f8] text-[#17202a] shadow-2xl sm:max-h-[calc(100dvh-32px)] sm:rounded-2xl"
+        role="dialog"
+      >
+        <header className="shrink-0 bg-[#061126] px-4 py-4 text-white sm:px-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                <LineIcon className="h-5 w-5" name="payment" />
+              </span>
+              <div className="min-w-0">
+                <h2
+                  className="truncate text-base font-black sm:text-lg"
+                  id="transaction-review-title"
+                >
+                  Review recent transaction
+                </h2>
+                <p className="truncate text-xs font-semibold text-white/60">
+                  Confirm how this bank activity should post in Event Core.
+                </p>
+              </div>
+            </div>
             <button
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60"
-              type="button"
-              onClick={onClose}
               aria-label="Close transaction review"
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
+              onClick={onClose}
+              type="button"
             >
-              <LineIcon name="back" />
+              <span className="absolute h-0.5 w-5 rotate-45 rounded-full bg-current" />
+              <span className="absolute h-0.5 w-5 -rotate-45 rounded-full bg-current" />
             </button>
-            <h2 className="text-xl font-black">Pending transaction</h2>
-            <Pill tone="green">Needs review</Pill>
           </div>
         </header>
-        <div className="max-h-[74vh] overflow-y-auto p-5">
-          <article className="rounded-xl bg-white p-4 shadow-lg">
-            <div className="flex justify-between">
-              <h3 className="text-2xl font-black">Zelle Yidel Graus</h3>
-              <span className="text-[#6a7483]">6/29/26</span>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">
+          <article className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-lg font-black sm:text-xl">
+                    {transaction.event?.clientName || "Unassigned transaction"}
+                  </h3>
+                  <Pill tone="gold">Needs review</Pill>
+                </div>
+                <p className="mt-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#6a7483]">
+                  {(transaction.provider || "Manual entry").toUpperCase()} ·
+                  Bank transaction
+                </p>
+              </div>
+              <div className="shrink-0 sm:text-right">
+                <p className="text-3xl font-black text-[#17202a] sm:text-4xl">
+                  {formatCurrency(
+                    transaction.amountCents,
+                    transaction.currency
+                  )}
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[#6a7483]">
+                  {transactionDate}
+                </p>
+              </div>
             </div>
-            <p className="text-sm uppercase text-[#6a7483]">
-              BUS COMPLETE CHK (1909) - 1
-            </p>
-            <p className="text-center text-5xl font-black">$3,900</p>
+            <div className="grid grid-cols-2 border-t border-[#d8dde5] bg-[#fbfcfd] text-xs sm:grid-cols-4">
+              <TransactionMeta label="Source" value="Bank feed" />
+              <TransactionMeta
+                label="Method"
+                value={transaction.provider || "Manual"}
+              />
+              <TransactionMeta label="Status" value={transaction.status} />
+              <div className="min-w-0 border-[#d8dde5] px-3 py-2.5 even:border-l sm:border-l">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-[#6a7483]">
+                    Reference
+                  </p>
+                  <button
+                    aria-label="Copy full transaction reference"
+                    className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black text-[#1f4d73] transition hover:bg-[#eef4fa]"
+                    onClick={copyReference}
+                    title={reference}
+                    type="button"
+                  >
+                    {copied ? "Copied" : "Copy"}
+                  </button>
+                </div>
+                <p
+                  className="mt-0.5 truncate text-xs font-black text-[#17202a]"
+                  title={reference}
+                >
+                  {reference}
+                </p>
+              </div>
+            </div>
           </article>
-          <div className="mt-5 grid grid-cols-3 overflow-hidden rounded-xl border border-[#b9c2cf] text-sm font-black">
-            <button className="h-12 bg-white" type="button">
-              Categorize
-            </button>
-            <button
-              className="h-12 border-x border-[#b9c2cf] bg-white"
-              type="button"
-            >
-              Match
-            </button>
-            <button className="h-12 bg-white" type="button">
-              Transfer
-            </button>
-          </div>
-          <p className="mt-5 text-sm text-[#6a7483]">
-            Confirm or edit how this transaction should post in Event Core.
-          </p>
-          <div className="mt-5 divide-y divide-[#d8dde5]">
-            {[
-              "Category*|Uncategorized",
-              "Split transaction|1 split lines",
-              "From / To event|Unassigned",
-              "Invoice|No invoice",
-              "Attachment|Choose File  No file chosen"
-            ].map((row) => {
-              const [label, value] = row.split("|");
-              return (
+
+          <nav
+            aria-label="Transaction review action"
+            className="mt-4 grid grid-cols-3 overflow-hidden rounded-lg border border-[#b9c2cf] bg-white"
+          >
+            {(["Categorize", "Match", "Transfer"] as const).map(
+              (option, index) => (
                 <button
-                  key={label}
-                  className="flex w-full items-center justify-between py-4 text-left"
+                  aria-pressed={mode === option}
+                  className={`h-11 text-xs font-black transition sm:text-sm ${index ? "border-l border-[#b9c2cf]" : ""} ${mode === option ? "bg-[#1f4d73] text-white" : "bg-white text-[#17202a] hover:bg-[#eef4fa]"}`}
+                  key={option}
+                  onClick={() => setMode(option)}
                   type="button"
                 >
-                  <span>
-                    <span className="block text-sm text-[#6a7483]">
-                      {label}
-                    </span>
-                    <strong>{value}</strong>
-                  </span>
-                  <LineIcon name="chevron" className="h-5 w-5 text-[#6a7483]" />
+                  {option}
                 </button>
-              );
-            })}
-          </div>
-          <div className="mt-4 flex gap-3">
-            <button
-              className="rounded-lg border border-[#b9c2cf] px-4 text-sm font-black"
-              type="button"
-            >
-              Split
-            </button>
-            <button
-              className="h-12 flex-1 rounded-lg bg-[#146c43] font-black text-white"
-              type="button"
-              onClick={onClose}
-            >
-              Post
-            </button>
-          </div>
+              )
+            )}
+          </nav>
+
+          <section className="mt-4 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+            <div className="border-b border-[#d8dde5] px-4 py-3">
+              <h3 className="text-sm font-black">Posting details</h3>
+              <p className="mt-0.5 text-xs text-[#6a7483]">
+                Complete the required fields before posting this transaction.
+              </p>
+            </div>
+            <div className="divide-y divide-[#edf0f4] px-4">
+              {reviewFields.map((field) => (
+                <div
+                  className="grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3.5 text-left transition hover:bg-[#fbfcfd]"
+                  key={field.label}
+                >
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#eef4fa] text-[#1f4d73]">
+                    <LineIcon className="h-4 w-4" name={field.icon} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-xs font-semibold text-[#6a7483]">
+                      {field.label}
+                      {field.label === "Category" ? " *" : ""}
+                    </span>
+                    <strong className="block truncate text-sm text-[#17202a]">
+                      {field.label === "Category"
+                        ? category
+                        : field.label === "Split transaction"
+                          ? split
+                            ? "2 split lines"
+                            : "Not split"
+                          : field.value}
+                    </strong>
+                  </span>
+                  {field.label === "Category" ? (
+                    <select
+                      aria-label="Transaction category"
+                      className="h-9 rounded-lg border border-[#b9c2cf] px-2 text-xs"
+                      onChange={(event) => setCategory(event.target.value)}
+                      value={category}
+                    >
+                      {[
+                        "Uncategorized",
+                        "Event Deposit",
+                        "Final Payment",
+                        "Vendor Cost",
+                        "Food Purchase",
+                        "Staff Payroll",
+                        "Refund"
+                      ].map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </select>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
         </div>
+
+        <footer className="grid shrink-0 grid-cols-[auto_1fr] gap-2 border-t border-[#d8dde5] bg-white p-3 sm:flex sm:justify-end sm:px-5 sm:py-4">
+          <button
+            className="h-11 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+            type="button"
+            aria-pressed={split}
+            onClick={() => setSplit((current) => !current)}
+          >
+            {split ? "Remove split" : "Split"}
+          </button>
+          <button
+            className="h-11 rounded-lg bg-[#1f4d73] px-6 text-sm font-black text-white shadow-md shadow-[#1f4d73]/15 transition hover:bg-[#173a57]"
+            disabled={posting}
+            onClick={() => void postTransaction()}
+            type="button"
+          >
+            {posting ? "Posting…" : "Post transaction"}
+          </button>
+          {error ? (
+            <p className="col-span-2 text-sm font-bold text-[#b42318] sm:w-full">
+              {error}
+            </p>
+          ) : null}
+        </footer>
       </section>
+    </div>
+  );
+}
+
+function TransactionMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-[#d8dde5] px-3 py-2.5 even:border-l sm:border-l sm:first:border-l-0">
+      <p className="font-semibold text-[#6a7483]">{label}</p>
+      <p className="mt-0.5 truncate font-black text-[#17202a]">{value}</p>
     </div>
   );
 }

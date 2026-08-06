@@ -45,6 +45,7 @@ export type ModalSettingsSection =
   | "Notifications"
   | "Security"
   | "Halls"
+  | "Event Types"
   | "User Access"
   | "Payments & Gmail"
   | "Google Calendar"
@@ -79,6 +80,11 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     label: "Halls",
     description: "Rooms, halls, capacity, and setup.",
     icon: "hall"
+  },
+  {
+    label: "Event Types",
+    description: "Booking categories and allowed event days.",
+    icon: "calendar"
   },
   {
     label: "User Access",
@@ -120,6 +126,7 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
 export const modalHubTitlesBySection: Partial<Record<ModalSettingsSection, string[]>> =
   {
     Halls: ["Halls"],
+    "Event Types": ["Event Types"],
     "User Access": ["User Types", "User Access", "Feature Access"],
     "Payments & Gmail": ["Payments & Gmail"],
     "Google Calendar": ["Google Calendar"],
@@ -137,6 +144,11 @@ export const settingsHubItems: SettingsHubItem[] = [
     title: "Halls",
     description: "Manage halls, rooms, capacity, and setup.",
     icon: "hall"
+  },
+  {
+    title: "Event Types",
+    description: "Create booking categories such as weddings and conferences.",
+    icon: "calendar"
   },
   {
     title: "User Types",

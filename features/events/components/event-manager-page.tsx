@@ -1,40 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   NewEventDialog,
   type NewEventFormValues
 } from "@/features/events/forms/new-event-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
-import {
-  clearCachedSyncedUser,
-  getCachedSyncedUser,
-  syncSignedInUser,
-  type SyncSignedInUserResponse
-} from "@/lib/auth/client";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
 
 import { EventListCard } from "@/features/events/components/event-list-panel";
 import { EventWorkspace } from "@/features/events/components/event-workspace";
-import { LineIcon, type EventFile, type EventsResponse } from "@/features/events/components/event-manager-shared";
+import {
+  LineIcon,
+  type EventFile,
+  type EventsResponse
+} from "@/features/events/components/event-manager-shared";
 export function EventManagerPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Event Manager");
-  const router = useRouter();
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
   const createEventMutation = useAuthenticatedMutation<
     Record<string, string | number | undefined>,
     { event: { id: string } }
   >("/api/events");
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
-    null
-  );
   const [selectedEventId, setSelectedEventId] = useState("");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
@@ -79,50 +70,14 @@ export function EventManagerPage() {
             ? "Confirmed"
             : "Hold",
           paymentStatus: event.paymentStatus ?? "No invoice",
-          notes: event.notes ? [event.notes] : []
+          notes: event.notes ? [event.notes] : [],
+          phone: event.phone,
+          email: event.email ?? "",
+          workspaceData: event.workspaceData ?? {}
         };
       }),
     [eventsQuery.data]
   );
-
-  useEffect(() => {
-    let isMounted = true;
-    const cachedSyncData = getCachedSyncedUser();
-
-    if (cachedSyncData) {
-      setSyncData(cachedSyncData);
-    }
-
-    async function loadUser() {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
-          router.replace("/");
-          return;
-        }
-
-        const synced = await syncSignedInUser(data.session.access_token);
-
-        if (isMounted) {
-          setSyncData(synced);
-        }
-      } catch {
-        if (!cachedSyncData) {
-          clearCachedSyncedUser();
-          router.replace("/");
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
 
   useEffect(() => {
     if (allEvents.length === 0) return;
@@ -139,7 +94,7 @@ export function EventManagerPage() {
     }
   }, [allEvents, selectedEventId]);
 
-  if (!syncData || eventsQuery.isLoading) {
+  if (eventsQuery.isLoading) {
     return (
       <DashboardPageState
         isLoading
@@ -296,6 +251,10 @@ export function EventManagerPage() {
                 </button>
                 <button
                   className="hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] xl:inline-flex"
+                  onClick={() => {
+                    setPageSearchQuery("");
+                    setSelectedEventId(allEvents[0]?.id ?? "");
+                  }}
                   type="button"
                 >
                   <LineIcon name="close" />

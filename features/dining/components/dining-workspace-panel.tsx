@@ -1,0 +1,276 @@
+"use client";
+
+import {
+  type Dispatch,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction
+} from "react";
+import { CompactSelect } from "@/components/ui/compact-select";
+import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
+import {
+  eventSchedule,
+  eventTitle,
+  isDiningSeatingTable,
+  type DiningResponse,
+  type DiningTableData,
+  type TableSide
+} from "@/features/dining/components/dining-shared";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
+
+type DiningEvent = DiningResponse["events"][number];
+type HallMapPreset = NonNullable<DiningResponse["hallMapPresets"]>[number];
+
+export function DiningWorkspacePanel({
+  addTable,
+  applyHallMapPreset,
+  availableHallMapPresets,
+  dragTable,
+  hasPresetCoordinates,
+  isWorkspaceExpanded,
+  removeSelectedTable,
+  selectedEvent,
+  selectedPresetId,
+  selectedTableIds,
+  setDiningSelection,
+  setIsWorkspaceExpanded,
+  setSavedMessage,
+  setSelectedPresetId,
+  startTableDrag,
+  stopTableDrag,
+  tables
+}: {
+  addTable: (side?: TableSide) => void;
+  applyHallMapPreset: () => void;
+  availableHallMapPresets: HallMapPreset[];
+  dragTable: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  hasPresetCoordinates: boolean;
+  isWorkspaceExpanded: boolean;
+  removeSelectedTable: () => void;
+  selectedEvent: DiningEvent;
+  selectedPresetId: string;
+  selectedTableIds: string[];
+  setDiningSelection: (id: string, options?: { toggle?: boolean }) => void;
+  setIsWorkspaceExpanded: Dispatch<SetStateAction<boolean>>;
+  setSavedMessage: Dispatch<SetStateAction<string>>;
+  setSelectedPresetId: Dispatch<SetStateAction<string>>;
+  startTableDrag: (
+    event: ReactPointerEvent<HTMLButtonElement>,
+    table: DiningTableData
+  ) => void;
+  stopTableDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
+  tables: DiningTableData[];
+}) {
+  return (
+    <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
+      <header className="border-b border-[#d8dde5] p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-black">
+              {eventTitle(selectedEvent)}
+            </h2>
+            <p className="mt-1 truncate text-xs text-[#617086]">
+              {selectedEvent.hall.name} Â· {eventSchedule(selectedEvent)}
+            </p>
+          </div>
+          <button
+            aria-expanded={isWorkspaceExpanded}
+            aria-label={
+              isWorkspaceExpanded
+                ? "Collapse dining workspace"
+                : "Expand dining workspace"
+            }
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] lg:hidden"
+            onClick={() => setIsWorkspaceExpanded((isExpanded) => !isExpanded)}
+            type="button"
+          >
+            <LineIcon
+              name="chevron"
+              className={`h-5 w-5 transition-transform ${
+                isWorkspaceExpanded ? "rotate-90" : ""
+              }`}
+            />
+          </button>
+        </div>
+        <div
+          className={`mt-3 flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2 sm:flex-row sm:items-end lg:flex ${
+            isWorkspaceExpanded ? "flex" : "hidden"
+          }`}
+        >
+          <div className="min-w-0 flex-1">
+            <FieldLabel htmlFor="hall-map-preset">Hall map preset</FieldLabel>
+            <CompactSelect
+              id="hall-map-preset"
+              onChange={(value) => {
+                setSelectedPresetId(value);
+                setSavedMessage("");
+              }}
+              options={[
+                {
+                  label: availableHallMapPresets.length
+                    ? "Select a preset"
+                    : `No presets assigned to ${selectedEvent.hall.name}`,
+                  value: ""
+                },
+                ...availableHallMapPresets.map((preset) => ({
+                  label: preset.name,
+                  value: preset.id
+                }))
+              ]}
+              value={selectedPresetId}
+            />
+          </div>
+          <button
+            className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={!selectedPresetId}
+            onClick={applyHallMapPreset}
+            type="button"
+          >
+            Apply preset
+          </button>
+        </div>
+        <div
+          className={`mt-3 flex-wrap gap-2 lg:flex ${
+            isWorkspaceExpanded ? "flex" : "hidden"
+          }`}
+        >
+          <button
+            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            onClick={() => addTable("men")}
+            type="button"
+          >
+            + Adult table
+          </button>
+          <button
+            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            onClick={() => addTable("kids")}
+            type="button"
+          >
+            + Kids table
+          </button>
+          <button
+            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            onClick={() => addTable("head")}
+            type="button"
+          >
+            + Head table
+          </button>
+          <button
+            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40 sm:flex-none"
+            disabled={!selectedTableIds.length}
+            onClick={removeSelectedTable}
+            type="button"
+          >
+            Remove selected
+          </button>
+        </div>
+      </header>
+      <div
+        className={`min-h-0 flex-1 overflow-auto overscroll-contain p-2 lg:block ${
+          isWorkspaceExpanded ? "block" : "hidden"
+        }`}
+      >
+        <div className="min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
+          {hasPresetCoordinates ? (
+            <div className="relative mx-auto aspect-[760/520] w-full max-w-[760px]">
+              {tables.map((table) => {
+                const isRound =
+                  table.mapType === "round-table" ||
+                  table.mapType === "kids-table" ||
+                  table.mapType === "circle";
+                const isDivider = table.mapType === "divider";
+                const isServiceShape =
+                  table.mapType === "buffet" || table.mapType === "drinks";
+                const isSeating = isDiningSeatingTable(table);
+
+                return (
+                  <button
+                    className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-hidden px-1 text-center select-none ${
+                      isDivider
+                        ? "rounded bg-[#344a60] text-white shadow-none"
+                        : "border bg-white shadow-sm"
+                    } ${
+                      selectedTableIds.includes(table.id)
+                        ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
+                        : isServiceShape
+                          ? "border-dashed border-[#526c86]"
+                          : "border-[#526c86]"
+                    } ${isRound ? "rounded-full" : "rounded-lg"}`}
+                    key={table.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setDiningSelection(table.id, {
+                        toggle: event.ctrlKey || event.metaKey
+                      });
+                    }}
+                    onPointerCancel={stopTableDrag}
+                    onPointerDown={(event) => startTableDrag(event, table)}
+                    onPointerMove={dragTable}
+                    onPointerUp={stopTableDrag}
+                    style={{
+                      left: `${((table.x ?? 0) / 760) * 100}%`,
+                      top: `${((table.y ?? 0) / 520) * 100}%`,
+                      width: `${((table.width ?? 72) / 760) * 100}%`,
+                      height: `${((table.height ?? 72) / 520) * 100}%`,
+                      transform: `rotate(${table.rotation ?? 0}deg)`
+                    }}
+                    type="button"
+                  >
+                    <strong
+                      className={`line-clamp-2 leading-3 ${
+                        isDivider ? "text-[10px]" : "text-[10px]"
+                      }`}
+                    >
+                      {table.name || `Table ${table.number}`}
+                    </strong>
+                    {isSeating ? (
+                      <>
+                        <span className="text-[8px] leading-3">
+                          {table.seats} seats
+                        </span>
+                        <span className="text-[7px] uppercase leading-3 text-[#617086]">
+                          {table.side}
+                        </span>
+                      </>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
+                {tables.map((table) => (
+                  <button
+                    className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
+                      selectedTableIds.includes(table.id)
+                        ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
+                        : "border-[#526c86]"
+                    }`}
+                    key={table.id}
+                    onClick={(event) =>
+                      setDiningSelection(table.id, {
+                        toggle: event.ctrlKey || event.metaKey
+                      })
+                    }
+                    type="button"
+                  >
+                    <strong className="text-[10px]">
+                      {table.name || `Table ${table.number}`}
+                    </strong>
+                    <span className="text-[9px]">{table.seats} seats</span>
+                    <span className="text-[8px] uppercase text-[#617086]">
+                      {table.side}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="mx-auto mt-8 flex h-6 max-w-96 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
+                Mechitza
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </Panel>
+  );
+}

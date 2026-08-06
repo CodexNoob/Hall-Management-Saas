@@ -10,6 +10,7 @@ export type NewPackageFormValues = {
 };
 
 type NewPackageDialogProps = {
+  initialValues?: NewPackageFormValues;
   open: boolean;
   onClose: () => void;
   onSave: (values: NewPackageFormValues) => void;
@@ -34,13 +35,14 @@ function PackageIcon() {
   );
 }
 
-export function NewPackageDialog({ open, onClose, onSave }: NewPackageDialogProps) {
+export function NewPackageDialog({ initialValues: editValues, open, onClose, onSave }: NewPackageDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
 
   useEffect(() => {
     if (!open) return;
+    setValues(editValues ?? initialValues);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -56,7 +58,7 @@ export function NewPackageDialog({ open, onClose, onSave }: NewPackageDialogProp
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [editValues, onClose, open]);
 
   if (!open) return null;
 
@@ -86,7 +88,7 @@ export function NewPackageDialog({ open, onClose, onSave }: NewPackageDialogProp
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
             <PackageIcon />
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>Package</h2>
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{editValues ? "Edit package" : "New package"}</h2>
           </div>
           <button aria-label="Close package" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
             <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg>

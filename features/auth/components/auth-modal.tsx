@@ -8,11 +8,18 @@ import { LoginCard } from "@/features/auth/components/login-card";
 type AuthView = "login" | "trial" | "forgot";
 type SlideDirection = "forward" | "back";
 
+declare global {
+  interface Window {
+    __eventCoreAuthRequest?: "login" | "trial";
+  }
+}
+
 export function AuthModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [authView, setAuthView] = useState<AuthView>("login");
   const [isSwitching, setIsSwitching] = useState(false);
-  const [slideDirection, setSlideDirection] = useState<SlideDirection>("forward");
+  const [slideDirection, setSlideDirection] =
+    useState<SlideDirection>("forward");
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const swapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -25,6 +32,19 @@ export function AuthModal() {
   };
 
   useEffect(() => {
+    const openRequestedView = (view: AuthView) => {
+      setAuthView(view);
+      setIsSwitching(false);
+      setIsOpen(true);
+      window.__eventCoreAuthRequest = undefined;
+      requestAnimationFrame(resetModalScroll);
+    };
+
+    const handleAuthRequest = (event: Event) => {
+      const view = (event as CustomEvent<"login" | "trial">).detail;
+      openRequestedView(view === "trial" ? "trial" : "login");
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close();
@@ -38,22 +58,21 @@ export function AuthModal() {
 
       if (loginTrigger || freeTrialTrigger) {
         event.preventDefault();
-        setAuthView(freeTrialTrigger ? "trial" : "login");
-        setIsSwitching(false);
-        setIsOpen(true);
-
-        requestAnimationFrame(() => {
-          resetModalScroll();
-        });
+        openRequestedView(freeTrialTrigger ? "trial" : "login");
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     document.addEventListener("click", handleClick);
+    window.addEventListener("event-core:open-auth", handleAuthRequest);
+    if (window.__eventCoreAuthRequest) {
+      openRequestedView(window.__eventCoreAuthRequest);
+    }
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("click", handleClick);
+      window.removeEventListener("event-core:open-auth", handleAuthRequest);
     };
   }, []);
 
@@ -104,7 +123,8 @@ export function AuthModal() {
 
     resetModalScroll();
 
-    const nextDirection: SlideDirection = nextView === "login" ? "back" : "forward";
+    const nextDirection: SlideDirection =
+      nextView === "login" ? "back" : "forward";
     setSlideDirection(nextDirection);
     setIsSwitching(true);
 
@@ -168,8 +188,18 @@ export function AuthModal() {
           aria-label="Close login modal"
           onClick={close}
         >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <svg
+            className="h-5 w-5"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M6 6l12 12M18 6 6 18"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+            />
           </svg>
         </button>
 
@@ -184,9 +214,15 @@ export function AuthModal() {
                 onForgotPasswordClick={() => switchAuthView("forgot")}
               />
             ) : authView === "trial" ? (
-              <FreeTrialCard compact onLoginClick={() => switchAuthView("login")} />
+              <FreeTrialCard
+                compact
+                onLoginClick={() => switchAuthView("login")}
+              />
             ) : (
-              <ForgotPasswordCard compact onBackToLogin={() => switchAuthView("login")} />
+              <ForgotPasswordCard
+                compact
+                onBackToLogin={() => switchAuthView("login")}
+              />
             )}
           </div>
         </div>

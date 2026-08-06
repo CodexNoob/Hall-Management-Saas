@@ -3,12 +3,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Pill,
-  StatCard,
   TopAction,
   type BillingResponse
 } from "@/features/billing/components/billing-shared";
-
-type Invoice = BillingResponse["invoices"][number];
+import { InvoiceDetails } from "@/features/billing/components/invoice-details";
 
 function money(cents: number, currency = "USD") {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
@@ -26,18 +24,28 @@ function date(value: string | null) {
 
 function statusTone(status: string) {
   if (status === "Paid") return "green" as const;
-  if (status === "Open") return "red" as const;
+  if (status === "Overdue" || status === "Cancelled") return "red" as const;
   return "gold" as const;
 }
 
+function historyInvoiceId(value: unknown) {
+  return value && typeof value === "object" && "invoiceId" in value
+    ? String((value as { invoiceId: unknown }).invoiceId)
+    : null;
+}
+
 export function InvoicesTab({
+  canManagePayments,
   data,
   onNewInvoice,
+  onRefresh,
   searchQuery,
   setSearchQuery
 }: {
+  canManagePayments: boolean;
   data: BillingResponse;
   onNewInvoice: () => void;
+  onRefresh: () => Promise<BillingResponse | null>;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }) {
@@ -80,7 +88,12 @@ export function InvoicesTab({
               Draft, issue, and track payment.
             </p>
           </div>
-          <TopAction icon="plus" label="New" onClick={onNewInvoice} />
+          <TopAction
+            disabled={!canManagePayments}
+            icon="plus"
+            label="New"
+            onClick={onNewInvoice}
+          />
         </div>
         <input
           className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
@@ -97,9 +110,11 @@ export function InvoicesTab({
         >
           <option>All invoices</option>
           <option>Draft</option>
-          <option>Open</option>
+          <option>Sent</option>
+          <option>Partially Paid</option>
           <option>Paid</option>
-          <option>Void</option>
+          <option>Overdue</option>
+          <option>Cancelled</option>
         </select>
         <div className="mt-3 space-y-2">
           {!visibleInvoices.length ? (
@@ -158,7 +173,14 @@ export function InvoicesTab({
         </div>
       </section>
       {selected ? (
-        <InvoiceDetails invoice={selected} />
+        <InvoiceDetails
+          canManagePayments={canManagePayments}
+          history={(data.invoiceHistory ?? []).filter(
+            (entry) => historyInvoiceId(entry.newValue) === selected.id
+          )}
+          invoice={selected}
+          onRefresh={onRefresh}
+        />
       ) : (
         <section className="flex min-h-80 items-center justify-center rounded-xl border border-[#d8dde5] bg-white p-8 text-center shadow-sm">
           <div>
@@ -170,101 +192,5 @@ export function InvoicesTab({
         </section>
       )}
     </div>
-  );
-}
-
-function InvoiceDetails({ invoice }: { invoice: Invoice }) {
-  return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-        <div className="min-w-0">
-          <h2 className="truncate text-2xl font-black">
-            {invoice.invoiceNumber}
-          </h2>
-          <p className="text-sm text-[#6a7483]">
-            {invoice.clientName}
-            {invoice.event?.hallName ? ` · ${invoice.event.hallName}` : ""}
-          </p>
-        </div>
-        <TopAction icon="print" label="Print" onClick={() => window.print()} />
-      </div>
-      <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
-          label="Total"
-          value={money(invoice.totalCents, invoice.currency)}
-          note=""
-        />
-        <StatCard
-          label="Payments"
-          value={money(invoice.amountPaidCents, invoice.currency)}
-          note=""
-          tone="green"
-        />
-        <StatCard
-          label="Balance"
-          value={money(invoice.balanceDueCents, invoice.currency)}
-          note=""
-          tone="gold"
-        />
-        <StatCard label="Status" value={invoice.status} note="" />
-        <StatCard label="Due" value={date(invoice.dueDate)} note="" />
-      </div>
-      <div className="grid gap-4 p-4 pt-0 xl:grid-cols-2">
-        <article className="rounded-xl border border-[#d8dde5] p-4">
-          <h3 className="font-black">Line items</h3>
-          <div className="mt-4 divide-y divide-[#d8dde5]">
-            {!invoice.lineItems.length ? (
-              <p className="py-4 text-sm text-[#6a7483]">
-                No line items recorded.
-              </p>
-            ) : (
-              invoice.lineItems.map((item) => (
-                <div
-                  className="flex justify-between gap-4 py-3 text-sm"
-                  key={item.id}
-                >
-                  <span>
-                    {item.description}
-                    <span className="block text-xs text-[#6a7483]">
-                      Quantity {String(item.quantity)} ·{" "}
-                      {money(item.unitAmountCents, invoice.currency)} each
-                    </span>
-                  </span>
-                  <strong>{money(item.totalCents, invoice.currency)}</strong>
-                </div>
-              ))
-            )}
-          </div>
-        </article>
-        <article className="rounded-xl border border-[#d8dde5] p-4">
-          <h3 className="font-black">Invoice summary</h3>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex justify-between">
-              <dt>Client</dt>
-              <dd className="font-black">{invoice.clientName}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Issued</dt>
-              <dd className="font-black">{date(invoice.issuedAt)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt>Due</dt>
-              <dd className="font-black">{date(invoice.dueDate)}</dd>
-            </div>
-            <div className="flex justify-between border-t border-[#d8dde5] pt-3 text-lg">
-              <dt className="font-black">Total</dt>
-              <dd className="font-black">
-                {money(invoice.totalCents, invoice.currency)}
-              </dd>
-            </div>
-          </dl>
-          {invoice.notes ? (
-            <p className="mt-4 rounded-lg bg-[#f5f6f8] p-3 text-sm text-[#6a7483]">
-              {invoice.notes}
-            </p>
-          ) : null}
-        </article>
-      </div>
-    </section>
   );
 }
