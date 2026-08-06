@@ -236,7 +236,7 @@ export function DashboardShell({
         title="Your free trial has ended"
       />
 
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <main className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         <DashboardOverview
           annualGroups={annualTimelineGroups}
           annualRangeLabel={annualRangeLabel}

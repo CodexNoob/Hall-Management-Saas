@@ -12,28 +12,26 @@ import {
   X
 } from "lucide-react";
 import { useState } from "react";
+import {
+  termsOfServiceIntroduction,
+  termsOfServiceSections
+} from "@/features/legal/legal-content";
 
-const termsCards = [
+const termsCardVisuals = [
   {
     accent: "green",
-    body: "Use Event Core only for legitimate hall operations: bookings, events, menus, kitchen, dining, hall maps, files, billing, staff, clients, and vendors.",
     icon: Users,
-    illustration: CalendarDays,
-    title: "Authorized use"
+    illustration: CalendarDays
   },
   {
     accent: "blue",
-    body: "Each user is responsible for dashboard activity under their account, including invoices, event edits, files, notes, and staff permission changes.",
     icon: UserCheck,
-    illustration: LockKeyhole,
-    title: "Account responsibility"
+    illustration: LockKeyhole
   },
   {
     accent: "purple",
-    body: "Your organization is responsible for accurate booking dates, hall assignments, client/vendor records, menu counts, invoices, payments, and internal notes.",
     icon: FileText,
-    illustration: BarChart3,
-    title: "Data accuracy"
+    illustration: BarChart3
   }
 ] as const;
 
@@ -132,18 +130,17 @@ export function TermsOfServiceContent({ onClose }: { onClose: () => void }) {
               <Shield className="h-8 w-8" />
             </span>
             <p className="text-xs font-medium leading-5 text-[#071427] sm:text-sm">
-              By using Event Core, you agree to the terms below. Please ensure
-              your team follows these guidelines to maintain security,
-              compliance, and data integrity.
+              {termsOfServiceIntroduction}
             </p>
           </div>
         </div>
 
         <div className="mt-3 grid gap-2">
-          {termsCards.map((item, index) => {
-            const Icon = item.icon;
-            const Illustration = item.illustration;
-            const accent = accentClasses[item.accent];
+          {termsOfServiceSections.map((item, index) => {
+            const visual = termsCardVisuals[index];
+            const Icon = visual.icon;
+            const Illustration = visual.illustration;
+            const accent = accentClasses[visual.accent];
 
             return (
               <article

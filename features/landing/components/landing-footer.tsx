@@ -1,28 +1,12 @@
-"use client";
-
-import { FormEvent, useState } from "react";
 import Image from "next/image";
-
-const quickLinks = [
-  { label: "Home", href: "#home" },
-  { label: "Features", href: "#features" },
-  { label: "Benefits", href: "#benefits" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Contact", href: "#contact" }
-];
-
-const productLinks = [
-  { label: "Booking Management", href: "#features" },
-  { label: "Calendar", href: "#features" },
-  { label: "Payments", href: "#features" }
-];
-
-const companyLinks = [
-  { label: "About Us", href: "#home" },
-  { label: "Careers", href: "#home" },
-  { label: "Privacy Policy", href: "#home" },
-  { label: "Terms of Service", href: "#home" }
-];
+import Link from "next/link";
+import type { Route } from "next";
+import { NewsletterForm } from "@/features/landing/components/newsletter-form";
+import {
+  companyLinks,
+  productLinks,
+  quickLinks
+} from "@/features/landing/navigation/footer-navigation";
 
 function FooterBrandIcon() {
   return (
@@ -45,23 +29,6 @@ function ChevronIcon() {
   );
 }
 
-function MailIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16v12H4zM4 6l8 7 8-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-
 function LinkList({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (
     <div className="border-white/10 lg:border-l lg:pl-9">
@@ -69,12 +36,12 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
       <ul className="mt-8 space-y-5">
         {links.map((link) => (
           <li key={link.label}>
-            <a className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]" href={link.href}>
+            <Link className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]" href={link.href as Route}>
               <span className="text-[#1f4d73]">
                 <ChevronIcon />
               </span>
               {link.label}
-            </a>
+            </Link>
           </li>
         ))}
       </ul>
@@ -83,21 +50,6 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
 }
 
 export function LandingFooter() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-
-  const subscribe = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!email.trim() || !email.includes("@")) {
-      setMessage("Please enter a valid email.");
-      return;
-    }
-
-    setEmail("");
-    setMessage("Thank you for subscribing!");
-  };
-
   return (
     <footer className="relative overflow-hidden bg-[#061126] text-white" data-site-footer>
       <div className="absolute -left-24 top-0 h-72 w-72 rounded-full bg-[#1f4d73]/15 blur-3xl" />
@@ -122,33 +74,7 @@ export function LandingFooter() {
               Subscribe to our newsletter for the latest updates, product releases, and hall management tips.
             </p>
 
-            <form className="mt-8" onSubmit={subscribe}>
-              <label className="sr-only" htmlFor="footer-email">
-                Email
-              </label>
-              <div className="flex h-14 items-center gap-3 rounded-2xl border border-white/20 bg-white/5 px-4 text-[#aeb8d1]">
-                <MailIcon />
-                <input
-                  id="footer-email"
-                  className="min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-[#aeb8d1]"
-                  placeholder="Your email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => {
-                    setEmail(event.target.value);
-                    setMessage("");
-                  }}
-                />
-              </div>
-              <button
-                className="group mt-5 flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-[#1f4d73] text-base font-black text-white shadow-lg shadow-[#1f4d73]/20 transition hover:bg-[#15344f]"
-                type="submit"
-              >
-                Subscribe
-                <ArrowIcon />
-              </button>
-              {message ? <p className="mt-4 text-sm font-semibold text-[#1f4d73]">{message}</p> : null}
-            </form>
+            <NewsletterForm />
           </div>
         </div>
       </div>

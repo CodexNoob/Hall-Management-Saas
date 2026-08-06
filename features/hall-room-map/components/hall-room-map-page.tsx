@@ -593,11 +593,9 @@ export function HallRoomMapPage() {
       showFeedback(
         `${result.preset.name} saved to ${result.preset.hall?.name}.`
       );
-    } catch {
+    } catch (error) {
       showFeedback(
-        createMapMutation.error ??
-          updateMapMutation.error ??
-          "Unable to save this preset."
+        error instanceof Error ? error.message : "Unable to save this preset."
       );
     }
   }
@@ -654,11 +652,9 @@ export function HallRoomMapPage() {
 
       setIsMapDialogOpen(false);
       setMapName("");
-    } catch {
+    } catch (error) {
       showFeedback(
-        createMapMutation.error ??
-          updateMapMutation.error ??
-          "Unable to save this map."
+        error instanceof Error ? error.message : "Unable to save this map."
       );
     }
   }
@@ -686,8 +682,10 @@ export function HallRoomMapPage() {
       );
       clearObjectSelection();
       showFeedback(`${deletedMapName} deleted.`);
-    } catch {
-      showFeedback(deleteMapMutation.error ?? "Unable to delete this map.");
+    } catch (error) {
+      showFeedback(
+        error instanceof Error ? error.message : "Unable to delete this map."
+      );
     }
   }
 
@@ -893,5 +891,4 @@ export function HallRoomMapPage() {
     </div>
   );
 }
-
 

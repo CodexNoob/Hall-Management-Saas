@@ -21,6 +21,7 @@ function LandingLogo() {
 export function LandingNavbar() {
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   function openAuthModal(view: "login" | "trial") {
     window.__eventCoreAuthRequest = view;
@@ -57,13 +58,35 @@ export function LandingNavbar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsMobileMenuOpen(false);
+    };
+    const closeAtDesktop = () => {
+      if (window.innerWidth >= 1024) setIsMobileMenuOpen(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("resize", closeAtDesktop);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("resize", closeAtDesktop);
+    };
+  }, [isMobileMenuOpen]);
+
   return (
     <header
       className={`saas-animate-navbar fixed left-0 right-0 top-0 z-1000 border-b bg-white/95 backdrop-blur-xl transition-all duration-300 ${
         hasScrolled
           ? "border-[#E5E0D6] shadow-lg shadow-[#0F172A]/8"
           : "border-[#E5E0D6]/80 shadow-none"
-      } ${isFooterVisible ? "-translate-y-full" : "translate-y-0"}`}
+      } ${isFooterVisible && !isMobileMenuOpen ? "-translate-y-full" : "translate-y-0"}`}
     >
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 sm:px-8">
         <LandingLogo />
@@ -91,14 +114,28 @@ export function LandingNavbar() {
             Contact
           </button>
         </nav>
-        <button
-          className="navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden"
-          type="button"
-          data-login-modal
-          onClick={() => openAuthModal("login")}
-        >
-          Login
-        </button>
+        <div className="flex items-center gap-2 lg:hidden">
+          <button
+            aria-controls="landing-mobile-navigation"
+            aria-expanded={isMobileMenuOpen}
+            aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-xl border border-[#E5E0D6] bg-white text-[#0f172a] shadow-sm lg:hidden"
+            onClick={() => setIsMobileMenuOpen((open) => !open)}
+            type="button"
+          >
+            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "translate-y-2 rotate-45" : ""}`} />
+            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "opacity-0" : ""}`} />
+            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+          </button>
+          <button
+            className="navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden"
+            type="button"
+            data-login-modal
+            onClick={() => openAuthModal("login")}
+          >
+            Login
+          </button>
+        </div>
         <div className="hidden items-center gap-3 sm:flex">
           <button
             className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1f4d73]/45 hover:shadow-md"
@@ -117,6 +154,48 @@ export function LandingNavbar() {
           </a>
         </div>
       </div>
+      <div
+        className={`absolute left-0 right-0 top-20 border-b border-[#E5E0D6] bg-white/98 shadow-xl shadow-[#0f172a]/10 backdrop-blur-xl transition duration-250 lg:hidden ${
+          isMobileMenuOpen
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none -translate-y-3 opacity-0"
+        }`}
+        id="landing-mobile-navigation"
+      >
+        <nav aria-label="Mobile navigation" className="mx-auto grid max-w-7xl gap-1 px-5 py-5 text-base font-bold text-[#0f172a] sm:px-8">
+          {([
+            ["Home", "/#home"],
+            ["Features", "/#features"],
+            ["Benefits", "/#benefits"],
+            ["Pricing", "/#pricing"],
+            ["Documentation", "/documentation"]
+          ] as const).map(([label, href]) => (
+            <Link className="rounded-xl px-4 py-3 transition hover:bg-[#eef4fa] hover:text-[#1f4d73]" href={href} key={label} onClick={() => setIsMobileMenuOpen(false)}>{label}</Link>
+          ))}
+          <button
+            className="rounded-xl px-4 py-3 text-left font-bold transition hover:bg-[#eef4fa] hover:text-[#1f4d73]"
+            data-contact-modal
+            onClick={() => setIsMobileMenuOpen(false)}
+            type="button"
+          >
+            Contact
+          </button>
+          <button
+            className="mt-2 rounded-xl bg-[#1f4d73] px-4 py-3 font-black text-white sm:hidden"
+            onClick={() => { setIsMobileMenuOpen(false); openAuthModal("trial"); }}
+            type="button"
+          >
+            Start free trial
+          </button>
+        </nav>
+      </div>
+      <button
+        aria-label="Close navigation menu"
+        className={`fixed inset-0 top-20 -z-10 bg-[#061126]/30 backdrop-blur-[1px] lg:hidden ${isMobileMenuOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+        tabIndex={isMobileMenuOpen ? 0 : -1}
+        type="button"
+      />
     </header>
   );
 }

@@ -281,7 +281,7 @@ export function DashboardSidebar({
     <>
       <button
         aria-label="Close navigation"
-        className={`fixed inset-x-0 top-0 z-55 h-dvh bg-[#17202a]/45 backdrop-blur-[2px] transition-[opacity,backdrop-filter] duration-300 ease-out lg:hidden ${
+        className={`fixed inset-x-0 top-0 z-55 h-dvh touch-pan-y bg-[#17202a]/45 backdrop-blur-[2px] transition-[opacity,backdrop-filter] duration-300 ease-out lg:hidden ${
           isMobileOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0 backdrop-blur-none"
@@ -291,7 +291,7 @@ export function DashboardSidebar({
         type="button"
       />
       <aside
-        className={`app-sidebar fixed left-0 top-0 z-70 flex h-dvh max-h-dvh w-[min(76vw,17rem)] flex-col overscroll-none border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:bottom-0 lg:top-20 lg:h-auto lg:max-h-none lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
+        className={`app-sidebar fixed left-0 top-0 z-70 flex h-dvh max-h-dvh w-[min(76vw,17rem)] touch-pan-y flex-col overscroll-none border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:bottom-0 lg:top-20 lg:h-auto lg:max-h-none lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
           isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         } ${isSidebarTransitionReady ? "" : "transition-none"} ${
           showCollapsed

@@ -12,28 +12,26 @@ import {
   X
 } from "lucide-react";
 import { useState } from "react";
+import {
+  privacyPolicyIntroduction,
+  privacyPolicySections
+} from "@/features/legal/legal-content";
 
-const privacyCards = [
+const privacyCardVisuals = [
   {
     accent: "blue",
-    body: "Event Core stores the operational data needed for dashboard modules: bookings, events, menus, kitchen plans, dining setup, hall maps, files, billing, staff, clients, and vendors.",
     icon: Server,
-    illustration: Database,
-    title: "Operational data"
+    illustration: Database
   },
   {
     accent: "green",
-    body: "Dashboard roles and permissions should limit each staff member to the calendar, event, billing, files, settings, and operations data needed for their work.",
     icon: UserRoundCheck,
-    illustration: LockKeyhole,
-    title: "Access control"
+    illustration: LockKeyhole
   },
   {
     accent: "purple",
-    body: "Client names, event schedules, payment records, uploaded files, hall layouts, vendor details, and Today Notes should be treated as private business information.",
     icon: FileText,
-    illustration: FolderLock,
-    title: "Responsible handling"
+    illustration: FolderLock
   }
 ] as const;
 
@@ -132,18 +130,17 @@ export function PrivacyPolicyContent({ onClose }: { onClose: () => void }) {
               <Shield className="h-8 w-8" />
             </span>
             <p className="text-xs font-medium leading-5 text-[#071427] sm:text-sm">
-              At Event Core, we are committed to protecting the privacy and
-              security of your information. This policy explains how we collect,
-              use, and safeguard your data.
+              {privacyPolicyIntroduction}
             </p>
           </div>
         </div>
 
         <div className="mt-3 grid gap-2">
-          {privacyCards.map((item, index) => {
-            const Icon = item.icon;
-            const Illustration = item.illustration;
-            const accent = accentClasses[item.accent];
+          {privacyPolicySections.map((item, index) => {
+            const visual = privacyCardVisuals[index];
+            const Icon = visual.icon;
+            const Illustration = visual.illustration;
+            const accent = accentClasses[visual.accent];
 
             return (
               <article

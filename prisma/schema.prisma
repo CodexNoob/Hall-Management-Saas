@@ -7,18 +7,18 @@ datasource db {
 }
 
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String   @unique
-  isActive  Boolean  @default(true) @map("is_active")
+  id                    String    @id @default(uuid()) @db.Uuid
+  name                  String
+  slug                  String    @unique
+  isActive              Boolean   @default(true) @map("is_active")
   trialStartedAt        DateTime? @map("trial_started_at")
   trialEndsAt           DateTime? @map("trial_ends_at")
   subscriptionStatus    String    @default("active") @map("subscription_status")
   subscriptionPlan      String?   @map("subscription_plan")
   subscriptionStartedAt DateTime? @map("subscription_started_at")
   subscriptionEndsAt    DateTime? @map("subscription_ends_at")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   primaryUsers            User[]                        @relation("PrimaryOrganization")
   memberships             OrganizationMembership[]
@@ -66,6 +66,20 @@ model Organization {
 
   @@index([isActive])
   @@map("organizations")
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique
+  status         String    @default("subscribed")
+  source         String    @default("website_footer")
+  subscribedAt   DateTime  @default(now()) @map("subscribed_at")
+  unsubscribedAt DateTime? @map("unsubscribed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, subscribedAt])
+  @@map("newsletter_subscribers")
 }
 
 model OrganizationMembership {
@@ -542,8 +556,8 @@ model BankConnection {
   createdAt        DateTime  @default(now()) @map("created_at")
   updatedAt        DateTime  @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   transactions BankTransaction[]
 
   @@unique([organizationId, plaidItemId])
@@ -552,19 +566,19 @@ model BankConnection {
 }
 
 model BankTransaction {
-  id                 String    @id @default(uuid()) @db.Uuid
-  organizationId     String    @map("organization_id") @db.Uuid
-  bankConnectionId   String    @map("bank_connection_id") @db.Uuid
-  plaidTransactionId String?   @map("plaid_transaction_id")
-  accountId          String?   @map("account_id")
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  bankConnectionId   String   @map("bank_connection_id") @db.Uuid
+  plaidTransactionId String?  @map("plaid_transaction_id")
+  accountId          String?  @map("account_id")
   description        String?
-  amountCents        Int       @map("amount_cents")
-  currency           String    @default("USD")
-  transactionDate    DateTime  @map("transaction_date") @db.Date
-  status             String    @default("PENDING")
+  amountCents        Int      @map("amount_cents")
+  currency           String   @default("USD")
+  transactionDate    DateTime @map("transaction_date") @db.Date
+  status             String   @default("PENDING")
   metadata           Json?
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   bankConnection BankConnection @relation(fields: [bankConnectionId], references: [id], onDelete: Cascade)

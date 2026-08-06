@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -52,15 +53,10 @@ type HallMapPresetRow = {
   organizationId: string;
   hallId: string;
   name: string;
-  objects: MapObject[];
+  objects: unknown;
   createdAt: Date;
   updatedAt: Date;
   hall: { id: string; name: string };
-};
-
-type HallMapPresetIdentity = {
-  id: string;
-  hallId: string;
 };
 
 async function getActorAndHallScope(request: Request) {
@@ -88,38 +84,14 @@ async function listHallMapPresets(
   restrictHalls: boolean,
   allowedHallIds: string[]
 ) {
-  const rows = restrictHalls
-    ? await prisma.$queryRaw<HallMapPresetRow[]>`
-        SELECT
-          hmp.id,
-          hmp.organization_id AS "organizationId",
-          hmp.hall_id AS "hallId",
-          hmp.name,
-          hmp.objects,
-          hmp.created_at AS "createdAt",
-          hmp.updated_at AS "updatedAt",
-          json_build_object('id', h.id, 'name', h.name) AS hall
-        FROM hall_map_presets hmp
-        INNER JOIN halls h ON h.id = hmp.hall_id
-        WHERE hmp.organization_id = ${organizationId}::uuid
-          AND hmp.hall_id = ANY(${allowedHallIds}::uuid[])
-        ORDER BY h.name ASC, hmp.name ASC
-      `
-    : await prisma.$queryRaw<HallMapPresetRow[]>`
-        SELECT
-          hmp.id,
-          hmp.organization_id AS "organizationId",
-          hmp.hall_id AS "hallId",
-          hmp.name,
-          hmp.objects,
-          hmp.created_at AS "createdAt",
-          hmp.updated_at AS "updatedAt",
-          json_build_object('id', h.id, 'name', h.name) AS hall
-        FROM hall_map_presets hmp
-        INNER JOIN halls h ON h.id = hmp.hall_id
-        WHERE hmp.organization_id = ${organizationId}::uuid
-        ORDER BY h.name ASC, hmp.name ASC
-      `;
+  const rows = await prisma.hallMapPreset.findMany({
+    where: {
+      organizationId,
+      ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+    },
+    orderBy: [{ hall: { name: "asc" } }, { name: "asc" }],
+    include: { hall: { select: { id: true, name: true } } }
+  });
 
   return rows.map(formatPreset);
 }
@@ -130,45 +102,35 @@ async function findPresetIdentity(
   restrictHalls: boolean,
   allowedHallIds: string[]
 ) {
-  const rows = restrictHalls
-    ? await prisma.$queryRaw<HallMapPresetIdentity[]>`
-        SELECT id, hall_id AS "hallId"
-        FROM hall_map_presets
-        WHERE id = ${id}::uuid
-          AND organization_id = ${organizationId}::uuid
-          AND hall_id = ANY(${allowedHallIds}::uuid[])
-        LIMIT 1
-      `
-    : await prisma.$queryRaw<HallMapPresetIdentity[]>`
-        SELECT id, hall_id AS "hallId"
-        FROM hall_map_presets
-        WHERE id = ${id}::uuid
-          AND organization_id = ${organizationId}::uuid
-        LIMIT 1
-      `;
+  return prisma.hallMapPreset.findFirst({
+    where: {
+      id,
+      organizationId,
+      ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+    },
+    select: { id: true, hallId: true }
+  });
+}
 
-  return rows[0] ?? null;
+function createHallMapErrorResponse(error: unknown) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    return NextResponse.json(
+      { error: "A hall map with this name already exists for the selected hall." },
+      { status: 409 }
+    );
+  }
+  return createApiErrorResponse(error);
 }
 
 async function readPreset(id: string, organizationId: string) {
-  const rows = await prisma.$queryRaw<HallMapPresetRow[]>`
-    SELECT
-      hmp.id,
-      hmp.organization_id AS "organizationId",
-      hmp.hall_id AS "hallId",
-      hmp.name,
-      hmp.objects,
-      hmp.created_at AS "createdAt",
-      hmp.updated_at AS "updatedAt",
-      json_build_object('id', h.id, 'name', h.name) AS hall
-    FROM hall_map_presets hmp
-    INNER JOIN halls h ON h.id = hmp.hall_id
-    WHERE hmp.id = ${id}::uuid
-      AND hmp.organization_id = ${organizationId}::uuid
-    LIMIT 1
-  `;
-
-  return rows[0] ? formatPreset(rows[0]) : null;
+  const row = await prisma.hallMapPreset.findFirst({
+    where: { id, organizationId },
+    include: { hall: { select: { id: true, name: true } } }
+  });
+  return row ? formatPreset(row) : null;
 }
 
 export async function GET(request: Request) {
@@ -190,7 +152,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ halls, presets });
   } catch (error) {
-    return createApiErrorResponse(error);
+    return createHallMapErrorResponse(error);
   }
 }
 
@@ -215,23 +177,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const [created] = await prisma.$queryRaw<{ id: string }[]>`
-      INSERT INTO hall_map_presets (organization_id, hall_id, name, objects)
-      VALUES (
-        ${actor.organizationId}::uuid,
-        ${hall.id}::uuid,
-        ${input.name},
-        ${JSON.stringify(input.objects)}::jsonb
-      )
-      RETURNING id
-    `;
-    const preset = created
-      ? await readPreset(created.id, actor.organizationId)
-      : null;
+    const created = await prisma.hallMapPreset.create({
+      data: {
+        organizationId: actor.organizationId,
+        hallId: hall.id,
+        name: input.name,
+        objects: input.objects
+      },
+      select: { id: true }
+    });
+    const preset = await readPreset(created.id, actor.organizationId);
 
     return NextResponse.json({ preset }, { status: 201 });
   } catch (error) {
-    return createApiErrorResponse(error);
+    return createHallMapErrorResponse(error);
   }
 }
 
@@ -271,21 +230,19 @@ export async function PATCH(request: Request) {
       }
     }
 
-    await prisma.$executeRaw`
-      UPDATE hall_map_presets
-      SET
-        name = COALESCE(${input.name ?? null}, name),
-        hall_id = COALESCE(${input.hallId ?? null}::uuid, hall_id),
-        objects = COALESCE(${input.objects ? JSON.stringify(input.objects) : null}::jsonb, objects),
-        updated_at = NOW()
-      WHERE id = ${current.id}::uuid
-        AND organization_id = ${actor.organizationId}::uuid
-    `;
+    await prisma.hallMapPreset.update({
+      where: { id: current.id },
+      data: {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.hallId !== undefined ? { hallId: input.hallId } : {}),
+        ...(input.objects !== undefined ? { objects: input.objects } : {})
+      }
+    });
     const preset = await readPreset(current.id, actor.organizationId);
 
     return NextResponse.json({ preset });
   } catch (error) {
-    return createApiErrorResponse(error);
+    return createHallMapErrorResponse(error);
   }
 }
 
@@ -307,13 +264,9 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM hall_map_presets
-      WHERE id = ${preset.id}::uuid
-        AND organization_id = ${actor.organizationId}::uuid
-    `;
+    await prisma.hallMapPreset.delete({ where: { id: preset.id } });
     return NextResponse.json({ deleted: true });
   } catch (error) {
-    return createApiErrorResponse(error);
+    return createHallMapErrorResponse(error);
   }
 }
