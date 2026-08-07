@@ -4,6 +4,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/server-auth", () => ({
   requirePermission: vi.fn()
 }));
+vi.mock("@/lib/security/rate-limit", () => ({
+  enforceRateLimit: vi.fn().mockResolvedValue(null)
+}));
 vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {
     constructor(

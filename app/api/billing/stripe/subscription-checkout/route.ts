@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const schema = z.object({
   planId: z.enum(["starter", "professional", "enterprise"])
@@ -17,6 +18,13 @@ const priceVariables = {
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "stripe-subscription-checkout",
+      limit: 5,
+      windowMs: 5 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canEditSettings");
     const { planId } = schema.parse(await request.json());
     const priceId = process.env[priceVariables[planId]];

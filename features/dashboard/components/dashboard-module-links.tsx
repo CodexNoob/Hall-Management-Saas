@@ -7,28 +7,28 @@ const moduleLinks = [
     eyebrow: "Live",
     title: "Kitchen",
     description: "Menu production, quantities, workers, and completion status.",
-    metric: "34 items active",
+    actionLabel: "Open kitchen board",
     route: "/dashboard/kitchen"
   },
   {
     eyebrow: "Booking",
     title: "Calendar",
     description: "Month view with room availability and closed-date rules.",
-    metric: "8 bookings this week",
+    actionLabel: "Open calendar",
     route: "/dashboard/calendar"
   },
   {
     eyebrow: "Manage",
     title: "Events",
     description: "Full event file: client, menu, dining, staff, vendors, files.",
-    metric: "27 open files",
+    actionLabel: "Open event files",
     route: "/dashboard/events"
   },
   {
     eyebrow: "Office",
     title: "Billing",
     description: "Retainers, invoices, payment links, and balances due.",
-    metric: "$18.7k open",
+    actionLabel: "Open billing",
     route: "/dashboard/billing"
   }
 ];
@@ -57,7 +57,7 @@ export function DashboardModuleLinks() {
             {item.description}
           </p>
           <p className="mt-4 whitespace-nowrap text-sm font-black text-[#1f4d73]">
-            {item.metric}
+            {item.actionLabel}
           </p>
         </button>
       ))}

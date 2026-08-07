@@ -11,6 +11,7 @@ import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authentica
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { EventTypesSettingsPanel } from "@/features/settings/components/event-types-settings-panel";
+import { MfaSecurityPanel } from "@/features/settings/components/mfa-security-panel";
 import { SettingsSidebar } from "@/features/settings/components/settings-sidebar";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
@@ -24,7 +25,6 @@ import {
   modalSettingsNavItems,
   secondaryButton,
   settingsHubItems,
-  type IconName,
   type ModalSettingsSection,
   type SettingsResponse
 } from "@/features/settings/components/settings-shared";
@@ -291,34 +291,7 @@ export function SettingsPage({
                 {showAllSettingsContent || activeModalSection === "Security" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                     <PanelHeader title="Security" />
-
-                    {[
-                      ["Change password", "lock", ""],
-                      ["Two-factor authentication", "shield", "Enabled"],
-                      ["Active sessions", "users", "3 sessions"]
-                    ].map(([label, icon, value]) => (
-                      <button
-                        className="flex w-full items-center gap-3 border-b border-[#e6e9ed] px-4 py-3 text-left text-[11px] last:border-0 hover:bg-[#f7fafc]"
-                        key={label}
-                        onClick={() => setActiveModalSection("Security")}
-                        type="button"
-                      >
-                        <Icon name={icon as IconName} />
-                        <span className="flex-1">{label}</span>
-                        {value ? (
-                          <span
-                            className={
-                              value === "Enabled"
-                                ? "rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]"
-                                : "text-[9px] text-[#6a7483]"
-                            }
-                          >
-                            {value}
-                          </span>
-                        ) : null}
-                        <span>›</span>
-                      </button>
-                    ))}
+                    <MfaSecurityPanel />
                   </section>
                 ) : null}
 

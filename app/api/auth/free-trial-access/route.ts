@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "free-trial-access",
+      limit: 10,
+      windowMs: 10 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const payload = (await request.json().catch(() => null)) as {
       email?: unknown;
     } | null;

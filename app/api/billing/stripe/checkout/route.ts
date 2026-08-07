@@ -5,6 +5,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const schema = z.object({
   invoiceId: z.string().uuid(),
@@ -15,6 +16,13 @@ type CheckoutSession = { id: string; url: string | null };
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "stripe-payment-checkout",
+      limit: 10,
+      windowMs: 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canManagePayments");
     const input = schema.parse(await request.json());
     const invoice = await prisma.invoice.findFirst({

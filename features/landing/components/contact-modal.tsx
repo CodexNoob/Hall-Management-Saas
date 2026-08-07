@@ -78,6 +78,7 @@ export function ContactModal() {
   const [form, setForm] = useState<ContactForm>(initialForm);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -96,11 +97,15 @@ export function ContactModal() {
       }
     };
 
+    const handleOpenRequest = () => setIsOpen(true);
+
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("event-core:open-contact", handleOpenRequest);
     document.addEventListener("click", handleClick);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("event-core:open-contact", handleOpenRequest);
       document.removeEventListener("click", handleClick);
     };
   }, []);
@@ -125,7 +130,7 @@ export function ContactModal() {
     setSuccess("");
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
@@ -134,9 +139,24 @@ export function ContactModal() {
       return;
     }
 
-    setForm(initialForm);
-    setError("");
-    setSuccess("Thank you! We'll get back to you soon.");
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/support/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, pageUrl: window.location.href })
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string; reference?: string } | null;
+      if (!response.ok) throw new Error(payload?.error || "Unable to send your message.");
+      setForm(initialForm);
+      setError("");
+      setSuccess(`Your request was sent. Reference: ${payload?.reference ?? "available soon"}.`);
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Unable to send your message.");
+      setSuccess("");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleOverlayClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -290,11 +310,12 @@ export function ContactModal() {
             {success ? <p className="mt-4 text-sm font-semibold text-[#138a4f]">{success}</p> : null}
 
             <button
-              className="login-button mt-7 inline-flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl"
+              className="login-button mt-7 inline-flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
               type="submit"
             >
               <SendIcon />
-              Send Message
+              {isSubmitting ? "Sending…" : "Send Message"}
             </button>
           </form>
         </div>

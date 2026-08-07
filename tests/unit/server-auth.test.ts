@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma", () => ({
   }
 }));
 vi.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceClient: vi.fn()
+  createSupabaseTokenVerifier: vi.fn()
 }));
 
 import {
@@ -19,7 +19,7 @@ import {
   requirePermission
 } from "@/lib/auth/server-auth";
 import { prisma } from "@/lib/prisma";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
 
 const getUser = vi.fn();
 const organization = {
@@ -61,7 +61,7 @@ function authenticatedRequest() {
 describe("server authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(createSupabaseServiceClient).mockReturnValue({
+    vi.mocked(createSupabaseTokenVerifier).mockReturnValue({
       auth: { getUser }
     } as never);
     getUser.mockResolvedValue({
@@ -82,7 +82,7 @@ describe("server authorization", () => {
     ).rejects.toMatchObject({
       status: 401
     });
-    expect(createSupabaseServiceClient).not.toHaveBeenCalled();
+    expect(createSupabaseTokenVerifier).not.toHaveBeenCalled();
   });
 
   it("rejects invalid Supabase sessions", async () => {

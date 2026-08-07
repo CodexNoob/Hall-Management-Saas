@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -7,6 +9,7 @@ import {
   productLinks,
   quickLinks
 } from "@/features/landing/navigation/footer-navigation";
+import { preparePublicPageNavigation } from "@/features/landing/navigation/public-page-scroll";
 
 function FooterBrandIcon() {
   return (
@@ -36,7 +39,12 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
       <ul className="mt-8 space-y-5">
         {links.map((link) => (
           <li key={link.label}>
-            <Link className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]" href={link.href as Route}>
+            <Link
+              className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]"
+              href={link.href as Route}
+              onClick={() => preparePublicPageNavigation(link.href)}
+              scroll={false}
+            >
               <span className="text-[#1f4d73]">
                 <ChevronIcon />
               </span>

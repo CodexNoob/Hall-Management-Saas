@@ -12,7 +12,13 @@ vi.mock("@/lib/supabase/server", () => ({
   }))
 }));
 vi.mock("@/lib/auth/server-auth", () => ({
+  AuthorizationError: class AuthorizationError extends Error {
+    status = 403;
+  },
   requirePermission: vi.fn()
+}));
+vi.mock("@/lib/security/rate-limit", () => ({
+  enforceRateLimit: vi.fn().mockResolvedValue(null)
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {

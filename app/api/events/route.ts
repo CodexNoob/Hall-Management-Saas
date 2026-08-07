@@ -11,6 +11,7 @@ import {
 } from "@/features/bookings/services/booking.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 function dailyEventLimitFromIntegrations(integrations: unknown) {
   if (
@@ -93,6 +94,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "event-create",
+      limit: 30,
+      windowMs: 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canCreateBooking");
     const body = (await request.json()) as Record<string, unknown>;
     const headerKey = request.headers.get("idempotency-key") ?? undefined;

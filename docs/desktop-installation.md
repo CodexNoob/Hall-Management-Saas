@@ -21,7 +21,7 @@ npm run desktop:build
 The installer is created in:
 
 ```txt
-dist/Event Core Setup 0.1.0.exe
+dist/Event Core Setup 2.1.0.exe
 ```
 
 ## Publishing for subscribers and staff
@@ -31,7 +31,7 @@ Upload the installer to a file host such as Supabase Storage, S3, GitHub Release
 Then set this environment variable in Vercel:
 
 ```txt
-NEXT_PUBLIC_DESKTOP_INSTALLER_URL=https://your-download-url/Event%20Core%20Setup%200.1.0.exe
+NEXT_PUBLIC_DESKTOP_INSTALLER_URL=https://your-download-url/Event%20Core%20Setup%202.1.0.exe
 ```
 
 After that, subscribed users and staff can download the Windows app from the app download/help area.

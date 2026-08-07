@@ -111,9 +111,10 @@ function DesktopResetIllustration() {
 type ForgotPasswordCardProps = {
   compact?: boolean;
   onBackToLogin?: () => void;
+  onContactSupport?: () => void;
 };
 
-export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPasswordCardProps) {
+export function ForgotPasswordCard({ compact = false, onBackToLogin, onContactSupport }: ForgotPasswordCardProps) {
   const isDesktopApp = useDesktopAppMode();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -265,10 +266,15 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin }: ForgotPas
 
             <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
               Need help?{" "}
-              <Link className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="#support">
+              <button
+                className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
+                data-contact-modal={onContactSupport ? undefined : true}
+                onClick={onContactSupport}
+                type="button"
+              >
                 Contact support
                 <ExternalLinkIcon />
-              </Link>
+              </button>
             </p>
           </form>
         </div>

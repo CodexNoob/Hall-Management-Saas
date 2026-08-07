@@ -162,7 +162,7 @@ export function eventGuestCount(event: DashboardEvent) {
 
 export function statusFromEvent(event: DashboardEvent): ScheduleRow["status"] {
   if (event.amountDue && Number(event.amountDue) > 0) return "Balance due";
-  if (event.bookingStatus === "HOLD") return "On hold";
+  if (["HOLD", "TENTATIVE_HOLD"].includes(event.bookingStatus)) return "On hold";
   if (event.eventStatus.toLowerCase().includes("menu")) return "Menu review";
   return "Confirmed";
 }

@@ -57,6 +57,8 @@ function TermsFooter({ onClose }: { onClose: () => void }) {
     <footer className="flex flex-col gap-4 border-t border-[#d8dde5] bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
       <label className="flex min-w-0 cursor-pointer items-center gap-3 text-xs font-medium text-[#304669] sm:text-sm">
         <input
+          id="terms-acceptance"
+          name="termsAcceptance"
           checked={hasAgreed}
           className="h-5 w-5 shrink-0 rounded-md accent-[#2563eb]"
           onChange={(event) => setHasAgreed(event.target.checked)}

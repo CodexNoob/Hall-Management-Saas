@@ -58,6 +58,8 @@ export function DashboardOperatingSchedule({
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <select
             aria-label="Dashboard time filter"
+            id="dashboard-operating-time-filter"
+            name="operatingTimeFilter"
             className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
             onChange={(event) =>
               onTimeFilterChange(event.target.value as TimeFilter)
@@ -83,9 +85,11 @@ export function DashboardOperatingSchedule({
 
       {timeFilter === "custom" ? (
         <div className="grid gap-3 border-b border-[#d8dde5] bg-[#fbfcfd] p-4 sm:grid-cols-2">
-          <label className="text-xs font-black text-[#6a7483]">
+          <label className="text-xs font-black text-[#6a7483]" htmlFor="dashboard-custom-start-date">
             Start date
             <input
+              id="dashboard-custom-start-date"
+              name="customStartDate"
               className="mt-1 h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-bold text-[#17202a]"
               onChange={(event) => onCustomStartDateChange(event.target.value)}
               type="date"
@@ -93,9 +97,11 @@ export function DashboardOperatingSchedule({
             />
           </label>
 
-          <label className="text-xs font-black text-[#6a7483]">
+          <label className="text-xs font-black text-[#6a7483]" htmlFor="dashboard-custom-end-date">
             End date
             <input
+              id="dashboard-custom-end-date"
+              name="customEndDate"
               className="mt-1 h-10 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-bold text-[#17202a]"
               min={customStartDate}
               onChange={(event) => onCustomEndDateChange(event.target.value)}

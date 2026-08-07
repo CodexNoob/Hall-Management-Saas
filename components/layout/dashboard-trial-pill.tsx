@@ -25,13 +25,15 @@ type TrialBadgeState = {
   percentUsed: number;
   visible: boolean;
   label: string;
+  compactLabel: string;
 };
 
 const DashboardTrialContext = createContext<TrialBadgeState>({
   daysRemaining: null,
   percentUsed: 0,
   visible: false,
-  label: ""
+  label: "",
+  compactLabel: ""
 });
 
 function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState {
@@ -48,7 +50,8 @@ function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState
       daysRemaining: null,
       percentUsed: 0,
       visible: false,
-      label: ""
+      label: "",
+      compactLabel: ""
     };
   }
 
@@ -59,6 +62,12 @@ function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState
       : daysRemaining === 0
         ? "Ends today"
         : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
+  const compactLabel =
+    daysRemaining === null
+      ? "Free trial"
+      : daysRemaining === 0
+        ? "Today"
+        : `${daysRemaining}d`;
 
   const safeDaysRemaining = daysRemaining ?? TRIAL_DAYS;
   const daysUsed = Math.max(0, TRIAL_DAYS - safeDaysRemaining);
@@ -71,7 +80,8 @@ function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState
     daysRemaining,
     percentUsed,
     visible: true,
-    label
+    label,
+    compactLabel
   };
 }
 
@@ -130,14 +140,15 @@ export function DashboardTrialBadge() {
         <button
           aria-expanded={isTrialCardOpen}
           aria-haspopup="dialog"
-          className="inline-flex items-center gap-1 rounded-xl border border-[#F1C86A] bg-[#FFF8E8] px-2 py-1 text-[11px] font-black text-[#8A5700] shadow-[0_8px_24px_rgba(185,151,77,0.12)] transition hover:bg-[#FFF4D7] focus:outline-none focus:ring-2 focus:ring-[#F1C86A]/70 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs"
+          className="inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-[#F1C86A] bg-[#FFF8E8] px-2 py-1 text-[11px] font-black leading-none text-[#8A5700] shadow-[0_8px_24px_rgba(185,151,77,0.12)] transition hover:bg-[#FFF4D7] focus:outline-none focus:ring-2 focus:ring-[#F1C86A]/70 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:leading-none"
           onClick={() => setIsTrialCardOpen((current) => !current)}
           type="button"
         >
-          <Crown className="h-3.5 w-3.5 text-[#D99A00]" strokeWidth={2.5} />
+          <Crown className="h-3.5 w-3.5 shrink-0 text-[#D99A00]" strokeWidth={2.5} />
           <span>Trial</span>
-          <span className="h-1 w-1 rounded-full bg-[#D99A00]" />
-          <span>{trial.label}</span>
+          <span className="hidden h-1 w-1 rounded-full bg-[#D99A00] min-[380px]:inline-flex" />
+          <span className="sm:hidden">{trial.compactLabel}</span>
+          <span className="hidden sm:inline">{trial.label}</span>
         </button>
 
         {isTrialCardOpen ? (

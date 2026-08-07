@@ -6,6 +6,9 @@ import {
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { isAdministrativeRole } from "@/lib/auth/roles";
+import { getEnv } from "@/lib/env";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import {
   accessPermissionKeys,
   accessForRole,
@@ -79,6 +82,31 @@ function mergeIntegrationsWithRoleAccess(
   };
 }
 
+async function sendStaffInvitationEmails(inviteEmails: string[]) {
+  const env = getEnv();
+  const supabase = createSupabaseServiceClient();
+  const redirectTo = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/auth/callback`;
+  const failures: string[] = [];
+
+  await Promise.all(
+    inviteEmails.map(async (email) => {
+      const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo
+      });
+
+      if (error) {
+        failures.push(`${email}: ${error.message}`);
+      }
+    })
+  );
+
+  if (failures.length) {
+    throw new Error(
+      `Staff access was created, but the invitation email could not be sent to ${failures.join(", ")}.`
+    );
+  }
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -148,6 +176,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "staff-invite",
+      limit: 10,
+      windowMs: 10 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canEditStaff");
     const input = (await request.json().catch(() => null)) as Record<
       string,
@@ -262,6 +297,7 @@ export async function POST(request: Request) {
 
       return results;
     });
+    await sendStaffInvitationEmails(inviteEmails);
 
     return NextResponse.json({
       staff: createdStaff.map((item) => ({
@@ -528,5 +564,3 @@ export async function DELETE(request: Request) {
     return createApiErrorResponse(error);
   }
 }
-
-

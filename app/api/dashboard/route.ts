@@ -114,7 +114,7 @@ export async function GET(request: Request) {
             organizationId: actor.organizationId,
             deleted: false,
             eventDate: { gte: defaultStart },
-            bookingStatus: { in: ["CONFIRMED", "HOLD"] },
+            bookingStatus: { in: ["CONFIRMED", "HOLD", "TENTATIVE_HOLD"] },
             ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
           },
           select: { id: true, bookingStatus: true }
@@ -180,7 +180,7 @@ export async function GET(request: Request) {
         (event) => event.bookingStatus === "CONFIRMED"
       ).length,
       onHold: upcomingBookedEvents.filter(
-        (event) => event.bookingStatus === "HOLD"
+        (event) => ["HOLD", "TENTATIVE_HOLD"].includes(event.bookingStatus)
       ).length
     };
 

@@ -18,7 +18,6 @@ import {
   Lightbulb,
   Rocket,
   Search,
-  Send,
   Settings,
   ShieldQuestion,
   Users,
@@ -26,6 +25,7 @@ import {
   X,
   Zap
 } from "lucide-react";
+import { SupportCenterPanel } from "@/features/support/components/support-center-panel";
 
 const popularTopics = [
   { label: "New Booking", icon: CalendarPlus },
@@ -226,12 +226,21 @@ function IconTile({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function HelpCenterContent({ onClose }: { onClose: () => void }) {
+export function HelpCenterContent({
+  initialSupportFormOpen = false,
+  onClose
+}: {
+  initialSupportFormOpen?: boolean;
+  onClose: () => void;
+}) {
   const [openGuide, setOpenGuide] = useState("");
   const [openAction, setOpenAction] = useState<string | null>(null);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [showAllFaqs, setShowAllFaqs] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSupportFormOpen, setIsSupportFormOpen] = useState(
+    initialSupportFormOpen
+  );
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleHelpRows = helpRows.filter((row) =>
     `${row.title} ${row.body} ${row.details.join(" ")}`
@@ -418,9 +427,13 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
                       <button
                         aria-expanded={isOpen}
                         className="flex w-full items-center gap-2.5 px-2 py-2 text-left"
-                        onClick={() =>
-                          setOpenAction(isOpen ? null : action.label)
-                        }
+                        onClick={() => {
+                          if (action.label === "Report an Issue") {
+                            setIsSupportFormOpen(true);
+                            return;
+                          }
+                          setOpenAction(isOpen ? null : action.label);
+                        }}
                         type="button"
                       >
                         <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa]">
@@ -507,33 +520,11 @@ export function HelpCenterContent({ onClose }: { onClose: () => void }) {
               </button>
             </section>
 
-            <section className="rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm">
-              <div className="grid grid-cols-[64px_minmax(0,1fr)] gap-3">
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-[#eef4ff]">
-                  <Headphones className="h-8 w-8 text-[#1f4d73]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black text-[#071427]">
-                    Need more help?
-                  </h3>
-                  <p className="mt-1.5 text-xs leading-5 text-[#617086]">
-                    Need help with a booking, invoice, hall map, or staff
-                    permission? Contact your administrator for support.
-                  </p>
-                </div>
-              </div>
-              <button
-                className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-lg shadow-[#1f4d73]/18 transition hover:bg-[#15344f]"
-                onClick={() => {
-                  window.location.href =
-                    "mailto:?subject=Event%20Core%20support%20request";
-                }}
-                type="button"
-              >
-                Contact Administrator
-                <Send className="h-4 w-4" />
-              </button>
-            </section>
+            <SupportCenterPanel
+              formOpen={isSupportFormOpen}
+              onFormClose={() => setIsSupportFormOpen(false)}
+              onFormOpen={() => setIsSupportFormOpen(true)}
+            />
           </aside>
         </div>
       </div>

@@ -168,6 +168,8 @@ export function DocumentationPage() {
             <Search className="h-5 w-5 text-[#1f4d73]" />
             <span className="sr-only">Search documentation</span>
             <input
+              id="documentation-search"
+              name="documentationSearch"
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search bookings, billing, staff…"

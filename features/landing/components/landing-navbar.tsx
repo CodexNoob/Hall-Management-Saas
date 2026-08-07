@@ -3,6 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  preparePublicPageNavigation,
+  restorePublicPageScroll
+} from "@/features/landing/navigation/public-page-scroll";
 
 function LandingLogo() {
   return (
@@ -29,6 +33,10 @@ export function LandingNavbar() {
       new CustomEvent("event-core:open-auth", { detail: view })
     );
   }
+
+  useEffect(() => {
+    restorePublicPageScroll();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -103,7 +111,12 @@ export function LandingNavbar() {
           <Link className="saas-nav-link" href="/#pricing">
             Pricing
           </Link>
-          <Link className="saas-nav-link" href="/documentation">
+          <Link
+            className="saas-nav-link"
+            href="/documentation"
+            onClick={() => preparePublicPageNavigation("/documentation")}
+            scroll={false}
+          >
             Documentation
           </Link>
           <button
@@ -170,7 +183,19 @@ export function LandingNavbar() {
             ["Pricing", "/#pricing"],
             ["Documentation", "/documentation"]
           ] as const).map(([label, href]) => (
-            <Link className="rounded-xl px-4 py-3 transition hover:bg-[#eef4fa] hover:text-[#1f4d73]" href={href} key={label} onClick={() => setIsMobileMenuOpen(false)}>{label}</Link>
+            <Link
+              className="rounded-xl px-4 py-3 transition hover:bg-[#eef4fa] hover:text-[#1f4d73]"
+              href={href}
+              key={label}
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                if (href === "/documentation")
+                  preparePublicPageNavigation(href);
+              }}
+              scroll={href === "/documentation" ? false : undefined}
+            >
+              {label}
+            </Link>
           ))}
           <button
             className="rounded-xl px-4 py-3 text-left font-bold transition hover:bg-[#eef4fa] hover:text-[#1f4d73]"

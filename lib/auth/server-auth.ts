@@ -1,7 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 
 export type Permission =
@@ -53,7 +53,7 @@ export async function requireAuthenticatedUser(request: Request) {
     throw new AuthorizationError(401, "Authentication required.");
   }
 
-  const supabase = createSupabaseServiceClient();
+  const supabase = createSupabaseTokenVerifier();
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user?.email) {

@@ -86,6 +86,8 @@ BEGIN
     'payment_refunds',
     'payment_receipts',
     'payment_provider_webhook_events',
+    'bank_connections',
+    'bank_transactions',
     'vendors',
     'invoices',
     'invoice_line_items',
@@ -98,10 +100,14 @@ BEGIN
     'notification_preferences',
     'clients',
     'today_notes',
-    'dining_plans'
+    'dining_plans',
+    'hall_map_presets',
+    'support_tickets',
+    'support_ticket_messages'
   ]
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', tenant_table);
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon', tenant_table);
     EXECUTE format('DROP POLICY IF EXISTS tenant_member_access ON public.%I', tenant_table);
     EXECUTE format(
       'CREATE POLICY tenant_member_access ON public.%I FOR ALL TO authenticated USING (public.is_organization_member(organization_id)) WITH CHECK (public.is_organization_member(organization_id))',
@@ -110,6 +116,15 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.activity_logs FROM authenticated;
+REVOKE ALL ON TABLE public.payment_provider_webhook_events FROM anon, authenticated;
+
+ALTER TABLE public.newsletter_subscribers ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.newsletter_subscribers FROM anon, authenticated;
+
+ALTER TABLE public.api_rate_limit_buckets ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.api_rate_limit_buckets FROM anon, authenticated;
 
 DROP POLICY IF EXISTS tenant_storage_select ON storage.objects;
 CREATE POLICY tenant_storage_select

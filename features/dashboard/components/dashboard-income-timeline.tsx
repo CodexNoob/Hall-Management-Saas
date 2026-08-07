@@ -35,6 +35,8 @@ export function DashboardIncomeTimeline({
 
         <select
           aria-label="Income timeline filter"
+          id="dashboard-income-time-filter"
+          name="incomeTimeFilter"
           className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
           onChange={(event) =>
             onFinanceTimeFilterChange(event.target.value as TimeFilter)

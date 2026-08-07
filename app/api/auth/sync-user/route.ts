@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
 import { isAdministrativeRole } from "@/lib/auth/roles";
+import { accessForRole, normalizeStaffRole } from "@/lib/auth/permissions";
 import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
 import { createActivityLog } from "@/lib/audit/activity-log";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -37,6 +39,13 @@ function createOrganizationSlug(name: string, authUserId: string) {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "auth-sync-user",
+      limit: 30,
+      windowMs: 10 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const token = getBearerToken(request);
 
     if (!token) {
@@ -46,7 +55,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createSupabaseServiceClient();
+    const supabase = createSupabaseTokenVerifier();
     const { data, error } = await supabase.auth.getUser(token);
 
     if (error || !data.user?.email) {
@@ -146,34 +155,10 @@ export async function POST(request: NextRequest) {
         }
 
         const isAdministrator = isAdministrativeRole(user.role);
-        const memberViewAccess = {
-          canViewHome: true,
-          canViewCalendar: true,
-          canViewEventManager: true,
-          canViewKitchenDashboard: true,
-          canViewMenu: true,
-          canViewSettings: true,
-          canSeeSchoolEvents: true,
-          canSeeSimchaEvents: true,
-          canViewPaymentInfo: true
-        };
-        const administratorAccess = {
-          ...memberViewAccess,
-          canCreateBooking: true,
-          canEditMenu: true,
-          canEditSettings: true,
-          canEditStaff: true,
-          canEditVendors: true,
-          canEditClients: true,
-          canEditFiles: true,
-          canAssignWorkers: true,
-          canUpdateKitchenStatus: true,
-          canAddKitchenEvents: true,
-          canManageSchoolSchedule: true,
-          canManagePayments: true,
-          canSendPaymentEmail: true,
-          canUseNiceHomeBackground: true
-        };
+        const resolvedRole = isAdministrator
+          ? "owner"
+          : normalizeStaffRole(user.role);
+        const resolvedAccess = accessForRole(resolvedRole);
 
         await transaction.organizationMembership.upsert({
           where: {
@@ -184,12 +169,12 @@ export async function POST(request: NextRequest) {
           },
           update: {
             isActive: true,
-            ...(isAdministrator ? { role: "owner" } : {})
+            role: resolvedRole
           },
           create: {
             organizationId: user.organizationId,
             userId: user.id,
-            role: isAdministrator ? "owner" : "member"
+            role: resolvedRole
           }
         });
 
@@ -200,12 +185,11 @@ export async function POST(request: NextRequest) {
               userId: user.id
             }
           },
-          update: isAdministrator ? administratorAccess : memberViewAccess,
+          update: resolvedAccess,
           create: {
             organizationId: user.organizationId,
             userId: user.id,
-            ...memberViewAccess,
-            ...(isAdministrator ? administratorAccess : {})
+            ...resolvedAccess
           }
         });
 

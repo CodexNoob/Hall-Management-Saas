@@ -116,6 +116,11 @@ export function AuthModal() {
     }
   };
 
+  const openContactSupport = () => {
+    close();
+    window.dispatchEvent(new CustomEvent("event-core:open-contact"));
+  };
+
   const switchAuthView = (nextView: AuthView) => {
     if (isSwitching || nextView === authView) {
       return;
@@ -222,6 +227,7 @@ export function AuthModal() {
               <ForgotPasswordCard
                 compact
                 onBackToLogin={() => switchAuthView("login")}
+                onContactSupport={openContactSupport}
               />
             )}
           </div>

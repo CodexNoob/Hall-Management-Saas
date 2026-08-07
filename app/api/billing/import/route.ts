@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const schema = z.object({
   rows: z
@@ -21,6 +22,13 @@ const schema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "billing-import",
+      limit: 5,
+      windowMs: 10 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canManagePayments");
     const input = schema.parse(await request.json());
     const connection = await prisma.bankConnection.findFirst({

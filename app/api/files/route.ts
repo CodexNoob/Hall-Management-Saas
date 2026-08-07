@@ -3,11 +3,28 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { getEnv } from "@/lib/env";
+
+const allowedContentTypes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/csv",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4"
+]);
+
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
 
 const fileMutationSchema = z.discriminatedUnion("resource", [
   z.object({
     resource: z.literal("folder"),
-    name: z.string().trim().min(1),
+    name: z.string().trim().min(1).max(120),
     parentId: z.string().uuid().nullable().optional(),
     eventId: z.string().uuid().optional()
   }),
@@ -16,11 +33,16 @@ const fileMutationSchema = z.discriminatedUnion("resource", [
     clientId: z.string().uuid().optional(),
     folderId: z.string().uuid().optional(),
     eventId: z.string().uuid().optional(),
-    bucket: z.string().trim().min(1),
-    storagePath: z.string().trim().min(1),
-    fileName: z.string().trim().min(1),
-    contentType: z.string().trim().optional(),
-    sizeBytes: z.number().int().nonnegative().optional()
+    bucket: z.string().trim().min(1).max(100),
+    storagePath: z.string().trim().min(1).max(1024),
+    fileName: z
+      .string()
+      .trim()
+      .min(1)
+      .max(180)
+      .refine((name) => !/[\\/\u0000-\u001f]/.test(name), "Invalid file name."),
+    contentType: z.string().trim().refine((type) => allowedContentTypes.has(type), "Unsupported file type."),
+    sizeBytes: z.number().int().positive().max(MAX_FILE_SIZE_BYTES)
   })
 ]);
 const folderUpdateSchema = z.object({
@@ -70,6 +92,13 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "file-create",
+      limit: 40,
+      windowMs: 60 * 1000
+    });
+    if (limited) return limited;
+
     const actor = await requirePermission(request, "canEditFiles");
     const input = fileMutationSchema.parse(await request.json());
 
@@ -104,7 +133,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const [event, client] = await Promise.all([
+    if (input.storagePath.includes("..") || input.storagePath.includes("\\")) {
+      return NextResponse.json(
+        { error: "Invalid storage path." },
+        { status: 400 }
+      );
+    }
+
+    const env = getEnv();
+    const allowedBuckets = new Set([
+      env.SUPABASE_STORAGE_BUCKET_FILES,
+      env.SUPABASE_STORAGE_BUCKET_LAYOUTS,
+      env.SUPABASE_STORAGE_BUCKET_PDFS
+    ]);
+    if (!allowedBuckets.has(input.bucket)) {
+      return NextResponse.json(
+        { error: "Storage bucket is not allowed." },
+        { status: 400 }
+      );
+    }
+
+    const [event, client, folder] = await Promise.all([
       input.eventId
         ? prisma.event.findFirst({
             where: { id: input.eventId, organizationId: actor.organizationId },
@@ -116,11 +165,21 @@ export async function POST(request: Request) {
             where: { id: input.clientId, organizationId: actor.organizationId },
             select: { id: true }
           })
+        : null,
+      input.folderId
+        ? prisma.fileFolder.findFirst({
+            where: { id: input.folderId, organizationId: actor.organizationId },
+            select: { id: true }
+          })
         : null
     ]);
-    if ((input.eventId && !event) || (input.clientId && !client)) {
+    if (
+      (input.eventId && !event) ||
+      (input.clientId && !client) ||
+      (input.folderId && !folder)
+    ) {
       return NextResponse.json(
-        { error: "Event or client not found." },
+        { error: "Event, client, or folder not found." },
         { status: 404 }
       );
     }

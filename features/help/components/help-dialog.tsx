@@ -132,8 +132,11 @@ export function HelpDialog({
         className="flex max-h-[calc(100dvh-24px)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/70 bg-[#f5f6f8] text-[#17202a] shadow-2xl shadow-[#071427]/35 sm:max-h-[calc(100dvh-48px)]"
         role="dialog"
       >
-        {kind === "help-center" ? (
-          <HelpCenterContent onClose={onClose} />
+        {kind === "help-center" || kind === "report-problem" ? (
+          <HelpCenterContent
+            initialSupportFormOpen={kind === "report-problem"}
+            onClose={onClose}
+          />
         ) : kind === "terms-of-service" ? (
           <TermsOfServiceContent onClose={onClose} />
         ) : kind === "privacy-policy" ? (

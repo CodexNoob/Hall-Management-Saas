@@ -63,6 +63,8 @@ model Organization {
   todayNotes              TodayNote[]
   diningPlans             DiningPlan[]
   hallMapPresets          HallMapPreset[]
+  supportTickets          SupportTicket[]
+  supportTicketMessages   SupportTicketMessage[]
 
   @@index([isActive])
   @@map("organizations")
@@ -80,6 +82,35 @@ model NewsletterSubscriber {
 
   @@index([status, subscribedAt])
   @@map("newsletter_subscribers")
+}
+
+model ContactSupportRequest {
+  id        String   @id @default(uuid()) @db.Uuid
+  reference String   @unique
+  name      String
+  email     String
+  company   String?
+  message   String
+  status    String   @default("NEW")
+  source    String   @default("public_contact_form")
+  pageUrl   String?  @map("page_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@map("contact_support_requests")
+}
+
+model ApiRateLimitBucket {
+  id           String   @id
+  requestCount Int      @default(1) @map("request_count")
+  windowStart  DateTime @default(now()) @map("window_start")
+  expiresAt    DateTime @map("expires_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([expiresAt])
+  @@map("api_rate_limit_buckets")
 }
 
 model OrganizationMembership {
@@ -132,9 +163,56 @@ model User {
   bankConnections                  BankConnection[]
   notificationPreferences          NotificationPreference[]
   createdTodayNotes                TodayNote[]              @relation("TodayNoteCreatedBy")
+  createdSupportTickets            SupportTicket[]          @relation("SupportTicketCreatedBy")
+  supportTicketMessages            SupportTicketMessage[]   @relation("SupportTicketMessageAuthor")
 
   @@index([organizationId, isActive])
   @@map("users")
+}
+
+model SupportTicket {
+  id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @map("organization_id") @db.Uuid
+  createdById       String    @map("created_by_id") @db.Uuid
+  reference         String    @unique
+  subject           String
+  description       String
+  category          String
+  priority          String    @default("NORMAL")
+  status            String    @default("SUBMITTED")
+  pageUrl           String?   @map("page_url")
+  browser           String?
+  device            String?
+  appVersion        String?   @map("app_version")
+  diagnosticContext Json?     @map("diagnostic_context")
+  resolvedAt        DateTime? @map("resolved_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User                   @relation("SupportTicketCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  messages     SupportTicketMessage[]
+
+  @@index([organizationId, status, updatedAt])
+  @@index([createdById, updatedAt])
+  @@map("support_tickets")
+}
+
+model SupportTicketMessage {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  ticketId       String   @map("ticket_id") @db.Uuid
+  authorId       String?  @map("author_id") @db.Uuid
+  body           String
+  isStaffReply   Boolean  @default(false) @map("is_staff_reply")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ticket       SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author       User?         @relation("SupportTicketMessageAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, ticketId, createdAt])
+  @@map("support_ticket_messages")
 }
 
 model UserAccess {

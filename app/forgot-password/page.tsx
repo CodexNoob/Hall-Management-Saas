@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { ForgotPasswordCard } from "@/features/auth/components/forgot-password-card";
+import { ContactModal } from "@/features/landing/components/contact-modal";
 
 export default function ForgotPasswordPage() {
   return (
@@ -13,6 +14,7 @@ export default function ForgotPasswordPage() {
           <ForgotPasswordCard />
         </Suspense>
       </div>
+      <ContactModal />
     </main>
   );
 }

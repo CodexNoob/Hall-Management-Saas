@@ -194,6 +194,8 @@ export function StaffDialog({
               <div className="flex items-center gap-2 rounded-lg border border-[#c7d0dc] px-2 py-1.5 focus-within:border-[#1f4d73]">
                 <input
                   className="h-9 flex-1 border-0 bg-transparent px-1 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none"
+                  id="staff-invite-email"
+                  name="staffInviteEmail"
                   onChange={(event) => onInviteInputChange(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -235,6 +237,8 @@ export function StaffDialog({
               <Field label="Full name">
                 <input
                   className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id="staff-full-name"
+                  name="staffName"
                   onChange={(event) =>
                     setForm({ ...form, name: event.target.value })
                   }
@@ -246,6 +250,8 @@ export function StaffDialog({
               <Field label="Gmail / email invite">
                 <input
                   className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id="staff-email"
+                  name="staffEmail"
                   onChange={(event) =>
                     setForm({ ...form, email: event.target.value })
                   }
@@ -258,6 +264,8 @@ export function StaffDialog({
               <Field label="Phone">
                 <input
                   className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id="staff-phone"
+                  name="staffPhone"
                   onChange={(event) =>
                     setForm({ ...form, phone: event.target.value })
                   }
@@ -268,6 +276,8 @@ export function StaffDialog({
               <Field label="Department">
                 <input
                   className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id="staff-department"
+                  name="staffDepartment"
                   onChange={(event) =>
                     setForm({ ...form, department: event.target.value })
                   }
@@ -282,6 +292,8 @@ export function StaffDialog({
               <Field label="Role">
                 <select
                   className="h-11 rounded-lg border border-[#c7d0dc] bg-white px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id="staff-role"
+                  name="staffRole"
                   onChange={(event) =>
                     setForm({ ...form, role: event.target.value as RoleName })
                   }

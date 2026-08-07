@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const subscriptionSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -9,6 +10,13 @@ const subscriptionSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    const limited = await enforceRateLimit(request, {
+      scope: "newsletter-subscribe",
+      limit: 5,
+      windowMs: 10 * 60 * 1000
+    });
+    if (limited) return limited;
+
     const input = subscriptionSchema.parse(await request.json());
     const email = input.email.toLowerCase();
 

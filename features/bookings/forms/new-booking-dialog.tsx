@@ -95,6 +95,7 @@ export function NewBookingDialog({
 }: NewBookingDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
   const eventsQuery = useAuthenticatedQuery<EventsLookupResponse>(
     "/api/events",
@@ -112,12 +113,7 @@ export function NewBookingDialog({
   useEffect(() => {
     if (!open) return;
 
-    setValues({
-      ...initialValues,
-      hall: eventsQuery.data?.halls[0]?.name ?? "",
-      eventType: eventsQuery.data?.eventTypes[0]?.name ?? "",
-      eventPackage: eventsQuery.data?.packages[0]?.name ?? ""
-    });
+    setValues(initialValues);
     resetError();
 
     const previousOverflow = document.body.style.overflow;
@@ -134,7 +130,21 @@ export function NewBookingDialog({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [eventsQuery.data, onClose, open, resetError]);
+  }, [onClose, open, resetError]);
+
+  useEffect(() => {
+    const firstHallName = eventsQuery.data?.halls[0]?.name;
+    if (!open || !firstHallName) return;
+
+    setValues((current) => {
+      if (current.hall) return current;
+
+      return {
+        ...current,
+        hall: firstHallName
+      };
+    });
+  }, [eventsQuery.data, open]);
 
   if (!open) return null;
 
@@ -189,6 +199,21 @@ export function NewBookingDialog({
         day: "numeric"
       }).format(new Date(`${values.eventDate}T00:00:00`))
     : "the selected date";
+  const displayedEventDate = values.eventDate
+    ? new Intl.DateTimeFormat("en-US", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      }).format(new Date(`${values.eventDate}T00:00:00`))
+    : "";
+
+  const openDatePicker = () => {
+    const input = dateInputRef.current;
+    if (!input) return;
+
+    input.focus();
+    input.showPicker?.();
+  };
 
   return (
     <div
@@ -305,11 +330,16 @@ export function NewBookingDialog({
                   }
                   value={values.eventType}
                 >
+                  <option disabled value="">
+                    Select event type
+                  </option>
                   {!eventTypes.length ? (
                     <option value="">No event types configured</option>
                   ) : null}
                   {eventTypes.map((eventType) => (
-                    <option key={eventType.id}>{eventType.name}</option>
+                    <option key={eventType.id} value={eventType.name}>
+                      {eventType.name}
+                    </option>
                   ))}
                 </select>
                 {!eventsQuery.isLoading && eventTypes.length === 0 ? (
@@ -327,18 +357,50 @@ export function NewBookingDialog({
               </div>
               <div>
                 <FieldLabel htmlFor="booking-date">Date</FieldLabel>
-                <input
-                  className={controlClass}
-                  id="booking-date"
-                  min={new Date().toISOString().slice(0, 10)}
-                  name="eventDate"
-                  onChange={(event) =>
-                    updateValue("eventDate", event.target.value)
-                  }
-                  required
-                  type="date"
-                  value={values.eventDate}
-                />
+                <div className="relative">
+                  <button
+                    aria-label="Open booking date calendar"
+                    className={`${controlClass} flex items-center justify-between pr-10 text-left`}
+                    onClick={openDatePicker}
+                    type="button"
+                  >
+                    <span
+                      className={
+                        displayedEventDate ? "text-[#17202a]" : "text-[#64748b]"
+                      }
+                    >
+                      {displayedEventDate || "mm/dd/yyyy"}
+                    </span>
+                  </button>
+                  <input
+                    className="absolute right-0 top-0 h-10 w-10 cursor-pointer opacity-0"
+                    id="booking-date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    name="eventDate"
+                    onChange={(event) =>
+                      updateValue("eventDate", event.target.value)
+                    }
+                    ref={dateInputRef}
+                    required
+                    tabIndex={-1}
+                    type="date"
+                    value={values.eventDate}
+                  />
+                  <svg
+                    aria-hidden="true"
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#17202a]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M8 2v4M16 2v4" />
+                    <rect height="18" rx="2" width="18" x="3" y="4" />
+                    <path d="M3 10h18" />
+                  </svg>
+                </div>
               </div>
               <div>
                 <FieldLabel htmlFor="booking-hall">Hall / room</FieldLabel>
@@ -423,7 +485,8 @@ export function NewBookingDialog({
               disabled={
                 bookingMutation.isPending ||
                 !hallReady(eventsQuery.data) ||
-                eventTypes.length === 0
+                eventTypes.length === 0 ||
+                !values.eventType
               }
               type="submit"
               value="proposal"
@@ -435,7 +498,8 @@ export function NewBookingDialog({
               disabled={
                 bookingMutation.isPending ||
                 !hallReady(eventsQuery.data) ||
-                eventTypes.length === 0
+                eventTypes.length === 0 ||
+                !values.eventType
               }
               type="submit"
               value="save"

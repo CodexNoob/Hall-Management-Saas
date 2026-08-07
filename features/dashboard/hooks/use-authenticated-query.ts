@@ -15,7 +15,10 @@ type CachedQuery = {
   updatedAt: number;
 };
 
-const QUERY_STALE_TIME_MS = 30 * 1000;
+// Dashboard data remains immediately reusable while navigating between modules.
+// Mutations explicitly invalidate affected queries, so a longer stale window avoids
+// repeating identical API/database work during ordinary navigation.
+const QUERY_STALE_TIME_MS = 2 * 60 * 1000;
 const queryCache = new Map<string, CachedQuery>();
 const queriesInFlight = new Map<string, Promise<unknown>>();
 let queryCacheGeneration = 0;

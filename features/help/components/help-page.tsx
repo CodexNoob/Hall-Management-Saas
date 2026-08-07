@@ -5,6 +5,7 @@ import { AppInstallCard } from "@/features/help/components/app-install-card";
 
 export type HelpPageKind =
   | "help-center"
+  | "report-problem"
   | "release-notes"
   | "download-apps"
   | "terms-of-service"
@@ -71,6 +72,12 @@ export const helpPages: Record<
         body: "Staff members use the same installer. Their dashboard access depends on the account and permissions assigned by the subscribed organization."
       }
     ]
+  },
+  "report-problem": {
+    eyebrow: "Support",
+    title: "Report a problem",
+    subtitle: "Send a trackable support request to the Event Core team.",
+    sections: []
   },
   "terms-of-service": {
     eyebrow: "Legal",

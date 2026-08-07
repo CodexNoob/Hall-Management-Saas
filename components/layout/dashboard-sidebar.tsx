@@ -2,12 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { EditProfileDialog } from "@/components/forms/edit-profile-dialog";
-import { LogoutConfirmationDialog } from "@/components/forms/logout-confirmation-dialog";
-import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
-import { SettingsDialog } from "@/features/settings/components/settings-dialog";
-import { HelpDialog } from "@/features/help/components/help-dialog";
 import type { HelpPageKind } from "@/features/help/components/help-page";
 import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
@@ -19,6 +15,32 @@ import {
   getInitials,
   sidebarSections
 } from "@/components/layout/dashboard-sidebar-shared";
+
+const EditProfileDialog = dynamic(() =>
+  import("@/components/forms/edit-profile-dialog").then(
+    (module) => module.EditProfileDialog
+  )
+);
+const LogoutConfirmationDialog = dynamic(() =>
+  import("@/components/forms/logout-confirmation-dialog").then(
+    (module) => module.LogoutConfirmationDialog
+  )
+);
+const UpgradePlanDialog = dynamic(() =>
+  import("@/components/forms/upgrade-plan-dialog").then(
+    (module) => module.UpgradePlanDialog
+  )
+);
+const SettingsDialog = dynamic(() =>
+  import("@/features/settings/components/settings-dialog").then(
+    (module) => module.SettingsDialog
+  )
+);
+const HelpDialog = dynamic(() =>
+  import("@/features/help/components/help-dialog").then(
+    (module) => module.HelpDialog
+  )
+);
 
 type DashboardSidebarProps = {
   user: SyncedUser;
@@ -671,6 +693,10 @@ export function DashboardSidebar({
                   >
                     {(
                       [
+                        {
+                          label: "Report a problem",
+                          kind: "report-problem"
+                        },
                         { label: "Help Center", kind: "help-center" },
                         {
                           label: "Release Notes",
@@ -779,38 +805,48 @@ export function DashboardSidebar({
         )}
       </aside>
 
-      <EditProfileDialog
-        initialValues={{
-          displayName: profileName,
-          username: profileUsername
-        }}
-        initials={initials}
-        onClose={() => setIsEditProfileDialogOpen(false)}
-        onSave={(values) => {
-          setProfileName(values.displayName);
-          setProfileUsername(values.username);
-          setIsEditProfileDialogOpen(false);
-        }}
-        open={isEditProfileDialogOpen}
-      />
-      <LogoutConfirmationDialog
-        onClose={() => setIsLogoutDialogOpen(false)}
-        onConfirm={logout}
-        open={isLogoutDialogOpen}
-      />
-      <SettingsDialog
-        onClose={() => setIsSettingsDialogOpen(false)}
-        open={isSettingsDialogOpen}
-      />
-      <HelpDialog
-        kind={helpDialogKind ?? "help-center"}
-        onClose={() => setHelpDialogKind(null)}
-        open={Boolean(helpDialogKind)}
-      />
-      <UpgradePlanDialog
-        onClose={() => setIsUpgradePlanDialogOpen(false)}
-        open={isUpgradePlanDialogOpen}
-      />
+      {isEditProfileDialogOpen ? (
+        <EditProfileDialog
+          initialValues={{
+            displayName: profileName,
+            username: profileUsername
+          }}
+          initials={initials}
+          onClose={() => setIsEditProfileDialogOpen(false)}
+          onSave={(values) => {
+            setProfileName(values.displayName);
+            setProfileUsername(values.username);
+            setIsEditProfileDialogOpen(false);
+          }}
+          open
+        />
+      ) : null}
+      {isLogoutDialogOpen ? (
+        <LogoutConfirmationDialog
+          onClose={() => setIsLogoutDialogOpen(false)}
+          onConfirm={logout}
+          open
+        />
+      ) : null}
+      {isSettingsDialogOpen ? (
+        <SettingsDialog
+          onClose={() => setIsSettingsDialogOpen(false)}
+          open
+        />
+      ) : null}
+      {helpDialogKind ? (
+        <HelpDialog
+          kind={helpDialogKind}
+          onClose={() => setHelpDialogKind(null)}
+          open
+        />
+      ) : null}
+      {isUpgradePlanDialogOpen ? (
+        <UpgradePlanDialog
+          onClose={() => setIsUpgradePlanDialogOpen(false)}
+          open
+        />
+      ) : null}
     </>
   );
 }

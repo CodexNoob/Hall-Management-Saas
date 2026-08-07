@@ -180,7 +180,7 @@ export function StaffPage() {
       setInviteEmails([]);
       await refreshStaff(
         dialogMode === "add"
-          ? "Staff invitation created. They can sign in with that email."
+          ? "Staff invitation email sent. They can use the invite link to join."
           : "Staff member updated."
       );
     } catch (error) {
@@ -776,7 +776,11 @@ export function StaffPage() {
                 <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#687588]">
                   Permission group
                 </span>
-                <select className="h-10 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold text-[#17202a] outline-none focus:border-[#1f4d73]">
+                <select
+                  className="h-10 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold text-[#17202a] outline-none focus:border-[#1f4d73]"
+                  id={`staff-permission-summary-${selectedStaff.id}`}
+                  name="staffPermissionSummary"
+                >
                   {matrixColumns.map((permission) => {
                     const hasAccess = hasPermissionGroup(
                       selectedAccess ??
@@ -815,6 +819,13 @@ export function StaffPage() {
                         )}
                         className="hidden"
                         disabled
+                        id={`staff-permission-${selectedStaff.id}-${permission.label
+                          .toLowerCase()
+                          .replace(/[^a-z0-9]+/g, "-")}`}
+                        name={`staffPermission${permission.label.replace(
+                          /[^a-zA-Z0-9]+/g,
+                          ""
+                        )}`}
                         onChange={(event) =>
                           togglePermissionGroup(
                             permission.permissions,

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-const { app, BrowserView, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, shell, WebContentsView } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
 const packageJson = require("../package.json");
@@ -199,6 +199,14 @@ function isMarketingRoot(url) {
   }
 }
 
+function isSameAppUrl(url) {
+  try {
+    return new URL(url).origin === APP_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
 function configureAutoUpdater(mainWindow) {
   if (!app.isPackaged) {
     return;
@@ -258,6 +266,12 @@ function attachAppWindowHandlers(webContents) {
   });
 
   webContents.on("will-navigate", (event, url) => {
+    if (!isSameAppUrl(url)) {
+      event.preventDefault();
+      shell.openExternal(url).catch(() => {});
+      return;
+    }
+
     if (!isMarketingRoot(url)) return;
 
     event.preventDefault();
@@ -271,19 +285,23 @@ function attachAppWindowHandlers(webContents) {
   });
 
   webContents.setWindowOpenHandler(({ url }) => {
-    const isSameApp = new URL(url).origin === APP_ORIGIN;
-
     if (isMarketingRoot(url)) {
       webContents.loadURL(DESKTOP_LOGIN_URL);
       return { action: "deny" };
     }
 
-    if (isSameApp) {
-      return { action: "allow" };
+    if (isSameAppUrl(url)) {
+      webContents.loadURL(url);
+      return { action: "deny" };
     }
 
-    shell.openExternal(url);
+    shell.openExternal(url).catch(() => {});
     return { action: "deny" };
+  });
+
+  webContents.session.setPermissionCheckHandler(() => false);
+  webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
   });
 }
 
@@ -301,7 +319,7 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(LOADING_SCREEN_HTML)}`);
 
-  const appView = new BrowserView({
+  const appView = new WebContentsView({
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -322,9 +340,8 @@ function createWindow() {
     appView.setBounds({ x: -10, y: -10, width: 1, height: 1 });
   };
 
-  mainWindow.setBrowserView(appView);
+  mainWindow.contentView.addChildView(appView);
   hideAppView();
-  appView.setAutoResize({ width: true, height: true });
   mainWindow.on("resize", resizeAppView);
 
   attachAppWindowHandlers(appView.webContents);
@@ -368,12 +385,7 @@ function createWindow() {
 
   rendererLoaded.then(revealAppView);
   setTimeout(revealAppView, STARTUP_REVEAL_FALLBACK_MS);
-  appView.webContents.session
-    .clearCache()
-    .catch(() => {})
-    .finally(() => {
-      appView.webContents.loadURL(APP_URL);
-    });
+  appView.webContents.loadURL(APP_URL);
 }
 
 app.whenReady().then(() => {

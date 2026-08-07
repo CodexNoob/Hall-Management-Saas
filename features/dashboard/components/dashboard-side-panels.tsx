@@ -11,6 +11,7 @@ import {
 
 type DashboardSidePanelsProps = {
   isLoading: boolean;
+  onNewBooking: () => void;
   rangeLabel: string;
   timelineGroups: TimelineGroup[];
   totalEvents: number;
@@ -18,6 +19,7 @@ type DashboardSidePanelsProps = {
 
 export function DashboardSidePanels({
   isLoading,
+  onNewBooking,
   rangeLabel,
   timelineGroups,
   totalEvents
@@ -31,7 +33,7 @@ export function DashboardSidePanels({
         totalEvents={totalEvents}
       />
       <AttentionNeededPanel />
-      <QuickActionsPanel />
+      <QuickActionsPanel onNewBooking={onNewBooking} />
     </div>
   );
 }
@@ -41,7 +43,7 @@ function EventsTimelinePanel({
   rangeLabel,
   timelineGroups,
   totalEvents
-}: DashboardSidePanelsProps) {
+}: Omit<DashboardSidePanelsProps, "onNewBooking">) {
   const router = useRouter();
 
   return (
@@ -152,14 +154,14 @@ function AttentionNeededPanel() {
   );
 }
 
-function QuickActionsPanel() {
+function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
   const router = useRouter();
   const actions = [
-    ["Book event", "/dashboard/events"],
-    ["Kitchen board", "/dashboard/kitchen"],
-    ["Open billing", "/dashboard/billing"],
-    ["Dining sheets", "/dashboard/dining-manager"]
-  ] as const;
+    { label: "Book event", action: onNewBooking },
+    { label: "Kitchen board", route: "/dashboard/kitchen" },
+    { label: "Open billing", route: "/dashboard/billing" },
+    { label: "Dining sheets", route: "/dashboard/dining-manager" }
+  ];
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
@@ -168,14 +170,21 @@ function QuickActionsPanel() {
       </div>
 
       <div className="grid gap-3 p-4 sm:grid-cols-2">
-        {actions.map(([label, route]) => (
+        {actions.map((item) => (
           <button
             className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
-            key={route}
+            key={item.label}
             type="button"
-            onClick={() => router.push(route)}
+            onClick={() => {
+              if ("action" in item) {
+                item.action();
+                return;
+              }
+
+              router.push(item.route);
+            }}
           >
-            {label}
+            {item.label}
           </button>
         ))}
       </div>
