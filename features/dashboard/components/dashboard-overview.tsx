@@ -44,6 +44,7 @@ type DashboardOverviewProps = {
   onCustomEndDateChange: (value: string) => void;
   onCustomStartDateChange: (value: string) => void;
   onFinanceTimeFilterChange: (value: TimeFilter) => void;
+  onNewBooking: () => void;
   onSchedulePageChange: (value: number | ((current: number) => number)) => void;
   onTimeFilterChange: (value: TimeFilter) => void;
 };
@@ -74,6 +75,7 @@ export function DashboardOverview({
   onCustomEndDateChange,
   onCustomStartDateChange,
   onFinanceTimeFilterChange,
+  onNewBooking,
   onSchedulePageChange,
   onTimeFilterChange
 }: DashboardOverviewProps) {
@@ -117,6 +119,7 @@ export function DashboardOverview({
 
         <DashboardSidePanels
           isLoading={isDashboardLoading}
+          onNewBooking={onNewBooking}
           rangeLabel={rangeLabel}
           timelineGroups={timelineGroups}
           totalEvents={totalEvents}

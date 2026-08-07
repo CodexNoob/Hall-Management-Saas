@@ -263,6 +263,7 @@ export function DashboardShell({
           onCustomEndDateChange={setCustomEndDate}
           onCustomStartDateChange={setCustomStartDate}
           onFinanceTimeFilterChange={setFinanceTimeFilter}
+          onNewBooking={() => setIsNewBookingOpen(true)}
           onSchedulePageChange={setSchedulePage}
           onTimeFilterChange={setTimeFilter}
         />

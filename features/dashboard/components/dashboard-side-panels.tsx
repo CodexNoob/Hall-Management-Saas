@@ -156,7 +156,10 @@ function AttentionNeededPanel() {
 
 function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
   const router = useRouter();
-  const actions = [
+  const actions: Array<
+    | { label: string; action: () => void }
+    | { label: string; route: string }
+  > = [
     { label: "Book event", action: onNewBooking },
     { label: "Kitchen board", route: "/dashboard/kitchen" },
     { label: "Open billing", route: "/dashboard/billing" },
@@ -181,7 +184,7 @@ function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
                 return;
               }
 
-              router.push(item.route);
+              router.push(item.route as Parameters<typeof router.push>[0]);
             }}
           >
             {item.label}
