@@ -60,6 +60,7 @@ export type SyncedOrganization = {
 export type SyncSignedInUserResponse = {
   user: SyncedUser;
   access: SyncedUserAccess;
+  mustSetPassword: boolean;
   activeOrganizationId: string;
   organizations: SyncedOrganization[];
 };
@@ -107,6 +108,7 @@ function isSyncSignedInUserResponse(
     payload.access &&
     typeof payload.user === "object" &&
     typeof payload.access === "object" &&
+    typeof payload.mustSetPassword === "boolean" &&
     typeof payload.activeOrganizationId === "string" &&
     Array.isArray(payload.organizations)
   );
@@ -245,6 +247,30 @@ export function syncSignedInUser(
   void promise.then(clearInFlight, clearInFlight);
 
   return promise;
+}
+
+/**
+ * Records that the signed-in user now owns a password of their own. The password
+ * itself is changed client-side through supabase.auth.updateUser, which the
+ * server cannot observe, so it has to be told separately.
+ */
+export async function markPasswordSet(accessToken: string) {
+  const response = await fetch("/api/auth/password-set", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+    throw new Error(
+      payload?.error ??
+        "Your password was saved, but your account could not be updated."
+    );
+  }
 }
 
 export async function signInWithOAuthProvider(

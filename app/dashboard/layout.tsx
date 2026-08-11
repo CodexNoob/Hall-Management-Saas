@@ -14,7 +14,10 @@ import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
 import { DashboardTrialProvider } from "@/components/layout/dashboard-trial-pill";
 import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
-import { getDashboardLoginPath } from "@/lib/auth/redirect";
+import {
+  getDashboardLoginPath,
+  getPasswordSetupPath
+} from "@/lib/auth/redirect";
 import type { ReactNode } from "react";
 
 function formatRole(role: string) {
@@ -136,6 +139,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         }
 
         const synced = await syncSignedInUser(data.session.access_token);
+
+        // Invited staff reach here with a session but no password of their own.
+        // Return without setSyncData so the startup screen stays up until the
+        // redirect lands, instead of flashing dashboard chrome.
+        if (synced.mustSetPassword) {
+          router.replace(
+            getPasswordSetupPath(
+              initialPathname.current
+            ) as Parameters<typeof router.replace>[0]
+          );
+          return;
+        }
 
         if (isMounted) {
           setSyncData(synced);

@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { syncSignedInUser } from "@/lib/auth/client";
+import { getPasswordValidationError } from "@/lib/auth/password";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ArrowLoginIcon, BuildingIcon, EmailIcon, EyeIcon, LockIcon, PhoneIcon, ShieldIcon, UserIcon } from "@/features/auth/components/auth-icons";
@@ -122,8 +123,13 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
       return;
     }
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
+    const passwordError = getPasswordValidationError(
+      form.password,
+      form.confirmPassword
+    );
+
+    if (passwordError) {
+      setError(passwordError);
       return;
     }
 
