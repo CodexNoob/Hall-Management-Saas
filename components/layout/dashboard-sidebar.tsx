@@ -285,7 +285,10 @@ export function DashboardSidebar({
     setIsProfileMenuOpen(false);
 
     const supabase = createSupabaseBrowserClient();
-    const { error } = await supabase.auth.signOut();
+    // Local scope: end only this device's session. Global (the default)
+    // revokes every session for the account - "Sign out other sessions" in
+    // the security settings panel already covers that intentionally.
+    const { error } = await supabase.auth.signOut({ scope: "local" });
     if (error) throw error;
 
     clearAuthenticatedQueryCache();
