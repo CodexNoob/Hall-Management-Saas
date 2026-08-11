@@ -251,13 +251,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
+    console.error("Signed-in user sync failed", error);
+
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to sync the signed-in user."
-      },
+      { error: "Unable to sync the signed-in user. Please try again." },
       { status: 500 }
     );
   }
