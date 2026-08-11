@@ -58,6 +58,10 @@ export function HallRoomMapPage() {
   const [mapName, setMapName] = useState("");
   const [mapHallId, setMapHallId] = useState("");
   const [feedback, setFeedback] = useState("");
+  const [saveConfirmation, setSaveConfirmation] = useState<{
+    title: string;
+    detail: string;
+  } | null>(null);
   const [mapScale, setMapScale] = useState(1);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
@@ -83,6 +87,9 @@ export function HallRoomMapPage() {
     startY: number;
   } | null>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveConfirmationTimerRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
 
   useEffect(() => {
     latestObjectsRef.current = objects;
@@ -151,6 +158,7 @@ export function HallRoomMapPage() {
   const selectedObject =
     objects.find((object) => object.id === selectedObjectId) ?? null;
   const selectedObjectIdSet = new Set(selectedObjectIds);
+  const hasSelectedObject = selectedObjectIds.length > 0 || Boolean(selectedObject);
   const selectedMap = hallMaps.find((map) => map.id === selectedMapId) ?? null;
   const hasSelectedHall = Boolean(selectedHallId);
   const hasSelectedMap = Boolean(
@@ -225,6 +233,10 @@ export function HallRoomMapPage() {
       if (feedbackTimerRef.current) {
         clearTimeout(feedbackTimerRef.current);
       }
+
+      if (saveConfirmationTimerRef.current) {
+        clearTimeout(saveConfirmationTimerRef.current);
+      }
     },
     []
   );
@@ -235,6 +247,22 @@ export function HallRoomMapPage() {
       clearTimeout(feedbackTimerRef.current);
     }
     feedbackTimerRef.current = setTimeout(() => setFeedback(""), 2600);
+  }
+
+  function showSaveConfirmation(preset: SavedHallMap) {
+    setSaveConfirmation({
+      title: "Layout saved",
+      detail: `${preset.name} is saved${preset.hall?.name ? ` to ${preset.hall.name}` : ""}.`
+    });
+
+    if (saveConfirmationTimerRef.current) {
+      clearTimeout(saveConfirmationTimerRef.current);
+    }
+
+    saveConfirmationTimerRef.current = setTimeout(
+      () => setSaveConfirmation(null),
+      6000
+    );
   }
 
   function rememberObjectsSnapshot(snapshot = latestObjectsRef.current) {
@@ -590,6 +618,7 @@ export function HallRoomMapPage() {
       });
       setSelectedMapId(result.preset.id);
       await hallMapsQuery.refetch();
+      showSaveConfirmation(result.preset);
       showFeedback(
         `${result.preset.name} saved to ${result.preset.hall?.name}.`
       );
@@ -635,6 +664,7 @@ export function HallRoomMapPage() {
         setSelectedMapId(result.preset.id);
         setSelectedHallId(result.preset.hallId);
         await hallMapsQuery.refetch();
+        showSaveConfirmation(result.preset);
         showFeedback(`Map renamed to ${trimmedName}.`);
       } else {
         const result = await createMapMutation.mutate({
@@ -647,6 +677,7 @@ export function HallRoomMapPage() {
         setObjects([]);
         clearObjectSelection();
         await hallMapsQuery.refetch();
+        showSaveConfirmation(result.preset);
         showFeedback(`${trimmedName} created for ${result.preset.hall?.name}.`);
       }
 
@@ -698,14 +729,15 @@ export function HallRoomMapPage() {
         title="Hall Room Map"
         actionsSlot={
           <>
-            <button
-              className="hidden h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition enabled:hover:border-[#1f4d73]/60 enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45 lg:block"
-              disabled={!selectedObjectIds.length && !selectedObject}
-              onClick={clearObjectSelection}
-              type="button"
-            >
-              Clear selection
-            </button>
+            {hasSelectedObject ? (
+              <button
+                className="hidden h-11 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] shadow-sm transition hover:border-[#1f4d73]/60 hover:bg-[#eef4fa] lg:block"
+                onClick={clearObjectSelection}
+                type="button"
+              >
+                Clear selection
+              </button>
+            ) : null}
             <button
               aria-label="Save layout"
               className="hidden h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 md:flex lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
@@ -729,6 +761,10 @@ export function HallRoomMapPage() {
           </>
         }
       />
+
+      <span className="sr-only" aria-live="polite" role="status">
+        {feedback}
+      </span>
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
         <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 md:grid-cols-2 xl:grid-cols-[250px_minmax(0,1fr)_270px]">
@@ -801,8 +837,13 @@ export function HallRoomMapPage() {
               </div>
             </header>
 
+            {/*
+                  ✓
+            */}
+
             <div
-              className="min-h-90 min-w-0 flex-1 cursor-grab touch-none overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] p-2 active:cursor-grabbing md:min-h-107.5 lg:min-h-125 xl:min-h-0"
+              aria-label="Hall map grid"
+              className="relative min-h-90 min-w-0 flex-1 cursor-grab touch-none overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] p-2 active:cursor-grabbing md:min-h-107.5 lg:min-h-125 xl:min-h-0"
               onPointerCancel={stopMapPan}
               onPointerDown={startMapPan}
               onPointerMove={panMap}
@@ -814,6 +855,31 @@ export function HallRoomMapPage() {
                 backgroundSize: "20px 20px"
               }}
             >
+              {saveConfirmation ? (
+                <div
+                  className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
+                  role="status"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-sm font-black text-white"
+                  >
+                    ✓
+                    {/*
+                    ✓
+                    */}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-black">
+                      {saveConfirmation.title}
+                    </p>
+                    <p className="mt-0.5 text-xs font-semibold text-[#047857]">
+                      {saveConfirmation.detail}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
               <div
                 className="relative mx-auto"
                 style={{
@@ -865,16 +931,6 @@ export function HallRoomMapPage() {
         </div>
       </main>
 
-      <div
-        aria-live="polite"
-        className={`pointer-events-none fixed bottom-5 left-1/2 z-90 -translate-x-1/2 rounded-xl bg-[#07162d] px-4 py-2 text-center text-sm font-bold text-white shadow-xl transition ${
-          feedback ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
-        }`}
-        role="status"
-      >
-        {feedback}
-      </div>
-
       <HallMapDialog
         halls={hallMapsQuery.data?.halls ?? []}
         isCreating={createMapMutation.isPending}
@@ -891,4 +947,3 @@ export function HallRoomMapPage() {
     </div>
   );
 }
-
