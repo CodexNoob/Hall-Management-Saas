@@ -11,7 +11,7 @@ describe("dashboard authentication redirects", () => {
       "/dashboard/menu?tab=packages"
     );
     expect(getDashboardLoginPath("/dashboard/menu")).toBe(
-      "/login?next=%2Fdashboard%2Fmenu"
+      "/?auth=login&next=%2Fdashboard%2Fmenu"
     );
   });
 
