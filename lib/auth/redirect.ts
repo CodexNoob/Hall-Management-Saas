@@ -24,3 +24,9 @@ export function getDashboardLoginPath(
 ): `/login?next=${string}` {
   return `/login?next=${encodeURIComponent(getSafeDashboardReturnPath(returnPath))}`;
 }
+
+export function getPasswordSetupPath(
+  returnPath: string
+): `/set-password?flow=required&next=${string}` {
+  return `/set-password?flow=required&next=${encodeURIComponent(getSafeDashboardReturnPath(returnPath))}`;
+}

@@ -34,7 +34,9 @@ export function useDesktopAppMode() {
   );
 }
 
-export function getDesktopAwareAuthPath(path: "/login" | "/forgot-password") {
+export function getDesktopAwareAuthPath(
+  path: "/login" | "/forgot-password" | "/set-password"
+) {
   if (typeof window === "undefined") return path;
 
   const isDesktopApp =

@@ -43,6 +43,28 @@ const envSchema = z.object({
 
 export type AppEnv = z.infer<typeof envSchema>;
 
+// A variable that is declared but left blank (`SUPPORT_EMAIL=`) arrives as an
+// empty string, and Zod treats that as present: `.optional()` and `.default()`
+// only apply to `undefined`. Dropping blanks makes a declared-but-empty
+// variable behave the same as an unset one.
+function withoutBlankValues(source: NodeJS.ProcessEnv) {
+  return Object.fromEntries(
+    Object.entries(source).filter(
+      ([, value]) => typeof value === "string" && value.trim() !== ""
+    )
+  );
+}
+
 export function getEnv(): AppEnv {
-  return envSchema.parse(process.env);
+  const parsed = envSchema.safeParse(withoutBlankValues(process.env));
+
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "env"}: ${issue.message}`)
+      .join("; ");
+
+    throw new Error(`Invalid environment configuration - ${details}`);
+  }
+
+  return parsed.data;
 }

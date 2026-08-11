@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
-import { isAdministrativeRole } from "@/lib/auth/roles";
 import { accessForRole, normalizeStaffRole } from "@/lib/auth/permissions";
 import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
 import { createActivityLog } from "@/lib/audit/activity-log";
@@ -68,12 +67,13 @@ export async function POST(request: NextRequest) {
     const authUserId = data.user.id;
     const authEmail = data.user.email;
     const metadata = data.user.user_metadata;
-    const name =
+    const metadataName =
       typeof metadata.full_name === "string" && metadata.full_name.trim()
         ? metadata.full_name.trim()
         : typeof metadata.name === "string" && metadata.name.trim()
           ? metadata.name.trim()
-          : authEmail.split("@")[0];
+          : null;
+    const name = metadataName ?? authEmail.split("@")[0];
     const phone =
       typeof metadata.phone === "string" && metadata.phone.trim()
         ? metadata.phone.trim()
@@ -87,6 +87,15 @@ export async function POST(request: NextRequest) {
         ? metadata.account_type.trim()
         : null;
     const isPermanentTester = isTesterBypassEmail(authEmail);
+    // Users who only ever authenticate through an OAuth provider never need a
+    // password of their own, so they must not be pushed into password setup.
+    const authProviders = Array.isArray(data.user.app_metadata?.providers)
+      ? data.user.app_metadata.providers.filter(
+          (provider): provider is string => typeof provider === "string"
+        )
+      : [];
+    const usesEmailPassword =
+      authProviders.length === 0 || authProviders.includes("email");
 
     const { user, access, memberships } = await prisma.$transaction(
       async (transaction) => {
@@ -101,13 +110,16 @@ export async function POST(request: NextRequest) {
         let user;
 
         if (existingUser) {
+          // Only write fields Supabase actually gave us. Invited staff carry no
+          // auth metadata, so writing unconditionally would wipe the name and
+          // department an administrator set when creating their access.
           user = await transaction.user.update({
             where: { id: existingUser.id },
             data: {
               supabaseAuthId: authUserId,
-              name,
-              phone,
-              venueName,
+              ...(metadataName ? { name: metadataName } : {}),
+              ...(phone ? { phone } : {}),
+              ...(venueName ? { venueName } : {}),
               isActive: true
             }
           });
@@ -137,7 +149,10 @@ export async function POST(request: NextRequest) {
               name,
               phone,
               venueName,
-              role: "admin"
+              role: "owner",
+              // This branch is only reachable from the trial signup, which calls
+              // supabase.auth.signUp with a password the user just chose.
+              passwordSetAt: new Date()
             }
           });
         }
@@ -154,11 +169,9 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        const isAdministrator = isAdministrativeRole(user.role);
-        const resolvedRole = isAdministrator
-          ? "owner"
-          : normalizeStaffRole(user.role);
-        const resolvedAccess = accessForRole(resolvedRole);
+        // Normalize only. Mapping every administrative role to "owner" here used
+        // to silently promote anyone an administrator invited as "admin".
+        const resolvedRole = normalizeStaffRole(user.role);
 
         await transaction.organizationMembership.upsert({
           where: {
@@ -178,20 +191,25 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        const access = await transaction.userAccess.upsert({
-          where: {
-            organizationId_userId: {
-              organizationId: user.organizationId,
-              userId: user.id
+        // Seed access from the role on first sign-in only. Re-deriving it on every
+        // login discarded any per-user permissions an administrator customized
+        // through PATCH /api/staff. Role changes still update access there.
+        const access =
+          (await transaction.userAccess.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: user.organizationId,
+                userId: user.id
+              }
             }
-          },
-          update: resolvedAccess,
-          create: {
-            organizationId: user.organizationId,
-            userId: user.id,
-            ...resolvedAccess
-          }
-        });
+          })) ??
+          (await transaction.userAccess.create({
+            data: {
+              organizationId: user.organizationId,
+              userId: user.id,
+              ...accessForRole(resolvedRole)
+            }
+          }));
 
         const memberships = await transaction.organizationMembership.findMany({
           where: {
@@ -230,6 +248,7 @@ export async function POST(request: NextRequest) {
         organizationId: user.organizationId
       },
       access,
+      mustSetPassword: usesEmailPassword && !user.passwordSetAt,
       activeOrganizationId: user.organizationId,
       organizations: memberships.map((membership) => ({
         id: membership.organization.id,
@@ -251,13 +270,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
 
+    console.error("Signed-in user sync failed", error);
+
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to sync the signed-in user."
-      },
+      { error: "Unable to sync the signed-in user. Please try again." },
       { status: 500 }
     );
   }

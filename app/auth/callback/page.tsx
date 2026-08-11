@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { syncSignedInUser } from "@/lib/auth/client";
+import {
+  isPasswordSetupFlow,
+  readAuthCallbackParams
+} from "@/lib/auth/auth-callback-params";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
 
@@ -16,6 +20,10 @@ export default function AuthCallbackPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading"
   );
+
+  // Read during render, before the effect below creates the Supabase client and
+  // that client strips the `type=invite` / `type=recovery` fragment.
+  const callbackParams = readAuthCallbackParams();
 
   useEffect(() => {
     let isMounted = true;
@@ -29,6 +37,25 @@ export default function AuthCallbackPage() {
           throw error ?? new Error("No active Supabase session was found.");
         }
 
+        // Invite and recovery links only prove the address; the account still has
+        // no password of its own. Hand off before syncing, so the cached profile is
+        // never seeded while the password is still missing.
+        if (isPasswordSetupFlow(callbackParams.type)) {
+          if (isMounted) {
+            setStatus("success");
+            setMessage("Email verified. Next, choose your password...");
+            const nextParam = callbackParams.next
+              ? `&next=${encodeURIComponent(callbackParams.next)}`
+              : "";
+            router.replace(
+              `/set-password?flow=${callbackParams.type}${nextParam}` as Parameters<
+                typeof router.replace
+              >[0]
+            );
+          }
+          return;
+        }
+
         await syncSignedInUser(data.session.access_token, { force: true });
 
         if (isMounted) {
@@ -36,7 +63,7 @@ export default function AuthCallbackPage() {
           setMessage("Email confirmed. Taking you to your dashboard...");
           router.replace(
             getSafeDashboardReturnPath(
-              new URLSearchParams(window.location.search).get("next")
+              callbackParams.next
             ) as Parameters<typeof router.replace>[0]
           );
           router.refresh();
@@ -58,7 +85,8 @@ export default function AuthCallbackPage() {
     return () => {
       isMounted = false;
     };
-  }, [router]);
+    // callbackParams is memoized at module scope, so it is referentially stable.
+  }, [router, callbackParams]);
 
   const isLoading = status === "loading";
   const isSuccess = status === "success";
