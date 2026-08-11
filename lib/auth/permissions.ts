@@ -333,7 +333,9 @@ export const permissionColumns: Array<{
 ];
 
 export function normalizeStaffRole(value: unknown): StaffRoleValue {
-  const role = String(value ?? "viewer").toLowerCase().trim();
+  const role = String(value ?? "viewer")
+    .toLowerCase()
+    .trim();
 
   if (role === "owner" || role === "superadmin") return "owner";
   if (role === "administrator") return "admin";
