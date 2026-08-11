@@ -30,6 +30,10 @@ function withHallMapPresetCounts<
 const hallFieldsSchema = z.object({
   name: z.string().trim().min(1).max(100),
   capacity: z.number().int().min(1).max(100000).nullable().optional(),
+  basePrice: z.number().min(0).max(100000000).nullable().optional(),
+  perCouplePrice: z.number().min(0).max(100000000).nullable().optional(),
+  memberBasePrice: z.number().min(0).max(100000000).nullable().optional(),
+  memberPerCouplePrice: z.number().min(0).max(100000000).nullable().optional(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
@@ -60,6 +64,10 @@ export async function GET(request: Request) {
           id: true,
           name: true,
           capacity: true,
+          basePrice: true,
+          perCouplePrice: true,
+          memberBasePrice: true,
+          memberPerCouplePrice: true,
           color: true,
           isActive: true,
           isBookable: true,
@@ -150,6 +158,10 @@ export async function POST(request: Request) {
         organizationId: actor.organizationId,
         name: input.name,
         capacity: input.capacity ?? null,
+        basePrice: input.basePrice ?? null,
+        perCouplePrice: input.perCouplePrice ?? null,
+        memberBasePrice: input.memberBasePrice ?? null,
+        memberPerCouplePrice: input.memberPerCouplePrice ?? null,
         color: input.color ?? "#1f5f91",
         isActive: input.isActive ?? true,
         isBookable: input.isBookable ?? true
@@ -225,6 +237,16 @@ export async function PATCH(request: Request) {
       data: {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.capacity !== undefined ? { capacity: input.capacity } : {}),
+        ...(input.basePrice !== undefined ? { basePrice: input.basePrice } : {}),
+        ...(input.perCouplePrice !== undefined
+          ? { perCouplePrice: input.perCouplePrice }
+          : {}),
+        ...(input.memberBasePrice !== undefined
+          ? { memberBasePrice: input.memberBasePrice }
+          : {}),
+        ...(input.memberPerCouplePrice !== undefined
+          ? { memberPerCouplePrice: input.memberPerCouplePrice }
+          : {}),
         ...(input.color !== undefined ? { color: input.color } : {}),
         ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
         ...(input.isBookable !== undefined
