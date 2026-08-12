@@ -33,6 +33,7 @@ export function EventManagerPage() {
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
         const date = new Date(event.eventDate);
+        const startsAt = event.startsAt ? new Date(event.startsAt) : null;
         const guestCount =
           event.couplesCount * 2 +
           event.menCount +
@@ -43,6 +44,8 @@ export function EventManagerPage() {
 
         return {
           id: event.id,
+          clientName: event.clientName,
+          eventType: event.eventType ?? "",
           title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
           date: new Intl.DateTimeFormat("en-US", {
             month: "short",
@@ -50,12 +53,18 @@ export function EventManagerPage() {
             year: "numeric",
             timeZone: "UTC"
           }).format(date),
-          time: event.startsAt
+          dateInput: date.toISOString().slice(0, 10),
+          time: startsAt
             ? new Intl.DateTimeFormat("en-US", {
                 hour: "numeric",
                 minute: "2-digit"
-              }).format(new Date(event.startsAt))
+              }).format(startsAt)
             : "Time not set",
+          timeInput: startsAt
+            ? `${String(startsAt.getHours()).padStart(2, "0")}:${String(
+                startsAt.getMinutes()
+              ).padStart(2, "0")}`
+            : "",
           room: event.hall.name,
           packageName: event.packageName ?? "Not assigned",
           guests: String(guestCount),
@@ -71,6 +80,7 @@ export function EventManagerPage() {
             : "Hold",
           paymentStatus: event.paymentStatus ?? "No invoice",
           notes: event.notes ? [event.notes] : [],
+          internalNotes: event.notes ?? "",
           diningManagerNotes: event.diningManagerNotes,
           phone: event.phone,
           email: event.email ?? "",
@@ -326,7 +336,10 @@ export function EventManagerPage() {
             </div>
           </aside>
 
-          <EventWorkspace event={selectedEvent} />
+          <EventWorkspace
+            event={selectedEvent}
+            onEventSaved={eventsQuery.refetch}
+          />
         </div>
       </div>
     </div>

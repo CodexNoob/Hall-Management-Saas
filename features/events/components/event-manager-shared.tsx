@@ -32,9 +32,13 @@ export type IconName =
 
 export type EventFile = {
   id: string;
+  clientName: string;
+  eventType: string;
   title: string;
   date: string;
+  dateInput: string;
   time: string;
+  timeInput: string;
   room: string;
   packageName: string;
   guests: string;
@@ -45,6 +49,7 @@ export type EventFile = {
   status: "Confirmed" | "Hold";
   paymentStatus: string;
   notes: string[];
+  internalNotes: string;
   diningManagerNotes: string | null;
   phone: string;
   email: string;
