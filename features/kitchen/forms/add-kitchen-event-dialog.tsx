@@ -9,6 +9,7 @@ export type AddKitchenEventFormValues = {
 };
 
 type AddKitchenEventDialogProps = {
+  canSave: boolean;
   date: string;
   open: boolean;
   onClose: () => void;
@@ -33,6 +34,7 @@ function FieldLabel({ children }: { children: string }) {
 }
 
 export function AddKitchenEventDialog({
+  canSave,
   date,
   open,
   onClose,
@@ -87,7 +89,8 @@ export function AddKitchenEventDialog({
       kitchenNote: values.kitchenNote.trim()
     };
 
-    if (!normalizedValues.eventName || !normalizedValues.portions) return;
+    if (!canSave || !normalizedValues.eventName || !normalizedValues.portions)
+      return;
 
     onSave(normalizedValues);
     closeDialog();
@@ -186,6 +189,13 @@ export function AddKitchenEventDialog({
                 value={values.kitchenNote}
               />
             </label>
+
+            {!canSave ? (
+              <p className="mt-3 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
+                You do not have permission to add kitchen events. Contact an
+                administrator if you need access.
+              </p>
+            ) : null}
           </div>
 
           <footer className="flex justify-end gap-3 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
@@ -198,7 +208,8 @@ export function AddKitchenEventDialog({
             </button>
 
             <button
-              className="h-11 bg-[#07162d] px-5 text-sm font-black text-white hover:bg-[#142946]"
+              className="h-11 bg-[#07162d] px-5 text-sm font-black text-white hover:bg-[#142946] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#07162d]"
+              disabled={!canSave}
               type="submit"
             >
               Save Event

@@ -3,10 +3,12 @@
 
 
 export function KitchenToolbar({
+  canAddKitchenEvent,
   onAddKitchenEvent,
   workersOnly,
   onWorkersOnlyChange
 }: {
+  canAddKitchenEvent: boolean;
   onAddKitchenEvent: () => void;
   workersOnly: boolean;
   onWorkersOnlyChange: (checked: boolean) => void;
@@ -14,7 +16,8 @@ export function KitchenToolbar({
   return (
     <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_222px]">
       <button
-        className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb]"
+        className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#c4ccd5]"
+        disabled={!canAddKitchenEvent}
         onClick={onAddKitchenEvent}
         type="button"
       >

@@ -163,6 +163,8 @@ export function KitchenDashboardPage() {
     today
   ]);
 
+  const canAddKitchenEvent = kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
+
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
 
@@ -180,6 +182,8 @@ export function KitchenDashboardPage() {
   }
 
   function addKitchenEvent(values: AddKitchenEventFormValues) {
+    if (!canAddKitchenEvent) return;
+
     setCreatedKitchenEvents((current) => [
       ...current,
       {
@@ -227,6 +231,7 @@ export function KitchenDashboardPage() {
 
       <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         <KitchenToolbar
+          canAddKitchenEvent={canAddKitchenEvent}
           onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
           onWorkersOnlyChange={setWorkersOnly}
           workersOnly={workersOnly}
@@ -244,18 +249,21 @@ export function KitchenDashboardPage() {
           <div className="mt-4">
             {activeView === "today" ? (
               <TodayView
+                canAddKitchenEvent={canAddKitchenEvent}
                 day={days.find((day) => day.selected) ?? days[0]}
                 onAddKitchenEvent={openAddKitchenEvent}
                 onSelectEvent={setSelectedKitchenEvent}
               />
             ) : activeView === "week" ? (
               <WeekView
+                canAddKitchenEvent={canAddKitchenEvent}
                 days={days.slice(0, 7)}
                 onAddKitchenEvent={openAddKitchenEvent}
                 onSelectEvent={setSelectedKitchenEvent}
               />
             ) : (
               <FourWeeksView
+                canAddKitchenEvent={canAddKitchenEvent}
                 days={days}
                 onCurrent={goToCurrentRange}
                 onAddKitchenEvent={openAddKitchenEvent}
@@ -269,6 +277,7 @@ export function KitchenDashboardPage() {
       </main>
 
       <AddKitchenEventDialog
+        canSave={canAddKitchenEvent}
         date={kitchenEventDateKey}
         onClose={() => setIsAddKitchenEventOpen(false)}
         onSave={addKitchenEvent}

@@ -171,7 +171,7 @@ export function NewBookingDialog({
       (option) => option.name === values.eventPackage
     );
 
-    if (!hall) {
+    if (!canCreateBooking || !hall) {
       return;
     }
 

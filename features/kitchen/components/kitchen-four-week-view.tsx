@@ -5,10 +5,12 @@ import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
 import { type KitchenDay, type KitchenEvent } from "@/features/kitchen/components/kitchen-shared";
 
 export function FourWeekDay({
+  canAddKitchenEvent,
   day,
   onAddKitchenEvent,
   onSelectEvent
 }: {
+  canAddKitchenEvent: boolean;
   day: KitchenDay;
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
@@ -49,6 +51,7 @@ export function FourWeekDay({
 
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <PlusButton
+            disabled={!canAddKitchenEvent}
             label={`Add kitchen event on ${day.dateLabel}`}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />
@@ -77,6 +80,7 @@ export function FourWeekDay({
 }
 
 export function FourWeeksView({
+  canAddKitchenEvent,
   days,
   onCurrent,
   onAddKitchenEvent,
@@ -84,6 +88,7 @@ export function FourWeeksView({
   onNext,
   onPrevious
 }: {
+  canAddKitchenEvent: boolean;
   days: KitchenDay[];
   onCurrent: () => void;
   onAddKitchenEvent: (dateKey: string) => void;
@@ -117,6 +122,7 @@ export function FourWeeksView({
           <div className="grid grid-cols-7 gap-1.5">
             {days.map((day) => (
               <FourWeekDay
+                canAddKitchenEvent={canAddKitchenEvent}
                 day={day}
                 key={day.dateKey}
                 onAddKitchenEvent={onAddKitchenEvent}

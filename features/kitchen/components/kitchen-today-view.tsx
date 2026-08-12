@@ -8,10 +8,12 @@ import {
 } from "@/features/kitchen/components/kitchen-shared";
 
 export function TodayView({
+  canAddKitchenEvent,
   day,
   onAddKitchenEvent,
   onSelectEvent
 }: {
+  canAddKitchenEvent: boolean;
   day: KitchenDay;
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
@@ -25,6 +27,7 @@ export function TodayView({
 
         <div className="flex items-center gap-2">
           <PlusButton
+            disabled={!canAddKitchenEvent}
             label={`Add kitchen event on ${day.dateLabel}`}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />
