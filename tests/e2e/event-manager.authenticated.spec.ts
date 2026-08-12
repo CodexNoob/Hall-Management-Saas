@@ -82,7 +82,9 @@ test("Hall map tab shows the Dining Manager saved preset layout", async ({
   await page.goto("/dashboard/events");
   await page.getByRole("button", { name: "Hall map" }).click();
 
-  await expect(page.getByText("Wedding Layout")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Wedding Layout" })
+  ).toBeVisible();
   await expect(page.getByText("VIP Table")).toBeVisible();
   await expect(page.getByText("Saved dining layout")).toBeVisible();
 });

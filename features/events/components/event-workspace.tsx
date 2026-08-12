@@ -24,14 +24,17 @@ import {
   LineIcon,
   tabs,
   type EventFile,
+  type EventHallOption,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
 
 export function EventWorkspace({
   event,
+  halls,
   onEventSaved
 }: {
   event: EventFile;
+  halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
 }) {
   const [activeTab, setActiveTab] =
@@ -153,7 +156,11 @@ export function EventWorkspace({
           <div className="min-w-0">
             <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
               <div className="space-y-3">
-                <EventInformation event={event} onEventSaved={onEventSaved} />
+                <EventInformation
+                  event={event}
+                  halls={halls}
+                  onEventSaved={onEventSaved}
+                />
                 <TimelineInstructions event={event} />
               </div>
               <aside className="space-y-3">

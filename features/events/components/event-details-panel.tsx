@@ -13,6 +13,7 @@ import {
   LineIcon,
   timelineRows,
   type EventFile,
+  type EventHallOption,
   type IconName
 } from "@/features/events/components/event-manager-shared";
 
@@ -124,6 +125,7 @@ type EventDetailsDraft = {
   eventTime: string;
   eventType: string;
   guestCount: number;
+  hallId: string;
   internalNotes: string;
 };
 
@@ -137,6 +139,7 @@ export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
     eventTime: event.timeInput,
     eventType: event.eventType,
     guestCount: Number(event.guests) || 0,
+    hallId: event.hallId,
     internalNotes: event.internalNotes
   };
 }
@@ -151,9 +154,11 @@ export function normalizeEventStatusForSave(status: string) {
 
 export function EventInformation({
   event,
+  halls,
   onEventSaved
 }: {
   event: EventFile;
+  halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState<EventDetailsDraft>(() =>
@@ -234,6 +239,7 @@ export function EventInformation({
           eventType: draft.eventType.trim() || undefined,
           eventStatus: normalizeEventStatusForSave(draft.eventStatus),
           eventDate,
+          hallId: draft.hallId,
           startsAt,
           couplesCount,
           boysCount: 0,
@@ -368,11 +374,21 @@ export function EventInformation({
           />
         </Field>
         <Field label="Hall / Room">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.room}
-            name="eventRoom"
-          />
+          <select
+            aria-label="Hall / Room"
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            name="hallId"
+            onChange={(changeEvent) =>
+              updateDraft("hallId", changeEvent.target.value)
+            }
+            value={draft.hallId}
+          >
+            {halls.map((hall) => (
+              <option key={hall.id} value={hall.id}>
+                {hall.name}
+              </option>
+            ))}
+          </select>
         </Field>
         <Field label="Guests">
           <input

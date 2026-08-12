@@ -39,6 +39,7 @@ export type EventFile = {
   dateInput: string;
   time: string;
   timeInput: string;
+  hallId: string;
   room: string;
   packageName: string;
   guests: string;
@@ -59,6 +60,11 @@ export type EventFile = {
   phone: string;
   email: string;
   workspaceData: Record<string, unknown>;
+};
+
+export type EventHallOption = {
+  id: string;
+  name: string;
 };
 
 export type EventsResponse = {
@@ -95,7 +101,7 @@ export type EventsResponse = {
     workspaceData: Record<string, unknown> | null;
     hall: { id: string; name: string };
   }>;
-  halls: Array<{ id: string; name: string }>;
+  halls: EventHallOption[];
   eventTypes: Array<{ id: string; name: string }>;
 };
 
