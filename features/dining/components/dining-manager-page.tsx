@@ -632,8 +632,8 @@ export function DiningManagerPage() {
         title="Dining Manager"
       />
 
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
-        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
+      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 sm:p-3">
+        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 sm:gap-4 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
           <DiningEventListPanel
             eventPage={eventPage}
             eventPageCount={eventPageCount}
