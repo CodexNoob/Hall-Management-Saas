@@ -66,6 +66,9 @@ export function DiningManagerPage() {
   } | null>(null);
   const [checkMessage, setCheckMessage] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const savedMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [form, setForm] = useState<DiningForm>({
     countType: "People",
     adultCount: 0,
@@ -183,6 +186,18 @@ export function DiningManagerPage() {
   function selectEvent(eventId: string) {
     setSelectedEventId(eventId);
     setSavedMessage("");
+  }
+
+  function showSavedMessage(message: string) {
+    if (savedMessageTimerRef.current) {
+      clearTimeout(savedMessageTimerRef.current);
+    }
+
+    setSavedMessage(message);
+    savedMessageTimerRef.current = setTimeout(() => {
+      setSavedMessage("");
+      savedMessageTimerRef.current = null;
+    }, 2600);
   }
 
   function rememberTablesSnapshot(snapshot = tables) {
@@ -421,11 +436,20 @@ export function DiningManagerPage() {
       });
       invalidateAuthenticatedQuery("/api/events");
       await diningQuery.refetch();
-      setSavedMessage("Dining plan saved.");
+      showSavedMessage("Dining plan saved.");
     } catch {
       // Mutation errors are rendered in the details panel.
     }
   }
+
+  useEffect(
+    () => () => {
+      if (savedMessageTimerRef.current) {
+        clearTimeout(savedMessageTimerRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     function isEditableElement(target: EventTarget | null) {
@@ -619,14 +643,14 @@ export function DiningManagerPage() {
                   ? "Saving dining plan"
                   : "Save dining plan"
               }
-              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1f4d73] text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 lg:h-11 lg:w-auto lg:px-4 lg:text-sm lg:font-bold"
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
               disabled={diningMutation.isPending}
               onClick={savePlan}
               type="button"
             >
               <svg
                 aria-hidden="true"
-                className="h-4 w-4 lg:hidden"
+                className="h-6 w-6 lg:hidden"
                 fill="none"
                 stroke="currentColor"
                 strokeLinecap="round"
@@ -634,8 +658,8 @@ export function DiningManagerPage() {
                 strokeWidth="2"
                 viewBox="0 0 24 24"
               >
-                <path d="M5 3h12l2 2v16H5Z" />
-                <path d="M8 3v6h8M8 21v-7h8v7" />
+                <path d="M5 4h12l2 2v14H5z" />
+                <path d="M8 4v6h8V4M8 20v-6h8v6" />
               </svg>
               <span className="hidden lg:inline">
                 {diningMutation.isPending ? "Saving..." : "Save dining plan"}
