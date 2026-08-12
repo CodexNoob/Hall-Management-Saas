@@ -12,6 +12,8 @@ import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardStartupScreen } from "@/components/layout/dashboard-startup-screen";
 import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
 import { DashboardTrialProvider } from "@/components/layout/dashboard-trial-pill";
+import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
 import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
 import {
@@ -145,9 +147,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         // redirect lands, instead of flashing dashboard chrome.
         if (synced.mustSetPassword) {
           router.replace(
-            getPasswordSetupPath(
-              initialPathname.current
-            ) as Parameters<typeof router.replace>[0]
+            getPasswordSetupPath(initialPathname.current) as Parameters<
+              typeof router.replace
+            >[0]
           );
           return;
         }
@@ -216,7 +218,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
           <section className="dashboard-shell-main min-h-dvh lg:pl-64">
             <DashboardTrialProvider syncData={syncData}>
-              {children}
+              {canAccessDashboardRoute(
+                pathname,
+                syncData.access,
+                syncData.organizations.find(
+                  (organization) =>
+                    organization.id === syncData.activeOrganizationId
+                )?.role
+              ) ? (
+                children
+              ) : (
+                <DashboardPageState
+                  emptyMessage="Your role doesn't include access to this page. Contact an administrator if you need it."
+                  emptyTitle="Access restricted"
+                  isEmpty
+                  showSearch={false}
+                  subtitle=""
+                  title={getDashboardActiveLabel(pathname)}
+                />
+              )}
             </DashboardTrialProvider>
           </section>
         </main>

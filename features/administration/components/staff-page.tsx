@@ -6,7 +6,7 @@ import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
-import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { invalidateAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
@@ -48,8 +48,10 @@ import {
 const apiUrl = "/api/staff";
 export function StaffPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const canEdit = useDashboardPermission("canEditStaff");
-  const staffQuery = useAuthenticatedQuery<StaffResponse>(apiUrl);
+  const { canAccessRoute, hasPermission } = useDashboardAccess();
+  const canViewStaff = canAccessRoute("/dashboard/staff");
+  const canEdit = hasPermission("canEditStaff");
+  const staffQuery = useAuthenticatedQuery<StaffResponse>(apiUrl, canViewStaff);
   const [searchQuery, setSearchQuery] = useDashboardPageSearch("Staff");
   const [dialogMode, setDialogMode] = useState<StaffDialogMode>(null);
   const [form, setForm] = useState<StaffFormState>(emptyForm());
@@ -309,18 +311,24 @@ export function StaffPage() {
     }
   }
 
-  if (staffQuery.isLoading || staffQuery.error || !selectedStaff) {
+  if (!canViewStaff || staffQuery.isLoading || staffQuery.error || !selectedStaff) {
     return (
       <DashboardPageState
-        emptyTitle="No staff members yet"
-        error={staffQuery.error}
-        isEmpty={
-          !staffQuery.isLoading &&
-          !staffQuery.error &&
-          staffMembers.length === 0
+        emptyMessage={
+          canViewStaff
+            ? undefined
+            : "You do not have permission to view staff members. Contact an administrator if you need access."
         }
-        isLoading={staffQuery.isLoading}
-        onRetry={staffQuery.refetch}
+        emptyTitle={canViewStaff ? "No staff members yet" : "Access restricted"}
+        error={canViewStaff ? staffQuery.error : null}
+        isEmpty={
+          !canViewStaff ||
+          (!staffQuery.isLoading &&
+            !staffQuery.error &&
+            staffMembers.length === 0)
+        }
+        isLoading={canViewStaff && staffQuery.isLoading}
+        onRetry={canViewStaff ? staffQuery.refetch : undefined}
         subtitle="Manage staff members, roles, departments, and permissions."
         title="Staff"
       />

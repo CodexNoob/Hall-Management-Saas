@@ -11,6 +11,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { DASHBOARD_PAGE_SEARCH_EVENT } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { DashboardTrialBadge } from "@/components/layout/dashboard-trial-pill";
 export { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar-brand";
 
@@ -173,15 +174,20 @@ export function DashboardTopbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
+  const { canAccessRoute } = useDashboardAccess();
+  const visibleSearchTargets = useMemo(
+    () => searchTargets.filter((target) => canAccessRoute(target.route)),
+    [canAccessRoute]
+  );
 
   const searchResults = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
     if (!normalizedQuery) {
-      return searchTargets.slice(0, 6);
+      return visibleSearchTargets.slice(0, 6);
     }
 
-    return searchTargets
+    return visibleSearchTargets
       .filter((target) => {
         const haystack = [target.label, target.description, ...target.keywords]
           .join(" ")
@@ -189,7 +195,7 @@ export function DashboardTopbar({
         return haystack.includes(normalizedQuery);
       })
       .slice(0, 6);
-  }, [searchQuery]);
+  }, [searchQuery, visibleSearchTargets]);
 
   const goToSearchTarget = (target: SearchTarget) => {
     setSearchQuery("");
