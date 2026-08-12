@@ -1,6 +1,13 @@
 "use client";
 
-import { type FormEvent, type ReactNode, useEffect, useState } from "react";
+import {
+  type FormEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
@@ -108,38 +115,148 @@ export function ReadinessPanel() {
   );
 }
 
-export function EventInformation({ event }: { event: EventFile }) {
+type EventDetailsDraft = {
+  childrenCount: number;
+  clientName: string;
+  couplesCount: number;
+  eventDate: string;
+  eventStatus: string;
+  eventTime: string;
+  eventType: string;
+  guestCount: number;
+  internalNotes: string;
+};
+
+export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
+  return {
+    childrenCount: Number(event.children) || 0,
+    clientName: event.clientName,
+    couplesCount: Number(event.couples) || 0,
+    eventDate: event.dateInput,
+    eventStatus: event.status,
+    eventTime: event.timeInput,
+    eventType: event.eventType,
+    guestCount: Number(event.guests) || 0,
+    internalNotes: event.internalNotes
+  };
+}
+
+export function createEventDetailsDraftSignature(draft: EventDetailsDraft) {
+  return JSON.stringify(draft);
+}
+
+export function normalizeEventStatusForSave(status: string) {
+  return status.toLowerCase().includes("confirm") ? "Confirmed" : "Hold";
+}
+
+export function EventInformation({
+  event,
+  onEventSaved
+}: {
+  event: EventFile;
+  onEventSaved: () => Promise<unknown>;
+}) {
+  const [draft, setDraft] = useState<EventDetailsDraft>(() =>
+    createEventDetailsDraft(event)
+  );
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const saveConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const previousEventIdRef = useRef(event.id);
+  const savedDraftSignature = useMemo(
+    () => createEventDetailsDraftSignature(createEventDetailsDraft(event)),
+    [event]
+  );
+  const currentDraftSignature = useMemo(
+    () => createEventDetailsDraftSignature(draft),
+    [draft]
+  );
+  const hasUnsavedChanges = currentDraftSignature !== savedDraftSignature;
+
+  useEffect(() => {
+    const didSwitchEvent = previousEventIdRef.current !== event.id;
+    previousEventIdRef.current = event.id;
+
+    setDraft(createEventDetailsDraft(event));
+    setMessage("");
+    if (didSwitchEvent) {
+      setShowSaveConfirmation(false);
+    }
+  }, [event]);
+
+  useEffect(
+    () => () => {
+      if (saveConfirmationTimerRef.current) {
+        clearTimeout(saveConfirmationTimerRef.current);
+      }
+    },
+    []
+  );
+
+  function updateDraft<K extends keyof EventDetailsDraft>(
+    field: K,
+    value: EventDetailsDraft[K]
+  ) {
+    setMessage("");
+    setShowSaveConfirmation(false);
+    setDraft((current) => ({ ...current, [field]: value }));
+  }
+
+  function discardChanges() {
+    setDraft(createEventDetailsDraft(event));
+    setShowSaveConfirmation(false);
+    setMessage("Unsaved event detail changes discarded.");
+  }
 
   async function saveEvent(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setIsSaving(true);
     setMessage("");
-    const formData = new FormData(formEvent.currentTarget);
-    const guestCount = Number(formData.get("guestCount")) || 0;
-    const childrenCount = Number(formData.get("childrenCount")) || 0;
-    const couplesCount = Number(formData.get("couplesCount")) || 0;
+    const guestCount = draft.guestCount || 0;
+    const childrenCount = draft.childrenCount || 0;
+    const couplesCount = draft.couplesCount || 0;
+    const eventDate = draft.eventDate;
+    const eventTime = draft.eventTime;
+    const startsAt =
+      eventDate && eventTime
+        ? new Date(`${eventDate}T${eventTime}:00`).toISOString()
+        : null;
 
     try {
       const response = await authenticatedFetch(`/api/events/${event.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientName: formData.get("clientName"),
-          eventType: formData.get("eventType"),
-          eventStatus: formData.get("eventStatus"),
-          eventDate: formData.get("eventDate"),
+          clientName: draft.clientName.trim(),
+          eventType: draft.eventType.trim() || undefined,
+          eventStatus: normalizeEventStatusForSave(draft.eventStatus),
+          eventDate,
+          startsAt,
           couplesCount,
+          boysCount: 0,
+          girlsCount: 0,
           kidsCount: childrenCount,
+          ladiesCount: 0,
           menCount: Math.max(guestCount - childrenCount - couplesCount * 2, 0),
-          notes: formData.get("internalNotes")
+          notes: draft.internalNotes
         })
       });
       const result = (await response.json()) as { error?: string };
       if (!response.ok)
         throw new Error(result.error ?? "Could not save event.");
-      setMessage("Event details saved.");
+      await onEventSaved();
+      setMessage("Event details saved successfully.");
+      setShowSaveConfirmation(true);
+      if (saveConfirmationTimerRef.current) {
+        clearTimeout(saveConfirmationTimerRef.current);
+      }
+      saveConfirmationTimerRef.current = setTimeout(
+        () => setShowSaveConfirmation(false),
+        4000
+      );
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not save event."
@@ -151,34 +268,76 @@ export function EventInformation({ event }: { event: EventFile }) {
 
   return (
     <form
-      className="rounded-lg border border-[#1f4d73] bg-white shadow-sm shadow-[#1f4d73]/10"
+      className="relative rounded-lg border border-[#1f4d73] bg-white shadow-sm shadow-[#1f4d73]/10"
       onSubmit={saveEvent}
     >
+      {showSaveConfirmation ? (
+        <div
+          className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
+          role="status"
+        >
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-white"
+          >
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="3"
+              viewBox="0 0 24 24"
+            >
+              <path d="m5 13 4 4L19 7" />
+            </svg>
+          </span>
+
+          <div className="min-w-0">
+            <p className="text-sm font-black">Event details saved</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#047857]">
+              Your changes were saved successfully.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="calendar" />
         <h2 className="text-sm font-black text-[#17202a]">Event information</h2>
+        {hasUnsavedChanges ? (
+          <span className="ml-auto rounded-full border border-[#fedf89] bg-[#fffbeb] px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#b54708]">
+            Unsaved changes
+          </span>
+        ) : null}
       </header>
       <div className="grid gap-3 p-3 sm:grid-cols-3">
         <Field label="Client">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.title.replace(" Wedding", "")}
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            onChange={(changeEvent) =>
+              updateDraft("clientName", changeEvent.target.value)
+            }
+            value={draft.clientName}
             name="clientName"
           />
         </Field>
         <Field label="Event type">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={
-              event.title.includes("Wedding") ? "Wedding" : "Dinner"
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            onChange={(changeEvent) =>
+              updateDraft("eventType", changeEvent.target.value)
             }
+            value={draft.eventType}
             name="eventType"
           />
         </Field>
         <Field label="Status">
           <select
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.status}
+            onChange={(changeEvent) =>
+              updateDraft("eventStatus", changeEvent.target.value)
+            }
+            value={draft.eventStatus}
             aria-label="Event status"
             name="eventStatus"
           >
@@ -187,17 +346,25 @@ export function EventInformation({ event }: { event: EventFile }) {
           </select>
         </Field>
         <Field label="Date">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.date}
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            onChange={(changeEvent) =>
+              updateDraft("eventDate", changeEvent.target.value)
+            }
+            value={draft.eventDate}
             name="eventDate"
+            type="date"
           />
         </Field>
         <Field label="Start Time">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.time}
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+            onChange={(changeEvent) =>
+              updateDraft("eventTime", changeEvent.target.value)
+            }
+            value={draft.eventTime}
             name="eventTime"
+            type="time"
           />
         </Field>
         <Field label="Hall / Room">
@@ -210,29 +377,44 @@ export function EventInformation({ event }: { event: EventFile }) {
         <Field label="Guests">
           <input
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.guests}
+            onChange={(changeEvent) =>
+              updateDraft("guestCount", Number(changeEvent.target.value))
+            }
+            type="number"
+            value={draft.guestCount}
             name="guestCount"
           />
         </Field>
         <Field label="Children">
           <input
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.children}
             name="childrenCount"
+            onChange={(changeEvent) =>
+              updateDraft("childrenCount", Number(changeEvent.target.value))
+            }
+            type="number"
+            value={draft.childrenCount}
           />
         </Field>
         <Field label="Couples">
           <input
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            defaultValue={event.couples}
             name="couplesCount"
+            onChange={(changeEvent) =>
+              updateDraft("couplesCount", Number(changeEvent.target.value))
+            }
+            type="number"
+            value={draft.couplesCount}
           />
         </Field>
         <Field label="Internal notes" className="sm:col-span-3">
           <textarea
             className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-            defaultValue="Confirm final layout and waiter count before the kitchen packet is printed."
             name="internalNotes"
+            onChange={(changeEvent) =>
+              updateDraft("internalNotes", changeEvent.target.value)
+            }
+            value={draft.internalNotes}
           />
         </Field>
         {event.diningManagerNotes ? (
@@ -246,17 +428,27 @@ export function EventInformation({ event }: { event: EventFile }) {
           </section>
         ) : null}
       </div>
-      <div className="px-3 pb-3">
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+        {hasUnsavedChanges ? (
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
+            disabled={isSaving}
+            onClick={discardChanges}
+            type="button"
+          >
+            Discard changes
+          </button>
+        ) : null}
         <button
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
-          disabled={isSaving}
+          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+          disabled={isSaving || !hasUnsavedChanges}
           type="submit"
         >
           <LineIcon name="save" className="h-4 w-4" />
-          {isSaving ? "Saving…" : "Save event details"}
+          {isSaving ? "Saving..." : "Save event details"}
         </button>
-        {message ? (
-          <p className="mt-2 text-xs text-[#516174]" role="status">
+        {message && !showSaveConfirmation ? (
+          <p className="w-full text-xs text-[#516174]" role="status">
             {message}
           </p>
         ) : null}
@@ -271,6 +463,40 @@ type TimelineItem = {
   text: string;
   type: "Event" | "Kitchen" | "Staff";
 };
+
+export function timelineDisplayTimeToInputValue(time: string) {
+  const trimmed = time.trim();
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(trimmed);
+
+  if (!match) {
+    return /^\d{2}:\d{2}$/.test(trimmed) ? trimmed : "12:00";
+  }
+
+  const [, hourValue, minuteValue, meridiem] = match;
+  const hour = Number(hourValue);
+  const normalizedHour =
+    meridiem.toUpperCase() === "PM"
+      ? hour === 12
+        ? 12
+        : hour + 12
+      : hour === 12
+        ? 0
+        : hour;
+
+  return `${String(normalizedHour).padStart(2, "0")}:${minuteValue}`;
+}
+
+export function timelineInputValueToDisplayTime(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return "12:00 PM";
+
+  const [, hourValue, minuteValue] = match;
+  const hour = Number(hourValue);
+  const meridiem = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${String(displayHour).padStart(2, "0")}:${minuteValue} ${meridiem}`;
+}
 
 function initialTimeline(event: EventFile): TimelineItem[] {
   const saved = event.workspaceData.timeline;
@@ -304,7 +530,11 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
       const result = (await response.json()) as { error?: string };
       if (!response.ok)
         throw new Error(result.error ?? "Could not save timeline.");
-      setMessage(confirmed ? "Timeline confirmed." : "Timeline saved.");
+      setMessage(
+        confirmed
+          ? "Timeline confirmed and ready for event operations."
+          : "Timeline saved as a draft."
+      );
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Could not save timeline."
@@ -348,25 +578,39 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
             key={row.id}
             className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_40px]"
           >
-            <div className="flex h-11 min-w-0 items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm">
+            <label
+              className="flex h-11 min-w-0 cursor-text items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm focus-within:border-[#1f4d73] focus-within:ring-2 focus-within:ring-[#1f4d73]/15"
+              htmlFor={`timeline-${row.id}-time`}
+            >
               <input
-                aria-label="Timeline time"
+                aria-label={`Timeline time for ${row.text}`}
                 className="min-w-0 flex-1 bg-transparent outline-none"
-                value={row.time}
+                id={`timeline-${row.id}-time`}
+                name={`timeline-${row.id}-time`}
+                type="time"
+                value={timelineDisplayTimeToInputValue(row.time)}
                 onChange={(changeEvent) =>
                   setRows((current) =>
                     current.map((item) =>
                       item.id === row.id
-                        ? { ...item, time: changeEvent.target.value }
+                        ? {
+                            ...item,
+                            time: timelineInputValueToDisplayTime(
+                              changeEvent.target.value
+                            )
+                          }
                         : item
                     )
                   )
                 }
               />
-              <LineIcon name="clock" className="h-4 w-4 shrink-0" />
-            </div>
+              <LineIcon
+                name="clock"
+                className="h-4 w-4 shrink-0 text-[#516174]"
+              />
+            </label>
             <input
-              className="order-last col-span-3 h-11 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm sm:order-none sm:col-span-1"
+              className="order-last col-span-3 h-11 min-w-0 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm sm:order-0 sm:col-span-1"
               value={row.text}
               onChange={(changeEvent) =>
                 setRows((current) =>
@@ -418,7 +662,7 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
       </div>
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-2 px-3 pb-3 sm:flex sm:flex-wrap sm:px-4 sm:pb-4">
         <button
-          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-medium text-white hover:bg-[#15344f] sm:justify-start sm:px-4 sm:text-sm"
+          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-medium hover:bg-[#eef4fa] sm:justify-start sm:px-4 sm:text-sm"
           type="button"
           disabled={isSaving}
           onClick={() => void persist(false)}
@@ -427,7 +671,7 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
           Save timeline
         </button>
         <button
-          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-medium hover:bg-[#eef4fa] sm:justify-start sm:text-sm"
+          className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-4 text-xs font-medium text-white hover:bg-[#15344f] sm:justify-start sm:text-sm"
           type="button"
           disabled={isSaving}
           onClick={() => void persist(true)}

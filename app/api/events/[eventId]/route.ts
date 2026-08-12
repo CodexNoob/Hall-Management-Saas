@@ -15,13 +15,21 @@ const timelineItemSchema = z.object({
 const updateEventSchema = z
   .object({
     clientName: z.string().trim().min(1).max(200).optional(),
-    eventType: z.string().trim().min(1).max(100).optional(),
+    eventType: z
+      .string()
+      .trim()
+      .max(100)
+      .transform((value) => value || null)
+      .optional(),
     eventStatus: z.enum(["Confirmed", "Hold"]).optional(),
     eventDate: z.coerce.date().optional(),
     startsAt: z.coerce.date().nullable().optional(),
     couplesCount: z.number().int().min(0).optional(),
     kidsCount: z.number().int().min(0).optional(),
     menCount: z.number().int().min(0).optional(),
+    ladiesCount: z.number().int().min(0).optional(),
+    boysCount: z.number().int().min(0).optional(),
+    girlsCount: z.number().int().min(0).optional(),
     notes: z.string().trim().max(5000).nullable().optional(),
     timeline: z.array(timelineItemSchema).max(100).optional(),
     timelineConfirmed: z.boolean().optional(),

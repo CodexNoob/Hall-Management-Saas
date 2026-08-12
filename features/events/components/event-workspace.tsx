@@ -27,7 +27,13 @@ import {
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
 
-export function EventWorkspace({ event }: { event: EventFile }) {
+export function EventWorkspace({
+  event,
+  onEventSaved
+}: {
+  event: EventFile;
+  onEventSaved: () => Promise<unknown>;
+}) {
   const [activeTab, setActiveTab] =
     useState<EventWorkspaceTab>("Event details");
   const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
@@ -147,7 +153,7 @@ export function EventWorkspace({ event }: { event: EventFile }) {
           <div className="min-w-0">
             <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
               <div className="space-y-3">
-                <EventInformation event={event} />
+                <EventInformation event={event} onEventSaved={onEventSaved} />
                 <TimelineInstructions event={event} />
               </div>
               <aside className="space-y-3">
