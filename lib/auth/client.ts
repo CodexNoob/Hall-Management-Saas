@@ -163,7 +163,10 @@ export function getCachedSyncedUser() {
     const syncData = JSON.parse(rawSyncData) as unknown;
     return isSyncSignedInUserResponse(syncData) ? syncData : null;
   } catch {
+    window.localStorage.removeItem(SYNCED_USER_CACHE_KEY);
     window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
+    window.localStorage.removeItem(SYNCED_USER_CACHE_SUBJECT_KEY);
+    window.localStorage.removeItem(SYNCED_USER_CACHE_TIME_KEY);
     return null;
   }
 }

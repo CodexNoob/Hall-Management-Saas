@@ -46,7 +46,12 @@ test.beforeEach(async ({}, testInfo) => {
 
 test("saving a hall map shows a non-layout-shifting saved confirmation", async ({
   page
-}) => {
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "authenticated-mobile",
+    "Hall map editing is intentionally disabled on mobile."
+  );
+
   let saveRequestCount = 0;
 
   await page.route("**/api/hall-maps", async (route) => {
@@ -97,7 +102,14 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
   expect(afterBox?.y).toBe(beforeBox?.y);
 });
 
-test("clear selection resets the selected hall map object", async ({ page }) => {
+test("clear selection resets the selected hall map object", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "authenticated-mobile",
+    "Hall map editing is intentionally disabled on mobile."
+  );
+
   await page.route("**/api/hall-maps", async (route) => {
     if (route.request().method() === "GET") {
       await route.fulfill({

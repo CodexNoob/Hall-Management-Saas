@@ -104,7 +104,9 @@ test("selecting a hall map preset immediately previews its dining table layout",
   await expect(
     page.getByRole("button", { name: "Preset A Table" })
   ).toBeVisible();
-  await expect(page.getByText("Preset A previewed with 1 seating tables.")).toBeVisible();
+  await expect(
+    page.getByText("Preset A previewed with 1 seating tables.")
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Preset B Head Table" })
   ).toHaveCount(0);
@@ -115,7 +117,9 @@ test("selecting a hall map preset immediately previews its dining table layout",
   await expect(
     page.getByRole("button", { name: "Preset B Head Table" })
   ).toBeVisible();
-  await expect(page.getByText("Preset B previewed with 1 seating tables.")).toBeVisible();
+  await expect(
+    page.getByText("Preset B previewed with 1 seating tables.")
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Preset A Table" })
   ).toHaveCount(0);
