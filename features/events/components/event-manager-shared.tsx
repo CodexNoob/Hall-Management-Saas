@@ -51,6 +51,11 @@ export type EventFile = {
   notes: string[];
   internalNotes: string;
   diningManagerNotes: string | null;
+  diningHallMapPreset: {
+    id: string;
+    name: string;
+    objects: unknown[];
+  } | null;
   phone: string;
   email: string;
   workspaceData: Record<string, unknown>;
@@ -80,6 +85,11 @@ export type EventsResponse = {
     kidsCount: number;
     notes: string | null;
     diningManagerNotes: string | null;
+    diningHallMapPreset: {
+      id: string;
+      name: string;
+      objects: unknown[];
+    } | null;
     phone: string;
     email: string | null;
     workspaceData: Record<string, unknown> | null;

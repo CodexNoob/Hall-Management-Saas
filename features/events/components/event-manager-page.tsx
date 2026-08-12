@@ -82,6 +82,7 @@ export function EventManagerPage() {
           notes: event.notes ? [event.notes] : [],
           internalNotes: event.notes ?? "",
           diningManagerNotes: event.diningManagerNotes,
+          diningHallMapPreset: event.diningHallMapPreset,
           phone: event.phone,
           email: event.email ?? "",
           workspaceData: event.workspaceData ?? {}
