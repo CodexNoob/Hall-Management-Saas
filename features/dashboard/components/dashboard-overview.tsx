@@ -5,6 +5,7 @@ import { DashboardModuleLinks } from "@/features/dashboard/components/dashboard-
 import { DashboardOperatingSchedule } from "@/features/dashboard/components/dashboard-operating-schedule";
 import { DashboardSidePanels } from "@/features/dashboard/components/dashboard-side-panels";
 import { DashboardSummaryCards } from "@/features/dashboard/components/dashboard-summary-cards";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import type {
   FinancialTimelinePoint,
   ScheduleRow,
@@ -79,43 +80,67 @@ export function DashboardOverview({
   onSchedulePageChange,
   onTimeFilterChange
 }: DashboardOverviewProps) {
+  const { hasPermission } = useDashboardAccess();
+
+  // Gating keys off the VIEW permissions, not the Staff page's role-matrix
+  // columns. Those columns are all-of checks over groups that mix view and edit
+  // rights, so a view-only role reads as "-" there even though it can open the
+  // page - mirroring them would hide surfaces the sidebar and the layout guard
+  // both allow. See lib/auth/dashboard-routes.ts for the same any-of semantics.
+  if (!hasPermission("canViewHome")) return null;
+
+  // Mirrors requireAnyPermission(["canViewCalendar", "canViewEventManager"]) in
+  // app/api/dashboard/route.ts - the events, counts and schedule all come from
+  // that one endpoint.
+  const showEventOverview = hasPermission([
+    "canViewCalendar",
+    "canViewEventManager"
+  ]);
+  const showIncomeTimeline = hasPermission("canViewPaymentInfo");
+
   return (
     <div className="mx-auto w-full max-w-[1800px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
-      <DashboardSummaryCards
-        annualGroups={annualGroups}
-        annualRangeLabel={annualRangeLabel}
-        annualTotalEvents={annualTotalEvents}
-        bookedEvents={bookedEvents}
-        isDashboardLoading={isDashboardLoading}
-        isAnnualLoading={isAnnualLoading}
-        nextUpcomingEvent={nextUpcomingEvent}
-      />
+      {showEventOverview ? (
+        <DashboardSummaryCards
+          annualGroups={annualGroups}
+          annualRangeLabel={annualRangeLabel}
+          annualTotalEvents={annualTotalEvents}
+          bookedEvents={bookedEvents}
+          isDashboardLoading={isDashboardLoading}
+          isAnnualLoading={isAnnualLoading}
+          nextUpcomingEvent={nextUpcomingEvent}
+        />
+      ) : null}
 
-      <DashboardIncomeTimeline
-        financialRangeLabel={financialRangeLabel}
-        financialTimeline={financialTimeline}
-        financeTimeFilter={financeTimeFilter}
-        isLoading={isDashboardLoading}
-        onFinanceTimeFilterChange={onFinanceTimeFilterChange}
-      />
+      {showIncomeTimeline ? (
+        <DashboardIncomeTimeline
+          financialRangeLabel={financialRangeLabel}
+          financialTimeline={financialTimeline}
+          financeTimeFilter={financeTimeFilter}
+          isLoading={isDashboardLoading}
+          onFinanceTimeFilterChange={onFinanceTimeFilterChange}
+        />
+      ) : null}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
-        <DashboardOperatingSchedule
-          customEndDate={customEndDate}
-          customStartDate={customStartDate}
-          dashboardError={dashboardError}
-          isLoading={isDashboardLoading}
-          schedulePage={schedulePage}
-          schedulePageCount={schedulePageCount}
-          schedulePageNumbers={schedulePageNumbers}
-          scheduleRows={scheduleRows}
-          timeFilter={timeFilter}
-          visibleScheduleRows={visibleScheduleRows}
-          onCustomEndDateChange={onCustomEndDateChange}
-          onCustomStartDateChange={onCustomStartDateChange}
-          onSchedulePageChange={onSchedulePageChange}
-          onTimeFilterChange={onTimeFilterChange}
-        />
+        {showEventOverview ? (
+          <DashboardOperatingSchedule
+            customEndDate={customEndDate}
+            customStartDate={customStartDate}
+            dashboardError={dashboardError}
+            isLoading={isDashboardLoading}
+            schedulePage={schedulePage}
+            schedulePageCount={schedulePageCount}
+            schedulePageNumbers={schedulePageNumbers}
+            scheduleRows={scheduleRows}
+            timeFilter={timeFilter}
+            visibleScheduleRows={visibleScheduleRows}
+            onCustomEndDateChange={onCustomEndDateChange}
+            onCustomStartDateChange={onCustomStartDateChange}
+            onSchedulePageChange={onSchedulePageChange}
+            onTimeFilterChange={onTimeFilterChange}
+          />
+        ) : null}
 
         <DashboardSidePanels
           isLoading={isDashboardLoading}

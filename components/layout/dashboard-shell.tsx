@@ -11,6 +11,7 @@ import type {
   SyncedUser,
   SyncedUserAccess
 } from "@/lib/auth/client";
+import { isAdministrativeRole } from "@/lib/auth/roles";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { DashboardOverview } from "@/features/dashboard/components/dashboard-overview";
@@ -69,15 +70,27 @@ export function DashboardShell({
 
     return getRangeForFilter(timeFilter);
   }, [customEndDate, customStartDate, timeFilter]);
+  const activeOrganization =
+    organizations.find(
+      (organization) => organization.id === activeOrganizationId
+    ) ?? null;
+  // Mirrors requireAnyPermission(["canViewCalendar", "canViewEventManager"]) in
+  // app/api/dashboard/route.ts, including its administrative-role bypass - an
+  // owner whose UserAccess row is stale or incomplete would otherwise get a
+  // silently empty dashboard.
+  const canLoadDashboardData =
+    isAdministrativeRole(activeOrganization?.role) ||
+    access.canViewCalendar ||
+    access.canViewEventManager;
   const dashboardQueryUrl = `/api/dashboard?startDate=${dashboardDateRange.startDate}&endDate=${dashboardDateRange.endDate}`;
   const dashboardQuery = useAuthenticatedQuery<DashboardEventsResponse>(
     dashboardQueryUrl,
-    access.canViewCalendar || access.canViewEventManager
+    canLoadDashboardData
   );
   const annualDateRange = useMemo(() => getRangeForFilter("year"), []);
   const annualDashboardQuery = useAuthenticatedQuery<DashboardEventsResponse>(
     `/api/dashboard?startDate=${annualDateRange.startDate}&endDate=${annualDateRange.endDate}`,
-    access.canViewCalendar || access.canViewEventManager
+    canLoadDashboardData
   );
   const financialDateRange = useMemo(
     () =>
@@ -89,7 +102,7 @@ export function DashboardShell({
   const financialQueryUrl = `/api/dashboard?startDate=${financialDateRange.startDate}&endDate=${financialDateRange.endDate}`;
   const financialQuery = useAuthenticatedQuery<DashboardEventsResponse>(
     financialQueryUrl,
-    access.canViewCalendar || access.canViewEventManager
+    canLoadDashboardData
   );
   const dashboardEvents = useMemo(
     () => dashboardQuery.data?.events ?? [],
@@ -153,9 +166,6 @@ export function DashboardShell({
   const financialTimeline = financialQuery.data?.financialTimeline ?? [];
   const financialRangeLabel = `${formatEventDate(financialDateRange.startDate)} - ${formatEventDate(financialDateRange.endDate)}`;
   const nextUpcomingEvent = scheduleRows[0];
-  const activeOrganization =
-    organizations.find((organization) => organization.id === activeOrganizationId) ??
-    null;
   const trialExpired = isTrialExpired({
     email: user.email,
     subscriptionStatus: activeOrganization?.subscriptionStatus,

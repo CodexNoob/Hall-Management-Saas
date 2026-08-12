@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+
 const moduleLinks = [
   {
     eyebrow: "Live",
@@ -35,10 +37,19 @@ const moduleLinks = [
 
 export function DashboardModuleLinks() {
   const router = useRouter();
+  const { canAccessRoute } = useDashboardAccess();
+  // Same filter as dashboard-sidebar.tsx's nav items, so a tile is offered
+  // exactly when the sidebar would offer the same destination.
+  const visibleLinks = moduleLinks.filter((item) => canAccessRoute(item.route));
+
+  if (visibleLinks.length === 0) return null;
 
   return (
-    <section className="mt-6 grid grid-flow-col auto-cols-[minmax(12rem,1fr)] gap-4 overflow-x-auto pb-6 pt-2">
-      {moduleLinks.map((item) => (
+    <section
+      aria-label="Module shortcuts"
+      className="mt-6 grid grid-flow-col auto-cols-[minmax(12rem,1fr)] gap-4 overflow-x-auto pb-6 pt-2"
+    >
+      {visibleLinks.map((item) => (
         <button
           key={item.title}
           className="min-h-38 rounded-2xl border border-[#d8dde5] bg-white p-4 text-left shadow-sm shadow-[#17202a]/4 transition hover:-translate-y-0.5 hover:border-[#1f4d73] hover:bg-[#fbfcfd] hover:shadow-md"
