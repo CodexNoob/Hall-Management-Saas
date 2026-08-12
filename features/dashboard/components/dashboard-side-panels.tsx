@@ -18,6 +18,25 @@ type DashboardSidePanelsProps = {
   totalEvents: number;
 };
 
+// Route shortcuts are filtered with canAccessRoute, exactly as
+// dashboard-sidebar.tsx and dashboard-topbar.tsx filter their own targets, so
+// this panel can never offer a page the sidebar hides or the layout guard
+// refuses. "Book event" opens a dialog rather than a route, so it keeps the
+// canCreateBooking check the dialog itself uses
+// (features/bookings/forms/new-booking-dialog.tsx) - the difference is that the
+// topbar's copy stays visible-but-disabled, because that chrome is shared by
+// every dashboard route while this panel is home-page content.
+type QuickAction =
+  | { label: string; kind: "booking" }
+  | { label: string; kind: "route"; route: string };
+
+const quickActions: QuickAction[] = [
+  { label: "Book event", kind: "booking" },
+  { label: "Kitchen board", kind: "route", route: "/dashboard/kitchen" },
+  { label: "Open billing", kind: "route", route: "/dashboard/billing" },
+  { label: "Dining sheets", kind: "route", route: "/dashboard/dining-manager" }
+];
+
 export function DashboardSidePanels({
   isLoading,
   onNewBooking,
@@ -25,16 +44,37 @@ export function DashboardSidePanels({
   timelineGroups,
   totalEvents
 }: DashboardSidePanelsProps) {
+  const { canAccessRoute, hasPermission } = useDashboardAccess();
+  const showEventsTimeline = hasPermission([
+    "canViewCalendar",
+    "canViewEventManager"
+  ]);
+  // The panel's hardcoded sample items include an open-balance notice, so it
+  // follows payment visibility rather than general event visibility.
+  const showAttentionNeeded = hasPermission("canViewPaymentInfo");
+  const visibleActions = quickActions.filter((action) =>
+    action.kind === "booking"
+      ? hasPermission("canCreateBooking")
+      : canAccessRoute(action.route)
+  );
+
+  // Collapses the grid's side column instead of leaving an empty 320px track.
+  if (!showEventsTimeline && !showAttentionNeeded && visibleActions.length === 0) {
+    return null;
+  }
+
   return (
     <div className="space-y-5">
-      <EventsTimelinePanel
-        isLoading={isLoading}
-        rangeLabel={rangeLabel}
-        timelineGroups={timelineGroups}
-        totalEvents={totalEvents}
-      />
-      <AttentionNeededPanel />
-      <QuickActionsPanel onNewBooking={onNewBooking} />
+      {showEventsTimeline ? (
+        <EventsTimelinePanel
+          isLoading={isLoading}
+          rangeLabel={rangeLabel}
+          timelineGroups={timelineGroups}
+          totalEvents={totalEvents}
+        />
+      ) : null}
+      {showAttentionNeeded ? <AttentionNeededPanel /> : null}
+      <QuickActionsPanel actions={visibleActions} onNewBooking={onNewBooking} />
     </div>
   );
 }
@@ -46,6 +86,10 @@ function EventsTimelinePanel({
   totalEvents
 }: Omit<DashboardSidePanelsProps, "onNewBooking">) {
   const router = useRouter();
+  const { canAccessRoute } = useDashboardAccess();
+  // Navigation affordances use the any-of route check, so the page never hides
+  // a link to a route the sidebar and the layout guard would both allow.
+  const canOpenEvents = canAccessRoute("/dashboard/events");
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
@@ -70,7 +114,9 @@ function EventsTimelinePanel({
             <TimelineGroupCard
               group={group}
               key={group.date}
-              onOpenEvent={() => router.push("/dashboard/events")}
+              onOpenEvent={
+                canOpenEvents ? () => router.push("/dashboard/events") : undefined
+              }
             />
           ))
         )}
@@ -84,7 +130,7 @@ function TimelineGroupCard({
   onOpenEvent
 }: {
   group: TimelineGroup;
-  onOpenEvent: (row: ScheduleRow) => void;
+  onOpenEvent?: (row: ScheduleRow) => void;
 }) {
   return (
     <div className="relative pl-5">
@@ -100,13 +146,8 @@ function TimelineGroupCard({
       </div>
 
       <div className="mt-3 space-y-2">
-        {group.rows.map((row) => (
-          <button
-            className="w-full rounded-xl border border-[#d8dde5] bg-white p-3 text-left transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]"
-            key={row.id}
-            onClick={() => onOpenEvent(row)}
-            type="button"
-          >
+        {group.rows.map((row) => {
+          const summary = (
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-black text-[#17202a]">
@@ -118,8 +159,26 @@ function TimelineGroupCard({
               </div>
               <StatusBadge status={row.status} />
             </div>
-          </button>
-        ))}
+          );
+
+          return onOpenEvent ? (
+            <button
+              className="w-full rounded-xl border border-[#d8dde5] bg-white p-3 text-left transition hover:border-[#1f4d73] hover:bg-[#fbfcfd]"
+              key={row.id}
+              onClick={() => onOpenEvent(row)}
+              type="button"
+            >
+              {summary}
+            </button>
+          ) : (
+            <div
+              className="w-full rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
+              key={row.id}
+            >
+              {summary}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -155,22 +214,16 @@ function AttentionNeededPanel() {
   );
 }
 
-function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
+function QuickActionsPanel({
+  actions,
+  onNewBooking
+}: {
+  actions: QuickAction[];
+  onNewBooking: () => void;
+}) {
   const router = useRouter();
-  const { hasPermission } = useDashboardAccess();
-  const actions: Array<
-    | { label: string; action: () => void; disabled?: boolean }
-    | { label: string; route: string; disabled?: boolean }
-  > = [
-    {
-      label: "Book event",
-      action: onNewBooking,
-      disabled: !hasPermission("canCreateBooking")
-    },
-    { label: "Kitchen board", route: "/dashboard/kitchen" },
-    { label: "Open billing", route: "/dashboard/billing" },
-    { label: "Dining sheets", route: "/dashboard/dining-manager" }
-  ];
+
+  if (actions.length === 0) return null;
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
@@ -181,13 +234,12 @@ function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         {actions.map((item) => (
           <button
-            className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#b9c2cf] disabled:hover:bg-white"
-            disabled={item.disabled}
+            className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
             key={item.label}
             type="button"
             onClick={() => {
-              if ("action" in item) {
-                item.action();
+              if (item.kind === "booking") {
+                onNewBooking();
                 return;
               }
 

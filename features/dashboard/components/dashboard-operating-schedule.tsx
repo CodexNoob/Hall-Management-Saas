@@ -7,6 +7,7 @@ import {
   type ScheduleRow,
   type TimeFilter
 } from "@/components/layout/dashboard-shell-shared";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type DashboardOperatingScheduleProps = {
   customEndDate: string;
@@ -42,6 +43,12 @@ export function DashboardOperatingSchedule({
   onTimeFilterChange
 }: DashboardOperatingScheduleProps) {
   const router = useRouter();
+  const { canAccessRoute } = useDashboardAccess();
+  // Checked against the route map so the schedule can never offer a link the
+  // layout guard would then refuse. Redundant today - the schedule renders on
+  // the same permission pair /dashboard/events requires - but it keeps the two
+  // in step if either changes.
+  const canOpenEvents = canAccessRoute("/dashboard/events");
 
   return (
     <section className="min-w-0 overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
@@ -73,13 +80,15 @@ export function DashboardOperatingSchedule({
             <option value="custom">Custom</option>
           </select>
 
-          <button
-            className="h-10 min-w-32 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
-            type="button"
-            onClick={() => router.push("/dashboard/events", { scroll: false })}
-          >
-            Open events
-          </button>
+          {canOpenEvents ? (
+            <button
+              className="h-10 min-w-32 whitespace-nowrap rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
+              type="button"
+              onClick={() => router.push("/dashboard/events", { scroll: false })}
+            >
+              Open events
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -319,6 +328,8 @@ function DesktopScheduleSkeleton() {
 
 function ScheduleEmptyState() {
   const router = useRouter();
+  const { canAccessRoute } = useDashboardAccess();
+  const canOpenEvents = canAccessRoute("/dashboard/events");
 
   return (
     <div className="mx-auto flex max-w-lg flex-col items-center justify-center rounded-2xl border border-dashed border-[#c7d0dc] bg-[#fbfcfd] px-5 py-8 text-center">
@@ -344,13 +355,15 @@ function ScheduleEmptyState() {
         Change the filter or open Event Manager to create and review upcoming
         bookings.
       </p>
-      <button
-        className="mt-4 h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#15344f]"
-        onClick={() => router.push("/dashboard/events", { scroll: false })}
-        type="button"
-      >
-        Open Event Manager
-      </button>
+      {canOpenEvents ? (
+        <button
+          className="mt-4 h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm transition hover:bg-[#15344f]"
+          onClick={() => router.push("/dashboard/events", { scroll: false })}
+          type="button"
+        >
+          Open Event Manager
+        </button>
+      ) : null}
     </div>
   );
 }

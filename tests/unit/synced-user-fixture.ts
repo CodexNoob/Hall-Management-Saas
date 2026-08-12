@@ -1,4 +1,5 @@
 import type { SyncedUserAccess } from "@/lib/auth/client";
+import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
 
 const fullAccess: SyncedUserAccess = {
   id: "access-1",
@@ -69,4 +70,11 @@ export function cacheSyncedUser(
       ]
     })
   );
+}
+
+// cacheSyncedUser's `role` argument only sets the role STRING - the access row
+// stays the viewer-ish baseline above. Use this instead whenever a test cares
+// about what a role can actually see, so the access row and the role agree.
+export function cacheSyncedUserForRole(role: StaffRoleValue) {
+  cacheSyncedUser(role, accessForRole(role));
 }

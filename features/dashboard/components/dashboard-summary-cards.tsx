@@ -9,6 +9,7 @@ import {
   type ScheduleRow,
   type TimelineGroup
 } from "@/components/layout/dashboard-shell-shared";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type BookedEventsSummary = {
   confirmed: number;
@@ -98,6 +99,10 @@ function BookedEventsCard({
   "bookedEvents" | "isDashboardLoading" | "nextUpcomingEvent"
 >) {
   const router = useRouter();
+  const { canAccessRoute } = useDashboardAccess();
+  // Navigation affordances use the any-of route check, so the page never hides
+  // a link to a route the sidebar and the layout guard would both allow.
+  const canOpenEvents = canAccessRoute("/dashboard/events");
   const bookedConfirmedPercent = bookedEvents.total
     ? Math.round((bookedEvents.confirmed / bookedEvents.total) * 100)
     : 0;
@@ -176,24 +181,40 @@ function BookedEventsCard({
         </div>
       </div>
 
-      <button
-        className="flex w-full items-center gap-3 border-t border-[#d8dde5] bg-[#f7fcf9] px-5 py-4 text-left hover:bg-[#eef9f2] sm:px-7"
-        onClick={() => router.push("/dashboard/events", { scroll: false })}
-        type="button"
-      >
-        <CalendarKpiIcon booked />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-black text-[#079447]">
-            Next upcoming event
-          </span>
-          <span className="mt-1 block truncate text-sm font-medium text-[#607089]">
-            {nextUpcomingEvent
-              ? `${formatEventDate(nextUpcomingEvent.date)} • ${nextUpcomingEvent.time}`
-              : "No upcoming event scheduled"}
-          </span>
-        </span>
-        <span className="text-2xl text-[#07162d]">›</span>
-      </button>
+      {canOpenEvents ? (
+        <button
+          className="flex w-full items-center gap-3 border-t border-[#d8dde5] bg-[#f7fcf9] px-5 py-4 text-left hover:bg-[#eef9f2] sm:px-7"
+          onClick={() => router.push("/dashboard/events", { scroll: false })}
+          type="button"
+        >
+          <NextUpcomingEventSummary nextUpcomingEvent={nextUpcomingEvent} />
+          <span className="text-2xl text-[#07162d]">›</span>
+        </button>
+      ) : (
+        <div className="flex w-full items-center gap-3 border-t border-[#d8dde5] bg-[#f7fcf9] px-5 py-4 text-left sm:px-7">
+          <NextUpcomingEventSummary nextUpcomingEvent={nextUpcomingEvent} />
+        </div>
+      )}
     </article>
+  );
+}
+
+function NextUpcomingEventSummary({
+  nextUpcomingEvent
+}: Pick<DashboardSummaryCardsProps, "nextUpcomingEvent">) {
+  return (
+    <>
+      <CalendarKpiIcon booked />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-black text-[#079447]">
+          Next upcoming event
+        </span>
+        <span className="mt-1 block truncate text-sm font-medium text-[#607089]">
+          {nextUpcomingEvent
+            ? `${formatEventDate(nextUpcomingEvent.date)} • ${nextUpcomingEvent.time}`
+            : "No upcoming event scheduled"}
+        </span>
+      </span>
+    </>
   );
 }
