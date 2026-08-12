@@ -11,25 +11,29 @@ import {
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 import { DiningDetailsPanel } from "@/features/dining/components/dining-details-panel";
 import { DiningWorkspacePanel } from "@/features/dining/components/dining-workspace-panel";
 import { DiningEventListPanel } from "@/features/dining/components/dining-event-list-panel";
 import {
+  buildDiningTablesFromHallMapPresetObjects,
   defaultTables,
   eventCounts,
   eventSchedule,
   eventTitle,
   isDiningSeatingTable,
-  validPresetObjects,
   validTables,
   type DiningForm,
   type DiningPlan,
   type DiningPlanPayload,
   type DiningResponse,
   type DiningTableData,
+  type HallMapPreset,
   type TableSide
 } from "@/features/dining/components/dining-shared";
 export function DiningManagerPage() {
@@ -144,7 +148,6 @@ export function DiningManagerPage() {
     setSelectedTableId(null);
     setSelectedTableIds([]);
     setCheckMessage("");
-    setSavedMessage("");
     resetError();
   }, [resetError, selectedEvent]);
 
@@ -175,6 +178,11 @@ export function DiningManagerPage() {
     setSavedMessage("");
     resetError();
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function selectEvent(eventId: string) {
+    setSelectedEventId(eventId);
+    setSavedMessage("");
   }
 
   function rememberTablesSnapshot(snapshot = tables) {
@@ -284,47 +292,18 @@ export function DiningManagerPage() {
     setCheckMessage("Required tables were added to the dining layout.");
   }
 
-  function applyHallMapPreset() {
-    const preset = diningQuery.data?.hallMapPresets.find(
-      (item) =>
-        item.id === selectedPresetId && item.hallId === selectedEvent?.hall.id
+  function findHallMapPresetForSelectedEvent(presetId: string) {
+    return (
+      diningQuery.data?.hallMapPresets.find(
+        (item) =>
+          item.id === presetId && item.hallId === selectedEvent?.hall.id
+      ) ?? null
     );
-    if (!preset) {
-      setCheckMessage("Select a map preset assigned to this event's hall.");
-      return;
-    }
+  }
 
-    let adultIndex = 0;
-    const presetTables = validPresetObjects(preset.objects).map(
-      (object, index): DiningTableData => {
-        let side: TableSide;
-        if (object.seatingUse === "kids") {
-          side = "kids";
-        } else if (object.seatingUse === "head") {
-          side = "head";
-        } else if (object.seatingUse === "adult") {
-          side = adultIndex % 2 === 0 ? "men" : "women";
-          adultIndex += 1;
-        } else {
-          side = "men";
-        }
-        const isSeating = object.seats > 0 && object.seatingUse !== "none";
-        return {
-          id: crypto.randomUUID(),
-          isSeating,
-          mapObjectId: object.id,
-          mapType: object.type,
-          name: object.name,
-          number: index + 1,
-          rotation: object.rotation,
-          seats: object.seats,
-          side,
-          x: object.x,
-          y: object.y,
-          width: object.width,
-          height: object.height
-        };
-      }
+  function setTablesFromPreset(preset: HallMapPreset) {
+    const presetTables = buildDiningTablesFromHallMapPresetObjects(
+      preset.objects
     );
 
     setTables(presetTables);
@@ -332,10 +311,30 @@ export function DiningManagerPage() {
     setSelectedTableIds([]);
     setSavedMessage("");
     setCheckMessage(
-      `${preset.name} applied with ${
+      `${preset.name} previewed with ${
         presetTables.filter(isDiningSeatingTable).length
       } seating tables. Save the dining plan to keep it.`
     );
+  }
+
+  function previewHallMapPreset(presetId: string) {
+    setSelectedPresetId(presetId);
+    setSavedMessage("");
+    resetError();
+
+    if (!presetId) {
+      setCheckMessage("");
+      return;
+    }
+
+    const preset = findHallMapPresetForSelectedEvent(presetId);
+    if (!preset) {
+      setCheckMessage("This preset is not assigned to the selected event's hall.");
+      return;
+    }
+
+    rememberTablesSnapshot();
+    setTablesFromPreset(preset);
   }
 
   function removeSelectedTable() {
@@ -420,6 +419,7 @@ export function DiningManagerPage() {
         specialNotes: form.specialNotes || undefined,
         tables
       });
+      invalidateAuthenticatedQuery("/api/events");
       await diningQuery.refetch();
       setSavedMessage("Dining plan saved.");
     } catch {
@@ -638,7 +638,7 @@ export function DiningManagerPage() {
             eventPageCount={eventPageCount}
             eventPageNumbers={eventPageNumbers}
             isExpanded={isEventListExpanded}
-            onSelectEvent={setSelectedEventId}
+            onSelectEvent={selectEvent}
             onSetEventPage={setEventPage}
             onToggleExpanded={() =>
               setIsEventListExpanded((isExpanded) => !isExpanded)
@@ -650,19 +650,19 @@ export function DiningManagerPage() {
 
           <DiningWorkspacePanel
             addTable={addTable}
-            applyHallMapPreset={applyHallMapPreset}
             availableHallMapPresets={availableHallMapPresets}
             dragTable={dragTable}
             hasPresetCoordinates={hasPresetCoordinates}
             isWorkspaceExpanded={isWorkspaceExpanded}
             removeSelectedTable={removeSelectedTable}
+            savedMessage={savedMessage}
             selectedEvent={selectedEvent}
             selectedPresetId={selectedPresetId}
             selectedTableIds={selectedTableIds}
             setDiningSelection={setDiningSelection}
             setIsWorkspaceExpanded={setIsWorkspaceExpanded}
             setSavedMessage={setSavedMessage}
-            setSelectedPresetId={setSelectedPresetId}
+            setSelectedPresetId={previewHallMapPreset}
             startTableDrag={startTableDrag}
             stopTableDrag={stopTableDrag}
             tables={tables}
@@ -679,11 +679,9 @@ export function DiningManagerPage() {
               isSaving={diningMutation.isPending}
               menRequired={menRequired}
               onAddRequiredTables={addRequiredTables}
-              onSavePlan={savePlan}
               onSetCheckMessage={setCheckMessage}
               onSetTables={setTables}
               onUpdateForm={updateForm}
-              savedMessage={savedMessage}
               seatTotals={seatTotals}
               selectedTable={
                 tables.find((table) => table.id === selectedTableId) ?? null

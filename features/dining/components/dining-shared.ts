@@ -135,6 +135,44 @@ export function validPresetObjects(value: unknown): HallMapObject[] {
   );
 }
 
+export function buildDiningTablesFromHallMapPresetObjects(
+  objects: unknown,
+  createId: () => string = () => crypto.randomUUID()
+): DiningTableData[] {
+  let adultIndex = 0;
+
+  return validPresetObjects(objects).map((object, index) => {
+    let side: TableSide;
+
+    if (object.seatingUse === "kids") {
+      side = "kids";
+    } else if (object.seatingUse === "head") {
+      side = "head";
+    } else if (object.seatingUse === "adult") {
+      side = adultIndex % 2 === 0 ? "men" : "women";
+      adultIndex += 1;
+    } else {
+      side = "men";
+    }
+
+    return {
+      id: createId(),
+      isSeating: object.seats > 0 && object.seatingUse !== "none",
+      mapObjectId: object.id,
+      mapType: object.type,
+      name: object.name,
+      number: index + 1,
+      rotation: object.rotation,
+      seats: object.seats,
+      side,
+      x: object.x,
+      y: object.y,
+      width: object.width,
+      height: object.height
+    };
+  });
+}
+
 export function defaultTables(): DiningTableData[] {
   return Array.from({ length: 8 }, (_, index) => ({
     id: crypto.randomUUID(),

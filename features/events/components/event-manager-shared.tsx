@@ -45,6 +45,7 @@ export type EventFile = {
   status: "Confirmed" | "Hold";
   paymentStatus: string;
   notes: string[];
+  diningManagerNotes: string | null;
   phone: string;
   email: string;
   workspaceData: Record<string, unknown>;
@@ -73,6 +74,7 @@ export type EventsResponse = {
     girlsCount: number;
     kidsCount: number;
     notes: string | null;
+    diningManagerNotes: string | null;
     phone: string;
     email: string | null;
     workspaceData: Record<string, unknown> | null;

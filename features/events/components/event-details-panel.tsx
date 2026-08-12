@@ -235,6 +235,16 @@ export function EventInformation({ event }: { event: EventFile }) {
             name="internalNotes"
           />
         </Field>
+        {event.diningManagerNotes ? (
+          <section className="rounded-lg border border-[#b9c2cf] bg-[#f8fafc] p-3 sm:col-span-3">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+              Dining Manager notes
+            </h3>
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-[#17202a]">
+              {event.diningManagerNotes}
+            </p>
+          </section>
+        ) : null}
       </div>
       <div className="px-3 pb-3">
         <button

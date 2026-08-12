@@ -19,13 +19,11 @@ type DiningDetailsPanelProps = {
   hasPresetCoordinates: boolean;
   isSaving: boolean;
   menRequired: number;
-  savedMessage: string;
   seatTotals: SeatTotals;
   selectedTable: DiningTableData | null;
   selectedTableId: string | null;
   womenRequired: number;
   onAddRequiredTables: () => void;
-  onSavePlan: () => void;
   onSetCheckMessage: (message: string) => void;
   onSetTables: (updater: (current: DiningTableData[]) => DiningTableData[]) => void;
   onUpdateForm: <K extends keyof DiningForm>(
@@ -41,13 +39,11 @@ export function DiningDetailsPanel({
   hasPresetCoordinates,
   isSaving,
   menRequired,
-  savedMessage,
   seatTotals,
   selectedTable,
   selectedTableId,
   womenRequired,
   onAddRequiredTables,
-  onSavePlan,
   onSetCheckMessage,
   onSetTables,
   onUpdateForm
@@ -234,17 +230,20 @@ export function DiningDetailsPanel({
         {diningError ? (
           <p className="text-xs font-bold text-[#b42318]">{diningError}</p>
         ) : null}
-        {savedMessage ? (
-          <p className="text-xs font-bold text-[#087047]">{savedMessage}</p>
-        ) : null}
-        <button
-          className="h-10 w-full rounded-lg bg-[#1f4d73] text-sm font-black text-white hover:bg-[#15344f] disabled:opacity-50"
-          disabled={isSaving}
-          onClick={onSavePlan}
-          type="button"
-        >
-          {isSaving ? "Saving..." : "Save dining plan"}
-        </button>
+        <section className="rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-3">
+          <h3 className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
+            Plan actions
+          </h3>
+          <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
+            Use the top Save dining plan button to save seating, layout,
+            service details, and notes.
+          </p>
+          {isSaving ? (
+            <p className="mt-2 text-xs font-bold text-[#1f4d73]">
+              Saving dining plan...
+            </p>
+          ) : null}
+        </section>
       </div>
     </Panel>
   );

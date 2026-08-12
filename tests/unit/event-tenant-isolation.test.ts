@@ -20,7 +20,8 @@ vi.mock("@/lib/prisma", () => ({
     hall: { findMany: vi.fn() },
     eventType: { findMany: vi.fn() },
     eventPackage: { findMany: vi.fn() },
-    organizationSetting: { upsert: vi.fn() }
+    organizationSetting: { upsert: vi.fn() },
+    $queryRaw: vi.fn()
   }
 }));
 vi.mock("@/features/bookings/services/booking.service", () => ({
@@ -51,6 +52,7 @@ describe("event tenant isolation", () => {
     vi.mocked(prisma.organizationSetting.upsert).mockResolvedValue({
       integrations: null
     } as never);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([]);
   });
 
   it("always scopes event reads to the verified organization", async () => {
@@ -68,6 +70,56 @@ describe("event tenant isolation", () => {
       expect.objectContaining({
         where: expect.objectContaining({ organizationId })
       })
+    );
+  });
+
+  it("returns Dining Manager notes with each event", async () => {
+    const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    vi.mocked(prisma.event.findMany).mockResolvedValue([
+      {
+        id: eventId,
+        organizationId,
+        clientName: "Charles",
+        eventDate: new Date("2026-08-12T00:00:00.000Z"),
+        eventType: "Wedding",
+        eventStatus: "Confirmed",
+        bookingStatus: "CONFIRMED",
+        startsAt: null,
+        endsAt: null,
+        setupStartsAt: null,
+        cleanupEndsAt: null,
+        holdExpiresAt: null,
+        version: 1,
+        paymentStatus: null,
+        packageName: null,
+        couplesCount: 0,
+        menCount: 0,
+        ladiesCount: 0,
+        boysCount: 0,
+        girlsCount: 0,
+        kidsCount: 0,
+        notes: null,
+        phone: "Not provided",
+        email: null,
+        workspaceData: null,
+        hall: { id: "hall-1", name: "Hall 1" },
+        package: null,
+        client: null
+      }
+    ] as never);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([
+      {
+        eventId,
+        specialNotes: "VIP table beside stage."
+      }
+    ]);
+
+    const response = await GET(new Request("http://localhost/api/events"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.events[0].diningManagerNotes).toBe(
+      "VIP table beside stage."
     );
   });
 });

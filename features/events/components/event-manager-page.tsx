@@ -71,6 +71,7 @@ export function EventManagerPage() {
             : "Hold",
           paymentStatus: event.paymentStatus ?? "No invoice",
           notes: event.notes ? [event.notes] : [],
+          diningManagerNotes: event.diningManagerNotes,
           phone: event.phone,
           email: event.email ?? "",
           workspaceData: event.workspaceData ?? {}
