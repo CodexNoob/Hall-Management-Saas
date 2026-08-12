@@ -16,7 +16,8 @@ import {
   readMutationResponse,
   staffToForm,
   type StaffDialogMode,
-  type StaffFormState
+  type StaffFormState,
+  type StaffInvitation
 } from "@/features/administration/components/staff-dialog";
 
 import {
@@ -60,6 +61,11 @@ export function StaffPage() {
   const [mutationError, setMutationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  // Kept outside `notice` because it must not auto-dismiss: an unsent invitation
+  // link is the only copy of that token the inviter will ever see.
+  const [undeliveredInvites, setUndeliveredInvites] = useState<StaffInvitation[]>(
+    []
+  );
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedAccess, setSelectedAccess] = useState<RoleAccessMatrix | null>(
     null
@@ -104,6 +110,19 @@ export function StaffPage() {
   function showNotice(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2800);
+  }
+
+  async function copyInviteLink(link: string | null) {
+    if (!link) return;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      showNotice("Invite link copied.");
+    } catch {
+      // Clipboard access is denied outside a secure context, so point at the
+      // visible field rather than claiming the link was copied.
+      showNotice("Could not copy automatically. Select the link and copy it.");
+    }
   }
 
   function openAddDialog() {
@@ -176,14 +195,24 @@ export function StaffPage() {
         method: dialogMode === "add" ? "POST" : "PATCH",
         body: JSON.stringify(body)
       });
-      await readMutationResponse(response);
+      const payload = await readMutationResponse(response);
       setDialogMode(null);
       setInviteInput("");
       setInviteEmails([]);
+
+      if (dialogMode !== "add") {
+        await refreshStaff("Staff member updated.");
+        return;
+      }
+
+      const undelivered = (payload?.invites ?? []).filter(
+        (invite) => !invite.emailSent
+      );
+      setUndeliveredInvites(undelivered);
       await refreshStaff(
-        dialogMode === "add"
-          ? "Staff invitation email sent. They can use the invite link to join."
-          : "Staff member updated."
+        undelivered.length
+          ? `Staff access created, but ${undelivered.length} invitation email${undelivered.length > 1 ? "s" : ""} could not be sent.`
+          : "Staff invitation email sent. They can use the invite link to join."
       );
     } catch (error) {
       setMutationError(
@@ -381,6 +410,65 @@ export function StaffPage() {
             {notice ? (
               <div className="rounded-xl border border-[#a9dfc9] bg-[#effaf5] px-4 py-3 text-xs font-black text-[#147653] shadow-sm">
                 {notice}
+              </div>
+            ) : null}
+
+            {undeliveredInvites.length ? (
+              <div className="rounded-xl border border-[#e8c982] bg-[#fdf8ec] px-4 py-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-xs font-black text-[#8a6412]">
+                    Staff access is active, but these invitation emails were not
+                    delivered. Share each link directly instead - every link works
+                    once and expires.
+                  </p>
+                  <button
+                    className="shrink-0 text-[10px] font-black uppercase tracking-[0.08em] text-[#8a6412] underline"
+                    onClick={() => setUndeliveredInvites([])}
+                    type="button"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+
+                <ul className="mt-3 space-y-2">
+                  {undeliveredInvites.map((invite) => (
+                    <li
+                      className="rounded-lg border border-[#efe0bd] bg-white px-3 py-2"
+                      key={invite.email}
+                    >
+                      <p className="text-xs font-black text-[#0f172a]">
+                        {invite.email}
+                      </p>
+                      {invite.error ? (
+                        <p className="mt-0.5 text-[11px] font-semibold text-[#8a6412]">
+                          {invite.error}
+                        </p>
+                      ) : null}
+                      {invite.inviteLink ? (
+                        <div className="mt-2 flex items-center gap-2">
+                          <input
+                            className="min-w-0 flex-1 rounded-md border border-[#d8dde5] bg-[#f8fafc] px-2 py-1.5 text-[11px] text-[#334155]"
+                            onFocus={(event) => event.currentTarget.select()}
+                            readOnly
+                            value={invite.inviteLink}
+                          />
+                          <button
+                            className={secondaryButtonClass}
+                            onClick={() => copyInviteLink(invite.inviteLink)}
+                            type="button"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="mt-1 text-[11px] font-semibold text-[#b3261e]">
+                          No invite link could be generated. Reopen Add staff for
+                          this address to try again.
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 
