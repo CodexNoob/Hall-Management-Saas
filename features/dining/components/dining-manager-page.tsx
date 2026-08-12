@@ -614,13 +614,29 @@ export function DiningManagerPage() {
               Remove table
             </button>
             <button
-              aria-label="Save dining plan"
-              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white"
+              aria-label={
+                diningMutation.isPending
+                  ? "Saving dining plan"
+                  : "Save dining plan"
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1f4d73] text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 lg:h-11 lg:w-auto lg:px-4 lg:text-sm lg:font-bold"
               disabled={diningMutation.isPending}
               onClick={savePlan}
               type="button"
             >
-              <span className="text-xl lg:hidden">âœ“</span>
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4 lg:hidden"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M5 3h12l2 2v16H5Z" />
+                <path d="M8 3v6h8M8 21v-7h8v7" />
+              </svg>
               <span className="hidden lg:inline">
                 {diningMutation.isPending ? "Saving..." : "Save dining plan"}
               </span>
