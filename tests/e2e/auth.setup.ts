@@ -11,9 +11,11 @@ async function authenticate(
   stateFile: string
 ) {
   await page.goto("/");
-  await page.locator("[data-login-modal]").click();
+  await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
+  await page.locator("[data-login-modal]:visible").click();
   await page.getByLabel("Email Address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.getByLabel("Remember me").check();
   await page
     .getByRole("dialog", { name: "Employee Login", exact: true })
     .getByRole("button", { name: "Login", exact: true })

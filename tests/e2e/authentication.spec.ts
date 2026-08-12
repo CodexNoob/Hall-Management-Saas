@@ -38,9 +38,16 @@ test("a fresh authenticated session can log out", async ({ page }, testInfo) => 
     .click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
 
-  await page.getByTitle("Sign out").click();
+  await page
+    .locator('aside.app-sidebar button[aria-haspopup="menu"][aria-expanded="false"]')
+    .click();
+  await page.getByRole("menuitem", { name: "Logout", exact: true }).click();
+  await page
+    .getByRole("alertdialog", { name: "Confirm logout" })
+    .getByRole("button", { name: "Logout", exact: true })
+    .click();
 
   await expect(page).toHaveURL("/");
   await page.goto("/dashboard");
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL(/\/login\?next=/);
 });

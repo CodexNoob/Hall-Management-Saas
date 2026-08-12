@@ -1,5 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+try {
+  process.loadEnvFile();
+} catch {
+  // .env is optional locally; CI supplies E2E_* vars directly.
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "test-results",

@@ -143,14 +143,11 @@ export function CalendarBookingDialog({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [
-    open,
-    selectedDate,
-    halls,
-    eventTypes,
-    onClose,
-    resetError
-  ]);
+    // Only reset the form when the dialog opens (or the target date changes)
+    // while open - not whenever halls/eventTypes get a new array identity
+    // from an unrelated data refetch, which would silently wipe user input.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedDate]);
 
   if (!open) return null;
 
