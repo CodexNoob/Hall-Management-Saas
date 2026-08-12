@@ -10,7 +10,7 @@ import {
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
-import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { BillingContent } from "@/features/billing/components/billing-content";
 import { BillingHeader } from "@/features/billing/components/billing-header";
@@ -23,8 +23,13 @@ import {
 export function BillingPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Billing");
-  const canManagePayments = useDashboardPermission("canManagePayments");
-  const billingQuery = useAuthenticatedQuery<BillingResponse>("/api/billing");
+  const { canAccessRoute, hasPermission } = useDashboardAccess();
+  const canViewBilling = canAccessRoute("/dashboard/billing");
+  const canManagePayments = hasPermission("canManagePayments");
+  const billingQuery = useAuthenticatedQuery<BillingResponse>(
+    "/api/billing",
+    canViewBilling
+  );
   const [activeTab, setActiveTab] = useState<BillingTab>("Dashboard");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewInvoiceOpen, setIsNewInvoiceOpen] = useState(false);
@@ -100,12 +105,19 @@ export function BillingPage() {
     await billingQuery.refetch();
   };
 
-  if (billingQuery.isLoading || billingQuery.error || !billingQuery.data) {
+  if (!canViewBilling || billingQuery.isLoading || billingQuery.error || !billingQuery.data) {
     return (
       <DashboardPageState
-        error={billingQuery.error}
-        isLoading={billingQuery.isLoading}
-        onRetry={billingQuery.refetch}
+        emptyMessage={
+          canViewBilling
+            ? undefined
+            : "You do not have permission to view billing. Contact an administrator if you need access."
+        }
+        emptyTitle={canViewBilling ? undefined : "Access restricted"}
+        error={canViewBilling ? billingQuery.error : null}
+        isEmpty={!canViewBilling}
+        isLoading={canViewBilling && billingQuery.isLoading}
+        onRetry={canViewBilling ? billingQuery.refetch : undefined}
         subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
         title="Billing"
       />

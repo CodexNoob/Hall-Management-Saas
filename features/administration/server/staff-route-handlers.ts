@@ -10,6 +10,10 @@ import { getEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import {
+  sendStaffInvitations,
+  staffInviteRedirectTo
+} from "@/features/administration/server/staff-invitations";
+import {
   accessPermissionKeys,
   accessForRole,
   normalizeStaffRole,
@@ -82,29 +86,15 @@ function mergeIntegrationsWithRoleAccess(
   };
 }
 
-async function sendStaffInvitationEmails(inviteEmails: string[]) {
+function inviteStaff(inviteEmails: string[]) {
   const env = getEnv();
   const supabase = createSupabaseServiceClient();
-  const redirectTo = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/auth/callback`;
-  const failures: string[] = [];
 
-  await Promise.all(
-    inviteEmails.map(async (email) => {
-      const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo
-      });
-
-      if (error) {
-        failures.push(`${email}: ${error.message}`);
-      }
-    })
+  return sendStaffInvitations(
+    supabase.auth.admin,
+    inviteEmails,
+    staffInviteRedirectTo(env.NEXT_PUBLIC_APP_URL)
   );
-
-  if (failures.length) {
-    throw new Error(
-      `Staff access was created, but the invitation email could not be sent to ${failures.join(", ")}.`
-    );
-  }
 }
 
 export async function GET(request: Request) {
@@ -297,9 +287,10 @@ export async function POST(request: Request) {
 
       return results;
     });
-    await sendStaffInvitationEmails(inviteEmails);
+    const invitations = await inviteStaff(inviteEmails);
 
     return NextResponse.json({
+      invites: invitations,
       staff: createdStaff.map((item) => ({
         id: item.id,
         membershipId: item.membershipId,

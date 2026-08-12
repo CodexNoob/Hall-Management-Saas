@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { HelpPageKind } from "@/features/help/components/help-page";
 import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { DashboardSidebarMobileHeader } from "@/components/layout/dashboard-sidebar-mobile-header";
 
@@ -73,8 +74,54 @@ export function DashboardSidebar({
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isUpgradePlanDialogOpen, setIsUpgradePlanDialogOpen] = useState(false);
+  const { canAccessRoute } = useDashboardAccess();
+  const visibleSidebarSections = useMemo(
+    () =>
+      sidebarSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(
+            (item) => !item.route || canAccessRoute(item.route)
+          )
+        }))
+        .filter((section) => section.items.length > 0),
+    [canAccessRoute]
+  );
+  const profileMenuItems = useMemo(
+    () =>
+      [
+        {
+          label: "Upgrade Plan",
+          iconSrc: "/images/icons/profile-menu/upgrade-plan.png",
+          route: null
+        },
+        {
+          label: "Profile",
+          iconSrc: "/images/icons/profile-menu/profile.png",
+          route: null
+        },
+        {
+          label: "Settings",
+          iconSrc: "/images/icons/profile-menu/settings.png",
+          route: null
+        },
+        {
+          label: "Help",
+          iconSrc: "/images/icons/profile-menu/help.png",
+          route: null
+        },
+        {
+          label: "Logout",
+          iconSrc: "/images/icons/profile-menu/logout.png",
+          route: null
+        }
+      ].filter(
+        (item) => item.label !== "Settings" || canAccessRoute("/dashboard/settings")
+      ),
+    [canAccessRoute]
+  );
   const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
-    sidebarSections.map((section) => section.title)
+    visibleSidebarSections.map((section) => section.title)
   );
   const [openCollapsedSection, setOpenCollapsedSection] = useState<
     string | null
@@ -194,7 +241,7 @@ export function DashboardSidebar({
   useEffect(() => {
     const routes = Array.from(
       new Set(
-        sidebarSections
+        visibleSidebarSections
           .flatMap((section) => section.items.map((item) => item.route))
           .filter((route): route is string => Boolean(route))
       )
@@ -203,7 +250,7 @@ export function DashboardSidebar({
     routes.forEach((route) => {
       router.prefetch(route as Parameters<typeof router.prefetch>[0]);
     });
-  }, [router]);
+  }, [router, visibleSidebarSections]);
 
   useEffect(() => {
     if (!openCollapsedSection) return;
@@ -335,7 +382,7 @@ export function DashboardSidebar({
         >
           {showCollapsed ? (
             <div className="space-y-3" ref={collapsedNavigationRef}>
-              {sidebarSections.map((section) => {
+              {visibleSidebarSections.map((section) => {
                 const isActiveSection = section.items.some(
                   (item) => item.label === activeLabel
                 );
@@ -453,7 +500,7 @@ export function DashboardSidebar({
               })}
             </div>
           ) : (
-            sidebarSections.map((section) => (
+            visibleSidebarSections.map((section) => (
               <section key={section.title}>
                 {!showCollapsed ? (
                   <button
@@ -585,33 +632,7 @@ export function DashboardSidebar({
                 }`}
                 role="menu"
               >
-                {[
-                  {
-                    label: "Upgrade Plan",
-                    iconSrc: "/images/icons/profile-menu/upgrade-plan.png",
-                    route: null
-                  },
-                  {
-                    label: "Profile",
-                    iconSrc: "/images/icons/profile-menu/profile.png",
-                    route: null
-                  },
-                  {
-                    label: "Settings",
-                    iconSrc: "/images/icons/profile-menu/settings.png",
-                    route: null
-                  },
-                  {
-                    label: "Help",
-                    iconSrc: "/images/icons/profile-menu/help.png",
-                    route: null
-                  },
-                  {
-                    label: "Logout",
-                    iconSrc: "/images/icons/profile-menu/logout.png",
-                    route: null
-                  }
-                ].map((item) => (
+                {profileMenuItems.map((item) => (
                   <button
                     aria-expanded={
                       item.label === "Help" ? isHelpMenuOpen : undefined

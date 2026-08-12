@@ -84,7 +84,10 @@ test("Event details show unsaved changes, discard, and save feedback", async ({
 
   await page.getByLabel("Client").fill("Updated E2E Event");
   await page.getByLabel("Internal notes").fill("Updated internal note.");
-  await page.getByLabel("Guests").fill("370");
+  // Scoped to the role: the timeline rows expose aria-labels such as
+  // "Timeline time for Guests arrive and first course begins", so a bare
+  // getByLabel("Guests") is ambiguous.
+  await page.getByRole("spinbutton", { name: "Guests" }).fill("370");
   await page.getByRole("button", { name: "Save event details" }).click();
 
   await expect(page.getByRole("status")).toContainText("Event details saved");

@@ -49,5 +49,7 @@ test("a fresh authenticated session can log out", async ({ page }, testInfo) => 
 
   await expect(page).toHaveURL("/");
   await page.goto("/dashboard");
-  await expect(page).toHaveURL(/\/login\?next=/);
+  // Protected dashboard routes bounce to the landing page's login modal
+  // (getDashboardLoginPath), not to the standalone /login page.
+  await expect(page).toHaveURL(/\/\?auth=login&next=/);
 });

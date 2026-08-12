@@ -98,16 +98,27 @@ test("selecting a hall map preset immediately previews its dining table layout",
   await page.getByLabel("Hall map preset").click();
   await page.getByRole("option", { name: "Preset A" }).click();
 
-  await expect(page.getByText("Preset A Table")).toBeVisible();
+  // Assert on the table shape itself, not its inner label: inside the small
+  // round table the name is clipped to a zero-height box on narrow viewports,
+  // so getByText(...).toBeVisible() only holds on desktop.
+  await expect(
+    page.getByRole("button", { name: "Preset A Table" })
+  ).toBeVisible();
   await expect(page.getByText("Preset A previewed with 1 seating tables.")).toBeVisible();
-  await expect(page.getByText("Preset B Head Table")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Preset B Head Table" })
+  ).toHaveCount(0);
 
   await page.getByLabel("Hall map preset").click();
   await page.getByRole("option", { name: "Preset B" }).click();
 
-  await expect(page.getByText("Preset B Head Table")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Preset B Head Table" })
+  ).toBeVisible();
   await expect(page.getByText("Preset B previewed with 1 seating tables.")).toBeVisible();
-  await expect(page.getByText("Preset A Table")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Preset A Table" })
+  ).toHaveCount(0);
 });
 
 test("saving a dining plan persists the selected hall map preset layout", async ({

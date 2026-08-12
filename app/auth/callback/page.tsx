@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import { syncSignedInUser } from "@/lib/auth/client";
 import {
+  describeAuthCallbackError,
+  isExpiredLinkError,
   isPasswordSetupFlow,
   readAuthCallbackParams
 } from "@/lib/auth/auth-callback-params";
@@ -30,6 +32,14 @@ export default function AuthCallbackPage() {
 
     async function completeAuth() {
       try {
+        // Supabase reports a rejected link in the URL itself and never creates a
+        // session for it, so read that first. Falling through to getSession()
+        // would replace a precise reason ("link has expired") with a generic
+        // missing-session message the recipient cannot act on.
+        if (callbackParams.errorDescription) {
+          throw new Error(describeAuthCallbackError(callbackParams));
+        }
+
         const supabase = createSupabaseBrowserClient();
         const { data, error } = await supabase.auth.getSession();
 
@@ -90,6 +100,9 @@ export default function AuthCallbackPage() {
 
   const isLoading = status === "loading";
   const isSuccess = status === "success";
+  // Reloading an expired or already-spent link re-sends the same dead token, so
+  // offer the only route that can work: sign in, or get a fresh invitation.
+  const isExpired = isExpiredLinkError(callbackParams);
 
   return (
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#F3F6FA] px-5 py-10 text-[#0F172A]">
@@ -138,13 +151,22 @@ export default function AuthCallbackPage() {
 
         {status === "error" ? (
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-            <button
-              className="inline-flex items-center justify-center rounded-2xl bg-[#1F4D73] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#1F4D73]/20 transition hover:bg-[#163B59]"
-              onClick={() => window.location.reload()}
-              type="button"
-            >
-              Try again
-            </button>
+            {isExpired ? (
+              <Link
+                className="inline-flex items-center justify-center rounded-2xl bg-[#1F4D73] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#1F4D73]/20 transition hover:bg-[#163B59]"
+                href="/login"
+              >
+                Go to sign in
+              </Link>
+            ) : (
+              <button
+                className="inline-flex items-center justify-center rounded-2xl bg-[#1F4D73] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#1F4D73]/20 transition hover:bg-[#163B59]"
+                onClick={() => window.location.reload()}
+                type="button"
+              >
+                Try again
+              </button>
+            )}
             <Link
               className="inline-flex items-center justify-center rounded-2xl border border-[#B8C4D4] bg-white px-6 py-3 text-sm font-black text-[#0F172A] transition hover:bg-[#F8FAFC]"
               href="/"

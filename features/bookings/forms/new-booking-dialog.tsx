@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 export type NewBookingFormValues = {
   clientName: string;
@@ -96,6 +97,8 @@ export function NewBookingDialog({
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const { hasPermission } = useDashboardAccess();
+  const canCreateBooking = hasPermission("canCreateBooking");
   const [values, setValues] = useState(initialValues);
   const eventsQuery = useAuthenticatedQuery<EventsLookupResponse>(
     "/api/events",
@@ -168,7 +171,7 @@ export function NewBookingDialog({
       (option) => option.name === values.eventPackage
     );
 
-    if (!hall) {
+    if (!canCreateBooking || !hall) {
       return;
     }
 
@@ -464,6 +467,12 @@ export function NewBookingDialog({
               where availability, pricing, proposal, and retainer details are
               finalized.
             </p>
+            {!canCreateBooking ? (
+              <p className="mt-2 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
+                You do not have permission to create bookings. Contact an
+                administrator if you need access.
+              </p>
+            ) : null}
             {eventsQuery.error || bookingMutation.error ? (
               <p className="mt-2 rounded-lg border border-[#efb5ad] bg-[#fff4f2] px-3 py-3 text-xs font-bold text-[#a92217]">
                 {eventsQuery.error ?? bookingMutation.error}
@@ -483,6 +492,7 @@ export function NewBookingDialog({
             <button
               className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4"
               disabled={
+                !canCreateBooking ||
                 bookingMutation.isPending ||
                 !hallReady(eventsQuery.data) ||
                 eventTypes.length === 0 ||
@@ -496,6 +506,7 @@ export function NewBookingDialog({
             <button
               className="col-span-2 h-10 w-full rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f] sm:w-auto"
               disabled={
+                !canCreateBooking ||
                 bookingMutation.isPending ||
                 !hallReady(eventsQuery.data) ||
                 eventTypes.length === 0 ||

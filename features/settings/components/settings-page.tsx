@@ -8,7 +8,7 @@ import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
-import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { EventTypesSettingsPanel } from "@/features/settings/components/event-types-settings-panel";
 import { MfaSecurityPanel } from "@/features/settings/components/mfa-security-panel";
@@ -40,9 +40,13 @@ export function SettingsPage({
   onClose
 }: SettingsPageProps) {
   const isModal = displayMode === "modal";
-  const canEditSettings = useDashboardPermission("canEditSettings");
-  const settingsQuery =
-    useAuthenticatedQuery<SettingsResponse>("/api/settings");
+  const { canAccessRoute, hasPermission } = useDashboardAccess();
+  const canViewSettings = canAccessRoute("/dashboard/settings");
+  const canEditSettings = hasPermission("canEditSettings");
+  const settingsQuery = useAuthenticatedQuery<SettingsResponse>(
+    "/api/settings",
+    canViewSettings
+  );
   const settingsMutation = useAuthenticatedMutation<
     Partial<
       SettingsResponse["notifications"] & {
@@ -120,7 +124,7 @@ export function SettingsPage({
         ? "max-w-3xl"
         : "max-w-3xl";
 
-  if (settingsQuery.isLoading || settingsQuery.error) {
+  if (!canViewSettings || settingsQuery.isLoading || settingsQuery.error) {
     return (
       <main
         className={`flex items-center justify-center bg-[#f5f6f8] p-4 ${
@@ -128,9 +132,16 @@ export function SettingsPage({
         }`}
       >
         <AsyncState
-          error={settingsQuery.error}
-          isLoading={settingsQuery.isLoading}
-          onRetry={settingsQuery.refetch}
+          emptyMessage={
+            canViewSettings
+              ? undefined
+              : "You do not have permission to view organization settings. Contact an administrator if you need access."
+          }
+          emptyTitle={canViewSettings ? undefined : "Access restricted"}
+          error={canViewSettings ? settingsQuery.error : null}
+          isEmpty={!canViewSettings}
+          isLoading={canViewSettings && settingsQuery.isLoading}
+          onRetry={canViewSettings ? settingsQuery.refetch : undefined}
         />
       </main>
     );

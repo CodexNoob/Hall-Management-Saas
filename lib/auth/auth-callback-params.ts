@@ -12,12 +12,14 @@ export type AuthCallbackType = (typeof authCallbackTypes)[number] | null;
 
 export type AuthCallbackParams = {
   type: AuthCallbackType;
+  errorCode: string | null;
   errorDescription: string | null;
   next: string | null;
 };
 
 const emptyParams: AuthCallbackParams = {
   type: null,
+  errorCode: null,
   errorDescription: null,
   next: null
 };
@@ -44,9 +46,35 @@ export function parseAuthCallbackParams(href: string): AuthCallbackParams {
 
   return {
     type: isAuthCallbackType(type) ? type : null,
+    errorCode: read("error_code"),
     errorDescription: read("error_description") ?? read("error") ?? null,
     next: url.searchParams.get("next")
   };
+}
+
+/**
+ * Supabase reports a token that has passed its expiry, and one that was already
+ * spent, with the same `otp_expired` code. A single-use link can be consumed by
+ * a mail provider's link scanner before the recipient ever clicks it, so treat
+ * both as "ask for a fresh invitation" rather than "retry this link".
+ */
+export function isExpiredLinkError(params: AuthCallbackParams) {
+  return params.errorCode === "otp_expired";
+}
+
+/**
+ * Supabase drops `type` from the URL when it reports an error, so the message
+ * cannot name the flow the link came from and has to cover both.
+ */
+export function describeAuthCallbackError(params: AuthCallbackParams) {
+  if (isExpiredLinkError(params)) {
+    return "This link has expired or was already used. Ask an administrator for a new invitation, or request a new password reset link.";
+  }
+
+  return (
+    params.errorDescription ??
+    "This sign-in link could not be verified. Ask an administrator to send you a new invitation."
+  );
 }
 
 let snapshot: AuthCallbackParams | null = null;

@@ -77,14 +77,24 @@ export function accessFromStaff(staff: StaffMember): RoleAccessMatrix {
   );
 }
 
+export type StaffInvitation = {
+  email: string;
+  emailSent: boolean;
+  inviteLink: string | null;
+  error: string | null;
+};
+
 export async function readMutationResponse(response: Response) {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
+    invites?: StaffInvitation[];
   } | null;
 
   if (!response.ok) {
     throw new Error(payload?.error ?? "Unable to update staff.");
   }
+
+  return payload;
 }
 
 function Field({
