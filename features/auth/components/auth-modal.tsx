@@ -65,7 +65,13 @@ export function AuthModal() {
     window.addEventListener("keydown", handleKeyDown);
     document.addEventListener("click", handleClick);
     window.addEventListener("event-core:open-auth", handleAuthRequest);
-    if (window.__eventCoreAuthRequest) {
+    const requestedAuthView = new URLSearchParams(window.location.search).get(
+      "auth"
+    );
+
+    if (requestedAuthView === "login" || requestedAuthView === "trial") {
+      openRequestedView(requestedAuthView);
+    } else if (window.__eventCoreAuthRequest) {
       openRequestedView(window.__eventCoreAuthRequest);
     }
 

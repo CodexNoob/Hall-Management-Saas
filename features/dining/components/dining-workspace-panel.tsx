@@ -22,12 +22,12 @@ type HallMapPreset = NonNullable<DiningResponse["hallMapPresets"]>[number];
 
 export function DiningWorkspacePanel({
   addTable,
-  applyHallMapPreset,
   availableHallMapPresets,
   dragTable,
   hasPresetCoordinates,
   isWorkspaceExpanded,
   removeSelectedTable,
+  savedMessage,
   selectedEvent,
   selectedPresetId,
   selectedTableIds,
@@ -40,19 +40,19 @@ export function DiningWorkspacePanel({
   tables
 }: {
   addTable: (side?: TableSide) => void;
-  applyHallMapPreset: () => void;
   availableHallMapPresets: HallMapPreset[];
   dragTable: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   hasPresetCoordinates: boolean;
   isWorkspaceExpanded: boolean;
   removeSelectedTable: () => void;
+  savedMessage: string;
   selectedEvent: DiningEvent;
   selectedPresetId: string;
   selectedTableIds: string[];
   setDiningSelection: (id: string, options?: { toggle?: boolean }) => void;
   setIsWorkspaceExpanded: Dispatch<SetStateAction<boolean>>;
   setSavedMessage: Dispatch<SetStateAction<string>>;
-  setSelectedPresetId: Dispatch<SetStateAction<string>>;
+  setSelectedPresetId: (presetId: string) => void;
   startTableDrag: (
     event: ReactPointerEvent<HTMLButtonElement>,
     table: DiningTableData
@@ -119,14 +119,6 @@ export function DiningWorkspacePanel({
               value={selectedPresetId}
             />
           </div>
-          <button
-            className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!selectedPresetId}
-            onClick={applyHallMapPreset}
-            type="button"
-          >
-            Apply preset
-          </button>
         </div>
         <div
           className={`mt-3 flex-wrap gap-2 lg:flex ${
@@ -169,7 +161,15 @@ export function DiningWorkspacePanel({
           isWorkspaceExpanded ? "block" : "hidden"
         }`}
       >
-        <div className="min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
+        <div className="relative min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
+          {savedMessage ? (
+            <div
+              className="absolute left-1/2 top-3 z-10 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-[#9fd9bd] bg-[#ecfdf3] px-4 py-2 text-center text-xs font-black text-[#087047] shadow-lg"
+              role="status"
+            >
+              {savedMessage}
+            </div>
+          ) : null}
           {hasPresetCoordinates ? (
             <div className="relative mx-auto aspect-[760/520] w-full max-w-[760px]">
               {tables.map((table) => {

@@ -32,6 +32,28 @@ function dailyEventLimitFromIntegrations(integrations: unknown) {
   return 2;
 }
 
+async function listDiningManagerNotes(
+  organizationId: string,
+  eventIds: string[]
+) {
+  if (eventIds.length === 0) return new Map<string, string>();
+
+  const rows = await prisma.$queryRaw<
+    Array<{ eventId: string; specialNotes: string | null }>
+  >`
+    SELECT event_id AS "eventId", special_notes AS "specialNotes"
+    FROM dining_plans
+    WHERE organization_id = ${organizationId}::uuid
+      AND event_id = ANY(${eventIds}::uuid[])
+      AND special_notes IS NOT NULL
+      AND btrim(special_notes) <> ''
+  `;
+
+  return new Map(
+    rows.map((row) => [row.eventId, row.specialNotes?.trim() ?? ""])
+  );
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -78,8 +100,16 @@ export async function GET(request: Request) {
       })
     ]);
 
+    const diningManagerNotesByEventId = await listDiningManagerNotes(
+      actor.organizationId,
+      events.map((event) => event.id)
+    );
+
     return NextResponse.json({
-      events,
+      events: events.map((event) => ({
+        ...event,
+        diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null
+      })),
       halls,
       eventTypes,
       packages,

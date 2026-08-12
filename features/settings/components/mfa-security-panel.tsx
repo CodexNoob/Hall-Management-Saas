@@ -181,7 +181,7 @@ export function MfaSecurityPanel() {
           <div className="grid gap-5 rounded-xl border border-[#d8e2ee] bg-[#f8fafc] p-4 sm:grid-cols-[180px_1fr]">
             <Image
               alt="Authenticator QR code"
-              className="h-[180px] w-[180px] rounded-lg border bg-white p-2"
+              className="h-45 w-45 rounded-lg border bg-white p-2"
               height={180}
               src={enrollment.qrCode}
               unoptimized

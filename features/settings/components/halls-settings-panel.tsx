@@ -12,6 +12,10 @@ type Hall = {
   id: string;
   name: string;
   capacity: number | null;
+  basePrice: string | number | null;
+  perCouplePrice: string | number | null;
+  memberBasePrice: string | number | null;
+  memberPerCouplePrice: string | number | null;
   color: string | null;
   isActive: boolean;
   isBookable: boolean;
@@ -34,6 +38,10 @@ type HallInput = {
   id?: string;
   name: string;
   capacity: number | null;
+  basePrice: number | null;
+  perCouplePrice: number | null;
+  memberBasePrice: number | null;
+  memberPerCouplePrice: number | null;
   color: string;
   isActive: boolean;
   isBookable: boolean;
@@ -42,10 +50,32 @@ type HallInput = {
 const emptyHall: HallInput = {
   name: "",
   capacity: null,
+  basePrice: null,
+  perCouplePrice: null,
+  memberBasePrice: null,
+  memberPerCouplePrice: null,
   color: "#1f5f91",
   isActive: true,
   isBookable: true
 };
+
+function parseMoneyValue(value: string) {
+  return value ? Number(value) : null;
+}
+
+function normalizeMoneyValue(value: string | number | null) {
+  return value === null ? null : Number(value);
+}
+
+function formatMoney(value: string | number | null) {
+  if (value === null) return "Not set";
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2
+  }).format(Number(value));
+}
 
 export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
   const hallsQuery = useAuthenticatedQuery<HallsResponse>("/api/halls");
@@ -97,6 +127,10 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       id: hall.id,
       name: hall.name,
       capacity: hall.capacity,
+      basePrice: normalizeMoneyValue(hall.basePrice),
+      perCouplePrice: normalizeMoneyValue(hall.perCouplePrice),
+      memberBasePrice: normalizeMoneyValue(hall.memberBasePrice),
+      memberPerCouplePrice: normalizeMoneyValue(hall.memberPerCouplePrice),
       color: hall.color ?? "#1f5f91",
       isActive: hall.isActive,
       isBookable: hall.isBookable
@@ -132,6 +166,10 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
         id: hall.id,
         name: hall.name,
         capacity: hall.capacity,
+        basePrice: normalizeMoneyValue(hall.basePrice),
+        perCouplePrice: normalizeMoneyValue(hall.perCouplePrice),
+        memberBasePrice: normalizeMoneyValue(hall.memberBasePrice),
+        memberPerCouplePrice: normalizeMoneyValue(hall.memberPerCouplePrice),
         color: hall.color ?? "#1f5f91",
         isActive: !hall.isActive,
         isBookable: hall.isBookable
@@ -235,6 +273,14 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                     <p className="mt-1 text-[9px] text-[#718096]">
                       {hall._count.events} events ·{" "}
                       {hall._count.hallMapPresets} map presets
+                    </p>
+                    <p className="mt-2 text-[9px] leading-4 text-[#526173]">
+                      Regular: {formatMoney(hall.basePrice)} base ·{" "}
+                      {formatMoney(hall.perCouplePrice)} / couple
+                    </p>
+                    <p className="text-[9px] leading-4 text-[#526173]">
+                      Member: {formatMoney(hall.memberBasePrice)} base ·{" "}
+                      {formatMoney(hall.memberPerCouplePrice)} / couple
                     </p>
                   </div>
                   <span
@@ -340,7 +386,9 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 <input
                   autoFocus
                   className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
+                  id="hall-name"
                   maxLength={100}
+                  name="hallName"
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
@@ -356,7 +404,9 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   Capacity
                   <input
                     className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
+                    id="hall-capacity"
                     min="1"
+                    name="hallCapacity"
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -374,6 +424,8 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   Calendar color
                   <input
                     className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-2"
+                    id="hall-color"
+                    name="hallColor"
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -385,9 +437,100 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   />
                 </label>
               </div>
+              <div className="rounded-xl border border-[#d8dde5] bg-[#f8fafc] p-3">
+                <p className="text-xs font-black text-[#1f3148]">
+                  Pricing
+                </p>
+                <p className="mt-1 text-[10px] text-[#617086]">
+                  Used as the default hall pricing when creating packages,
+                  proposals, or event billing.
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="block text-xs font-black">
+                    Regular base price
+                    <input
+                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+                      id="hall-base-price"
+                      min="0"
+                      name="hallBasePrice"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          basePrice: parseMoneyValue(event.target.value)
+                        }))
+                      }
+                      placeholder="0.00"
+                      step="0.01"
+                      type="number"
+                      value={form.basePrice ?? ""}
+                    />
+                  </label>
+                  <label className="block text-xs font-black">
+                    Regular per couple
+                    <input
+                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+                      id="hall-per-couple-price"
+                      min="0"
+                      name="hallPerCouplePrice"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          perCouplePrice: parseMoneyValue(event.target.value)
+                        }))
+                      }
+                      placeholder="0.00"
+                      step="0.01"
+                      type="number"
+                      value={form.perCouplePrice ?? ""}
+                    />
+                  </label>
+                  <label className="block text-xs font-black">
+                    Member base price
+                    <input
+                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+                      id="hall-member-base-price"
+                      min="0"
+                      name="hallMemberBasePrice"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          memberBasePrice: parseMoneyValue(event.target.value)
+                        }))
+                      }
+                      placeholder="0.00"
+                      step="0.01"
+                      type="number"
+                      value={form.memberBasePrice ?? ""}
+                    />
+                  </label>
+                  <label className="block text-xs font-black">
+                    Member per couple
+                    <input
+                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+                      id="hall-member-per-couple-price"
+                      min="0"
+                      name="hallMemberPerCouplePrice"
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          memberPerCouplePrice: parseMoneyValue(
+                            event.target.value
+                          )
+                        }))
+                      }
+                      placeholder="0.00"
+                      step="0.01"
+                      type="number"
+                      value={form.memberPerCouplePrice ?? ""}
+                    />
+                  </label>
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-xs font-bold">
                 <input
                   checked={form.isBookable}
+                  id="hall-is-bookable"
+                  name="hallIsBookable"
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,

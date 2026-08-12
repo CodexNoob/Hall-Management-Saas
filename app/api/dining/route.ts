@@ -242,8 +242,11 @@ export async function PATCH(request: Request) {
       }
     }
 
+    const planId = crypto.randomUUID();
+
     const [plan] = await prisma.$queryRaw<DiningPlanRow[]>`
       INSERT INTO dining_plans (
+        id,
         organization_id,
         event_id,
         hall_map_preset_id,
@@ -255,8 +258,11 @@ export async function PATCH(request: Request) {
         tablecloth,
         washing_time,
         special_notes,
-        tables
+        tables,
+        created_at,
+        updated_at
       ) VALUES (
+        ${planId}::uuid,
         ${actor.organizationId}::uuid,
         ${input.eventId}::uuid,
         ${input.hallMapPresetId ?? null}::uuid,
@@ -268,7 +274,9 @@ export async function PATCH(request: Request) {
         ${input.tablecloth || null},
         ${input.washingTime || null},
         ${input.specialNotes || null},
-        ${JSON.stringify(input.tables)}::jsonb
+        ${JSON.stringify(input.tables)}::jsonb,
+        NOW(),
+        NOW()
       )
       ON CONFLICT (event_id) DO UPDATE SET
         hall_map_preset_id = EXCLUDED.hall_map_preset_id,
