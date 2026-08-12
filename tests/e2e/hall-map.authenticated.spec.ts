@@ -30,10 +30,17 @@ const preset = {
   hall
 };
 
-test.beforeEach(async () => {
+test.beforeEach(async ({}, testInfo) => {
   test.skip(
     !process.env.E2E_READONLY_EMAIL || !process.env.E2E_READONLY_PASSWORD,
     "Read-only E2E credentials are not set."
+  );
+  // Below the md breakpoint the editor is intentionally view-only: the map
+  // objects are pointer-events-none and Save/Clear are hidden, so editing
+  // the layout can only be exercised on the desktop viewport.
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "The hall map editor is view-only on mobile viewports."
   );
 });
 
@@ -72,7 +79,7 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
 
   await page.goto("/dashboard/hall-room-map");
 
-  await page.getByLabel("assigned-hall").click();
+  await page.getByLabel("Assigned hall").click();
   await page.getByRole("option", { name: "Hall 1" }).click();
 
   const grid = page.getByLabel("Hall map grid");
@@ -105,7 +112,7 @@ test("clear selection resets the selected hall map object", async ({ page }) => 
 
   await page.goto("/dashboard/hall-room-map");
 
-  await page.getByLabel("assigned-hall").click();
+  await page.getByLabel("Assigned hall").click();
   await page.getByRole("option", { name: "Hall 1" }).click();
   await expect(
     page.getByRole("button", { name: "Clear selection" })

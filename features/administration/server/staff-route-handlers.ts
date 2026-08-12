@@ -10,6 +10,10 @@ import { getEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import {
+  sendStaffInvitations,
+  staffInviteRedirectTo
+} from "@/features/administration/server/staff-invitations";
+import {
   accessPermissionKeys,
   accessForRole,
   normalizeStaffRole,
@@ -82,83 +86,15 @@ function mergeIntegrationsWithRoleAccess(
   };
 }
 
-type StaffInvitation = {
-  email: string;
-  emailSent: boolean;
-  inviteLink: string | null;
-  error: string | null;
-};
-
-type SupabaseServiceClient = ReturnType<typeof createSupabaseServiceClient>;
-
-/**
- * Produces a link the inviter can pass along by hand. Only call this once the
- * invitation email has already failed: generating a link replaces the token on
- * the user record, which would invalidate a link that did reach an inbox.
- */
-async function generateStaffInviteLink(
-  supabase: SupabaseServiceClient,
-  email: string,
-  redirectTo: string
-) {
-  const invited = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email,
-    options: { redirectTo }
-  });
-
-  if (invited.data?.properties?.action_link) {
-    return invited.data.properties.action_link;
-  }
-
-  // `invite` is rejected once Supabase knows the address, which includes an
-  // earlier attempt that created the auth user before its email failed. A
-  // recovery link works for those and lands on the same password setup step,
-  // because /auth/callback treats invite and recovery identically.
-  const recovered = await supabase.auth.admin.generateLink({
-    type: "recovery",
-    email,
-    options: { redirectTo }
-  });
-
-  return recovered.data?.properties?.action_link ?? null;
-}
-
-/**
- * Best effort by design. Staff access is already committed by the time this
- * runs, so a mail provider outage must not be reported as a failed request -
- * it downgrades to a link the inviter can share over any channel.
- */
-async function sendStaffInvitations(
-  inviteEmails: string[]
-): Promise<StaffInvitation[]> {
+function inviteStaff(inviteEmails: string[]) {
   const env = getEnv();
   const supabase = createSupabaseServiceClient();
-  const redirectTo = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/auth/callback`;
-  const invitations: StaffInvitation[] = [];
 
-  // Sequential on purpose: Supabase meters auth emails against one hourly quota,
-  // so a parallel burst can spend it on the first few addresses and leave the
-  // rest with nothing to send.
-  for (const email of inviteEmails) {
-    const { error } = await supabase.auth.admin.inviteUserByEmail(email, {
-      redirectTo
-    });
-
-    if (!error) {
-      invitations.push({ email, emailSent: true, inviteLink: null, error: null });
-      continue;
-    }
-
-    invitations.push({
-      email,
-      emailSent: false,
-      inviteLink: await generateStaffInviteLink(supabase, email, redirectTo),
-      error: error.message
-    });
-  }
-
-  return invitations;
+  return sendStaffInvitations(
+    supabase.auth.admin,
+    inviteEmails,
+    staffInviteRedirectTo(env.NEXT_PUBLIC_APP_URL)
+  );
 }
 
 export async function GET(request: Request) {
@@ -351,7 +287,7 @@ export async function POST(request: Request) {
 
       return results;
     });
-    const invitations = await sendStaffInvitations(inviteEmails);
+    const invitations = await inviteStaff(inviteEmails);
 
     return NextResponse.json({
       invites: invitations,

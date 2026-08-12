@@ -614,6 +614,7 @@ export function DiningManagerPage() {
               Remove table
             </button>
             <button
+              aria-label="Save dining plan"
               className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white"
               disabled={diningMutation.isPending}
               onClick={savePlan}

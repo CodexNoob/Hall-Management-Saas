@@ -149,6 +149,17 @@ export function CalendarBookingDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedDate]);
 
+  // Halls can still be loading when the dialog opens. Fill in the default hall
+  // once they arrive - without this the required select stays empty and the
+  // browser blocks the submit with no explanation. Existing input is kept.
+  useEffect(() => {
+    if (!open || !halls.length) return;
+
+    setValues((current) =>
+      current.hallId ? current : { ...current, hallId: halls[0].id }
+    );
+  }, [halls, open]);
+
   if (!open) return null;
 
   const updateValue = (
