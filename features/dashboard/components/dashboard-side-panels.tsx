@@ -8,6 +8,7 @@ import {
   type ScheduleRow,
   type TimelineGroup
 } from "@/components/layout/dashboard-shell-shared";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type DashboardSidePanelsProps = {
   isLoading: boolean;
@@ -156,11 +157,16 @@ function AttentionNeededPanel() {
 
 function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
   const router = useRouter();
+  const { hasPermission } = useDashboardAccess();
   const actions: Array<
-    | { label: string; action: () => void }
-    | { label: string; route: string }
+    | { label: string; action: () => void; disabled?: boolean }
+    | { label: string; route: string; disabled?: boolean }
   > = [
-    { label: "Book event", action: onNewBooking },
+    {
+      label: "Book event",
+      action: onNewBooking,
+      disabled: !hasPermission("canCreateBooking")
+    },
     { label: "Kitchen board", route: "/dashboard/kitchen" },
     { label: "Open billing", route: "/dashboard/billing" },
     { label: "Dining sheets", route: "/dashboard/dining-manager" }
@@ -175,7 +181,8 @@ function QuickActionsPanel({ onNewBooking }: { onNewBooking: () => void }) {
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         {actions.map((item) => (
           <button
-            className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+            className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#b9c2cf] disabled:hover:bg-white"
+            disabled={item.disabled}
             key={item.label}
             type="button"
             onClick={() => {
