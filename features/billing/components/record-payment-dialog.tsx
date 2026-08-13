@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from "react";
 import type { BillingResponse } from "@/features/billing/components/billing-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { readApiError } from "@/lib/http/api-request-error";
+import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 type Invoice = BillingResponse["invoices"][number];
 function money(cents: number, currency = "USD") { return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
 function modalControlClass() { return "mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]"; }
@@ -36,12 +38,20 @@ export function RecordPaymentDialog({
   if (!open || !invoice.eventId) return null;
 
   async function save() {
-    const amountCents = Math.round(Number(amount) * 100);
-    if (
-      !Number.isInteger(amountCents) ||
-      amountCents <= 0 ||
-      amountCents > invoice.balanceDueCents
-    ) {
+    const parsed = parseNumericInput(amount, moneySchema({ label: "Amount" }));
+
+    if (parsed.status !== "valid") {
+      setError(
+        parsed.status === "invalid"
+          ? parsed.message
+          : "Enter a payment amount."
+      );
+      return;
+    }
+
+    const amountCents = Math.round(parsed.value * 100);
+
+    if (amountCents <= 0 || amountCents > invoice.balanceDueCents) {
       setError(
         `Enter an amount between ${money(1, invoice.currency)} and ${money(invoice.balanceDueCents, invoice.currency)}.`
       );
@@ -66,11 +76,7 @@ export function RecordPaymentDialog({
           })
         }
       );
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      if (!response.ok)
-        throw new Error(payload?.error ?? "Unable to record payment.");
+      if (!response.ok) throw await readApiError(response);
       await onSaved();
     } catch (saveError) {
       setError(
@@ -114,11 +120,9 @@ export function RecordPaymentDialog({
             <input
               autoFocus
               className={modalControlClass()}
-              max={invoice.balanceDueCents / 100}
-              min="0.01"
+              inputMode="decimal"
               onChange={(event) => setAmount(event.target.value)}
-              step="0.01"
-              type="number"
+              type="text"
               value={amount}
             />
           </label>

@@ -6,33 +6,10 @@ import { isAdministrativeRole } from "@/lib/auth/roles";
 import { requireAnyPermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
-
-const shapeTypeSchema = z.enum([
-  "round-table",
-  "rect-table",
-  "kids-table",
-  "box",
-  "circle",
-  "divider",
-  "buffet",
-  "head-table",
-  "drinks"
-]);
-
-const mapObjectSchema = z.object({
-  id: z.string().min(1).max(150),
-  type: shapeTypeSchema,
-  name: z.string().trim().min(1).max(100),
-  x: z.number().finite().min(0).max(10000),
-  y: z.number().finite().min(0).max(10000),
-  width: z.number().finite().min(10).max(5000),
-  height: z.number().finite().min(10).max(5000),
-  rotation: z.number().finite().min(0).max(360),
-  seats: z.number().int().min(0).max(1000),
-  seatingUse: z.enum(["none", "adult", "kids", "head"])
-});
-
-type MapObject = z.infer<typeof mapObjectSchema>;
+import {
+  mapObjectSchema,
+  type MapObject
+} from "@/features/hall-room-map/validations/hall-map.schema";
 
 const createPresetSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -67,9 +44,29 @@ async function getActorAndHallScope(request: Request) {
   return { actor, allowedHallIds, restrictHalls };
 }
 
+/**
+ * Reads stored layout objects. Parses per object on purpose: an all-or-nothing
+ * parse meant a single legacy row - one missing `seatingUse`, say - returned an
+ * empty array and blanked the user's entire saved layout, which then became
+ * permanent the next time they saved.
+ */
 function normalizeObjects(objects: unknown): MapObject[] {
-  const parsed = z.array(mapObjectSchema).safeParse(objects);
-  return parsed.success ? parsed.data : [];
+  if (!Array.isArray(objects)) return [];
+
+  const kept: MapObject[] = [];
+
+  for (const candidate of objects) {
+    const parsed = mapObjectSchema.safeParse(candidate);
+    if (parsed.success) kept.push(parsed.data);
+  }
+
+  if (kept.length !== objects.length) {
+    console.warn(
+      `hall-maps: dropped ${objects.length - kept.length} unreadable stored objects`
+    );
+  }
+
+  return kept;
 }
 
 function formatPreset(row: HallMapPresetRow) {

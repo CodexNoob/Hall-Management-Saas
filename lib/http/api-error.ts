@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AuthorizationError } from "@/lib/auth/server-auth";
+import { formatZodErrorMessage } from "@/lib/http/zod-error-message";
 import { BillingError } from "@/features/billing/services/billing-error";
 import { BookingError } from "@/features/bookings/services/booking.service";
 
@@ -26,8 +27,11 @@ export function createApiErrorResponse(error: unknown) {
   }
 
   if (error instanceof ZodError) {
+    const issues = error.flatten();
+    // Naming the offending field turns a dead-end "Invalid request." into
+    // something the user can actually correct.
     return NextResponse.json(
-      { error: "Invalid request.", issues: error.flatten() },
+      { error: formatZodErrorMessage(issues), issues },
       { status: 400 }
     );
   }

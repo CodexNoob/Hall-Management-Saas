@@ -1,6 +1,8 @@
 "use client";
 
 import { CompactSelect } from "@/components/ui/compact-select";
+import { LiveNumberField } from "@/components/ui/number-field";
+import { countSchema } from "@/lib/validation/number";
 import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
 import { SeatingRow } from "@/features/dining/components/dining-seating-row";
 import {
@@ -80,11 +82,10 @@ export function DiningDetailsPanel({
           ].map(([field, label]) => (
             <div key={field}>
               <FieldLabel htmlFor={field}>{label}</FieldLabel>
-              <input
+              <LiveNumberField
                 className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
                 id={field}
-                min="0"
-                onChange={(event) =>
+                onCommit={(value) =>
                   onUpdateForm(
                     field as keyof Pick<
                       DiningForm,
@@ -93,10 +94,13 @@ export function DiningDetailsPanel({
                       | "menWaiters"
                       | "womenWaiters"
                     >,
-                    Number(event.target.value)
+                    value
                   )
                 }
-                type="number"
+                schema={countSchema({
+                  max: field.endsWith("Waiters") ? 10_000 : 100_000,
+                  label
+                })}
                 value={form[field as keyof DiningForm] as number}
               />
             </div>

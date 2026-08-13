@@ -126,4 +126,83 @@ describe("AddKitchenEventDialog", () => {
       kitchenNote: ""
     });
   });
+
+  describe("portions validation", () => {
+    function renderDialog(onSave = vi.fn()) {
+      render(
+        <AddKitchenEventDialog
+          canSave
+          date="Jan 1"
+          onClose={vi.fn()}
+          onSave={onSave}
+          open
+        />
+      );
+
+      fireEvent.change(screen.getByLabelText("Event name"), {
+        target: { value: "Staff Lunch" }
+      });
+
+      return onSave;
+    }
+
+    function submitWith(portions: string) {
+      fireEvent.change(screen.getByLabelText("Portions"), {
+        target: { value: portions }
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
+    }
+
+    // The kitchen board renders this value straight back as "<portions>
+    // portions", so anything that is not a number ends up on the wall as
+    // "abc portions". The old guard was a truthiness check, which let it past.
+    const rejected = [
+      { portions: "abc", expected: "Enter a number." },
+      // Exponent notation is rejected on purpose - see parseNumericInput.
+      { portions: "1e5", expected: "Enter a number." },
+      { portions: "0", expected: "Portions must be at least 1." },
+      { portions: "-40", expected: "Portions must be at least 1." },
+      { portions: "2.5", expected: "Portions must be a whole number." }
+    ];
+
+    for (const { portions, expected } of rejected) {
+      it(`refuses "${portions}" and says why`, () => {
+        const onSave = renderDialog();
+
+        submitWith(portions);
+
+        expect(onSave).not.toHaveBeenCalled();
+        expect(screen.getByRole("alert")).toHaveTextContent(expected);
+      });
+    }
+
+    it("describes the input with its error for screen readers", () => {
+      renderDialog();
+
+      submitWith("abc");
+
+      const input = screen.getByLabelText("Portions");
+      expect(input).toHaveAttribute("aria-invalid", "true");
+      expect(input).toHaveAttribute(
+        "aria-describedby",
+        screen.getByRole("alert").id
+      );
+    });
+
+    it("clears the error once the count is corrected", () => {
+      const onSave = renderDialog();
+
+      submitWith("abc");
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+
+      submitWith("40");
+
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(onSave).toHaveBeenCalledWith({
+        eventName: "Staff Lunch",
+        portions: "40",
+        kitchenNote: ""
+      });
+    });
+  });
 });

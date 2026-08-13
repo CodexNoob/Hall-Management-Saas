@@ -8,6 +8,8 @@ import {
 } from "react";
 
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
+import { countSchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
 
 type LookupOption = {
   id: string;
@@ -117,6 +119,9 @@ export function CalendarBookingDialog({
 
   const [values, setValues] =
     useState<BookingFormValues>(initialValues);
+  const [countErrors, setCountErrors] = useState<
+    Partial<Record<"couples" | "children", string>>
+  >({});
 
   useEffect(() => {
     if (!open) return;
@@ -167,6 +172,7 @@ export function CalendarBookingDialog({
     value: string
   ) => {
     resetError();
+    setCountErrors((current) => ({ ...current, [field]: undefined }));
 
     setValues((current) => ({
       ...current,
@@ -184,6 +190,26 @@ export function CalendarBookingDialog({
       Confirmed: "CONFIRMED"
     } as const;
 
+    const counts = readNumericFields<"couples" | "children">({
+      couples: {
+        raw: values.couples,
+        schema: countSchema({ label: "Couples" }),
+        emptyMessage: "Enter a couples count."
+      },
+      children: {
+        raw: values.children,
+        schema: countSchema({ label: "Children" }),
+        emptyMessage: "Enter a children count."
+      }
+    });
+
+    if (!counts.ok) {
+      setCountErrors(counts.errors);
+      return;
+    }
+
+    setCountErrors({});
+
     try {
       await bookingMutation.mutate({
         clientName: values.clientName.trim(),
@@ -193,8 +219,8 @@ export function CalendarBookingDialog({
         eventTypeId: values.eventTypeId || undefined,
         bookingStatus: bookingStatuses[values.status],
         eventStatus: values.status,
-        couplesCount: Number(values.couples) || 0,
-        kidsCount: Number(values.children) || 0,
+        couplesCount: counts.values.couples ?? 0,
+        kidsCount: counts.values.children ?? 0,
         notes: values.notes.trim() || undefined,
         idempotencyKey: crypto.randomUUID()
       });
@@ -388,15 +414,28 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <input
+                  aria-describedby={
+                    countErrors.couples ? "calendar-couples-error" : undefined
+                  }
+                  aria-invalid={countErrors.couples ? true : undefined}
                   className={controlClass}
                   id="calendar-couples"
-                  min="0"
+                  inputMode="decimal"
                   onChange={(event) =>
                     updateValue("couples", event.target.value)
                   }
-                  type="number"
+                  type="text"
                   value={values.couples}
                 />
+                {countErrors.couples ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id="calendar-couples-error"
+                    role="alert"
+                  >
+                    {countErrors.couples}
+                  </p>
+                ) : null}
               </div>
 
               <div>
@@ -405,15 +444,28 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <input
+                  aria-describedby={
+                    countErrors.children ? "calendar-children-error" : undefined
+                  }
+                  aria-invalid={countErrors.children ? true : undefined}
                   className={controlClass}
                   id="calendar-children"
-                  min="0"
+                  inputMode="decimal"
                   onChange={(event) =>
                     updateValue("children", event.target.value)
                   }
-                  type="number"
+                  type="text"
                   value={values.children}
                 />
+                {countErrors.children ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id="calendar-children-error"
+                    role="alert"
+                  >
+                    {countErrors.children}
+                  </p>
+                ) : null}
               </div>
 
             </div>

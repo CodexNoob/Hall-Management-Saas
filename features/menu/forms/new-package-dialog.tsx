@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { moneySchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
 
 export type NewPackageFormValues = {
   name: string;
@@ -39,6 +41,9 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<"basePrice" | "perCouplePrice", string>>
+  >({});
 
   useEffect(() => {
     if (!open) return;
@@ -64,10 +69,31 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
 
   const updateValue = (field: keyof NewPackageFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
   };
 
   const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
+
+    const prices = readNumericFields<"basePrice" | "perCouplePrice">({
+      basePrice: {
+        raw: values.basePrice,
+        schema: moneySchema({ label: "Base price" }),
+        emptyMessage: "Enter a base price."
+      },
+      perCouplePrice: {
+        raw: values.perCouplePrice,
+        schema: moneySchema({ label: "Per couple price" }),
+        emptyMessage: "Enter a per couple price."
+      }
+    });
+
+    if (!prices.ok) {
+      setFieldErrors(prices.errors);
+      return;
+    }
+
+    setFieldErrors({});
     onSave(values);
     setValues(initialValues);
   };
@@ -113,11 +139,17 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Base price
-              <input className={`${controlClass} mt-1`} min="0" name="basePrice" onChange={(event) => updateValue("basePrice", event.target.value)} required step="0.01" type="number" value={values.basePrice} />
+              <input aria-describedby={fieldErrors.basePrice ? "package-base-price-error" : undefined} aria-invalid={fieldErrors.basePrice ? true : undefined} className={`${controlClass} mt-1`} inputMode="decimal" name="basePrice" onChange={(event) => updateValue("basePrice", event.target.value)} required type="text" value={values.basePrice} />
+              {fieldErrors.basePrice ? (
+                <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#c2410c]" id="package-base-price-error" role="alert">{fieldErrors.basePrice}</p>
+              ) : null}
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Per couple
-              <input className={`${controlClass} mt-1`} min="0" name="perCouplePrice" onChange={(event) => updateValue("perCouplePrice", event.target.value)} required step="0.01" type="number" value={values.perCouplePrice} />
+              <input aria-describedby={fieldErrors.perCouplePrice ? "package-per-couple-error" : undefined} aria-invalid={fieldErrors.perCouplePrice ? true : undefined} className={`${controlClass} mt-1`} inputMode="decimal" name="perCouplePrice" onChange={(event) => updateValue("perCouplePrice", event.target.value)} required type="text" value={values.perCouplePrice} />
+              {fieldErrors.perCouplePrice ? (
+                <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#c2410c]" id="package-per-couple-error" role="alert">{fieldErrors.perCouplePrice}</p>
+              ) : null}
             </label>
           </div>
 

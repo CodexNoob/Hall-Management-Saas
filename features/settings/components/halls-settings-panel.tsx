@@ -7,6 +7,8 @@ import {
   invalidateAuthenticatedQuery,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import { countSchema, moneySchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
 
 type Hall = {
   id: string;
@@ -47,24 +49,124 @@ type HallInput = {
   isBookable: boolean;
 };
 
-const emptyHall: HallInput = {
+/**
+ * The dialog keeps numeric fields as the raw text the user typed and only
+ * converts on save. Coercing per keystroke with `Number(...)` is what let
+ * unparseable input reach the server as a silent 0 or a silent null.
+ */
+type HallFormState = {
+  id?: string;
+  name: string;
+  capacity: string;
+  basePrice: string;
+  perCouplePrice: string;
+  memberBasePrice: string;
+  memberPerCouplePrice: string;
+  color: string;
+  isActive: boolean;
+  isBookable: boolean;
+};
+
+type HallNumericField =
+  | "capacity"
+  | "basePrice"
+  | "perCouplePrice"
+  | "memberBasePrice"
+  | "memberPerCouplePrice";
+
+const emptyHall: HallFormState = {
   name: "",
-  capacity: null,
-  basePrice: null,
-  perCouplePrice: null,
-  memberBasePrice: null,
-  memberPerCouplePrice: null,
+  capacity: "",
+  basePrice: "",
+  perCouplePrice: "",
+  memberBasePrice: "",
+  memberPerCouplePrice: "",
   color: "#1f5f91",
   isActive: true,
   isBookable: true
 };
 
-function parseMoneyValue(value: string) {
-  return value ? Number(value) : null;
-}
-
 function normalizeMoneyValue(value: string | number | null) {
   return value === null ? null : Number(value);
+}
+
+function moneyText(value: string | number | null) {
+  return value === null || value === undefined ? "" : String(Number(value));
+}
+
+const priceFields: {
+  key: Exclude<HallNumericField, "capacity">;
+  id: string;
+  name: string;
+  label: string;
+}[] = [
+  {
+    key: "basePrice",
+    id: "hall-base-price",
+    name: "hallBasePrice",
+    label: "Regular base price"
+  },
+  {
+    key: "perCouplePrice",
+    id: "hall-per-couple-price",
+    name: "hallPerCouplePrice",
+    label: "Regular per couple"
+  },
+  {
+    key: "memberBasePrice",
+    id: "hall-member-base-price",
+    name: "hallMemberBasePrice",
+    label: "Member base price"
+  },
+  {
+    key: "memberPerCouplePrice",
+    id: "hall-member-per-couple-price",
+    name: "hallMemberPerCouplePrice",
+    label: "Member per couple"
+  }
+];
+
+function PriceInput({
+  id,
+  name,
+  label,
+  value,
+  error,
+  onChange
+}: {
+  id: string;
+  name: string;
+  label: string;
+  value: string;
+  error?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block text-xs font-black">
+      {label}
+      <input
+        aria-describedby={error ? `${id}-error` : undefined}
+        aria-invalid={error ? true : undefined}
+        className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+        id={id}
+        inputMode="decimal"
+        name={name}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="0.00"
+        type="text"
+        value={value}
+      />
+      {error ? (
+        <p
+          className="mt-1 text-[10px] font-bold text-[#c2410c]"
+          id={`${id}-error`}
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+    </label>
+  );
 }
 
 function formatMoney(value: string | number | null) {
@@ -92,7 +194,10 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
     { deleted: true }
   >("/api/halls", "DELETE");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState<HallInput>(emptyHall);
+  const [form, setForm] = useState<HallFormState>(emptyHall);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<HallNumericField, string>>
+  >({});
   const [message, setMessage] = useState("");
   const pending =
     createMutation.isPending ||
@@ -118,6 +223,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       return;
     }
     setForm(emptyHall);
+    setFieldErrors({});
     setMessage("");
     setDialogOpen(true);
   }
@@ -126,28 +232,88 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
     setForm({
       id: hall.id,
       name: hall.name,
-      capacity: hall.capacity,
-      basePrice: normalizeMoneyValue(hall.basePrice),
-      perCouplePrice: normalizeMoneyValue(hall.perCouplePrice),
-      memberBasePrice: normalizeMoneyValue(hall.memberBasePrice),
-      memberPerCouplePrice: normalizeMoneyValue(hall.memberPerCouplePrice),
+      capacity: hall.capacity === null ? "" : String(hall.capacity),
+      basePrice: moneyText(hall.basePrice),
+      perCouplePrice: moneyText(hall.perCouplePrice),
+      memberBasePrice: moneyText(hall.memberBasePrice),
+      memberPerCouplePrice: moneyText(hall.memberPerCouplePrice),
       color: hall.color ?? "#1f5f91",
       isActive: hall.isActive,
       isBookable: hall.isBookable
     });
+    setFieldErrors({});
     setMessage("");
     setDialogOpen(true);
   }
 
+  function updateField(field: keyof HallFormState, value: string) {
+    setForm((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => ({ ...current, [field]: undefined }));
+  }
+
   async function saveHall() {
     const name = form.name.trim();
-    if (!name) return;
+    if (!name) {
+      setMessage("Enter a hall name.");
+      return;
+    }
+
+    // Every price and the capacity may legitimately be cleared, so an empty
+    // box means "not set" - but unparseable text is an error, not a clear.
+    const numbers = readNumericFields<HallNumericField>({
+      capacity: {
+        raw: form.capacity,
+        schema: countSchema({ min: 1, label: "Capacity" }),
+        allowEmpty: true
+      },
+      basePrice: {
+        raw: form.basePrice,
+        schema: moneySchema({ label: "Base price" }),
+        allowEmpty: true
+      },
+      perCouplePrice: {
+        raw: form.perCouplePrice,
+        schema: moneySchema({ label: "Per couple price" }),
+        allowEmpty: true
+      },
+      memberBasePrice: {
+        raw: form.memberBasePrice,
+        schema: moneySchema({ label: "Member base price" }),
+        allowEmpty: true
+      },
+      memberPerCouplePrice: {
+        raw: form.memberPerCouplePrice,
+        schema: moneySchema({ label: "Member per couple price" }),
+        allowEmpty: true
+      }
+    });
+
+    if (!numbers.ok) {
+      setFieldErrors(numbers.errors);
+      setMessage(numbers.firstError);
+      return;
+    }
+
+    setFieldErrors({});
+
+    const payload: HallInput = {
+      name,
+      capacity: numbers.values.capacity,
+      basePrice: numbers.values.basePrice,
+      perCouplePrice: numbers.values.perCouplePrice,
+      memberBasePrice: numbers.values.memberBasePrice,
+      memberPerCouplePrice: numbers.values.memberPerCouplePrice,
+      color: form.color,
+      isActive: form.isActive,
+      isBookable: form.isBookable
+    };
+
     try {
       if (form.id) {
-        await updateMutation.mutate({ ...form, id: form.id, name });
+        await updateMutation.mutate({ ...payload, id: form.id });
         setMessage(`${name} updated.`);
       } else {
-        await createMutation.mutate({ ...form, name });
+        await createMutation.mutate(payload);
         setMessage(`${name} created.`);
       }
       setDialogOpen(false);
@@ -403,22 +569,30 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 <label className="block text-xs font-black">
                   Capacity
                   <input
+                    aria-describedby={
+                      fieldErrors.capacity ? "hall-capacity-error" : undefined
+                    }
+                    aria-invalid={fieldErrors.capacity ? true : undefined}
                     className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
                     id="hall-capacity"
-                    min="1"
+                    inputMode="decimal"
                     name="hallCapacity"
                     onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        capacity: event.target.value
-                          ? Number(event.target.value)
-                          : null
-                      }))
+                      updateField("capacity", event.target.value)
                     }
                     placeholder="500"
-                    type="number"
-                    value={form.capacity ?? ""}
+                    type="text"
+                    value={form.capacity}
                   />
+                  {fieldErrors.capacity ? (
+                    <p
+                      className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                      id="hall-capacity-error"
+                      role="alert"
+                    >
+                      {fieldErrors.capacity}
+                    </p>
+                  ) : null}
                 </label>
                 <label className="block text-xs font-black">
                   Calendar color
@@ -446,84 +620,17 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   proposals, or event billing.
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <label className="block text-xs font-black">
-                    Regular base price
-                    <input
-                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
-                      id="hall-base-price"
-                      min="0"
-                      name="hallBasePrice"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          basePrice: parseMoneyValue(event.target.value)
-                        }))
-                      }
-                      placeholder="0.00"
-                      step="0.01"
-                      type="number"
-                      value={form.basePrice ?? ""}
+                  {priceFields.map((field) => (
+                    <PriceInput
+                      error={fieldErrors[field.key]}
+                      id={field.id}
+                      key={field.key}
+                      label={field.label}
+                      name={field.name}
+                      onChange={(value) => updateField(field.key, value)}
+                      value={form[field.key]}
                     />
-                  </label>
-                  <label className="block text-xs font-black">
-                    Regular per couple
-                    <input
-                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
-                      id="hall-per-couple-price"
-                      min="0"
-                      name="hallPerCouplePrice"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          perCouplePrice: parseMoneyValue(event.target.value)
-                        }))
-                      }
-                      placeholder="0.00"
-                      step="0.01"
-                      type="number"
-                      value={form.perCouplePrice ?? ""}
-                    />
-                  </label>
-                  <label className="block text-xs font-black">
-                    Member base price
-                    <input
-                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
-                      id="hall-member-base-price"
-                      min="0"
-                      name="hallMemberBasePrice"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          memberBasePrice: parseMoneyValue(event.target.value)
-                        }))
-                      }
-                      placeholder="0.00"
-                      step="0.01"
-                      type="number"
-                      value={form.memberBasePrice ?? ""}
-                    />
-                  </label>
-                  <label className="block text-xs font-black">
-                    Member per couple
-                    <input
-                      className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
-                      id="hall-member-per-couple-price"
-                      min="0"
-                      name="hallMemberPerCouplePrice"
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          memberPerCouplePrice: parseMoneyValue(
-                            event.target.value
-                          )
-                        }))
-                      }
-                      placeholder="0.00"
-                      step="0.01"
-                      type="number"
-                      value={form.memberPerCouplePrice ?? ""}
-                    />
-                  </label>
+                  ))}
                 </div>
               </div>
               <label className="flex items-center gap-2 text-xs font-bold">

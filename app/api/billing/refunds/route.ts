@@ -5,10 +5,11 @@ import { recordRefundWithAudit } from "@/features/billing/services/record-refund
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
 import { prisma } from "@/lib/prisma";
+import { centsSchema } from "@/lib/validation/number";
 
 const refundSchema = z.object({
   paymentTransactionId: z.string().uuid(),
-  amountCents: z.number().int().positive(),
+  amountCents: centsSchema({ min: 1, label: "Amount" }),
   reason: z.string().trim().min(1).max(500).optional(),
   provider: z.string().trim().min(1).max(100).optional(),
   providerReference: z.string().trim().min(1).max(255).optional()

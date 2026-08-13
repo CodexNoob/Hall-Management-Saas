@@ -4,31 +4,34 @@ import { z } from "zod";
 import { requireAnyPermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { countSchema, dimensionSchema } from "@/lib/validation/number";
 
 const tableSchema = z.object({
   id: z.string().min(1).max(100),
-  number: z.number().int().positive(),
+  number: countSchema({ min: 1, label: "Table number" }),
   name: z.string().max(120).optional(),
-  seats: z.number().int().min(0).max(100),
+  seats: countSchema({ max: 100, label: "Seats" }),
   side: z.enum(["men", "women", "kids", "head"]),
   isSeating: z.boolean().optional(),
   mapObjectId: z.string().max(100).optional(),
   mapType: z.string().max(40).optional(),
-  x: z.number().optional(),
-  y: z.number().optional(),
-  width: z.number().optional(),
-  height: z.number().optional(),
-  rotation: z.number().optional()
+  // Bounded to match the equivalent geometry in app/api/hall-maps/route.ts;
+  // these were previously bare z.number() with no finiteness or range check.
+  x: dimensionSchema({ max: 10_000, label: "X" }).optional(),
+  y: dimensionSchema({ max: 10_000, label: "Y" }).optional(),
+  width: dimensionSchema({ max: 5_000, label: "Width" }).optional(),
+  height: dimensionSchema({ max: 5_000, label: "Height" }).optional(),
+  rotation: dimensionSchema({ max: 360, label: "Rotation" }).optional()
 });
 
 const saveDiningPlanSchema = z.object({
   eventId: z.string().uuid(),
   hallMapPresetId: z.string().uuid().nullable().optional(),
   countType: z.enum(["People", "Couples"]),
-  adultCount: z.number().int().min(0).max(100000),
-  childrenCount: z.number().int().min(0).max(100000),
-  menWaiters: z.number().int().min(0).max(10000),
-  womenWaiters: z.number().int().min(0).max(10000),
+  adultCount: countSchema({ label: "Adults" }),
+  childrenCount: countSchema({ label: "Children" }),
+  menWaiters: countSchema({ max: 10_000, label: "Men waiters" }),
+  womenWaiters: countSchema({ max: 10_000, label: "Women waiters" }),
   tablecloth: z.string().trim().max(100).optional(),
   washingTime: z
     .string()

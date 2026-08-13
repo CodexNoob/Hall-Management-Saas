@@ -4,13 +4,22 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { countSchema } from "@/lib/validation/number";
 
 const settingsSchema = z.object({
   language: z.enum(["en-US", "en-GB", "he-IL", "es-US"]).optional(),
   timezone: z.string().trim().min(1).optional(),
   twoFactorRequired: z.boolean().optional(),
-  sessionTimeoutMinutes: z.number().int().min(5).max(1440).optional(),
-  dailyEventLimit: z.number().int().min(1).max(50).optional(),
+  sessionTimeoutMinutes: countSchema({
+    min: 5,
+    max: 1440,
+    label: "Session timeout"
+  }).optional(),
+  dailyEventLimit: countSchema({
+    min: 1,
+    max: 50,
+    label: "Daily event limit"
+  }).optional(),
   emailNotifications: z.boolean().optional(),
   eventConfirmations: z.boolean().optional(),
   billingAlerts: z.boolean().optional(),

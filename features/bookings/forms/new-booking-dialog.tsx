@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { countSchema, parseNumericInput } from "@/lib/validation/number";
 
 export type NewBookingFormValues = {
   clientName: string;
@@ -100,6 +101,7 @@ export function NewBookingDialog({
   const { hasPermission } = useDashboardAccess();
   const canCreateBooking = hasPermission("canCreateBooking");
   const [values, setValues] = useState(initialValues);
+  const [guestCountError, setGuestCountError] = useState("");
   const eventsQuery = useAuthenticatedQuery<EventsLookupResponse>(
     "/api/events",
     open
@@ -153,6 +155,7 @@ export function NewBookingDialog({
 
   const updateValue = (field: keyof NewBookingFormValues, value: string) => {
     resetError();
+    if (field === "guestCount") setGuestCountError("");
     setValues((current) => ({ ...current, [field]: value }));
   };
 
@@ -175,6 +178,22 @@ export function NewBookingDialog({
       return;
     }
 
+    const parsedGuests = parseNumericInput(
+      values.guestCount,
+      countSchema({ min: 1, label: "Guests" })
+    );
+
+    if (parsedGuests.status !== "valid") {
+      setGuestCountError(
+        parsedGuests.status === "invalid"
+          ? parsedGuests.message
+          : "Enter a guest count."
+      );
+      return;
+    }
+
+    setGuestCountError("");
+
     try {
       await bookingMutation.mutate({
         clientName: values.clientName.trim(),
@@ -186,7 +205,7 @@ export function NewBookingDialog({
         packageId: eventPackage?.id,
         bookingStatus: intent === "proposal" ? "TENTATIVE_HOLD" : "CONFIRMED",
         eventStatus: intent === "proposal" ? "Hold" : "Confirmed",
-        couplesCount: Number(values.guestCount) || 0,
+        couplesCount: parsedGuests.value,
         idempotencyKey: crypto.randomUUID()
       });
       await onSubmit?.(values, intent);
@@ -425,18 +444,31 @@ export function NewBookingDialog({
                   Guests / couples
                 </FieldLabel>
                 <input
+                  aria-describedby={
+                    guestCountError ? "booking-guests-error" : undefined
+                  }
+                  aria-invalid={guestCountError ? true : undefined}
                   className={controlClass}
                   id="booking-guests"
-                  min="1"
+                  inputMode="decimal"
                   name="guestCount"
                   onChange={(event) =>
                     updateValue("guestCount", event.target.value)
                   }
                   placeholder="180"
                   required
-                  type="number"
+                  type="text"
                   value={values.guestCount}
                 />
+                {guestCountError ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id="booking-guests-error"
+                    role="alert"
+                  >
+                    {guestCountError}
+                  </p>
+                ) : null}
               </div>
               <div>
                 <FieldLabel htmlFor="booking-package">Package</FieldLabel>

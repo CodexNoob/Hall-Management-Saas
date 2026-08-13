@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { getActiveHallLimit } from "@/lib/subscription/limits";
+import { countSchema, moneySchema } from "@/lib/validation/number";
 
 type HallMapPresetCount = {
   hall_id: string;
@@ -27,13 +28,23 @@ function withHallMapPresetCounts<
   }));
 }
 
+// `null` means the user emptied the field, which is a legitimate "Not set".
+// Because JSON.stringify turns NaN into null, a garbage entry and a deliberate
+// clear are indistinguishable on the wire - the client is what has to
+// guarantee null only ever comes from genuinely empty input.
 const hallFieldsSchema = z.object({
   name: z.string().trim().min(1).max(100),
-  capacity: z.number().int().min(1).max(100000).nullable().optional(),
-  basePrice: z.number().min(0).max(100000000).nullable().optional(),
-  perCouplePrice: z.number().min(0).max(100000000).nullable().optional(),
-  memberBasePrice: z.number().min(0).max(100000000).nullable().optional(),
-  memberPerCouplePrice: z.number().min(0).max(100000000).nullable().optional(),
+  capacity: countSchema({ min: 1, label: "Capacity" }).nullable().optional(),
+  basePrice: moneySchema({ label: "Base price" }).nullable().optional(),
+  perCouplePrice: moneySchema({ label: "Per couple price" })
+    .nullable()
+    .optional(),
+  memberBasePrice: moneySchema({ label: "Member base price" })
+    .nullable()
+    .optional(),
+  memberPerCouplePrice: moneySchema({ label: "Member per couple price" })
+    .nullable()
+    .optional(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)

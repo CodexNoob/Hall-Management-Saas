@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { moneySchema } from "@/lib/validation/number";
 
 const menuMutationSchema = z.discriminatedUnion("resource", [
   z.object({
@@ -16,8 +17,8 @@ const menuMutationSchema = z.discriminatedUnion("resource", [
   z.object({
     resource: z.literal("package"),
     name: z.string().trim().min(1),
-    regularPrice: z.number().nonnegative().optional(),
-    memberPrice: z.number().nonnegative().optional(),
+    regularPrice: moneySchema({ label: "Regular price" }).optional(),
+    memberPrice: moneySchema({ label: "Member price" }).optional(),
     hallIds: z.array(z.string().uuid()).default([]),
     eventTypeIds: z.array(z.string().uuid()).default([]),
     includedMenuItemIds: z.array(z.string().uuid()).default([]),
@@ -26,7 +27,7 @@ const menuMutationSchema = z.discriminatedUnion("resource", [
   z.object({
     resource: z.literal("addon"),
     name: z.string().trim().min(1),
-    price: z.number().nonnegative().optional(),
+    price: moneySchema({ label: "Price" }).optional(),
     pricingType: z.string().trim().min(1),
     hallIds: z.array(z.string().uuid()).default([]),
     notes: z.string().trim().optional()

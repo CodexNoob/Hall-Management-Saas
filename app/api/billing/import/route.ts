@@ -5,6 +5,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { MAX_MONEY, centsSchema } from "@/lib/validation/number";
 
 const schema = z.object({
   rows: z
@@ -12,7 +13,12 @@ const schema = z.object({
       z.object({
         date: z.string().date(),
         description: z.string().trim().min(1),
-        amountCents: z.number().int(),
+        // Imported rows are signed - a debit is negative - so bound the
+        // magnitude in both directions rather than requiring a positive value.
+        amountCents: centsSchema({
+          min: -MAX_MONEY * 100,
+          label: "Amount"
+        }),
         currency: z.string().length(3).default("USD")
       })
     )

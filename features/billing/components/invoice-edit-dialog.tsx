@@ -3,6 +3,12 @@
 import React, { useEffect, useState } from "react";
 import type { BillingResponse } from "@/features/billing/components/billing-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { readApiError } from "@/lib/http/api-request-error";
+import {
+  moneySchema,
+  parseNumericInput,
+  quantitySchema
+} from "@/lib/validation/number";
 type Invoice = BillingResponse["invoices"][number];
 function money(cents: number, currency = "USD") { return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
 
@@ -54,36 +60,69 @@ export function InvoiceEditDialog({
   }, [invoice, open]);
 
   if (!open) return null;
-  const computedTotal = items.reduce(
+
+  // Parsed once and reused for both the preview and the save, so the total the
+  // user is shown can never disagree with the total that gets sent. The old
+  // code used `Number(x) || 0` for the preview and a stricter finite/integer
+  // guard for the save, so the two could legitimately differ.
+  const parsedItems = items.map((item) => ({
+    description: item.description.trim(),
+    quantity: parseNumericInput(item.quantity, quantitySchema()),
+    unitAmount: parseNumericInput(
+      item.unitAmount,
+      moneySchema({ label: "Amount" })
+    )
+  }));
+  const computedTotal = parsedItems.reduce(
     (sum, item) =>
-      sum + (Number(item.quantity) || 0) * (Number(item.unitAmount) || 0),
+      sum +
+      (item.quantity.status === "valid" ? item.quantity.value : 0) *
+        (item.unitAmount.status === "valid" ? item.unitAmount.value : 0),
     0
   );
 
   async function save() {
     setError("");
-    const lineItems = items.map((item) => ({
-      description: item.description.trim(),
-      quantity: Number(item.quantity),
-      unitAmountCents: Math.round(Number(item.unitAmount) * 100)
-    }));
-    if (
-      !clientName.trim() ||
-      !lineItems.length ||
-      lineItems.some(
-        (item) =>
-          !item.description ||
-          !Number.isFinite(item.quantity) ||
-          item.quantity <= 0 ||
-          !Number.isInteger(item.unitAmountCents) ||
-          item.unitAmountCents < 0
-      )
-    ) {
+
+    if (!clientName.trim()) {
+      setError("Enter a client name.");
+      return;
+    }
+
+    if (!parsedItems.length) {
+      setError("Add at least one line item.");
+      return;
+    }
+
+    const invalid = parsedItems.find(
+      (item) =>
+        !item.description ||
+        item.quantity.status !== "valid" ||
+        item.unitAmount.status !== "valid"
+    );
+
+    if (invalid) {
+      const detail =
+        invalid.quantity.status === "invalid"
+          ? invalid.quantity.message
+          : invalid.unitAmount.status === "invalid"
+            ? invalid.unitAmount.message
+            : "";
       setError(
-        "Complete every line item with a valid description, quantity, and amount."
+        detail ||
+          "Complete every line item with a valid description, quantity, and amount."
       );
       return;
     }
+
+    const lineItems = parsedItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity.status === "valid" ? item.quantity.value : 0,
+      unitAmountCents: Math.round(
+        (item.unitAmount.status === "valid" ? item.unitAmount.value : 0) * 100
+      )
+    }));
+
     setSaving(true);
     try {
       const response = await authenticatedFetch(
@@ -100,11 +139,7 @@ export function InvoiceEditDialog({
           })
         }
       );
-      const payload = (await response.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      if (!response.ok)
-        throw new Error(payload?.error ?? "Unable to update invoice.");
+      if (!response.ok) throw await readApiError(response);
       await onSaved();
     } catch (saveError) {
       setError(
@@ -222,9 +257,12 @@ export function InvoiceEditDialog({
                   value={item.description}
                 />
                 <input
+                  aria-invalid={
+                    parsedItems[index]?.quantity.status === "invalid" || undefined
+                  }
                   aria-label={`Line ${index + 1} quantity`}
                   className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
-                  min="0.001"
+                  inputMode="decimal"
                   onChange={(event) =>
                     setItems((current) =>
                       current.map((value, itemIndex) =>
@@ -234,14 +272,17 @@ export function InvoiceEditDialog({
                       )
                     )
                   }
-                  step="0.001"
-                  type="number"
+                  type="text"
                   value={item.quantity}
                 />
                 <input
+                  aria-invalid={
+                    parsedItems[index]?.unitAmount.status === "invalid" ||
+                    undefined
+                  }
                   aria-label={`Line ${index + 1} amount`}
                   className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
-                  min="0"
+                  inputMode="decimal"
                   onChange={(event) =>
                     setItems((current) =>
                       current.map((value, itemIndex) =>
@@ -251,8 +292,7 @@ export function InvoiceEditDialog({
                       )
                     )
                   }
-                  step="0.01"
-                  type="number"
+                  type="text"
                   value={item.unitAmount}
                 />
                 <button

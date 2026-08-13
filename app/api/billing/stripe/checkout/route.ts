@@ -6,10 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { centsSchema } from "@/lib/validation/number";
 
 const schema = z.object({
   invoiceId: z.string().uuid(),
-  amountCents: z.number().int().positive().optional(),
+  amountCents: centsSchema({ min: 1, label: "Amount" }).optional(),
   customerEmail: z.string().email().optional()
 });
 type CheckoutSession = { id: string; url: string | null };

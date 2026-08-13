@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { countSchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
+
+type EventCountField = "guests" | "couples" | "children";
 
 export type NewEventFormValues = {
   clientName: string;
@@ -88,6 +92,9 @@ export function NewEventDialog({
   const initialNotesId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
+  const [countErrors, setCountErrors] = useState<
+    Partial<Record<EventCountField, string>>
+  >({});
 
   useEffect(() => {
     if (!open) return;
@@ -112,10 +119,36 @@ export function NewEventDialog({
 
   const updateValue = (field: keyof NewEventFormValues, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
+    setCountErrors((current) => ({ ...current, [field]: undefined }));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    const counts = readNumericFields<EventCountField>({
+      guests: {
+        raw: values.guests,
+        schema: countSchema({ label: "Guests" }),
+        emptyMessage: "Enter a guest count."
+      },
+      couples: {
+        raw: values.couples,
+        schema: countSchema({ label: "Couples" }),
+        emptyMessage: "Enter a couples count."
+      },
+      children: {
+        raw: values.children,
+        schema: countSchema({ label: "Children" }),
+        emptyMessage: "Enter a children count."
+      }
+    });
+
+    if (!counts.ok) {
+      setCountErrors(counts.errors);
+      return;
+    }
+
+    setCountErrors({});
     onCreate(values);
     setValues(initialValues);
   };
@@ -300,47 +333,86 @@ export function NewEventDialog({
               <label>
                 <FieldLabel>Guests</FieldLabel>
                 <input
+                  aria-describedby={
+                    countErrors.guests ? `${guestsId}-error` : undefined
+                  }
+                  aria-invalid={countErrors.guests ? true : undefined}
                   className={`${controlClass} mt-1`}
                   id={guestsId}
-                  min="0"
+                  inputMode="decimal"
                   name="guests"
                   onChange={(event) =>
                     updateValue("guests", event.target.value)
                   }
                   required
-                  type="number"
+                  type="text"
                   value={values.guests}
                 />
+                {countErrors.guests ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id={`${guestsId}-error`}
+                    role="alert"
+                  >
+                    {countErrors.guests}
+                  </p>
+                ) : null}
               </label>
               <label>
                 <FieldLabel>Couples</FieldLabel>
                 <input
+                  aria-describedby={
+                    countErrors.couples ? `${couplesId}-error` : undefined
+                  }
+                  aria-invalid={countErrors.couples ? true : undefined}
                   className={`${controlClass} mt-1`}
                   id={couplesId}
-                  min="0"
+                  inputMode="decimal"
                   name="couples"
                   onChange={(event) =>
                     updateValue("couples", event.target.value)
                   }
                   required
-                  type="number"
+                  type="text"
                   value={values.couples}
                 />
+                {countErrors.couples ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id={`${couplesId}-error`}
+                    role="alert"
+                  >
+                    {countErrors.couples}
+                  </p>
+                ) : null}
               </label>
               <label>
                 <FieldLabel>Children</FieldLabel>
                 <input
+                  aria-describedby={
+                    countErrors.children ? `${childrenId}-error` : undefined
+                  }
+                  aria-invalid={countErrors.children ? true : undefined}
                   className={`${controlClass} mt-1`}
                   id={childrenId}
-                  min="0"
+                  inputMode="decimal"
                   name="children"
                   onChange={(event) =>
                     updateValue("children", event.target.value)
                   }
                   required
-                  type="number"
+                  type="text"
                   value={values.children}
                 />
+                {countErrors.children ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id={`${childrenId}-error`}
+                    role="alert"
+                  >
+                    {countErrors.children}
+                  </p>
+                ) : null}
               </label>
             </div>
 

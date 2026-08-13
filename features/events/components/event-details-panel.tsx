@@ -9,6 +9,9 @@ import {
   useState
 } from "react";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { readApiError } from "@/lib/http/api-request-error";
+import { countSchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
 import {
   LineIcon,
   timelineRows,
@@ -116,29 +119,38 @@ export function ReadinessPanel() {
   );
 }
 
+type EventCountField = "guestCount" | "childrenCount" | "couplesCount";
+
 type EventDetailsDraft = {
-  childrenCount: number;
+  // Counts stay as the raw text the user typed and are parsed on save. Storing
+  // them as numbers meant `Number("")` silently wrote 0.
+  childrenCount: string;
   clientName: string;
-  couplesCount: number;
+  couplesCount: string;
   eventDate: string;
   eventStatus: string;
   eventTime: string;
   eventType: string;
-  guestCount: number;
+  guestCount: string;
   hallId: string;
   internalNotes: string;
 };
 
+function countText(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? String(parsed) : "0";
+}
+
 export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
   return {
-    childrenCount: Number(event.children) || 0,
+    childrenCount: countText(event.children),
     clientName: event.clientName,
-    couplesCount: Number(event.couples) || 0,
+    couplesCount: countText(event.couples),
     eventDate: event.dateInput,
     eventStatus: event.status,
     eventTime: event.timeInput,
     eventType: event.eventType,
-    guestCount: Number(event.guests) || 0,
+    guestCount: countText(event.guests),
     hallId: event.hallId,
     internalNotes: event.internalNotes
   };
@@ -164,6 +176,9 @@ export function EventInformation({
   const [draft, setDraft] = useState<EventDetailsDraft>(() =>
     createEventDetailsDraft(event)
   );
+  const [countErrors, setCountErrors] = useState<
+    Partial<Record<EventCountField, string>>
+  >({});
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
@@ -207,22 +222,51 @@ export function EventInformation({
   ) {
     setMessage("");
     setShowSaveConfirmation(false);
+    setCountErrors((current) => ({ ...current, [field]: undefined }));
     setDraft((current) => ({ ...current, [field]: value }));
   }
 
   function discardChanges() {
     setDraft(createEventDetailsDraft(event));
+    setCountErrors({});
     setShowSaveConfirmation(false);
     setMessage("Unsaved event detail changes discarded.");
   }
 
   async function saveEvent(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
-    setIsSaving(true);
     setMessage("");
-    const guestCount = draft.guestCount || 0;
-    const childrenCount = draft.childrenCount || 0;
-    const couplesCount = draft.couplesCount || 0;
+
+    const counts = readNumericFields<EventCountField>({
+      guestCount: {
+        raw: draft.guestCount,
+        schema: countSchema({ label: "Guests" }),
+        emptyMessage: "Enter a guest count."
+      },
+      childrenCount: {
+        raw: draft.childrenCount,
+        schema: countSchema({ label: "Children" }),
+        emptyMessage: "Enter a children count."
+      },
+      couplesCount: {
+        raw: draft.couplesCount,
+        schema: countSchema({ label: "Couples" }),
+        emptyMessage: "Enter a couples count."
+      }
+    });
+
+    if (!counts.ok) {
+      setCountErrors(counts.errors);
+      setMessage(counts.firstError);
+      return;
+    }
+
+    setCountErrors({});
+    setIsSaving(true);
+
+    const guestCount = counts.values.guestCount ?? 0;
+    const childrenCount = counts.values.childrenCount ?? 0;
+    const couplesCount = counts.values.couplesCount ?? 0;
     const eventDate = draft.eventDate;
     const eventTime = draft.eventTime;
     const startsAt =
@@ -250,9 +294,7 @@ export function EventInformation({
           notes: draft.internalNotes
         })
       });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Could not save event.");
+      if (!response.ok) throw await readApiError(response);
       await onEventSaved();
       setMessage("Event details saved successfully.");
       setShowSaveConfirmation(true);
@@ -318,8 +360,8 @@ export function EventInformation({
       </header>
       <div className="grid gap-3 p-3 sm:grid-cols-3">
         <Field label="Client">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
             onChange={(changeEvent) =>
               updateDraft("clientName", changeEvent.target.value)
             }
@@ -328,8 +370,8 @@ export function EventInformation({
           />
         </Field>
         <Field label="Event type">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
             onChange={(changeEvent) =>
               updateDraft("eventType", changeEvent.target.value)
             }
@@ -352,8 +394,8 @@ export function EventInformation({
           </select>
         </Field>
         <Field label="Date">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
             onChange={(changeEvent) =>
               updateDraft("eventDate", changeEvent.target.value)
             }
@@ -363,8 +405,8 @@ export function EventInformation({
           />
         </Field>
         <Field label="Start Time">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
+          <input
+            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
             onChange={(changeEvent) =>
               updateDraft("eventTime", changeEvent.target.value)
             }
@@ -392,36 +434,83 @@ export function EventInformation({
         </Field>
         <Field label="Guests">
           <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("guestCount", Number(changeEvent.target.value))
+            aria-describedby={
+              countErrors.guestCount ? "event-guest-count-error" : undefined
             }
-            type="number"
-            value={draft.guestCount}
+            aria-invalid={countErrors.guestCount ? true : undefined}
+            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            id="event-guest-count"
+            inputMode="decimal"
             name="guestCount"
+            onChange={(changeEvent) =>
+              updateDraft("guestCount", changeEvent.target.value)
+            }
+            type="text"
+            value={draft.guestCount}
           />
+          {countErrors.guestCount ? (
+            <p
+              className="mt-1 text-[10px] font-bold text-[#c2410c]"
+              id="event-guest-count-error"
+              role="alert"
+            >
+              {countErrors.guestCount}
+            </p>
+          ) : null}
         </Field>
         <Field label="Children">
           <input
+            aria-describedby={
+              countErrors.childrenCount
+                ? "event-children-count-error"
+                : undefined
+            }
+            aria-invalid={countErrors.childrenCount ? true : undefined}
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            id="event-children-count"
+            inputMode="decimal"
             name="childrenCount"
             onChange={(changeEvent) =>
-              updateDraft("childrenCount", Number(changeEvent.target.value))
+              updateDraft("childrenCount", changeEvent.target.value)
             }
-            type="number"
+            type="text"
             value={draft.childrenCount}
           />
+          {countErrors.childrenCount ? (
+            <p
+              className="mt-1 text-[10px] font-bold text-[#c2410c]"
+              id="event-children-count-error"
+              role="alert"
+            >
+              {countErrors.childrenCount}
+            </p>
+          ) : null}
         </Field>
         <Field label="Couples">
           <input
+            aria-describedby={
+              countErrors.couplesCount ? "event-couples-count-error" : undefined
+            }
+            aria-invalid={countErrors.couplesCount ? true : undefined}
             className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+            id="event-couples-count"
+            inputMode="decimal"
             name="couplesCount"
             onChange={(changeEvent) =>
-              updateDraft("couplesCount", Number(changeEvent.target.value))
+              updateDraft("couplesCount", changeEvent.target.value)
             }
-            type="number"
+            type="text"
             value={draft.couplesCount}
           />
+          {countErrors.couplesCount ? (
+            <p
+              className="mt-1 text-[10px] font-bold text-[#c2410c]"
+              id="event-couples-count-error"
+              role="alert"
+            >
+              {countErrors.couplesCount}
+            </p>
+          ) : null}
         </Field>
         <Field label="Internal notes" className="sm:col-span-3">
           <textarea
