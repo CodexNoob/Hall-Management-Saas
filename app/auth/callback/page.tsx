@@ -66,10 +66,23 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        await syncSignedInUser(data.session.access_token, { force: true });
+        const synced = await syncSignedInUser(data.session.access_token, {
+          force: true
+        });
 
         if (isMounted) {
           setStatus("success");
+
+          // A newly confirmed owner has a placeholder organization and no plan
+          // yet. The sign-up link already carries next=/dashboard/new, so this
+          // covers OAuth sign-ups and links that lost the parameter.
+          if (synced.mustCompleteOnboarding) {
+            setMessage("Email confirmed. Let's set up your organization...");
+            router.replace("/dashboard/new");
+            router.refresh();
+            return;
+          }
+
           setMessage("Email confirmed. Taking you to your dashboard...");
           router.replace(
             getSafeDashboardReturnPath(

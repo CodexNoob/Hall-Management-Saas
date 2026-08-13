@@ -105,6 +105,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const initialPathname = useRef(pathname ?? "/dashboard");
+  // The organization-setup form is intentionally left out of
+  // `dashboardRoutePermissions`: it renders without dashboard chrome and its real
+  // gate is `mustCompleteOnboarding` below plus the owner check in
+  // POST /api/onboarding/organization.
+  const isOnboardingRoute = pathname === "/dashboard/new";
   const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
     null
   );
@@ -154,6 +159,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Owners who have not named their organization yet are held on the setup
+        // form. Same reasoning as the password branch above: return without
+        // setSyncData so the startup screen covers the redirect.
+        if (synced.mustCompleteOnboarding && !isOnboardingRoute) {
+          router.replace("/dashboard/new");
+          return;
+        }
+
+        // ...and once it is set up, the form is a dead end.
+        if (!synced.mustCompleteOnboarding && isOnboardingRoute) {
+          router.replace("/dashboard");
+          return;
+        }
+
         if (isMounted) {
           setSyncData(synced);
         }
@@ -173,7 +192,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, [retryKey, router]);
+    // `isOnboardingRoute` is a boolean, so this only re-runs when the setup form
+    // is entered or left - not on every dashboard navigation.
+  }, [isOnboardingRoute, retryKey, router]);
 
   return (
     <>
@@ -206,6 +227,10 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             ) : null}
           </main>
         </>
+      ) : isOnboardingRoute ? (
+        // No sidebar, topbar, trial pill, or permission gate: there is no
+        // workspace to navigate yet, and the owner cannot leave this form.
+        children
       ) : (
         <main className="dashboard-font min-h-dvh bg-[#f5f6f8] text-[#17202a]">
           <DashboardTopbarBrand />

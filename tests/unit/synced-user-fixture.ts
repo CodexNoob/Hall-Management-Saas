@@ -37,7 +37,12 @@ const fullAccess: SyncedUserAccess = {
 // into localStorage before rendering a component that reads it.
 export function cacheSyncedUser(
   role: string,
-  accessOverrides: Partial<SyncedUserAccess> = {}
+  accessOverrides: Partial<SyncedUserAccess> = {},
+  overrides: {
+    userName?: string;
+    organizationName?: string;
+    onboardingCompletedAt?: string | null;
+  } = {}
 ) {
   window.localStorage.setItem(
     "hms.syncedUser",
@@ -45,7 +50,7 @@ export function cacheSyncedUser(
       user: {
         id: "user-1",
         email: "test@example.com",
-        name: "Test User",
+        name: overrides.userName ?? "Test User",
         phone: null,
         venueName: null,
         role,
@@ -53,11 +58,12 @@ export function cacheSyncedUser(
       },
       access: { ...fullAccess, ...accessOverrides },
       mustSetPassword: false,
+      mustCompleteOnboarding: overrides.onboardingCompletedAt === null,
       activeOrganizationId: "org-1",
       organizations: [
         {
           id: "org-1",
-          name: "Org",
+          name: overrides.organizationName ?? "Org",
           slug: "org",
           role,
           trialStartedAt: null,
@@ -65,7 +71,11 @@ export function cacheSyncedUser(
           subscriptionStatus: "active",
           subscriptionPlan: null,
           subscriptionStartedAt: null,
-          subscriptionEndsAt: null
+          subscriptionEndsAt: null,
+          onboardingCompletedAt:
+            overrides.onboardingCompletedAt === undefined
+              ? "2024-01-01T00:00:00.000Z"
+              : overrides.onboardingCompletedAt
         }
       ]
     })

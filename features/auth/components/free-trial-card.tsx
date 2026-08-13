@@ -4,11 +4,16 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
+import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
 import { syncSignedInUser } from "@/lib/auth/client";
-import { getPasswordValidationError } from "@/lib/auth/password";
+import {
+  PASSWORD_RULES_HINT,
+  getPasswordValidationError
+} from "@/lib/auth/password";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { ArrowLoginIcon, BuildingIcon, EmailIcon, EyeIcon, LockIcon, PhoneIcon, ShieldIcon, UserIcon } from "@/features/auth/components/auth-icons";
+import { ArrowLoginIcon, EmailIcon, EyeIcon, LockIcon, ShieldIcon } from "@/features/auth/components/auth-icons";
 
 function FreeTrialIllustration() {
   return (
@@ -92,55 +97,45 @@ type FreeTrialCardProps = {
 
 export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const isDesktopApp = useDesktopAppMode();
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [form, setForm] = useState({
-    fullName: "",
     email: "",
-    countryCode: "+1",
-    phone: "",
-    venue: "",
-    password: "",
-    confirmPassword: "",
-    acceptedTerms: false
+    password: ""
   });
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const updateField = (name: keyof typeof form, value: string | boolean) => {
+  const updateField = (name: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [name]: value }));
     setError("");
-    setSuccess("");
+  };
+
+  const failSignUp = (message: string) => {
+    setError(message);
+    toast.error(message, { title: "Sign-up failed" });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.venue.trim() || !form.password.trim() || !form.confirmPassword.trim()) {
-      setError("Please complete all required fields.");
+    const email = form.email.trim();
+
+    if (!email) {
+      failSignUp("Please enter your email address.");
       return;
     }
 
-    const passwordError = getPasswordValidationError(
-      form.password,
-      form.confirmPassword
-    );
+    const passwordError = getPasswordValidationError(form.password);
 
     if (passwordError) {
-      setError(passwordError);
-      return;
-    }
-
-    if (!form.acceptedTerms) {
-      setError("Please agree to the Terms & Privacy Policy.");
+      failSignUp(passwordError);
       return;
     }
 
     setIsSubmitting(true);
     setError("");
-    setSuccess("");
 
     try {
       const accessResponse = await fetch("/api/auth/free-trial-access", {
@@ -148,50 +143,56 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({ email: form.email.trim() })
+        body: JSON.stringify({ email })
       });
 
       if (!accessResponse.ok) {
         const payload = (await accessResponse.json().catch(() => null)) as {
           error?: string;
         } | null;
-        setError(
+        failSignUp(
           payload?.error ??
-            "Unable to start your free trial right now. Please try again."
+            "Unable to create your account right now. Please try again."
         );
         return;
       }
 
       const supabase = createSupabaseBrowserClient();
-      const { data, error: freeTrialError } = await supabase.auth.signUp({
-        email: form.email.trim(),
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // The organization is named on /dashboard/new, so send the confirmed
+          // owner straight there instead of the dashboard.
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/new")}`,
           data: {
-            full_name: form.fullName.trim(),
-            phone: `${form.countryCode} ${form.phone.trim()}`,
-            venue_name: form.venue.trim(),
+            // The only server-side signal that authorizes POST
+            // /api/auth/sync-user to provision an organization. Everyone else
+            // joins by administrator invitation.
             account_type: "organization_owner"
           }
         }
       });
 
-      if (freeTrialError) {
-        setError(freeTrialError.message);
+      if (signUpError) {
+        failSignUp(getSignUpErrorMessage(signUpError));
         return;
       }
 
-      if (data.session?.access_token) {
-        await syncSignedInUser(data.session.access_token, { force: true });
-        router.push("/dashboard");
-        router.refresh();
+      // With email confirmation enabled Supabase returns no session, so the
+      // account is real but unusable until the inbox is confirmed.
+      if (!data.session?.access_token) {
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         return;
       }
 
-      setSuccess("Organization account created. Please check your email to confirm your account.");
+      // Confirmation disabled (local development): the owner is already signed
+      // in, so go collect the organization details now.
+      await syncSignedInUser(data.session.access_token, { force: true });
+      router.push("/dashboard/new");
+      router.refresh();
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Unable to create your account.");
+      failSignUp(getSignUpErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -231,10 +232,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               Welcome! <span aria-hidden="true">&#128075;</span>
             </p>
             <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
-              Create your organization
+              Create your account
             </h1>
             <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
-              Get started with powerful tools to manage hall bookings, events, payments, and operations&mdash;all in one place.
+              Start with your email and a password. You&apos;ll name your organization and choose a plan right after you confirm your inbox.
             </p>
           </div>
 
@@ -268,26 +269,10 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
             />
           ) : null}
           <h2 id="free-trial-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Start Your Free Trial</h2>
-          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Create the owner account for a new hall organization.</p>
+          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
 
           <form className={isDesktopApp ? "mt-3" : "mt-8"} onSubmit={submit}>
-            <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="fullName">
-              Full Name
-            </label>
-            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
-              <UserIcon />
-              <input
-                id="fullName"
-                name="fullName"
-                autoComplete="name"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
-                placeholder="Enter your full name"
-                value={form.fullName}
-                onChange={(event) => updateField("fullName", event.target.value)}
-              />
-            </div>
-
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialEmail">
+            <label className={`${isDesktopApp ? "text-sm" : "text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialEmail">
               Email Address
             </label>
             <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
@@ -301,55 +286,6 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
                 type="email"
                 value={form.email}
                 onChange={(event) => updateField("email", event.target.value)}
-              />
-            </div>
-
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="phone">
-              Phone Number
-            </label>
-            <div className={`login-field mt-1.5 flex w-full min-w-0 overflow-hidden border border-[#E5E0D6] bg-white transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
-              <div className="flex items-center px-3 sm:px-4">
-                <PhoneIcon />
-              </div>
-              <select
-                id="countryCode"
-                name="countryCode"
-                autoComplete="tel-country-code"
-                aria-label="Country code"
-                className="h-full border-x border-[#E5E0D6] bg-white px-2 text-sm font-bold text-[#0F172A] outline-none sm:px-3 sm:text-base"
-                value={form.countryCode}
-                onChange={(event) => updateField("countryCode", event.target.value)}
-              >
-                <option value="+1">+1</option>
-                <option value="+44">+44</option>
-                <option value="+63">+63</option>
-                <option value="+91">+91</option>
-              </select>
-              <input
-                id="phone"
-                name="phone"
-                autoComplete="tel-national"
-                className="min-w-0 flex-1 bg-transparent px-3 text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba] sm:px-4 sm:text-base"
-                placeholder="Enter your phone number"
-                type="tel"
-                value={form.phone}
-                onChange={(event) => updateField("phone", event.target.value)}
-              />
-            </div>
-
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="venue">
-              Company or Venue Name
-            </label>
-            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
-              <BuildingIcon />
-              <input
-                id="venue"
-                name="organization"
-                autoComplete="organization"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
-                placeholder="Enter your company or venue name"
-                value={form.venue}
-                onChange={(event) => updateField("venue", event.target.value)}
               />
             </div>
 
@@ -372,45 +308,15 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
                 <EyeIcon isVisible={showPassword} />
               </button>
             </div>
+            <p className={`${isDesktopApp ? "mt-1.5 text-xs" : "mt-2 text-sm"} font-medium text-[#64748B]`}>
+              {PASSWORD_RULES_HINT}
+            </p>
 
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="confirmPassword">
-              Confirm Password
-            </label>
-            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
-              <LockIcon />
-              <input
-                id="confirmPassword"
-                name="confirmPassword"
-                autoComplete="new-password"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
-                placeholder="Confirm your password"
-                type={showConfirmPassword ? "text" : "password"}
-                value={form.confirmPassword}
-                onChange={(event) => updateField("confirmPassword", event.target.value)}
-              />
-              <button className="login-icon-button text-[#64748B] transition hover:text-[#1f4d73]" type="button" onClick={() => setShowConfirmPassword((current) => !current)} aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}>
-                <EyeIcon isVisible={showConfirmPassword} />
-              </button>
-            </div>
-
-            <label className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-6 text-sm leading-6 sm:text-base"} flex cursor-pointer items-start gap-3 font-medium text-[#64748B]`} htmlFor="terms">
-              <input
-                id="terms"
-                className="login-checkbox mt-0.5 h-5 w-5 shrink-0 border border-[#E5E0D6] accent-[#1f4d73]"
-                type="checkbox"
-                checked={form.acceptedTerms}
-                onChange={(event) => updateField("acceptedTerms", event.target.checked)}
-              />
-              <span>
-                I agree to the{" "}
-                <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href="#terms">
-                  Terms & Privacy Policy
-                </Link>
-              </span>
-            </label>
-
-            {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
-            {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
+            {error ? (
+              <p className={`${isDesktopApp ? "mt-3" : "mt-5"} text-sm font-bold text-[#c2410c]`} role="alert">
+                {error}
+              </p>
+            ) : null}
 
             <button
               className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-3 h-10 text-sm" : "mt-7 h-16 text-lg"}`}
@@ -418,10 +324,18 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               disabled={isSubmitting}
             >
               <ArrowLoginIcon />
-              {isSubmitting ? "Creating organization..." : "Create organization"}
+              {isSubmitting ? "Creating account..." : "Create account"}
             </button>
 
-            <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-9 text-base"} text-center text-[#64748B]`}>
+            <p className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-5 text-sm leading-6"} text-center font-medium text-[#64748B]`}>
+              By creating an account you agree to the{" "}
+              <Link className="font-bold text-[#1f4d73] transition hover:text-[#15344f]" href="#terms">
+                Terms &amp; Privacy Policy
+              </Link>
+              .
+            </p>
+
+            <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-7 text-base"} text-center text-[#64748B]`}>
               Already have an account?{" "}
               {onLoginClick ? (
                 <button className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onLoginClick}>
