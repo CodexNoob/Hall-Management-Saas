@@ -247,69 +247,84 @@ export async function PATCH(request: Request) {
 
     const planId = crypto.randomUUID();
 
-    const [plan] = await prisma.$queryRaw<DiningPlanRow[]>`
-      INSERT INTO dining_plans (
-        id,
-        organization_id,
-        event_id,
-        hall_map_preset_id,
-        count_type,
-        adult_count,
-        children_count,
-        men_waiters,
-        women_waiters,
-        tablecloth,
-        washing_time,
-        special_notes,
-        tables,
-        created_at,
-        updated_at
-      ) VALUES (
-        ${planId}::uuid,
-        ${actor.organizationId}::uuid,
-        ${input.eventId}::uuid,
-        ${input.hallMapPresetId ?? null}::uuid,
-        ${input.countType},
-        ${input.adultCount},
-        ${input.childrenCount},
-        ${input.menWaiters},
-        ${input.womenWaiters},
-        ${input.tablecloth || null},
-        ${input.washingTime || null},
-        ${input.specialNotes || null},
-        ${JSON.stringify(input.tables)}::jsonb,
-        NOW(),
-        NOW()
-      )
-      ON CONFLICT (event_id) DO UPDATE SET
-        hall_map_preset_id = EXCLUDED.hall_map_preset_id,
-        count_type = EXCLUDED.count_type,
-        adult_count = EXCLUDED.adult_count,
-        children_count = EXCLUDED.children_count,
-        men_waiters = EXCLUDED.men_waiters,
-        women_waiters = EXCLUDED.women_waiters,
-        tablecloth = EXCLUDED.tablecloth,
-        washing_time = EXCLUDED.washing_time,
-        special_notes = EXCLUDED.special_notes,
-        tables = EXCLUDED.tables,
-        updated_at = NOW()
-      RETURNING
-        id,
-        organization_id AS "organizationId",
-        event_id AS "eventId",
-        hall_map_preset_id AS "hallMapPresetId",
-        count_type AS "countType",
-        adult_count AS "adultCount",
-        children_count AS "childrenCount",
-        men_waiters AS "menWaiters",
-        women_waiters AS "womenWaiters",
-        tablecloth,
-        washing_time AS "washingTime",
-        special_notes AS "specialNotes",
-        tables,
-        created_at AS "createdAt",
-        updated_at AS "updatedAt"
-    `;
+    const plan = await prisma.$transaction(async (tx) => {
+      const [savedPlan] = await tx.$queryRaw<DiningPlanRow[]>`
+        INSERT INTO dining_plans (
+          id,
+          organization_id,
+          event_id,
+          hall_map_preset_id,
+          count_type,
+          adult_count,
+          children_count,
+          men_waiters,
+          women_waiters,
+          tablecloth,
+          washing_time,
+          special_notes,
+          tables,
+          created_at,
+          updated_at
+        ) VALUES (
+          ${planId}::uuid,
+          ${actor.organizationId}::uuid,
+          ${input.eventId}::uuid,
+          ${input.hallMapPresetId ?? null}::uuid,
+          ${input.countType},
+          ${input.adultCount},
+          ${input.childrenCount},
+          ${input.menWaiters},
+          ${input.womenWaiters},
+          ${input.tablecloth || null},
+          ${input.washingTime || null},
+          ${input.specialNotes || null},
+          ${JSON.stringify(input.tables)}::jsonb,
+          NOW(),
+          NOW()
+        )
+        ON CONFLICT (event_id) DO UPDATE SET
+          hall_map_preset_id = EXCLUDED.hall_map_preset_id,
+          count_type = EXCLUDED.count_type,
+          adult_count = EXCLUDED.adult_count,
+          children_count = EXCLUDED.children_count,
+          men_waiters = EXCLUDED.men_waiters,
+          women_waiters = EXCLUDED.women_waiters,
+          tablecloth = EXCLUDED.tablecloth,
+          washing_time = EXCLUDED.washing_time,
+          special_notes = EXCLUDED.special_notes,
+          tables = EXCLUDED.tables,
+          updated_at = NOW()
+        RETURNING
+          id,
+          organization_id AS "organizationId",
+          event_id AS "eventId",
+          hall_map_preset_id AS "hallMapPresetId",
+          count_type AS "countType",
+          adult_count AS "adultCount",
+          children_count AS "childrenCount",
+          men_waiters AS "menWaiters",
+          women_waiters AS "womenWaiters",
+          tablecloth,
+          washing_time AS "washingTime",
+          special_notes AS "specialNotes",
+          tables,
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `;
+
+      await tx.event.update({
+        where: { id: event.id, organizationId: actor.organizationId },
+        data: {
+          tableclothName: input.tablecloth || null,
+          waitersCount: input.menWaiters + input.womenWaiters,
+          washingTime: input.washingTime || null,
+          updatedById: actor.id,
+          version: { increment: 1 }
+        }
+      });
+
+      return savedPlan;
+    });
 
     return NextResponse.json({ plan: formatDiningPlan(plan) });
   } catch (error) {

@@ -1,18 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  NewEventDialog,
-  type NewEventFormValues
-} from "@/features/events/forms/new-event-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
-import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
-import { countSchema } from "@/lib/validation/number";
-import { readNumericFields } from "@/lib/validation/numeric-form";
 import { EventListCard } from "@/features/events/components/event-list-panel";
 import { EventWorkspace } from "@/features/events/components/event-workspace";
 import {
@@ -24,15 +17,11 @@ export function EventManagerPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Event Manager");
   const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
-  const createEventMutation = useAuthenticatedMutation<
-    Record<string, string | number | undefined>,
-    { event: { id: string } }
-  >("/api/events");
   const [selectedEventId, setSelectedEventId] = useState("");
   const [eventStatusFilter, setEventStatusFilter] = useState("All events");
+  const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
-  const [isNewEventOpen, setIsNewEventOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -48,6 +37,7 @@ export function EventManagerPage() {
 
         return {
           id: event.id,
+          bookingStatus: event.bookingStatus,
           clientName: event.clientName,
           eventType: event.eventType ?? "",
           title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
@@ -84,9 +74,23 @@ export function EventManagerPage() {
             ? "Confirmed"
             : "Hold",
           paymentStatus: event.paymentStatus ?? "No invoice",
+          version: event.version,
+          cancelledAt: event.cancelledAt,
+          completedAt: event.completedAt,
+          waitersCount: event.waitersCount,
+          setupTime: event.setupTime ?? "",
+          washingTime: event.washingTime ?? "",
+          tableclothName: event.tableclothName ?? "",
           notes: event.notes ? [event.notes] : [],
           internalNotes: event.notes ?? "",
+          daveningNote: event.daveningNote ?? "",
+          memberShulName: event.memberShulName ?? "",
+          sideBoxes:
+            typeof event.sideBoxes === "string" ? event.sideBoxes : "",
+          shabbosSetup:
+            typeof event.shabbosSetup === "string" ? event.shabbosSetup : "",
           diningManagerNotes: event.diningManagerNotes,
+          activityLogs: event.activityLogs ?? [],
           diningHallMapPreset: event.diningHallMapPreset,
           phone: event.phone,
           email: event.email ?? "",
@@ -115,6 +119,7 @@ export function EventManagerPage() {
     return (
       <DashboardPageState
         isLoading
+        showNewBookingAction={false}
         subtitle="Select an event, then manage every connected section from one workspace."
         title="Event Manager"
       />
@@ -129,6 +134,7 @@ export function EventManagerPage() {
         error={eventsQuery.error}
         isEmpty={!eventsQuery.error}
         onRetry={eventsQuery.refetch}
+        showNewBookingAction={false}
         subtitle="Select an event, then manage every connected section from one workspace."
         title="Event Manager"
       />
@@ -138,98 +144,41 @@ export function EventManagerPage() {
   const selectedEvent =
     allEvents.find((event) => event.id === selectedEventId) ?? allEvents[0];
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
-  const visibleEvents = allEvents.filter(
-    (event) =>
-      (!normalizedSearch ||
-        [
-          event.title,
-          event.room,
-          event.packageName,
-          event.status,
-          event.paymentStatus,
-          event.date
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch)) &&
-      (eventStatusFilter === "All events" ||
-        event.status === eventStatusFilter) &&
+  const visibleEvents = allEvents.filter((event) => {
+    const matchesSearch =
+      !normalizedSearch ||
+      [
+        event.title,
+        event.room,
+        event.packageName,
+        event.status,
+        event.bookingStatus,
+        event.paymentStatus,
+        event.date
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
+    const matchesStatus =
+      eventStatusFilter === "All events" || event.status === eventStatusFilter;
+    const matchesLifecycle =
+      eventLifecycleFilter === "All" ||
+      (eventLifecycleFilter === "Active" &&
+        !["CANCELLED", "COMPLETED", "EXPIRED"].includes(
+          event.bookingStatus
+        )) ||
+      (eventLifecycleFilter === "Completed" &&
+        event.bookingStatus === "COMPLETED") ||
+      (eventLifecycleFilter === "Cancelled" &&
+        ["CANCELLED", "EXPIRED"].includes(event.bookingStatus));
+
+    return (
+      matchesSearch &&
+      matchesStatus &&
+      matchesLifecycle &&
       (roomFilter === "All rooms" || event.hallId === roomFilter)
-  );
-
-  const createEvent = async (values: NewEventFormValues) => {
-    const hall = eventsQuery.data?.halls.find(
-      (item) => item.name === values.room
     );
-    const eventType = eventsQuery.data?.eventTypes.find(
-      (item) => item.name === values.eventType
-    );
-
-    if (!hall) return;
-
-    // The dialog validates these before calling back, so anything unparseable
-    // here is a programming error - throw rather than send a silent 0.
-    const parsedCounts = readNumericFields<"guests" | "couples" | "children">({
-      guests: { raw: values.guests, schema: countSchema({ label: "Guests" }) },
-      couples: {
-        raw: values.couples,
-        schema: countSchema({ label: "Couples" })
-      },
-      children: {
-        raw: values.children,
-        schema: countSchema({ label: "Children" })
-      }
-    });
-
-    if (!parsedCounts.ok) throw new Error(parsedCounts.firstError);
-
-    const counts = {
-      guests: parsedCounts.values.guests ?? 0,
-      couples: parsedCounts.values.couples ?? 0,
-      children: parsedCounts.values.children ?? 0
-    };
-
-    const toIso = (time: string) =>
-      new Date(`${values.date}T${time}:00`).toISOString();
-    const startsAt = toIso(values.startTime);
-    let endsAt = toIso(values.endTime);
-    let cleanupEndsAt = toIso(values.cleanupTime);
-    if (new Date(endsAt) <= new Date(startsAt)) {
-      endsAt = new Date(new Date(endsAt).getTime() + 86_400_000).toISOString();
-    }
-    if (new Date(cleanupEndsAt) < new Date(endsAt)) {
-      cleanupEndsAt = new Date(
-        new Date(cleanupEndsAt).getTime() + 86_400_000
-      ).toISOString();
-    }
-
-    const created = await createEventMutation.mutate({
-      clientName: values.clientName,
-      // This form does not collect a phone. It used to send the literal string
-      // "Not provided" to satisfy a required field; the schema now accepts an
-      // absent number, so say nothing rather than storing a fake one.
-      eventDate: values.date,
-      startsAt,
-      endsAt,
-      setupStartsAt: toIso(values.setupTime),
-      cleanupEndsAt,
-      hallId: hall.id,
-      eventTypeId: eventType?.id,
-      bookingStatus:
-        values.status === "Confirmed" ? "CONFIRMED" : "TENTATIVE_HOLD",
-      idempotencyKey: crypto.randomUUID(),
-      couplesCount: counts.couples,
-      menCount: Math.max(
-        counts.guests - counts.couples * 2 - counts.children,
-        0
-      ),
-      kidsCount: counts.children,
-      notes: values.initialNotes || undefined
-    });
-    await eventsQuery.refetch();
-    setSelectedEventId(created.event.id);
-    setIsNewEventOpen(false);
-  };
+  });
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-hidden bg-[#f5f6f8] text-[#17202a] xl:h-screen xl:overflow-hidden">
@@ -237,24 +186,7 @@ export function EventManagerPage() {
         title="Event Manager"
         subtitle="Select an event, then manage every connected section from one workspace."
         compactMobileActions
-        actionsSlot={
-          <button
-            aria-label="Create new event"
-            className="inline-flex h-9 w-8 shrink-0 items-center justify-center whitespace-nowrap bg-transparent p-0 text-[#1f4d73] transition hover:text-[#15344f] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:text-white lg:shadow-lg lg:shadow-[#17202a]/15 lg:hover:-translate-y-0.5 lg:hover:bg-[#15344f] lg:[&_svg]:h-4 lg:[&_svg]:w-4 2xl:px-5"
-            onClick={() => setIsNewEventOpen(true)}
-            title="New event"
-            type="button"
-          >
-            <LineIcon name="plus" />
-            <span className="hidden lg:inline">New event</span>
-          </button>
-        }
-      />
-
-      <NewEventDialog
-        onClose={() => setIsNewEventOpen(false)}
-        onCreate={createEvent}
-        open={isNewEventOpen}
+        showNewBookingAction={false}
       />
 
       <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
@@ -296,6 +228,7 @@ export function EventManagerPage() {
                   onClick={() => {
                     setPageSearchQuery("");
                     setEventStatusFilter("All events");
+                    setEventLifecycleFilter("Active");
                     setRoomFilter("All rooms");
                     setSelectedEventId(allEvents[0]?.id ?? "");
                   }}
@@ -333,7 +266,21 @@ export function EventManagerPage() {
                   <option>Hold</option>
                 </select>
                 <select
-                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-2"
+                  aria-label="Lifecycle filter"
+                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                  name="lifecycleFilter"
+                  onChange={(event) =>
+                    setEventLifecycleFilter(event.target.value)
+                  }
+                  value={eventLifecycleFilter}
+                >
+                  <option>Active</option>
+                  <option>Completed</option>
+                  <option>Cancelled</option>
+                  <option>All</option>
+                </select>
+                <select
+                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
                   aria-label="Room filter"
                   name="roomFilter"
                   onChange={(event) => setRoomFilter(event.target.value)}

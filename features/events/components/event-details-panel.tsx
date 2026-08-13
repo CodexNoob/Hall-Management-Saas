@@ -39,6 +39,30 @@ export function Field({
   );
 }
 
+function EventDetailsSection({
+  title,
+  description,
+  children
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
+      <div className="mb-3">
+        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
+          {title}
+        </h3>
+        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
+          {description}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">{children}</div>
+    </section>
+  );
+}
+
 export function ClientContact({ event }: { event: EventFile }) {
   const rows = [
     {
@@ -119,6 +143,63 @@ export function ReadinessPanel() {
   );
 }
 
+function formatActivityTimestamp(value: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(value));
+}
+
+function EventActivityHistory({ event }: { event: EventFile }) {
+  const activityLogs = event.activityLogs.slice(0, 6);
+
+  return (
+    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
+      <div className="mb-3">
+        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
+          Activity history
+        </h3>
+        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
+          Recent event changes recorded for this organization.
+        </p>
+      </div>
+
+      {activityLogs.length ? (
+        <ol className="space-y-2">
+          {activityLogs.map((activity) => (
+            <li
+              key={activity.id}
+              className="rounded-lg border border-[#d8dde5] bg-white p-3"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-[#eef4fa] px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#1f4d73]">
+                  {activity.actionType}
+                </span>
+                <time
+                  className="text-xs font-bold text-[#6a7483]"
+                  dateTime={activity.createdAt}
+                >
+                  {formatActivityTimestamp(activity.createdAt)}
+                </time>
+              </div>
+              <p className="mt-2 text-sm font-semibold leading-5 text-[#17202a]">
+                {activity.message}
+              </p>
+              <p className="mt-1 text-xs font-bold text-[#6a7483]">
+                {activity.userName ? `Changed by ${activity.userName}` : "System recorded"}
+              </p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <div className="rounded-lg border border-dashed border-[#b9c2cf] bg-white p-4 text-sm font-semibold text-[#6a7483]">
+          No activity has been recorded for this event yet.
+        </div>
+      )}
+    </section>
+  );
+}
+
 type EventCountField = "guestCount" | "childrenCount" | "couplesCount";
 
 type EventDetailsDraft = {
@@ -134,11 +215,109 @@ type EventDetailsDraft = {
   guestCount: string;
   hallId: string;
   internalNotes: string;
+  daveningNote: string;
+  memberShulName: string;
+  setupTime: string;
+  shabbosSetup: string;
+  sideBoxes: string;
+  tableclothName: string;
+  waitersCount: number;
+  washingTime: string;
 };
 
 function countText(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? String(parsed) : "0";
+}
+
+type EventLifecycleStatus =
+  | "INQUIRY"
+  | "TENTATIVE_HOLD"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "EXPIRED";
+
+type EventLifecycleAction = {
+  status: EventLifecycleStatus;
+  label: string;
+  confirmLabel: string;
+  title: string;
+  description: string;
+  tone: "primary" | "danger";
+};
+
+const eventLifecycleActions: Record<EventLifecycleStatus, EventLifecycleAction[]> =
+  {
+    INQUIRY: [
+      {
+        status: "TENTATIVE_HOLD",
+        label: "Place on hold",
+        confirmLabel: "Place on hold",
+        title: "Place this event on hold?",
+        description:
+          "This reserves the event as a tentative hold and keeps it active for planning.",
+        tone: "primary"
+      },
+      {
+        status: "CANCELLED",
+        label: "Cancel event",
+        confirmLabel: "Cancel event",
+        title: "Cancel this event?",
+        description:
+          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
+        tone: "danger"
+      }
+    ],
+    TENTATIVE_HOLD: [
+      {
+        status: "CONFIRMED",
+        label: "Confirm event",
+        confirmLabel: "Confirm event",
+        title: "Confirm this event?",
+        description:
+          "This confirms the booking, keeps the hall reserved, and moves the event into active operations.",
+        tone: "primary"
+      },
+      {
+        status: "CANCELLED",
+        label: "Cancel event",
+        confirmLabel: "Cancel event",
+        title: "Cancel this event?",
+        description:
+          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
+        tone: "danger"
+      }
+    ],
+    CONFIRMED: [
+      {
+        status: "COMPLETED",
+        label: "Mark completed",
+        confirmLabel: "Mark completed",
+        title: "Mark this event as completed?",
+        description:
+          "This closes the event as completed and saves a completed timestamp in Supabase.",
+        tone: "primary"
+      },
+      {
+        status: "CANCELLED",
+        label: "Cancel event",
+        confirmLabel: "Cancel event",
+        title: "Cancel this event?",
+        description:
+          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
+        tone: "danger"
+      }
+    ],
+    COMPLETED: [],
+    CANCELLED: [],
+    EXPIRED: []
+  };
+
+export function getEventLifecycleActions(bookingStatus: string) {
+  const normalizedStatus = bookingStatus as EventLifecycleStatus;
+
+  return eventLifecycleActions[normalizedStatus] ?? [];
 }
 
 export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
@@ -152,12 +331,57 @@ export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
     eventType: event.eventType,
     guestCount: countText(event.guests),
     hallId: event.hallId,
-    internalNotes: event.internalNotes
+    internalNotes: event.internalNotes,
+    daveningNote: event.daveningNote,
+    memberShulName: event.memberShulName,
+    setupTime: event.setupTime,
+    shabbosSetup: event.shabbosSetup,
+    sideBoxes: event.sideBoxes,
+    tableclothName: event.tableclothName,
+    waitersCount: event.waitersCount,
+    washingTime: event.washingTime
   };
 }
 
 export function createEventDetailsDraftSignature(draft: EventDetailsDraft) {
   return JSON.stringify(draft);
+}
+
+export function validateEventDetailsDraft(draft: EventDetailsDraft) {
+  const errors: string[] = [];
+  const guests = Number(draft.guestCount);
+  const children = Number(draft.childrenCount);
+  const couples = Number(draft.couplesCount);
+  const integerFields = [
+    ["Guests", guests],
+    ["Children", children],
+    ["Couples", couples],
+    ["Waiters", draft.waitersCount]
+  ] as const;
+
+  if (!draft.clientName.trim()) {
+    errors.push("Client name is required.");
+  }
+
+  if (!draft.eventDate) {
+    errors.push("Event date is required.");
+  }
+
+  for (const [label, value] of integerFields) {
+    if (!Number.isInteger(value) || value < 0) {
+      errors.push(`${label} must be a whole number of 0 or more.`);
+    }
+  }
+
+  if (Number.isFinite(children) && Number.isFinite(guests) && children > guests) {
+    errors.push("Children cannot be greater than total guests.");
+  }
+
+  if (Number.isFinite(couples) && Number.isFinite(guests) && couples * 2 > guests) {
+    errors.push("Couples cannot require more seats than total guests.");
+  }
+
+  return errors;
 }
 
 export function normalizeEventStatusForSave(status: string) {
@@ -181,6 +405,12 @@ export function EventInformation({
   >({});
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [statusAction, setStatusAction] = useState<
+    EventLifecycleStatus | null
+  >(null);
+  const [pendingStatusAction, setPendingStatusAction] = useState<
+    EventLifecycleAction | null
+  >(null);
   const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
   const saveConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -195,6 +425,11 @@ export function EventInformation({
     [draft]
   );
   const hasUnsavedChanges = currentDraftSignature !== savedDraftSignature;
+  const validationErrors = useMemo(
+    () => validateEventDetailsDraft(draft),
+    [draft]
+  );
+  const hasValidationErrors = validationErrors.length > 0;
 
   useEffect(() => {
     const didSwitchEvent = previousEventIdRef.current !== event.id;
@@ -291,7 +526,15 @@ export function EventInformation({
           kidsCount: childrenCount,
           ladiesCount: 0,
           menCount: Math.max(guestCount - childrenCount - couplesCount * 2, 0),
-          notes: draft.internalNotes
+          notes: draft.internalNotes,
+          daveningNote: draft.daveningNote,
+          setupTime: draft.setupTime || null,
+          washingTime: draft.washingTime || null,
+          tableclothName: draft.tableclothName.trim() || null,
+          waitersCount: draft.waitersCount || 0,
+          memberShulName: draft.memberShulName.trim() || null,
+          sideBoxes: draft.sideBoxes.trim() || null,
+          shabbosSetup: draft.shabbosSetup.trim() || null
         })
       });
       if (!response.ok) throw await readApiError(response);
@@ -313,6 +556,44 @@ export function EventInformation({
       setIsSaving(false);
     }
   }
+
+  async function updateBookingStatus(action: EventLifecycleAction) {
+    const { status } = action;
+    setStatusAction(status);
+    setPendingStatusAction(null);
+    setMessage("");
+    setShowSaveConfirmation(false);
+
+    try {
+      const response = await authenticatedFetch(
+        `/api/events/${event.id}/status`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            status,
+            expectedVersion: event.version
+          })
+        }
+      );
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok)
+        throw new Error(result.error ?? "Could not update event status.");
+      await onEventSaved();
+      setMessage(`${action.confirmLabel} saved successfully.`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not update event status."
+      );
+    } finally {
+      setStatusAction(null);
+    }
+  }
+
+  const isFinalBookingStatus = ["CANCELLED", "COMPLETED", "EXPIRED"].includes(
+    event.bookingStatus
+  );
+  const lifecycleActions = getEventLifecycleActions(event.bookingStatus);
 
   return (
     <form
@@ -349,6 +630,57 @@ export function EventInformation({
           </div>
         </div>
       ) : null}
+      {pendingStatusAction ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#17202a]/45 p-4 backdrop-blur-sm"
+          role="presentation"
+        >
+          <section
+            aria-modal="true"
+            aria-labelledby="event-lifecycle-confirm-title"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
+            role="dialog"
+          >
+            <header className="border-b border-[#d8dde5] px-5 py-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
+                Event lifecycle
+              </p>
+              <h3
+                className="mt-1 text-lg font-black text-[#17202a]"
+                id="event-lifecycle-confirm-title"
+              >
+                {pendingStatusAction.title}
+              </h3>
+            </header>
+            <div className="space-y-3 px-5 py-4 text-sm font-medium leading-6 text-[#516174]">
+              <p>{pendingStatusAction.description}</p>
+              <p className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs font-bold text-[#17202a]">
+                Event: {event.title}
+              </p>
+            </div>
+            <footer className="flex flex-wrap justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">
+              <button
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
+                onClick={() => setPendingStatusAction(null)}
+                type="button"
+              >
+                Keep editing
+              </button>
+              <button
+                className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-black text-white ${
+                  pendingStatusAction.tone === "danger"
+                    ? "bg-[#b42318] hover:bg-[#912018]"
+                    : "bg-[#1f4d73] hover:bg-[#15344f]"
+                }`}
+                onClick={() => updateBookingStatus(pendingStatusAction)}
+                type="button"
+              >
+                {pendingStatusAction.confirmLabel}
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="calendar" />
         <h2 className="text-sm font-black text-[#17202a]">Event information</h2>
@@ -358,180 +690,298 @@ export function EventInformation({
           </span>
         ) : null}
       </header>
-      <div className="grid gap-3 p-3 sm:grid-cols-3">
-        <Field label="Client">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("clientName", changeEvent.target.value)
-            }
-            value={draft.clientName}
-            name="clientName"
-          />
-        </Field>
-        <Field label="Event type">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("eventType", changeEvent.target.value)
-            }
-            value={draft.eventType}
-            name="eventType"
-          />
-        </Field>
-        <Field label="Status">
-          <select
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("eventStatus", changeEvent.target.value)
-            }
-            value={draft.eventStatus}
-            aria-label="Event status"
-            name="eventStatus"
-          >
-            <option>Confirmed</option>
-            <option>Hold</option>
-          </select>
-        </Field>
-        <Field label="Date">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("eventDate", changeEvent.target.value)
-            }
-            value={draft.eventDate}
-            name="eventDate"
-            type="date"
-          />
-        </Field>
-        <Field label="Start Time">
-          <input
-            className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-sm font-medium text-[#17202a]"
-            onChange={(changeEvent) =>
-              updateDraft("eventTime", changeEvent.target.value)
-            }
-            value={draft.eventTime}
-            name="eventTime"
-            type="time"
-          />
-        </Field>
-        <Field label="Hall / Room">
-          <select
-            aria-label="Hall / Room"
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            name="hallId"
-            onChange={(changeEvent) =>
-              updateDraft("hallId", changeEvent.target.value)
-            }
-            value={draft.hallId}
-          >
-            {halls.map((hall) => (
-              <option key={hall.id} value={hall.id}>
-                {hall.name}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <Field label="Guests">
-          <input
-            aria-describedby={
-              countErrors.guestCount ? "event-guest-count-error" : undefined
-            }
-            aria-invalid={countErrors.guestCount ? true : undefined}
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            id="event-guest-count"
-            inputMode="decimal"
-            name="guestCount"
-            onChange={(changeEvent) =>
-              updateDraft("guestCount", changeEvent.target.value)
-            }
-            type="text"
-            value={draft.guestCount}
-          />
-          {countErrors.guestCount ? (
-            <p
-              className="mt-1 text-[10px] font-bold text-[#c2410c]"
-              id="event-guest-count-error"
-              role="alert"
+      <div className="space-y-3 p-3">
+        <EventDetailsSection
+          title="Basic details"
+          description="Client, event type, date, time, room, and booking state."
+        >
+          <Field label="Client">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="clientName"
+              onChange={(changeEvent) =>
+                updateDraft("clientName", changeEvent.target.value)
+              }
+              value={draft.clientName}
+            />
+          </Field>
+          <Field label="Event type">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="eventType"
+              onChange={(changeEvent) =>
+                updateDraft("eventType", changeEvent.target.value)
+              }
+              value={draft.eventType}
+            />
+          </Field>
+          <Field label="Status">
+            <select
+              aria-label="Event status"
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="eventStatus"
+              onChange={(changeEvent) =>
+                updateDraft("eventStatus", changeEvent.target.value)
+              }
+              value={draft.eventStatus}
             >
-              {countErrors.guestCount}
-            </p>
-          ) : null}
-        </Field>
-        <Field label="Children">
-          <input
-            aria-describedby={
-              countErrors.childrenCount
-                ? "event-children-count-error"
-                : undefined
-            }
-            aria-invalid={countErrors.childrenCount ? true : undefined}
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            id="event-children-count"
-            inputMode="decimal"
-            name="childrenCount"
-            onChange={(changeEvent) =>
-              updateDraft("childrenCount", changeEvent.target.value)
-            }
-            type="text"
-            value={draft.childrenCount}
-          />
-          {countErrors.childrenCount ? (
-            <p
-              className="mt-1 text-[10px] font-bold text-[#c2410c]"
-              id="event-children-count-error"
-              role="alert"
+              <option>Confirmed</option>
+              <option>Hold</option>
+            </select>
+          </Field>
+          <Field label="Date">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="eventDate"
+              onChange={(changeEvent) =>
+                updateDraft("eventDate", changeEvent.target.value)
+              }
+              type="date"
+              value={draft.eventDate}
+            />
+          </Field>
+          <Field label="Start Time">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="eventTime"
+              onChange={(changeEvent) =>
+                updateDraft("eventTime", changeEvent.target.value)
+              }
+              type="time"
+              value={draft.eventTime}
+            />
+          </Field>
+          <Field label="Hall / Room">
+            <select
+              aria-label="Hall / Room"
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="hallId"
+              onChange={(changeEvent) =>
+                updateDraft("hallId", changeEvent.target.value)
+              }
+              value={draft.hallId}
             >
-              {countErrors.childrenCount}
-            </p>
+              {halls.map((hall) => (
+                <option key={hall.id} value={hall.id}>
+                  {hall.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </EventDetailsSection>
+
+        <EventDetailsSection
+          title="Guest counts"
+          description="Attendance counts used by dining, staffing, and operations."
+        >
+          <Field label="Guests">
+            <input
+              aria-describedby={
+                countErrors.guestCount ? "event-guest-count-error" : undefined
+              }
+              aria-invalid={countErrors.guestCount ? true : undefined}
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              id="event-guest-count"
+              inputMode="decimal"
+              name="guestCount"
+              onChange={(changeEvent) =>
+                updateDraft("guestCount", changeEvent.target.value)
+              }
+              type="text"
+              value={draft.guestCount}
+            />
+            {countErrors.guestCount ? (
+              <p
+                className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                id="event-guest-count-error"
+                role="alert"
+              >
+                {countErrors.guestCount}
+              </p>
+            ) : null}
+          </Field>
+          <Field label="Children">
+            <input
+              aria-describedby={
+                countErrors.childrenCount
+                  ? "event-children-count-error"
+                  : undefined
+              }
+              aria-invalid={countErrors.childrenCount ? true : undefined}
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              id="event-children-count"
+              inputMode="decimal"
+              name="childrenCount"
+              onChange={(changeEvent) =>
+                updateDraft("childrenCount", changeEvent.target.value)
+              }
+              type="text"
+              value={draft.childrenCount}
+            />
+            {countErrors.childrenCount ? (
+              <p
+                className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                id="event-children-count-error"
+                role="alert"
+              >
+                {countErrors.childrenCount}
+              </p>
+            ) : null}
+          </Field>
+          <Field label="Couples">
+            <input
+              aria-describedby={
+                countErrors.couplesCount
+                  ? "event-couples-count-error"
+                  : undefined
+              }
+              aria-invalid={countErrors.couplesCount ? true : undefined}
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              id="event-couples-count"
+              inputMode="decimal"
+              name="couplesCount"
+              onChange={(changeEvent) =>
+                updateDraft("couplesCount", changeEvent.target.value)
+              }
+              type="text"
+              value={draft.couplesCount}
+            />
+            {countErrors.couplesCount ? (
+              <p
+                className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                id="event-couples-count-error"
+                role="alert"
+              >
+                {countErrors.couplesCount}
+              </p>
+            ) : null}
+          </Field>
+        </EventDetailsSection>
+
+        <EventDetailsSection
+          title="Operations"
+          description="Setup, washing, tablecloth, waiters, and shul-specific details."
+        >
+          <Field label="Setup time">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="setupTime"
+              onChange={(changeEvent) =>
+                updateDraft("setupTime", changeEvent.target.value)
+              }
+              type="time"
+              value={draft.setupTime}
+            />
+          </Field>
+          <Field label="Washing time">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="washingTime"
+              onChange={(changeEvent) =>
+                updateDraft("washingTime", changeEvent.target.value)
+              }
+              type="time"
+              value={draft.washingTime}
+            />
+          </Field>
+          <Field label="Waiters">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              inputMode="numeric"
+              min="0"
+              name="waitersCount"
+              onChange={(changeEvent) =>
+                updateDraft("waitersCount", Number(changeEvent.target.value))
+              }
+              step="1"
+              type="number"
+              value={draft.waitersCount}
+            />
+          </Field>
+          <Field label="Tablecloth">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="tableclothName"
+              onChange={(changeEvent) =>
+                updateDraft("tableclothName", changeEvent.target.value)
+              }
+              placeholder="Ivory, white, champagne..."
+              value={draft.tableclothName}
+            />
+          </Field>
+          <Field label="Member shul">
+            <input
+              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
+              name="memberShulName"
+              onChange={(changeEvent) =>
+                updateDraft("memberShulName", changeEvent.target.value)
+              }
+              placeholder="Member shul name"
+              value={draft.memberShulName}
+            />
+          </Field>
+        </EventDetailsSection>
+
+        <EventDetailsSection
+          title="Notes"
+          description="Separate internal, davening, Shabbos, side-box, and Dining Manager notes."
+        >
+          <Field label="Internal notes" className="sm:col-span-3">
+            <textarea
+              className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
+              name="internalNotes"
+              onChange={(changeEvent) =>
+                updateDraft("internalNotes", changeEvent.target.value)
+              }
+              value={draft.internalNotes}
+            />
+          </Field>
+          <Field label="Davening notes" className="sm:col-span-3">
+            <textarea
+              className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
+              name="daveningNote"
+              onChange={(changeEvent) =>
+                updateDraft("daveningNote", changeEvent.target.value)
+              }
+              placeholder="Example: Shacharis after first course, Mincha before chupah, Maariv in side room."
+              value={draft.daveningNote}
+            />
+          </Field>
+          <Field label="Side boxes" className="sm:col-span-3">
+            <textarea
+              className="mt-1 min-h-16 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
+              name="sideBoxes"
+              onChange={(changeEvent) =>
+                updateDraft("sideBoxes", changeEvent.target.value)
+              }
+              placeholder="Example: Men side boxes near entrance; women side boxes by stage."
+              value={draft.sideBoxes}
+            />
+          </Field>
+          <Field label="Shabbos setup" className="sm:col-span-3">
+            <textarea
+              className="mt-1 min-h-16 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
+              name="shabbosSetup"
+              onChange={(changeEvent) =>
+                updateDraft("shabbosSetup", changeEvent.target.value)
+              }
+              placeholder="Example: Set before Shabbos, leave hot water urns ready."
+              value={draft.shabbosSetup}
+            />
+          </Field>
+          {event.diningManagerNotes ? (
+            <section className="rounded-lg border border-[#b9c2cf] bg-white p-3 sm:col-span-3">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                Dining Manager notes
+              </h3>
+              <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-[#17202a]">
+                {event.diningManagerNotes}
+              </p>
+            </section>
           ) : null}
-        </Field>
-        <Field label="Couples">
-          <input
-            aria-describedby={
-              countErrors.couplesCount ? "event-couples-count-error" : undefined
-            }
-            aria-invalid={countErrors.couplesCount ? true : undefined}
-            className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-            id="event-couples-count"
-            inputMode="decimal"
-            name="couplesCount"
-            onChange={(changeEvent) =>
-              updateDraft("couplesCount", changeEvent.target.value)
-            }
-            type="text"
-            value={draft.couplesCount}
-          />
-          {countErrors.couplesCount ? (
-            <p
-              className="mt-1 text-[10px] font-bold text-[#c2410c]"
-              id="event-couples-count-error"
-              role="alert"
-            >
-              {countErrors.couplesCount}
-            </p>
-          ) : null}
-        </Field>
-        <Field label="Internal notes" className="sm:col-span-3">
-          <textarea
-            className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-            name="internalNotes"
-            onChange={(changeEvent) =>
-              updateDraft("internalNotes", changeEvent.target.value)
-            }
-            value={draft.internalNotes}
-          />
-        </Field>
-        {event.diningManagerNotes ? (
-          <section className="rounded-lg border border-[#b9c2cf] bg-[#f8fafc] p-3 sm:col-span-3">
-            <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-              Dining Manager notes
-            </h3>
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-[#17202a]">
-              {event.diningManagerNotes}
-            </p>
-          </section>
-        ) : null}
+        </EventDetailsSection>
+
+        <EventActivityHistory event={event} />
       </div>
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
         {hasUnsavedChanges ? (
@@ -546,16 +996,47 @@ export function EventInformation({
         ) : null}
         <button
           className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={isSaving || !hasUnsavedChanges}
+          disabled={isSaving || !hasUnsavedChanges || hasValidationErrors}
           type="submit"
         >
           <LineIcon name="save" className="h-4 w-4" />
           {isSaving ? "Saving..." : "Save event details"}
         </button>
+        <div className="flex flex-wrap gap-2 sm:ml-auto">
+          {lifecycleActions.length ? (
+            lifecycleActions.map((action) => (
+              <button
+                key={action.status}
+                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45 ${
+                  action.tone === "danger"
+                    ? "border-[#f7b4b4] bg-white text-[#b42318] hover:bg-[#fff1f1]"
+                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                }`}
+                disabled={Boolean(statusAction) || isFinalBookingStatus}
+                onClick={() => setPendingStatusAction(action)}
+                type="button"
+              >
+                {statusAction === action.status ? "Saving..." : action.label}
+              </button>
+            ))
+          ) : (
+            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-xs font-black text-[#6a7483]">
+              Lifecycle closed
+            </span>
+          )}
+        </div>
         {message && !showSaveConfirmation ? (
           <p className="w-full text-xs text-[#516174]" role="status">
             {message}
           </p>
+        ) : null}
+        {hasValidationErrors ? (
+          <div
+            className="w-full rounded-lg border border-[#fedf89] bg-[#fffbeb] px-3 py-2 text-xs font-bold leading-5 text-[#b54708]"
+            role="alert"
+          >
+            {validationErrors[0]}
+          </div>
         ) : null}
       </div>
     </form>
@@ -619,6 +1100,7 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
     initialTimeline(event)
   );
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"success" | "error">("success");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => setRows(initialTimeline(event)), [event]);
@@ -635,12 +1117,14 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
       const result = (await response.json()) as { error?: string };
       if (!response.ok)
         throw new Error(result.error ?? "Could not save timeline.");
+      setMessageType("success");
       setMessage(
         confirmed
-          ? "Timeline confirmed and ready for event operations."
-          : "Timeline saved as a draft."
+        ? "Timeline confirmed. Staff can now follow this event schedule."
+        : "Timeline saved. Your draft changes were saved successfully."
       );
     } catch (error) {
+      setMessageType("error");
       setMessage(
         error instanceof Error ? error.message : "Could not save timeline."
       );
@@ -681,15 +1165,15 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_40px] gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_40px]"
+            className="grid min-w-0 grid-cols-[142px_minmax(0,1fr)_40px] gap-2 sm:grid-cols-[112px_minmax(0,1fr)_120px_40px]"
           >
             <label
-              className="flex h-11 min-w-0 cursor-text items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm focus-within:border-[#1f4d73] focus-within:ring-2 focus-within:ring-[#1f4d73]/15"
+              className="flex h-11 min-w-0 cursor-text items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm focus-within:border-[#1f4d73] focus-within:ring-2 focus-within:ring-[#1f4d73]/15 sm:px-3"
               htmlFor={`timeline-${row.id}-time`}
             >
               <input
                 aria-label={`Timeline time for ${row.text}`}
-                className="min-w-0 flex-1 bg-transparent outline-none"
+                className="min-w-24 flex-1 bg-transparent outline-none"
                 id={`timeline-${row.id}-time`}
                 name={`timeline-${row.id}-time`}
                 type="time"
@@ -708,10 +1192,6 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
                     )
                   )
                 }
-              />
-              <LineIcon
-                name="clock"
-                className="h-4 w-4 shrink-0 text-[#516174]"
               />
             </label>
             <input
@@ -785,9 +1265,20 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
           Confirm timeline
         </button>
         {message ? (
-          <p className="col-span-2 text-xs text-[#516174]" role="status">
-            {message}
-          </p>
+          <div 
+        className={`col-span-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium sm:text-sm ${
+          messageType === "success"
+         ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "border-red-200 bg-red-50 text-red-700"
+        }`}
+        role={messageType === "success" ? "status" : "alert"}
+        >
+          <LineIcon
+            name = {messageType === "success" ? "check" : "close"}
+            className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <span>{message}</span>
+          </div>
         ) : null}
       </div>
     </section>

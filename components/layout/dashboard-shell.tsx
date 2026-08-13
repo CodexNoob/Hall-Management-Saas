@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
@@ -45,7 +44,6 @@ export function DashboardShell({
   user
 }: DashboardShellProps) {
   const [pageSearchQuery] = useDashboardPageSearch("Dashboard");
-  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("week");
@@ -189,10 +187,6 @@ export function DashboardShell({
     setSchedulePage((current) => Math.min(current, schedulePageCount));
   }, [schedulePageCount]);
 
-  const closeNewBooking = useCallback(() => {
-    setIsNewBookingOpen(false);
-  }, []);
-
   const closeTodayNotes = useCallback(() => {
     setIsTodayNotesOpen(false);
   }, []);
@@ -206,14 +200,6 @@ export function DashboardShell({
     setIsTodayNotesOpen(true);
   }, []);
 
-  const continueNewBooking = useCallback(async () => {
-    setIsNewBookingOpen(false);
-    await Promise.all([
-      dashboardQuery.refetch(),
-      annualDashboardQuery.refetch()
-    ]);
-  }, [annualDashboardQuery, dashboardQuery]);
-
   return (
     <div className="dashboard-scrollbars flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <header className="relative z-40 shrink-0 bg-white">
@@ -222,17 +208,22 @@ export function DashboardShell({
           subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
           onTodayNotes={openTodayNotes}
           todayNotesNeedRevision={todayNotesNeedRevision}
-          onNewBooking={() => setIsNewBookingOpen(true)}
+          actionsSlot={
+            <button
+              aria-label="Open today notes"
+              className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:flex-none xl:rounded-xl xl:px-4 2xl:px-5"
+              data-needs-revision={todayNotesNeedRevision || undefined}
+              onClick={openTodayNotes}
+              title="Today notes"
+              type="button"
+            >
+              Today notes
+            </button>
+          }
         />
       </header>
 
       <TodayNotesDrawer onClose={closeTodayNotes} open={isTodayNotesOpen} />
-
-      <NewBookingDialog
-        onClose={closeNewBooking}
-        onSubmit={continueNewBooking}
-        open={isNewBookingOpen}
-      />
 
       <UpgradePlanDialog
         description={
@@ -273,7 +264,6 @@ export function DashboardShell({
           onCustomEndDateChange={setCustomEndDate}
           onCustomStartDateChange={setCustomStartDate}
           onFinanceTimeFilterChange={setFinanceTimeFilter}
-          onNewBooking={() => setIsNewBookingOpen(true)}
           onSchedulePageChange={setSchedulePage}
           onTimeFilterChange={setTimeFilter}
         />

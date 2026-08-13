@@ -53,6 +53,21 @@ test("authenticated layouts do not overflow the mobile viewport", async ({
   ).toBeVisible();
 });
 
+test("booking creation is not exposed on overview, kitchen, or event manager pages", async ({
+  page
+}) => {
+  for (const route of ["/dashboard", "/dashboard/kitchen", "/dashboard/events"]) {
+    await page.goto(route);
+    await expect(page).toHaveURL(new RegExp(route.replaceAll("/", "\\/")));
+    await expect(
+      page.getByRole("button", { name: "Create new booking" })
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "New booking" })
+    ).toHaveCount(0);
+  }
+});
+
 const dashboardPages = [
   "/dashboard",
   "/dashboard/kitchen",

@@ -10,6 +10,8 @@ type DashboardPageStateProps = {
   isEmpty?: boolean;
   isLoading?: boolean;
   onRetry?: () => void;
+  showDefaultActions?: boolean;
+  showNewBookingAction?: boolean;
   showSearch?: boolean;
   subtitle: string;
   title: string;
@@ -22,6 +24,8 @@ export function DashboardPageState({
   isEmpty,
   isLoading,
   onRetry,
+  showDefaultActions = true,
+  showNewBookingAction = true,
   showSearch = true,
   subtitle,
   title
@@ -30,6 +34,8 @@ export function DashboardPageState({
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         compactMobileActions
+        showDefaultActions={showDefaultActions}
+        showNewBookingAction={showNewBookingAction}
         showSearch={showSearch}
         subtitle={subtitle}
         title={title}

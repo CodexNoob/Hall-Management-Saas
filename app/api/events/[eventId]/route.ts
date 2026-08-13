@@ -45,6 +45,22 @@ const updateEventSchema = z
     boysCount: countSchema({ label: "Boys" }).optional(),
     girlsCount: countSchema({ label: "Girls" }).optional(),
     notes: z.string().trim().max(5000).nullable().optional(),
+    daveningNote: z.string().trim().max(5000).nullable().optional(),
+    setupTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .nullable()
+      .optional(),
+    washingTime: z
+      .string()
+      .regex(/^\d{2}:\d{2}$/)
+      .nullable()
+      .optional(),
+    tableclothName: z.string().trim().max(100).nullable().optional(),
+    waitersCount: z.number().int().min(0).max(10000).optional(),
+    memberShulName: z.string().trim().max(200).nullable().optional(),
+    sideBoxes: z.string().trim().max(5000).nullable().optional(),
+    shabbosSetup: z.string().trim().max(5000).nullable().optional(),
     timeline: z.array(timelineItemSchema).max(100).optional(),
     timelineConfirmed: z.boolean().optional(),
     menuConfirmed: z.boolean().optional()
@@ -127,8 +143,14 @@ export async function PATCH(
       !Array.isArray(current.workspaceData)
         ? (current.workspaceData as Record<string, unknown>)
         : {};
-    const { timeline, timelineConfirmed, menuConfirmed, ...eventChanges } =
-      input;
+    const {
+      timeline,
+      timelineConfirmed,
+      menuConfirmed,
+      sideBoxes,
+      shabbosSetup,
+      ...eventChanges
+    } = input;
     const workspaceData =
       timeline !== undefined ||
       timelineConfirmed !== undefined ||
@@ -145,6 +167,12 @@ export async function PATCH(
       where: { id, organizationId: actor.organizationId },
       data: {
         ...eventChanges,
+        ...(sideBoxes !== undefined
+          ? { sideBoxes: sideBoxes ?? Prisma.JsonNull }
+          : {}),
+        ...(shabbosSetup !== undefined
+          ? { shabbosSetup: shabbosSetup ?? Prisma.JsonNull }
+          : {}),
         ...(workspaceData ? { workspaceData } : {}),
         updatedById: actor.id,
         version: { increment: 1 }

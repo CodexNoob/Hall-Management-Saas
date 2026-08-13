@@ -32,6 +32,7 @@ export type IconName =
 
 export type EventFile = {
   id: string;
+  bookingStatus: string;
   clientName: string;
   eventType: string;
   title: string;
@@ -49,9 +50,27 @@ export type EventFile = {
   balance: string;
   status: "Confirmed" | "Hold";
   paymentStatus: string;
+  version: number;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  waitersCount: number;
+  setupTime: string;
+  washingTime: string;
+  tableclothName: string;
   notes: string[];
   internalNotes: string;
+  daveningNote: string;
+  memberShulName: string;
+  sideBoxes: string;
+  shabbosSetup: string;
   diningManagerNotes: string | null;
+  activityLogs: Array<{
+    id: string;
+    actionType: string;
+    message: string;
+    userName: string | null;
+    createdAt: string;
+  }>;
   diningHallMapPreset: {
     id: string;
     name: string;
@@ -80,6 +99,8 @@ export type EventsResponse = {
     setupStartsAt: string | null;
     cleanupEndsAt: string | null;
     holdExpiresAt: string | null;
+    cancelledAt: string | null;
+    completedAt: string | null;
     version: number;
     paymentStatus: string | null;
     packageName: string | null;
@@ -89,8 +110,23 @@ export type EventsResponse = {
     boysCount: number;
     girlsCount: number;
     kidsCount: number;
+    waitersCount: number;
+    setupTime: string | null;
+    washingTime: string | null;
+    tableclothName: string | null;
     notes: string | null;
+    daveningNote: string | null;
+    memberShulName: string | null;
+    sideBoxes: unknown;
+    shabbosSetup: unknown;
     diningManagerNotes: string | null;
+    activityLogs?: Array<{
+      id: string;
+      actionType: string;
+      message: string;
+      userName: string | null;
+      createdAt: string;
+    }>;
     diningHallMapPreset: {
       id: string;
       name: string;
