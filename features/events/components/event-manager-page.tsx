@@ -11,6 +11,8 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
+import { countSchema } from "@/lib/validation/number";
+import { readNumericFields } from "@/lib/validation/numeric-form";
 import { EventListCard } from "@/features/events/components/event-list-panel";
 import { EventWorkspace } from "@/features/events/components/event-workspace";
 import {
@@ -165,6 +167,28 @@ export function EventManagerPage() {
 
     if (!hall) return;
 
+    // The dialog validates these before calling back, so anything unparseable
+    // here is a programming error - throw rather than send a silent 0.
+    const parsedCounts = readNumericFields<"guests" | "couples" | "children">({
+      guests: { raw: values.guests, schema: countSchema({ label: "Guests" }) },
+      couples: {
+        raw: values.couples,
+        schema: countSchema({ label: "Couples" })
+      },
+      children: {
+        raw: values.children,
+        schema: countSchema({ label: "Children" })
+      }
+    });
+
+    if (!parsedCounts.ok) throw new Error(parsedCounts.firstError);
+
+    const counts = {
+      guests: parsedCounts.values.guests ?? 0,
+      couples: parsedCounts.values.couples ?? 0,
+      children: parsedCounts.values.children ?? 0
+    };
+
     const toIso = (time: string) =>
       new Date(`${values.date}T${time}:00`).toISOString();
     const startsAt = toIso(values.startTime);
@@ -192,14 +216,12 @@ export function EventManagerPage() {
       bookingStatus:
         values.status === "Confirmed" ? "CONFIRMED" : "TENTATIVE_HOLD",
       idempotencyKey: crypto.randomUUID(),
-      couplesCount: Number(values.couples) || 0,
+      couplesCount: counts.couples,
       menCount: Math.max(
-        (Number(values.guests) || 0) -
-          (Number(values.couples) || 0) * 2 -
-          (Number(values.children) || 0),
+        counts.guests - counts.couples * 2 - counts.children,
         0
       ),
-      kidsCount: Number(values.children) || 0,
+      kidsCount: counts.children,
       notes: values.initialNotes || undefined
     });
     await eventsQuery.refetch();

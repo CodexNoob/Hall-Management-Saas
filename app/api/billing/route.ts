@@ -4,13 +4,21 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { refreshOverdueInvoices } from "@/features/billing/services/invoice-lifecycle.service";
+import {
+  MAX_MONEY,
+  centsSchema,
+  dimensionSchema,
+  quantitySchema
+} from "@/lib/validation/number";
 
 const invoiceLineItemSchema = z.object({
   description: z.string().trim().min(1),
-  quantity: z.number().positive().default(1),
-  unitAmountCents: z.number().int().nonnegative(),
-  discountCents: z.number().int().nonnegative().default(0),
-  taxCents: z.number().int().nonnegative().default(0)
+  // Deliberately fractional: the column is Decimal(12,3), so partial units are
+  // a supported billing case. Bounded rather than forced to whole numbers.
+  quantity: quantitySchema().default(1),
+  unitAmountCents: centsSchema({ label: "Unit amount" }),
+  discountCents: centsSchema({ label: "Discount" }).default(0),
+  taxCents: centsSchema({ label: "Tax" }).default(0)
 });
 
 const invoiceSchema = z
@@ -26,15 +34,15 @@ const invoiceSchema = z
       .transform((value) => value.toUpperCase())
       .default("USD"),
     dueDate: z.string().date().optional(),
-    totalCents: z.number().int().nonnegative().optional(),
+    totalCents: centsSchema({ label: "Total" }).optional(),
     lineItems: z.array(invoiceLineItemSchema).default([]),
     discounts: z
       .array(
         z.object({
           name: z.string().trim().min(1),
           discountType: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
-          value: z.number().nonnegative(),
-          amountCents: z.number().int().nonnegative(),
+          value: dimensionSchema({ max: MAX_MONEY, label: "Discount value" }),
+          amountCents: centsSchema({ label: "Discount amount" }),
           reason: z.string().trim().optional()
         })
       )
@@ -44,8 +52,8 @@ const invoiceSchema = z
         z.object({
           name: z.string().trim().min(1),
           taxType: z.enum(["FIXED", "PERCENTAGE"]).default("PERCENTAGE"),
-          rate: z.number().nonnegative().optional(),
-          amountCents: z.number().int().nonnegative(),
+          rate: dimensionSchema({ max: 100, label: "Tax rate" }).optional(),
+          amountCents: centsSchema({ label: "Tax amount" }),
           jurisdiction: z.string().trim().optional()
         })
       )
@@ -58,7 +66,7 @@ const invoiceSchema = z
             .default("INSTALLMENT"),
           label: z.string().trim().min(1),
           dueDate: z.string().date(),
-          amountCents: z.number().int().positive()
+          amountCents: centsSchema({ min: 1, label: "Scheduled amount" })
         })
       )
       .default([]),

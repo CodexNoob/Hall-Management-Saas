@@ -6,6 +6,7 @@ import {
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { dimensionSchema } from "@/lib/validation/number";
 
 const vendorSchema = z.object({
   name: z.string().trim().min(1),
@@ -15,7 +16,7 @@ const vendorSchema = z.object({
   email: z.string().email().optional(),
   phone: z.string().trim().optional(),
   status: z.enum(["Active", "Inactive"]).default("Active"),
-  rating: z.number().min(0).max(5).optional(),
+  rating: dimensionSchema({ min: 0, max: 5, label: "Rating" }).optional(),
   notes: z.string().trim().optional()
 });
 

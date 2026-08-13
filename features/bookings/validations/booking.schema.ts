@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countSchema } from "@/lib/validation/number";
 
 export const bookingStatuses = [
   "INQUIRY",
@@ -30,9 +31,13 @@ export const createBookingSchema = z
       .string()
       .regex(/^\d{2}:\d{2}$/)
       .optional(),
-    setupMinutes: z.number().int().min(0).max(1440).default(120),
-    cleanupMinutes: z.number().int().min(0).max(1440).default(60),
-    holdDurationMinutes: z.number().int().min(5).max(10080).default(1440),
+    setupMinutes: countSchema({ max: 1440, label: "Setup minutes" }).default(120),
+    cleanupMinutes: countSchema({ max: 1440, label: "Cleanup minutes" }).default(60),
+    holdDurationMinutes: countSchema({
+      min: 5,
+      max: 10080,
+      label: "Hold duration"
+    }).default(1440),
     hallId: z.string().uuid(),
     eventTypeId: z.string().uuid().optional(),
     bookingStatus: z.enum(bookingStatuses).optional(),
@@ -41,13 +46,15 @@ export const createBookingSchema = z
       .enum(["Deposit Paid", "Paid Partially", "Paid in Full"])
       .optional(),
     packageId: z.string().uuid().optional(),
-    couplesCount: z.number().int().min(0).default(0),
-    menCount: z.number().int().min(0).default(0),
-    ladiesCount: z.number().int().min(0).default(0),
-    boysCount: z.number().int().min(0).default(0),
-    girlsCount: z.number().int().min(0).default(0),
-    kidsCount: z.number().int().min(0).default(0),
-    waitersCount: z.number().int().min(0).default(0),
+    // Bounded because these are Postgres `Int` columns; an unbounded value
+    // used to pass Zod and then fail at the driver as an unhandled 500.
+    couplesCount: countSchema({ label: "Couples" }).default(0),
+    menCount: countSchema({ label: "Men" }).default(0),
+    ladiesCount: countSchema({ label: "Ladies" }).default(0),
+    boysCount: countSchema({ label: "Boys" }).default(0),
+    girlsCount: countSchema({ label: "Girls" }).default(0),
+    kidsCount: countSchema({ label: "Kids" }).default(0),
+    waitersCount: countSchema({ label: "Waiters" }).default(0),
     notes: z.string().max(10000).optional(),
     idempotencyKey: z.string().uuid().optional()
   })

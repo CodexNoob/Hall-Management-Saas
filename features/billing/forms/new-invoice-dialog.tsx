@@ -9,6 +9,7 @@ import {
   type FormEvent
 } from "react";
 import type { BillingResponse } from "@/features/billing/components/billing-shared";
+import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 
 export type NewInvoiceFormValues = {
   eventId: string;
@@ -82,7 +83,13 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
     setError("");
     if (!values.eventId)
       return setError("Create an event before creating an invoice.");
-    if (!Number.isFinite(Number(values.amount)) || Number(values.amount) <= 0)
+
+    const parsedAmount = parseNumericInput(
+      values.amount,
+      moneySchema({ label: "Amount" })
+    );
+    if (parsedAmount.status === "invalid") return setError(parsedAmount.message);
+    if (parsedAmount.status === "empty" || parsedAmount.value <= 0)
       return setError("Enter an amount greater than zero.");
     setIsSaving(true);
     try {
@@ -210,11 +217,10 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
               Amount
               <input
                 className={controlClass}
-                min="0.01"
+                inputMode="decimal"
                 onChange={(event) => update("amount", event.target.value)}
                 required
-                step="0.01"
-                type="number"
+                type="text"
                 value={values.amount}
               />
             </label>

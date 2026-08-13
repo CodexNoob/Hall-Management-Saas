@@ -13,6 +13,7 @@ import {
   setAuthSessionPersistence
 } from "@/lib/supabase/browser";
 import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
+import { getLoginValidationError } from "@/features/auth/validations/auth.schema";
 import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
 import {
   ArrowLoginIcon,
@@ -126,11 +127,21 @@ export function LoginCard({
 
   useDesktopAuthScrollLock(isDesktopApp);
 
+  const failSignIn = (message: string) => {
+    setError(message);
+    toast.error(message, { title: "Sign-in failed" });
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!email.trim() || !password.trim()) {
-      setError("Please enter your email address and password.");
+    // Validated here as well as by the browser: the native type="email" guard
+    // is bypassable, and without this a malformed address reached Supabase and
+    // came back as the misleading "Incorrect email or password".
+    const validationError = getLoginValidationError({ email, password });
+
+    if (validationError) {
+      failSignIn(validationError);
       return;
     }
 
@@ -147,9 +158,7 @@ export function LoginCard({
         });
 
       if (signInError) {
-        const message = getAuthErrorMessage(signInError);
-        setError(message);
-        toast.error(message, { title: "Sign-in failed" });
+        failSignIn(getAuthErrorMessage(signInError));
         return;
       }
 
@@ -160,9 +169,7 @@ export function LoginCard({
       router.replace(returnPath as Parameters<typeof router.replace>[0]);
       router.refresh();
     } catch (submitError) {
-      const message = getAuthErrorMessage(submitError);
-      setError(message);
-      toast.error(message, { title: "Sign-in failed" });
+      failSignIn(getAuthErrorMessage(submitError));
     } finally {
       setIsSubmitting(false);
     }

@@ -5,6 +5,8 @@ import { DateRangePickerDialog, type DateRange } from "@/features/calendar/forms
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
 import { dateKey } from "@/lib/dates/calendar-date";
 import { ClockIcon, SettingsIcon, initialBlockedRanges } from "@/features/calendar/components/calendar-shared";
+import { LiveNumberField } from "@/components/ui/number-field";
+import { countSchema } from "@/lib/validation/number";
 
 export function CalendarSettingsView({
   dailyEventLimit,
@@ -93,16 +95,15 @@ export function CalendarSettingsView({
               <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#617086]">
                 Events allowed per day
               </span>
-              <input
+              <LiveNumberField
                 className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] outline-none focus:border-[#1f4d73] focus:ring-3 focus:ring-[#1f4d73]/15 sm:max-w-56"
-                min={1}
-                max={50}
-                onChange={(event) =>
-                  setDailyEventLimitDraft(
-                    Math.max(1, Number(event.target.value) || 1)
-                  )
-                }
-                type="number"
+                id="daily-event-limit"
+                onCommit={setDailyEventLimitDraft}
+                schema={countSchema({
+                  min: 1,
+                  max: 50,
+                  label: "Events allowed per day"
+                })}
                 value={dailyEventLimitDraft}
               />
             </label>

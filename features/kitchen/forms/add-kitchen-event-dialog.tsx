@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { countSchema, parseNumericInput } from "@/lib/validation/number";
 
 export type AddKitchenEventFormValues = {
   eventName: string;
@@ -46,6 +47,7 @@ export function AddKitchenEventDialog({
   const kitchenNoteId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
+  const [portionsError, setPortionsError] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -70,6 +72,7 @@ export function AddKitchenEventDialog({
 
   function closeDialog() {
     setValues(initialValues);
+    setPortionsError("");
     onClose();
   }
 
@@ -77,6 +80,7 @@ export function AddKitchenEventDialog({
     field: keyof AddKitchenEventFormValues,
     value: string
   ) {
+    if (field === "portions") setPortionsError("");
     setValues((current) => ({ ...current, [field]: value }));
   }
 
@@ -89,9 +93,25 @@ export function AddKitchenEventDialog({
       kitchenNote: values.kitchenNote.trim()
     };
 
-    if (!canSave || !normalizedValues.eventName || !normalizedValues.portions)
-      return;
+    if (!canSave || !normalizedValues.eventName) return;
 
+    // The saved value is rendered straight back as "<portions> portions", so an
+    // unparseable entry would show up on the kitchen board as "abc portions".
+    const parsedPortions = parseNumericInput(
+      normalizedValues.portions,
+      countSchema({ min: 1, label: "Portions" })
+    );
+
+    if (parsedPortions.status !== "valid") {
+      setPortionsError(
+        parsedPortions.status === "invalid"
+          ? parsedPortions.message
+          : "Enter a portion count."
+      );
+      return;
+    }
+
+    setPortionsError("");
     onSave(normalizedValues);
     closeDialog();
   }
@@ -158,23 +178,39 @@ export function AddKitchenEventDialog({
                 />
               </label>
 
-              <label htmlFor={portionsId}>
-                <FieldLabel>Portions</FieldLabel>
+              {/* Not a wrapping label like the field beside it: the error text
+                  would be folded into the input's accessible name. */}
+              <div>
+                <label htmlFor={portionsId}>
+                  <FieldLabel>Portions</FieldLabel>
+                </label>
                 <input
+                  aria-describedby={
+                    portionsError ? `${portionsId}-error` : undefined
+                  }
+                  aria-invalid={portionsError ? true : undefined}
                   className={inputClass}
                   id={portionsId}
-                  inputMode="numeric"
-                  min="1"
+                  inputMode="decimal"
                   name="portions"
                   onChange={(event) =>
                     updateValue("portions", event.target.value)
                   }
                   placeholder="e.g. 80"
                   required
-                  type="number"
+                  type="text"
                   value={values.portions}
                 />
-              </label>
+                {portionsError ? (
+                  <p
+                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                    id={`${portionsId}-error`}
+                    role="alert"
+                  >
+                    {portionsError}
+                  </p>
+                ) : null}
+              </div>
             </div>
 
             <label className="mt-3 block" htmlFor={kitchenNoteId}>

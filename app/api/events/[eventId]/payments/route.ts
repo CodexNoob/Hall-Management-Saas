@@ -3,11 +3,12 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { centsSchema } from "@/lib/validation/number";
 
 const confirmationSchema = z.object({
   invoiceId: z.string().uuid().optional(),
   paymentScheduleId: z.string().uuid().optional(),
-  amountCents: z.number().int().positive(),
+  amountCents: centsSchema({ min: 1, label: "Amount" }),
   result: z.enum(["paid", "failed", "cancelled"]),
   currency: z.string().trim().length(3).transform((value) => value.toUpperCase()).optional(),
   provider: z.string().trim().min(1).max(100).optional(),

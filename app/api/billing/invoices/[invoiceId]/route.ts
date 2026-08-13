@@ -5,11 +5,12 @@ import { BillingError } from "@/features/billing/services/billing-error";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { centsSchema, quantitySchema } from "@/lib/validation/number";
 
 const lineItemSchema = z.object({
   description: z.string().trim().min(1).max(255),
-  quantity: z.number().positive(),
-  unitAmountCents: z.number().int().nonnegative()
+  quantity: quantitySchema(),
+  unitAmountCents: centsSchema({ label: "Unit amount" })
 });
 
 const updateInvoiceSchema = z.object({

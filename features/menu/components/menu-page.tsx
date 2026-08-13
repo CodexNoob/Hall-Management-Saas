@@ -20,6 +20,7 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 
 import {
   AddItemCard,
@@ -36,6 +37,21 @@ import {
   tabs,
   type MenuResponse
 } from "@/features/menu/components/menu-shared";
+/**
+ * The dialogs validate before calling back, so reaching an invalid value here
+ * means a caller skipped that check - throw rather than send `NaN`, which
+ * JSON.stringify would quietly turn into `null`.
+ */
+function readPrice(raw: string, label: string) {
+  const parsed = parseNumericInput(raw, moneySchema({ label }));
+
+  if (parsed.status === "valid") return parsed.value;
+
+  throw new Error(
+    parsed.status === "invalid" ? parsed.message : `${label} is required.`
+  );
+}
+
 export function MenuPage() {
   const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
   const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
@@ -167,10 +183,12 @@ export function MenuPage() {
   const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
 
   const savePackage = async (values: NewPackageFormValues) => {
+    const regularPrice = readPrice(values.basePrice, "Base price");
+
     if (isEditingPackage) {
       await updatePackage({
         name: values.name,
-        regularPrice: Number(values.basePrice)
+        regularPrice
       });
       setSelectedPackage(values.name);
       setIsEditingPackage(false);
@@ -180,7 +198,7 @@ export function MenuPage() {
     await menuMutation.mutate({
       resource: "package",
       name: values.name,
-      regularPrice: Number(values.basePrice),
+      regularPrice,
       hallIds: [],
       eventTypeIds: [],
       includedMenuItemIds: []
@@ -195,7 +213,7 @@ export function MenuPage() {
     await menuMutation.mutate({
       resource: "addon",
       name: values.name,
-      price: Number(values.price),
+      price: readPrice(values.price, "Price"),
       pricingType: "fixed",
       hallIds: []
     });

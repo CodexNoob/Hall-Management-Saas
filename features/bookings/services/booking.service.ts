@@ -58,6 +58,50 @@ const statusLabels: Record<BookingStatus, string> = {
 
 const activeStatuses = new Set<BookingStatus>(["TENTATIVE_HOLD", "CONFIRMED"]);
 
+export type AttendeeCounts = {
+  couplesCount: number;
+  menCount: number;
+  ladiesCount: number;
+  boysCount: number;
+  girlsCount: number;
+  kidsCount: number;
+};
+
+/** A couple is two attendees; every other bucket is one each. */
+export function countAttendees(counts: AttendeeCounts) {
+  return (
+    counts.couplesCount * 2 +
+    counts.menCount +
+    counts.ladiesCount +
+    counts.boysCount +
+    counts.girlsCount +
+    counts.kidsCount
+  );
+}
+
+/**
+ * Shared by the create and update paths so an event cannot be edited past a
+ * limit it could never have been booked with.
+ */
+export function assertHallCapacity(
+  hall: { name: string; capacity?: number | null },
+  counts: AttendeeCounts
+) {
+  const attendeeCount = countAttendees(counts);
+
+  if (
+    hall.capacity !== null &&
+    hall.capacity !== undefined &&
+    attendeeCount > hall.capacity
+  ) {
+    throw new BookingError(
+      `${hall.name} has capacity for ${hall.capacity} guests; this booking has ${attendeeCount}.`,
+      409,
+      "CAPACITY_EXCEEDED"
+    );
+  }
+}
+
 function requestedStatus(input: CreateBookingInput): BookingStatus {
   if (input.bookingStatus) return input.bookingStatus;
   if (input.eventStatus === "Confirmed") return "CONFIRMED";
@@ -382,24 +426,7 @@ export async function createBooking(
         );
       }
 
-      const attendeeCount =
-        input.couplesCount * 2 +
-        input.menCount +
-        input.ladiesCount +
-        input.boysCount +
-        input.girlsCount +
-        input.kidsCount;
-      if (
-        hall.capacity !== null &&
-        hall.capacity !== undefined &&
-        attendeeCount > hall.capacity
-      ) {
-        throw new BookingError(
-          `${hall.name} has capacity for ${hall.capacity} guests; this booking has ${attendeeCount}.`,
-          409,
-          "CAPACITY_EXCEEDED"
-        );
-      }
+      assertHallCapacity(hall, input);
 
       const reservedHallIds = await occupiedHallIds(
         transaction,

@@ -3,10 +3,11 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { moneySchema } from "@/lib/validation/number";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
-  regularPrice: z.number().nonnegative().optional(),
+  regularPrice: moneySchema({ label: "Regular price" }).optional(),
   includedMenuItemIds: z.array(z.string().uuid()).optional()
 });
 

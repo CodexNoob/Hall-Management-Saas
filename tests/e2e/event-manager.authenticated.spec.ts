@@ -129,10 +129,15 @@ test("Event details show unsaved changes, discard, and save feedback", async ({
 
   await page.getByLabel("Client").fill("Updated E2E Event");
   await page.getByLabel("Internal notes").fill("Updated internal note.");
-  // Scoped to the role: the timeline rows expose aria-labels such as
+  // Exact match on the role: the timeline rows expose aria-labels such as
   // "Timeline time for Guests arrive and first course begins", so a bare
-  // getByLabel("Guests") is ambiguous.
-  await page.getByRole("spinbutton", { name: "Guests" }).fill("370");
+  // getByLabel("Guests") is ambiguous. This is a textbox rather than a
+  // spinbutton because the count fields moved off type="number" - that input
+  // type hands JavaScript "" for anything it cannot parse, which is how
+  // garbage used to be stored as a silent 0.
+  await page
+    .getByRole("textbox", { name: "Guests", exact: true })
+    .fill("370");
   await page.getByRole("button", { name: "Save event details" }).click();
 
   await expect(page.getByRole("status")).toContainText("Event details saved");

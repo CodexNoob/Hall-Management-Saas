@@ -9,6 +9,12 @@ import {
 } from "@/features/billing/forms/new-invoice-dialog";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { readApiError } from "@/lib/http/api-request-error";
+import {
+  MAX_MONEY,
+  moneySchema,
+  parseNumericInput
+} from "@/lib/validation/number";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
@@ -39,35 +45,46 @@ export function BillingPage() {
   async function importBankFile(file: File) {
     try {
       const lines = (await file.text()).split(/\r?\n/).filter(Boolean);
-      const rows = lines
-        .slice(1)
+      const dataLines = lines.slice(1);
+      const rows = dataLines
         .map((line) => {
           const [date, description, amount, currency = "USD"] = line
             .split(",")
             .map((value) => value.trim().replace(/^"|"$/g, ""));
+          // Signed: an imported debit is negative.
+          const parsed = parseNumericInput(
+            amount ?? "",
+            moneySchema({ min: -MAX_MONEY, label: "Amount" })
+          );
+
+          if (!date || !description || parsed.status !== "valid") return null;
+
           return {
             date,
             description,
-            amountCents: Math.round(Number(amount) * 100),
+            amountCents: Math.round(parsed.value * 100),
             currency
           };
         })
-        .filter(
-          (row) =>
-            row.date && row.description && Number.isFinite(row.amountCents)
-        );
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+
       if (!rows.length)
         throw new Error(
           "The CSV must contain date, description, amount, and optional currency columns."
         );
+
+      const skipped = dataLines.length - rows.length;
       const response = await authenticatedFetch("/api/billing/import", {
         method: "POST",
         body: JSON.stringify({ rows })
       });
+      if (!response.ok) throw await readApiError(response);
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok)
-        throw new Error(payload.error ?? "Unable to import bank file.");
-      setImportMessage(`${payload.imported} bank transactions imported.`);
+      setImportMessage(
+        skipped > 0
+          ? `${payload.imported} bank transactions imported. ${skipped} ${skipped === 1 ? "row was" : "rows were"} skipped because the date, description, or amount could not be read.`
+          : `${payload.imported} bank transactions imported.`
+      );
       setActiveTab("Transactions");
     } catch (error) {
       setImportMessage(
@@ -77,7 +94,20 @@ export function BillingPage() {
   }
 
   const saveInvoice = async (values: NewInvoiceFormValues) => {
-    const amountCents = Math.round(Number(values.amount) * 100);
+    const parsedAmount = parseNumericInput(
+      values.amount,
+      moneySchema({ label: "Amount" })
+    );
+
+    if (parsedAmount.status !== "valid") {
+      throw new Error(
+        parsedAmount.status === "invalid"
+          ? parsedAmount.message
+          : "Enter an invoice amount."
+      );
+    }
+
+    const amountCents = Math.round(parsedAmount.value * 100);
     const response = await authenticatedFetch("/api/billing", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -95,11 +125,7 @@ export function BillingPage() {
         ]
       })
     });
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    if (!response.ok)
-      throw new Error(payload?.error ?? "Unable to create invoice.");
+    if (!response.ok) throw await readApiError(response);
     setIsNewInvoiceOpen(false);
     setActiveTab("Invoices");
     await billingQuery.refetch();

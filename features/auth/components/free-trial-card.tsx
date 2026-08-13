@@ -7,10 +7,8 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
 import { syncSignedInUser } from "@/lib/auth/client";
-import {
-  PASSWORD_RULES_HINT,
-  getPasswordValidationError
-} from "@/lib/auth/password";
+import { PASSWORD_RULES_HINT } from "@/lib/auth/password";
+import { getSignUpValidationError } from "@/features/auth/validations/auth.schema";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ArrowLoginIcon, EmailIcon, EyeIcon, LockIcon, ShieldIcon } from "@/features/auth/components/auth-icons";
@@ -121,16 +119,15 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
     event.preventDefault();
 
     const email = form.email.trim();
+    // Covers the address shape as well as the password rules, so a malformed
+    // email no longer round-trips to Supabase for a generic rejection.
+    const validationError = getSignUpValidationError({
+      email,
+      password: form.password
+    });
 
-    if (!email) {
-      failSignUp("Please enter your email address.");
-      return;
-    }
-
-    const passwordError = getPasswordValidationError(form.password);
-
-    if (passwordError) {
-      failSignUp(passwordError);
+    if (validationError) {
+      failSignUp(validationError);
       return;
     }
 

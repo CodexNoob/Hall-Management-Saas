@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
+import { MAX_MONEY, centsSchema } from "@/lib/validation/number";
 
 const updateSchema = z.object({
   action: z.enum(["categorize", "match", "split", "cancel"]),
@@ -15,7 +16,11 @@ const updateSchema = z.object({
     .array(
       z.object({
         category: z.string().trim().min(1),
-        amountCents: z.number().int()
+        // Splits mirror the parent transaction, which can be signed.
+        amountCents: centsSchema({
+          min: -MAX_MONEY * 100,
+          label: "Split amount"
+        })
       })
     )
     .min(2)
