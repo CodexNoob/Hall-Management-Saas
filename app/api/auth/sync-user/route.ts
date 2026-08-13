@@ -6,6 +6,7 @@ import { createOrganizationSlug } from "@/lib/auth/organization-slug";
 import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { phoneSchema } from "@/lib/validation/phone";
 
 class InvitationRequiredError extends Error {
   constructor() {
@@ -64,9 +65,13 @@ export async function POST(request: NextRequest) {
           ? metadata.name.trim()
           : null;
     const name = metadataName ?? authEmail.split("@")[0];
+    // Mirrored from Supabase metadata rather than typed into a form here, so a
+    // bad value is dropped instead of failing the sync - refusing to mirror an
+    // account because of an unusable phone would lock the user out entirely.
+    // It is still normalized, so anything stored matches the forms' format.
     const phone =
-      typeof metadata.phone === "string" && metadata.phone.trim()
-        ? metadata.phone.trim()
+      typeof metadata.phone === "string"
+        ? (phoneSchema().safeParse(metadata.phone.trim()).data ?? null)
         : null;
     const venueName =
       typeof metadata.venue_name === "string" && metadata.venue_name.trim()

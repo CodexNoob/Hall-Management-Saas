@@ -3,7 +3,13 @@
 import { FormEvent, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Loader2 } from "lucide-react";
+import type { CountryCode } from "libphonenumber-js";
+import { PhoneField } from "@/components/ui/phone-field";
 import { useToast } from "@/components/ui/toast";
+import {
+  DEFAULT_PHONE_COUNTRY,
+  parsePhoneInput
+} from "@/lib/validation/phone";
 import {
   clearCachedSyncedUser,
   getCachedSyncedUser,
@@ -19,7 +25,6 @@ import type {
   OnboardingPlanId
 } from "@/features/onboarding/validations/onboarding.schema";
 
-const countryCodes = ["+1", "+44", "+63", "+91"];
 const planOptions = [freeTrialPlan, ...subscriptionPlans];
 
 function getPlanPriceLabel(planId: OnboardingPlanId) {
@@ -52,7 +57,9 @@ export function CreateOrganizationPage() {
   const [form, setForm] = useState({
     organizationName: activeOrganization?.name ?? "",
     fullName: cachedUser?.user.name ?? "",
-    countryCode: "+1",
+    // An ISO country code, not a dialling code: "+1" alone cannot tell the
+    // United States from Canada, and the two have different valid numbers.
+    country: DEFAULT_PHONE_COUNTRY as CountryCode,
     phone: "",
     plan: "free_trial" as OnboardingPlanId
   });
@@ -66,10 +73,15 @@ export function CreateOrganizationPage() {
   const selectedPlan = planOptions.find((plan) => plan.id === form.plan);
 
   const updateField = (
-    name: "organizationName" | "fullName" | "countryCode" | "phone",
+    name: "organizationName" | "fullName" | "phone",
     value: string
   ) => {
     setForm((current) => ({ ...current, [name]: value }));
+    setError("");
+  };
+
+  const updateCountry = (country: CountryCode) => {
+    setForm((current) => ({ ...current, country }));
     setError("");
   };
 
@@ -99,9 +111,20 @@ export function CreateOrganizationPage() {
       return;
     }
 
-    const phone = form.phone.trim()
-      ? `${form.countryCode} ${form.phone.trim()}`
-      : undefined;
+    // Validated here as well as on the server, so a bad number is caught
+    // before the round trip. Both layers call the same parser.
+    const parsedPhone = parsePhoneInput(form.phone, {
+      country: form.country,
+      label: "Phone number"
+    });
+
+    if (parsedPhone.status === "invalid") {
+      fail(parsedPhone.message);
+      return;
+    }
+
+    const phone =
+      parsedPhone.status === "valid" ? parsedPhone.value : undefined;
 
     try {
       await mutate({ organizationName, fullName, phone, plan: form.plan });
@@ -236,36 +259,18 @@ export function CreateOrganizationPage() {
                 Phone number
               </label>
               <div>
-                <div className="flex h-12 w-full overflow-hidden rounded-xl border border-[#cfd6e0] bg-white transition focus-within:border-[#1f557d] focus-within:shadow-[0_0_0_4px_rgba(31,85,125,0.14)]">
-                  <select
-                    aria-label="Country code"
-                    autoComplete="tel-country-code"
-                    className="h-full border-r border-[#cfd6e0] bg-white px-3 text-sm font-bold outline-none"
-                    id={`${fieldId}-country-code`}
-                    name="countryCode"
-                    onChange={(event) =>
-                      updateField("countryCode", event.target.value)
-                    }
-                    value={form.countryCode}
-                  >
-                    {countryCodes.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    autoComplete="tel-national"
-                    className="min-w-0 flex-1 bg-transparent px-4 text-base outline-none"
-                    id={`${fieldId}-phone`}
-                    maxLength={24}
-                    name="phone"
-                    onChange={(event) => updateField("phone", event.target.value)}
-                    placeholder="555 010 8899"
-                    type="tel"
-                    value={form.phone}
-                  />
-                </div>
+                <PhoneField
+                  className="w-full"
+                  country={form.country}
+                  id={`${fieldId}-phone`}
+                  inputClassName="min-w-0 flex-1 bg-transparent px-4 text-base outline-none"
+                  name="phone"
+                  onChange={(value) => updateField("phone", value)}
+                  onCountryChange={updateCountry}
+                  rowClassName="flex h-12 w-full overflow-hidden rounded-xl border border-[#cfd6e0] bg-white transition focus-within:border-[#1f557d] focus-within:shadow-[0_0_0_4px_rgba(31,85,125,0.14)]"
+                  selectClassName="h-full max-w-[9.5rem] border-r border-[#cfd6e0] bg-white px-3 text-sm font-bold outline-none"
+                  value={form.phone}
+                />
                 <p className="mt-2 text-sm text-[#64748b]">
                   Optional. Used for booking confirmations and account recovery.
                 </p>

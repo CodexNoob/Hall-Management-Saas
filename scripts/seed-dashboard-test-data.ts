@@ -179,7 +179,7 @@ async function main() {
         id: fixture.id,
         organizationId: organization.id,
         clientName: fixture.clientName,
-        phone: "+1 555 0199",
+        phone: "+1 212 555 0199",
         email: "dashboard-graph-demo@example.com",
         eventDate: fixture.eventDate,
         startsAt: fixture.startsAt,

@@ -4,7 +4,10 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import type { CountryCode } from "libphonenumber-js";
+import { PhoneField } from "@/components/ui/phone-field";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
+import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
 
 export type NewBookingFormValues = {
   clientName: string;
@@ -41,7 +44,8 @@ type EventsLookupResponse = {
 
 type BookingPayload = {
   clientName: string;
-  phone: string;
+  // Optional since the schema stopped requiring it - see booking.schema.ts.
+  phone?: string;
   email?: string;
   eventDate: string;
   hallId: string;
@@ -102,6 +106,9 @@ export function NewBookingDialog({
   const canCreateBooking = hasPermission("canCreateBooking");
   const [values, setValues] = useState(initialValues);
   const [guestCountError, setGuestCountError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneCountry, setPhoneCountry] =
+    useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const eventsQuery = useAuthenticatedQuery<EventsLookupResponse>(
     "/api/events",
     open
@@ -156,6 +163,7 @@ export function NewBookingDialog({
   const updateValue = (field: keyof NewBookingFormValues, value: string) => {
     resetError();
     if (field === "guestCount") setGuestCountError("");
+    if (field === "phone") setPhoneError("");
     setValues((current) => ({ ...current, [field]: value }));
   };
 
@@ -194,10 +202,24 @@ export function NewBookingDialog({
 
     setGuestCountError("");
 
+    // Same parser the route handler runs, so a number cannot pass here and be
+    // refused there. Blank stays allowed - the schema treats it as absent.
+    const parsedPhone = parsePhoneInput(values.phone, {
+      country: phoneCountry,
+      label: "Phone number"
+    });
+
+    if (parsedPhone.status === "invalid") {
+      setPhoneError(parsedPhone.message);
+      return;
+    }
+
+    setPhoneError("");
+
     try {
       await bookingMutation.mutate({
         clientName: values.clientName.trim(),
-        phone: values.phone.trim(),
+        phone: parsedPhone.status === "valid" ? parsedPhone.value : undefined,
         email: values.email.trim() || undefined,
         eventDate: values.eventDate,
         hallId: hall.id,
@@ -318,13 +340,16 @@ export function NewBookingDialog({
               </div>
               <div>
                 <FieldLabel htmlFor="booking-phone">Phone</FieldLabel>
-                <input
-                  className={controlClass}
+                <PhoneField
+                  country={phoneCountry}
                   id="booking-phone"
+                  inputClassName={`${controlClass} min-w-0 flex-1`}
                   name="phone"
-                  onChange={(event) => updateValue("phone", event.target.value)}
-                  required
-                  type="tel"
+                  onChange={(value) => updateValue("phone", value)}
+                  onCountryChange={setPhoneCountry}
+                  rowClassName="flex gap-2"
+                  selectClassName={`${controlClass} max-w-[8.5rem]`}
+                  serverError={phoneError}
                   value={values.phone}
                 />
               </div>

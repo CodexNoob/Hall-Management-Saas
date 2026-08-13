@@ -17,12 +17,23 @@ import {
   type RoleAccessMatrix
 } from "@/lib/auth/permissions";
 
+import type { CountryCode } from "libphonenumber-js";
+
+import { PhoneField } from "@/components/ui/phone-field";
+import {
+  DEFAULT_PHONE_COUNTRY,
+  countryFromE164,
+  nationalFromE164
+} from "@/lib/validation/phone";
+
 export type StaffDialogMode = "add" | "edit" | "role" | null;
 
 export type StaffFormState = {
   name: string;
   email: string;
   phone: string;
+  /** ISO code, not a dialling code - it decides which numbers are valid. */
+  phoneCountry: CountryCode;
   department: string;
   role: RoleName;
 };
@@ -46,16 +57,22 @@ export function emptyForm(): StaffFormState {
     name: "",
     email: "",
     phone: "",
+    phoneCountry: DEFAULT_PHONE_COUNTRY,
     department: "General",
     role: "Viewer"
   };
 }
 
 export function staffToForm(staff: StaffMember): StaffFormState {
+  const stored = staff.phone === "Not provided" ? "" : staff.phone;
+
   return {
     name: staff.name,
     email: staff.email,
-    phone: staff.phone === "Not provided" ? "" : staff.phone,
+    // Stored numbers are E.164, so split them back into the picker and the
+    // national box rather than showing "+639171234567" in the input.
+    phone: nationalFromE164(stored) || stored,
+    phoneCountry: countryFromE164(stored) ?? DEFAULT_PHONE_COUNTRY,
     department: staff.department,
     role: staff.role
   };
@@ -271,18 +288,24 @@ export function StaffDialog({
                   value={form.email}
                 />
               </Field>
-              <Field label="Phone">
-                <input
-                  className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
+              {/* Not wrapped in <Field>, which is a <label>: the country
+                  select and the error text would join the input's name. */}
+              <div className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#687588]">
+                <label htmlFor="staff-phone">Phone</label>
+                <PhoneField
+                  country={form.phoneCountry}
                   id="staff-phone"
+                  inputClassName="h-11 min-w-0 flex-1 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
                   name="staffPhone"
-                  onChange={(event) =>
-                    setForm({ ...form, phone: event.target.value })
+                  onChange={(value) => setForm({ ...form, phone: value })}
+                  onCountryChange={(phoneCountry) =>
+                    setForm({ ...form, phoneCountry })
                   }
-                  placeholder="Optional"
+                  rowClassName="flex gap-2"
+                  selectClassName="h-11 max-w-[8.5rem] rounded-lg border border-[#c7d0dc] px-2 text-sm font-semibold normal-case tracking-normal outline-none focus:border-[#1f4d73]"
                   value={form.phone}
                 />
-              </Field>
+              </div>
               <Field label="Department">
                 <input
                   className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { countSchema } from "@/lib/validation/number";
+import { phoneSchema } from "@/lib/validation/phone";
 
 export const bookingStatuses = [
   "INQUIRY",
@@ -16,7 +17,11 @@ export const createBookingSchema = z
   .object({
     clientId: z.string().uuid().optional(),
     clientName: z.string().trim().min(1).max(160),
-    phone: z.string().trim().min(1).max(40),
+    // Optional rather than required, which it was before. The event manager's
+    // quick-create form does not ask for a phone and used to satisfy `min(1)`
+    // by sending the literal string "Not provided" - a sentinel that real
+    // validation would reject outright. Absent is now expressible.
+    phone: phoneSchema({ label: "Phone number" }),
     email: z.string().trim().email().optional(),
     eventDate: z.string().date().optional(),
     startsAt: z.string().datetime({ offset: true }).optional(),

@@ -9,16 +9,31 @@ describe("createOrganizationSchema", () => {
     const parsed = createOrganizationSchema.parse({
       organizationName: "  Riverside Events  ",
       fullName: "  Jordan Rivera ",
-      phone: " +1 555 010 8899 ",
+      phone: " +1 212 555 0142 ",
       plan: "professional"
     });
 
     expect(parsed).toEqual({
       organizationName: "Riverside Events",
       fullName: "Jordan Rivera",
-      phone: "+1 555 010 8899",
+      // Normalized to E.164, so the same line is one string however it is typed.
+      phone: "+12125550142",
       plan: "professional"
     });
+  });
+
+  it("refuses a phone number that is not real", () => {
+    const base = {
+      organizationName: "Riverside Events",
+      fullName: "Jordan Rivera",
+      plan: "free_trial" as const
+    };
+
+    // The reported defect: letters used to sail straight through.
+    expect(createOrganizationSchema.safeParse({ ...base, phone: "abcdefghij" }).success).toBe(false);
+    expect(createOrganizationSchema.safeParse({ ...base, phone: "12345" }).success).toBe(false);
+    // Well-formed but reserved for fiction, so not a real line.
+    expect(createOrganizationSchema.safeParse({ ...base, phone: "+1 555 010 8899" }).success).toBe(false);
   });
 
   it("treats the phone number as optional", () => {

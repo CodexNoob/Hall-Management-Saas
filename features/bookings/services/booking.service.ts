@@ -475,7 +475,13 @@ export async function createBooking(
             organizationId: actor.organizationId,
             OR: [
               ...(input.email ? [{ email: input.email }] : []),
-              { name: input.clientName, phone: input.phone }
+              // Only match on the phone when there is one. Prisma drops an
+              // `undefined` filter, which would reduce this to a name-only
+              // match and silently attach the booking to a different client
+              // who happens to share a name.
+              input.phone
+                ? { name: input.clientName, phone: input.phone }
+                : { name: input.clientName, phone: null }
             ]
           }
         })) ??
@@ -497,7 +503,9 @@ export async function createBooking(
           organizationId: actor.organizationId,
           clientId: client.id,
           clientName: input.clientName,
-          phone: input.phone,
+          // `Event.phone` is NOT NULL while `Client.phone` is nullable, so an
+          // absent number is stored as empty here rather than as null.
+          phone: input.phone ?? "",
           email: input.email,
           eventDate,
           hallId: hall.id,

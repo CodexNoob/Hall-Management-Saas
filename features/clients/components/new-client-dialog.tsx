@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import type { CountryCode } from "libphonenumber-js";
+import { PhoneField } from "@/components/ui/phone-field";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
+import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
 
 export function NewClientDialog({
   open,
@@ -19,15 +22,33 @@ export function NewClientDialog({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] =
+    useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
+  const [phoneError, setPhoneError] = useState("");
   const [notes, setNotes] = useState("");
   if (!open) return null;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Same parser the route handler runs. Blank is still fine - a client
+    // record does not need a number.
+    const parsedPhone = parsePhoneInput(phone, {
+      country: phoneCountry,
+      label: "Phone number"
+    });
+
+    if (parsedPhone.status === "invalid") {
+      setPhoneError(parsedPhone.message);
+      return;
+    }
+
+    setPhoneError("");
+
     await mutation.mutate({
       name,
       email: email || undefined,
-      phone: phone || undefined,
+      phone: parsedPhone.status === "valid" ? parsedPhone.value : undefined,
       notes: notes || undefined,
       status: "Active",
       tags: []
@@ -36,6 +57,7 @@ export function NewClientDialog({
     setName("");
     setEmail("");
     setPhone("");
+    setPhoneError("");
     setNotes("");
     onClose();
   };
@@ -84,14 +106,23 @@ export function NewClientDialog({
               onChange={(event) => setEmail(event.target.value)}
             />
           </label>
-          <label className="text-xs font-black">
-            Phone
-            <input
-              className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 font-medium"
+          <div className="text-xs font-black">
+            <label htmlFor="new-client-phone">Phone</label>
+            <PhoneField
+              country={phoneCountry}
+              id="new-client-phone"
+              inputClassName="mt-1 h-10 min-w-0 flex-1 rounded-lg border border-[#b9c2cf] px-3 font-medium"
+              onChange={(value) => {
+                setPhone(value);
+                setPhoneError("");
+              }}
+              onCountryChange={setPhoneCountry}
+              rowClassName="flex gap-2"
+              selectClassName="mt-1 h-10 max-w-[8.5rem] rounded-lg border border-[#b9c2cf] px-2 font-medium"
+              serverError={phoneError}
               value={phone}
-              onChange={(event) => setPhone(event.target.value)}
             />
-          </label>
+          </div>
           <label className="text-xs font-black sm:col-span-2">
             Notes
             <textarea

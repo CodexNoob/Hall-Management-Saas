@@ -137,7 +137,9 @@ test("creates an isolated event from the Calendar Book date form", async ({
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Date")).toHaveValue(bookingDateValue);
   await dialog.getByLabel("Client name").fill(clientName);
-  await dialog.getByLabel("Phone").fill("555-0199");
+  // A real number, not "555-0199": the field now checks the value against the
+  // selected country's numbering plan, and a bare exchange is not dialable.
+  await dialog.getByLabel("Phone", { exact: true }).fill("212 555 0199");
   await dialog
     .getByLabel("Hall / room")
     .selectOption({ label: hallNames[0] });

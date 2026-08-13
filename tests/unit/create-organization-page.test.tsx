@@ -121,7 +121,7 @@ describe("CreateOrganizationPage", () => {
       target: { value: "Jordan Rivera" }
     });
     fireEvent.change(screen.getByLabelText("Phone number"), {
-      target: { value: "555 010 8899" }
+      target: { value: "212 555 0142" }
     });
     fireEvent.change(screen.getByLabelText("Plan"), {
       target: { value: "professional" }
@@ -141,7 +141,8 @@ describe("CreateOrganizationPage", () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       organizationName: "Riverside Events",
       fullName: "Jordan Rivera",
-      phone: "+1 555 010 8899",
+      // Sent as E.164, not as the digits the user typed.
+      phone: "+12125550142",
       plan: "professional"
     });
 
@@ -153,6 +154,105 @@ describe("CreateOrganizationPage", () => {
       })
     );
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  describe("phone validation", () => {
+    function fillRequiredFields() {
+      fireEvent.change(screen.getByLabelText("Organization name"), {
+        target: { value: "Riverside Events" }
+      });
+      fireEvent.change(screen.getByLabelText("Your full name"), {
+        target: { value: "Jordan Rivera" }
+      });
+    }
+
+    function submitWithPhone(phone: string, country?: string) {
+      cachePendingOwner();
+      renderPage();
+      fillRequiredFields();
+
+      if (country) {
+        fireEvent.change(screen.getByLabelText("Country"), {
+          target: { value: country }
+        });
+      }
+
+      fireEvent.change(screen.getByLabelText("Phone number"), {
+        target: { value: phone }
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Create organization" })
+      );
+    }
+
+    it("does not let letters into the phone field in the first place", async () => {
+      // The reported defect, now handled a step earlier: rather than accepting
+      // letters and failing on submit, the field refuses them as they are
+      // typed and says why. Nothing letter-shaped can reach the server.
+      cachePendingOwner();
+      renderPage();
+      fillRequiredFields();
+
+      const phone = screen.getByLabelText("Phone number");
+      fireEvent.change(phone, { target: { value: "abcdefghij" } });
+
+      expect(phone).toHaveValue("");
+      // The notice lands on a later task so the live region is cleared first
+      // and the message is actually re-announced each time.
+      expect(
+        await screen.findByText(/can only contain digits/i)
+      ).toBeInTheDocument();
+    });
+
+    it("keeps a half-valid entry out of the request", async () => {
+      // Digits that are not a real number still have to be caught at submit.
+      submitWithPhone("212555");
+
+      await waitFor(() =>
+        expect(screen.getAllByRole("alert").length).toBeGreaterThan(0)
+      );
+      expect(vi.mocked(authenticatedFetch)).not.toHaveBeenCalled();
+    });
+
+    it("refuses a number that is too short for the chosen country", async () => {
+      submitWithPhone("12345");
+
+      await waitFor(() =>
+        expect(vi.mocked(authenticatedFetch)).not.toHaveBeenCalled()
+      );
+    });
+
+    it("refuses a number that is impossible in the chosen country", async () => {
+      // Ten digits is a valid US number and an impossible UK one, so this only
+      // fails if the country picker is genuinely driving the rules.
+      submitWithPhone("212 555 0142", "GB");
+
+      await waitFor(() =>
+        expect(vi.mocked(authenticatedFetch)).not.toHaveBeenCalled()
+      );
+    });
+
+    it("accepts the same digits once the matching country is chosen", async () => {
+      submitWithPhone("9171234567", "PH");
+
+      await waitFor(() =>
+        expect(vi.mocked(authenticatedFetch)).toHaveBeenCalled()
+      );
+
+      const [, init] = vi.mocked(authenticatedFetch).mock.calls[0];
+      expect(JSON.parse(String(init?.body)).phone).toBe("+639171234567");
+    });
+
+    it("still allows the field to be left empty", async () => {
+      submitWithPhone("");
+
+      await waitFor(() =>
+        expect(vi.mocked(authenticatedFetch)).toHaveBeenCalled()
+      );
+
+      const [, init] = vi.mocked(authenticatedFetch).mock.calls[0];
+      expect(JSON.parse(String(init?.body)).phone).toBeUndefined();
+    });
   });
 
   it("omits an empty phone number rather than sending a bare country code", async () => {

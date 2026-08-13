@@ -33,6 +33,7 @@ import {
   type StaffResponse,
   type StaffStatus
 } from "@/features/administration/components/staff-shared";
+import { parsePhoneInput } from "@/lib/validation/phone";
 import { normalizeInviteEmails } from "@/features/administration/components/staff-invite-utils";
 import { StaffProfileDialog } from "@/features/administration/components/staff-profile-dialog";
 import { useStaffDirectory } from "@/features/administration/hooks/use-staff-directory";
@@ -162,6 +163,19 @@ export function StaffPage() {
 
     try {
       const role = staffRoleValueByName[form.role];
+
+      // Same parser the route handler runs. Only the edit branch sends a
+      // phone, so an invalid one is caught before the request goes out.
+      const parsedPhone = parsePhoneInput(form.phone, {
+        country: form.phoneCountry,
+        label: "Phone number"
+      });
+
+      if (dialogMode === "edit" && parsedPhone.status === "invalid") {
+        setMutationError(parsedPhone.message);
+        return;
+      }
+
       const body =
         dialogMode === "role"
           ? { id: selectedStaff?.id, role }
@@ -176,7 +190,9 @@ export function StaffPage() {
                 id: selectedStaff?.id,
                 name: form.name,
                 email: form.email,
-                phone: form.phone,
+                // Normalized, so the stored value matches every other surface.
+                phone:
+                  parsedPhone.status === "valid" ? parsedPhone.value : "",
                 department: form.department,
                 role
               };

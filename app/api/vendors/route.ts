@@ -7,6 +7,7 @@ import {
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { dimensionSchema } from "@/lib/validation/number";
+import { phoneSchema } from "@/lib/validation/phone";
 
 const vendorSchema = z.object({
   name: z.string().trim().min(1),
@@ -14,7 +15,7 @@ const vendorSchema = z.object({
   category: z.string().trim().min(1),
   contactName: z.string().trim().optional(),
   email: z.string().email().optional(),
-  phone: z.string().trim().optional(),
+  phone: phoneSchema({ label: "Vendor phone" }),
   status: z.enum(["Active", "Inactive"]).default("Active"),
   rating: dimensionSchema({ min: 0, max: 5, label: "Rating" }).optional(),
   notes: z.string().trim().optional()

@@ -3,11 +3,12 @@ import { z } from "zod";
 import { requireAnyPermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { phoneSchema } from "@/lib/validation/phone";
 
 const clientInputSchema = z.object({
   name: z.string().trim().min(1),
   email: z.string().email().optional(),
-  phone: z.string().trim().optional(),
+  phone: phoneSchema({ label: "Client phone" }),
   status: z.enum(["Active", "Inactive", "Lead"]).default("Active"),
   tags: z.array(z.string().trim().min(1)).default([]),
   notes: z.string().trim().optional()

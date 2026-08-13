@@ -299,7 +299,7 @@ async function main() {
       id: "66666666-6666-4666-8666-666666666666",
       organizationId: organization.id,
       clientName: "Goldman Family",
-      phone: "+1 555 0100",
+      phone: "+1 212 555 0100",
       email: "goldman@example.com",
       eventDate: new Date("2026-07-12T00:00:00.000Z"),
       hallId: mainHall.id,
