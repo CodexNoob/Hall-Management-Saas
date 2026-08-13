@@ -4,7 +4,9 @@ import {
   requirePermission
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { formatZodErrorMessage } from "@/lib/http/zod-error-message";
 import { prisma } from "@/lib/prisma";
+import { phoneSchema } from "@/lib/validation/phone";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import { getEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -28,6 +30,9 @@ import {
 function cleanText(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
 }
+
+/** Staff numbers are optional; when given they must be real, stored as E.164. */
+const staffPhoneSchema = phoneSchema({ label: "Phone number" });
 
 function canCustomizeStaffPermissions(
   actor: Awaited<ReturnType<typeof requireAnyPermission>>
@@ -185,7 +190,6 @@ export async function POST(request: Request) {
           .filter((value) => value && value.includes("@"))
       : [];
     const inviteEmails = emails.length ? emails : email ? [email] : [];
-    const phone = cleanText(input?.phone) || null;
     const department = cleanText(input?.department) || "General";
     const role = normalizeStaffRole(input?.role);
 
@@ -195,6 +199,19 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // This handler predates Zod and still parses its body by hand, so the
+    // shared schema is applied to the one field that needs it.
+    const parsedPhone = staffPhoneSchema.safeParse(cleanText(input?.phone));
+
+    if (!parsedPhone.success) {
+      return NextResponse.json(
+        { error: formatZodErrorMessage(parsedPhone.error.flatten()) },
+        { status: 400 }
+      );
+    }
+
+    const phone = parsedPhone.data ?? null;
 
     const createdStaff = await prisma.$transaction(async (transaction) => {
       const results: Array<{
@@ -435,11 +452,25 @@ export async function PATCH(request: Request) {
     } = {};
 
     const name = cleanText(input?.name);
-    const phone = cleanText(input?.phone);
     const department = cleanText(input?.department);
 
+    // Only validated when the request actually carries a phone. Checking it
+    // unconditionally would block someone editing a colleague's department on
+    // a record whose number was saved loosely before this rule existed.
+    const parsedPhone =
+      input && "phone" in input
+        ? staffPhoneSchema.safeParse(cleanText(input.phone))
+        : null;
+
+    if (parsedPhone && !parsedPhone.success) {
+      return NextResponse.json(
+        { error: formatZodErrorMessage(parsedPhone.error.flatten()) },
+        { status: 400 }
+      );
+    }
+
     if (name) userUpdates.name = name;
-    if (input && "phone" in input) userUpdates.phone = phone || null;
+    if (parsedPhone) userUpdates.phone = parsedPhone.data ?? null;
     if (department) userUpdates.venueName = department;
     if (role) userUpdates.role = role;
     if (status === "Active") userUpdates.isActive = true;

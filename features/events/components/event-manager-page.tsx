@@ -205,7 +205,9 @@ export function EventManagerPage() {
 
     const created = await createEventMutation.mutate({
       clientName: values.clientName,
-      phone: "Not provided",
+      // This form does not collect a phone. It used to send the literal string
+      // "Not provided" to satisfy a required field; the schema now accepts an
+      // absent number, so say nothing rather than storing a fake one.
       eventDate: values.date,
       startsAt,
       endsAt,

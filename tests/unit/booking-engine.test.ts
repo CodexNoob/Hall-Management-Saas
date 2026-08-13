@@ -6,7 +6,7 @@ import {
 
 const baseBooking = {
   clientName: "Miriam Cohen",
-  phone: "+1 555 0100",
+  phone: "+1 212 555 0100",
   hallId: "11111111-1111-4111-8111-111111111111",
   startsAt: "2026-08-20T18:00:00-04:00",
   endsAt: "2026-08-20T23:00:00-04:00",

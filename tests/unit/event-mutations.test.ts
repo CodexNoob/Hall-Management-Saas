@@ -67,7 +67,7 @@ describe("event creation and status editing", () => {
       },
       body: JSON.stringify({
         clientName: "Cohen",
-        phone: "555-0100",
+        phone: "212-555-0100",
         eventDate: "2026-08-20",
         hallId: "33333333-3333-4333-8333-333333333333",
         bookingStatus: "TENTATIVE_HOLD",
@@ -112,7 +112,7 @@ describe("event creation and status editing", () => {
       },
       body: JSON.stringify({
         clientName: "Cohen",
-        phone: "555-0100",
+        phone: "212-555-0100",
         eventDate: "2026-08-20",
         hallId: "33333333-3333-4333-8333-333333333333",
         bookingStatus: "TENTATIVE_HOLD"

@@ -3,13 +3,14 @@ import { z } from "zod";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { phoneSchema } from "@/lib/validation/phone";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
   category: z.string().trim().min(1).max(100).optional(),
   contactName: z.string().trim().max(200).optional(),
   email: z.string().email().nullable().optional(),
-  phone: z.string().trim().max(50).optional(),
+  phone: phoneSchema({ label: "Vendor phone" }),
   status: z.enum(["Active", "Inactive"]).optional(),
   notes: z.string().trim().max(2000).optional()
 });

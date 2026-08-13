@@ -7,9 +7,13 @@ import {
   type FormEvent
 } from "react";
 
+import type { CountryCode } from "libphonenumber-js";
+
+import { PhoneField } from "@/components/ui/phone-field";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { countSchema } from "@/lib/validation/number";
 import { readNumericFields } from "@/lib/validation/numeric-form";
+import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
 
 type LookupOption = {
   id: string;
@@ -30,7 +34,7 @@ type BookingFormValues = {
 
 type BookingPayload = {
   clientName: string;
-  phone: string;
+  phone?: string;
   eventDate: string;
   hallId: string;
   eventTypeId?: string;
@@ -122,6 +126,9 @@ export function CalendarBookingDialog({
   const [countErrors, setCountErrors] = useState<
     Partial<Record<"couples" | "children", string>>
   >({});
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneCountry, setPhoneCountry] =
+    useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
 
   useEffect(() => {
     if (!open) return;
@@ -173,6 +180,7 @@ export function CalendarBookingDialog({
   ) => {
     resetError();
     setCountErrors((current) => ({ ...current, [field]: undefined }));
+    if (field === "phone") setPhoneError("");
 
     setValues((current) => ({
       ...current,
@@ -210,10 +218,23 @@ export function CalendarBookingDialog({
 
     setCountErrors({});
 
+    // Same parser the route handler runs, so the two layers cannot disagree.
+    const parsedPhone = parsePhoneInput(values.phone, {
+      country: phoneCountry,
+      label: "Phone number"
+    });
+
+    if (parsedPhone.status === "invalid") {
+      setPhoneError(parsedPhone.message);
+      return;
+    }
+
+    setPhoneError("");
+
     try {
       await bookingMutation.mutate({
         clientName: values.clientName.trim(),
-        phone: values.phone.trim(),
+        phone: parsedPhone.status === "valid" ? parsedPhone.value : undefined,
         eventDate: values.eventDate,
         hallId: values.hallId,
         eventTypeId: values.eventTypeId || undefined,
@@ -308,15 +329,16 @@ export function CalendarBookingDialog({
                   Phone
                 </FieldLabel>
 
-                <input
-                  className={controlClass}
+                <PhoneField
+                  country={phoneCountry}
                   id="calendar-phone"
-                  onChange={(event) =>
-                    updateValue("phone", event.target.value)
-                  }
-                  placeholder="Phone number"
-                  required
-                  type="tel"
+                  inputClassName={`${controlClass} min-w-0 flex-1`}
+                  name="phone"
+                  onChange={(value) => updateValue("phone", value)}
+                  onCountryChange={setPhoneCountry}
+                  rowClassName="flex gap-2"
+                  selectClassName={`${controlClass} max-w-[8.5rem]`}
+                  serverError={phoneError}
                   value={values.phone}
                 />
               </div>
