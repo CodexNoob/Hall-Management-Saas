@@ -4,6 +4,8 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/toast";
+import { getAuthErrorMessage } from "@/lib/auth/auth-error-messages";
 import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import {
@@ -107,6 +109,7 @@ export function LoginCard({
   onForgotPasswordClick
 }: LoginCardProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const returnPath = getSafeDashboardReturnPath(
     typeof window === "undefined"
       ? null
@@ -144,7 +147,9 @@ export function LoginCard({
         });
 
       if (signInError) {
-        setError(signInError.message);
+        const message = getAuthErrorMessage(signInError);
+        setError(message);
+        toast.error(message, { title: "Sign-in failed" });
         return;
       }
 
@@ -154,12 +159,10 @@ export function LoginCard({
 
       router.replace(returnPath as Parameters<typeof router.replace>[0]);
       router.refresh();
-    } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Unable to sign in. Please try again."
-      );
+    } catch (submitError) {
+      const message = getAuthErrorMessage(submitError);
+      setError(message);
+      toast.error(message, { title: "Sign-in failed" });
     } finally {
       setIsSubmitting(false);
     }
@@ -172,10 +175,13 @@ export function LoginCard({
     try {
       setAuthSessionPersistence(rememberMe);
       await signInWithOAuthProvider(provider, returnPath);
-    } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "Unable to start social login."
+    } catch (providerError) {
+      const message = getAuthErrorMessage(
+        providerError,
+        "Unable to start social login."
       );
+      setError(message);
+      toast.error(message, { title: "Social login failed" });
       setOauthProvider(null);
     }
   };
@@ -385,7 +391,9 @@ export function LoginCard({
             </div>
 
             {error ? (
-              <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p>
+              <p className="mt-5 text-sm font-bold text-[#c2410c]" role="alert">
+                {error}
+              </p>
             ) : null}
 
             <button

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { AppServiceWorkerRegistration } from "@/components/layout/service-worker-registration";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 const manrope = Manrope({
@@ -30,7 +31,7 @@ export default function RootLayout({
     <html className={manrope.variable} lang="en" data-scroll-behavior="smooth">
       <body>
         <AppServiceWorkerRegistration />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
