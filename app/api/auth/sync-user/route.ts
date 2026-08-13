@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
 import { accessForRole, normalizeStaffRole } from "@/lib/auth/permissions";
+import { createOrganizationSlug } from "@/lib/auth/organization-slug";
 import { getTrialDates, isTesterBypassEmail } from "@/lib/subscription/trial";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -23,17 +24,6 @@ function getBearerToken(request: NextRequest) {
   }
 
   return authHeader.slice("Bearer ".length).trim();
-}
-
-function createOrganizationSlug(name: string, authUserId: string) {
-  const base = name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 48);
-
-  return `${base || "organization"}-${authUserId.slice(0, 8)}`;
 }
 
 export async function POST(request: NextRequest) {
@@ -128,6 +118,11 @@ export async function POST(request: NextRequest) {
             throw new InvitationRequiredError();
           }
 
+          // Sign-up only collects an email and a password, so `venue_name` is
+          // absent and this is a placeholder the owner replaces on
+          // /dashboard/new. `onboardingCompletedAt` stays NULL until they do,
+          // which is what sends them there. (Organizations created by the older
+          // trial form carried a real venue name, hence the fallback.)
           const organizationName = venueName ?? `${name}'s Organization`;
           const { trialStartedAt, trialEndsAt } = getTrialDates();
           const organization = await transaction.organization.create({
@@ -237,6 +232,15 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    // Only an owner can name the organization and pick its plan, so invited staff
+    // never see the setup form even if they happen to be the first one in.
+    const activeMembership = memberships.find(
+      (membership) => membership.organizationId === user.organizationId
+    );
+    const mustCompleteOnboarding =
+      normalizeStaffRole(activeMembership?.role) === "owner" &&
+      !activeMembership?.organization.onboardingCompletedAt;
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -249,6 +253,7 @@ export async function POST(request: NextRequest) {
       },
       access,
       mustSetPassword: usesEmailPassword && !user.passwordSetAt,
+      mustCompleteOnboarding,
       activeOrganizationId: user.organizationId,
       organizations: memberships.map((membership) => ({
         id: membership.organization.id,
@@ -262,7 +267,9 @@ export async function POST(request: NextRequest) {
         subscriptionStartedAt:
           membership.organization.subscriptionStartedAt?.toISOString() ?? null,
         subscriptionEndsAt:
-          membership.organization.subscriptionEndsAt?.toISOString() ?? null
+          membership.organization.subscriptionEndsAt?.toISOString() ?? null,
+        onboardingCompletedAt:
+          membership.organization.onboardingCompletedAt?.toISOString() ?? null
       }))
     });
   } catch (error) {

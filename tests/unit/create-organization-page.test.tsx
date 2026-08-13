@@ -1,0 +1,230 @@
+import React from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const replace = vi.fn();
+const refresh = vi.fn();
+const getSession = vi.fn();
+const signOut = vi.fn();
+const syncSignedInUser = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace, refresh, push: vi.fn(), prefetch: vi.fn() })
+}));
+
+vi.mock("@/lib/http/authenticated-fetch", () => ({
+  authenticatedFetch: vi.fn()
+}));
+
+vi.mock("@/lib/supabase/browser", () => ({
+  createSupabaseBrowserClient: () => ({ auth: { getSession, signOut } })
+}));
+
+// The prefill reads the real cache helper, so only the network-touching exports
+// are replaced here.
+vi.mock("@/lib/auth/client", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/auth/client")>();
+
+  return {
+    ...actual,
+    syncSignedInUser: (...args: unknown[]) => syncSignedInUser(...args)
+  };
+});
+
+import { ToastProvider } from "@/components/ui/toast";
+import { CreateOrganizationPage } from "@/features/onboarding/components/create-organization-page";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { cacheSyncedUser } from "./synced-user-fixture";
+
+function renderPage() {
+  return render(
+    <ToastProvider>
+      <CreateOrganizationPage />
+    </ToastProvider>
+  );
+}
+
+function cachePendingOwner() {
+  cacheSyncedUser("owner", {}, {
+    userName: "carldelfin25",
+    organizationName: "carldelfin25's Organization",
+    onboardingCompletedAt: null
+  });
+}
+
+describe("CreateOrganizationPage", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.clearAllMocks();
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    signOut.mockResolvedValue({ error: null });
+    vi.mocked(authenticatedFetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          organization: {
+            id: "org-1",
+            name: "Riverside Events",
+            slug: "riverside-events-user-1",
+            subscriptionPlan: "professional",
+            subscriptionStatus: "trialing",
+            onboardingCompletedAt: "2026-08-13T00:00:00.000Z"
+          }
+        }),
+        { status: 200 }
+      )
+    );
+  });
+
+  it("prefills the placeholder organization name and the owner's name", () => {
+    cachePendingOwner();
+    renderPage();
+
+    expect(screen.getByLabelText("Organization name")).toHaveValue(
+      "carldelfin25's Organization"
+    );
+    expect(screen.getByLabelText("Your full name")).toHaveValue("carldelfin25");
+  });
+
+  it("offers the free trial plus every paid plan, defaulting to the free trial", () => {
+    cachePendingOwner();
+    renderPage();
+
+    const plan = screen.getByLabelText("Plan");
+
+    expect(plan).toHaveValue("free_trial");
+    expect(
+      screen.getByRole("option", { name: "Free Trial - $0/month" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Starter - $149/month" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Professional - $299/month" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Enterprise - $599/month" })
+    ).toBeInTheDocument();
+  });
+
+  it("submits the entered details and lands on the dashboard", async () => {
+    cachePendingOwner();
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Organization name"), {
+      target: { value: "Riverside Events" }
+    });
+    fireEvent.change(screen.getByLabelText("Your full name"), {
+      target: { value: "Jordan Rivera" }
+    });
+    fireEvent.change(screen.getByLabelText("Phone number"), {
+      target: { value: "555 010 8899" }
+    });
+    fireEvent.change(screen.getByLabelText("Plan"), {
+      target: { value: "professional" }
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create organization" })
+    );
+
+    await waitFor(() =>
+      expect(vi.mocked(authenticatedFetch)).toHaveBeenCalledWith(
+        "/api/onboarding/organization",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+
+    const [, init] = vi.mocked(authenticatedFetch).mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      organizationName: "Riverside Events",
+      fullName: "Jordan Rivera",
+      phone: "+1 555 010 8899",
+      plan: "professional"
+    });
+
+    // The sidebar and route guard read the cached payload, so it has to be
+    // rebuilt before leaving - otherwise the dashboard shows the placeholder name.
+    await waitFor(() =>
+      expect(syncSignedInUser).toHaveBeenCalledWith("access-token", {
+        force: true
+      })
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("omits an empty phone number rather than sending a bare country code", async () => {
+    cachePendingOwner();
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Organization name"), {
+      target: { value: "Riverside Events" }
+    });
+    fireEvent.change(screen.getByLabelText("Your full name"), {
+      target: { value: "Jordan Rivera" }
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create organization" })
+    );
+
+    await waitFor(() =>
+      expect(vi.mocked(authenticatedFetch)).toHaveBeenCalled()
+    );
+
+    const [, init] = vi.mocked(authenticatedFetch).mock.calls[0];
+    expect(JSON.parse(String(init?.body)).phone).toBeUndefined();
+  });
+
+  it("blocks submission until the required names are filled in", async () => {
+    cacheSyncedUser("owner", {}, {
+      organizationName: "",
+      userName: "",
+      onboardingCompletedAt: null
+    });
+    renderPage();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create organization" })
+    );
+
+    // Reported twice on purpose: inline next to the form and as a toast.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("Please enter your organization name.")
+      ).toHaveLength(2)
+    );
+    expect(vi.mocked(authenticatedFetch)).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a server rejection instead of navigating away", async () => {
+    cachePendingOwner();
+    vi.mocked(authenticatedFetch).mockResolvedValue(
+      new Response(
+        JSON.stringify({ error: "This organization has already been set up." }),
+        { status: 409 }
+      )
+    );
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText("Organization name"), {
+      target: { value: "Riverside Events" }
+    });
+    fireEvent.change(screen.getByLabelText("Your full name"), {
+      target: { value: "Jordan Rivera" }
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Create organization" })
+    );
+
+    // The 409 body is surfaced verbatim, not swallowed behind generic copy.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText("This organization has already been set up.")
+      ).toHaveLength(2)
+    );
+    expect(replace).not.toHaveBeenCalled();
+  });
+});

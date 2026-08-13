@@ -55,12 +55,18 @@ export type SyncedOrganization = {
   subscriptionPlan: string | null;
   subscriptionStartedAt: string | null;
   subscriptionEndsAt: string | null;
+  onboardingCompletedAt: string | null;
 };
 
 export type SyncSignedInUserResponse = {
   user: SyncedUser;
   access: SyncedUserAccess;
   mustSetPassword: boolean;
+  /**
+   * True when the signed-in owner still has to name their organization and pick a
+   * plan on /dashboard/new. The dashboard layout holds them there until they do.
+   */
+  mustCompleteOnboarding: boolean;
   activeOrganizationId: string;
   organizations: SyncedOrganization[];
 };
@@ -103,12 +109,16 @@ function isSyncSignedInUserResponse(
   }
 
   const payload = value as Partial<SyncSignedInUserResponse>;
+  // `mustCompleteOnboarding` is checked too, so a cache written before the
+  // onboarding gate existed is rejected and re-synced rather than silently
+  // reading as "already onboarded".
   return Boolean(
     payload.user &&
     payload.access &&
     typeof payload.user === "object" &&
     typeof payload.access === "object" &&
     typeof payload.mustSetPassword === "boolean" &&
+    typeof payload.mustCompleteOnboarding === "boolean" &&
     typeof payload.activeOrganizationId === "string" &&
     Array.isArray(payload.organizations)
   );

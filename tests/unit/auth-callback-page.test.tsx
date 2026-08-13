@@ -109,4 +109,36 @@ describe("AuthCallbackPage", () => {
       await screen.findByText(/no active supabase session was found/i)
     ).toBeTruthy();
   });
+
+  it("sends a freshly confirmed owner to organization setup", async () => {
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    syncSignedInUser.mockResolvedValue({ mustCompleteOnboarding: true });
+
+    // Confirmation links carry next=/dashboard/new, but an OAuth sign-up or a
+    // link that lost the parameter must still land on the setup form.
+    await renderCallback("#access_token=access-token&type=signup");
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/dashboard/new")
+    );
+    expect(
+      await screen.findByText(/set up your organization/i)
+    ).toBeTruthy();
+  });
+
+  it("sends an already-onboarded user to the dashboard", async () => {
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    syncSignedInUser.mockResolvedValue({ mustCompleteOnboarding: false });
+
+    await renderCallback("#access_token=access-token&type=signup");
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    expect(replace).not.toHaveBeenCalledWith("/dashboard/new");
+  });
 });
