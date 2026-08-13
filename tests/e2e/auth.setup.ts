@@ -10,6 +10,13 @@ async function authenticate(
   password: string,
   stateFile: string
 ) {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("hms.syncedUser");
+    window.localStorage.removeItem("hms.syncedUser.subject");
+    window.localStorage.removeItem("hms.syncedUser.syncedAt");
+    window.sessionStorage.removeItem("hms.syncedUser");
+  });
+
   await page.goto("/");
   await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
   await page.locator("[data-login-modal]:visible").click();

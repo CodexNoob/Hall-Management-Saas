@@ -66,6 +66,9 @@ export function DiningManagerPage() {
   } | null>(null);
   const [checkMessage, setCheckMessage] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const savedMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const [form, setForm] = useState<DiningForm>({
     countType: "People",
     adultCount: 0,
@@ -183,6 +186,18 @@ export function DiningManagerPage() {
   function selectEvent(eventId: string) {
     setSelectedEventId(eventId);
     setSavedMessage("");
+  }
+
+  function showSavedMessage(message: string) {
+    if (savedMessageTimerRef.current) {
+      clearTimeout(savedMessageTimerRef.current);
+    }
+
+    setSavedMessage(message);
+    savedMessageTimerRef.current = setTimeout(() => {
+      setSavedMessage("");
+      savedMessageTimerRef.current = null;
+    }, 2600);
   }
 
   function rememberTablesSnapshot(snapshot = tables) {
@@ -421,11 +436,20 @@ export function DiningManagerPage() {
       });
       invalidateAuthenticatedQuery("/api/events");
       await diningQuery.refetch();
-      setSavedMessage("Dining plan saved.");
+      showSavedMessage("Dining plan saved.");
     } catch {
       // Mutation errors are rendered in the details panel.
     }
   }
+
+  useEffect(
+    () => () => {
+      if (savedMessageTimerRef.current) {
+        clearTimeout(savedMessageTimerRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     function isEditableElement(target: EventTarget | null) {
@@ -614,13 +638,29 @@ export function DiningManagerPage() {
               Remove table
             </button>
             <button
-              aria-label="Save dining plan"
-              className="flex h-9 w-8 items-center justify-center bg-transparent text-[#1f4d73] lg:h-11 lg:w-auto lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white"
+              aria-label={
+                diningMutation.isPending
+                  ? "Saving dining plan"
+                  : "Save dining plan"
+              }
+              className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
               disabled={diningMutation.isPending}
               onClick={savePlan}
               type="button"
             >
-              <span className="text-xl lg:hidden">âœ“</span>
+              <svg
+                aria-hidden="true"
+                className="h-6 w-6 lg:hidden"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M5 4h12l2 2v14H5z" />
+                <path d="M8 4v6h8V4M8 20v-6h8v6" />
+              </svg>
               <span className="hidden lg:inline">
                 {diningMutation.isPending ? "Saving..." : "Save dining plan"}
               </span>
@@ -632,8 +672,8 @@ export function DiningManagerPage() {
         title="Dining Manager"
       />
 
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
-        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
+      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 sm:p-3">
+        <div className="mx-auto grid min-h-full w-full min-w-0 max-w-[1800px] gap-3 sm:gap-4 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[270px_minmax(500px,1fr)_310px]">
           <DiningEventListPanel
             eventPage={eventPage}
             eventPageCount={eventPageCount}

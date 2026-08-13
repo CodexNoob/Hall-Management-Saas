@@ -61,7 +61,7 @@ export function DiningWorkspacePanel({
   tables: DiningTableData[];
 }) {
   return (
-    <Panel className="flex min-h-125 min-w-0 flex-col sm:min-h-155 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
+    <Panel className="flex min-h-0 min-w-0 flex-col overflow-hidden sm:min-h-125 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
       <header className="border-b border-[#d8dde5] p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -92,7 +92,7 @@ export function DiningWorkspacePanel({
           </button>
         </div>
         <div
-          className={`mt-3 flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2 sm:flex-row sm:items-end lg:flex ${
+          className={`mt-3 flex-col gap-2 rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-2.5 sm:flex-row sm:items-end lg:flex ${
             isWorkspaceExpanded ? "flex" : "hidden"
           }`}
         >
@@ -121,33 +121,33 @@ export function DiningWorkspacePanel({
           </div>
         </div>
         <div
-          className={`mt-3 flex-wrap gap-2 lg:flex ${
+          className={`mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap lg:flex ${
             isWorkspaceExpanded ? "flex" : "hidden"
           }`}
         >
           <button
-            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[11px] font-black hover:bg-[#eef4fa] sm:flex-none sm:px-3 sm:text-xs"
             onClick={() => addTable("men")}
             type="button"
           >
             + Adult table
           </button>
           <button
-            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[11px] font-black hover:bg-[#eef4fa] sm:flex-none sm:px-3 sm:text-xs"
             onClick={() => addTable("kids")}
             type="button"
           >
             + Kids table
           </button>
           <button
-            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] sm:flex-none"
+            className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[11px] font-black hover:bg-[#eef4fa] sm:flex-none sm:px-3 sm:text-xs"
             onClick={() => addTable("head")}
             type="button"
           >
             + Head table
           </button>
           <button
-            className="h-9 flex-1 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40 sm:flex-none"
+            className="h-9 min-w-0 rounded-lg border border-[#efb5ad] bg-white px-2 text-[11px] font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-40 sm:flex-none sm:px-3 sm:text-xs"
             disabled={!selectedTableIds.length}
             onClick={removeSelectedTable}
             type="button"
@@ -157,11 +157,11 @@ export function DiningWorkspacePanel({
         </div>
       </header>
       <div
-        className={`min-h-0 flex-1 overflow-auto overscroll-contain p-2 lg:block ${
+        className={`min-h-0 flex-1 overflow-auto overscroll-contain p-2.5 sm:p-3 lg:block ${
           isWorkspaceExpanded ? "block" : "hidden"
         }`}
       >
-        <div className="relative min-h-105 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-4 sm:min-h-133.75 sm:p-5">
+        <div className="relative min-h-90 min-w-0 rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[21px_21px] p-3 sm:min-h-133.75 sm:p-5">
           {savedMessage ? (
             <div
               className="absolute left-1/2 top-3 z-10 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-[#9fd9bd] bg-[#ecfdf3] px-4 py-2 text-center text-xs font-black text-[#087047] shadow-lg"
@@ -238,10 +238,10 @@ export function DiningWorkspacePanel({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 justify-items-center gap-5 sm:grid-cols-4 lg:grid-cols-5">
+              <div className="grid grid-cols-3 justify-items-center gap-3 sm:grid-cols-4 sm:gap-5 lg:grid-cols-5">
                 {tables.map((table) => (
                   <button
-                    className={`flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm ${
+                    className={`flex h-15 w-15 flex-col items-center justify-center rounded-full border bg-white text-center shadow-sm sm:h-16 sm:w-16 ${
                       selectedTableIds.includes(table.id)
                         ? "border-[#1f4d73] ring-2 ring-[#8fbce3]"
                         : "border-[#526c86]"

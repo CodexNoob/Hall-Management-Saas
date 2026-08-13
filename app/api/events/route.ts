@@ -54,6 +54,38 @@ async function listDiningManagerNotes(
   );
 }
 
+type DiningHallMapPresetRow = {
+  eventId: string;
+  hallMapPresetId: string | null;
+  hallMapPresetName: string | null;
+  hallMapPresetObjects: unknown;
+};
+
+async function listDiningHallMapPresets(
+  organizationId: string,
+  eventIds: string[]
+) {
+  if (eventIds.length === 0) {
+    return new Map<string, DiningHallMapPresetRow>();
+  }
+
+  const rows = await prisma.$queryRaw<DiningHallMapPresetRow[]>`
+    SELECT
+      dp.event_id AS "eventId",
+      dp.hall_map_preset_id AS "hallMapPresetId",
+      hmp.name AS "hallMapPresetName",
+      hmp.objects AS "hallMapPresetObjects"
+    FROM dining_plans dp
+    LEFT JOIN hall_map_presets hmp
+      ON hmp.id = dp.hall_map_preset_id
+      AND hmp.organization_id = dp.organization_id
+    WHERE dp.organization_id = ${organizationId}::uuid
+      AND dp.event_id = ANY(${eventIds}::uuid[])
+  `;
+
+  return new Map(rows.map((row) => [row.eventId, row]));
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -100,16 +132,35 @@ export async function GET(request: Request) {
       })
     ]);
 
-    const diningManagerNotesByEventId = await listDiningManagerNotes(
-      actor.organizationId,
-      events.map((event) => event.id)
-    );
+    const eventIds = events.map((event) => event.id);
+    const [diningManagerNotesByEventId, diningHallMapPresetByEventId] =
+      await Promise.all([
+        listDiningManagerNotes(actor.organizationId, eventIds),
+        listDiningHallMapPresets(actor.organizationId, eventIds)
+      ]);
 
     return NextResponse.json({
-      events: events.map((event) => ({
-        ...event,
-        diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null
-      })),
+      events: events.map((event) => {
+        const diningHallMapPreset = diningHallMapPresetByEventId.get(event.id);
+
+        return {
+          ...event,
+          diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null,
+          diningHallMapPreset:
+            diningHallMapPreset?.hallMapPresetId &&
+            diningHallMapPreset.hallMapPresetName
+              ? {
+                  id: diningHallMapPreset.hallMapPresetId,
+                  name: diningHallMapPreset.hallMapPresetName,
+                  objects: Array.isArray(
+                    diningHallMapPreset.hallMapPresetObjects
+                  )
+                    ? diningHallMapPreset.hallMapPresetObjects
+                    : []
+                }
+              : null
+        };
+      }),
       halls,
       eventTypes,
       packages,

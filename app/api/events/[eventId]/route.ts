@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { assertHallAccess, requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -23,6 +23,7 @@ const updateEventSchema = z
       .optional(),
     eventStatus: z.enum(["Confirmed", "Hold"]).optional(),
     eventDate: z.coerce.date().optional(),
+    hallId: z.string().uuid().optional(),
     startsAt: z.coerce.date().nullable().optional(),
     couplesCount: z.number().int().min(0).optional(),
     kidsCount: z.number().int().min(0).optional(),
@@ -46,6 +47,25 @@ export async function PATCH(
     const { eventId } = await params;
     const id = z.string().uuid().parse(eventId);
     const input = updateEventSchema.parse(await request.json());
+    if (input.hallId) {
+      assertHallAccess(actor, input.hallId);
+      const hall = await prisma.hall.findFirst({
+        where: {
+          id: input.hallId,
+          organizationId: actor.organizationId,
+          isActive: true
+        },
+        select: { id: true }
+      });
+
+      if (!hall) {
+        return NextResponse.json(
+          { error: "Selected hall was not found." },
+          { status: 404 }
+        );
+      }
+    }
+
     const current = await prisma.event.findFirst({
       where: { id, organizationId: actor.organizationId, deleted: false },
       select: { workspaceData: true }

@@ -27,6 +27,8 @@ export function EventManagerPage() {
     { event: { id: string } }
   >("/api/events");
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [eventStatusFilter, setEventStatusFilter] = useState("All events");
+  const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
   const [isNewEventOpen, setIsNewEventOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
@@ -65,6 +67,7 @@ export function EventManagerPage() {
                 startsAt.getMinutes()
               ).padStart(2, "0")}`
             : "",
+          hallId: event.hall.id,
           room: event.hall.name,
           packageName: event.packageName ?? "Not assigned",
           guests: String(guestCount),
@@ -82,6 +85,7 @@ export function EventManagerPage() {
           notes: event.notes ? [event.notes] : [],
           internalNotes: event.notes ?? "",
           diningManagerNotes: event.diningManagerNotes,
+          diningHallMapPreset: event.diningHallMapPreset,
           phone: event.phone,
           email: event.email ?? "",
           workspaceData: event.workspaceData ?? {}
@@ -134,18 +138,21 @@ export function EventManagerPage() {
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
   const visibleEvents = allEvents.filter(
     (event) =>
-      !normalizedSearch ||
-      [
-        event.title,
-        event.room,
-        event.packageName,
-        event.status,
-        event.paymentStatus,
-        event.date
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch)
+      (!normalizedSearch ||
+        [
+          event.title,
+          event.room,
+          event.packageName,
+          event.status,
+          event.paymentStatus,
+          event.date
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch)) &&
+      (eventStatusFilter === "All events" ||
+        event.status === eventStatusFilter) &&
+      (roomFilter === "All rooms" || event.hallId === roomFilter)
   );
 
   const createEvent = async (values: NewEventFormValues) => {
@@ -264,6 +271,8 @@ export function EventManagerPage() {
                   className="hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] xl:inline-flex"
                   onClick={() => {
                     setPageSearchQuery("");
+                    setEventStatusFilter("All events");
+                    setRoomFilter("All rooms");
                     setSelectedEventId(allEvents[0]?.id ?? "");
                   }}
                   type="button"
@@ -291,8 +300,9 @@ export function EventManagerPage() {
                 <select
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]"
                   aria-label="Event filter"
-                  defaultValue="All events"
                   name="eventFilter"
+                  onChange={(event) => setEventStatusFilter(event.target.value)}
+                  value={eventStatusFilter}
                 >
                   <option>All events</option>
                   <option>Confirmed</option>
@@ -301,13 +311,16 @@ export function EventManagerPage() {
                 <select
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-2"
                   aria-label="Room filter"
-                  defaultValue="All rooms"
                   name="roomFilter"
+                  onChange={(event) => setRoomFilter(event.target.value)}
+                  value={roomFilter}
                 >
                   <option>All rooms</option>
-                  <option>Grand Hall</option>
-                  <option>Nachlas Yehuda A</option>
-                  <option>Terrace Room</option>
+                  {(eventsQuery.data?.halls ?? []).map((hall) => (
+                    <option key={hall.id} value={hall.id}>
+                      {hall.name}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -338,6 +351,7 @@ export function EventManagerPage() {
 
           <EventWorkspace
             event={selectedEvent}
+            halls={eventsQuery.data?.halls ?? []}
             onEventSaved={eventsQuery.refetch}
           />
         </div>

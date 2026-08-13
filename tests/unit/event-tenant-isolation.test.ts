@@ -107,12 +107,34 @@ describe("event tenant isolation", () => {
         client: null
       }
     ] as never);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([
-      {
-        eventId,
-        specialNotes: "VIP table beside stage."
-      }
-    ]);
+    vi.mocked(prisma.$queryRaw)
+      .mockResolvedValueOnce([
+        {
+          eventId,
+          specialNotes: "VIP table beside stage."
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          eventId,
+          hallMapPresetId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+          hallMapPresetName: "Wedding Layout",
+          hallMapPresetObjects: [
+            {
+              id: "table-1",
+              type: "round-table",
+              name: "VIP Table",
+              x: 80,
+              y: 90,
+              width: 80,
+              height: 80,
+              rotation: 0,
+              seats: 10,
+              seatingUse: "adult"
+            }
+          ]
+        }
+      ]);
 
     const response = await GET(new Request("http://localhost/api/events"));
     const body = await response.json();
@@ -121,5 +143,15 @@ describe("event tenant isolation", () => {
     expect(body.events[0].diningManagerNotes).toBe(
       "VIP table beside stage."
     );
+    expect(body.events[0].diningHallMapPreset).toMatchObject({
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      name: "Wedding Layout",
+      objects: [
+        expect.objectContaining({
+          id: "table-1",
+          name: "VIP Table"
+        })
+      ]
+    });
   });
 });

@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 try {
-  process.loadEnvFile();
+  process.loadEnvFile(".env.local");
 } catch {
   // .env is optional locally; CI supplies E2E_* vars directly.
 }

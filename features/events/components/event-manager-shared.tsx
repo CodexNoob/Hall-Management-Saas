@@ -39,6 +39,7 @@ export type EventFile = {
   dateInput: string;
   time: string;
   timeInput: string;
+  hallId: string;
   room: string;
   packageName: string;
   guests: string;
@@ -51,9 +52,19 @@ export type EventFile = {
   notes: string[];
   internalNotes: string;
   diningManagerNotes: string | null;
+  diningHallMapPreset: {
+    id: string;
+    name: string;
+    objects: unknown[];
+  } | null;
   phone: string;
   email: string;
   workspaceData: Record<string, unknown>;
+};
+
+export type EventHallOption = {
+  id: string;
+  name: string;
 };
 
 export type EventsResponse = {
@@ -80,12 +91,17 @@ export type EventsResponse = {
     kidsCount: number;
     notes: string | null;
     diningManagerNotes: string | null;
+    diningHallMapPreset: {
+      id: string;
+      name: string;
+      objects: unknown[];
+    } | null;
     phone: string;
     email: string | null;
     workspaceData: Record<string, unknown> | null;
     hall: { id: string; name: string };
   }>;
-  halls: Array<{ id: string; name: string }>;
+  halls: EventHallOption[];
   eventTypes: Array<{ id: string; name: string }>;
 };
 

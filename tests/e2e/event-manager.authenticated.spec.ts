@@ -25,6 +25,24 @@ const eventResponse = {
       kidsCount: 0,
       notes: "Original internal note.",
       diningManagerNotes: "VIP table beside stage.",
+      diningHallMapPreset: {
+        id: "22222222-2222-4222-8222-222222222222",
+        name: "Wedding Layout",
+        objects: [
+          {
+            id: "vip-table",
+            type: "round-table",
+            name: "VIP Table",
+            x: 80,
+            y: 90,
+            width: 80,
+            height: 80,
+            rotation: 0,
+            seats: 10,
+            seatingUse: "adult"
+          }
+        ]
+      },
       phone: "Not provided",
       email: null,
       workspaceData: null,
@@ -42,6 +60,33 @@ test.beforeEach(async () => {
     !process.env.E2E_READONLY_EMAIL || !process.env.E2E_READONLY_PASSWORD,
     "Read-only E2E credentials are not set."
   );
+});
+
+test("Hall map tab shows the Dining Manager saved preset layout", async ({
+  page
+}) => {
+  await page.route("**/api/events", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.fallback();
+      return;
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...eventResponse
+      })
+    });
+  });
+
+  await page.goto("/dashboard/events");
+  await page.getByRole("button", { name: "Hall map" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Wedding Layout" })
+  ).toBeVisible();
+  await expect(page.getByText("VIP Table")).toBeVisible();
+  await expect(page.getByText("Saved dining layout")).toBeVisible();
 });
 
 test("Event details show unsaved changes, discard, and save feedback", async ({
