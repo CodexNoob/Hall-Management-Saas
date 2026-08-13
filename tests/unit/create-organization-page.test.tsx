@@ -185,10 +185,28 @@ describe("CreateOrganizationPage", () => {
       );
     }
 
-    it("never reaches the server with letters in the phone number", async () => {
-      // The reported defect. The point of the assertion is the absent request:
-      // the form must refuse before the round trip, not rely on the 400.
-      submitWithPhone("abcdefghij");
+    it("does not let letters into the phone field in the first place", async () => {
+      // The reported defect, now handled a step earlier: rather than accepting
+      // letters and failing on submit, the field refuses them as they are
+      // typed and says why. Nothing letter-shaped can reach the server.
+      cachePendingOwner();
+      renderPage();
+      fillRequiredFields();
+
+      const phone = screen.getByLabelText("Phone number");
+      fireEvent.change(phone, { target: { value: "abcdefghij" } });
+
+      expect(phone).toHaveValue("");
+      // The notice lands on a later task so the live region is cleared first
+      // and the message is actually re-announced each time.
+      expect(
+        await screen.findByText(/can only contain digits/i)
+      ).toBeInTheDocument();
+    });
+
+    it("keeps a half-valid entry out of the request", async () => {
+      // Digits that are not a real number still have to be caught at submit.
+      submitWithPhone("212555");
 
       await waitFor(() =>
         expect(screen.getAllByRole("alert").length).toBeGreaterThan(0)

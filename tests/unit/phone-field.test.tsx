@@ -42,27 +42,115 @@ describe("PhoneField", () => {
 
   const input = () => screen.getByLabelText("Phone number");
 
-  it("keeps text it cannot format instead of silently eating it", () => {
-    // libphonenumber's AsYouType drops every character it does not recognise:
-    // "212abc555" comes back as "(212)". Formatting blindly would leave the
-    // user staring at a field that quietly discarded their typo - the exact
-    // failure that type="number" inputs had.
+  it("refuses to accept letters at all, and says that it did", async () => {
+    // Filtering is only acceptable because it is announced. Dropping the
+    // characters in silence is the type="number" failure all over again: the
+    // field looks broken and a screen reader is told nothing.
     render(<Harness onValidChange={onValidChange} />);
 
     fireEvent.change(input(), { target: { value: "212abc555" } });
 
-    expect(input()).toHaveValue("212abc555");
-    expect(onValidChange).not.toHaveBeenCalled();
+    expect(input()).toHaveValue("(212) 555");
+    expect(await screen.findByText(/can only contain digits/i)).toBeInTheDocument();
   });
 
-  it("reports letters rather than treating the field as empty", () => {
+  it("keeps the live region mounted so the first message is announced", async () => {
+    // Assistive tech only reports changes to regions it already knows about. A
+    // <p aria-live> that appears with its text already in place is not spoken.
+    const { container } = render(<Harness />);
+
+    const region = container.querySelector('[aria-live="polite"]');
+    expect(region).toBeInTheDocument();
+    expect(region).toBeEmptyDOMElement();
+
+    fireEvent.change(input(), { target: { value: "21a" } });
+
+    await screen.findByText(/can only contain digits/i);
+    expect(container.querySelector('[aria-live="polite"]')).toBe(region);
+    expect(input().getAttribute("aria-describedby")).toContain(region!.id);
+  });
+
+  it("announces again on a second rejected keystroke", async () => {
+    // A live region is silent when re-given the same string, so the text has
+    // to be cleared between messages or only the first letter is ever spoken.
+    const { container } = render(<Harness />);
+    const region = () => container.querySelector('[aria-live="polite"]');
+
+    fireEvent.change(input(), { target: { value: "21a" } });
+    await screen.findByText(/can only contain digits/i);
+
+    fireEvent.change(input(), { target: { value: "21b" } });
+    // Cleared synchronously, which is what makes the re-announcement happen.
+    expect(region()).toBeEmptyDOMElement();
+
+    await screen.findByText(/can only contain digits/i);
+  });
+
+  it("leaves an all-letters entry empty rather than part-filled", async () => {
     render(<Harness onValidChange={onValidChange} />);
 
     fireEvent.change(input(), { target: { value: "abcdefghij" } });
-    fireEvent.blur(input());
 
-    expect(input()).toHaveValue("abcdefghij");
-    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(input()).toHaveValue("");
+    expect(await screen.findByText(/can only contain digits/i)).toBeInTheDocument();
+  });
+
+  it("keeps the number out of a pasted label instead of rejecting the paste", () => {
+    // People paste "Tel: +63 917 123 4567" out of an email signature. Refusing
+    // the whole paste would be worse than useless.
+    render(<Harness onValidChange={onValidChange} />);
+
+    fireEvent.change(input(), {
+      target: { value: "Tel: +63 917 123 4567" }
+    });
+
+    expect(onValidChange).toHaveBeenLastCalledWith("+639171234567");
+  });
+
+  it("never loses digits to the formatter", () => {
+    // AsYouType returns "" for input it does not expect - a single leading
+    // space ahead of a "+" is enough. The field must keep the number even when
+    // it cannot pretty-print it.
+    render(<Harness onValidChange={onValidChange} />);
+
+    fireEvent.change(input(), { target: { value: " +63 917 123 4567" } });
+
+    expect(input()).not.toHaveValue("");
+    expect(onValidChange).toHaveBeenLastCalledWith("+639171234567");
+  });
+
+  it("clears the notice once the next keystroke is clean", async () => {
+    render(<Harness />);
+
+    fireEvent.change(input(), { target: { value: "21a" } });
+    await screen.findByText(/can only contain digits/i);
+
+    fireEvent.change(input(), { target: { value: "212" } });
+
+    expect(screen.queryByText(/can only contain digits/i)).toBeNull();
+  });
+
+  it("accepts digits that are not ASCII", () => {
+    // A CJK keyboard emits full-width digits and an Arabic one emits ٠-٩.
+    // libphonenumber normalizes both, so filtering them out would blank the
+    // field for someone who typed nothing but digits.
+    render(<Harness onValidChange={onValidChange} />);
+
+    fireEvent.change(input(), { target: { value: "２１２５５５０１４２" } });
+
+    expect(input()).not.toHaveValue("");
+    expect(onValidChange).toHaveBeenLastCalledWith("+12125550142");
+    expect(screen.queryByText(/can only contain digits/i)).toBeNull();
+  });
+
+  it("accepts Arabic-Indic digits under the country that owns them", () => {
+    render(
+      <Harness initialCountry={"PH" as CountryCode} onValidChange={onValidChange} />
+    );
+
+    fireEvent.change(input(), { target: { value: "٠٩١٧١٢٣٤٥٦٧" } });
+
+    expect(onValidChange).toHaveBeenLastCalledWith("+639171234567");
   });
 
   it("formats as you type once the text is only phone characters", () => {
