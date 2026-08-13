@@ -7,7 +7,6 @@ import {
 } from "@/features/kitchen/forms/add-kitchen-event-dialog";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import {
   addDays,
@@ -81,7 +80,6 @@ export function KitchenDashboardPage() {
   const [selectedKitchenEvent, setSelectedKitchenEvent] =
     useState<KitchenEvent | null>(null);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const days = useMemo<KitchenDay[]>(() => {
     const normalizedSearch = pageSearchQuery.trim().toLowerCase();
     const eventsByDate = new Map<string, KitchenEvent[]>();
@@ -216,7 +214,17 @@ export function KitchenDashboardPage() {
         title="Kitchen Dashboard"
         subtitle="Review kitchen events, production schedules, and assigned work."
         onTodayNotes={() => setIsTodayNotesOpen(true)}
-        onNewBooking={() => setIsNewBookingOpen(true)}
+        actionsSlot={
+          <button
+            aria-label="Open today notes"
+            className="dashboard-topbar-icon-action flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:flex-none xl:rounded-xl xl:px-4 2xl:px-5"
+            onClick={() => setIsTodayNotesOpen(true)}
+            title="Today notes"
+            type="button"
+          >
+            Today notes
+          </button>
+        }
       />
 
       <div className="shrink-0 overflow-x-hidden">
@@ -287,12 +295,6 @@ export function KitchenDashboardPage() {
       <TodayNotesDrawer
         onClose={() => setIsTodayNotesOpen(false)}
         open={isTodayNotesOpen}
-      />
-
-      <NewBookingDialog
-        onClose={() => setIsNewBookingOpen(false)}
-        onSubmit={() => setIsNewBookingOpen(false)}
-        open={isNewBookingOpen}
       />
 
       <KitchenEventDetailsDialog

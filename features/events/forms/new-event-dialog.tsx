@@ -41,7 +41,7 @@ const initialValues: NewEventFormValues = {
   guests: "180",
   couples: "80",
   children: "20",
-  initialNotes: "Booking created from event manager."
+  initialNotes: "Booking created from Event Manager."
 };
 
 const controlClass =
@@ -172,11 +172,11 @@ export function NewEventDialog({
               +
             </span>
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              New event
+              New booking
             </h2>
           </div>
           <button
-            aria-label="Close new event"
+            aria-label="Close new booking"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -443,7 +443,7 @@ export function NewEventDialog({
               type="submit"
             >
               <SaveIcon />
-              Create event
+              Create booking
             </button>
           </footer>
         </form>

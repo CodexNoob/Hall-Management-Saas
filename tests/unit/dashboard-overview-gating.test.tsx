@@ -64,7 +64,6 @@ function renderOverview() {
       onCustomEndDateChange={vi.fn()}
       onCustomStartDateChange={vi.fn()}
       onFinanceTimeFilterChange={vi.fn()}
-      onNewBooking={vi.fn()}
       onSchedulePageChange={vi.fn()}
       onTimeFilterChange={vi.fn()}
     />
@@ -78,7 +77,7 @@ function visibleSections() {
 }
 
 function visibleQuickActions() {
-  return ["Book event", "Kitchen board", "Open billing", "Dining sheets"].filter(
+  return ["Kitchen board", "Open billing", "Dining sheets"].filter(
     (name) => screen.queryByRole("button", { name }) !== null
   );
 }
@@ -108,7 +107,7 @@ const cases: Array<{
       "attentionNeeded",
       "quickActions"
     ],
-    actions: ["Book event", "Kitchen board", "Open billing", "Dining sheets"],
+    actions: ["Kitchen board", "Open billing", "Dining sheets"],
     tiles: ["Kitchen", "Calendar", "Events", "Billing"]
   },
   {
@@ -181,7 +180,7 @@ describe("DashboardOverview role gating", () => {
       Object.keys(sectionHeadings).sort()
     );
     expect(visibleQuickActions().sort()).toEqual(
-      ["Book event", "Dining sheets", "Kitchen board", "Open billing"].sort()
+      ["Dining sheets", "Kitchen board", "Open billing"].sort()
     );
     expect(visibleModuleTiles().sort()).toEqual(
       Object.keys(tileDescriptions).sort()

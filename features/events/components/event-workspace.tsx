@@ -42,6 +42,20 @@ export function EventWorkspace({
   const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
+  const lifecycleLabel =
+    event.bookingStatus === "COMPLETED"
+      ? "Completed"
+      : ["CANCELLED", "EXPIRED"].includes(event.bookingStatus)
+        ? "Cancelled"
+        : event.status;
+  const lifecycleTone =
+    event.bookingStatus === "COMPLETED"
+      ? "green"
+      : ["CANCELLED", "EXPIRED"].includes(event.bookingStatus)
+        ? "red"
+        : event.status === "Confirmed"
+          ? "green"
+          : "gold";
 
   return (
     <section className="flex h-auto w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
@@ -77,7 +91,7 @@ export function EventWorkspace({
               </button>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <Badge tone="green">Confirmed</Badge>
+              <Badge tone={lifecycleTone}>{lifecycleLabel}</Badge>
               <Badge tone="gold">Open balance {event.balance}</Badge>
               <Badge tone="gold">Today notes unread</Badge>
               <Badge tone="gold">Needs review</Badge>

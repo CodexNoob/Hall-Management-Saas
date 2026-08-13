@@ -23,6 +23,8 @@ type DashboardTopbarProps = {
   onNewBooking?: () => void;
   actionsSlot?: ReactNode;
   compactMobileActions?: boolean;
+  showDefaultActions?: boolean;
+  showNewBookingAction?: boolean;
   rightSlot?: ReactNode;
   showSearch?: boolean;
 };
@@ -165,6 +167,8 @@ export function DashboardTopbar({
   onNewBooking,
   actionsSlot,
   compactMobileActions = false,
+  showDefaultActions = true,
+  showNewBookingAction = true,
   rightSlot,
   showSearch = true
 }: DashboardTopbarProps) {
@@ -384,7 +388,7 @@ export function DashboardTopbar({
                   </button>
                 ) : null}
 
-                {actionsSlot ?? (
+                {actionsSlot ?? (showDefaultActions ? (
                   <>
                     <button
                       aria-label="Open today notes"
@@ -403,22 +407,24 @@ export function DashboardTopbar({
                       </span>
                     </button>
 
-                    <button
-                      aria-label="Create new booking"
-                      type="button"
-                      disabled={!canCreateBooking}
-                      onClick={onNewBooking}
-                      title="New booking"
-                      className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:-translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
-                    >
-                      <TopbarIcon
-                        className="h-6.5 w-6.5 xl:h-4 xl:w-4"
-                        name="plus"
-                      />
-                      <span className="hidden xl:inline">New booking</span>
-                    </button>
+                    {showNewBookingAction ? (
+                      <button
+                        aria-label="Create new booking"
+                        type="button"
+                        disabled={!canCreateBooking}
+                        onClick={onNewBooking}
+                        title="New booking"
+                        className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:-translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
+                      >
+                        <TopbarIcon
+                          className="h-6.5 w-6.5 xl:h-4 xl:w-4"
+                          name="plus"
+                        />
+                        <span className="hidden xl:inline">New booking</span>
+                      </button>
+                    ) : null}
                   </>
-                )}
+                ) : null)}
               </div>
 
               {rightSlot}

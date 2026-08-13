@@ -86,6 +86,61 @@ async function listDiningHallMapPresets(
   return new Map(rows.map((row) => [row.eventId, row]));
 }
 
+async function listEventActivityLogs(organizationId: string, eventIds: string[]) {
+  if (eventIds.length === 0) {
+    return new Map<string, Array<{
+      id: string;
+      actionType: string;
+      message: string;
+      userName: string | null;
+      createdAt: Date;
+    }>>();
+  }
+
+  const activityLogs = await prisma.activityLog.findMany({
+    where: {
+      organizationId,
+      eventId: { in: eventIds }
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      eventId: true,
+      actionType: true,
+      message: true,
+      userName: true,
+      createdAt: true
+    },
+    take: eventIds.length * 8
+  });
+
+  const logsByEventId = new Map<string, Array<{
+    id: string;
+    actionType: string;
+    message: string;
+    userName: string | null;
+    createdAt: Date;
+  }>>();
+
+  for (const log of activityLogs) {
+    if (!log.eventId) continue;
+
+    const eventLogs = logsByEventId.get(log.eventId) ?? [];
+    if (eventLogs.length >= 8) continue;
+
+    eventLogs.push({
+      id: log.id,
+      actionType: log.actionType,
+      message: log.message,
+      userName: log.userName,
+      createdAt: log.createdAt
+    });
+    logsByEventId.set(log.eventId, eventLogs);
+  }
+
+  return logsByEventId;
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -133,10 +188,14 @@ export async function GET(request: Request) {
     ]);
 
     const eventIds = events.map((event) => event.id);
-    const [diningManagerNotesByEventId, diningHallMapPresetByEventId] =
-      await Promise.all([
+    const [
+      diningManagerNotesByEventId,
+      diningHallMapPresetByEventId,
+      activityLogsByEventId
+    ] = await Promise.all([
         listDiningManagerNotes(actor.organizationId, eventIds),
-        listDiningHallMapPresets(actor.organizationId, eventIds)
+        listDiningHallMapPresets(actor.organizationId, eventIds),
+        listEventActivityLogs(actor.organizationId, eventIds)
       ]);
 
     return NextResponse.json({
@@ -146,6 +205,7 @@ export async function GET(request: Request) {
         return {
           ...event,
           diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null,
+          activityLogs: activityLogsByEventId.get(event.id) ?? [],
           diningHallMapPreset:
             diningHallMapPreset?.hallMapPresetId &&
             diningHallMapPreset.hallMapPresetName

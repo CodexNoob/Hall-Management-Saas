@@ -13,7 +13,6 @@ function renderPanels() {
   return render(
     <DashboardSidePanels
       isLoading={false}
-      onNewBooking={vi.fn()}
       rangeLabel="This week"
       timelineGroups={[]}
       totalEvents={0}
@@ -22,8 +21,7 @@ function renderPanels() {
 }
 
 // Route shortcuts follow canAccessRoute, the same any-of check the sidebar uses,
-// so the panel offers a destination exactly when the sidebar would. "Book event"
-// opens a dialog instead, so it keeps canCreateBooking.
+// so the panel offers a destination exactly when the sidebar would.
 describe("DashboardSidePanels quick actions", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -33,17 +31,12 @@ describe("DashboardSidePanels quick actions", () => {
     cacheSyncedUserForRole("manager");
     renderPanels();
 
-    for (const label of [
-      "Book event",
-      "Kitchen board",
-      "Open billing",
-      "Dining sheets"
-    ]) {
+    for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("gives a Viewer the pages it can open, but not Book event or billing", () => {
+  it("gives a Viewer the pages it can open, but not billing", () => {
     cacheSyncedUserForRole("viewer");
     renderPanels();
 
@@ -63,7 +56,7 @@ describe("DashboardSidePanels quick actions", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides Book event without canCreateBooking and shows it with", () => {
+  it("does not show Book event even when canCreateBooking is granted", () => {
     cacheSyncedUser("viewer", { canCreateBooking: false });
     const first = renderPanels();
     expect(
@@ -75,8 +68,8 @@ describe("DashboardSidePanels quick actions", () => {
     cacheSyncedUser("viewer", { canCreateBooking: true });
     renderPanels();
     expect(
-      screen.getByRole("button", { name: "Book event" })
-    ).toBeInTheDocument();
+      screen.queryByRole("button", { name: "Book event" })
+    ).not.toBeInTheDocument();
   });
 
   it("hides the kitchen shortcut for Billing Staff but keeps the reachable ones", () => {

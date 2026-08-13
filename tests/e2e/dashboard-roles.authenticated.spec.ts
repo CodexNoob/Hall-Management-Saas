@@ -36,7 +36,6 @@ const sectionHeadings = [
 ] as const;
 
 const quickActionLabels = [
-  "Book event",
   "Kitchen board",
   "Open billing",
   "Dining sheets"

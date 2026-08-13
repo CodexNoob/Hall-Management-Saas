@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   prisma: {
     event: {
-      findFirst: vi.fn()
+      findFirst: vi.fn(),
+      update: vi.fn()
     },
-    $queryRaw: vi.fn()
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn()
   },
   requireAnyPermission: vi.fn()
 }));
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/auth/server-auth", () => ({
+  AuthorizationError: class AuthorizationError extends Error {},
   requireAnyPermission: mocks.requireAnyPermission
 }));
 
@@ -33,6 +36,13 @@ describe("dining route", () => {
       organizationId
     });
     mocks.prisma.event.findFirst.mockResolvedValue({ id: eventId, hallId });
+    mocks.prisma.event.update.mockResolvedValue({ id: eventId });
+    mocks.prisma.$transaction.mockImplementation((callback) =>
+      callback({
+        event: { update: mocks.prisma.event.update },
+        $queryRaw: mocks.prisma.$queryRaw
+      })
+    );
   });
 
   it("generates a dining plan id when saving a new plan", async () => {
@@ -68,6 +78,8 @@ describe("dining route", () => {
         childrenCount: 2,
         menWaiters: 1,
         womenWaiters: 1,
+        tablecloth: "Ivory",
+        washingTime: "22:30",
         specialNotes: "VIP table beside stage.",
         tables: []
       })
@@ -78,6 +90,7 @@ describe("dining route", () => {
 
     expect(response.status).toBe(200);
     expect(body.plan.id).toBe(planId);
+    expect(mocks.prisma.$transaction).toHaveBeenCalledOnce();
     expect(mocks.prisma.$queryRaw).toHaveBeenNthCalledWith(
       2,
       expect.arrayContaining([
@@ -94,10 +107,20 @@ describe("dining route", () => {
       2,
       1,
       1,
-      null,
-      null,
+      "Ivory",
+      "22:30",
       "VIP table beside stage.",
       "[]"
     );
+    expect(mocks.prisma.event.update).toHaveBeenCalledWith({
+      where: { id: eventId, organizationId },
+      data: {
+        tableclothName: "Ivory",
+        waitersCount: 2,
+        washingTime: "22:30",
+        updatedById: "user-1",
+        version: { increment: 1 }
+      }
+    });
   });
 });

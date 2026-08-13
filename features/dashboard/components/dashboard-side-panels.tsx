@@ -12,7 +12,6 @@ import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-per
 
 type DashboardSidePanelsProps = {
   isLoading: boolean;
-  onNewBooking: () => void;
   rangeLabel: string;
   timelineGroups: TimelineGroup[];
   totalEvents: number;
@@ -26,12 +25,9 @@ type DashboardSidePanelsProps = {
 // (features/bookings/forms/new-booking-dialog.tsx) - the difference is that the
 // topbar's copy stays visible-but-disabled, because that chrome is shared by
 // every dashboard route while this panel is home-page content.
-type QuickAction =
-  | { label: string; kind: "booking" }
-  | { label: string; kind: "route"; route: string };
+type QuickAction = { label: string; kind: "route"; route: string };
 
 const quickActions: QuickAction[] = [
-  { label: "Book event", kind: "booking" },
   { label: "Kitchen board", kind: "route", route: "/dashboard/kitchen" },
   { label: "Open billing", kind: "route", route: "/dashboard/billing" },
   { label: "Dining sheets", kind: "route", route: "/dashboard/dining-manager" }
@@ -39,7 +35,6 @@ const quickActions: QuickAction[] = [
 
 export function DashboardSidePanels({
   isLoading,
-  onNewBooking,
   rangeLabel,
   timelineGroups,
   totalEvents
@@ -53,9 +48,7 @@ export function DashboardSidePanels({
   // follows payment visibility rather than general event visibility.
   const showAttentionNeeded = hasPermission("canViewPaymentInfo");
   const visibleActions = quickActions.filter((action) =>
-    action.kind === "booking"
-      ? hasPermission("canCreateBooking")
-      : canAccessRoute(action.route)
+    canAccessRoute(action.route)
   );
 
   // Collapses the grid's side column instead of leaving an empty 320px track.
@@ -74,7 +67,7 @@ export function DashboardSidePanels({
         />
       ) : null}
       {showAttentionNeeded ? <AttentionNeededPanel /> : null}
-      <QuickActionsPanel actions={visibleActions} onNewBooking={onNewBooking} />
+      <QuickActionsPanel actions={visibleActions} />
     </div>
   );
 }
@@ -84,7 +77,7 @@ function EventsTimelinePanel({
   rangeLabel,
   timelineGroups,
   totalEvents
-}: Omit<DashboardSidePanelsProps, "onNewBooking">) {
+}: DashboardSidePanelsProps) {
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Navigation affordances use the any-of route check, so the page never hides
@@ -215,11 +208,9 @@ function AttentionNeededPanel() {
 }
 
 function QuickActionsPanel({
-  actions,
-  onNewBooking
+  actions
 }: {
   actions: QuickAction[];
-  onNewBooking: () => void;
 }) {
   const router = useRouter();
 
@@ -238,11 +229,6 @@ function QuickActionsPanel({
             key={item.label}
             type="button"
             onClick={() => {
-              if (item.kind === "booking") {
-                onNewBooking();
-                return;
-              }
-
               router.push(item.route as Parameters<typeof router.push>[0]);
             }}
           >

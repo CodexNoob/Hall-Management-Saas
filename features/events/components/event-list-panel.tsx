@@ -11,7 +11,20 @@ export function EventListCard({
   selected: boolean;
   onClick: () => void;
 }) {
-  const statusTone = event.status === "Confirmed" ? "green" : "gold";
+  const lifecycleLabel =
+    event.bookingStatus === "COMPLETED"
+      ? "Completed"
+      : ["CANCELLED", "EXPIRED"].includes(event.bookingStatus)
+        ? "Cancelled"
+        : event.status;
+  const statusTone =
+    event.bookingStatus === "COMPLETED"
+      ? "green"
+      : ["CANCELLED", "EXPIRED"].includes(event.bookingStatus)
+        ? "red"
+        : event.status === "Confirmed"
+          ? "green"
+          : "gold";
 
   return (
     <button
@@ -32,7 +45,7 @@ export function EventListCard({
             <h3 className="truncate text-sm font-black text-[#17202a]">
               {event.title}
             </h3>
-            <Badge tone={statusTone}>{event.status}</Badge>
+            <Badge tone={statusTone}>{lifecycleLabel}</Badge>
           </div>
           <div className="mt-1 flex items-start justify-between gap-2 text-[11px] leading-5 text-[#6a7483]">
             <p className="min-w-0">
@@ -46,18 +59,12 @@ export function EventListCard({
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {event.notes.map((note) => (
-              <Badge
+              <span
                 key={note}
-                tone={
-                  note.includes("Not")
-                    ? "red"
-                    : note.includes("Needs")
-                      ? "gold"
-                      : "green"
-                }
+                className="max-w-full rounded-lg border border-[#c8d7df] bg-[#f7fbfb] px-2 py-1 text-[11px] font-bold leading-4 text-[#146c43]"
               >
                 {note}
-              </Badge>
+              </span>
             ))}
           </div>
         </div>
