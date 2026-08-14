@@ -5,11 +5,24 @@ repository. It is not versioned, not covered by tests, and **not revertible with
 `git revert`** — if it is wrong, the only record of what it used to be is this
 file. Keep it current.
 
-Project ref: `nychjjjixbaniwftblyx` · GoTrue v2.193.0 (supports `token_hash`; no
-upgrade required).
+Project ref: **`lrxppdlbhymbsgehspwx`** · GoTrue v2.195.0 (supports
+`token_hash`; no upgrade required).
 
-There is exactly **one** Supabase project, shared by local development, Vercel
-previews and production.
+Verify the ref in your dashboard URL before editing anything. An earlier
+revision of this file named `nychjjjixbaniwftblyx`, which is a **different**
+project - it was the ref cached in `supabase/.temp/` by an old `supabase link`,
+not the one the application authenticates against. The runtime project is the
+one in `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, and `supabase/.temp/` has
+since been deleted so nothing points at the stale one any more.
+
+Verify the live values rather than trusting this file:
+
+```bash
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/health" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+```
+
+That one project is shared by local development, Vercel previews and
+production.
 
 ---
 
