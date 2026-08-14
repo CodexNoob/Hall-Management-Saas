@@ -41,7 +41,9 @@ export function VerifyEmailCard() {
         type: "signup",
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/new")}`
+          // Must match the sign-up call in free-trial-card.tsx, query string
+          // included (there is none - see the comment there).
+          emailRedirectTo: `${window.location.origin}/auth/confirm`
         }
       });
 

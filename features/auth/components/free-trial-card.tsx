@@ -159,9 +159,11 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
         email,
         password: form.password,
         options: {
-          // The organization is named on /dashboard/new, so send the confirmed
-          // owner straight there instead of the dashboard.
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/new")}`,
+          // No query string, deliberately. The email template composes the link
+          // as `{{ .RedirectTo }}?token_hash=...&type=signup`, so anything with
+          // a `?` of its own would produce a URL with two of them. /auth/confirm
+          // sends a confirmed owner to /dashboard/new on `type=signup` alone.
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
           data: {
             // The only server-side signal that authorizes POST
             // /api/auth/sync-user to provision an organization. Everyone else
