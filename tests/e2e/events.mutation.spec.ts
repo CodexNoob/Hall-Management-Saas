@@ -15,76 +15,61 @@ type OrganizationFixture = {
  * select can never be satisfied and the browser blocks the submit silently.
  */
 async function prepareOrganization(page: Page): Promise<OrganizationFixture> {
-  return page.evaluate(async (hallName) => {
-    const authStorageKey = Object.keys(window.localStorage).find(
-      (key) => key.startsWith("sb-") && key.endsWith("-auth-token")
+  // page.request shares the browser context's cookie jar, which is where the
+  // session lives now.
+  //
+  // This used to run inside page.evaluate, digging an access token out of an
+  // `sb-*-auth-token` localStorage entry and setting an Authorization header by
+  // hand. @supabase/ssr writes cookies and never touches localStorage, so that
+  // key no longer exists and the helper threw "No Supabase access token in
+  // localStorage" before this spec reached its first assertion.
+  const readEvents = async () => {
+    const response = await page.request.get("/api/events");
+
+    if (!response.ok()) {
+      throw new Error(
+        `GET /api/events failed with ${response.status()}: ${await response.text()}`
+      );
+    }
+
+    return response.json() as Promise<{
+      events: Array<{ eventDate: string; bookingStatus: string }>;
+      halls: Array<{ name: string }>;
+    }>;
+  };
+
+  let data = await readEvents();
+
+  if (data.halls.length === 0) {
+    const created = await page.request.post("/api/halls", {
+      data: { name: E2E_HALL_NAME, capacity: 300 }
+    });
+
+    // 409 means a hall with this name already exists but is inactive or not
+    // bookable, which the refetch below surfaces as a clearer failure.
+    if (!created.ok() && created.status() !== 409) {
+      throw new Error(
+        `POST /api/halls failed with ${created.status()}: ${await created.text()}`
+      );
+    }
+
+    data = await readEvents();
+  }
+
+  if (data.halls.length === 0) {
+    throw new Error(
+      "The E2E organization has no active, bookable hall and one could not be created."
     );
-    const accessToken = authStorageKey
-      ? (JSON.parse(window.localStorage.getItem(authStorageKey) ?? "{}")
-          .access_token as string | undefined)
-      : undefined;
+  }
 
-    if (!accessToken) {
-      throw new Error(
-        "No Supabase access token in localStorage - the auth setup project did not persist a session."
-      );
-    }
+  const activeStatuses = new Set(["CONFIRMED", "TENTATIVE_HOLD"]);
 
-    const headers = {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
-    };
-
-    const readEvents = async () => {
-      const response = await fetch("/api/events", { headers });
-
-      if (!response.ok) {
-        throw new Error(
-          `GET /api/events failed with ${response.status}: ${await response.text()}`
-        );
-      }
-
-      return response.json() as Promise<{
-        events: Array<{ eventDate: string; bookingStatus: string }>;
-        halls: Array<{ name: string }>;
-      }>;
-    };
-
-    let data = await readEvents();
-
-    if (data.halls.length === 0) {
-      const created = await fetch("/api/halls", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ name: hallName, capacity: 300 })
-      });
-
-      // 409 means a hall with this name already exists but is inactive or not
-      // bookable, which the refetch below surfaces as a clearer failure.
-      if (!created.ok && created.status !== 409) {
-        throw new Error(
-          `POST /api/halls failed with ${created.status}: ${await created.text()}`
-        );
-      }
-
-      data = await readEvents();
-    }
-
-    if (data.halls.length === 0) {
-      throw new Error(
-        "The E2E organization has no active, bookable hall and one could not be created."
-      );
-    }
-
-    const activeStatuses = new Set(["CONFIRMED", "TENTATIVE_HOLD"]);
-
-    return {
-      hallNames: data.halls.map((hall) => hall.name),
-      bookedDates: data.events
-        .filter((event) => activeStatuses.has(event.bookingStatus))
-        .map((event) => String(event.eventDate).slice(0, 10))
-    };
-  }, E2E_HALL_NAME);
+  return {
+    hallNames: data.halls.map((hall) => hall.name),
+    bookedDates: data.events
+      .filter((event) => activeStatuses.has(event.bookingStatus))
+      .map((event) => String(event.eventDate).slice(0, 10))
+  };
 }
 
 test.beforeEach(async () => {

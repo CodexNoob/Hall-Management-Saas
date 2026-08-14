@@ -55,6 +55,20 @@ test("login rejects a password-only submission", async ({ page }) => {
   await expect(page).toHaveURL(/\/login/);
 });
 
+/**
+ * SILENT-PASS TRAP. The two `tokenRequests` assertions below count requests
+ * intercepted by page.route, which sees only what the BROWSER sends. Sign-in
+ * runs client-side today, so they are real.
+ *
+ * Move sign-in to a Server Action or a route handler and the GoTrue call leaves
+ * from the server, page.route never sees it, and `tokenRequests` stays 0
+ * whether or not the validation still works - the test passes by measuring the
+ * wrong process. The cookie/proxy refactor deliberately kept sign-in in the
+ * browser; if that changes, replace these with a server-side assertion rather
+ * than trusting the green.
+ *
+ * Same applies to `**\/auth/v1/signup*` in sign-up.spec.ts.
+ */
 test("a malformed login address never reaches Supabase", async ({ page }) => {
   let tokenRequests = 0;
   await page.route("**/auth/v1/token*", async (route) => {

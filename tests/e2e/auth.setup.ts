@@ -28,7 +28,31 @@ async function authenticate(
     .getByRole("button", { name: "Login", exact: true })
     .click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
-  await page.context().storageState({ path: stateFile });
+
+  const state = await page.context().storageState({ path: stateFile });
+  const authCookies = state.cookies.filter((cookie) =>
+    // Chunked when the JWT is large: sb-<ref>-auth-token.0, .1, ...
+    /^sb-.+-auth-token(\.\d+)?$/.test(cookie.name)
+  );
+
+  // Landing on /dashboard is not proof the session persisted. If the auth
+  // cookie is written with Secure, the http baseURL drops it, storageState
+  // comes out empty, and the failure surfaces later as seven authenticated
+  // specs bouncing to the marketing page with no hint about the cause.
+  expect(
+    authCookies,
+    `signed in as ${email} but the context holds no Supabase auth cookie - check Secure/SameSite against the http baseURL`
+  ).not.toHaveLength(0);
+
+  // "Remember me" is ticked above, so every one of them must be persistent.
+  // A session cookie here (expires === -1) means the remember-me preference
+  // never reached the cookie writer.
+  for (const cookie of authCookies) {
+    expect(
+      cookie.expires,
+      `${cookie.name} is a session cookie despite "Remember me" being checked`
+    ).toBeGreaterThan(0);
+  }
 }
 
 setup.beforeAll(async () => {
