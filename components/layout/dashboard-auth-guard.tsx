@@ -8,10 +8,7 @@ import {
   syncSignedInUser,
   type SyncSignedInUserResponse
 } from "@/lib/auth/client";
-import {
-  createSupabaseBrowserClient,
-  isRememberedAuthSessionExpired
-} from "@/lib/supabase/browser";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getDashboardLoginPath } from "@/lib/auth/redirect";
 
 export function DashboardAuthGuard() {
@@ -23,7 +20,6 @@ export function DashboardAuthGuard() {
 
   useEffect(() => {
     let isMounted = true;
-    let expirationCheck: number | null = null;
 
     const returnToLogin = () => {
       clearCachedSyncedUser();
@@ -40,12 +36,12 @@ export function DashboardAuthGuard() {
           setStatus("Checking your session...");
         }
 
+        // The 30-day "Remember me" ceiling used to be enforced here and by a
+        // 60-second interval below. Both are gone: proxy.ts checks the window
+        // on every navigation, before this component ever mounts, and the auth
+        // cookie's own Max-Age is set to the remaining window so the browser
+        // drops it at the deadline regardless.
         const supabase = createSupabaseBrowserClient();
-        if (isRememberedAuthSessionExpired()) {
-          await supabase.auth.signOut({ scope: "local" });
-          returnToLogin();
-          return;
-        }
         const { data, error } = await supabase.auth.getSession();
 
         if (error || !data.session?.access_token) {
@@ -62,11 +58,6 @@ export function DashboardAuthGuard() {
         if (isMounted) {
           setSyncData(synced);
         }
-        expirationCheck = window.setInterval(async () => {
-          if (!isRememberedAuthSessionExpired()) return;
-          await supabase.auth.signOut({ scope: "local" });
-          if (isMounted) returnToLogin();
-        }, 60_000);
       } catch {
         returnToLogin();
       }
@@ -76,7 +67,6 @@ export function DashboardAuthGuard() {
 
     return () => {
       isMounted = false;
-      if (expirationCheck) window.clearInterval(expirationCheck);
     };
   }, [router]);
 
