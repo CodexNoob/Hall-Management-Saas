@@ -67,10 +67,10 @@ function signUpFailure(error: Record<string, unknown>) {
 describe("FreeTrialCard failure paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Sign-up talks to Supabase and nothing else. The stub stays so that a
+    // reintroduced pre-flight request shows up here rather than silently
+    // hitting the network - see the no-HTTP assertion in the success path.
     vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ allowed: true }), { status: 200 })
-    );
     signUp.mockResolvedValue({
       data: { user: { id: "user-1" }, session: null },
       error: null
@@ -85,18 +85,17 @@ describe("FreeTrialCard failure paths", () => {
 
     await expectReportedTwice("Please enter your email address.");
     expect(screen.getByText("Sign-up failed")).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
     expect(signUp).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("blocks a malformed address before the access gate", async () => {
+  it("blocks a malformed address before it reaches Supabase", async () => {
     renderSignUp();
     fill("not-an-email", "Testing12345");
     submitForm();
 
     await expectReportedTwice(AUTH_ERROR_MESSAGES.invalidEmail);
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("rejects a password shorter than eight characters", async () => {
@@ -105,7 +104,7 @@ describe("FreeTrialCard failure paths", () => {
     submitForm();
 
     await expectReportedTwice("Use at least 8 characters.");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("rejects a password with no number", async () => {
@@ -114,7 +113,7 @@ describe("FreeTrialCard failure paths", () => {
     submitForm();
 
     await expectReportedTwice("Include at least one number.");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("rejects a password with no letter", async () => {
@@ -123,7 +122,7 @@ describe("FreeTrialCard failure paths", () => {
     submitForm();
 
     await expectReportedTwice("Include at least one letter.");
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("rejects a password past the bcrypt limit before any email is sent", async () => {
@@ -135,39 +134,6 @@ describe("FreeTrialCard failure paths", () => {
       `Passwords cannot be longer than ${MAX_PASSWORD_LENGTH} characters.`
     );
     expect(signUp).not.toHaveBeenCalled();
-  });
-
-  it("surfaces a free-trial-access rejection verbatim", async () => {
-    fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: "Free trial access is not available for this email."
-        }),
-        { status: 403 }
-      )
-    );
-    renderSignUp();
-    fill("owner@example.com", "Testing12345");
-    submitForm();
-
-    await expectReportedTwice(
-      "Free trial access is not available for this email."
-    );
-    expect(signUp).not.toHaveBeenCalled();
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it("falls back to generic copy when the gate answers without JSON", async () => {
-    fetchMock.mockResolvedValue(
-      new Response("<html>502</html>", { status: 502 })
-    );
-    renderSignUp();
-    fill("owner@example.com", "Testing12345");
-    submitForm();
-
-    await expectReportedTwice(
-      "Unable to create your account right now. Please try again."
-    );
   });
 
   it("tells an existing owner to sign in instead of creating a duplicate", async () => {
@@ -219,21 +185,20 @@ describe("FreeTrialCard failure paths", () => {
   });
 
   it("keeps the owner on the form when the network throws", async () => {
-    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    signUp.mockRejectedValue(new TypeError("Failed to fetch"));
     renderSignUp();
     fill("owner@example.com", "Testing12345");
     submitForm();
 
     await expectReportedTwice("Failed to fetch");
-    expect(signUp).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
 
   it("does not create two accounts from a double submit", async () => {
-    let resolveGate: (value: unknown) => void = () => {};
-    fetchMock.mockReturnValue(
+    let resolveSignUp: (value: unknown) => void = () => {};
+    signUp.mockReturnValue(
       new Promise((resolve) => {
-        resolveGate = resolve;
+        resolveSignUp = resolve;
       })
     );
     renderSignUp();
@@ -245,9 +210,11 @@ describe("FreeTrialCard failure paths", () => {
     });
     expect(pending).toBeDisabled();
 
-    resolveGate(new Response(JSON.stringify({ allowed: true }), { status: 200 }));
+    resolveSignUp({
+      data: { user: { id: "user-1" }, session: null },
+      error: null
+    });
     await waitFor(() => expect(signUp).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -255,14 +222,11 @@ describe("FreeTrialCard success path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", fetchMock);
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ allowed: true }), { status: 200 })
-    );
   });
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("posts the address to the access gate", async () => {
+  it("trims the address before creating the account", async () => {
     signUp.mockResolvedValue({
       data: { user: { id: "user-1" }, session: null },
       error: null
@@ -271,11 +235,12 @@ describe("FreeTrialCard success path", () => {
     fill("  owner@example.com  ", "Testing12345");
     submitForm();
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(signUp).toHaveBeenCalled());
 
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("/api/auth/free-trial-access");
-    expect(JSON.parse(String(init.body)).email).toBe("owner@example.com");
+    // Supabase treats the surrounding whitespace as part of the address, so an
+    // untrimmed value creates an account that can never be signed in to.
+    const [payload] = signUp.mock.calls[0];
+    expect(payload.email).toBe("owner@example.com");
   });
 
   it("sends an unconfirmed owner to the verify-email page", async () => {
@@ -306,6 +271,11 @@ describe("FreeTrialCard success path", () => {
     submitForm();
 
     await waitFor(() => expect(signUp).toHaveBeenCalled());
+
+    // Sign-up makes no HTTP call of its own. There used to be a
+    // /api/auth/free-trial-access pre-flight that read as an eligibility gate
+    // but approved every valid address; this fails if anything like it returns.
+    expect(fetchMock).not.toHaveBeenCalled();
 
     // The only signal that authorizes the server to provision an organization.
     const [payload] = signUp.mock.calls[0];

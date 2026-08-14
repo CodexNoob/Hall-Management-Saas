@@ -135,25 +135,11 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
     setError("");
 
     try {
-      const accessResponse = await fetch("/api/auth/free-trial-access", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ email })
-      });
-
-      if (!accessResponse.ok) {
-        const payload = (await accessResponse.json().catch(() => null)) as {
-          error?: string;
-        } | null;
-        failSignUp(
-          payload?.error ??
-            "Unable to create your account right now. Please try again."
-        );
-        return;
-      }
-
+      // POST /api/auth/free-trial-access used to be called here first. It read
+      // as an eligibility gate but returned { allowed: true } for any
+      // syntactically valid address, and the allowlist it was presumably meant
+      // to consult had no importers. The free trial is open by design, so the
+      // check is gone rather than left looking like it does something.
       const supabase = createSupabaseBrowserClient();
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,

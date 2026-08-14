@@ -87,12 +87,17 @@ test("sign-up rejects a password past the 72-character limit", async ({
   await expect(page).toHaveURL(/\/start-trial/);
 });
 
-test("a malformed sign-up address never reaches the access gate", async ({
+/**
+ * See the SILENT-PASS TRAP note in authentication.spec.ts: page.route observes
+ * only what the browser sends, so this holds precisely because sign-up runs
+ * client-side.
+ */
+test("a malformed sign-up address never reaches Supabase", async ({
   page
 }) => {
-  let gateRequests = 0;
-  await page.route("**/api/auth/free-trial-access", async (route) => {
-    gateRequests += 1;
+  let signUpRequests = 0;
+  await page.route("**/auth/v1/signup*", async (route) => {
+    signUpRequests += 1;
     await route.abort();
   });
 
@@ -103,7 +108,7 @@ test("a malformed sign-up address never reaches the access gate", async ({
 
   // First layer: the browser's own type="email" guard refuses the click.
   await page.getByRole("button", { name: "Create account", exact: true }).click();
-  expect(gateRequests).toBe(0);
+  expect(signUpRequests).toBe(0);
   await expect(page.locator(inlineError)).toHaveCount(0);
 
   // Second layer: dispatching submit directly skips that guard, so this proves
@@ -113,46 +118,10 @@ test("a malformed sign-up address never reaches the access gate", async ({
   await expect(page.locator(inlineError)).toHaveText(
     "Please enter a valid email address."
   );
-  expect(gateRequests).toBe(0);
-});
-
-test("sign-up surfaces a rejection from the free-trial gate", async ({
-  page
-}) => {
-  await page.route("**/api/auth/free-trial-access", async (route) => {
-    await route.fulfill({
-      status: 403,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: "Free trial access is not available for this email."
-      })
-    });
-  });
-
-  await page.goto("/start-trial");
-  await waitForHydration(page);
-  await page.getByLabel("Email Address").fill("e2e-signup@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("Testing12345");
-  await page.getByRole("button", { name: "Create account", exact: true }).click();
-
-  await expect(page.locator(inlineError)).toHaveText(
-    "Free trial access is not available for this email."
-  );
-  await expect(page).toHaveURL(/\/start-trial/);
+  expect(signUpRequests).toBe(0);
 });
 
 test("sign-up tells an existing owner to sign in instead", async ({ page }) => {
-  // The gate is stubbed as well as the sign-up call. It is not what this test
-  // is about, and the real endpoint does a rate-limit round trip to Postgres
-  // that can outlast the assertion timeout when the suite runs in parallel.
-  await page.route("**/api/auth/free-trial-access", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ allowed: true })
-    });
-  });
-
   // Stubbed on purpose: Supabase's anti-enumeration default returns a fake
   // success for an existing confirmed address, and a real attempt would send
   // mail. The mapping itself is covered deterministically in the unit tests.
