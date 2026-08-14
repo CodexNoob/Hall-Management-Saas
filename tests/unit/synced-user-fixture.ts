@@ -1,3 +1,24 @@
+/**
+ * SILENT-PASS TRAP - read before trusting a green run of the seven suites that
+ * import this file.
+ *
+ * These fixtures work by writing localStorage, which only has any effect
+ * because permissions are still read from the "hms.syncedUser" cache on the
+ * client. The suites that use them assert mostly NEGATIVELY - `toHaveCount(0)`,
+ * "this control is absent for this role". If identity ever moves to a React
+ * provider or a Server Component (see the deferred server-layout work in the
+ * auth plan), these writes stop reaching the component, every render falls back
+ * to no-permissions, and every negative assertion keeps passing while testing
+ * nothing at all.
+ *
+ * The cookie migration did not break this - the session moved to cookies but
+ * the synced-user cache did not - so there is no failure to warn you.
+ *
+ * How to check it is still real: break one POSITIVE assertion in each importing
+ * suite (a `toBeInTheDocument` / `toBeEnabled` on a permission-gated control)
+ * and confirm it actually fails. If it passes, the fixture is inert.
+ */
+
 import type { SyncedUserAccess } from "@/lib/auth/client";
 import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
 
