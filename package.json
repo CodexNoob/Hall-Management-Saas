@@ -47,7 +47,7 @@
     "@hookform/resolvers": "^5.1.1",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
-    "@supabase/server": "^1.2.0",
+    "@supabase/ssr": "0.12.4",
     "@supabase/supabase-js": "^2.50.2",
     "@tanstack/react-query": "^5.81.5",
     "clsx": "^2.1.1",

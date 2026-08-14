@@ -9,8 +9,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1).default("postgresql://localhost:5432/eventcore"),
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
-  NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().optional(),
+  // Required, not optional: cookie sessions put these on the request path for
+  // every navigation, so a missing value is a hard misconfiguration rather than
+  // a degraded feature. Middleware deliberately reads process.env directly
+  // instead of getEnv() so one unset variable cannot 500 the public site.
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SECRET_KEY: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_STORAGE_BUCKET_LAYOUTS: z.string().default("event-layouts"),

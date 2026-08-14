@@ -1,90 +1,133 @@
 "use client";
 
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  REMEMBER_AUTH_COOKIE,
+  REMEMBER_AUTH_DAYS,
+  REMEMBER_UNTIL_COOKIE,
+  authCookieAttributes,
+  authCookieMaxAge,
+  isRememberWindowExpired,
+  isSupabaseAuthCookieName,
+  mergeAuthCookieOptions,
+  nextRememberUntil,
+  preferenceCookieMaxAge
+} from "@/lib/supabase/cookie-policy";
 
-let browserClient: ReturnType<typeof createClient> | null = null;
-const REMEMBER_AUTH_KEY = "event-core.auth.remember";
-const REMEMBER_AUTH_UNTIL_KEY = "event-core.auth.rememberUntil";
-export const REMEMBER_AUTH_DAYS = 30;
-const REMEMBER_AUTH_DURATION_MS = REMEMBER_AUTH_DAYS * 24 * 60 * 60 * 1000;
+export { REMEMBER_AUTH_DAYS };
 
-function isSupabaseAuthStorageKey(key: string) {
-  return key.startsWith("sb-") && key.endsWith("-auth-token");
+// Typed as SupabaseClient rather than ReturnType<typeof createBrowserClient>:
+// createBrowserClient is an overloaded declaration, so ReturnType resolves
+// against its deprecated overload and silently widens the client's members to
+// `any` - which turns callers like the MFA panel's listFactors() into implicit
+// any and loses every downstream type check.
+let browserClient: SupabaseClient | null = null;
+
+function isSecureOrigin() {
+  return typeof window !== "undefined" && window.location.protocol === "https:";
 }
 
-function shouldPersistAuthSession() {
-  if (typeof window === "undefined") return true;
-  return window.localStorage.getItem(REMEMBER_AUTH_KEY) !== "false";
+/**
+ * Symmetric with the `cookie` package's defaults, which is what @supabase/ssr
+ * uses for its own document.cookie fallback and what Next.js uses on the server:
+ * the value is percent-encoded, the name is not. Diverging here would make a
+ * cookie written in the browser unreadable by the server client.
+ */
+function readCookies() {
+  if (typeof document === "undefined") return [];
+
+  return document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const separator = entry.indexOf("=");
+
+      if (separator < 0) {
+        return { name: entry, value: "" };
+      }
+
+      const name = entry.slice(0, separator);
+      const rawValue = entry.slice(separator + 1);
+
+      try {
+        return { name, value: decodeURIComponent(rawValue) };
+      } catch {
+        return { name, value: rawValue };
+      }
+    });
+}
+
+function readCookie(name: string) {
+  return readCookies().find((cookie) => cookie.name === name)?.value;
+}
+
+function writeCookie(name: string, value: string, maxAge: number | undefined) {
+  if (typeof document === "undefined") return;
+
+  const attributes = authCookieAttributes(isSecureOrigin(), maxAge);
+  const parts = [
+    `${name}=${encodeURIComponent(value)}`,
+    `Path=${attributes.path}`,
+    "SameSite=Lax"
+  ];
+
+  if (attributes.secure) parts.push("Secure");
+  if (attributes.maxAge !== undefined) parts.push(`Max-Age=${attributes.maxAge}`);
+
+  document.cookie = parts.join("; ");
+}
+
+function currentAuthCookieMaxAge() {
+  return authCookieMaxAge(
+    readCookie(REMEMBER_AUTH_COOKIE),
+    readCookie(REMEMBER_UNTIL_COOKIE)
+  );
+}
+
+/**
+ * Still called immediately BEFORE the sign-in call, exactly as it was
+ * (features/auth/components/login-card.tsx:152 and :183): it decides the
+ * lifetime of the auth cookie Supabase is about to write.
+ *
+ * Where the previous implementation moved `sb-*-auth-token` between
+ * localStorage and sessionStorage, this writes a preference cookie that the
+ * browser client, the server client and middleware all consult - then re-stamps
+ * any auth cookie that already exists, so toggling the checkbox takes effect on
+ * a session that is already open. That re-stamp is the direct analogue of the
+ * old storage-migration loop.
+ */
+export function setAuthSessionPersistence(remember: boolean) {
+  if (typeof document === "undefined") return;
+
+  const preferenceMaxAge = preferenceCookieMaxAge(remember);
+  const rememberUntil = remember ? nextRememberUntil() : null;
+
+  writeCookie(REMEMBER_AUTH_COOKIE, String(remember), preferenceMaxAge);
+
+  if (rememberUntil) {
+    writeCookie(REMEMBER_UNTIL_COOKIE, rememberUntil, preferenceMaxAge);
+  } else {
+    writeCookie(REMEMBER_UNTIL_COOKIE, "", 0);
+  }
+
+  const maxAge = authCookieMaxAge(String(remember), rememberUntil ?? undefined);
+
+  for (const cookie of readCookies()) {
+    if (isSupabaseAuthCookieName(cookie.name)) {
+      writeCookie(cookie.name, cookie.value, maxAge);
+    }
+  }
 }
 
 export function isRememberedAuthSessionExpired() {
-  if (typeof window === "undefined") return false;
-  if (window.localStorage.getItem(REMEMBER_AUTH_KEY) !== "true") return false;
-  const expiresAt = Number(
-    window.localStorage.getItem(REMEMBER_AUTH_UNTIL_KEY)
+  if (typeof document === "undefined") return false;
+
+  return isRememberWindowExpired(
+    readCookie(REMEMBER_AUTH_COOKIE),
+    readCookie(REMEMBER_UNTIL_COOKIE)
   );
-  return Number.isFinite(expiresAt) && expiresAt > 0 && Date.now() >= expiresAt;
-}
-
-const adaptiveAuthStorage = {
-  getItem(key: string) {
-    if (typeof window === "undefined") return null;
-    if (isSupabaseAuthStorageKey(key) && isRememberedAuthSessionExpired()) {
-      window.localStorage.removeItem(key);
-      window.sessionStorage.removeItem(key);
-      return null;
-    }
-    const primary = shouldPersistAuthSession()
-      ? window.localStorage
-      : window.sessionStorage;
-    const fallback = shouldPersistAuthSession()
-      ? window.sessionStorage
-      : window.localStorage;
-    return primary.getItem(key) ?? fallback.getItem(key);
-  },
-  setItem(key: string, value: string) {
-    if (typeof window === "undefined") return;
-    const primary = shouldPersistAuthSession()
-      ? window.localStorage
-      : window.sessionStorage;
-    const fallback = shouldPersistAuthSession()
-      ? window.sessionStorage
-      : window.localStorage;
-    primary.setItem(key, value);
-    fallback.removeItem(key);
-  },
-  removeItem(key: string) {
-    if (typeof window === "undefined") return;
-    window.localStorage.removeItem(key);
-    window.sessionStorage.removeItem(key);
-  }
-};
-
-export function setAuthSessionPersistence(remember: boolean) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(REMEMBER_AUTH_KEY, String(remember));
-  if (remember) {
-    window.localStorage.setItem(
-      REMEMBER_AUTH_UNTIL_KEY,
-      String(Date.now() + REMEMBER_AUTH_DURATION_MS)
-    );
-  } else {
-    window.localStorage.removeItem(REMEMBER_AUTH_UNTIL_KEY);
-  }
-
-  const source = remember ? window.sessionStorage : window.localStorage;
-  const destination = remember ? window.localStorage : window.sessionStorage;
-  const authKeys = Array.from({ length: source.length }, (_, index) =>
-    source.key(index)
-  ).filter((key): key is string =>
-    Boolean(key && isSupabaseAuthStorageKey(key))
-  );
-
-  authKeys.forEach((key) => {
-    const value = source.getItem(key);
-    if (value !== null) destination.setItem(key, value);
-    source.removeItem(key);
-  });
 }
 
 function getSupabaseBrowserConfig() {
@@ -107,12 +150,29 @@ export function createSupabaseBrowserClient() {
 
   const { supabaseUrl, supabaseAnonKey } = getSupabaseBrowserConfig();
 
-  browserClient = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      storage: adaptiveAuthStorage
+  browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll: readCookies,
+      setAll(cookiesToSet) {
+        // Resolved per write, NOT once at construction. createBrowserClient
+        // memoises a singleton and returns it for every later call, ignoring the
+        // options passed in - so a `cookieOptions` lifetime captured here would
+        // go stale the moment Remember me is toggled, and the checkbox would
+        // silently do nothing.
+        const maxAge = currentAuthCookieMaxAge();
+        const secure = isSecureOrigin();
+
+        for (const { name, value, options } of cookiesToSet) {
+          const merged = mergeAuthCookieOptions(
+            options as Record<string, unknown>,
+            value,
+            secure,
+            maxAge
+          );
+
+          writeCookie(name, value, merged.maxAge as number | undefined);
+        }
+      }
     }
   });
 
