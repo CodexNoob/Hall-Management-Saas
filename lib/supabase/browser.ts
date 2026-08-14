@@ -3,6 +3,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  ACTIVE_ORGANIZATION_COOKIE,
   REMEMBER_AUTH_COOKIE,
   REMEMBER_AUTH_DAYS,
   REMEMBER_UNTIL_COOKIE,
@@ -118,6 +119,42 @@ export function setAuthSessionPersistence(remember: boolean) {
       writeCookie(cookie.name, cookie.value, maxAge);
     }
   }
+}
+
+/**
+ * Mirrors the active organization to a cookie.
+ *
+ * Server Components have no `x-organization-id` header to read - there is no
+ * fetch for them to attach one to - so without this they would scope every
+ * request to the user's default organization while API calls from the same page
+ * used the one they actually picked.
+ *
+ * Given the same lifetime as the auth cookie so that it cannot outlive the
+ * session it belongs to.
+ */
+export function setActiveOrganizationCookie(organizationId: string | null) {
+  if (!organizationId) {
+    writeCookie(ACTIVE_ORGANIZATION_COOKIE, "", 0);
+    return;
+  }
+
+  writeCookie(
+    ACTIVE_ORGANIZATION_COOKIE,
+    organizationId,
+    currentAuthCookieMaxAge()
+  );
+}
+
+/**
+ * Everything this app owns, for sign-out. Supabase's own signOut() clears the
+ * `sb-*` cookies through the client's setAll, but the `event-core.*` ones are
+ * ours and would otherwise survive into the next session - a stale
+ * `rememberUntil` in particular would sign the next user out early.
+ */
+export function clearAuthSessionCookies() {
+  writeCookie(REMEMBER_AUTH_COOKIE, "", 0);
+  writeCookie(REMEMBER_UNTIL_COOKIE, "", 0);
+  writeCookie(ACTIVE_ORGANIZATION_COOKIE, "", 0);
 }
 
 // isRememberedAuthSessionExpired() lived here and was called from the dashboard

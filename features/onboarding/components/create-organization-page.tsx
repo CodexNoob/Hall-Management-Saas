@@ -12,6 +12,7 @@ import {
 } from "@/lib/validation/phone";
 import {
   clearCachedSyncedUser,
+  signOutCurrentSession,
   getCachedSyncedUser,
   syncSignedInUser
 } from "@/lib/auth/client";
@@ -158,9 +159,7 @@ export function CreateOrganizationPage() {
     setIsSigningOut(true);
 
     try {
-      const supabase = createSupabaseBrowserClient();
-      await supabase.auth.signOut({ scope: "local" });
-      clearCachedSyncedUser();
+      await signOutCurrentSession();
       router.replace("/");
       router.refresh();
     } catch {

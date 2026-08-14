@@ -16,7 +16,11 @@ vi.mock("@/lib/http/authenticated-fetch", () => ({
   authenticatedFetch: vi.fn()
 }));
 
-vi.mock("@/lib/supabase/browser", () => ({
+// Spread rather than listed: this suite runs the REAL @/lib/auth/client below,
+// which reaches back into this module for its cookie helpers. Enumerating the
+// exports here would break the moment another one is added.
+vi.mock("@/lib/supabase/browser", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/supabase/browser")>()),
   createSupabaseBrowserClient: () => ({ auth: { getSession, signOut } })
 }));
 
