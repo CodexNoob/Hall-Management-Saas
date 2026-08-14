@@ -5,10 +5,9 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { HelpPageKind } from "@/features/help/components/help-page";
-import { clearCachedSyncedUser, type SyncedUser } from "@/lib/auth/client";
+import { signOutCurrentSession, type SyncedUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { DashboardSidebarMobileHeader } from "@/components/layout/dashboard-sidebar-mobile-header";
 
 import {
@@ -331,15 +330,12 @@ export function DashboardSidebar({
     setIsHelpMenuOpen(false);
     setIsProfileMenuOpen(false);
 
-    const supabase = createSupabaseBrowserClient();
-    // Local scope: end only this device's session. Global (the default)
-    // revokes every session for the account - "Sign out other sessions" in
-    // the security settings panel already covers that intentionally.
-    const { error } = await supabase.auth.signOut({ scope: "local" });
-    if (error) throw error;
+    // Clears the Supabase cookies AND the event-core.* ones, before the
+    // navigation below - so the server render that follows sees no session
+    // rather than a half-cleared one.
+    await signOutCurrentSession();
 
     clearAuthenticatedQueryCache();
-    clearCachedSyncedUser();
     setIsLogoutDialogOpen(false);
     const isDesktopApp =
       window.localStorage.getItem("eventCoreDesktopApp") === "true";

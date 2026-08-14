@@ -1,7 +1,11 @@
 "use client";
 
 import type { Provider } from "@supabase/supabase-js";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  clearAuthSessionCookies,
+  createSupabaseBrowserClient,
+  setActiveOrganizationCookie
+} from "@/lib/supabase/browser";
 
 export type SyncedUserAccess = {
   id: string;
@@ -136,6 +140,9 @@ export function cacheSyncedUser(
   window.localStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
   window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
   window.localStorage.setItem(SYNCED_USER_CACHE_TIME_KEY, String(Date.now()));
+  // Written here rather than at the two call sites, so the cookie the server
+  // scopes by cannot drift from the cached value the client renders from.
+  setActiveOrganizationCookie(syncData.activeOrganizationId);
 
   if (subject) {
     window.localStorage.setItem(SYNCED_USER_CACHE_SUBJECT_KEY, subject);
@@ -190,6 +197,29 @@ export function clearCachedSyncedUser() {
   window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
   window.localStorage.removeItem(SYNCED_USER_CACHE_SUBJECT_KEY);
   window.localStorage.removeItem(SYNCED_USER_CACHE_TIME_KEY);
+  // Only the organization hint. The Remember me preference is deliberately left
+  // alone: this also runs on a transient sync failure, and wiping the
+  // preference there would silently downgrade a 30-day session.
+  setActiveOrganizationCookie(null);
+}
+
+/**
+ * The single sign-out path. Both call sites used to inline this, and only the
+ * Supabase half - which left `event-core.auth.remember`,
+ * `event-core.auth.rememberUntil` and `event-core.activeOrg` behind for the
+ * next person to sign in on the same browser.
+ *
+ * `scope: "local"` ends this device's session only. Revoking every session for
+ * the account is a separate, deliberate action in the security settings panel.
+ */
+export async function signOutCurrentSession() {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+
+  if (error) throw error;
+
+  clearCachedSyncedUser();
+  clearAuthSessionCookies();
 }
 
 export function syncSignedInUser(

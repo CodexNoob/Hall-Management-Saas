@@ -123,6 +123,21 @@ REVOKE ALL ON TABLE public.payment_provider_webhook_events FROM anon, authentica
 ALTER TABLE public.newsletter_subscribers ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.newsletter_subscribers FROM anon, authenticated;
 
+-- Same shape as newsletter_subscribers, and for the same reason: a public form
+-- writes it through POST /api/support/contact using the privileged Prisma
+-- connection, and nothing ever reads it from a browser. No policy is granted,
+-- so only service_role and the owner can see it.
+--
+-- This one was missed. The table was added in migration
+-- 20260807183000_add_contact_support_requests, six hours after
+-- support_tickets - which carries its own RLS block - and it reached neither
+-- the tenant array above nor a block of its own. It holds submitter names,
+-- email addresses, company and free-text messages.
+-- tests/unit/rls-coverage.test.ts now fails the build if a table is ever added
+-- to the Prisma schema without landing somewhere in this file.
+ALTER TABLE public.contact_support_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.contact_support_requests FROM anon, authenticated;
+
 ALTER TABLE public.api_rate_limit_buckets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.api_rate_limit_buckets FROM anon, authenticated;
 
