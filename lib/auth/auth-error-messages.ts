@@ -192,6 +192,6 @@ export function getSignUpErrorMessage(
     return status === 429 ? RATE_LIMITED : INVALID_EMAIL;
   }
 
-  // Keeps actionable server copy, e.g. the /api/auth/free-trial-access rejection.
+  // Keeps actionable server copy rather than flattening it to generic text.
   return rawMessage || fallback;
 }

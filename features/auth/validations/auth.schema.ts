@@ -3,9 +3,8 @@ import { AUTH_ERROR_MESSAGES } from "@/lib/auth/auth-error-messages";
 import { getPasswordValidationError } from "@/lib/auth/password";
 
 /**
- * Shared by the login and sign-up forms and by the public
- * /api/auth/free-trial-access endpoint, so the client and the server agree on
- * what a usable email address is.
+ * Shared by the login and sign-up forms, so every entry point agrees on what a
+ * usable email address is.
  */
 export const emailField = z
   .string()
