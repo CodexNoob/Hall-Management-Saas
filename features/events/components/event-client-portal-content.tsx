@@ -10,6 +10,13 @@ import {
   type EventFile
 } from "@/features/events/components/event-manager-shared";
 import { Field } from "@/features/events/components/event-details-panel";
+import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
+import { copyText } from "@/lib/ui/copy-text";
+
+export type ClientPortalPreviewEvent = Pick<
+  EventFile,
+  "children" | "couples" | "date" | "room" | "status" | "time" | "title"
+>;
 
 function PortalOptionCard({
   title,
@@ -98,8 +105,131 @@ function LayoutPreview() {
   );
 }
 
-export function ClientPortalContent({ event }: { event: EventFile }) {
+export function ClientPortalPreviewContent({
+  event,
+  paymentUrl
+}: {
+  event: ClientPortalPreviewEvent;
+  paymentUrl?: string;
+}) {
   const router = useRouter();
+  return (
+    <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+      <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
+        <h1 className="break-words text-xl font-black sm:text-2xl">
+          {event.title}
+        </h1>
+        <p className="mt-2 text-sm font-semibold">
+          {event.date} - {event.time} - {event.room}
+        </p>
+      </header>
+      <div className="min-w-0 space-y-3 p-3 sm:p-4">
+        <section className="min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-4">
+          <h2 className="text-sm font-black">Event details</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+              <strong>Status</strong>
+              <p className="mt-1 text-sm text-[#6a7483]">{event.status}</p>
+            </div>
+            <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+              <strong>Hall</strong>
+              <p className="mt-1 text-sm text-[#6a7483]">{event.room}</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#d8dde5] p-4">
+          <h2 className="text-sm font-black">Guest count</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            {[
+              ["Couples", event.couples],
+              ["Children", event.children],
+              ["Extra guests", "0"]
+            ].map(([label, value]) => (
+              <Field key={label} label={label}>
+                <input
+                  className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
+                  defaultValue={value}
+                  name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`}
+                />
+              </Field>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#d8dde5] p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black">Menu selection</h2>
+            <Badge tone="green">client selectable</Badge>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <PortalOptionCard
+              title="Standard dinner"
+              price="Included"
+              selected
+            />
+            <PortalOptionCard title="Premium dinner" price="$1,800.00" />
+            <PortalOptionCard title="Gold dinner" price="$3,500.00" />
+            <PortalOptionCard title="Dairy buffet" price="$1,200.00" />
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#d8dde5] p-4">
+          <h2 className="text-sm font-black">Tablecloth options</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <PortalOptionCard title="Ivory linen" price="$300.00" />
+            <PortalOptionCard title="White linen" price="Included" />
+            <PortalOptionCard title="Gold runner" price="$450.00" highlight />
+            <PortalOptionCard title="Velvet accent" price="$650.00" />
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#d8dde5] p-4">
+          <h2 className="text-sm font-black">Add-ons</h2>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <PortalOptionCard title="Coffee station" price="$350.00" />
+            <PortalOptionCard title="Sweet table" price="$900.00" />
+            <PortalOptionCard title="Extra buffet" price="$750.00" />
+            <PortalOptionCard title="Late night snacks" price="$600.00" />
+          </div>
+        </section>
+
+        <LayoutPreview />
+
+        <section className="rounded-lg border border-[#d8dde5] p-4">
+          <h2 className="text-sm font-black">Payment</h2>
+          {paymentUrl ? (
+            <a
+              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white! transition-colors hover:bg-[#15344f] hover:text-white! visited:text-white!"
+              href={paymentUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <LineIcon name="document" />
+              Pay balance
+            </a>
+          ) : (
+            <button
+              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
+              type="button"
+              onClick={() => router.push("/dashboard/billing")}
+            >
+              <LineIcon name="document" />
+              Pay balance
+            </button>
+          )}
+        </section>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
+          <span className="text-sm text-[#17202a]">Estimated client total</span>
+          <strong className="text-xl text-[#17202a]">$55,200.00</strong>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function ClientPortalContent({ event }: { event: EventFile }) {
   const [portalUrl, setPortalUrl] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
   return (
@@ -148,7 +278,9 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
               className="inline-flex h-8 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
               type="button"
               onClick={() =>
-                setPortalUrl(`${window.location.origin}/client/${event.id}`)
+                setPortalUrl(
+                  getClientPortalUrl(event.id, window.location.origin)
+                )
               }
             >
               <LineIcon name="document" />
@@ -160,8 +292,10 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
               onClick={async () => {
                 if (!portalUrl)
                   return setCopyMessage("Generate the link first.");
-                await navigator.clipboard.writeText(portalUrl);
-                setCopyMessage("Link copied.");
+                const copied = await copyText(portalUrl);
+                setCopyMessage(
+                  copied ? "Link copied." : "Unable to copy the link."
+                );
               }}
             >
               <LineIcon name="files" />
@@ -179,108 +313,7 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
         </section>
       </aside>
 
-      <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-        <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
-          <h1 className="break-words text-xl font-black sm:text-2xl">
-            {event.title}
-          </h1>
-          <p className="mt-2 text-sm font-semibold">
-            {event.date} - {event.time} - {event.room}
-          </p>
-        </header>
-        <div className="min-w-0 space-y-3 p-3 sm:p-4">
-          <section className="min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-4">
-            <h2 className="text-sm font-black">Event details</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
-                <strong>Status</strong>
-                <p className="mt-1 text-sm text-[#6a7483]">{event.status}</p>
-              </div>
-              <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
-                <strong>Hall</strong>
-                <p className="mt-1 text-sm text-[#6a7483]">{event.room}</p>
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#d8dde5] p-4">
-            <h2 className="text-sm font-black">Guest count</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              {[
-                ["Couples", event.couples],
-                ["Children", event.children],
-                ["Extra guests", "0"]
-              ].map(([label, value]) => (
-                <Field key={label} label={label}>
-                  <input
-                    className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
-                    defaultValue={value}
-                    name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`}
-                  />
-                </Field>
-              ))}
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#d8dde5] p-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-black">Menu selection</h2>
-              <Badge tone="green">client selectable</Badge>
-            </div>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <PortalOptionCard
-                title="Standard dinner"
-                price="Included"
-                selected
-              />
-              <PortalOptionCard title="Premium dinner" price="$1,800.00" />
-              <PortalOptionCard title="Gold dinner" price="$3,500.00" />
-              <PortalOptionCard title="Dairy buffet" price="$1,200.00" />
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#d8dde5] p-4">
-            <h2 className="text-sm font-black">Tablecloth options</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <PortalOptionCard title="Ivory linen" price="$300.00" />
-              <PortalOptionCard title="White linen" price="Included" />
-              <PortalOptionCard title="Gold runner" price="$450.00" highlight />
-              <PortalOptionCard title="Velvet accent" price="$650.00" />
-            </div>
-          </section>
-
-          <section className="rounded-lg border border-[#d8dde5] p-4">
-            <h2 className="text-sm font-black">Add-ons</h2>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <PortalOptionCard title="Coffee station" price="$350.00" />
-              <PortalOptionCard title="Sweet table" price="$900.00" />
-              <PortalOptionCard title="Extra buffet" price="$750.00" />
-              <PortalOptionCard title="Late night snacks" price="$600.00" />
-            </div>
-          </section>
-
-          <LayoutPreview />
-
-          <section className="rounded-lg border border-[#d8dde5] p-4">
-            <h2 className="text-sm font-black">Payment</h2>
-            <button
-              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
-              type="button"
-              onClick={() => router.push("/dashboard/billing")}
-            >
-              <LineIcon name="document" />
-              Pay balance
-            </button>
-          </section>
-
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
-            <span className="text-sm text-[#17202a]">
-              Estimated client total
-            </span>
-            <strong className="text-xl text-[#17202a]">$55,200.00</strong>
-          </div>
-        </div>
-      </section>
+      <ClientPortalPreviewContent event={event} />
     </div>
   );
 }

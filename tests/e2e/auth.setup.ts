@@ -4,6 +4,12 @@ import { expect, test as setup } from "@playwright/test";
 
 const authDirectory = path.resolve("playwright/.auth");
 
+// Authentication includes the initial dev-server compilation, Supabase login,
+// user synchronization, dashboard navigation, and storage-state serialization.
+// Keep this setup allowance separate from the faster application test budget.
+setup.setTimeout(60_000);
+setup.describe.configure({ mode: "serial" });
+
 async function authenticate(
   page: import("@playwright/test").Page,
   email: string,
@@ -18,7 +24,9 @@ async function authenticate(
   });
 
   await page.goto("/");
-  await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
+  await expect(
+    page.getByRole("status", { name: "Loading website" })
+  ).toBeHidden();
   await page.locator("[data-login-modal]:visible").click();
   await page.getByLabel("Email Address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
@@ -27,7 +35,7 @@ async function authenticate(
     .getByRole("dialog", { name: "Employee Login", exact: true })
     .getByRole("button", { name: "Login", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
 
   const state = await page.context().storageState({ path: stateFile });
   const authCookies = state.cookies.filter((cookie) =>

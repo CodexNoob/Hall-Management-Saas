@@ -1,4 +1,4 @@
-import { addDays, format, isSameMonth } from "date-fns";
+import { addDays, format, isSameMonth, parseISO } from "date-fns";
 import { expect, test, type Page } from "@playwright/test";
 
 const E2E_HALL_NAME = "E2E Hall";
@@ -74,8 +74,7 @@ async function prepareOrganization(page: Page): Promise<OrganizationFixture> {
 
 test.beforeEach(async () => {
   test.skip(
-    !process.env.E2E_MUTATION_EMAIL ||
-      !process.env.E2E_MUTATION_PASSWORD,
+    !process.env.E2E_MUTATION_EMAIL || !process.env.E2E_MUTATION_PASSWORD,
     "Mutation E2E credentials are not set."
   );
 });
@@ -95,9 +94,16 @@ test("creates an isolated event from the Calendar Book date form", async ({
   // first free date instead of a jittered one, which keeps back-to-back runs
   // green even though no teardown exists.
   const today = new Date();
+  const unavailableDates = new Set(
+    bookedDates.flatMap((date) =>
+      [-1, 0, 1].map((offset) =>
+        format(addDays(parseISO(date), offset), "yyyy-MM-dd")
+      )
+    )
+  );
   const bookingDate = Array.from({ length: 30 }, (_, offset) =>
     addDays(today, offset + 2)
-  ).find((candidate) => !bookedDates.includes(format(candidate, "yyyy-MM-dd")));
+  ).find((candidate) => !unavailableDates.has(format(candidate, "yyyy-MM-dd")));
 
   if (!bookingDate) {
     throw new Error(
@@ -125,9 +131,7 @@ test("creates an isolated event from the Calendar Book date form", async ({
   // A real number, not "555-0199": the field now checks the value against the
   // selected country's numbering plan, and a bare exchange is not dialable.
   await dialog.getByLabel("Phone", { exact: true }).fill("212 555 0199");
-  await dialog
-    .getByLabel("Hall / room")
-    .selectOption({ label: hallNames[0] });
+  await dialog.getByLabel("Hall / room").selectOption({ label: hallNames[0] });
   // Event types can restrict which weekdays they're bookable on; this test
   // doesn't care about that rule, so opt out of it rather than couple the
   // booking date to this org's event-type configuration.

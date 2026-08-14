@@ -5,6 +5,9 @@ const mocks = vi.hoisted(() => ({
     event: {
       findFirst: vi.fn(),
       update: vi.fn()
+    },
+    menuItem: {
+      count: vi.fn()
     }
   },
   requirePermission: vi.fn()
@@ -55,6 +58,7 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
     mocks.requirePermission.mockResolvedValue({ id: "user-1", organizationId });
     mocks.prisma.event.findFirst.mockResolvedValue(storedEvent());
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
+    mocks.prisma.menuItem.count.mockResolvedValue(0);
   });
 
   it("rejects a count larger than the 32-bit column instead of 500ing", async () => {
@@ -117,9 +121,9 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
       storedEvent({ couplesCount: 100 })
     );
 
-    expect((await patch({ timeline: [], timelineConfirmed: true })).status).toBe(
-      200
-    );
+    expect(
+      (await patch({ timeline: [], timelineConfirmed: true })).status
+    ).toBe(200);
     expect((await patch({ menuConfirmed: true })).status).toBe(200);
     expect((await patch({ notes: "Call the florist." })).status).toBe(200);
     expect((await patch({ clientName: "Jane Doe" })).status).toBe(200);
@@ -142,5 +146,29 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
     );
 
     expect((await patch({ couplesCount: 5000 })).status).toBe(200);
+  });
+
+  it("saves menu selections that belong to the organization", async () => {
+    const menuItemId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    mocks.prisma.menuItem.count.mockResolvedValue(1);
+
+    const response = await patch({
+      menuItemIds: [menuItemId, menuItemId],
+      menuConfirmed: true
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.event.update.mock.calls[0][0].data).toMatchObject({
+      menuItemIds: [menuItemId]
+    });
+  });
+
+  it("rejects menu selections from outside the organization", async () => {
+    const response = await patch({
+      menuItemIds: ["cccccccc-cccc-4ccc-8ccc-cccccccccccc"]
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.prisma.event.update).not.toHaveBeenCalled();
   });
 });

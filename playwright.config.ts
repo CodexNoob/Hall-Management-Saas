@@ -9,6 +9,8 @@ try {
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: "test-results",
+  timeout: 60_000,
+  workers: 3,
   fullyParallel: true,
   use: {
     baseURL: "http://127.0.0.1:3000",
@@ -24,6 +26,7 @@ export default defineConfig({
   projects: [
     {
       name: "setup",
+      fullyParallel: false,
       testMatch: /auth\.setup\.ts/
     },
     {

@@ -85,8 +85,7 @@ export function EventManagerPage() {
           internalNotes: event.notes ?? "",
           daveningNote: event.daveningNote ?? "",
           memberShulName: event.memberShulName ?? "",
-          sideBoxes:
-            typeof event.sideBoxes === "string" ? event.sideBoxes : "",
+          sideBoxes: typeof event.sideBoxes === "string" ? event.sideBoxes : "",
           shabbosSetup:
             typeof event.shabbosSetup === "string" ? event.shabbosSetup : "",
           diningManagerNotes: event.diningManagerNotes,
@@ -94,7 +93,8 @@ export function EventManagerPage() {
           diningHallMapPreset: event.diningHallMapPreset,
           phone: event.phone,
           email: event.email ?? "",
-          workspaceData: event.workspaceData ?? {}
+          workspaceData: event.workspaceData ?? {},
+          menuItemIds: event.menuItemIds
         };
       }),
     [eventsQuery.data]
@@ -164,9 +164,7 @@ export function EventManagerPage() {
     const matchesLifecycle =
       eventLifecycleFilter === "All" ||
       (eventLifecycleFilter === "Active" &&
-        !["CANCELLED", "COMPLETED", "EXPIRED"].includes(
-          event.bookingStatus
-        )) ||
+        !["CANCELLED", "COMPLETED", "EXPIRED"].includes(event.bookingStatus)) ||
       (eventLifecycleFilter === "Completed" &&
         event.bookingStatus === "COMPLETED") ||
       (eventLifecycleFilter === "Cancelled" &&

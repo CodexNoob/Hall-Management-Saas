@@ -2,8 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({}, testInfo) => {
   test.skip(
-    !process.env.E2E_READONLY_EMAIL ||
-      !process.env.E2E_READONLY_PASSWORD,
+    !process.env.E2E_READONLY_EMAIL || !process.env.E2E_READONLY_PASSWORD,
     "Read-only E2E credentials are not set."
   );
   testInfo.annotations.push({
@@ -56,16 +55,41 @@ test("authenticated layouts do not overflow the mobile viewport", async ({
 test("booking creation is not exposed on overview, kitchen, or event manager pages", async ({
   page
 }) => {
-  for (const route of ["/dashboard", "/dashboard/kitchen", "/dashboard/events"]) {
+  for (const route of [
+    "/dashboard",
+    "/dashboard/kitchen",
+    "/dashboard/events"
+  ]) {
     await page.goto(route);
     await expect(page).toHaveURL(new RegExp(route.replaceAll("/", "\\/")));
     await expect(
       page.getByRole("button", { name: "Create new booking" })
     ).toHaveCount(0);
-    await expect(
-      page.getByRole("button", { name: "New booking" })
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "New booking" })).toHaveCount(
+      0
+    );
   }
+});
+
+test("event manager keeps today notes available without exposing booking creation", async ({
+  page
+}) => {
+  await page.goto("/dashboard/events");
+
+  await expect(page).toHaveURL(/\/dashboard\/events/);
+
+  // Wait until the loading screen has been replaced by Event Manager.
+  await expect(
+    page.getByRole("heading", { name: "Events", exact: true })
+  ).toBeVisible({ timeout: 45_000 });
+
+  await expect(page.getByRole("button", { name: "New booking" })).toHaveCount(
+    0
+  );
+
+  await page.getByRole("button", { name: "Open today notes" }).click();
+
+  await expect(page.getByRole("dialog", { name: "Today notes" })).toBeVisible();
 });
 
 const dashboardPages = [
@@ -84,11 +108,15 @@ const dashboardPages = [
 ];
 
 for (const route of dashboardPages) {
-  test(`dashboard page renders without a fatal error: ${route}`, async ({ page }) => {
+  test(`dashboard page renders without a fatal error: ${route}`, async ({
+    page
+  }) => {
     await page.goto(route);
     await expect(page).toHaveURL(new RegExp(route.replaceAll("/", "\\/")));
     await expect(page.locator("body")).not.toContainText("Application error");
-    await expect(page.locator("body")).not.toContainText("Internal Server Error");
+    await expect(page.locator("body")).not.toContainText(
+      "Internal Server Error"
+    );
     const dimensions = await page.evaluate(() => ({
       viewport: document.documentElement.clientWidth,
       content: document.documentElement.scrollWidth

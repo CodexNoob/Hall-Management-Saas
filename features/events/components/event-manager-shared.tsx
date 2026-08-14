@@ -79,6 +79,7 @@ export type EventFile = {
   phone: string;
   email: string;
   workspaceData: Record<string, unknown>;
+  menuItemIds?: string[];
 };
 
 export type EventHallOption = {
@@ -135,6 +136,7 @@ export type EventsResponse = {
     phone: string;
     email: string | null;
     workspaceData: Record<string, unknown> | null;
+    menuItemIds: string[];
     hall: { id: string; name: string };
   }>;
   halls: EventHallOption[];
@@ -158,7 +160,7 @@ export const timelineRows = [
   ["03:00 PM", "Dining room setup begins", "Event"],
   ["04:30 PM", "Kitchen starts hot service prep", "Kitchen"],
   ["06:30 PM", "Guests arrive and first course begins", "Event"],
-  ["10:45 PM", "Washing and cleanup instructions begin", "Event"]
+  ["10:45 PM", "Cleanup instructions begin", "Event"]
 ];
 
 export const menuItems = [
