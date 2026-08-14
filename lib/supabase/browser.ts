@@ -8,7 +8,6 @@ import {
   REMEMBER_UNTIL_COOKIE,
   authCookieAttributes,
   authCookieMaxAge,
-  isRememberWindowExpired,
   isSupabaseAuthCookieName,
   mergeAuthCookieOptions,
   nextRememberUntil,
@@ -93,7 +92,7 @@ function currentAuthCookieMaxAge() {
  *
  * Where the previous implementation moved `sb-*-auth-token` between
  * localStorage and sessionStorage, this writes a preference cookie that the
- * browser client, the server client and middleware all consult - then re-stamps
+ * browser client, the server client and proxy.ts all consult - then re-stamps
  * any auth cookie that already exists, so toggling the checkbox takes effect on
  * a session that is already open. That re-stamp is the direct analogue of the
  * old storage-migration loop.
@@ -121,14 +120,11 @@ export function setAuthSessionPersistence(remember: boolean) {
   }
 }
 
-export function isRememberedAuthSessionExpired() {
-  if (typeof document === "undefined") return false;
-
-  return isRememberWindowExpired(
-    readCookie(REMEMBER_AUTH_COOKIE),
-    readCookie(REMEMBER_UNTIL_COOKIE)
-  );
-}
+// isRememberedAuthSessionExpired() lived here and was called from the dashboard
+// guard, once on mount and again every 60 seconds. proxy.ts now enforces the
+// 30-day ceiling on every navigation, before any component mounts, and the auth
+// cookie's own Max-Age expires it in the browser regardless. Keeping a second
+// client-side copy of the rule would only give it somewhere to drift.
 
 function getSupabaseBrowserConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

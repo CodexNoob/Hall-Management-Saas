@@ -11,7 +11,7 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   // Required, not optional: cookie sessions put these on the request path for
   // every navigation, so a missing value is a hard misconfiguration rather than
-  // a degraded feature. Middleware deliberately reads process.env directly
+  // a degraded feature. proxy.ts deliberately reads process.env directly
   // instead of getEnv() so one unset variable cannot 500 the public site.
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),

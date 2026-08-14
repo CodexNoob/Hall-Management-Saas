@@ -100,7 +100,7 @@ export async function createSupabaseServerClient() {
             }
           } catch {
             // Server Components render with a read-only cookie store, so this
-            // throws there and only there. Safe to swallow: middleware refreshes
+            // throws there and only there. Safe to swallow: proxy.ts refreshes
             // the session on the same request, so nothing is actually lost.
             //
             // Route handlers are a different matter - a swallowed write there

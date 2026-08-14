@@ -1,20 +1,29 @@
 /**
  * The single owner of Supabase auth-cookie lifetime rules.
  *
- * The browser client, the server client and the Edge middleware all import this
- * module so the three can never disagree about a cookie's Max-Age. A
- * disagreement is not a crash - it is a user who is silently signed out early,
- * or a "Remember me" window that quietly renews forever.
+ * The browser client, the server client and the proxy all import this module so
+ * the three can never disagree about a cookie's Max-Age. A disagreement is not
+ * a crash - it is a user who is silently signed out early, or a "Remember me"
+ * window that quietly renews forever.
  *
- * MUST stay dependency-free: middleware runs on the Edge runtime, so this file
- * cannot import `server-only`, `next/headers`, `@/lib/env` (getEnv throws) or
- * anything that reaches `@/lib/prisma`.
+ * MUST stay dependency-free. It is imported by `proxy.ts`, which runs on every
+ * navigation, and by a "use client" module - so it cannot reach `server-only`,
+ * `next/headers`, `@/lib/env` (getEnv throws), or anything touching
+ * `@/lib/prisma`.
  */
 
 export const REMEMBER_AUTH_DAYS = 30;
 export const REMEMBER_AUTH_COOKIE = "event-core.auth.remember";
 export const REMEMBER_UNTIL_COOKIE = "event-core.auth.rememberUntil";
 export const ACTIVE_ORGANIZATION_COOKIE = "event-core.activeOrg";
+
+/**
+ * Mirrors the `eventCoreDesktopApp` localStorage flag. The proxy runs before
+ * any client code and cannot read localStorage, so without this mirror the
+ * Electron shell would be bounced to the web sign-in page instead of
+ * /login?desktop=1.
+ */
+export const DESKTOP_APP_COOKIE = "event-core.desktopApp";
 
 const SECONDS_PER_DAY = 24 * 60 * 60;
 export const REMEMBER_AUTH_DURATION_MS =
