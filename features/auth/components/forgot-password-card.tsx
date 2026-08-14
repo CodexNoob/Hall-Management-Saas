@@ -138,7 +138,7 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin, onContactSu
 
     try {
       const supabase = createSupabaseBrowserClient();
-      const redirectTo = `${window.location.origin}/auth/callback`;
+      const redirectTo = `${window.location.origin}/auth/confirm`;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo
       });

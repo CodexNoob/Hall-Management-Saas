@@ -7,9 +7,9 @@ import {
   type StaffInviteClient
 } from "@/features/administration/server/staff-invitations";
 
-const redirectTo = "https://app.example.com/auth/callback";
+const redirectTo = "https://app.example.com/auth/confirm";
 
-type LinkOutcome = { action_link?: string } | null;
+type LinkOutcome = { hashed_token?: string } | null;
 
 /**
  * Stands in for supabase.auth.admin. `sendResults` is consumed one call at a
@@ -69,7 +69,7 @@ describe("sendStaffInvitations", () => {
   it("returns a shareable link instead of throwing when the email fails", async () => {
     const { admin } = createAdminStub({
       sendResults: ["email rate limit exceeded"],
-      inviteLink: { action_link: "https://app.example.com/invite-token" }
+      inviteLink: { hashed_token: "invite-token-hash" }
     });
 
     const invitations = await sendStaffInvitations(
@@ -82,7 +82,8 @@ describe("sendStaffInvitations", () => {
       {
         email: "coordinator@example.com",
         emailSent: false,
-        inviteLink: "https://app.example.com/invite-token",
+        inviteLink:
+          "https://app.example.com/auth/confirm?token_hash=invite-token-hash&type=invite",
         error: "email rate limit exceeded"
       }
     ]);
@@ -91,7 +92,7 @@ describe("sendStaffInvitations", () => {
   it("keeps going after a failure so one bad address cannot sink the rest", async () => {
     const { admin, sends } = createAdminStub({
       sendResults: [null, "email rate limit exceeded", null],
-      inviteLink: { action_link: "https://app.example.com/invite-token" }
+      inviteLink: { hashed_token: "invite-token-hash" }
     });
 
     const invitations = await sendStaffInvitations(
@@ -110,7 +111,9 @@ describe("sendStaffInvitations", () => {
       false,
       true
     ]);
-    expect(invitations[1].inviteLink).toBe("https://app.example.com/invite-token");
+    expect(invitations[1].inviteLink).toBe(
+      "https://app.example.com/auth/confirm?token_hash=invite-token-hash&type=invite"
+    );
   });
 
   it("sends one address at a time rather than as a parallel burst", async () => {
@@ -137,7 +140,7 @@ describe("sendStaffInvitations", () => {
     expect(peak).toBe(1);
   });
 
-  it("passes the callback redirect through to Supabase", async () => {
+  it("passes the confirm redirect through to Supabase", async () => {
     const inviteUserByEmail = vi
       .fn()
       .mockResolvedValue({ error: null } as { error: null });
@@ -164,12 +167,14 @@ describe("sendStaffInvitations", () => {
 describe("generateStaffInviteLink", () => {
   it("prefers an invite link", async () => {
     const { admin, generated } = createAdminStub({
-      inviteLink: { action_link: "https://app.example.com/invite-token" }
+      inviteLink: { hashed_token: "invite-token-hash" }
     });
 
     expect(
       await generateStaffInviteLink(admin, "coordinator@example.com", redirectTo)
-    ).toBe("https://app.example.com/invite-token");
+    ).toBe(
+      "https://app.example.com/auth/confirm?token_hash=invite-token-hash&type=invite"
+    );
     expect(generated).toEqual([
       { type: "invite", email: "coordinator@example.com" }
     ]);
@@ -178,13 +183,48 @@ describe("generateStaffInviteLink", () => {
   it("falls back to recovery for an address Supabase already knows", async () => {
     const { admin, generated } = createAdminStub({
       inviteLink: null,
-      recoveryLink: { action_link: "https://app.example.com/recovery-token" }
+      recoveryLink: { hashed_token: "recovery-token-hash" }
     });
 
     expect(
       await generateStaffInviteLink(admin, "coordinator@example.com", redirectTo)
-    ).toBe("https://app.example.com/recovery-token");
+    ).toBe(
+      "https://app.example.com/auth/confirm?token_hash=recovery-token-hash&type=recovery"
+    );
     expect(generated.map((call) => call.type)).toEqual(["invite", "recovery"]);
+  });
+
+  /**
+   * The whole point of building the link ourselves. Supabase's own action_link
+   * is a GoTrue /verify URL that ignores the email templates, so a shareable
+   * link taken from it would keep working only for as long as the transitional
+   * implicit-flow page survives.
+   */
+  it("points at /auth/confirm rather than Supabase's own verify endpoint", async () => {
+    const { admin } = createAdminStub({
+      inviteLink: { hashed_token: "invite-token-hash" }
+    });
+
+    const link = await generateStaffInviteLink(
+      admin,
+      "coordinator@example.com",
+      redirectTo
+    );
+
+    expect(link).toContain("/auth/confirm");
+    expect(link).not.toContain("/auth/v1/verify");
+  });
+
+  it("escapes a token hash that is not URL safe", async () => {
+    const { admin } = createAdminStub({
+      inviteLink: { hashed_token: "abc+def/ghi=" }
+    });
+
+    expect(
+      await generateStaffInviteLink(admin, "coordinator@example.com", redirectTo)
+    ).toBe(
+      "https://app.example.com/auth/confirm?token_hash=abc%2Bdef%2Fghi%3D&type=invite"
+    );
   });
 
   it("returns null when neither link can be generated", async () => {
@@ -195,10 +235,10 @@ describe("generateStaffInviteLink", () => {
     ).toBeNull();
   });
 
-  it("ignores a response whose action link is missing or blank", async () => {
+  it("ignores a response whose token hash is missing or blank", async () => {
     const { admin } = createAdminStub({
       inviteLink: {},
-      recoveryLink: { action_link: "" }
+      recoveryLink: { hashed_token: "" }
     });
 
     expect(
@@ -208,7 +248,7 @@ describe("generateStaffInviteLink", () => {
 });
 
 describe("staffInviteRedirectTo", () => {
-  it("appends the callback path", () => {
+  it("appends the confirm path", () => {
     expect(staffInviteRedirectTo("https://app.example.com")).toBe(redirectTo);
   });
 

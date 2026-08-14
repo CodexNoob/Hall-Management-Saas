@@ -91,16 +91,16 @@ describe("event details form validation", () => {
     expect(
       validateEventDetailsDraft({
         ...draft,
-        guestCount: 10,
-        childrenCount: 11
+        guestCount: "10",
+        childrenCount: "11"
       })
     ).toContain("Children cannot be greater than total guests.");
 
     expect(
       validateEventDetailsDraft({
         ...draft,
-        guestCount: 10,
-        couplesCount: 6
+        guestCount: "10",
+        couplesCount: "6"
       })
     ).toContain("Couples cannot require more seats than total guests.");
   });
@@ -118,7 +118,7 @@ describe("event details form validation", () => {
     expect(
       validateEventDetailsDraft({
         ...draft,
-        guestCount: 10.5
+        guestCount: "10.5"
       })
     ).toContain("Guests must be a whole number of 0 or more.");
   });

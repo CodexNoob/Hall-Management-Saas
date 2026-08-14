@@ -127,7 +127,7 @@ test("hands the inviter a copyable link when the invitation email cannot be sent
 }) => {
   const inviteEmail = `e2e-undelivered-${Date.now()}@example.com`;
   const inviteLink =
-    "https://app.example.com/auth/callback#access_token=e2e-token&type=invite";
+    "https://app.example.com/auth/confirm?token_hash=e2e-token-hash&type=invite";
 
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 

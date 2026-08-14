@@ -131,24 +131,25 @@ test("Event details save and persist edited fields", async ({ page }) => {
       return;
     }
 
-    savedPayload = route.request().postDataJSON();
+    const payload = route.request().postDataJSON() as Record<string, unknown>;
+    savedPayload = payload;
     Object.assign(persistedResponse.events[0], {
-      clientName: savedPayload.clientName,
-      couplesCount: savedPayload.couplesCount,
-      menCount: savedPayload.menCount,
-      ladiesCount: savedPayload.ladiesCount,
-      boysCount: savedPayload.boysCount,
-      girlsCount: savedPayload.girlsCount,
-      kidsCount: savedPayload.kidsCount,
-      waitersCount: savedPayload.waitersCount,
-      setupTime: savedPayload.setupTime,
-      washingTime: savedPayload.washingTime,
-      tableclothName: savedPayload.tableclothName,
-      notes: savedPayload.notes,
-      daveningNote: savedPayload.daveningNote,
-      memberShulName: savedPayload.memberShulName,
-      sideBoxes: savedPayload.sideBoxes,
-      shabbosSetup: savedPayload.shabbosSetup
+      clientName: payload.clientName,
+      couplesCount: payload.couplesCount,
+      menCount: payload.menCount,
+      ladiesCount: payload.ladiesCount,
+      boysCount: payload.boysCount,
+      girlsCount: payload.girlsCount,
+      kidsCount: payload.kidsCount,
+      waitersCount: payload.waitersCount,
+      setupTime: payload.setupTime,
+      washingTime: payload.washingTime,
+      tableclothName: payload.tableclothName,
+      notes: payload.notes,
+      daveningNote: payload.daveningNote,
+      memberShulName: payload.memberShulName,
+      sideBoxes: payload.sideBoxes,
+      shabbosSetup: payload.shabbosSetup
     });
 
     await route.fulfill({

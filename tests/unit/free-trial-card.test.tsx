@@ -310,9 +310,10 @@ describe("FreeTrialCard success path", () => {
     // The only signal that authorizes the server to provision an organization.
     const [payload] = signUp.mock.calls[0];
     expect(payload.options.data.account_type).toBe("organization_owner");
-    expect(payload.options.emailRedirectTo).toContain(
-      "/auth/callback?next=%2Fdashboard%2Fnew"
-    );
+    // No query string of its own: the email template appends
+    // `?token_hash=...&type=signup`, and a second `?` would break the link.
+    // /auth/confirm routes a confirmed signup to /dashboard/new on the type.
+    expect(payload.options.emailRedirectTo).toMatch(/\/auth\/confirm$/);
 
     await waitFor(() =>
       expect(syncSignedInUser).toHaveBeenCalledWith("access-token", {
