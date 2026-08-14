@@ -111,7 +111,7 @@ describe("event details form validation", () => {
     expect(
       validateEventDetailsDraft({
         ...draft,
-        waitersCount: -1
+        waitersCount: "-1"
       })
     ).toContain("Waiters must be a whole number of 0 or more.");
 
