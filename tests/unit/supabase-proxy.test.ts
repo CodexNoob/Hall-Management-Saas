@@ -103,8 +103,7 @@ describe("the dashboard gate", () => {
     const response = await run(requestFor("/dashboard/menu"));
     const location = new URL(response.headers.get("location") as string);
 
-    expect(location.pathname).toBe("/");
-    expect(location.searchParams.get("auth")).toBe("login");
+    expect(location.pathname).toBe("/login");
     expect(location.searchParams.get("next")).toBe("/dashboard/menu");
   });
 
@@ -262,7 +261,7 @@ describe("the remember-me ceiling", () => {
     const response = await run(requestFor("/dashboard", expired));
 
     expect(new URL(response.headers.get("location") as string).pathname).toBe(
-      "/"
+      "/login"
     );
     expect(setCookieHeader(response)).toContain("sb-testproject-auth-token=");
     expect(setCookieHeader(response)).toContain(REMEMBER_AUTH_COOKIE);

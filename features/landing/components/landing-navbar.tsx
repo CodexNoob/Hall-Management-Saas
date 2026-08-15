@@ -27,13 +27,6 @@ export function LandingNavbar() {
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  function openAuthModal(view: "login" | "trial") {
-    window.__eventCoreAuthRequest = view;
-    window.dispatchEvent(
-      new CustomEvent("event-core:open-auth", { detail: view })
-    );
-  }
-
   useEffect(() => {
     restorePublicPageScroll();
   }, []);
@@ -131,40 +124,45 @@ export function LandingNavbar() {
           <button
             aria-controls="landing-mobile-navigation"
             aria-expanded={isMobileMenuOpen}
-            aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-label={
+              isMobileMenuOpen
+                ? "Close navigation menu"
+                : "Open navigation menu"
+            }
             className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-xl border border-[#E5E0D6] bg-white text-[#0f172a] shadow-sm lg:hidden"
             onClick={() => setIsMobileMenuOpen((open) => !open)}
             type="button"
           >
-            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "translate-y-2 rotate-45" : ""}`} />
-            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "opacity-0" : ""}`} />
-            <span className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`} />
+            <span
+              className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "translate-y-2 rotate-45" : ""}`}
+            />
+            <span
+              className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "opacity-0" : ""}`}
+            />
+            <span
+              className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`}
+            />
           </button>
-          <button
+          <Link
             className="navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden"
-            type="button"
-            data-login-modal
-            onClick={() => openAuthModal("login")}
+            href="/login"
           >
             Login
-          </button>
+          </Link>
         </div>
         <div className="hidden items-center gap-3 sm:flex">
-          <button
+          <Link
             className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1f4d73]/45 hover:shadow-md"
-            type="button"
-            data-login-modal
-            onClick={() => openAuthModal("login")}
+            href="/login"
           >
             Login
-          </button>
-          <a
+          </Link>
+          <Link
             className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
-            href="/start-trial"
-            data-free-trial-modal
+            href="/signup"
           >
             Sign Up
-          </a>
+          </Link>
         </div>
       </div>
       <div
@@ -175,14 +173,19 @@ export function LandingNavbar() {
         }`}
         id="landing-mobile-navigation"
       >
-        <nav aria-label="Mobile navigation" className="mx-auto grid max-w-7xl gap-1 px-5 py-5 text-base font-bold text-[#0f172a] sm:px-8">
-          {([
-            ["Home", "/#home"],
-            ["Features", "/#features"],
-            ["Benefits", "/#benefits"],
-            ["Pricing", "/#pricing"],
-            ["Documentation", "/documentation"]
-          ] as const).map(([label, href]) => (
+        <nav
+          aria-label="Mobile navigation"
+          className="mx-auto grid max-w-7xl gap-1 px-5 py-5 text-base font-bold text-[#0f172a] sm:px-8"
+        >
+          {(
+            [
+              ["Home", "/#home"],
+              ["Features", "/#features"],
+              ["Benefits", "/#benefits"],
+              ["Pricing", "/#pricing"],
+              ["Documentation", "/documentation"]
+            ] as const
+          ).map(([label, href]) => (
             <Link
               className="rounded-xl px-4 py-3 transition hover:bg-[#eef4fa] hover:text-[#1f4d73]"
               href={href}
@@ -205,13 +208,13 @@ export function LandingNavbar() {
           >
             Contact
           </button>
-          <button
-            className="mt-2 rounded-xl bg-[#1f4d73] px-4 py-3 font-black text-white sm:hidden"
-            onClick={() => { setIsMobileMenuOpen(false); openAuthModal("trial"); }}
-            type="button"
+          <Link
+            className="mt-2 rounded-xl bg-[#1f4d73] px-4 py-3 text-center font-black text-white! sm:hidden"
+            href="/signup"
+            onClick={() => setIsMobileMenuOpen(false)}
           >
             Get Started Free
-          </button>
+          </Link>
         </nav>
       </div>
       <button

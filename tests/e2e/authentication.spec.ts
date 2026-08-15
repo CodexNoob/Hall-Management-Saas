@@ -13,15 +13,16 @@ test.beforeEach(async ({}, testInfo) => {
   );
 });
 
-test("login requires both email and password", async ({ page }) => {
+test("the landing navbar routes to the login page", async ({ page }) => {
+  // Login used to open a modal over the landing page; it is a route now, so
+  // this covers the navbar wiring rather than an overlay.
   await page.goto("/");
   await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
   await waitForHydration(page);
-  await page.locator("[data-login-modal]:visible").click();
-  await page
-    .getByRole("dialog", { name: "Employee Login", exact: true })
-    .getByRole("button", { name: "Login", exact: true })
-    .click();
+  await page.getByRole("link", { name: "Login", exact: true }).first().click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByRole("button", { name: "Login", exact: true }).click();
 
   await expect(page.locator(inlineError)).toHaveText(
     "Please enter your email address and password."
@@ -160,16 +161,11 @@ test("a fresh authenticated session can log out", async ({ page }) => {
   const password = process.env.E2E_LOGOUT_PASSWORD;
   test.skip(!email || !password, "Dedicated logout credentials are not set.");
 
-  await page.goto("/");
-  await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
+  await page.goto("/login");
   await waitForHydration(page);
-  await page.locator("[data-login-modal]:visible").click();
   await page.getByLabel("Email Address").fill(email!);
   await page.getByLabel("Password", { exact: true }).fill(password!);
-  await page
-    .getByRole("dialog", { name: "Employee Login", exact: true })
-    .getByRole("button", { name: "Login", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Login", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
 
   await page
@@ -187,7 +183,7 @@ test("a fresh authenticated session can log out", async ({ page }) => {
   // navigation above does.
   await expect(page).toHaveURL("/", { timeout: 30_000 });
   await page.goto("/dashboard");
-  // Protected dashboard routes bounce to the landing page's login modal
-  // (getDashboardLoginPath), not to the standalone /login page.
-  await expect(page).toHaveURL(/\/\?auth=login&next=/, { timeout: 30_000 });
+  // Protected dashboard routes bounce to the login page carrying the return
+  // path (getDashboardLoginPath).
+  await expect(page).toHaveURL(/\/login\?next=/, { timeout: 30_000 });
 });

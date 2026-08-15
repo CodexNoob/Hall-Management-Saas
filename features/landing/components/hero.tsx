@@ -42,8 +42,7 @@ export function HallFlowHero() {
           <div className="saas-animate-up saas-delay-260 mt-9 flex flex-col gap-4 sm:flex-row sm:justify-center lg:justify-start">
             <a
               className="saas-hover-lift inline-flex h-13 items-center justify-center rounded-xl bg-[#1f4d73] px-7 text-sm font-black text-white! shadow-xl shadow-[#0F172A]/15 hover:bg-[#15344f]"
-              href="/start-trial"
-              data-free-trial-modal
+              href="/signup"
             >
               Get Started Free
             </a>

@@ -111,7 +111,7 @@ signup or a password reset locally.
 is validated against the allowlist below, so it is safe as well as correct. All
 four producers already pass `window.location.origin`:
 
-- [features/auth/components/free-trial-card.tsx](../features/auth/components/free-trial-card.tsx) — signup
+- [features/auth/components/signup-card.tsx](../features/auth/components/signup-card.tsx) — signup
 - [features/auth/components/verify-email-card.tsx](../features/auth/components/verify-email-card.tsx) — resend
 - [features/auth/components/forgot-password-card.tsx](../features/auth/components/forgot-password-card.tsx) — reset
 - [features/administration/server/staff-invitations.ts](../features/administration/server/staff-invitations.ts) — invites
@@ -124,7 +124,7 @@ produces a URL with two of them, and `token_hash` is then parsed as part of
 
 This is why the producers pass a bare `${origin}/auth/confirm` and
 [app/auth/confirm/route.ts](../app/auth/confirm/route.ts) picks the destination
-from `type` alone. `tests/unit/free-trial-card.test.tsx` pins it with
+from `type` alone. `tests/unit/signup-card.test.tsx` pins it with
 `toMatch(/\/auth\/confirm$/)`. Do not "helpfully" add `?next=` back.
 
 **Never enable `experimental.appendPkceFlowIdToRedirects`** on the Supabase
@@ -200,7 +200,7 @@ resolve to a route that no longer exists.
   user to login with nothing to explain it. If you turn this off, that branch
   simply stops being reached.
 - **Email confirmation** (default: on) — with it off, `signUp` returns a session
-  immediately and [free-trial-card.tsx](../features/auth/components/free-trial-card.tsx)
+  immediately and [signup-card.tsx](../features/auth/components/signup-card.tsx)
   skips `/verify-email` entirely. That is the local-development path.
 - **Link TTL** (default: 24h) — an expired or already-spent link both report
   `otp_expired`. Mail-provider link scanners routinely spend a single-use link

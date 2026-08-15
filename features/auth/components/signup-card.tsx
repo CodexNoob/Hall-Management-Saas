@@ -13,7 +13,7 @@ import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { ArrowLoginIcon, EmailIcon, EyeIcon, LockIcon, ShieldIcon } from "@/features/auth/components/auth-icons";
 
-function FreeTrialIllustration() {
+function SignUpIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
       <div className="absolute bottom-0 left-2 h-48 w-48 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
@@ -88,12 +88,7 @@ function FreeTrialIllustration() {
   );
 }
 
-type FreeTrialCardProps = {
-  compact?: boolean;
-  onLoginClick?: () => void;
-};
-
-export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardProps) {
+export function SignUpCard() {
   const router = useRouter();
   const { toast } = useToast();
   const isDesktopApp = useDesktopAppMode();
@@ -183,64 +178,69 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
     }
   };
 
-  return (
-    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-back max-w-lg" : "lg:grid-cols-2"}`}>
-      <div className={`order-2 relative overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-5 sm:p-10 ${isDesktopApp ? "hidden" : compact ? "hidden lg:block lg:p-10" : "lg:p-14"}`}>
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -bottom-10 right-0 h-56 w-80 rounded-[48%] bg-[#E7E3DA]/75 blur-2xl" />
+  const card = (
+    <section
+      className={
+        isDesktopApp
+          ? "desktop-auth-soft-page desktop-auth-soft-back mx-auto grid w-full min-w-0 max-w-lg overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl"
+          : "grid min-h-dvh w-full min-w-0 lg:grid-cols-2"
+      }
+    >
+      <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-16"}`}>
+        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+        <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
         <div className="pointer-events-none absolute bottom-16 left-10 hidden grid-cols-8 gap-3 opacity-25 sm:grid">
           {Array.from({ length: 48 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#0F172A]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-white" />
           ))}
         </div>
-        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#1f4d73] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-white opacity-8" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
         </svg>
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
+            <span key={index} className="h-1.5 w-1.5 rounded-full bg-white/70" />
           ))}
         </div>
 
-        <div className={`relative ${compact ? "lg:sticky lg:top-0 lg:flex lg:min-h-[calc(90vh-80px)] lg:flex-col lg:justify-between lg:gap-6" : ""}`}>
+        <div className="relative">
           <div>
-            {isDesktopApp ? (
-              <Image src="/images/branding/hms-logo-header.png" alt="Event Core" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-            ) : (
-              <Link href="/" aria-label="Back to Hall Management SaaS home">
-                <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-              </Link>
-            )}
+            {/* The logo is dark navy artwork, so it needs a light plate to stay
+                legible against the navy panel. */}
+            <Link
+              href="/"
+              aria-label="Back to Event Core home"
+              className="inline-flex rounded-2xl bg-white px-5 py-3 shadow-xl shadow-black/25 transition hover:brightness-105"
+            >
+              <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-44 max-w-full object-contain" />
+            </Link>
 
-            <p className="mt-10 text-base font-black text-[#1f4d73]">
+            <p className="mt-10 text-base font-black text-[#8fc0e8]">
               Welcome! <span aria-hidden="true">&#128075;</span>
             </p>
-            <h1 className="mt-5 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-[#0F172A] sm:mt-6 sm:text-5xl">
+            <h1 className="mt-5 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-white xl:text-5xl">
               Create your account
             </h1>
-            <p className="mt-4 max-w-md text-base leading-7 text-[#64748B] sm:mt-5 sm:text-lg sm:leading-8">
+            <p className="mt-5 max-w-md text-base leading-8 text-white/75 sm:text-lg">
               Start with your email and a password. You&apos;ll name your organization and choose a plan right after you confirm your inbox.
             </p>
           </div>
 
-          <div className={compact ? "lg:-my-3" : ""}>
-            <FreeTrialIllustration />
-          </div>
+          <SignUpIllustration />
 
-          <div className={`${compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
-              <ShieldIcon />
+          <div className="mt-10 flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/25">
+              <ShieldIcon className="h-7 w-7 text-white" />
             </div>
             <div>
-              <p className="font-black text-[#0F172A]">Your data is secure with us.</p>
-              <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption and best security practices.</p>
+              <p className="font-black text-white">Your data is secure with us.</p>
+              <p className="mt-1 text-sm font-medium text-white/70">We use industry-standard encryption and best security practices.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`order-1 box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel p-4 sm:p-5" : compact ? "p-5 pt-16 sm:p-10 lg:p-10" : "p-5 sm:p-10 lg:p-14"}`}>
+      <div className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-4 sm:p-5" : "order-2 flex items-center justify-center px-5 py-10 sm:px-10 sm:py-14 lg:px-16"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
           {isDesktopApp ? (
             <Image
@@ -252,18 +252,36 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               unoptimized
               className="mb-2 h-auto w-40 max-w-full object-contain"
             />
-          ) : null}
-          <h2 id="free-trial-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
+          ) : (
+            // The brand panel is desktop-only, so small screens would otherwise
+            // lose the logo and the way back to the marketing site.
+            <Link
+              href="/"
+              aria-label="Back to Event Core home"
+              className="mb-8 inline-flex w-fit lg:hidden"
+            >
+              <Image
+                src="/images/branding/hms-logo-header.png"
+                alt="Hall Management SaaS"
+                width={612}
+                height={408}
+                priority
+                unoptimized
+                className="h-auto w-40 max-w-full object-contain"
+              />
+            </Link>
+          )}
+          <h2 className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
           <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
 
           <form className={isDesktopApp ? "mt-3" : "mt-8"} onSubmit={submit}>
-            <label className={`${isDesktopApp ? "text-sm" : "text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialEmail">
+            <label className={`${isDesktopApp ? "text-sm" : "text-base"} block font-bold text-[#0F172A]`} htmlFor="signupEmail">
               Email Address
             </label>
             <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <EmailIcon />
               <input
-                id="freeTrialEmail"
+                id="signupEmail"
                 name="email"
                 autoComplete="email"
                 className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
@@ -274,13 +292,13 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               />
             </div>
 
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="freeTrialPassword">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="signupPassword">
               Password
             </label>
             <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
               <LockIcon />
               <input
-                id="freeTrialPassword"
+                id="signupPassword"
                 name="newPassword"
                 autoComplete="new-password"
                 className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
@@ -322,19 +340,30 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
 
             <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-7 text-base"} text-center text-[#64748B]`}>
               Already have an account?{" "}
-              {onLoginClick ? (
-                <button className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" type="button" onClick={onLoginClick}>
-                  Login
-                </button>
-              ) : (
-                <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href={isDesktopApp ? "/login?desktop=1" : "/login"}>
-                  Login
-                </Link>
-              )}
+              <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href={isDesktopApp ? "/login?desktop=1" : "/login"}>
+                Login
+              </Link>
             </p>
           </form>
         </div>
       </div>
     </section>
+  );
+
+  if (!isDesktopApp) {
+    return card;
+  }
+
+  // The desktop shell keeps the old floating-panel presentation, so it has to
+  // supply the page ground itself - the web layout is a full-bleed split now
+  // and no longer centres anything for it.
+  return (
+    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-2 py-4 sm:px-6 sm:py-8">
+      <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
+      <div className="relative flex w-full max-w-7xl items-center justify-center">
+        {card}
+      </div>
+    </div>
   );
 }

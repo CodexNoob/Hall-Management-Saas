@@ -21,7 +21,7 @@ vi.mock("@/lib/auth/client", () => ({
 }));
 
 import { ToastProvider } from "@/components/ui/toast";
-import { FreeTrialCard } from "@/features/auth/components/free-trial-card";
+import { SignUpCard } from "@/features/auth/components/signup-card";
 import { AUTH_ERROR_MESSAGES } from "@/lib/auth/auth-error-messages";
 import { MAX_PASSWORD_LENGTH } from "@/lib/auth/password";
 
@@ -30,7 +30,7 @@ const fetchMock = vi.fn();
 function renderSignUp() {
   return render(
     <ToastProvider>
-      <FreeTrialCard />
+      <SignUpCard />
     </ToastProvider>
   );
 }
@@ -64,7 +64,7 @@ function signUpFailure(error: Record<string, unknown>) {
   return { data: { user: null, session: null }, error };
 }
 
-describe("FreeTrialCard failure paths", () => {
+describe("SignUpCardfailure paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Sign-up talks to Supabase and nothing else. The stub stays so that a
@@ -218,7 +218,7 @@ describe("FreeTrialCard failure paths", () => {
   });
 });
 
-describe("FreeTrialCard success path", () => {
+describe("SignUpCardsuccess path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal("fetch", fetchMock);

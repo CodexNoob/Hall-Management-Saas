@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AuthModal } from "@/features/auth/components/auth-modal";
 import { ContactModal } from "@/features/landing/components/contact-modal";
 import { LandingFooter } from "@/features/landing/components/landing-footer";
 import { LandingNavbar } from "@/features/landing/components/landing-navbar";
@@ -30,7 +29,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <PublicContentPage content={content} />
       <LandingFooter />
       <ContactModal />
-      <AuthModal />
     </>
   );
 }

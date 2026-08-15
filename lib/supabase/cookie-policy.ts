@@ -49,7 +49,7 @@ export function isSupabaseAuthCookieName(name: string) {
  * Transliterated from the old shouldPersistAuthSession(): persist unless the
  * preference is *exactly* "false", so an ABSENT preference persists.
  *
- * This default is load-bearing. features/auth/components/free-trial-card.tsx
+ * This default is load-bearing. features/auth/components/signup-card.tsx
  * never calls setAuthSessionPersistence, so every trial sign-up arrives with no
  * preference at all. Treating absent as "session cookie" would sign out every
  * new owner the moment they close the browser.

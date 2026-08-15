@@ -15,7 +15,7 @@ test.beforeEach(async ({}, testInfo) => {
 // Confirming a real email needs a real inbox, so these cover the two public
 // screens of the flow. The confirm -> /dashboard/new leg is verified manually.
 test("sign-up asks only for an email and a password", async ({ page }) => {
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
 
   await expect(page.getByLabel("Email Address")).toBeVisible();
@@ -32,7 +32,7 @@ test("sign-up asks only for an email and a password", async ({ page }) => {
 test("sign-up asks for an email before it checks anything else", async ({
   page
 }) => {
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
   await page.getByLabel("Password", { exact: true }).fill("Testing12345");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
@@ -41,7 +41,7 @@ test("sign-up asks for an email before it checks anything else", async ({
     "Please enter your email address."
   );
   await expect(page.getByText("Sign-up failed")).toBeVisible();
-  await expect(page).toHaveURL(/\/start-trial/);
+  await expect(page).toHaveURL(/\/signup/);
 });
 
 const passwordRules = [
@@ -54,7 +54,7 @@ for (const { password, expected } of passwordRules) {
   test(`sign-up rejects a password that ${expected.toLowerCase()}`, async ({
     page
   }) => {
-    await page.goto("/start-trial");
+    await page.goto("/signup");
     await waitForHydration(page);
     await page.getByLabel("Email Address").fill("e2e-signup@example.com");
     await page.getByLabel("Password", { exact: true }).fill(password);
@@ -64,7 +64,7 @@ for (const { password, expected } of passwordRules) {
 
     // Client-side, so this must not have reached Supabase.
     await expect(page.locator(inlineError)).toHaveText(expected);
-    await expect(page).toHaveURL(/\/start-trial/);
+    await expect(page).toHaveURL(/\/signup/);
   });
 }
 
@@ -73,7 +73,7 @@ test("sign-up rejects a password past the 72-character limit", async ({
 }) => {
   // Worth its own case: it proves no account is created and no confirmation
   // email is sent for a password bcrypt would silently truncate.
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
   await page.getByLabel("Email Address").fill("e2e-signup@example.com");
   await page
@@ -84,7 +84,7 @@ test("sign-up rejects a password past the 72-character limit", async ({
   await expect(page.locator(inlineError)).toHaveText(
     "Passwords cannot be longer than 72 characters."
   );
-  await expect(page).toHaveURL(/\/start-trial/);
+  await expect(page).toHaveURL(/\/signup/);
 });
 
 /**
@@ -101,7 +101,7 @@ test("a malformed sign-up address never reaches Supabase", async ({
     await route.abort();
   });
 
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
   await page.getByLabel("Email Address").fill("owner@");
   await page.getByLabel("Password", { exact: true }).fill("Testing12345");
@@ -138,7 +138,7 @@ test("sign-up tells an existing owner to sign in instead", async ({ page }) => {
     });
   });
 
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
   await page.getByLabel("Email Address").fill("e2e-signup@example.com");
   await page.getByLabel("Password", { exact: true }).fill("Testing12345");
@@ -147,13 +147,13 @@ test("sign-up tells an existing owner to sign in instead", async ({ page }) => {
   await expect(page.locator(inlineError)).toHaveText(
     "An account with this email already exists. Please sign in instead."
   );
-  await expect(page).toHaveURL(/\/start-trial/);
+  await expect(page).toHaveURL(/\/signup/);
 });
 
 test("the sign-up error clears when the password is corrected", async ({
   page
 }) => {
-  await page.goto("/start-trial");
+  await page.goto("/signup");
   await waitForHydration(page);
   await page.getByLabel("Email Address").fill("e2e-signup@example.com");
   await page.getByLabel("Password", { exact: true }).fill("short");
@@ -165,21 +165,27 @@ test("the sign-up error clears when the password is corrected", async ({
   await expect(page.locator(inlineError)).toHaveCount(0);
 });
 
-test("the free-trial modal enforces the same rules", async ({ page }) => {
-  // Covers the auth-modal -> FreeTrialCard wiring, which nothing else tests.
-  await page.goto("/?auth=trial");
+test("the landing hero routes to the sign-up page", async ({ page }) => {
+  // Sign-up used to open a modal over the landing page; it is a route now, so
+  // this covers the hero wiring plus the same validation on arrival.
+  await page.goto("/");
   await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
   await waitForHydration(page);
 
-  const dialog = page.getByRole("dialog", { name: "Get started free" });
-  await expect(dialog).toBeVisible();
-
-  await dialog.getByLabel("Password", { exact: true }).fill("Testing12345");
-  await dialog
-    .getByRole("button", { name: "Create account", exact: true })
+  await page
+    .getByRole("link", { name: "Get Started Free", exact: true })
+    .first()
     .click();
+  await expect(page).toHaveURL(/\/signup$/);
 
-  await expect(dialog.locator('p[role="alert"]')).toHaveText(
+  await expect(
+    page.getByRole("heading", { name: "Get started free" })
+  ).toBeVisible();
+
+  await page.getByLabel("Password", { exact: true }).fill("Testing12345");
+  await page.getByRole("button", { name: "Create account", exact: true }).click();
+
+  await expect(page.locator(inlineError)).toHaveText(
     "Please enter your email address."
   );
 });
