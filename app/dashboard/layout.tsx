@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
-  clearCachedSyncedUser,
-  syncSignedInUser,
-  type SyncSignedInUserResponse
+  clearCachedAuthSession,
+  fetchAuthSession,
+  type AuthSessionResponse
 } from "@/lib/auth/client";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
 import { DashboardStartupScreen } from "@/components/layout/dashboard-startup-screen";
@@ -61,12 +61,12 @@ function getDashboardActiveLabel(pathname: string | null): string {
   return "Dashboard";
 }
 
-function getSidebarProfileSubtitle(syncData: SyncSignedInUserResponse) {
-  const roleLabel = formatRole(syncData.user.role);
+function getSidebarProfileSubtitle(authSession: AuthSessionResponse) {
+  const roleLabel = formatRole(authSession.user.role);
   const activeOrganization =
-    syncData.organizations.find(
-      (organization) => organization.id === syncData.activeOrganizationId
-    ) ?? syncData.organizations[0];
+    authSession.organizations.find(
+      (organization) => organization.id === authSession.activeOrganizationId
+    ) ?? authSession.organizations[0];
 
   if (!activeOrganization) {
     return roleLabel;
@@ -80,7 +80,7 @@ function getSidebarProfileSubtitle(syncData: SyncSignedInUserResponse) {
 
   const isTrialing =
     activeOrganization.subscriptionStatus === "trialing" &&
-    !isTesterBypassEmail(syncData.user.email);
+    !isTesterBypassEmail(authSession.user.email);
 
   if (isTrialing) {
     return "Upgrade Now";
@@ -110,7 +110,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // gate is `mustCompleteOnboarding` below plus the owner check in
   // POST /api/onboarding/organization.
   const isOnboardingRoute = pathname === "/dashboard/new";
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
+  const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(
     null
   );
   const [status, setStatus] = useState("Preparing your dashboard...");
@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         const { data, error } = await supabase.auth.getSession();
 
         if (error || !data.session?.access_token) {
-          clearCachedSyncedUser();
+          clearCachedAuthSession();
           const isDesktopApp =
             window.localStorage.getItem("eventCoreDesktopApp") === "true";
           router.replace(
@@ -145,12 +145,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           setStatus("Loading dashboard data...");
         }
 
-        const synced = await syncSignedInUser(data.session.access_token);
+        const nextSession = await fetchAuthSession(data.session.access_token);
 
         // Invited staff reach here with a session but no password of their own.
-        // Return without setSyncData so the startup screen stays up until the
+        // Return without setAuthSession so the startup screen stays up until the
         // redirect lands, instead of flashing dashboard chrome.
-        if (synced.mustSetPassword) {
+        if (nextSession.mustSetPassword) {
           router.replace(
             getPasswordSetupPath(initialPathname.current) as Parameters<
               typeof router.replace
@@ -161,20 +161,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         // Owners who have not named their organization yet are held on the setup
         // form. Same reasoning as the password branch above: return without
-        // setSyncData so the startup screen covers the redirect.
-        if (synced.mustCompleteOnboarding && !isOnboardingRoute) {
+        // setAuthSession so the startup screen covers the redirect.
+        if (nextSession.mustCompleteOnboarding && !isOnboardingRoute) {
           router.replace("/dashboard/new");
           return;
         }
 
         // ...and once it is set up, the form is a dead end.
-        if (!synced.mustCompleteOnboarding && isOnboardingRoute) {
+        if (!nextSession.mustCompleteOnboarding && isOnboardingRoute) {
           router.replace("/dashboard");
           return;
         }
 
         if (isMounted) {
-          setSyncData(synced);
+          setAuthSession(nextSession);
         }
       } catch (error) {
         if (isMounted) {
@@ -198,7 +198,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <>
-      {!syncData ? (
+      {!authSession ? (
         <>
           {!startupError ? (
             <DashboardStartupScreen routeKey="initial-dashboard-load" />
@@ -235,20 +235,20 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <main className="dashboard-font min-h-dvh bg-[#f5f6f8] text-[#17202a]">
           <DashboardTopbarBrand />
           <DashboardSidebar
-            user={syncData.user}
-            roleLabel={formatRole(syncData.user.role)}
-            profileSubtitle={getSidebarProfileSubtitle(syncData)}
+            user={authSession.user}
+            roleLabel={formatRole(authSession.user.role)}
+            profileSubtitle={getSidebarProfileSubtitle(authSession)}
             activeLabel={getDashboardActiveLabel(pathname)}
           />
 
           <section className="dashboard-shell-main min-h-dvh lg:pl-64">
-            <DashboardTrialProvider syncData={syncData}>
+            <DashboardTrialProvider authSession={authSession}>
               {canAccessDashboardRoute(
                 pathname,
-                syncData.access,
-                syncData.organizations.find(
+                authSession.access,
+                authSession.organizations.find(
                   (organization) =>
-                    organization.id === syncData.activeOrganizationId
+                    organization.id === authSession.activeOrganizationId
                 )?.role
               ) ? (
                 children

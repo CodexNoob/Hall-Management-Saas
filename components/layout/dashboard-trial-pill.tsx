@@ -7,7 +7,7 @@ import {
   useContext,
   type ReactNode
 } from "react";
-import type { SyncSignedInUserResponse } from "@/lib/auth/client";
+import type { AuthSessionResponse } from "@/lib/auth/client";
 import {
   getTrialDaysRemaining,
   isTesterBypassEmail,
@@ -16,7 +16,7 @@ import {
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 
 type DashboardTrialProviderProps = {
-  syncData: SyncSignedInUserResponse;
+  authSession: AuthSessionResponse;
   children: ReactNode;
 };
 
@@ -36,14 +36,14 @@ const DashboardTrialContext = createContext<TrialBadgeState>({
   compactLabel: ""
 });
 
-function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState {
+function getTrialBadgeState(authSession: AuthSessionResponse): TrialBadgeState {
   const activeOrganization =
-    syncData.organizations.find(
-      (organization) => organization.id === syncData.activeOrganizationId
+    authSession.organizations.find(
+      (organization) => organization.id === authSession.activeOrganizationId
     ) ?? null;
   const isTrial =
     activeOrganization?.subscriptionStatus === "trialing" &&
-    !isTesterBypassEmail(syncData.user.email);
+    !isTesterBypassEmail(authSession.user.email);
 
   if (!isTrial) {
     return {
@@ -87,10 +87,10 @@ function getTrialBadgeState(syncData: SyncSignedInUserResponse): TrialBadgeState
 
 export function DashboardTrialProvider({
   children,
-  syncData
+  authSession
 }: DashboardTrialProviderProps) {
   return (
-    <DashboardTrialContext.Provider value={getTrialBadgeState(syncData)}>
+    <DashboardTrialContext.Provider value={getTrialBadgeState(authSession)}>
       {children}
     </DashboardTrialContext.Provider>
   );

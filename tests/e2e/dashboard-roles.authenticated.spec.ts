@@ -22,8 +22,8 @@ import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
 // per-surface expectations are pinned in tests/unit/dashboard-overview-gating,
 // dashboard-side-panels and dashboard-module-links.
 
-const SYNCED_USER_CACHE_KEY = "hms.syncedUser";
-const SYNCED_USER_CACHE_TIME_KEY = "hms.syncedUser.syncedAt";
+const AUTH_SESSION_CACHE_KEY = "hms.authSession";
+const AUTH_SESSION_FETCHED_AT_KEY = "hms.authSession.fetchedAt";
 
 const sectionHeadings = [
   "Total Events",
@@ -107,8 +107,8 @@ const expectations: Expected[] = [
 ];
 
 // Rewrites the cached sync blob so the app runs as `role`. Leaves the cache
-// subject untouched and refreshes syncedAt, so syncSignedInUser takes its
-// cache-fresh branch and never calls /api/auth/sync-user; the route patch below
+// subject untouched and refreshes fetchedAt, so fetchAuthSession takes its
+// cache-fresh branch and never calls /api/auth/session; the route patch below
 // is a fallback for the case where it does.
 async function forceRole(page: Page, role: StaffRoleValue) {
   await page.goto("/dashboard");
@@ -116,7 +116,7 @@ async function forceRole(page: Page, role: StaffRoleValue) {
   const blob = await page.evaluate(
     (key) =>
       window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key),
-    SYNCED_USER_CACHE_KEY
+    AUTH_SESSION_CACHE_KEY
   );
 
   expect(
@@ -124,18 +124,18 @@ async function forceRole(page: Page, role: StaffRoleValue) {
     "no cached sync blob - the storage state may be stale, re-run the setup project"
   ).toBeTruthy();
 
-  const syncData = JSON.parse(blob as string);
+  const authSession = JSON.parse(blob as string);
   const patched = {
-    ...syncData,
-    user: { ...syncData.user, role },
+    ...authSession,
+    user: { ...authSession.user, role },
     // Preserve id/userId/allowedHallIds/timestamps so the row stays well-formed.
-    access: { ...syncData.access, ...accessForRole(role) },
+    access: { ...authSession.access, ...accessForRole(role) },
     // Membership role drives isAdministrativeRole. subscriptionStatus and the
     // trial fields are preserved, otherwise UpgradePlanDialog's forceSelection
     // covers the page.
-    organizations: syncData.organizations.map(
+    organizations: authSession.organizations.map(
       (organization: { id: string }, index: number) =>
-        index === 0 || organization.id === syncData.activeOrganizationId
+        index === 0 || organization.id === authSession.activeOrganizationId
           ? { ...organization, role }
           : organization
     )
@@ -149,13 +149,13 @@ async function forceRole(page: Page, role: StaffRoleValue) {
       window.localStorage.setItem(timeKey, String(Date.now()));
     },
     {
-      cacheKey: SYNCED_USER_CACHE_KEY,
-      timeKey: SYNCED_USER_CACHE_TIME_KEY,
+      cacheKey: AUTH_SESSION_CACHE_KEY,
+      timeKey: AUTH_SESSION_FETCHED_AT_KEY,
       payload: patched
     }
   );
 
-  await page.route("**/api/auth/sync-user", async (route) => {
+  await page.route("**/api/auth/session", async (route) => {
     const response = await route.fetch();
     const body = await response.json();
     await route.fulfill({
@@ -180,7 +180,7 @@ async function forceRole(page: Page, role: StaffRoleValue) {
   ).toBeVisible();
 
   // Fails loudly instead of silently passing if the app ever re-syncs over the
-  // fake (e.g. syncSignedInUser gaining force: true), which would quietly test
+  // fake (e.g. fetchAuthSession gaining force: true), which would quietly test
   // the real account's role instead of `role`.
   const effectiveRole = await page.evaluate((key) => {
     const raw =
@@ -193,7 +193,7 @@ async function forceRole(page: Page, role: StaffRoleValue) {
           organization.id === parsed.activeOrganizationId
       )?.role ?? null
     );
-  }, SYNCED_USER_CACHE_KEY);
+  }, AUTH_SESSION_CACHE_KEY);
 
   expect(
     effectiveRole,
@@ -268,22 +268,22 @@ test("a role with no dashboard access at all gets the restricted panel, not a pa
   const blob = await page.evaluate(
     (key) =>
       window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key),
-    SYNCED_USER_CACHE_KEY
+    AUTH_SESSION_CACHE_KEY
   );
   expect(blob).toBeTruthy();
 
-  const syncData = JSON.parse(blob as string);
+  const authSession = JSON.parse(blob as string);
   const patched = {
-    ...syncData,
-    user: { ...syncData.user, role: "viewer" },
+    ...authSession,
+    user: { ...authSession.user, role: "viewer" },
     access: {
-      ...syncData.access,
+      ...authSession.access,
       ...accessForRole("viewer"),
       canViewHome: true,
       canViewCalendar: false,
       canViewEventManager: false
     },
-    organizations: syncData.organizations.map(
+    organizations: authSession.organizations.map(
       (organization: { id: string }) => ({ ...organization, role: "viewer" })
     )
   };
@@ -296,8 +296,8 @@ test("a role with no dashboard access at all gets the restricted panel, not a pa
       window.localStorage.setItem(timeKey, String(Date.now()));
     },
     {
-      cacheKey: SYNCED_USER_CACHE_KEY,
-      timeKey: SYNCED_USER_CACHE_TIME_KEY,
+      cacheKey: AUTH_SESSION_CACHE_KEY,
+      timeKey: AUTH_SESSION_FETCHED_AT_KEY,
       payload: patched
     }
   );

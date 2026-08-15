@@ -120,7 +120,7 @@ export function getAuthErrorMessage(
     }
   }
 
-  // Preserves genuinely useful server copy, e.g. the /api/auth/sync-user 403
+  // Preserves genuinely useful server copy, e.g. the /api/auth/session 403
   // "No employee account was found for this email..." message.
   return rawMessage || fallback;
 }

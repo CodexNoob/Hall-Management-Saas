@@ -2,15 +2,23 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import {
-  createSupabaseServerClient,
-  createSupabaseTokenVerifier
-} from "@/lib/supabase/server";
-import {
-  ACTIVE_ORGANIZATION_COOKIE,
-  isSupabaseAuthCookieName
-} from "@/lib/supabase/cookie-policy";
+import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/supabase/cookie-policy";
 import { isAdministrativeRole } from "@/lib/auth/roles";
+import { resolveAuthIdentity } from "@/lib/auth/identity";
+import { AuthorizationError } from "@/lib/auth/errors";
+
+/**
+ * Layer 3 of the auth stack: what this request is allowed to do.
+ *
+ * Credential verification lives in `lib/auth/identity.ts` and provisioning in
+ * `lib/auth/provisioning.ts`; this module assumes both have happened and
+ * answers only "who is acting, on which organization, with what permissions".
+ *
+ * The exported names here are the app's authorization surface - 39 routes call
+ * them - so they are kept stable on purpose.
+ */
+
+export { AuthorizationError };
 
 export type Permission =
   | "canViewCalendar"
@@ -33,87 +41,6 @@ export type Permission =
   | "canManagePayments"
   | "canSendPaymentEmail";
 
-export class AuthorizationError extends Error {
-  constructor(
-    public readonly status: 401 | 403,
-    message: string
-  ) {
-    super(message);
-    this.name = "AuthorizationError";
-  }
-}
-
-function getBearerToken(request: Request) {
-  const authorization = request.headers.get("authorization");
-
-  if (!authorization?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  const token = authorization.slice("Bearer ".length).trim();
-  return token || null;
-}
-
-type AuthIdentity = { id: string; email: string };
-
-/**
- * Resolves the caller from either transport.
- *
- * Bearer is tried first and kept deliberately: the Playwright mutation fixture
- * and any non-browser caller still send one, and an explicit credential should
- * win over whatever the ambient cookie jar happens to hold.
- *
- * The cookie path is what lets a Server Component call these helpers at all -
- * it has no Request to hand in, which is why `request` is optional.
- *
- * Uses getClaims() rather than getUser(): it verifies the JWT signature locally
- * against the project's public signing key, so this costs no round trip to the
- * Auth server on a path that every one of the API routes runs. (With a legacy
- * HS256 secret it falls back to getUser() internally, so it is never weaker
- * than what it replaced.) The one thing local verification cannot see is a
- * Supabase-side ban issued mid-token, and that is covered a few lines below by
- * the `isActive` check against our own database, which is the flag this app
- * actually deactivates people with.
- */
-async function resolveAuthUser(request?: Request): Promise<AuthIdentity> {
-  const token = request ? getBearerToken(request) : null;
-
-  if (token) {
-    const supabase = createSupabaseTokenVerifier();
-    const { data, error } = await supabase.auth.getClaims(token);
-    const claims = data?.claims;
-
-    if (error || typeof claims?.sub !== "string" || typeof claims.email !== "string") {
-      throw new AuthorizationError(401, "Invalid or expired session.");
-    }
-
-    return { id: claims.sub, email: claims.email };
-  }
-
-  // Checked before building a client so that "no credential at all" and
-  // "credential present but unusable" stay distinguishable. All 39 protected
-  // routes surface these two strings, and collapsing them would report an
-  // expired session as a missing one.
-  const cookieStore = await cookies();
-  const hasAuthCookie = cookieStore
-    .getAll()
-    .some((cookie) => isSupabaseAuthCookieName(cookie.name));
-
-  if (!hasAuthCookie) {
-    throw new AuthorizationError(401, "Authentication required.");
-  }
-
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-
-  if (error || typeof claims?.sub !== "string" || typeof claims.email !== "string") {
-    throw new AuthorizationError(401, "Invalid or expired session.");
-  }
-
-  return { id: claims.sub, email: claims.email };
-}
-
 /**
  * Which organization this request acts on.
  *
@@ -124,7 +51,7 @@ async function resolveAuthUser(request?: Request): Promise<AuthIdentity> {
  * The cookie is ambient state, so a stale one degrades to the default instead.
  * It goes stale the moment an administrator revokes a membership, and 403-ing
  * every request with no way for the user to clear it is a worse outcome than
- * quietly falling back. POST /api/auth/sync-user re-stamps it, so it heals.
+ * quietly falling back. POST /api/auth/session re-stamps it, so it heals.
  */
 function resolveMembership<
   T extends { organizationId: string }
@@ -168,36 +95,28 @@ function resolveMembership<
   return fallback;
 }
 
+/**
+ * The caller, their organization and their permissions - or a thrown
+ * `AuthorizationError`.
+ *
+ * This reads; it does not provision. Claiming a legacy row by email used to
+ * happen here as a fallback, and it was a write on the hot path of all 39
+ * routes that duplicated what POST /api/auth/session already does properly,
+ * inside a transaction, with an audit entry. Every browser session calls that
+ * route before it can reach a protected one (`fetchAuthSession` runs on the
+ * sign-in path and the Playwright fixtures sign in through the UI), so the
+ * fallback could only ever fire for a caller that had never fetched a session at all.
+ */
 export async function requireAuthenticatedUser(request?: Request) {
-  const identity = await resolveAuthUser(request);
+  const identity = await resolveAuthIdentity(request);
 
-  let user = await prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { supabaseAuthId: identity.id },
     include: {
       access: true,
       memberships: { include: { organization: true } }
     }
   });
-
-  // Backfill users created before supabaseAuthId was introduced. Supabase has
-  // already verified ownership of the email address above.
-  if (!user) {
-    const existingUser = await prisma.user.findUnique({
-      where: { email: identity.email },
-      select: { id: true }
-    });
-
-    if (existingUser) {
-      user = await prisma.user.update({
-        where: { id: existingUser.id },
-        data: { supabaseAuthId: identity.id },
-        include: {
-          access: true,
-          memberships: { include: { organization: true } }
-        }
-      });
-    }
-  }
 
   if (!user) {
     throw new AuthorizationError(403, "User account is not provisioned.");

@@ -337,7 +337,7 @@ describe("the matcher", () => {
   it("never runs on API routes", () => {
     for (const path of [
       "/api/events",
-      "/api/auth/sync-user",
+      "/api/auth/session",
       "/api/billing/stripe/webhook",
       "/api/health"
     ]) {

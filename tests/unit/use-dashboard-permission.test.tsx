@@ -4,7 +4,7 @@ import {
   useDashboardAccess,
   useDashboardPermission
 } from "@/features/dashboard/hooks/use-dashboard-permission";
-import { cacheSyncedUser } from "./synced-user-fixture";
+import { cacheTestSession } from "./auth-session-fixture";
 
 describe("useDashboardAccess", () => {
   beforeEach(() => {
@@ -12,19 +12,19 @@ describe("useDashboardAccess", () => {
   });
 
   it("denies a permission the role's access row has false", () => {
-    cacheSyncedUser("viewer", { canCreateBooking: false });
+    cacheTestSession("viewer", { canCreateBooking: false });
     const { result } = renderHook(() => useDashboardAccess());
     expect(result.current.hasPermission("canCreateBooking")).toBe(false);
   });
 
   it("allows a permission the role's access row has true", () => {
-    cacheSyncedUser("manager", { canCreateBooking: true });
+    cacheTestSession("manager", { canCreateBooking: true });
     const { result } = renderHook(() => useDashboardAccess());
     expect(result.current.hasPermission("canCreateBooking")).toBe(true);
   });
 
   it("lets an administrative role bypass the access row entirely", () => {
-    cacheSyncedUser("admin", {
+    cacheTestSession("admin", {
       canCreateBooking: false,
       canAddKitchenEvents: false
     });
@@ -34,7 +34,7 @@ describe("useDashboardAccess", () => {
   });
 
   it("supports checking any-of a list of permissions", () => {
-    cacheSyncedUser("viewer", {
+    cacheTestSession("viewer", {
       canEditStaff: false,
       canViewSettings: false,
       canEditSettings: true
@@ -50,7 +50,7 @@ describe("useDashboardAccess", () => {
   });
 
   it("delegates canAccessRoute to the dashboard route permission map", () => {
-    cacheSyncedUser("viewer", { canViewPaymentInfo: false });
+    cacheTestSession("viewer", { canViewPaymentInfo: false });
     const { result } = renderHook(() => useDashboardAccess());
     expect(result.current.canAccessRoute("/dashboard/billing")).toBe(false);
     expect(result.current.canAccessRoute("/dashboard/calendar")).toBe(true);
@@ -69,7 +69,7 @@ describe("useDashboardPermission", () => {
   });
 
   it("mirrors useDashboardAccess().hasPermission for a single permission", () => {
-    cacheSyncedUser("viewer", { canViewMenu: true, canEditMenu: false });
+    cacheTestSession("viewer", { canViewMenu: true, canEditMenu: false });
     const { result } = renderHook(() => useDashboardPermission("canEditMenu"));
     expect(result.current).toBe(false);
   });

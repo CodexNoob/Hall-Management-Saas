@@ -17,10 +17,10 @@ async function authenticate(
   stateFile: string
 ) {
   await page.addInitScript(() => {
-    window.localStorage.removeItem("hms.syncedUser");
-    window.localStorage.removeItem("hms.syncedUser.subject");
-    window.localStorage.removeItem("hms.syncedUser.syncedAt");
-    window.sessionStorage.removeItem("hms.syncedUser");
+    window.localStorage.removeItem("hms.authSession");
+    window.localStorage.removeItem("hms.authSession.subject");
+    window.localStorage.removeItem("hms.authSession.fetchedAt");
+    window.sessionStorage.removeItem("hms.authSession");
   });
 
   await page.goto("/");

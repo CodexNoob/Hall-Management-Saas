@@ -6,7 +6,7 @@ const replace = vi.fn();
 const refresh = vi.fn();
 const getSession = vi.fn();
 const signOut = vi.fn();
-const syncSignedInUser = vi.fn();
+const fetchAuthSession = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace, refresh, push: vi.fn(), prefetch: vi.fn() })
@@ -32,14 +32,14 @@ vi.mock("@/lib/auth/client", async (importOriginal) => {
 
   return {
     ...actual,
-    syncSignedInUser: (...args: unknown[]) => syncSignedInUser(...args)
+    fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args)
   };
 });
 
 import { ToastProvider } from "@/components/ui/toast";
 import { CreateOrganizationPage } from "@/features/onboarding/components/create-organization-page";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheSyncedUser } from "./synced-user-fixture";
+import { cacheTestSession } from "./auth-session-fixture";
 
 function renderPage() {
   return render(
@@ -50,7 +50,7 @@ function renderPage() {
 }
 
 function cachePendingOwner() {
-  cacheSyncedUser("owner", {}, {
+  cacheTestSession("owner", {}, {
     userName: "carldelfin25",
     organizationName: "carldelfin25's Organization",
     onboardingCompletedAt: null
@@ -153,7 +153,7 @@ describe("CreateOrganizationPage", () => {
     // The sidebar and route guard read the cached payload, so it has to be
     // rebuilt before leaving - otherwise the dashboard shows the placeholder name.
     await waitFor(() =>
-      expect(syncSignedInUser).toHaveBeenCalledWith("access-token", {
+      expect(fetchAuthSession).toHaveBeenCalledWith("access-token", {
         force: true
       })
     );
@@ -282,7 +282,7 @@ describe("CreateOrganizationPage", () => {
   });
 
   it("blocks submission until the required names are filled in", async () => {
-    cacheSyncedUser("owner", {}, {
+    cacheTestSession("owner", {}, {
       organizationName: "",
       userName: "",
       onboardingCompletedAt: null

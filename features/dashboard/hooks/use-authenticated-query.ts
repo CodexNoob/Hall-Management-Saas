@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getCachedSyncedUser } from "@/lib/auth/client";
+import { getCachedAuthSession } from "@/lib/auth/client";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
 type QueryState<T> = {
@@ -52,7 +52,7 @@ async function readJson<T>(response: Response) {
 }
 
 export function useAuthenticatedQuery<T>(url: string, enabled = true) {
-  const cachedUser = getCachedSyncedUser();
+  const cachedUser = getCachedAuthSession();
   const userId = cachedUser?.user.id ?? "no-user";
   const organizationId =
     cachedUser?.activeOrganizationId ?? "no-organization";

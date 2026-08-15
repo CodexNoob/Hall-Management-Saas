@@ -1,6 +1,6 @@
 /**
  * Builds the unique URL slug for an organization. Shared by the first-sign-in
- * provisioning in POST /api/auth/sync-user and the owner-submitted rename in
+ * provisioning in POST /api/auth/session and the owner-submitted rename in
  * POST /api/onboarding/organization, which must agree on the shape: the slug
  * column is unique, so both paths need the same auth-id suffix to avoid
  * colliding whenever two venues pick the same name.

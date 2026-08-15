@@ -6,9 +6,9 @@ import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 import type {
-  SyncedOrganization,
-  SyncedUser,
-  SyncedUserAccess
+  SessionOrganization,
+  SessionUser,
+  SessionUserAccess
 } from "@/lib/auth/client";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
@@ -20,10 +20,10 @@ import {
 } from "@/lib/subscription/trial";
 
 type DashboardShellProps = {
-  user: SyncedUser;
-  access: SyncedUserAccess;
+  user: SessionUser;
+  access: SessionUserAccess;
   activeOrganizationId: string;
-  organizations: SyncedOrganization[];
+  organizations: SessionOrganization[];
 };
 
 import {

@@ -22,6 +22,42 @@ export function isTesterBypassEmail(email: string | null | undefined) {
   return TESTER_BYPASS_EMAILS.includes(email.trim().toLowerCase());
 }
 
+/**
+ * The subscription columns a brand new organization starts life with.
+ *
+ * Provisioning asks for this instead of computing it, so `TRIAL_DAYS` stays the
+ * single source of truth next to `getTrialDaysRemaining` and `isTrialExpired`
+ * that read it. Deliberately NOT a set of Prisma `@default`s: `now() + interval
+ * '14 days'` would split the number across TypeScript and SQL and make it
+ * untestable without a database.
+ *
+ * Note that `Organization.subscriptionStatus` defaults to "active" in the
+ * schema, so anything creating an organization without these values gets a paid
+ * organization for free. This is the only caller outside the seed.
+ */
+export function newOrganizationSubscription(
+  email: string | null | undefined,
+  now = new Date()
+) {
+  if (isTesterBypassEmail(email)) {
+    return {
+      subscriptionStatus: "active" as const,
+      trialStartedAt: null,
+      trialEndsAt: null,
+      subscriptionStartedAt: now
+    };
+  }
+
+  const { trialStartedAt, trialEndsAt } = getTrialDates(now);
+
+  return {
+    subscriptionStatus: "trialing" as const,
+    trialStartedAt,
+    trialEndsAt,
+    subscriptionStartedAt: null
+  };
+}
+
 export function getTrialDaysRemaining(
   trialEndsAt: string | Date | null | undefined,
   now = new Date()

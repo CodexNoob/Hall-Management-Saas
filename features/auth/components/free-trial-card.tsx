@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
-import { syncSignedInUser } from "@/lib/auth/client";
+import { fetchAuthSession } from "@/lib/auth/client";
 import { PASSWORD_RULES_HINT } from "@/lib/auth/password";
 import { getSignUpValidationError } from "@/features/auth/validations/auth.schema";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
@@ -152,7 +152,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
           emailRedirectTo: `${window.location.origin}/auth/confirm`,
           data: {
             // The only server-side signal that authorizes POST
-            // /api/auth/sync-user to provision an organization. Everyone else
+            // /api/auth/session to provision an organization. Everyone else
             // joins by administrator invitation.
             account_type: "organization_owner"
           }
@@ -173,7 +173,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
 
       // Confirmation disabled (local development): the owner is already signed
       // in, so go collect the organization details now.
-      await syncSignedInUser(data.session.access_token, { force: true });
+      await fetchAuthSession(data.session.access_token, { force: true });
       router.push("/dashboard/new");
       router.refresh();
     } catch (error) {
