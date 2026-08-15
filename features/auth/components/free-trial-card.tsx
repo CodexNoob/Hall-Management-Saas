@@ -253,7 +253,7 @@ export function FreeTrialCard({ compact = false, onLoginClick }: FreeTrialCardPr
               className="mb-2 h-auto w-40 max-w-full object-contain"
             />
           ) : null}
-          <h2 id="free-trial-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Start Your Free Trial</h2>
+          <h2 id="free-trial-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
           <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
 
           <form className={isDesktopApp ? "mt-3" : "mt-8"} onSubmit={submit}>

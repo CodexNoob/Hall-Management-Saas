@@ -45,7 +45,7 @@ export function HallFlowHero() {
               href="/start-trial"
               data-free-trial-modal
             >
-              Start Free Trial
+              Get Started Free
             </a>
             <a
               className="saas-hover-lift inline-flex h-13 items-center justify-center gap-2 rounded-xl border border-[#E5E0D6] bg-white px-7 text-sm font-black text-[#0F172A] shadow-sm"
@@ -55,6 +55,10 @@ export function HallFlowHero() {
               Watch Demo
             </a>
           </div>
+
+          <p className="saas-animate-up saas-delay-260 mt-4 text-xs font-semibold text-[#64748B]">
+            14-day free trial &middot; No credit card required
+          </p>
         </div>
 
         <div className="relative">

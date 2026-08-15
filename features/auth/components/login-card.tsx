@@ -453,14 +453,14 @@ export function LoginCard({
                     type="button"
                     onClick={onStartTrialClick}
                   >
-                    Start free trial
+                    Sign up
                   </button>
                 ) : (
                   <Link
                     className="font-bold text-[#1f4d73] transition hover:text-[#15344f]"
                     href="/start-trial"
                   >
-                    Start free trial
+                    Sign up
                   </Link>
                 )}
               </p>

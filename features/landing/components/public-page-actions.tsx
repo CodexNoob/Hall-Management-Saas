@@ -17,7 +17,7 @@ export function PublicPageActions({ centered = false }: { centered?: boolean }) 
         onClick={openFreeTrial}
         type="button"
       >
-        Start free trial
+        Get Started Free
       </button>
       <Link
         className="rounded-xl border border-[#b9c2cf] bg-white px-5 py-3 text-sm font-black text-[#0f172a]! shadow-sm transition hover:bg-[#eef4fa]"

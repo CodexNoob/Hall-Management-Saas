@@ -163,7 +163,7 @@ export function LandingNavbar() {
             href="/start-trial"
             data-free-trial-modal
           >
-            Free Trial
+            Sign Up
           </a>
         </div>
       </div>
@@ -210,7 +210,7 @@ export function LandingNavbar() {
             onClick={() => { setIsMobileMenuOpen(false); openAuthModal("trial"); }}
             type="button"
           >
-            Start free trial
+            Get Started Free
           </button>
         </nav>
       </div>

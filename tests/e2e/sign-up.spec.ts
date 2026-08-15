@@ -171,7 +171,7 @@ test("the free-trial modal enforces the same rules", async ({ page }) => {
   await expect(page.getByRole("status", { name: "Loading website" })).toBeHidden();
   await waitForHydration(page);
 
-  const dialog = page.getByRole("dialog", { name: "Start Your Free Trial" });
+  const dialog = page.getByRole("dialog", { name: "Get started free" });
   await expect(dialog).toBeVisible();
 
   await dialog.getByLabel("Password", { exact: true }).fill("Testing12345");
