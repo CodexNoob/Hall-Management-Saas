@@ -118,7 +118,7 @@ export function DiningDetailsPanel({
             />
           </div>
           <div>
-            <FieldLabel htmlFor="washing-time">Washing time</FieldLabel>
+            <FieldLabel htmlFor="washing-time">Washing start time</FieldLabel>
             <input
               className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
               id="washing-time"

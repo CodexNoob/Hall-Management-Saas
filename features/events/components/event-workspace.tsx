@@ -120,17 +120,12 @@ export function EventWorkspace({
       </header>
 
       <PrintPacketDrawer
-        event={{ title: event.title, date: event.date, room: event.room }}
+        event={event}
         onClose={() => setIsPrintPacketOpen(false)}
         open={isPrintPacketOpen}
       />
       <ClientPortalPreviewDrawer
-        event={{
-          title: event.title,
-          date: event.date,
-          room: event.room,
-          balance: event.balance
-        }}
+        event={event}
         onClose={() => setIsPortalPreviewOpen(false)}
         open={isPortalPreviewOpen}
       />
@@ -179,13 +174,15 @@ export function EventWorkspace({
               </div>
               <aside className="space-y-3">
                 <ClientContact event={event} />
-                <ReadinessPanel />
+                <ReadinessPanel event={event} />
               </aside>
             </div>
           </div>
         ) : null}
 
-        {activeTab === "Menu" ? <EventMenuContent event={event} /> : null}
+        {activeTab === "Menu" ? (
+          <EventMenuContent event={event} onEventSaved={onEventSaved} />
+        ) : null}
         {activeTab === "Client portal" ? (
           <ClientPortalContent event={event} />
         ) : null}

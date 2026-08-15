@@ -63,7 +63,8 @@ const updateEventSchema = z
     shabbosSetup: z.string().trim().max(5000).nullable().optional(),
     timeline: z.array(timelineItemSchema).max(100).optional(),
     timelineConfirmed: z.boolean().optional(),
-    menuConfirmed: z.boolean().optional()
+    menuConfirmed: z.boolean().optional(),
+    menuItemIds: z.array(z.string().uuid()).max(500).optional()
   })
   .refine((value) => Object.keys(value).length > 0, "No changes supplied.");
 
@@ -111,6 +112,25 @@ export async function PATCH(
 
     if (!current) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    if (input.menuItemIds !== undefined) {
+      const uniqueMenuItemIds = [...new Set(input.menuItemIds)];
+      const ownedMenuItemCount = await prisma.menuItem.count({
+        where: {
+          id: { in: uniqueMenuItemIds },
+          organizationId: actor.organizationId
+        }
+      });
+
+      if (ownedMenuItemCount !== uniqueMenuItemIds.length) {
+        return NextResponse.json(
+          { error: "One or more selected menu items were not found." },
+          { status: 400 }
+        );
+      }
+
+      input.menuItemIds = uniqueMenuItemIds;
     }
 
     // The create path enforces hall capacity; without the same check here an

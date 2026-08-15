@@ -19,6 +19,10 @@ import {
   type EventHallOption,
   type IconName
 } from "@/features/events/components/event-manager-shared";
+import {
+  getEventReadinessSummary,
+  getScopedEventReadinessItems
+} from "@/features/events/components/event-readiness";
 
 export function Field({
   label,
@@ -109,33 +113,48 @@ export function ClientContact({ event }: { event: EventFile }) {
   );
 }
 
-export function ReadinessPanel() {
-  const rows = [
-    ["Event confirmed", true],
-    ["Menu confirmed", true],
-    ["Hall map confirmed", false],
-    ["Timeline confirmed", false],
-    ["Event paid", false]
-  ] as const;
+export function ReadinessPanel({ event }: { event: EventFile }) {
+  const rows = getScopedEventReadinessItems(event, "event");
+  const summary = getEventReadinessSummary(event, "event");
 
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
-        <LineIcon name="files" />
-        <h2 className="text-sm font-black text-[#17202a]">Readiness</h2>
+      <header className="flex min-h-11 items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-2">
+        <div className="flex items-center gap-2">
+          <LineIcon name="files" />
+          <h2 className="text-sm font-black text-[#17202a]">Readiness</h2>
+        </div>
+        <span
+          className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${
+            summary.ready
+              ? "bg-[#eefaf5] text-[#146c43]"
+              : "bg-[#fff8dd] text-[#946200]"
+          }`}
+        >
+          {summary.completed}/{summary.total}
+        </span>
       </header>
-      <div className="space-y-3 p-3">
-        {rows.map(([label, done]) => (
+      <div className="space-y-2 p-3">
+        {rows.map((row) => (
           <div
-            key={label}
-            className="flex h-12 items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-black text-[#17202a]"
+            key={row.id}
+            className="flex min-h-14 items-start gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 text-sm font-black text-[#17202a]"
           >
             <span
-              className={`flex h-5 w-5 items-center justify-center rounded-full border ${done ? "border-[#146c43] text-[#146c43]" : "border-[#b9c2cf] text-transparent"}`}
+              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                row.done
+                  ? "border-[#146c43] bg-[#eefaf5] text-[#146c43]"
+                  : "border-[#b9c2cf] text-transparent"
+              }`}
             >
-              {done ? <LineIcon name="check" className="h-4 w-4" /> : null}
+              {row.done ? <LineIcon name="check" className="h-4 w-4" /> : null}
             </span>
-            {label}
+            <span className="min-w-0">
+              <span className="block leading-4">{row.label}</span>
+              <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#64748b]">
+                {row.helper}
+              </span>
+            </span>
           </div>
         ))}
       </div>
@@ -200,7 +219,11 @@ function EventActivityHistory({ event }: { event: EventFile }) {
   );
 }
 
-type EventCountField = "guestCount" | "childrenCount" | "couplesCount";
+type EventCountField =
+  | "guestCount"
+  | "childrenCount"
+  | "couplesCount"
+  | "waitersCount";
 
 type EventDetailsDraft = {
   // Counts stay as the raw text the user typed and are parsed on save. Storing
@@ -221,7 +244,7 @@ type EventDetailsDraft = {
   shabbosSetup: string;
   sideBoxes: string;
   tableclothName: string;
-  waitersCount: number;
+  waitersCount: string;
   washingTime: string;
 };
 
@@ -320,6 +343,19 @@ export function getEventLifecycleActions(bookingStatus: string) {
   return eventLifecycleActions[normalizedStatus] ?? [];
 }
 
+function getEventLifecycleStatusLabel(status: string) {
+  const labels: Record<EventLifecycleStatus, string> = {
+    INQUIRY: "Inquiry",
+    TENTATIVE_HOLD: "Hold",
+    CONFIRMED: "Confirmed",
+    COMPLETED: "Completed",
+    CANCELLED: "Cancelled",
+    EXPIRED: "Expired"
+  };
+
+  return labels[status as EventLifecycleStatus] ?? status;
+}
+
 export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
   return {
     childrenCount: countText(event.children),
@@ -338,7 +374,7 @@ export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
     shabbosSetup: event.shabbosSetup,
     sideBoxes: event.sideBoxes,
     tableclothName: event.tableclothName,
-    waitersCount: event.waitersCount,
+    waitersCount: countText(event.waitersCount),
     washingTime: event.washingTime
   };
 }
@@ -356,7 +392,7 @@ export function validateEventDetailsDraft(draft: EventDetailsDraft) {
     ["Guests", guests],
     ["Children", children],
     ["Couples", couples],
-    ["Waiters", draft.waitersCount]
+    ["Waiters", Number(draft.waitersCount)]
   ] as const;
 
   if (!draft.clientName.trim()) {
@@ -436,8 +472,8 @@ export function EventInformation({
     previousEventIdRef.current = event.id;
 
     setDraft(createEventDetailsDraft(event));
-    setMessage("");
     if (didSwitchEvent) {
+      setMessage("");
       setShowSaveConfirmation(false);
     }
   }, [event]);
@@ -487,6 +523,11 @@ export function EventInformation({
         raw: draft.couplesCount,
         schema: countSchema({ label: "Couples" }),
         emptyMessage: "Enter a couples count."
+      },
+      waitersCount: {
+        raw: draft.waitersCount,
+        schema: countSchema({ label: "Waiters" }),
+        emptyMessage: "Enter a waiter count."
       }
     });
 
@@ -502,6 +543,7 @@ export function EventInformation({
     const guestCount = counts.values.guestCount ?? 0;
     const childrenCount = counts.values.childrenCount ?? 0;
     const couplesCount = counts.values.couplesCount ?? 0;
+    const waitersCount = counts.values.waitersCount ?? 0;
     const eventDate = draft.eventDate;
     const eventTime = draft.eventTime;
     const startsAt =
@@ -531,7 +573,7 @@ export function EventInformation({
           setupTime: draft.setupTime || null,
           washingTime: draft.washingTime || null,
           tableclothName: draft.tableclothName.trim() || null,
-          waitersCount: draft.waitersCount || 0,
+          waitersCount,
           memberShulName: draft.memberShulName.trim() || null,
           sideBoxes: draft.sideBoxes.trim() || null,
           shabbosSetup: draft.shabbosSetup.trim() || null
@@ -719,15 +761,35 @@ export function EventInformation({
             <select
               aria-label="Event status"
               className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="eventStatus"
-              onChange={(changeEvent) =>
-                updateDraft("eventStatus", changeEvent.target.value)
-              }
-              value={draft.eventStatus}
+              disabled={Boolean(statusAction) || isFinalBookingStatus}
+              name="bookingStatus"
+              onChange={(changeEvent) => {
+                const selectedAction = lifecycleActions.find(
+                  (action) => action.status === changeEvent.target.value
+                );
+
+                if (selectedAction) {
+                  setPendingStatusAction(selectedAction);
+                }
+              }}
+              value={event.bookingStatus}
             >
-              <option>Confirmed</option>
-              <option>Hold</option>
+              <option value={event.bookingStatus}>
+                {statusAction
+                  ? "Saving..."
+                  : getEventLifecycleStatusLabel(event.bookingStatus)}
+              </option>
+              {lifecycleActions.map((action) => (
+                <option key={action.status} value={action.status}>
+                  {action.label}
+                </option>
+              ))}
             </select>
+            {isFinalBookingStatus ? (
+              <p className="mt-1 text-xs font-semibold normal-case tracking-normal text-[#64748b]">
+                Lifecycle closed
+              </p>
+            ) : null}
           </Field>
           <Field label="Date">
             <input
@@ -873,7 +935,7 @@ export function EventInformation({
               value={draft.setupTime}
             />
           </Field>
-          <Field label="Washing time">
+          <Field label="Washing start time">
             <input
               className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
               name="washingTime"
@@ -886,17 +948,29 @@ export function EventInformation({
           </Field>
           <Field label="Waiters">
             <input
+              aria-describedby={
+                countErrors.waitersCount ? "event-waiters-count-error" : undefined
+              }
+              aria-invalid={countErrors.waitersCount ? true : undefined}
               className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
               inputMode="numeric"
-              min="0"
+              id="event-waiters-count"
               name="waitersCount"
               onChange={(changeEvent) =>
-                updateDraft("waitersCount", Number(changeEvent.target.value))
+                updateDraft("waitersCount", changeEvent.target.value)
               }
-              step="1"
-              type="number"
+              type="text"
               value={draft.waitersCount}
             />
+            {countErrors.waitersCount ? (
+              <p
+                className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                id="event-waiters-count-error"
+                role="alert"
+              >
+                {countErrors.waitersCount}
+              </p>
+            ) : null}
           </Field>
           <Field label="Tablecloth">
             <input
@@ -1002,29 +1076,6 @@ export function EventInformation({
           <LineIcon name="save" className="h-4 w-4" />
           {isSaving ? "Saving..." : "Save event details"}
         </button>
-        <div className="flex flex-wrap gap-2 sm:ml-auto">
-          {lifecycleActions.length ? (
-            lifecycleActions.map((action) => (
-              <button
-                key={action.status}
-                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-4 text-xs font-black disabled:cursor-not-allowed disabled:opacity-45 ${
-                  action.tone === "danger"
-                    ? "border-[#f7b4b4] bg-white text-[#b42318] hover:bg-[#fff1f1]"
-                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
-                }`}
-                disabled={Boolean(statusAction) || isFinalBookingStatus}
-                onClick={() => setPendingStatusAction(action)}
-                type="button"
-              >
-                {statusAction === action.status ? "Saving..." : action.label}
-              </button>
-            ))
-          ) : (
-            <span className="inline-flex min-h-9 items-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 text-xs font-black text-[#6a7483]">
-              Lifecycle closed
-            </span>
-          )}
-        </div>
         {message && !showSaveConfirmation ? (
           <p className="w-full text-xs text-[#516174]" role="status">
             {message}

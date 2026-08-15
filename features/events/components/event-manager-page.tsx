@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
@@ -22,6 +23,7 @@ export function EventManagerPage() {
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
+  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -85,8 +87,7 @@ export function EventManagerPage() {
           internalNotes: event.notes ?? "",
           daveningNote: event.daveningNote ?? "",
           memberShulName: event.memberShulName ?? "",
-          sideBoxes:
-            typeof event.sideBoxes === "string" ? event.sideBoxes : "",
+          sideBoxes: typeof event.sideBoxes === "string" ? event.sideBoxes : "",
           shabbosSetup:
             typeof event.shabbosSetup === "string" ? event.shabbosSetup : "",
           diningManagerNotes: event.diningManagerNotes,
@@ -94,7 +95,8 @@ export function EventManagerPage() {
           diningHallMapPreset: event.diningHallMapPreset,
           phone: event.phone,
           email: event.email ?? "",
-          workspaceData: event.workspaceData ?? {}
+          workspaceData: event.workspaceData ?? {},
+          menuItemIds: event.menuItemIds
         };
       }),
     [eventsQuery.data]
@@ -164,9 +166,7 @@ export function EventManagerPage() {
     const matchesLifecycle =
       eventLifecycleFilter === "All" ||
       (eventLifecycleFilter === "Active" &&
-        !["CANCELLED", "COMPLETED", "EXPIRED"].includes(
-          event.bookingStatus
-        )) ||
+        !["CANCELLED", "COMPLETED", "EXPIRED"].includes(event.bookingStatus)) ||
       (eventLifecycleFilter === "Completed" &&
         event.bookingStatus === "COMPLETED") ||
       (eventLifecycleFilter === "Cancelled" &&
@@ -186,7 +186,13 @@ export function EventManagerPage() {
         title="Event Manager"
         subtitle="Select an event, then manage every connected section from one workspace."
         compactMobileActions
+        onTodayNotes={() => setIsTodayNotesOpen(true)}
         showNewBookingAction={false}
+      />
+
+      <TodayNotesDrawer
+        onClose={() => setIsTodayNotesOpen(false)}
+        open={isTodayNotesOpen}
       />
 
       <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">

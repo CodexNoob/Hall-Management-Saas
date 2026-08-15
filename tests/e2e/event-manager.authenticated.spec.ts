@@ -175,7 +175,7 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await page.getByLabel("Internal notes").fill("Updated internal note.");
   await page.getByLabel("Davening notes").fill("Updated davening note.");
   await page.getByLabel("Setup time").fill("17:15");
-  await page.getByLabel("Washing time").fill("23:00");
+  await page.getByLabel("Washing start time").fill("23:00");
   await page.getByLabel("Waiters").fill("8");
   await page.getByLabel("Tablecloth").fill("Champagne");
   await page.getByLabel("Member shul").fill("Updated Shul");
@@ -216,7 +216,7 @@ test("Event details save and persist edited fields", async ({ page }) => {
     page.getByRole("textbox", { exact: true, name: "Guests" })
   ).toHaveValue("370");
   await expect(page.getByLabel("Setup time")).toHaveValue("17:15");
-  await expect(page.getByLabel("Washing time")).toHaveValue("23:00");
+  await expect(page.getByLabel("Washing start time")).toHaveValue("23:00");
   await expect(page.getByLabel("Waiters")).toHaveValue("8");
   await expect(page.getByLabel("Tablecloth")).toHaveValue("Champagne");
   await expect(page.getByLabel("Member shul")).toHaveValue("Updated Shul");
@@ -325,14 +325,19 @@ test("Event lifecycle actions expose valid transitions with confirmation", async
 
   await page.goto("/dashboard/events");
 
+  await expect(page.getByRole("combobox", { name: "Event status" })).toHaveValue(
+    "TENTATIVE_HOLD"
+  );
   await expect(
-    page.getByRole("button", { name: "Confirm event" })
-  ).toBeVisible();
+    page.getByRole("option", { name: "Confirm event" })
+  ).toHaveCount(1);
   await expect(
-    page.getByRole("button", { name: "Mark completed" })
+    page.getByRole("option", { name: "Mark completed" })
   ).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Confirm event" }).click();
+  await page
+    .getByRole("combobox", { name: "Event status" })
+    .selectOption("CONFIRMED");
   await expect(
     page.getByRole("dialog", { name: "Confirm this event?" })
   ).toBeVisible();
@@ -348,7 +353,10 @@ test("Event lifecycle actions expose valid transitions with confirmation", async
     status: "CONFIRMED",
     expectedVersion: 1
   });
+  await expect(page.getByRole("combobox", { name: "Event status" })).toHaveValue(
+    "CONFIRMED"
+  );
   await expect(
-    page.getByRole("button", { name: "Mark completed" })
-  ).toBeVisible();
+    page.getByRole("option", { name: "Mark completed" })
+  ).toHaveCount(1);
 });
