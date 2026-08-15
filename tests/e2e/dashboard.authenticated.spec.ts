@@ -78,9 +78,8 @@ test("event manager keeps today notes available without exposing booking creatio
 
   await expect(page).toHaveURL(/\/dashboard\/events/);
 
-  // Wait until the loading screen has been replaced by Event Manager.
   await expect(
-    page.getByRole("heading", { name: "Events", exact: true })
+    page.getByRole("heading", { name: "Event Manager", exact: true })
   ).toBeVisible({ timeout: 45_000 });
 
   await expect(page.getByRole("button", { name: "New booking" })).toHaveCount(
