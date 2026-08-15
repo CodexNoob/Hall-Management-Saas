@@ -47,7 +47,7 @@ describe("login error copy", () => {
     );
   });
 
-  it("passes through actionable server copy from /api/auth/sync-user", () => {
+  it("passes through actionable server copy from /api/auth/session", () => {
     const invitationRequired =
       "No employee account was found for this email. Ask your organization administrator for an invitation.";
 

@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardSidePanels } from "@/features/dashboard/components/dashboard-side-panels";
-import { cacheSyncedUser, cacheSyncedUserForRole } from "./synced-user-fixture";
+import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
 
 function renderPanels() {
   return render(
@@ -28,7 +28,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("offers every shortcut to an Event Manager", () => {
-    cacheSyncedUserForRole("manager");
+    cacheTestSessionForRole("manager");
     renderPanels();
 
     for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
@@ -37,7 +37,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("gives a Viewer the pages it can open, but not billing", () => {
-    cacheSyncedUserForRole("viewer");
+    cacheTestSessionForRole("viewer");
     renderPanels();
 
     // canViewKitchenDashboard and canViewEventManager make both routes
@@ -57,7 +57,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("does not show Book event even when canCreateBooking is granted", () => {
-    cacheSyncedUser("viewer", { canCreateBooking: false });
+    cacheTestSession("viewer", { canCreateBooking: false });
     const first = renderPanels();
     expect(
       screen.queryByRole("button", { name: "Book event" })
@@ -65,7 +65,7 @@ describe("DashboardSidePanels quick actions", () => {
     first.unmount();
 
     window.localStorage.clear();
-    cacheSyncedUser("viewer", { canCreateBooking: true });
+    cacheTestSession("viewer", { canCreateBooking: true });
     renderPanels();
     expect(
       screen.queryByRole("button", { name: "Book event" })
@@ -73,7 +73,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("hides the kitchen shortcut for Billing Staff but keeps the reachable ones", () => {
-    cacheSyncedUserForRole("billing");
+    cacheTestSessionForRole("billing");
     renderPanels();
 
     expect(
@@ -89,7 +89,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("drops the panel entirely when no shortcut survives", () => {
-    cacheSyncedUser("viewer", {
+    cacheTestSession("viewer", {
       canCreateBooking: false,
       canViewKitchenDashboard: false,
       canViewEventManager: false,
@@ -112,7 +112,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
   // follows payment visibility.
   for (const role of ["manager", "billing"] as const) {
     it(`is shown for ${role}, which can view payment info`, () => {
-      cacheSyncedUserForRole(role);
+      cacheTestSessionForRole(role);
       renderPanels();
 
       expect(
@@ -123,7 +123,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
 
   for (const role of ["kitchen", "viewer"] as const) {
     it(`is hidden for ${role}, keeping the open-balance notice out of view`, () => {
-      cacheSyncedUserForRole(role);
+      cacheTestSessionForRole(role);
       renderPanels();
 
       expect(
@@ -142,7 +142,7 @@ describe("DashboardSidePanels events timeline", () => {
   it("is shown for every shipped role", () => {
     for (const role of ["manager", "kitchen", "billing", "viewer"] as const) {
       window.localStorage.clear();
-      cacheSyncedUserForRole(role);
+      cacheTestSessionForRole(role);
       const { unmount } = renderPanels();
       expect(
         screen.getByRole("heading", { name: "Events timeline" })
@@ -152,7 +152,7 @@ describe("DashboardSidePanels events timeline", () => {
   });
 
   it("is hidden without either event view permission", () => {
-    cacheSyncedUser("viewer", {
+    cacheTestSession("viewer", {
       canViewCalendar: false,
       canViewEventManager: false
     });
@@ -164,7 +164,7 @@ describe("DashboardSidePanels events timeline", () => {
   });
 
   it("returns nothing at all when no panel in the column survives", () => {
-    cacheSyncedUser("viewer", {
+    cacheTestSession("viewer", {
       canViewCalendar: false,
       canViewEventManager: false,
       canViewKitchenDashboard: false,

@@ -6,7 +6,7 @@ const replace = vi.fn();
 const refresh = vi.fn();
 const signInWithPassword = vi.fn();
 const setAuthSessionPersistence = vi.fn();
-const syncSignedInUser = vi.fn();
+const fetchAuthSession = vi.fn();
 const signInWithOAuthProvider = vi.fn();
 
 // useDesktopAppMode() calls useSearchParams(), so the mock has to provide it
@@ -23,7 +23,7 @@ vi.mock("@/lib/supabase/browser", () => ({
 }));
 
 vi.mock("@/lib/auth/client", () => ({
-  syncSignedInUser: (...args: unknown[]) => syncSignedInUser(...args),
+  fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args),
   signInWithOAuthProvider: (...args: unknown[]) =>
     signInWithOAuthProvider(...args)
 }));
@@ -79,7 +79,7 @@ describe("LoginCard failure paths", () => {
     signInWithPassword.mockResolvedValue(
       supabaseFailure({ code: "invalid_credentials", status: 400 })
     );
-    syncSignedInUser.mockResolvedValue(undefined);
+    fetchAuthSession.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -141,7 +141,7 @@ describe("LoginCard failure paths", () => {
 
     await expectReportedTwice(AUTH_ERROR_MESSAGES.incorrectCredentials);
     expect(screen.getByText("Sign-in failed")).toBeInTheDocument();
-    expect(syncSignedInUser).not.toHaveBeenCalled();
+    expect(fetchAuthSession).not.toHaveBeenCalled();
     expect(replace).not.toHaveBeenCalled();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Login" })).toBeEnabled()
@@ -252,7 +252,7 @@ describe("LoginCard success path", () => {
       data: { session: { access_token: "access-token" } },
       error: null
     });
-    syncSignedInUser.mockResolvedValue(undefined);
+    fetchAuthSession.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -265,7 +265,7 @@ describe("LoginCard success path", () => {
     submitForm();
 
     await waitFor(() =>
-      expect(syncSignedInUser).toHaveBeenCalledWith("access-token", {
+      expect(fetchAuthSession).toHaveBeenCalledWith("access-token", {
         force: true
       })
     );

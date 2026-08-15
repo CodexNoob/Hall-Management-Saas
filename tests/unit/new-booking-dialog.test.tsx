@@ -8,7 +8,7 @@ vi.mock("@/lib/http/authenticated-fetch", () => ({
 
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheSyncedUser } from "./synced-user-fixture";
+import { cacheTestSession } from "./auth-session-fixture";
 
 const lookupResponse = {
   halls: [{ id: "hall-1", name: "Grand Hall" }],
@@ -26,7 +26,7 @@ describe("NewBookingDialog permission gating", () => {
   });
 
   it("disables both submit buttons and explains why when the viewer lacks canCreateBooking", async () => {
-    cacheSyncedUser("viewer", { canCreateBooking: false });
+    cacheTestSession("viewer", { canCreateBooking: false });
     render(<NewBookingDialog onClose={vi.fn()} open />);
 
     await waitFor(() =>
@@ -46,7 +46,7 @@ describe("NewBookingDialog permission gating", () => {
   });
 
   it("never fires the create-booking request even if the form is force-submitted", async () => {
-    cacheSyncedUser("viewer", { canCreateBooking: false });
+    cacheTestSession("viewer", { canCreateBooking: false });
     render(<NewBookingDialog onClose={vi.fn()} open />);
 
     await waitFor(() =>
@@ -67,7 +67,7 @@ describe("NewBookingDialog permission gating", () => {
   });
 
   it("enables submission once the role has canCreateBooking", async () => {
-    cacheSyncedUser("manager", { canCreateBooking: true });
+    cacheTestSession("manager", { canCreateBooking: true });
     render(<NewBookingDialog onClose={vi.fn()} open />);
 
     await waitFor(() =>

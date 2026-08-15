@@ -11,10 +11,10 @@ import {
   parsePhoneInput
 } from "@/lib/validation/phone";
 import {
-  clearCachedSyncedUser,
+  clearCachedAuthSession,
   signOutCurrentSession,
-  getCachedSyncedUser,
-  syncSignedInUser
+  getCachedAuthSession,
+  fetchAuthSession
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
@@ -40,7 +40,7 @@ function getPlanPriceLabel(planId: OnboardingPlanId) {
 
 /**
  * Step 2 of sign-up. The organization row already exists with a placeholder name
- * (POST /api/auth/sync-user provisions it on first sign-in because
+ * (POST /api/auth/session provisions it on first sign-in because
  * User.organizationId is required), so this form renames it, records the intended
  * plan, and stamps onboardingCompletedAt - which is what releases the owner into
  * the rest of the dashboard.
@@ -51,7 +51,7 @@ export function CreateOrganizationPage() {
   const fieldId = useId();
   // Read synchronously so the prefilled values are present on first paint
   // instead of flashing empty inputs.
-  const [cachedUser] = useState(() => getCachedSyncedUser());
+  const [cachedUser] = useState(() => getCachedAuthSession());
   const activeOrganization = cachedUser?.organizations.find(
     (organization) => organization.id === cachedUser.activeOrganizationId
   );
@@ -133,12 +133,12 @@ export function CreateOrganizationPage() {
       // The sidebar, trial pill, and route guard all read the cached sync
       // payload, so it has to be rebuilt before leaving this page - otherwise
       // the dashboard renders the placeholder organization name.
-      clearCachedSyncedUser();
+      clearCachedAuthSession();
       const supabase = createSupabaseBrowserClient();
       const { data } = await supabase.auth.getSession();
 
       if (data.session?.access_token) {
-        await syncSignedInUser(data.session.access_token, { force: true });
+        await fetchAuthSession(data.session.access_token, { force: true });
       }
 
       toast.success(`${organizationName} is ready.`, {

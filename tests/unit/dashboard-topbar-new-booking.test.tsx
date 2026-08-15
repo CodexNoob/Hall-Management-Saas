@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { cacheSyncedUser } from "./synced-user-fixture";
+import { cacheTestSession } from "./auth-session-fixture";
 
 describe("DashboardTopbar New booking button", () => {
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe("DashboardTopbar New booking button", () => {
   });
 
   it("is disabled for a viewer without canCreateBooking", () => {
-    cacheSyncedUser("viewer", { canCreateBooking: false });
+    cacheTestSession("viewer", { canCreateBooking: false });
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
@@ -23,7 +23,7 @@ describe("DashboardTopbar New booking button", () => {
   });
 
   it("is enabled for a role whose access row has canCreateBooking", () => {
-    cacheSyncedUser("manager", { canCreateBooking: true });
+    cacheTestSession("manager", { canCreateBooking: true });
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
@@ -31,7 +31,7 @@ describe("DashboardTopbar New booking button", () => {
   });
 
   it("is enabled for an administrative role regardless of the access row", () => {
-    cacheSyncedUser("admin", { canCreateBooking: false });
+    cacheTestSession("admin", { canCreateBooking: false });
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })

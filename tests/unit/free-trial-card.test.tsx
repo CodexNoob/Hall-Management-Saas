@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const push = vi.fn();
 const refresh = vi.fn();
 const signUp = vi.fn();
-const syncSignedInUser = vi.fn();
+const fetchAuthSession = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh, replace: vi.fn(), prefetch: vi.fn() }),
@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/browser", () => ({
 }));
 
 vi.mock("@/lib/auth/client", () => ({
-  syncSignedInUser: (...args: unknown[]) => syncSignedInUser(...args)
+  fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args)
 }));
 
 import { ToastProvider } from "@/components/ui/toast";
@@ -257,7 +257,7 @@ describe("FreeTrialCard success path", () => {
         "/verify-email?email=owner%2Btrial%40example.com"
       )
     );
-    expect(syncSignedInUser).not.toHaveBeenCalled();
+    expect(fetchAuthSession).not.toHaveBeenCalled();
   });
 
   it("claims organization ownership on the account it creates", async () => {
@@ -265,7 +265,7 @@ describe("FreeTrialCard success path", () => {
       data: { session: { access_token: "access-token" } },
       error: null
     });
-    syncSignedInUser.mockResolvedValue(undefined);
+    fetchAuthSession.mockResolvedValue(undefined);
     renderSignUp();
     fill("owner@example.com", "Testing12345");
     submitForm();
@@ -286,7 +286,7 @@ describe("FreeTrialCard success path", () => {
     expect(payload.options.emailRedirectTo).toMatch(/\/auth\/confirm$/);
 
     await waitFor(() =>
-      expect(syncSignedInUser).toHaveBeenCalledWith("access-token", {
+      expect(fetchAuthSession).toHaveBeenCalledWith("access-token", {
         force: true
       })
     );

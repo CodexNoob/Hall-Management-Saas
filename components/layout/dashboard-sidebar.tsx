@@ -5,7 +5,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import type { HelpPageKind } from "@/features/help/components/help-page";
-import { signOutCurrentSession, type SyncedUser } from "@/lib/auth/client";
+import { signOutCurrentSession, type SessionUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { DashboardSidebarMobileHeader } from "@/components/layout/dashboard-sidebar-mobile-header";
@@ -43,7 +43,7 @@ const HelpDialog = dynamic(() =>
 );
 
 type DashboardSidebarProps = {
-  user: SyncedUser;
+  user: SessionUser;
   roleLabel: string;
   profileSubtitle?: string;
   activeLabel?: string;

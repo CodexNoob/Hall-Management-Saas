@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import {
-  clearCachedSyncedUser,
-  syncSignedInUser,
-  type SyncSignedInUserResponse
+  clearCachedAuthSession,
+  fetchAuthSession,
+  type AuthSessionResponse
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getDashboardLoginPath } from "@/lib/auth/redirect";
 
 export function DashboardAuthGuard() {
   const router = useRouter();
-  const [syncData, setSyncData] = useState<SyncSignedInUserResponse | null>(
+  const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(
     null
   );
   const [status, setStatus] = useState("Preparing your dashboard...");
@@ -22,7 +22,7 @@ export function DashboardAuthGuard() {
     let isMounted = true;
 
     const returnToLogin = () => {
-      clearCachedSyncedUser();
+      clearCachedAuthSession();
       const isDesktopApp =
         window.localStorage.getItem("eventCoreDesktopApp") === "true";
       router.replace(
@@ -53,10 +53,10 @@ export function DashboardAuthGuard() {
           setStatus("Loading dashboard data...");
         }
 
-        const synced = await syncSignedInUser(data.session.access_token);
+        const nextSession = await fetchAuthSession(data.session.access_token);
 
         if (isMounted) {
-          setSyncData(synced);
+          setAuthSession(nextSession);
         }
       } catch {
         returnToLogin();
@@ -70,7 +70,7 @@ export function DashboardAuthGuard() {
     };
   }, [router]);
 
-  if (!syncData) {
+  if (!authSession) {
     return (
       <main
         className="min-h-screen bg-[#f5f6f8]"
@@ -82,10 +82,10 @@ export function DashboardAuthGuard() {
 
   return (
     <DashboardShell
-      access={syncData.access}
-      activeOrganizationId={syncData.activeOrganizationId}
-      organizations={syncData.organizations}
-      user={syncData.user}
+      access={authSession.access}
+      activeOrganizationId={authSession.activeOrganizationId}
+      organizations={authSession.organizations}
+      user={authSession.user}
     />
   );
 }

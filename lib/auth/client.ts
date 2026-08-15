@@ -6,84 +6,29 @@ import {
   createSupabaseBrowserClient,
   setActiveOrganizationCookie
 } from "@/lib/supabase/browser";
+import { isAuthSessionResponse } from "@/lib/auth/session-context";
 
-export type SyncedUserAccess = {
-  id: string;
-  userId: string;
-  canViewHome: boolean;
-  canViewCalendar: boolean;
-  canCreateBooking: boolean;
-  canViewEventManager: boolean;
-  canViewKitchenDashboard: boolean;
-  canViewMenu: boolean;
-  canEditMenu: boolean;
-  canViewSettings: boolean;
-  canEditSettings: boolean;
-  canEditStaff: boolean;
-  canEditVendors: boolean;
-  canEditClients: boolean;
-  canEditFiles: boolean;
-  canAssignWorkers: boolean;
-  canUpdateKitchenStatus: boolean;
-  canAddKitchenEvents: boolean;
-  canManageSchoolSchedule: boolean;
-  canSeeSchoolEvents: boolean;
-  canSeeSimchaEvents: boolean;
-  canViewPaymentInfo: boolean;
-  canManagePayments: boolean;
-  canSendPaymentEmail: boolean;
-  canUseNiceHomeBackground: boolean;
-  allowedHallIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+// The response shape is owned by lib/auth/session-context.ts, which is also what
+// the route serializes through. Re-exported rather than restated so the two
+// cannot drift - they did, three ways, before that module existed.
+export type {
+  SessionUser,
+  SessionUserAccess,
+  SessionOrganization,
+  AuthSessionResponse
+} from "@/lib/auth/session-context";
 
-export type SyncedUser = {
-  id: string;
-  email: string;
-  name: string;
-  phone: string | null;
-  venueName: string | null;
-  role: string;
-  organizationId: string;
-};
+import type { AuthSessionResponse } from "@/lib/auth/session-context";
 
-export type SyncedOrganization = {
-  id: string;
-  name: string;
-  slug: string;
-  role: string;
-  trialStartedAt: string | null;
-  trialEndsAt: string | null;
-  subscriptionStatus: string;
-  subscriptionPlan: string | null;
-  subscriptionStartedAt: string | null;
-  subscriptionEndsAt: string | null;
-  onboardingCompletedAt: string | null;
-};
+const AUTH_SESSION_CACHE_KEY = "hms.authSession";
+const AUTH_SESSION_SUBJECT_KEY = "hms.authSession.subject";
+const AUTH_SESSION_FETCHED_AT_KEY = "hms.authSession.fetchedAt";
+const SESSION_FETCH_TIMEOUT_MS = 12000;
+const SESSION_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
 
-export type SyncSignedInUserResponse = {
-  user: SyncedUser;
-  access: SyncedUserAccess;
-  mustSetPassword: boolean;
-  /**
-   * True when the signed-in owner still has to name their organization and pick a
-   * plan on /dashboard/new. The dashboard layout holds them there until they do.
-   */
-  mustCompleteOnboarding: boolean;
-  activeOrganizationId: string;
-  organizations: SyncedOrganization[];
-};
-
-const SYNCED_USER_CACHE_KEY = "hms.syncedUser";
-const SYNCED_USER_CACHE_SUBJECT_KEY = "hms.syncedUser.subject";
-const SYNCED_USER_CACHE_TIME_KEY = "hms.syncedUser.syncedAt";
-const SYNC_TIMEOUT_MS = 12000;
-const SYNC_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
-
-let syncInFlight: {
+let fetchInFlight: {
   subject: string | null;
-  promise: Promise<SyncSignedInUserResponse>;
+  promise: Promise<AuthSessionResponse>;
 } | null = null;
 
 function getAccessTokenSubject(accessToken: string) {
@@ -105,98 +50,75 @@ function getAccessTokenSubject(accessToken: string) {
   }
 }
 
-function isSyncSignedInUserResponse(
-  value: unknown
-): value is SyncSignedInUserResponse {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const payload = value as Partial<SyncSignedInUserResponse>;
-  // `mustCompleteOnboarding` is checked too, so a cache written before the
-  // onboarding gate existed is rejected and re-synced rather than silently
-  // reading as "already onboarded".
-  return Boolean(
-    payload.user &&
-    payload.access &&
-    typeof payload.user === "object" &&
-    typeof payload.access === "object" &&
-    typeof payload.mustSetPassword === "boolean" &&
-    typeof payload.mustCompleteOnboarding === "boolean" &&
-    typeof payload.activeOrganizationId === "string" &&
-    Array.isArray(payload.organizations)
-  );
-}
-
-export function cacheSyncedUser(
-  syncData: SyncSignedInUserResponse,
+export function cacheAuthSession(
+  authSession: AuthSessionResponse,
   subject?: string | null
 ) {
   if (typeof window === "undefined") {
     return;
   }
 
-  const payload = JSON.stringify(syncData);
-  window.localStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
-  window.sessionStorage.setItem(SYNCED_USER_CACHE_KEY, payload);
-  window.localStorage.setItem(SYNCED_USER_CACHE_TIME_KEY, String(Date.now()));
+  const payload = JSON.stringify(authSession);
+  window.localStorage.setItem(AUTH_SESSION_CACHE_KEY, payload);
+  window.sessionStorage.setItem(AUTH_SESSION_CACHE_KEY, payload);
+  window.localStorage.setItem(AUTH_SESSION_FETCHED_AT_KEY, String(Date.now()));
   // Written here rather than at the two call sites, so the cookie the server
   // scopes by cannot drift from the cached value the client renders from.
-  setActiveOrganizationCookie(syncData.activeOrganizationId);
+  setActiveOrganizationCookie(authSession.activeOrganizationId);
 
   if (subject) {
-    window.localStorage.setItem(SYNCED_USER_CACHE_SUBJECT_KEY, subject);
+    window.localStorage.setItem(AUTH_SESSION_SUBJECT_KEY, subject);
   }
 }
 
 export function setActiveOrganization(organizationId: string) {
-  const syncData = getCachedSyncedUser();
+  const authSession = getCachedAuthSession();
 
   if (
-    !syncData?.organizations.some(
+    !authSession?.organizations.some(
       (organization) => organization.id === organizationId
     )
   ) {
     throw new Error("You do not have access to that organization.");
   }
 
-  cacheSyncedUser({ ...syncData, activeOrganizationId: organizationId });
+  cacheAuthSession({ ...authSession, activeOrganizationId: organizationId });
 }
 
-export function getCachedSyncedUser() {
+export function getCachedAuthSession() {
   if (typeof window === "undefined") {
     return null;
   }
 
   const rawSyncData =
-    window.localStorage.getItem(SYNCED_USER_CACHE_KEY) ??
-    window.sessionStorage.getItem(SYNCED_USER_CACHE_KEY);
+    window.localStorage.getItem(AUTH_SESSION_CACHE_KEY) ??
+    window.sessionStorage.getItem(AUTH_SESSION_CACHE_KEY);
 
   if (!rawSyncData) {
     return null;
   }
 
   try {
-    const syncData = JSON.parse(rawSyncData) as unknown;
-    return isSyncSignedInUserResponse(syncData) ? syncData : null;
+    const authSession = JSON.parse(rawSyncData) as unknown;
+    return isAuthSessionResponse(authSession) ? authSession : null;
   } catch {
-    window.localStorage.removeItem(SYNCED_USER_CACHE_KEY);
-    window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
-    window.localStorage.removeItem(SYNCED_USER_CACHE_SUBJECT_KEY);
-    window.localStorage.removeItem(SYNCED_USER_CACHE_TIME_KEY);
+    window.localStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+    window.sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+    window.localStorage.removeItem(AUTH_SESSION_SUBJECT_KEY);
+    window.localStorage.removeItem(AUTH_SESSION_FETCHED_AT_KEY);
     return null;
   }
 }
 
-export function clearCachedSyncedUser() {
+export function clearCachedAuthSession() {
   if (typeof window === "undefined") {
     return;
   }
 
-  window.localStorage.removeItem(SYNCED_USER_CACHE_KEY);
-  window.sessionStorage.removeItem(SYNCED_USER_CACHE_KEY);
-  window.localStorage.removeItem(SYNCED_USER_CACHE_SUBJECT_KEY);
-  window.localStorage.removeItem(SYNCED_USER_CACHE_TIME_KEY);
+  window.localStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+  window.sessionStorage.removeItem(AUTH_SESSION_CACHE_KEY);
+  window.localStorage.removeItem(AUTH_SESSION_SUBJECT_KEY);
+  window.localStorage.removeItem(AUTH_SESSION_FETCHED_AT_KEY);
   // Only the organization hint. The Remember me preference is deliberately left
   // alone: this also runs on a transient sync failure, and wiping the
   // preference there would silently downgrade a 30-day session.
@@ -218,24 +140,22 @@ export async function signOutCurrentSession() {
 
   if (error) throw error;
 
-  clearCachedSyncedUser();
+  clearCachedAuthSession();
   clearAuthSessionCookies();
 }
 
-export function syncSignedInUser(
+export function fetchAuthSession(
   accessToken: string,
   options: { force?: boolean } = {}
 ) {
   const subject = getAccessTokenSubject(accessToken);
-  const cachedUser = getCachedSyncedUser();
-  const cachedSubject = window.localStorage.getItem(
-    SYNCED_USER_CACHE_SUBJECT_KEY
-  );
+  const cachedUser = getCachedAuthSession();
+  const cachedSubject = window.localStorage.getItem(AUTH_SESSION_SUBJECT_KEY);
   const cachedAt = Number(
-    window.localStorage.getItem(SYNCED_USER_CACHE_TIME_KEY) ?? 0
+    window.localStorage.getItem(AUTH_SESSION_FETCHED_AT_KEY) ?? 0
   );
   const cacheIsFresh =
-    cachedAt > 0 && Date.now() - cachedAt < SYNC_CACHE_MAX_AGE_MS;
+    cachedAt > 0 && Date.now() - cachedAt < SESSION_CACHE_MAX_AGE_MS;
 
   if (
     !options.force &&
@@ -247,18 +167,18 @@ export function syncSignedInUser(
     return Promise.resolve(cachedUser);
   }
 
-  if (syncInFlight && syncInFlight.subject === subject) {
-    return syncInFlight.promise;
+  if (fetchInFlight && fetchInFlight.subject === subject) {
+    return fetchInFlight.promise;
   }
 
   const promise = (async () => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(
       () => controller.abort(),
-      SYNC_TIMEOUT_MS
+      SESSION_FETCH_TIMEOUT_MS
     );
 
-    const response = await fetch("/api/auth/sync-user", {
+    const response = await fetch("/api/auth/session", {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -276,15 +196,15 @@ export function syncSignedInUser(
       );
     }
 
-    const syncData = (await response.json()) as SyncSignedInUserResponse;
-    cacheSyncedUser(syncData, subject);
-    return syncData;
+    const authSession = (await response.json()) as AuthSessionResponse;
+    cacheAuthSession(authSession, subject);
+    return authSession;
   })();
 
-  syncInFlight = { subject, promise };
+  fetchInFlight = { subject, promise };
   const clearInFlight = () => {
-    if (syncInFlight?.promise === promise) {
-      syncInFlight = null;
+    if (fetchInFlight?.promise === promise) {
+      fetchInFlight = null;
     }
   };
   void promise.then(clearInFlight, clearInFlight);

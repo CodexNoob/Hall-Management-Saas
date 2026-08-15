@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { readAuthCallbackParams } from "@/lib/auth/auth-callback-params";
 import {
-  clearCachedSyncedUser,
+  clearCachedAuthSession,
   markPasswordSet,
-  syncSignedInUser
+  fetchAuthSession
 } from "@/lib/auth/client";
 import {
   PASSWORD_RULES_HINT,
@@ -199,8 +199,8 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
       }
 
       await markPasswordSet(token);
-      clearCachedSyncedUser();
-      await syncSignedInUser(token, { force: true });
+      clearCachedAuthSession();
+      await fetchAuthSession(token, { force: true });
 
       setSuccess("Password saved. Taking you to your dashboard...");
       router.replace(

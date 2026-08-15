@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { getAuthErrorMessage } from "@/lib/auth/auth-error-messages";
-import { signInWithOAuthProvider, syncSignedInUser } from "@/lib/auth/client";
+import { signInWithOAuthProvider, fetchAuthSession } from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import {
   createSupabaseBrowserClient,
@@ -163,7 +163,7 @@ export function LoginCard({
       }
 
       if (data.session?.access_token) {
-        await syncSignedInUser(data.session.access_token, { force: true });
+        await fetchAuthSession(data.session.access_token, { force: true });
       }
 
       router.replace(returnPath as Parameters<typeof router.replace>[0]);

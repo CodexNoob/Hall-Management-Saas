@@ -1,7 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-import { getCachedSyncedUser } from "@/lib/auth/client";
+import { getCachedAuthSession } from "@/lib/auth/client";
 
 /**
  * Kept as a module and a signature rather than deleted, so the ~73 call sites
@@ -29,7 +29,7 @@ export async function authenticatedFetch(
   }
 
   const headers = new Headers(init.headers);
-  const activeOrganizationId = getCachedSyncedUser()?.activeOrganizationId;
+  const activeOrganizationId = getCachedAuthSession()?.activeOrganizationId;
 
   // Still sent, and still wins over the cookie on the server. An explicit
   // header is unambiguous where the cookie is ambient, and removing it in the

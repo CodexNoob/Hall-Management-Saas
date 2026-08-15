@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({
 import { DashboardModuleLinks } from "@/features/dashboard/components/dashboard-module-links";
 import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
 import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
-import { cacheSyncedUser, cacheSyncedUserForRole } from "./synced-user-fixture";
+import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
 
 // Matched on description text, not on the <h3> title or the actionLabel: a tile
 // button's accessible name is its whole concatenated card text, so "Billing" and
@@ -57,7 +57,7 @@ describe("DashboardModuleLinks role gating", () => {
 
   for (const { role, expected } of cases) {
     it(`shows exactly ${expected.join(", ")} for ${role}`, () => {
-      cacheSyncedUserForRole(role);
+      cacheTestSessionForRole(role);
       render(<DashboardModuleLinks />);
 
       expect(visibleTiles().sort()).toEqual([...expected].sort());
@@ -70,7 +70,7 @@ describe("DashboardModuleLinks role gating", () => {
   it("offers a tile exactly when its route is reachable", () => {
     for (const { role } of cases) {
       window.localStorage.clear();
-      cacheSyncedUserForRole(role);
+      cacheTestSessionForRole(role);
       const { unmount } = render(<DashboardModuleLinks />);
       const shown = visibleTiles();
 
@@ -86,7 +86,7 @@ describe("DashboardModuleLinks role gating", () => {
   });
 
   it("exposes the tile row as a labelled region", () => {
-    cacheSyncedUserForRole("viewer");
+    cacheTestSessionForRole("viewer");
     render(<DashboardModuleLinks />);
 
     expect(
@@ -95,7 +95,7 @@ describe("DashboardModuleLinks role gating", () => {
   });
 
   it("renders nothing when no tile is reachable", () => {
-    cacheSyncedUser("viewer", {
+    cacheTestSession("viewer", {
       canViewCalendar: false,
       canViewEventManager: false,
       canViewKitchenDashboard: false,
