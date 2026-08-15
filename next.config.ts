@@ -42,6 +42,18 @@ const nextConfig: NextConfig = {
   images: {
     qualities: [100]
   },
+  async redirects() {
+    return [
+      // The sign-up route was /start-trial until the auth screens moved out of
+      // the landing modal. Permanent so anything already linking to it - a
+      // bookmark, a sent email, a search result - lands on the new URL.
+      {
+        source: "/start-trial",
+        destination: "/signup",
+        permanent: true
+      }
+    ];
+  },
   async headers() {
     return [
       {

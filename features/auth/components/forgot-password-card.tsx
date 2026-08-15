@@ -110,11 +110,9 @@ function DesktopResetIllustration() {
 
 type ForgotPasswordCardProps = {
   compact?: boolean;
-  onBackToLogin?: () => void;
-  onContactSupport?: () => void;
 };
 
-export function ForgotPasswordCard({ compact = false, onBackToLogin, onContactSupport }: ForgotPasswordCardProps) {
+export function ForgotPasswordCard({ compact = false }: ForgotPasswordCardProps) {
   const isDesktopApp = useDesktopAppMode();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -252,24 +250,16 @@ export function ForgotPasswordCard({ compact = false, onBackToLogin, onContactSu
               <span className="h-px flex-1 bg-[#E5E0D6]" />
             </div>
 
-            {onBackToLogin ? (
-              <button className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} type="button" onClick={onBackToLogin}>
-                <span aria-hidden="true"></span>
-                Back to Login
-              </button>
-            ) : (
-              <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
-                <span aria-hidden="true"></span>
-                Back to Login
-              </Link>
-            )}
+            <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
+              <span aria-hidden="true"></span>
+              Back to Login
+            </Link>
 
             <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
               Need help?{" "}
               <button
                 className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
-                data-contact-modal={onContactSupport ? undefined : true}
-                onClick={onContactSupport}
+                data-contact-modal
                 type="button"
               >
                 Contact support

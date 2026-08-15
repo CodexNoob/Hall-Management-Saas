@@ -21,8 +21,8 @@ export function getSafeDashboardReturnPath(
 
 export function getDashboardLoginPath(
   returnPath: string
-): `/?auth=login&next=${string}` {
-  return `/?auth=login&next=${encodeURIComponent(getSafeDashboardReturnPath(returnPath))}`;
+): `/login?next=${string}` {
+  return `/login?next=${encodeURIComponent(getSafeDashboardReturnPath(returnPath))}`;
 }
 
 export function getPasswordSetupPath(

@@ -23,18 +23,11 @@ async function authenticate(
     window.sessionStorage.removeItem("hms.authSession");
   });
 
-  await page.goto("/");
-  await expect(
-    page.getByRole("status", { name: "Loading website" })
-  ).toBeHidden();
-  await page.locator("[data-login-modal]:visible").click();
+  await page.goto("/login");
   await page.getByLabel("Email Address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Remember me").check();
-  await page
-    .getByRole("dialog", { name: "Employee Login", exact: true })
-    .getByRole("button", { name: "Login", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Login", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
 
   const state = await page.context().storageState({ path: stateFile });

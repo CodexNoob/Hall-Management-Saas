@@ -1,4 +1,3 @@
-import { AuthModal } from "@/features/auth/components/auth-modal";
 import { BenefitsSection } from "@/features/landing/components/benefits-section";
 import { ContactModal } from "@/features/landing/components/contact-modal";
 import { FeaturesSection } from "@/features/landing/components/features-section";
@@ -25,7 +24,6 @@ export default function Home() {
       <PricingSection />
       <LandingFooter />
       <ContactModal />
-      <AuthModal />
     </main>
   );
 }

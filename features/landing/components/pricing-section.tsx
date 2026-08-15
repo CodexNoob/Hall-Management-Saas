@@ -137,8 +137,7 @@ export function PricingSection() {
                     ? "bg-[#1f4d73] text-white shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
                     : "border border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#1f4d73] hover:bg-[#F7F4ED] hover:brightness-105"
                 }`}
-                href={plan.name === "Enterprise" ? "#pricing" : "/start-trial"}
-                {...(plan.name === "Enterprise" ? {} : { "data-free-trial-modal": true })}
+                href={plan.name === "Enterprise" ? "#pricing" : "/signup"}
               >
                 {plan.buttonLabel}
               </a>
@@ -168,22 +167,22 @@ export function PricingSection() {
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              Start your free trial today!
+              Get started with Event Core today!
             </h3>
             <p
               className={`saas-fade-reveal saas-delay-180 mx-auto mt-6 max-w-4xl text-base font-medium leading-8 text-white/90 sm:text-lg ${
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              Want to learn more about how Event Core can help your venue? Contact our team now. Our experts are available to answer questions, walk you through setup, and help you try our 30-day free trial with full support included.
+              Want to learn more about how Event Core can help your venue? Contact our team now. Our experts are available to answer questions, walk you through setup, and help you make the most of your 14-day free trial with full support included.
             </p>
             <div
               className={`saas-fade-reveal saas-delay-260 mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row ${
                 isTrialCtaVisible ? "is-visible" : ""
               }`}
             >
-              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#1f4d73] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:bg-[#15344f]" href="/start-trial" data-free-trial-modal>
-                Start free trial
+              <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-[#1f4d73] px-8 text-sm font-black text-white shadow-lg shadow-black/10 transition hover:bg-[#15344f]" href="/signup">
+                Get Started Free
               </a>
               <a className="saas-hover-lift inline-flex h-13 min-w-48 items-center justify-center rounded-full bg-white px-8 text-sm font-black text-black! shadow-lg shadow-black/10 transition hover:brightness-105" type="button" data-contact-modal>
                 Contact us

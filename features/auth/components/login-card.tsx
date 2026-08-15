@@ -98,17 +98,7 @@ function DashboardIllustration() {
   );
 }
 
-type LoginCardProps = {
-  compact?: boolean;
-  onStartTrialClick?: () => void;
-  onForgotPasswordClick?: () => void;
-};
-
-export function LoginCard({
-  compact = false,
-  onStartTrialClick,
-  onForgotPasswordClick
-}: LoginCardProps) {
+export function LoginCard() {
   const router = useRouter();
   const { toast } = useToast();
   const returnPath = getSafeDashboardReturnPath(
@@ -193,20 +183,33 @@ export function LoginCard({
     }
   };
 
-  return (
+  const card = (
     <section
-      className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-back max-h-[760px] max-w-6xl grid-cols-[0.92fr_1fr]" : "lg:grid-cols-2"}`}
+      className={
+        isDesktopApp
+          ? "desktop-auth-soft-page desktop-auth-soft-back mx-auto grid max-h-[760px] w-full min-w-0 grid-cols-[0.92fr_1fr] overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl"
+          : "grid min-h-dvh w-full min-w-0 lg:grid-cols-2"
+      }
     >
       <div
-        className={`order-2 relative overflow-hidden p-5 sm:p-10 lg:order-1 ${isDesktopApp ? "desktop-auth-info-panel block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : compact ? "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-10" : "hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:block lg:p-14"}`}
+        className={`relative overflow-hidden ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 lg:order-1" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-16"}`}
       >
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
+        {isDesktopApp ? (
+          <>
+            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
+            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
+          </>
+        ) : (
+          <>
+            <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+            <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
+          </>
+        )}
         <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
           {Array.from({ length: 36 }).map((_, index) => (
             <span
               key={index}
-              className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]"
+              className={`h-1.5 w-1.5 rounded-full ${isDesktopApp ? "bg-[#1f4d73]" : "bg-white/70"}`}
             />
           ))}
         </div>
@@ -223,7 +226,13 @@ export function LoginCard({
               className="h-auto w-64 max-w-full object-contain"
             />
           ) : (
-            <Link href="/" aria-label="Back to Hall Management SaaS home">
+            // The logo is dark navy artwork, so it needs a light plate to stay
+            // legible against the navy panel.
+            <Link
+              href="/"
+              aria-label="Back to Event Core home"
+              className="inline-flex rounded-2xl bg-white px-5 py-3 shadow-xl shadow-black/25 transition hover:brightness-105"
+            >
               <Image
                 src="/images/branding/hms-logo-header.png"
                 alt="Hall Management SaaS"
@@ -231,47 +240,49 @@ export function LoginCard({
                 height={408}
                 priority
                 unoptimized
-                className="h-auto w-64 max-w-full object-contain"
+                className="h-auto w-44 max-w-full object-contain"
               />
             </Link>
           )}
 
           <p
-            className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}
+            className={`mt-10 text-base font-black ${isDesktopApp ? "text-[#1f4d73]" : "text-[#8fc0e8]"}`}
           >
             Welcome Back!
           </p>
           <h1
-            className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.12] tracking-tight text-[#0F172A]`}
+            className={`max-w-md font-black leading-[1.12] tracking-tight ${isDesktopApp ? "mt-4 text-4xl text-[#0F172A]" : "mt-5 text-4xl text-white xl:text-5xl"}`}
           >
             Login to your account
           </h1>
           <p
-            className={`${isDesktopApp ? "mt-4 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}
+            className={`mt-5 max-w-md text-base leading-8 sm:text-lg ${isDesktopApp ? "text-[#64748B]" : "text-white/75"}`}
           >
             Access your dashboard to manage bookings, events, payments, and hall
             operations all in one place.
           </p>
 
-          {isDesktopApp ? null : !compact ? (
-            <DashboardIllustration />
-          ) : (
-            <div className="hidden lg:block">
-              <DashboardIllustration />
-            </div>
-          )}
+          {isDesktopApp ? null : <DashboardIllustration />}
 
-          <div
-            className={`${isDesktopApp ? "mt-8" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
-              <ShieldIcon />
+          <div className="mt-10 flex items-center gap-4">
+            <div
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${isDesktopApp ? "bg-white/80 shadow-lg shadow-[#1f4d73]/10" : "bg-white/12 ring-1 ring-white/25"}`}
+            >
+              <ShieldIcon
+                className={
+                  isDesktopApp ? "h-7 w-7 text-[#1f4d73]" : "h-7 w-7 text-white"
+                }
+              />
             </div>
             <div>
-              <p className="font-black text-[#0F172A]">
+              <p
+                className={`font-black ${isDesktopApp ? "text-[#0F172A]" : "text-white"}`}
+              >
                 Your data is secure with us.
               </p>
-              <p className="mt-1 text-sm font-medium text-[#64748B]">
+              <p
+                className={`mt-1 text-sm font-medium ${isDesktopApp ? "text-[#64748B]" : "text-white/70"}`}
+              >
                 We use industry-standard encryption.
               </p>
             </div>
@@ -280,13 +291,31 @@ export function LoginCard({
       </div>
 
       <div
-        className={`order-1 box-border w-full min-w-0 lg:order-2 ${isDesktopApp ? "desktop-auth-form-panel bg-white p-8" : compact ? "bg-white p-5 pt-16 sm:p-10 lg:p-10" : "bg-white p-5 sm:p-10 lg:p-16"}`}
+        className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-8 lg:order-2" : "order-2 flex items-center justify-center px-5 py-10 sm:px-10 sm:py-14 lg:px-16"}`}
       >
         <div
           className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}
         >
+          {isDesktopApp ? null : (
+            // The brand panel is desktop-only, so small screens would otherwise
+            // lose the logo and the way back to the marketing site.
+            <Link
+              href="/"
+              aria-label="Back to Event Core home"
+              className="mb-8 inline-flex w-fit lg:hidden"
+            >
+              <Image
+                src="/images/branding/hms-logo-header.png"
+                alt="Hall Management SaaS"
+                width={612}
+                height={408}
+                priority
+                unoptimized
+                className="h-auto w-40 max-w-full object-contain"
+              />
+            </Link>
+          )}
           <h2
-            id="login-modal-title"
             className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}
           >
             Employee Login
@@ -298,7 +327,7 @@ export function LoginCard({
           </p>
 
           <form
-            className={isDesktopApp ? "mt-4" : compact ? "mt-8" : "mt-10"}
+            className={isDesktopApp ? "mt-4" : "mt-10"}
             onSubmit={submit}
           >
             <label
@@ -327,7 +356,7 @@ export function LoginCard({
             </div>
 
             <label
-              className={`${isDesktopApp ? "mt-4 text-sm" : compact ? "mt-5 text-base" : "mt-7 text-base"} block font-bold text-[#0F172A]`}
+              className={`${isDesktopApp ? "mt-4 text-sm" : "mt-7 text-base"} block font-bold text-[#0F172A]`}
               htmlFor="password"
             >
               Password
@@ -375,26 +404,16 @@ export function LoginCard({
                 />
                 Remember me
               </label>
-              {onForgotPasswordClick ? (
-                <button
-                  className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
-                  type="button"
-                  onClick={onForgotPasswordClick}
-                >
-                  Forgot password?
-                </button>
-              ) : (
-                <Link
-                  className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
-                  href={
-                    isDesktopApp
-                      ? "/forgot-password?desktop=1"
-                      : "/forgot-password"
-                  }
-                >
-                  Forgot password?
-                </Link>
-              )}
+              <Link
+                className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
+                href={
+                  isDesktopApp
+                    ? "/forgot-password?desktop=1"
+                    : "/forgot-password"
+                }
+              >
+                Forgot password?
+              </Link>
             </div>
 
             {error ? (
@@ -404,7 +423,7 @@ export function LoginCard({
             ) : null}
 
             <button
-              className={`${isDesktopApp || compact ? "mt-5" : "mt-8"} login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-11 text-sm" : "h-16 text-lg"}`}
+              className={`${isDesktopApp ? "mt-5" : "mt-8"} login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-11 text-sm" : "h-16 text-lg"}`}
               type="submit"
               disabled={isSubmitting}
             >
@@ -413,7 +432,7 @@ export function LoginCard({
             </button>
 
             <AuthDivider
-              className={isDesktopApp ? "my-5" : compact ? "my-7" : "my-10"}
+              className={isDesktopApp ? "my-5" : "my-10"}
             />
 
             <AuthSocialButtons
@@ -447,27 +466,34 @@ export function LoginCard({
             {!isDesktopApp ? (
               <p className="mt-5 text-center text-base text-[#64748B]">
                 Opening a new hall organization?{" "}
-                {onStartTrialClick ? (
-                  <button
-                    className="font-bold text-[#1f4d73] transition hover:text-[#15344f]"
-                    type="button"
-                    onClick={onStartTrialClick}
-                  >
-                    Start free trial
-                  </button>
-                ) : (
-                  <Link
-                    className="font-bold text-[#1f4d73] transition hover:text-[#15344f]"
-                    href="/start-trial"
-                  >
-                    Start free trial
-                  </Link>
-                )}
+                <Link
+                  className="font-bold text-[#1f4d73] transition hover:text-[#15344f]"
+                  href="/signup"
+                >
+                  Sign up
+                </Link>
               </p>
             ) : null}
           </form>
         </div>
       </div>
     </section>
+  );
+
+  if (!isDesktopApp) {
+    return card;
+  }
+
+  // The desktop shell keeps the old floating-panel presentation, so it has to
+  // supply the page ground itself - the web layout is a full-bleed split now
+  // and no longer centres anything for it.
+  return (
+    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-2 py-4 sm:px-6 sm:py-8">
+      <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
+      <div className="relative flex w-full max-w-7xl items-center justify-center">
+        {card}
+      </div>
+    </div>
   );
 }
