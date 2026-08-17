@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import {
   NewPackageDialog,
@@ -19,6 +20,8 @@ import {
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useMenuItemActions } from "@/features/menu/hooks/use-menu-item-actions";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
@@ -36,6 +39,7 @@ import {
   packageAddItems,
   platedSections,
   tabs,
+  type MenuLibraryItem,
   type MenuResponse
 } from "@/features/menu/components/menu-shared";
 /**
@@ -67,11 +71,13 @@ export function MenuPage() {
   const [isEditingPackage, setIsEditingPackage] = useState(false);
   const [isNewAddOnOpen, setIsNewAddOnOpen] = useState(false);
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
-  const allMenuItems = useMemo(() => {
+  const allMenuItems = useMemo<MenuLibraryItem[]>(() => {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
       id: item.id,
       name: item.name,
       category: item.category ?? "More",
+      kosherType: item.kosherType,
+      notes: item.notes,
       pictureUrl: item.pictureUrl
     }));
     return savedItems;
@@ -104,6 +110,11 @@ export function MenuPage() {
       })),
     [menuQuery.data]
   );
+  const canEditMenu = useDashboardPermission("canEditMenu");
+  const libraryItemActions = useMenuItemActions({
+    items: allMenuItems,
+    onChanged: menuQuery.refetch
+  });
 
   if (menuQuery.isLoading || menuQuery.error) {
     return (
@@ -315,10 +326,30 @@ export function MenuPage() {
         onSave={saveAddOn}
         open={isNewAddOnOpen}
       />
+      {/* One dialog for both flows: `initialValues` is what makes it an edit,
+          and the save handler follows it. */}
       <NewLibraryItemDialog
-        onClose={() => setIsNewLibraryItemOpen(false)}
-        onSave={saveLibraryItem}
-        open={isNewLibraryItemOpen}
+        initialValues={libraryItemActions.editingValues}
+        onClose={() => {
+          setIsNewLibraryItemOpen(false);
+          libraryItemActions.cancelEdit();
+        }}
+        onSave={
+          libraryItemActions.editingItem
+            ? libraryItemActions.saveEdit
+            : saveLibraryItem
+        }
+        open={isNewLibraryItemOpen || Boolean(libraryItemActions.editingItem)}
+      />
+      <ConfirmDialog
+        confirmLabel="Remove item"
+        description={`"${libraryItemActions.removingItem?.name ?? ""}" will be removed from the menu library. This cannot be undone.`}
+        fallbackErrorMessage="The item could not be removed. Please try again."
+        onClose={libraryItemActions.cancelRemove}
+        onConfirm={libraryItemActions.confirmRemove}
+        open={Boolean(libraryItemActions.removingItem)}
+        pendingLabel="Removing…"
+        title="Remove menu item"
       />
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
@@ -623,6 +654,19 @@ export function MenuPage() {
                   {visibleItems.map((item) => (
                     <MenuItemCard
                       key={item.id}
+                      actions={[
+                        {
+                          label: "Update",
+                          disabled: !canEditMenu,
+                          onSelect: () => libraryItemActions.startEdit(item.id)
+                        },
+                        {
+                          label: "Remove",
+                          disabled: !canEditMenu,
+                          tone: "danger",
+                          onSelect: () => libraryItemActions.startRemove(item.id)
+                        }
+                      ]}
                       category={item.category}
                       name={item.name}
                       pictureUrl={item.pictureUrl}

@@ -63,6 +63,8 @@ export type MenuResponse = {
     name: string;
     category: string | null;
     usageType: string;
+    kosherType: string | null;
+    notes: string | null;
     // Signed by GET /api/menu; the raw bucket and path never reach the client.
     pictureUrl: string | null;
   }>;
@@ -80,6 +82,19 @@ export type MenuResponse = {
     notes: string | null;
   }>;
   categories: Array<{ id: string; name: string }>;
+};
+
+/**
+ * A library item as the grid works with it: the same row as `MenuResponse`,
+ * with the nullable category resolved to the bucket the UI files it under.
+ */
+export type MenuLibraryItem = {
+  id: string;
+  name: string;
+  category: string;
+  kosherType: string | null;
+  notes: string | null;
+  pictureUrl: string | null;
 };
 
 export const packageItems = [

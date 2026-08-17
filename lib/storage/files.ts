@@ -17,20 +17,31 @@ export type SignedFileUrlsInput = {
 };
 
 /**
- * Shared by both signers so the two cannot drift: a path that one refuses must
- * not be one the other hands out a URL for.
+ * The single definition of "this tenant may address this object".
+ *
+ * Exported so the handlers that accept a path from a client reject exactly what
+ * the signers here would refuse: a path that passes validation on the way in
+ * must not be one we later decline to sign.
  */
-function assertReadable(
+export function isOrgScopedStoragePath(organizationId: string, path: string) {
+  return (
+    path.startsWith(`${organizationId}/`) &&
+    !path.includes("..") &&
+    !path.includes("\\")
+  );
+}
+
+/**
+ * Shared by every accessor so they cannot drift: a path one refuses must not be
+ * one another hands out a URL for, or removes.
+ */
+function assertAccessible(
   organizationId: string,
   bucket: string,
   paths: string[]
 ) {
   for (const path of paths) {
-    if (
-      !path.startsWith(`${organizationId}/`) ||
-      path.includes("..") ||
-      path.includes("\\")
-    ) {
+    if (!isOrgScopedStoragePath(organizationId, path)) {
       throw new Error(
         "Storage paths must be scoped to the active organization."
       );
@@ -59,7 +70,7 @@ export async function createSignedFileUrl({
   path,
   expiresInSeconds = 300
 }: SignedFileUrlInput) {
-  assertReadable(organizationId, bucket, [path]);
+  assertAccessible(organizationId, bucket, [path]);
 
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase.storage
@@ -93,7 +104,7 @@ export async function createSignedFileUrls({
     return signedUrlsByPath;
   }
 
-  assertReadable(organizationId, bucket, paths);
+  assertAccessible(organizationId, bucket, paths);
 
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase.storage
@@ -110,4 +121,32 @@ export async function createSignedFileUrls({
   }
 
   return signedUrlsByPath;
+}
+
+/**
+ * Removes objects a row no longer points at.
+ *
+ * Throws on failure rather than swallowing it, so a caller that must know can;
+ * callers for whom an orphaned object is cheaper than a failed request are
+ * expected to catch (see `discardMenuPicture`).
+ */
+export async function deleteStorageFiles({
+  organizationId,
+  bucket,
+  paths
+}: {
+  organizationId: string;
+  bucket: string;
+  paths: string[];
+}) {
+  if (paths.length === 0) return;
+
+  assertAccessible(organizationId, bucket, paths);
+
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.storage.from(bucket).remove(paths);
+
+  if (error) {
+    throw error;
+  }
 }

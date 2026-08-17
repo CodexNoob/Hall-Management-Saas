@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { readPicturePathError } from "@/features/menu/server/menu-picture";
+import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -8,17 +10,7 @@ import { createSignedFileUrls } from "@/lib/storage/files";
 import { moneySchema } from "@/lib/validation/number";
 
 const menuMutationSchema = z.discriminatedUnion("resource", [
-  z.object({
-    resource: z.literal("item"),
-    name: z.string().trim().min(1),
-    category: z.string().trim().optional(),
-    usageType: z.string().trim().min(1),
-    kosherType: z.string().trim().optional(),
-    notes: z.string().trim().optional(),
-    // A storage path, never a bucket and never a URL. The bucket is decided
-    // server-side; a signed URL would be dead within five minutes.
-    picturePath: z.string().trim().min(1).optional()
-  }),
+  menuItemFieldsSchema.extend({ resource: z.literal("item") }),
   z.object({
     resource: z.literal("package"),
     name: z.string().trim().min(1),
@@ -110,19 +102,13 @@ export async function POST(request: Request) {
 
     if (input.resource === "item") {
       if (input.picturePath) {
-        if (!input.picturePath.startsWith(`${actor.organizationId}/`)) {
+        const picturePathError = readPicturePathError(
+          actor.organizationId,
+          input.picturePath
+        );
+        if (picturePathError) {
           return NextResponse.json(
-            { error: "Picture path must begin with the active organization ID." },
-            { status: 400 }
-          );
-        }
-
-        if (
-          input.picturePath.includes("..") ||
-          input.picturePath.includes("\\")
-        ) {
-          return NextResponse.json(
-            { error: "Invalid picture path." },
+            { error: picturePathError },
             { status: 400 }
           );
         }
