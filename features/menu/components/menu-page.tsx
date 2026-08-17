@@ -113,6 +113,7 @@ export function MenuPage() {
   const canEditMenu = useDashboardPermission("canEditMenu");
   const libraryItemActions = useMenuItemActions({
     items: allMenuItems,
+    onCategorySaved: setSelectedCategory,
     onChanged: menuQuery.refetch
   });
 

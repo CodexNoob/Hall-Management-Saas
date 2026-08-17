@@ -16,6 +16,14 @@ type UseMenuItemActionsInput = {
   items: MenuLibraryItem[];
   /** Refetches the list once the server has accepted a change. */
   onChanged: () => Promise<unknown> | void;
+  /**
+   * Handed the category an edit saved the item under.
+   *
+   * The page points its filter at it, the way the create flow already does.
+   * Without this, moving an item to another category makes its card disappear
+   * behind the active filter the moment it is saved, which reads as a failure.
+   */
+  onCategorySaved?: (category: string) => void;
 };
 
 /**
@@ -29,7 +37,8 @@ type UseMenuItemActionsInput = {
  */
 export function useMenuItemActions({
   items,
-  onChanged
+  onChanged,
+  onCategorySaved
 }: UseMenuItemActionsInput) {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [removingItemId, setRemovingItemId] = useState<string | null>(null);
@@ -71,9 +80,10 @@ export function useMenuItemActions({
       });
 
       await onChanged();
+      onCategorySaved?.(values.category);
       setEditingItemId(null);
     },
-    [editingItemId, onChanged]
+    [editingItemId, onCategorySaved, onChanged]
   );
 
   const confirmRemove = useCallback(async () => {
