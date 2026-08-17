@@ -26,6 +26,7 @@ type DiningDetailsPanelProps = {
   selectedTableId: string | null;
   womenRequired: number;
   onAddRequiredTables: () => void;
+  onAutoLayoutTables: () => void;
   onSetCheckMessage: (message: string) => void;
   onSetTables: (updater: (current: DiningTableData[]) => DiningTableData[]) => void;
   onUpdateForm: <K extends keyof DiningForm>(
@@ -46,6 +47,7 @@ export function DiningDetailsPanel({
   selectedTableId,
   womenRequired,
   onAddRequiredTables,
+  onAutoLayoutTables,
   onSetCheckMessage,
   onSetTables,
   onUpdateForm
@@ -196,6 +198,13 @@ export function DiningDetailsPanel({
           ) : null}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
             <button
+              className="h-9 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-[10px] font-black text-white hover:bg-[#15344f]"
+              onClick={onAutoLayoutTables}
+              type="button"
+            >
+              Auto layout
+            </button>
+            <button
               className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa]"
               onClick={() =>
                 onSetCheckMessage(
@@ -211,7 +220,7 @@ export function DiningDetailsPanel({
               Check seating
             </button>
             <button
-              className="h-9 min-w-0 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-[10px] font-black text-white hover:bg-[#15344f]"
+              className="h-9 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-[10px] font-black hover:bg-[#eef4fa]"
               onClick={onAddRequiredTables}
               type="button"
             >

@@ -17,19 +17,29 @@ import { MapObjectView } from "@/features/hall-room-map/components/hall-map-obje
 import { HallMapObjectInspector } from "@/features/hall-room-map/components/hall-map-object-inspector";
 import { Panel } from "@/features/hall-room-map/components/hall-map-panel";
 import {
-  DESIGN_MAP_HEIGHT,
-  DESIGN_MAP_WIDTH,
   HALL_MAP_STORAGE_KEY,
+  MAP_WORLD_ORIGIN,
+  MAP_WORLD_SIZE,
   MAP_VIEWPORT_PADDING,
+  clampObjectToMap,
   clampViewportPosition,
   getMapObjectBounds,
+  getRotationFromPointer,
   initialHallMaps,
+  resizeMapObjectFromEdge,
   type HallMapsResponse,
   type MapObject,
+  type ResizeEdge,
   type SaveHallMapInput,
   type SavedHallMap,
+  type ShapeLibraryItem,
   type ShapeType
 } from "@/features/hall-room-map/components/hall-map-shared";
+
+const MIN_MAP_SCALE = 0.05;
+const MAX_MAP_SCALE = 2;
+const MAP_ZOOM_FACTOR = 1.25;
+
 export function HallRoomMapPage() {
   const hallMapsQuery =
     useAuthenticatedQuery<HallMapsResponse>("/api/hall-maps");
@@ -45,8 +55,19 @@ export function HallRoomMapPage() {
     { id: string },
     { deleted: true }
   >("/api/hall-maps", "DELETE");
+  const createShapeMutation = useAuthenticatedMutation<
+    {
+      name: string;
+      shapeType: "round-table" | "rect-table";
+      width: number;
+      height: number;
+      seats: number;
+    },
+    { shape: ShapeLibraryItem }
+  >("/api/hall-map-shapes", "POST");
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [hallMaps, setHallMaps] = useState<SavedHallMap[]>(initialHallMaps);
+  const [shapeLibrary, setShapeLibrary] = useState<ShapeLibraryItem[]>([]);
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([]);
   const [selectedMapId, setSelectedMapId] = useState("");
@@ -63,12 +84,17 @@ export function HallRoomMapPage() {
     detail: string;
   } | null>(null);
   const [mapScale, setMapScale] = useState(1);
+  const [mapDimensions, setMapDimensions] = useState({
+    width: MAP_WORLD_SIZE,
+    height: MAP_WORLD_SIZE
+  });
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
   const latestObjectsRef = useRef<MapObject[]>(objects);
   const objectClipboardRef = useRef<MapObject[]>([]);
   const undoStackRef = useRef<MapObject[][]>([]);
   const mapScaleRef = useRef(1);
+  const mapDimensionsRef = useRef(mapDimensions);
   const panRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -79,13 +105,33 @@ export function HallRoomMapPage() {
   } | null>(null);
   const suppressNextMapClickRef = useRef(false);
   const dragRef = useRef<{
-    id: string;
+    objectId: string;
+    usesMultiSelect: boolean;
+    moved: boolean;
     pointerId: number;
     startClientX: number;
     startClientY: number;
-    startX: number;
-    startY: number;
+    startPositions: Record<string, { x: number; y: number }>;
+    startScrollLeft: number;
+    startScrollTop: number;
   } | null>(null);
+  const suppressNextObjectClickRef = useRef(false);
+  const resizeRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    object: MapObject;
+    edge: ResizeEdge;
+  } | null>(null);
+  const rotateRef = useRef<{
+    pointerId: number;
+    centerClientX: number;
+    centerClientY: number;
+    startPointerAngle: number;
+    startRotation: number;
+    objectId: string;
+  } | null>(null);
+  const shortcutsRef = useRef<HTMLDetailsElement>(null);
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveConfirmationTimerRef = useRef<ReturnType<
     typeof setTimeout
@@ -98,6 +144,32 @@ export function HallRoomMapPage() {
   useEffect(() => {
     mapScaleRef.current = mapScale;
   }, [mapScale]);
+
+  useEffect(() => {
+    mapDimensionsRef.current = mapDimensions;
+  }, [mapDimensions]);
+
+  useEffect(() => {
+    function closeShortcutsWhenClickingOutside(event: PointerEvent) {
+      const shortcuts = shortcutsRef.current;
+
+      if (
+        shortcuts?.hasAttribute("open") &&
+        event.target instanceof Node &&
+        !shortcuts.contains(event.target)
+      ) {
+        shortcuts.removeAttribute("open");
+      }
+    }
+
+    document.addEventListener("pointerdown", closeShortcutsWhenClickingOutside);
+
+    return () =>
+      document.removeEventListener(
+        "pointerdown",
+        closeShortcutsWhenClickingOutside
+      );
+  }, []);
 
   const centerMapViewport = useCallback((nextObjects?: MapObject[]) => {
     window.requestAnimationFrame(() => {
@@ -115,15 +187,15 @@ export function HallRoomMapPage() {
 
       if (!bounds) {
         viewport.scrollTo({
-          left: clampViewportPosition(maxLeft / 2, maxLeft),
-          top: clampViewportPosition(maxTop / 2, maxTop)
+          left: clampViewportPosition(MAP_WORLD_ORIGIN - viewport.clientWidth / 2, maxLeft),
+          top: clampViewportPosition(MAP_WORLD_ORIGIN - viewport.clientHeight / 2, maxTop)
         });
         return;
       }
 
       const scale = mapScaleRef.current;
-      const centerX = ((bounds.minX + bounds.maxX) / 2) * scale;
-      const centerY = ((bounds.minY + bounds.maxY) / 2) * scale;
+      const centerX = (MAP_WORLD_ORIGIN + (bounds.minX + bounds.maxX) / 2) * scale;
+      const centerY = (MAP_WORLD_ORIGIN + (bounds.minY + bounds.maxY) / 2) * scale;
 
       viewport.scrollTo({
         left: clampViewportPosition(
@@ -145,15 +217,121 @@ export function HallRoomMapPage() {
       return;
     }
 
-    const availableWidth = Math.max(0, viewport.clientWidth - 16);
-    const nextScale = Math.min(1, availableWidth / DESIGN_MAP_WIDTH);
+    const nextDimensions = { width: MAP_WORLD_SIZE, height: MAP_WORLD_SIZE };
 
-    mapScaleRef.current = nextScale;
-    setMapScale((current) =>
-      Math.abs(current - nextScale) < 0.01 ? current : nextScale
+    mapDimensionsRef.current = nextDimensions;
+    setMapDimensions((current) =>
+      Math.abs(current.width - nextDimensions.width) < 0.5 &&
+      Math.abs(current.height - nextDimensions.height) < 0.5
+        ? current
+        : nextDimensions
     );
     centerMapViewport();
   }, [centerMapViewport]);
+
+  function setMapZoom(
+    nextScale: number,
+    worldCenter?: { x: number; y: number },
+    viewportAnchor?: { x: number; y: number }
+  ) {
+    const viewport = mapViewportRef.current;
+    const currentScale = mapScaleRef.current || 1;
+    const scale = Math.min(MAX_MAP_SCALE, Math.max(MIN_MAP_SCALE, nextScale));
+
+    if (!viewport) {
+      mapScaleRef.current = scale;
+      setMapScale(scale);
+      return;
+    }
+
+    const anchor = viewportAnchor ?? {
+      x: viewport.clientWidth / 2,
+      y: viewport.clientHeight / 2
+    };
+    const center = worldCenter ?? {
+      x: (viewport.scrollLeft + anchor.x) / currentScale,
+      y: (viewport.scrollTop + anchor.y) / currentScale
+    };
+
+    mapScaleRef.current = scale;
+    setMapScale(scale);
+
+    window.requestAnimationFrame(() => {
+      const currentViewport = mapViewportRef.current;
+
+      if (!currentViewport) return;
+
+      const maxLeft = currentViewport.scrollWidth - currentViewport.clientWidth;
+      const maxTop = currentViewport.scrollHeight - currentViewport.clientHeight;
+      currentViewport.scrollTo({
+        left: clampViewportPosition(
+          center.x * scale - anchor.x,
+          maxLeft
+        ),
+        top: clampViewportPosition(
+          center.y * scale - anchor.y,
+          maxTop
+        )
+      });
+    });
+  }
+
+  function zoomMap(direction: "in" | "out") {
+    const factor = direction === "in" ? MAP_ZOOM_FACTOR : 1 / MAP_ZOOM_FACTOR;
+    setMapZoom(mapScaleRef.current * factor);
+  }
+
+  function zoomMapAtPointer(
+    direction: "in" | "out",
+    clientX: number,
+    clientY: number
+  ) {
+    const viewport = mapViewportRef.current;
+
+    if (!viewport) return;
+
+    const rect = viewport.getBoundingClientRect();
+    const anchor = {
+      x: clientX - rect.left,
+      y: clientY - rect.top
+    };
+    const currentScale = mapScaleRef.current || 1;
+    const worldPoint = {
+      x: (viewport.scrollLeft + anchor.x) / currentScale,
+      y: (viewport.scrollTop + anchor.y) / currentScale
+    };
+    const factor = direction === "in" ? MAP_ZOOM_FACTOR : 1 / MAP_ZOOM_FACTOR;
+
+    setMapZoom(currentScale * factor, worldPoint, anchor);
+  }
+
+  function resetMapZoom() {
+    setMapZoom(1);
+  }
+
+  function fitAllShapes() {
+    const viewport = mapViewportRef.current;
+    const bounds = getMapObjectBounds(latestObjectsRef.current);
+
+    if (!viewport || !bounds) {
+      setMapZoom(1, { x: MAP_WORLD_ORIGIN, y: MAP_WORLD_ORIGIN });
+      return;
+    }
+
+    const horizontalPadding = 64;
+    const verticalPadding = 64;
+    const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
+    const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
+    const scale = Math.min(
+      (viewport.clientWidth - horizontalPadding) / boundsWidth,
+      (viewport.clientHeight - verticalPadding) / boundsHeight
+    );
+
+    setMapZoom(scale, {
+      x: MAP_WORLD_ORIGIN + (bounds.minX + bounds.maxX) / 2,
+      y: MAP_WORLD_ORIGIN + (bounds.minY + bounds.maxY) / 2
+    });
+  }
 
   const selectedObject =
     objects.find((object) => object.id === selectedObjectId) ?? null;
@@ -202,6 +380,7 @@ export function HallRoomMapPage() {
     window.localStorage.removeItem(HALL_MAP_STORAGE_KEY);
     const nextMaps = hallMapData.presets.filter((map) => Boolean(map.hallId));
     setHallMaps(nextMaps);
+    setShapeLibrary(hallMapData.shapeLibrary ?? []);
     setSelectedHallId((currentHallId) => {
       const nextHallId = hallMapData.halls.some(
         (hall) => hall.id === currentHallId
@@ -284,9 +463,12 @@ export function HallRoomMapPage() {
 
   function selectObjectFromPointer(
     objectId: string,
-    event: Pick<ReactPointerEvent<HTMLButtonElement>, "ctrlKey" | "metaKey">
+    event: Pick<
+      ReactPointerEvent<HTMLButtonElement>,
+      "ctrlKey" | "metaKey" | "shiftKey"
+    >
   ) {
-    if (!event.ctrlKey && !event.metaKey) {
+    if (!event.ctrlKey && !event.metaKey && !event.shiftKey) {
       selectSingleObject(objectId);
       return;
     }
@@ -302,14 +484,19 @@ export function HallRoomMapPage() {
     });
   }
 
+  // Single bounds implementation for drag, keyboard nudge, paste, duplicate and
+  // inspector edits, so they cannot disagree about where the map ends.
   function clampObjectPosition(object: MapObject, x: number, y: number) {
+    const position = clampObjectToMap(
+      object,
+      x + MAP_WORLD_ORIGIN,
+      y + MAP_WORLD_ORIGIN,
+      MAP_WORLD_SIZE,
+      MAP_WORLD_SIZE
+    );
     return {
-      x: Math.round(
-        Math.min(Math.max(0, x), Math.max(0, DESIGN_MAP_WIDTH - object.width))
-      ),
-      y: Math.round(
-        Math.min(Math.max(0, y), Math.max(0, DESIGN_MAP_HEIGHT - object.height))
-      )
+      x: position.x - MAP_WORLD_ORIGIN,
+      y: position.y - MAP_WORLD_ORIGIN
     };
   }
 
@@ -321,7 +508,30 @@ export function HallRoomMapPage() {
         : [];
   }
 
-  useHallMapKeyboardShortcuts({ clampObjectPosition, clearObjectSelection, getActiveObjectIds, hasSelectedMap, latestObjectsRef, objectClipboardRef, objects, rememberObjectsSnapshot, saveCurrentMap, selectedMap, selectedObjectId, selectedObjectIds, setObjects, setSelectedObjectId, setSelectedObjectIds, showFeedback, undoStackRef });
+  useHallMapKeyboardShortcuts({
+    clampObjectPosition,
+    clearObjectSelection,
+    fitAllShapes,
+    getActiveObjectIds,
+    hasSelectedMap,
+    latestObjectsRef,
+    objectClipboardRef,
+    objects,
+    rememberObjectsSnapshot,
+    resetMapZoom,
+    saveCurrentMap,
+    selectedMap,
+    selectedObjectId,
+    selectedObjectIds,
+    setObjects,
+    setSelectedObjectId,
+    setSelectedObjectIds,
+    showFeedback,
+    undoStackRef,
+    zoomIn: () => zoomMap("in"),
+    zoomOut: () => zoomMap("out"),
+    zoomAtPointer: zoomMapAtPointer
+  });
 
   function updateSelectedObject(updates: Partial<Omit<MapObject, "id">>) {
     if (!selectedObjectId) {
@@ -396,6 +606,44 @@ export function HallRoomMapPage() {
     showFeedback(`${newObject.name} added.`);
   }
 
+  function addShapeLibraryObject(shape: ShapeLibraryItem) {
+    if (!hasSelectedMap) {
+      showFeedback("Create or select a hall room map first.");
+      return;
+    }
+
+    const newObject: MapObject = {
+      id: `${shape.shapeType}-${crypto.randomUUID()}`,
+      type: shape.shapeType,
+      name: shape.name,
+      x: 180 + (objects.length % 4) * 25,
+      y: 280 + (objects.length % 3) * 25,
+      width: shape.width,
+      height: shape.height,
+      rotation: 0,
+      seats: shape.seats,
+      seatingUse: "adult"
+    };
+
+    rememberObjectsSnapshot();
+    setObjects((current) => [...current, newObject]);
+    selectSingleObject(newObject.id);
+    showFeedback(`${newObject.name} added.`);
+  }
+
+  async function createShapeLibraryItem(input: {
+    name: string;
+    shapeType: "round-table" | "rect-table";
+    width: number;
+    height: number;
+    seats: number;
+  }) {
+    const { shape } = await createShapeMutation.mutate(input);
+    setShapeLibrary((current) => [...current, shape]);
+    await hallMapsQuery.refetch();
+    showFeedback(`${shape.name} saved to the shape library.`);
+  }
+
   function startMapPan(event: ReactPointerEvent<HTMLDivElement>) {
     const viewport = mapViewportRef.current;
 
@@ -453,6 +701,9 @@ export function HallRoomMapPage() {
     }
 
     suppressNextMapClickRef.current = pan.moved;
+    if (!pan.moved) {
+      clearObjectSelection();
+    }
     panRef.current = null;
   }
 
@@ -466,67 +717,251 @@ export function HallRoomMapPage() {
 
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    if (!selectedObjectIds.includes(object.id)) {
-      selectObjectFromPointer(object.id, event);
+    const usesMultiSelect = event.shiftKey || event.ctrlKey || event.metaKey;
+    const isAlreadySelected = selectedObjectIds.includes(object.id);
+    let objectIds: string[];
+
+    if (usesMultiSelect) {
+      objectIds = isAlreadySelected
+        ? selectedObjectIds.filter((id) => id !== object.id)
+        : [...selectedObjectIds, object.id];
+      setSelectedObjectIds(objectIds);
+      setSelectedObjectId(objectIds.at(-1) ?? null);
+    } else if (isAlreadySelected) {
+      objectIds = selectedObjectIds;
+    } else {
+      objectIds = [object.id];
+      selectSingleObject(object.id);
     }
+
+    suppressNextObjectClickRef.current = true;
     rememberObjectsSnapshot();
     dragRef.current = {
-      id: object.id,
+      objectId: object.id,
+      usesMultiSelect,
+      moved: false,
       pointerId: event.pointerId,
       startClientX: event.clientX,
       startClientY: event.clientY,
-      startX: object.x,
-      startY: object.y
+      startPositions: Object.fromEntries(
+        latestObjectsRef.current
+          .filter((candidate) => objectIds.includes(candidate.id))
+          .map((candidate) => [candidate.id, { x: candidate.x, y: candidate.y }])
+      ),
+      startScrollLeft: mapViewportRef.current?.scrollLeft ?? 0,
+      startScrollTop: mapViewportRef.current?.scrollTop ?? 0
     };
   }
 
   function dragObject(event: ReactPointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     const map = mapRef.current;
+    const viewport = mapViewportRef.current;
 
-    if (!drag || drag.pointerId !== event.pointerId || !map) {
+    if (!drag || drag.pointerId !== event.pointerId || !map || !viewport) {
       return;
     }
 
     event.preventDefault();
+
+    // Measure the map itself rather than reading mapScaleRef: the ref is written
+    // on every resize while the rendered scale only commits past a 0.01
+    // threshold, so the two can drift apart mid-drag.
+    const rect = map.getBoundingClientRect();
+    const dimensions = mapDimensionsRef.current;
+    const scaleX = rect.width > 0 ? rect.width / dimensions.width : 1;
+    const scaleY = rect.height > 0 ? rect.height / dimensions.height : 1;
+    const viewportRect = viewport.getBoundingClientRect();
+    const edge = 48;
+    const panStep = 24;
+    if (event.clientX < viewportRect.left + edge) viewport.scrollLeft -= panStep;
+    if (event.clientX > viewportRect.right - edge) viewport.scrollLeft += panStep;
+    if (event.clientY < viewportRect.top + edge) viewport.scrollTop -= panStep;
+    if (event.clientY > viewportRect.bottom - edge) viewport.scrollTop += panStep;
+    // Total displacement from the pointer-down anchor, never an accumulated
+    // delta, so a dropped move event cannot bias the result.
+    const deltaX =
+      (event.clientX - drag.startClientX +
+        viewport.scrollLeft -
+        drag.startScrollLeft) /
+        scaleX;
+    const deltaY =
+      (event.clientY - drag.startClientY +
+        viewport.scrollTop -
+        drag.startScrollTop) /
+        scaleY;
+
+    if (
+      Math.abs(event.clientX - drag.startClientX) > 3 ||
+      Math.abs(event.clientY - drag.startClientY) > 3 ||
+      Math.abs(viewport.scrollLeft - drag.startScrollLeft) > 3 ||
+      Math.abs(viewport.scrollTop - drag.startScrollTop) > 3
+    ) {
+      drag.moved = true;
+    }
+
     setObjects((current) =>
       current.map((object) => {
-        if (object.id !== drag.id) {
-          return object;
-        }
+        const start = drag.startPositions[object.id];
 
-        const scale = mapScaleRef.current || 1;
-        const nextX = drag.startX + (event.clientX - drag.startClientX) / scale;
-        const nextY = drag.startY + (event.clientY - drag.startClientY) / scale;
-
-        return {
-          ...object,
-          x: Math.round(
-            Math.min(
-              Math.max(0, nextX),
-              Math.max(0, DESIGN_MAP_WIDTH - object.width)
-            )
-          ),
-          y: Math.round(
-            Math.min(
-              Math.max(0, nextY),
-              Math.max(0, DESIGN_MAP_HEIGHT - object.height)
-            )
-          )
-        };
+        return start
+          ? {
+              ...object,
+              ...clampObjectPosition(
+                object,
+                start.x + deltaX,
+                start.y + deltaY
+              )
+            }
+          : object;
       })
     );
   }
 
   function stopDragging(event: ReactPointerEvent<HTMLButtonElement>) {
-    if (dragRef.current?.pointerId !== event.pointerId) {
+    const drag = dragRef.current;
+
+    if (!drag || drag.pointerId !== event.pointerId) {
       return;
     }
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (event.type === "pointercancel") {
+      suppressNextObjectClickRef.current = false;
+    } else if (!drag.moved && !drag.usesMultiSelect) {
+      selectSingleObject(drag.objectId);
+    }
     dragRef.current = null;
+  }
+
+  function startResizing(
+    event: ReactPointerEvent<HTMLSpanElement>,
+    object: MapObject,
+    edge: ResizeEdge
+  ) {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    selectSingleObject(object.id);
+    rememberObjectsSnapshot();
+    resizeRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      object: { ...object },
+      edge
+    };
+  }
+
+  function resizeObject(event: ReactPointerEvent<HTMLSpanElement>) {
+    const resize = resizeRef.current;
+    const map = mapRef.current;
+
+    if (!resize || resize.pointerId !== event.pointerId || !map) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = map.getBoundingClientRect();
+    const dimensions = mapDimensionsRef.current;
+    const scaleX = rect.width > 0 ? rect.width / dimensions.width : 1;
+    const scaleY = rect.height > 0 ? rect.height / dimensions.height : 1;
+    const resized = resizeMapObjectFromEdge(
+      resize.object,
+      resize.edge,
+      (event.clientX - resize.startClientX) / scaleX,
+      (event.clientY - resize.startClientY) / scaleY
+    );
+    const position = clampObjectPosition(resized, resized.x, resized.y);
+
+    setObjects((current) =>
+      current.map((object) =>
+        object.id === resize.object.id
+          ? { ...resized, ...position }
+          : object
+      )
+    );
+  }
+
+  function stopResizing(event: ReactPointerEvent<HTMLSpanElement>) {
+    if (resizeRef.current?.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    resizeRef.current = null;
+  }
+
+  function startRotating(
+    event: ReactPointerEvent<HTMLSpanElement>,
+    object: MapObject
+  ) {
+    if (event.button !== 0) return;
+
+    const objectElement = event.currentTarget.closest("[data-map-object]");
+    const objectRect = objectElement?.getBoundingClientRect();
+
+    if (!objectRect) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    selectSingleObject(object.id);
+    rememberObjectsSnapshot();
+    const centerClientX = objectRect.left + objectRect.width / 2;
+    const centerClientY = objectRect.top + objectRect.height / 2;
+    rotateRef.current = {
+      pointerId: event.pointerId,
+      centerClientX,
+      centerClientY,
+      startPointerAngle: Math.atan2(
+        event.clientY - centerClientY,
+        event.clientX - centerClientX
+      ) * (180 / Math.PI),
+      startRotation: object.rotation,
+      objectId: object.id
+    };
+  }
+
+  function rotateObject(event: ReactPointerEvent<HTMLSpanElement>) {
+    const rotate = rotateRef.current;
+
+    if (!rotate || rotate.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const currentPointerAngle = Math.atan2(
+      event.clientY - rotate.centerClientY,
+      event.clientX - rotate.centerClientX
+    ) * (180 / Math.PI);
+    const rotation = getRotationFromPointer(
+      rotate.startRotation,
+      rotate.startPointerAngle,
+      currentPointerAngle,
+      event.shiftKey
+    );
+
+    setObjects((current) =>
+      current.map((object) =>
+        object.id === rotate.objectId ? { ...object, rotation } : object
+      )
+    );
+  }
+
+  function stopRotating(event: ReactPointerEvent<HTMLSpanElement>) {
+    if (rotateRef.current?.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    rotateRef.current = null;
   }
 
   function duplicateSelectedObject() {
@@ -774,6 +1209,8 @@ export function HallRoomMapPage() {
             hasSelectedHall={hasSelectedHall}
             hasSelectedMap={hasSelectedMap}
             onAddObject={addObject}
+            onAddShapeLibraryObject={addShapeLibraryObject}
+            onCreateShapeLibraryItem={createShapeLibraryItem}
             onDeleteMap={deleteCurrentMap}
             onDeleteSelectedObject={deleteSelectedObject}
             onDuplicateSelectedObject={duplicateSelectedObject}
@@ -800,9 +1237,10 @@ export function HallRoomMapPage() {
             selectedHallMaps={selectedHallMaps}
             selectedMapId={selectedMapId}
             selectedObjectExists={Boolean(selectedObject)}
+            shapeLibrary={shapeLibrary}
           />
 
-          <Panel className="order-1 flex min-h-0 min-w-0 flex-col md:col-span-2 xl:order-2 xl:col-span-1">
+          <Panel className="relative order-1 flex min-h-0 min-w-0 flex-col md:col-span-2 xl:order-2 xl:col-span-1">
             <header className="flex items-center gap-2 border-b border-[#d8dde5] p-2">
               <h2 className="min-w-0 flex-1 truncate text-sm font-black">
                 Hall Room Map
@@ -811,6 +1249,42 @@ export function HallRoomMapPage() {
               <span className="hidden rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-3 py-2 text-[10px] font-bold text-[#617086] md:inline-flex">
                 Single-screen editor
               </span>
+
+              <div
+                aria-label="Map zoom controls"
+                className="hidden shrink-0 items-center overflow-hidden rounded-lg border border-[#b9c2cf] bg-white md:flex"
+                role="group"
+              >
+                <button
+                  aria-label="Zoom out"
+                  className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={mapScale <= MIN_MAP_SCALE}
+                  onClick={() => zoomMap("out")}
+                  title="Zoom out"
+                  type="button"
+                >
+                  −
+                </button>
+                <button
+                  aria-label="Fit all shapes"
+                  className="h-9 min-w-14 border-x border-[#d8dde5] px-2 text-[10px] font-black hover:bg-[#eef4fa]"
+                  onClick={fitAllShapes}
+                  title="Fit all shapes"
+                  type="button"
+                >
+                  {Math.round(mapScale * 100)}%
+                </button>
+                <button
+                  aria-label="Zoom in"
+                  className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={mapScale >= MAX_MAP_SCALE}
+                  onClick={() => zoomMap("in")}
+                  title="Zoom in"
+                  type="button"
+                >
+                  +
+                </button>
+              </div>
 
               <span className="ml-auto inline-flex rounded-lg border border-[#b9c2cf] bg-[#f5f6f8] px-3 py-2 text-[10px] font-black uppercase text-[#516174] md:hidden">
                 View only
@@ -849,11 +1323,10 @@ export function HallRoomMapPage() {
               onPointerMove={panMap}
               onPointerUp={stopMapPan}
               ref={mapViewportRef}
-              style={{
-                backgroundImage:
-                  "linear-gradient(#dce5ef 1px, transparent 1px), linear-gradient(90deg, #dce5ef 1px, transparent 1px)",
-                backgroundSize: "20px 20px"
-              }}
+              // The world surface is intentionally very large. Size
+              // containment prevents it from increasing the dashboard row's
+              // height, while its scrollable overflow remains available.
+              style={{ contain: "size" }}
             >
               {saveConfirmation ? (
                 <div
@@ -883,8 +1356,8 @@ export function HallRoomMapPage() {
               <div
                 className="relative mx-auto"
                 style={{
-                  height: DESIGN_MAP_HEIGHT * mapScale,
-                  width: DESIGN_MAP_WIDTH * mapScale
+                  height: mapDimensions.height * mapScale,
+                  width: mapDimensions.width * mapScale
                 }}
               >
                 <div
@@ -900,10 +1373,17 @@ export function HallRoomMapPage() {
                   ref={mapRef}
                   role="presentation"
                   style={{
-                    height: DESIGN_MAP_HEIGHT,
+                    // The viewport is the only visible board boundary. Keeping
+                    // this logical surface borderless avoids an artificial
+                    // limit line inside the continuous draggable grid.
+                    height: mapDimensions.height,
+                    backgroundColor: "#fbfdff",
+                    backgroundImage:
+                      "linear-gradient(#dce5ef 1px, transparent 1px), linear-gradient(90deg, #dce5ef 1px, transparent 1px)",
+                    backgroundSize: "20px 20px",
                     transform: `scale(${mapScale})`,
                     transformOrigin: "top left",
-                    width: DESIGN_MAP_WIDTH
+                    width: mapDimensions.width
                   }}
                 >
                   {objects.map((object) => (
@@ -913,15 +1393,68 @@ export function HallRoomMapPage() {
                       onDragEnd={stopDragging}
                       onDragMove={dragObject}
                       onDragStart={(event) => startDragging(event, object)}
-                      onSelect={(event) =>
-                        selectObjectFromPointer(object.id, event)
+                      onResizeEnd={stopResizing}
+                      onResizeMove={resizeObject}
+                      onResizeStart={(event, edge) =>
+                        startResizing(event, object, edge)
                       }
+                      onRotateEnd={stopRotating}
+                      onRotateMove={rotateObject}
+                      onRotateStart={(event) => startRotating(event, object)}
+                      onSelect={(event) => {
+                        if (suppressNextObjectClickRef.current) {
+                          suppressNextObjectClickRef.current = false;
+                          return;
+                        }
+
+                        selectObjectFromPointer(object.id, event);
+                      }}
                       selected={selectedObjectIdSet.has(object.id)}
+                      worldOrigin={MAP_WORLD_ORIGIN}
                     />
                   ))}
                 </div>
               </div>
             </div>
+
+            <details
+              className="group absolute right-3 bottom-3 z-30 hidden md:block"
+              ref={shortcutsRef}
+            >
+              <summary
+                aria-label="Show hall map shortcuts"
+                className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-[#1f4d73] text-sm font-black text-white shadow-md transition hover:bg-[#15344f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] [&::-webkit-details-marker]:hidden"
+                title="Keyboard shortcuts"
+              >
+                ?
+              </summary>
+
+              <div className="absolute right-0 bottom-11 w-72 rounded-xl border border-[#bdc9d6] bg-white p-3 text-[#17202a] shadow-xl">
+                <p className="text-xs font-black">Hall map shortcuts</p>
+                <dl className="mt-2 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 text-[10px] [&_dd]:text-right [&_kbd]:whitespace-nowrap [&_kbd]:rounded [&_kbd]:border [&_kbd]:border-[#d8dde5] [&_kbd]:bg-[#f5f6f8] [&_kbd]:px-1.5 [&_kbd]:py-0.5 [&_kbd]:font-mono [&_kbd]:font-bold">
+                  <dt>Zoom in</dt><dd><kbd>Ctrl/Cmd + +</kbd></dd>
+                  <dt>Zoom out</dt><dd><kbd>Ctrl/Cmd + −</kbd></dd>
+                  <dt>Reset zoom</dt><dd><kbd>Ctrl/Cmd + 0</kbd></dd>
+                  <dt>Fit all shapes</dt><dd><kbd>Shift + 1</kbd></dd>
+                  <dt>Zoom at pointer</dt><dd><kbd>Ctrl/Cmd + wheel</kbd></dd>
+                  <dt>Select all</dt><dd><kbd>Ctrl/Cmd + A</kbd></dd>
+                  <dt>Add to selection</dt><dd><kbd>Shift + click</kbd></dd>
+                  <dt>Clear selection</dt><dd><kbd>Esc</kbd></dd>
+                  <dt>Copy / paste</dt><dd><kbd>Ctrl/Cmd + C / V</kbd></dd>
+                  <dt>Undo</dt><dd><kbd>Ctrl/Cmd + Z</kbd></dd>
+                  <dt>Move shape</dt><dd><kbd>Arrow keys</kbd></dd>
+                  <dt>Move 10 units</dt><dd><kbd>Shift + arrows</kbd></dd>
+                  <dt>Rotate clockwise</dt><dd><kbd>R</kbd></dd>
+                  <dt>Rotate counterclockwise</dt><dd><kbd>Shift + R</kbd></dd>
+                  <dt>Reset rotation</dt><dd><kbd>Alt + R</kbd></dd>
+                  <dt>Delete shape</dt><dd><kbd>Delete</kbd></dd>
+                </dl>
+                <p className="mt-3 border-t border-[#e2e7ee] pt-2 text-[9px] text-[#617086]">
+                  Use Ctrl on Windows and Linux. Use Cmd on macOS.
+                </p>
+              </div>
+            </details>
+
           </Panel>
 
           <HallMapObjectInspector

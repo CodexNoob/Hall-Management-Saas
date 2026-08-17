@@ -19,8 +19,8 @@ export const shapeTypeSchema = z.enum([
 ]);
 
 export const mapObjectFieldSchemas = {
-  x: dimensionSchema({ min: 0, max: 10_000, label: "X" }),
-  y: dimensionSchema({ min: 0, max: 10_000, label: "Y" }),
+  x: dimensionSchema({ min: -10_000, max: 10_000, label: "X" }),
+  y: dimensionSchema({ min: -10_000, max: 10_000, label: "Y" }),
   width: dimensionSchema({ min: 10, max: 5_000, label: "Width" }),
   height: dimensionSchema({ min: 10, max: 5_000, label: "Height" }),
   rotation: dimensionSchema({ min: 0, max: 360, label: "Rotation" }),

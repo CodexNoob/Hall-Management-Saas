@@ -213,6 +213,7 @@ export function HallMapObjectInspector({
           The inspector updates one selected object. Tables have a seat count
           and seating use. Edit the name field to rename a shape.
         </p>
+
       </div>
     </Panel>
   );

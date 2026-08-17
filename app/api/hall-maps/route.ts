@@ -93,6 +93,26 @@ async function listHallMapPresets(
   return rows.map(formatPreset);
 }
 
+async function listShapeLibrary(organizationId: string) {
+  const rows = await prisma.hallMapShapeLibraryItem.findMany({
+    where: { organizationId },
+    orderBy: [{ createdAt: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      shapeType: true,
+      width: true,
+      height: true,
+      seats: true
+    }
+  });
+
+  return rows.map((row) => ({
+    ...row,
+    shapeType: row.shapeType === "round-table" ? "round-table" : "rect-table"
+  }));
+}
+
 async function findPresetIdentity(
   id: string,
   organizationId: string,
@@ -134,7 +154,7 @@ export async function GET(request: Request) {
   try {
     const { actor, allowedHallIds, restrictHalls } =
       await getActorAndHallScope(request);
-    const [halls, presets] = await Promise.all([
+    const [halls, presets, shapeLibrary] = await Promise.all([
       prisma.hall.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -144,10 +164,11 @@ export async function GET(request: Request) {
         orderBy: { name: "asc" },
         select: { id: true, name: true, capacity: true }
       }),
-      listHallMapPresets(actor.organizationId, restrictHalls, allowedHallIds)
+      listHallMapPresets(actor.organizationId, restrictHalls, allowedHallIds),
+      listShapeLibrary(actor.organizationId)
     ]);
 
-    return NextResponse.json({ halls, presets });
+    return NextResponse.json({ halls, presets, shapeLibrary });
   } catch (error) {
     return createHallMapErrorResponse(error);
   }

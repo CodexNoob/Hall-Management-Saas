@@ -1,5 +1,10 @@
 export type TableSide = "men" | "women" | "kids" | "head";
 
+export const DINING_MAP_WORLD_SIZE = 20_000;
+export const DINING_MAP_WORLD_ORIGIN = DINING_MAP_WORLD_SIZE / 2;
+export const DINING_MAP_MIN_SCALE = 0.05;
+export const DINING_MAP_MAX_SCALE = 2;
+
 export type DiningTableData = {
   id: string;
   number: number;
@@ -113,6 +118,163 @@ export function validTables(value: unknown): DiningTableData[] {
 
 export function isDiningSeatingTable(table: DiningTableData) {
   return table.isSeating !== false && table.seats > 0;
+}
+
+export function diningTableRequirements(input: {
+  childrenCount: number;
+  menRequired: number;
+  womenRequired: number;
+  tableCapacity?: number;
+}) {
+  const tableCapacity = Math.max(1, input.tableCapacity ?? 10);
+
+  return {
+    kids: Math.ceil(input.childrenCount / tableCapacity),
+    men: Math.ceil(input.menRequired / tableCapacity),
+    women: Math.ceil(input.womenRequired / tableCapacity)
+  };
+}
+
+export function diningTableSignature(tables: DiningTableData[]) {
+  const seatingTables = tables.filter(isDiningSeatingTable);
+
+  return {
+    kids: seatingTables.filter((table) => table.side === "kids").length,
+    men: seatingTables.filter((table) => table.side === "men").length,
+    women: seatingTables.filter((table) => table.side === "women").length
+  };
+}
+
+export function findMatchingDiningLayout({
+  currentEventId,
+  events,
+  requirements
+}: {
+  currentEventId: string;
+  events: DiningEvent[];
+  requirements: ReturnType<typeof diningTableRequirements>;
+}) {
+  return (
+    events.find((event) => {
+      if (event.id === currentEventId || !event.diningPlan) return false;
+
+      const tables = validTables(event.diningPlan.tables);
+      const signature = diningTableSignature(tables);
+
+      return (
+        signature.men === requirements.men &&
+        signature.women === requirements.women &&
+        signature.kids === requirements.kids
+      );
+    }) ?? null
+  );
+}
+
+export function cloneDiningLayoutTables(
+  tables: DiningTableData[],
+  createId: () => string = () => crypto.randomUUID()
+) {
+  return tables.map((table, index) => ({
+    ...table,
+    id: createId(),
+    number: index + 1
+  }));
+}
+
+function generatedTable({
+  index,
+  side,
+  x,
+  y
+}: {
+  index: number;
+  side: TableSide;
+  x: number;
+  y: number;
+}): DiningTableData {
+  return {
+    id: crypto.randomUUID(),
+    height: 58,
+    isSeating: true,
+    mapType: side === "kids" ? "kids-table" : "round-table",
+    name:
+      side === "kids"
+        ? `Kids table ${index + 1}`
+        : side === "men"
+          ? `Men table ${index + 1}`
+          : `Women table ${index + 1}`,
+    number: index + 1,
+    seats: 10,
+    side,
+    width: 58,
+    x,
+    y
+  };
+}
+
+export function generateDiningAutoLayout(
+  requirements: ReturnType<typeof diningTableRequirements>
+) {
+  const tables: DiningTableData[] = [];
+  const rowGap = 88;
+  const columnGap = 92;
+  const columns = 4;
+  const leftStartX = -360;
+  const rightStartX = 80;
+  const adultStartY = -250;
+
+  for (let index = 0; index < requirements.men; index += 1) {
+    tables.push(
+      generatedTable({
+        index: tables.length,
+        side: "men",
+        x: leftStartX + (index % columns) * columnGap,
+        y: adultStartY + Math.floor(index / columns) * rowGap
+      })
+    );
+  }
+
+  for (let index = 0; index < requirements.women; index += 1) {
+    tables.push(
+      generatedTable({
+        index: tables.length,
+        side: "women",
+        x: rightStartX + (index % columns) * columnGap,
+        y: adultStartY + Math.floor(index / columns) * rowGap
+      })
+    );
+  }
+
+  for (let index = 0; index < requirements.kids; index += 1) {
+    const goesLeft = index % 2 === 0;
+    tables.push(
+      generatedTable({
+        index: tables.length,
+        side: "kids",
+        x:
+          (goesLeft ? -160 : 120) +
+          Math.floor(index / 2) * (goesLeft ? -columnGap : columnGap),
+        y: 170 + Math.floor(index / 4) * rowGap
+      })
+    );
+  }
+
+  tables.push({
+    id: crypto.randomUUID(),
+    height: 14,
+    isSeating: false,
+    mapType: "divider",
+    name: "Mechitza",
+    number: tables.length + 1,
+    rotation: 0,
+    seats: 0,
+    side: "men",
+    width: 360,
+    x: -180,
+    y: 70
+  });
+
+  return tables.map((table, index) => ({ ...table, number: index + 1 }));
 }
 
 export function validPresetObjects(value: unknown): HallMapObject[] {

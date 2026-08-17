@@ -201,3 +201,81 @@ test("saving a dining plan persists the selected hall map preset layout", async 
     ]
   });
 });
+
+test("the movable dining grid pans and allows dragging past its old bottom edge", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Pointer-drag coverage runs on the desktop dining workspace."
+  );
+  let savedTables: Array<{ x?: number; y?: number }> = [];
+
+  await page.route("**/api/dining", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          events: [diningEvent],
+          hallMapPresets: [presetA]
+        })
+      });
+      return;
+    }
+
+    if (route.request().method() === "PATCH") {
+      savedTables = route.request().postDataJSON().tables;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          plan: { id: "55555555-5555-4555-8555-555555555555" }
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/dining-manager");
+  await page.getByLabel("Hall map preset").click();
+  await page.getByRole("option", { name: "Preset A" }).click();
+
+  const grid = page.getByLabel("Dining map grid");
+  const table = grid.getByRole("button", { name: "Preset A Table" });
+  await expect(grid).toBeVisible();
+  await expect(table).toBeVisible();
+
+  await page.getByRole("button", { name: "Reset dining map zoom" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reset dining map zoom" })
+  ).toHaveText("100%");
+  await page.getByRole("button", { name: "Zoom dining map out" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reset dining map zoom" })
+  ).toHaveText("80%");
+
+  const beforeScrollTop = await grid.evaluate((element) => element.scrollTop);
+  const gridBox = await grid.boundingBox();
+  const tableBox = await table.boundingBox();
+  if (!gridBox || !tableBox) throw new Error("Dining map is not visible.");
+
+  await page.mouse.move(
+    tableBox.x + tableBox.width / 2,
+    tableBox.y + tableBox.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    gridBox.x + gridBox.width / 2,
+    gridBox.y + gridBox.height + 250,
+    { steps: 12 }
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(beforeScrollTop);
+
+  await page.getByRole("button", { name: "Save dining plan" }).click();
+  await expect.poll(() => savedTables[0]?.y ?? 0).toBeGreaterThan(520);
+});

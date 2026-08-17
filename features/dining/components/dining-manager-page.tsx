@@ -22,7 +22,15 @@ import { DiningWorkspacePanel } from "@/features/dining/components/dining-worksp
 import { DiningEventListPanel } from "@/features/dining/components/dining-event-list-panel";
 import {
   buildDiningTablesFromHallMapPresetObjects,
+  cloneDiningLayoutTables,
   defaultTables,
+  DINING_MAP_MAX_SCALE,
+  DINING_MAP_MIN_SCALE,
+  DINING_MAP_WORLD_ORIGIN,
+  DINING_MAP_WORLD_SIZE,
+  diningTableRequirements,
+  findMatchingDiningLayout,
+  generateDiningAutoLayout,
   eventCounts,
   eventSchedule,
   eventTitle,
@@ -52,6 +60,17 @@ export function DiningManagerPage() {
   const [selectedTableIds, setSelectedTableIds] = useState<string[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState("");
   const [tables, setTables] = useState<DiningTableData[]>([]);
+  const [mapScale, setMapScale] = useState(1);
+  const mapScaleRef = useRef(1);
+  const mapViewportRef = useRef<HTMLDivElement>(null);
+  const mapSurfaceRef = useRef<HTMLDivElement>(null);
+  const mapPanRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
+  } | null>(null);
   const [tableClipboard, setTableClipboard] = useState<DiningTableData[]>([]);
   const undoStackRef = useRef<DiningTableData[][]>([]);
   const dragRef = useRef<{
@@ -61,6 +80,8 @@ export function DiningManagerPage() {
     startClientY: number;
     startX: number;
     startY: number;
+    startScrollLeft: number;
+    startScrollTop: number;
     scaleX: number;
     scaleY: number;
   } | null>(null);
@@ -146,7 +167,8 @@ export function DiningManagerPage() {
       specialNotes: plan?.specialNotes ?? selectedEvent.notes ?? ""
     });
     const storedTables = validTables(plan?.tables);
-    setTables(storedTables.length ? storedTables : defaultTables());
+    const nextTables = storedTables.length ? storedTables : defaultTables();
+    setTables(nextTables);
     setSelectedPresetId(plan?.hallMapPresetId ?? "");
     setSelectedTableId(null);
     setSelectedTableIds([]);
@@ -173,6 +195,25 @@ export function DiningManagerPage() {
       typeof table.width === "number" &&
       typeof table.height === "number"
   );
+
+  useEffect(() => {
+    mapScaleRef.current = mapScale;
+  }, [mapScale]);
+
+  useEffect(() => {
+    if (!hasPresetCoordinates) return;
+
+    mapScaleRef.current = 1;
+    setMapScale(1);
+    window.requestAnimationFrame(() => {
+      const viewport = mapViewportRef.current;
+      if (!viewport) return;
+      viewport.scrollTo({
+        left: DINING_MAP_WORLD_ORIGIN - viewport.clientWidth / 2,
+        top: DINING_MAP_WORLD_ORIGIN - viewport.clientHeight / 2
+      });
+    });
+  }, [hasPresetCoordinates, selectedEventId]);
 
   function updateForm<K extends keyof DiningForm>(
     field: K,
@@ -232,9 +273,137 @@ export function DiningManagerPage() {
     const height = table.height ?? 72;
 
     return {
-      x: Math.min(Math.max(0, x), 760 - width),
-      y: Math.min(Math.max(0, y), 520 - height)
+      x: Math.round(
+        Math.min(
+          Math.max(-DINING_MAP_WORLD_ORIGIN, x),
+          DINING_MAP_WORLD_ORIGIN - width
+        )
+      ),
+      y: Math.round(
+        Math.min(
+          Math.max(-DINING_MAP_WORLD_ORIGIN, y),
+          DINING_MAP_WORLD_ORIGIN - height
+        )
+      )
     };
+  }
+
+  function setDiningMapZoom(nextScale: number) {
+    const viewport = mapViewportRef.current;
+    const previousScale = mapScaleRef.current || 1;
+    const scale = Math.min(
+      DINING_MAP_MAX_SCALE,
+      Math.max(DINING_MAP_MIN_SCALE, nextScale)
+    );
+
+    if (!viewport) {
+      mapScaleRef.current = scale;
+      setMapScale(scale);
+      return;
+    }
+
+    const worldCenter = {
+      x: (viewport.scrollLeft + viewport.clientWidth / 2) / previousScale,
+      y: (viewport.scrollTop + viewport.clientHeight / 2) / previousScale
+    };
+    mapScaleRef.current = scale;
+    setMapScale(scale);
+    window.requestAnimationFrame(() => {
+      const currentViewport = mapViewportRef.current;
+      if (!currentViewport) return;
+      currentViewport.scrollTo({
+        left: Math.max(
+          0,
+          worldCenter.x * scale - currentViewport.clientWidth / 2
+        ),
+        top: Math.max(
+          0,
+          worldCenter.y * scale - currentViewport.clientHeight / 2
+        )
+      });
+    });
+  }
+
+  function fitDiningMapTables(tablesToFit = tables) {
+    const viewport = mapViewportRef.current;
+    const positionedTables = tablesToFit.filter(
+      (table) => typeof table.x === "number" && typeof table.y === "number"
+    );
+    if (!viewport || !positionedTables.length) return;
+
+    const bounds = positionedTables.reduce(
+      (current, table) => ({
+        minX: Math.min(current.minX, table.x ?? 0),
+        minY: Math.min(current.minY, table.y ?? 0),
+        maxX: Math.max(current.maxX, (table.x ?? 0) + (table.width ?? 72)),
+        maxY: Math.max(current.maxY, (table.y ?? 0) + (table.height ?? 72))
+      }),
+      {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY
+      }
+    );
+    const scale = Math.min(
+      (viewport.clientWidth - 64) / Math.max(1, bounds.maxX - bounds.minX),
+      (viewport.clientHeight - 64) / Math.max(1, bounds.maxY - bounds.minY)
+    );
+    const nextScale = Math.min(
+      DINING_MAP_MAX_SCALE,
+      Math.max(DINING_MAP_MIN_SCALE, scale)
+    );
+    mapScaleRef.current = nextScale;
+    setMapScale(nextScale);
+    window.requestAnimationFrame(() => {
+      const currentViewport = mapViewportRef.current;
+      if (!currentViewport) return;
+      currentViewport.scrollTo({
+        left:
+          (DINING_MAP_WORLD_ORIGIN + (bounds.minX + bounds.maxX) / 2) *
+            nextScale -
+          currentViewport.clientWidth / 2,
+        top:
+          (DINING_MAP_WORLD_ORIGIN + (bounds.minY + bounds.maxY) / 2) *
+            nextScale -
+          currentViewport.clientHeight / 2
+      });
+    });
+  }
+
+  function startDiningMapPan(event: ReactPointerEvent<HTMLDivElement>) {
+    const viewport = mapViewportRef.current;
+    if (event.button !== 0 || !viewport) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest("[data-dining-map-object], [data-dining-map-control]")
+    ) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    mapPanRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startScrollLeft: viewport.scrollLeft,
+      startScrollTop: viewport.scrollTop
+    };
+  }
+
+  function panDiningMap(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = mapPanRef.current;
+    const viewport = mapViewportRef.current;
+    if (!pan || pan.pointerId !== event.pointerId || !viewport) return;
+    event.preventDefault();
+    viewport.scrollLeft = pan.startScrollLeft - (event.clientX - pan.startClientX);
+    viewport.scrollTop = pan.startScrollTop - (event.clientY - pan.startClientY);
+  }
+
+  function stopDiningMapPan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (mapPanRef.current?.pointerId !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    mapPanRef.current = null;
   }
 
   function mapTypeForSide(side: TableSide) {
@@ -307,6 +476,37 @@ export function DiningManagerPage() {
     setCheckMessage("Required tables were added to the dining layout.");
   }
 
+  function autoLayoutTables() {
+    if (!selectedEvent) return;
+
+    const requirements = diningTableRequirements({
+      childrenCount: form.childrenCount,
+      menRequired,
+      womenRequired
+    });
+    const previousEvent = findMatchingDiningLayout({
+      currentEventId: selectedEvent.id,
+      events,
+      requirements
+    });
+    const nextTables = previousEvent?.diningPlan
+      ? cloneDiningLayoutTables(validTables(previousEvent.diningPlan.tables))
+      : generateDiningAutoLayout(requirements);
+
+    setSavedMessage("");
+    resetError();
+    rememberTablesSnapshot();
+    setTables(nextTables);
+    setSelectedTableId(null);
+    setSelectedTableIds([]);
+    window.requestAnimationFrame(() => fitDiningMapTables(nextTables));
+    setCheckMessage(
+      previousEvent
+        ? `Auto layout reused ${eventTitle(previousEvent)} because it has the same table count.`
+        : "Auto layout generated the required men, women, and kids tables."
+    );
+  }
+
   function findHallMapPresetForSelectedEvent(presetId: string) {
     return (
       diningQuery.data?.hallMapPresets.find(
@@ -325,6 +525,7 @@ export function DiningManagerPage() {
     setSelectedTableId(null);
     setSelectedTableIds([]);
     setSavedMessage("");
+    window.requestAnimationFrame(() => fitDiningMapTables(presetTables));
     setCheckMessage(
       `${preset.name} previewed with ${
         presetTables.filter(isDiningSeatingTable).length
@@ -379,36 +580,59 @@ export function DiningManagerPage() {
     setSavedMessage("");
     resetError();
     rememberTablesSnapshot();
-    const container = event.currentTarget.parentElement;
-    const bounds = container?.getBoundingClientRect();
+    const bounds = mapSurfaceRef.current?.getBoundingClientRect();
     dragRef.current = {
       id: table.id,
       pointerId: event.pointerId,
-      scaleX: bounds ? 760 / bounds.width : 1,
-      scaleY: bounds ? 520 / bounds.height : 1,
+      scaleX: bounds ? DINING_MAP_WORLD_SIZE / bounds.width : 1,
+      scaleY: bounds ? DINING_MAP_WORLD_SIZE / bounds.height : 1,
       startClientX: event.clientX,
       startClientY: event.clientY,
       startX: table.x ?? 0,
-      startY: table.y ?? 0
+      startY: table.y ?? 0,
+      startScrollLeft: mapViewportRef.current?.scrollLeft ?? 0,
+      startScrollTop: mapViewportRef.current?.scrollTop ?? 0
     };
   }
 
   function dragTable(event: ReactPointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    const viewport = mapViewportRef.current;
+    if (!drag || drag.pointerId !== event.pointerId || !viewport) return;
+    const viewportBounds = viewport.getBoundingClientRect();
+    const edge = 48;
+    const panStep = 24;
+    if (event.clientX < viewportBounds.left + edge) viewport.scrollLeft -= panStep;
+    if (event.clientX > viewportBounds.right - edge) viewport.scrollLeft += panStep;
+    if (event.clientY < viewportBounds.top + edge) viewport.scrollTop -= panStep;
+    if (event.clientY > viewportBounds.bottom - edge) viewport.scrollTop += panStep;
     setTables((current) =>
       current.map((table) => {
         if (table.id !== drag.id) return table;
         const width = table.width ?? 72;
         const height = table.height ?? 72;
         const nextX =
-          drag.startX + (event.clientX - drag.startClientX) * drag.scaleX;
+          drag.startX +
+          (event.clientX - drag.startClientX +
+            viewport.scrollLeft -
+            drag.startScrollLeft) *
+            drag.scaleX;
         const nextY =
-          drag.startY + (event.clientY - drag.startClientY) * drag.scaleY;
+          drag.startY +
+          (event.clientY - drag.startClientY +
+            viewport.scrollTop -
+            drag.startScrollTop) *
+            drag.scaleY;
         return {
           ...table,
-          x: Math.min(Math.max(0, nextX), 760 - width),
-          y: Math.min(Math.max(0, nextY), 520 - height)
+          x: Math.min(
+            Math.max(-DINING_MAP_WORLD_ORIGIN, nextX),
+            DINING_MAP_WORLD_ORIGIN - width
+          ),
+          y: Math.min(
+            Math.max(-DINING_MAP_WORLD_ORIGIN, nextY),
+            DINING_MAP_WORLD_ORIGIN - height
+          )
         };
       })
     );
@@ -695,6 +919,16 @@ export function DiningManagerPage() {
             dragTable={dragTable}
             hasPresetCoordinates={hasPresetCoordinates}
             isWorkspaceExpanded={isWorkspaceExpanded}
+            mapScale={mapScale}
+            mapSurfaceRef={mapSurfaceRef}
+            mapViewportRef={mapViewportRef}
+            onFitMap={fitDiningMapTables}
+            onMapPanEnd={stopDiningMapPan}
+            onMapPanMove={panDiningMap}
+            onMapPanStart={startDiningMapPan}
+            onZoomIn={() => setDiningMapZoom(mapScaleRef.current * 1.25)}
+            onZoomOut={() => setDiningMapZoom(mapScaleRef.current / 1.25)}
+            onZoomReset={() => setDiningMapZoom(1)}
             removeSelectedTable={removeSelectedTable}
             savedMessage={savedMessage}
             selectedEvent={selectedEvent}
@@ -720,6 +954,7 @@ export function DiningManagerPage() {
               isSaving={diningMutation.isPending}
               menRequired={menRequired}
               onAddRequiredTables={addRequiredTables}
+              onAutoLayoutTables={autoLayoutTables}
               onSetCheckMessage={setCheckMessage}
               onSetTables={setTables}
               onUpdateForm={updateForm}
