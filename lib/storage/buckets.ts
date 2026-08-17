@@ -1,0 +1,17 @@
+/**
+ * Menu item pictures.
+ *
+ * A constant rather than an entry in lib/env.ts, unlike the three buckets
+ * there: this is the only bucket the browser writes to, so the name has to
+ * resolve on both sides. A NEXT_PUBLIC_ variable would not - Next inlines
+ * those at build time without applying the zod default, so an unset value
+ * would give the server "menu-images" and the browser `undefined`, and the
+ * upload would fail only in production. A constant cannot drift.
+ *
+ * The bucket is private and created by hand in the Supabase dashboard, the
+ * same as event-files / event-layouts / generated-pdfs - nothing in this repo
+ * provisions storage.buckets. It needs no policies of its own: the four
+ * storage.objects policies in prisma/supabase-rls.sql are bucket-agnostic and
+ * key on the first path segment being the caller's organization id.
+ */
+export const MENU_IMAGE_BUCKET = "menu-images";

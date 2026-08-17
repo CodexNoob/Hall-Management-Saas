@@ -14,7 +14,9 @@ export type NewLibraryItemFormValues = {
 type NewLibraryItemDialogProps = {
   open: boolean;
   onClose: () => void;
-  onSave: (values: NewLibraryItemFormValues) => void;
+  // Awaited, not fired and forgotten: saving now uploads the picture before it
+  // creates the item, so the form must stay put until that resolves.
+  onSave: (values: NewLibraryItemFormValues) => void | Promise<void>;
 };
 
 const initialValues: Omit<NewLibraryItemFormValues, "picture"> = {
@@ -43,6 +45,8 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
   const [picture, setPicture] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -72,6 +76,7 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
   const resetForm = () => {
     setValues(initialValues);
     setPicture(null);
+    setSaveError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -80,10 +85,27 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
     onClose();
   };
 
-  const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
-    onSave({ ...values, picture });
-    resetForm();
+    if (isSaving) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await onSave({ ...values, picture });
+      // Only on success - clearing the form after a failed upload would throw
+      // away what the user typed along with the file they picked.
+      resetForm();
+    } catch (error) {
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : "The item could not be saved. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -130,14 +152,17 @@ export function NewLibraryItemDialog({ open, onClose, onSave }: NewLibraryItemDi
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Picture
-              <input accept="image/*" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" name="picture" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
+              <input accept="image/jpeg,image/png,image/webp" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" name="picture" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
             </label>
           </div>
 
-          <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
+            {saveError ? (
+              <p className="mr-auto text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
+            ) : null}
             <button className="h-9 rounded-lg border border-[#efaaa4] bg-white px-4 text-xs font-black text-[#b42318] hover:bg-[#fff5f4]" onClick={closeAndReset} type="button">Delete</button>
             <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button">Cancel</button>
-            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f]" type="submit">Save item</button>
+            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} type="submit">{isSaving ? "Saving…" : "Save item"}</button>
           </footer>
         </form>
       </section>
