@@ -10,6 +10,7 @@ export function MenuItemCard({
   actions = [],
   category,
   name,
+  pendingLabel = null,
   pictureUrl
 }: {
   /**
@@ -19,15 +20,31 @@ export function MenuItemCard({
   actions?: ActionsMenuItem[];
   category: string;
   name: string;
+  /**
+   * Set while a write started from this card is in flight. It takes the corner
+   * from the actions menu, because the menu has already closed itself by then
+   * and there would otherwise be nowhere on the card to say anything is
+   * happening.
+   */
+  pendingLabel?: string | null;
   pictureUrl?: string | null;
 }) {
-  const hasActions = actions.length > 0;
+  const isPending = Boolean(pendingLabel);
+  const hasActions = actions.length > 0 && !isPending;
+  // Either control sits in the same corner, and the category pill has to give
+  // up its right edge for whichever one is there.
+  const hasCornerControl = hasActions || isPending;
 
   return (
     // `relative` anchors the actions menu, and the clipping that used to live
     // here has moved down to the picture: on the article it also cut off the
     // open dropdown.
-    <article className="relative flex h-50 rounded-lg border border-[#d8dde5] bg-white">
+    <article
+      aria-busy={isPending || undefined}
+      className={`relative flex h-50 rounded-lg border border-[#d8dde5] bg-white ${
+        isPending ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-lg bg-[#fbfcfd]">
           {pictureUrl ? (
@@ -54,7 +71,7 @@ export function MenuItemCard({
               beside, rather than running underneath it. */}
           <span
             className={`absolute left-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:px-2 sm:text-[10px] ${
-              hasActions
+              hasCornerControl
                 ? "right-9 sm:max-w-[calc(100%-4rem)]"
                 : "right-1.5 sm:max-w-[calc(100%-1.5rem)]"
             }`}
@@ -67,7 +84,14 @@ export function MenuItemCard({
         </div>
       </div>
 
-      {hasActions ? (
+      {isPending ? (
+        <span
+          className="absolute right-1.5 top-1.5 rounded-full border border-[#d8dde5] bg-white/90 px-2 py-1 text-[9px] font-black text-[#6a7483] shadow-sm backdrop-blur-sm sm:right-2 sm:top-2 sm:text-[10px]"
+          role="status"
+        >
+          {pendingLabel}
+        </span>
+      ) : hasActions ? (
         <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
           <ActionsMenu
             items={actions}
@@ -101,41 +125,75 @@ export function AddItemCard({ onClick }: { onClick: () => void }) {
   );
 }
 
+/**
+ * One library item offered to the open package, as a single click target.
+ *
+ * The whole card is the button rather than a small "Add" control inside it:
+ * these sit in a grid that is three columns wide on a phone, where a 24px
+ * target in the corner of a card is the hardest thing on the page to hit.
+ */
 export function PackageAddCard({
   category,
+  isDisabled = false,
+  isPending = false,
   name,
-  rule,
-  price
+  onAdd,
+  pictureUrl
 }: {
   category: string;
+  /** Set when the viewer may not edit the menu; the card stays readable. */
+  isDisabled?: boolean;
+  isPending?: boolean;
   name: string;
-  rule: string;
-  price: string;
+  onAdd: () => void;
+  pictureUrl?: string | null;
 }) {
   return (
-    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
+    <button
+      aria-label={`Add ${name} to package`}
+      className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-[#d8dde5] disabled:hover:bg-white"
+      disabled={isDisabled || isPending}
+      onClick={onAdd}
+      type="button"
+    >
       <div className="flex min-w-0 w-full flex-col">
-        <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
+          {pictureUrl ? (
+            // Plain <img> and alt="", for the reasons spelled out on
+            // MenuItemCard: a rotating signed URL the optimizer can never cache,
+            // beside a name this card already renders.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+          ) : (
+            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
+            </span>
+          )}
           <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {category}
-          </span>
-          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
           </span>
         </div>
         <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
           <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">
             {name}
           </p>
-          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
-            {rule}
-          </p>
-          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
-            {price}
+          <p className="mt-1 flex w-full items-center justify-center gap-1 text-[9px] font-black leading-3 text-[#1f4d73] sm:text-xs sm:leading-4">
+            {isPending ? (
+              "Adding…"
+            ) : (
+              <>
+                <LineIcon name="plus" className="h-3 w-3" />
+                Add to package
+              </>
+            )}
           </p>
         </div>
       </div>
-    </article>
+    </button>
   );
 }
 

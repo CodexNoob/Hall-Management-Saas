@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { readPackageItemIdsError } from "@/features/menu/server/menu-package-items";
 import { readPicturePathError } from "@/features/menu/server/menu-picture";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
+import { menuPackageFieldsSchema } from "@/features/menu/validations/menu-package.schema";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -11,16 +13,7 @@ import { moneySchema } from "@/lib/validation/number";
 
 const menuMutationSchema = z.discriminatedUnion("resource", [
   menuItemFieldsSchema.extend({ resource: z.literal("item") }),
-  z.object({
-    resource: z.literal("package"),
-    name: z.string().trim().min(1),
-    regularPrice: moneySchema({ label: "Regular price" }).optional(),
-    memberPrice: moneySchema({ label: "Member price" }).optional(),
-    hallIds: z.array(z.string().uuid()).default([]),
-    eventTypeIds: z.array(z.string().uuid()).default([]),
-    includedMenuItemIds: z.array(z.string().uuid()).default([]),
-    notes: z.string().trim().optional()
-  }),
+  menuPackageFieldsSchema.extend({ resource: z.literal("package") }),
   z.object({
     resource: z.literal("addon"),
     name: z.string().trim().min(1),
@@ -132,6 +125,14 @@ export async function POST(request: Request) {
     }
 
     if (input.resource === "package") {
+      const itemIdsError = await readPackageItemIdsError(
+        actor.organizationId,
+        input.includedMenuItemIds
+      );
+      if (itemIdsError) {
+        return NextResponse.json({ error: itemIdsError }, { status: 400 });
+      }
+
       const itemPackage = await prisma.eventPackage.create({
         data: {
           organizationId: actor.organizationId,
