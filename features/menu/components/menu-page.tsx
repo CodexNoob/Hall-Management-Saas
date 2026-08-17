@@ -616,7 +616,7 @@ export function MenuPage() {
                 </header>
 
                 <div className="shrink-0 border-b border-[#d8dde5] p-3">
-                  <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_150px_140px]">
+                  <div className="grid gap-2 lg:grid-cols-[minmax(220px,1fr)_150px]">
                     <input
                       className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73]"
                       name="menuSearch"
@@ -640,13 +640,6 @@ export function MenuPage() {
                           {category.label}
                         </option>
                       ))}
-                    </select>
-                    <select
-                      className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]"
-                      defaultValue="All"
-                      name="menuTypeFilter"
-                    >
-                      <option>All</option>
                     </select>
                   </div>
                 </div>
