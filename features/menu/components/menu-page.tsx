@@ -22,21 +22,21 @@ import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authentica
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { useMenuItemActions } from "@/features/menu/hooks/use-menu-item-actions";
+import { usePackageItems } from "@/features/menu/hooks/use-package-items";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
-import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { updateMenuPackage } from "@/features/menu/services/menu-packages";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 
 import {
   AddItemCard,
   AddOnCard,
   MenuItemCard,
-  MenuRuleSection,
-  PackageAddCard
+  MenuRuleSection
 } from "@/features/menu/components/menu-cards";
+import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
 import {
   LineIcon,
   buffetSections,
-  packageAddItems,
   platedSections,
   tabs,
   type MenuLibraryItem,
@@ -62,11 +62,17 @@ export function MenuPage() {
   const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
   const menuMutation = useAuthenticatedMutation<
     Record<string, unknown>,
-    Record<string, unknown>
+    // Only the created package's id is read back, and only so the new package
+    // can be the one that opens. The other two resources ignore the payload.
+    { package?: { id?: string } }
   >("/api/menu");
   const [activeTab, setActiveTab] = useState("Menu Library");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedPackage, setSelectedPackage] = useState("");
+  // By id, not by name: two packages may share a name, and renaming one would
+  // otherwise deselect it mid-edit.
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
+    null
+  );
   const [isNewPackageOpen, setIsNewPackageOpen] = useState(false);
   const [isEditingPackage, setIsEditingPackage] = useState(false);
   const [isNewAddOnOpen, setIsNewAddOnOpen] = useState(false);
@@ -90,6 +96,10 @@ export function MenuPage() {
         includedMenuItemIds: item.includedMenuItemIds,
         type: "Package",
         summary: `${item.includedMenuItemIds.length} included items`,
+        // Kept beside the formatted string rather than derived back out of it:
+        // the edit dialog needs the number, and stripping the currency symbols
+        // off `price` to get it back is a round trip through a lossy format.
+        regularPrice: Number(item.regularPrice ?? 0),
         price: new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD"
@@ -110,10 +120,22 @@ export function MenuPage() {
       })),
     [menuQuery.data]
   );
+  // Resolved up here rather than beside the panel that draws it: the hook below
+  // acts on it, and hooks cannot be called after the loading gate. Falling back
+  // to the first package keeps a package open on the first visit, before
+  // anything has been selected.
+  const activePackage =
+    allPackages.find((item) => item.id === selectedPackageId) ??
+    allPackages[0] ??
+    null;
   const canEditMenu = useDashboardPermission("canEditMenu");
   const libraryItemActions = useMenuItemActions({
     items: allMenuItems,
     onCategorySaved: setSelectedCategory,
+    onChanged: menuQuery.refetch
+  });
+  const packageItemActions = usePackageItems({
+    activePackage,
     onChanged: menuQuery.refetch
   });
 
@@ -169,28 +191,19 @@ export function MenuPage() {
         ? allMenuItems.length
         : allMenuItems.filter((item) => item.category === label).length
   }));
-  const activePackage =
-    allPackages.find((item) => item.name === selectedPackage) ??
-    allPackages[0] ??
-    null;
+  // Both lists are resolved against the library rather than read off the
+  // package: `included_menu_item_ids` is an id array, so this is the only place
+  // the ids become items with names to draw.
   const activePackageItems = activePackage
     ? allMenuItems.filter((item) =>
         activePackage.includedMenuItemIds.includes(item.id)
       )
     : [];
-
-  const updatePackage = async (changes: Record<string, unknown>) => {
-    if (!activePackage) return;
-    const response = await authenticatedFetch(
-      `/api/menu/packages/${activePackage.id}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(changes)
-      }
-    );
-    if (response.ok) await menuQuery.refetch();
-  };
+  const addablePackageItems = activePackage
+    ? allMenuItems.filter(
+        (item) => !activePackage.includedMenuItemIds.includes(item.id)
+      )
+    : [];
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const ruleSections =
     activeTab === "Plated Menu" ? platedSections : buffetSections;
@@ -199,17 +212,21 @@ export function MenuPage() {
   const savePackage = async (values: NewPackageFormValues) => {
     const regularPrice = readPrice(values.basePrice, "Base price");
 
-    if (isEditingPackage) {
-      await updatePackage({
+    if (isEditingPackage && activePackage) {
+      // Name and price only. The items are edited from the panel behind this
+      // dialog, so sending the list here would let a stale copy of it overwrite
+      // an add that happened while the dialog was open.
+      await updateMenuPackage(activePackage.id, {
         name: values.name,
         regularPrice
       });
-      setSelectedPackage(values.name);
+      await menuQuery.refetch();
       setIsEditingPackage(false);
       setIsNewPackageOpen(false);
       return;
     }
-    await menuMutation.mutate({
+
+    const created = await menuMutation.mutate({
       resource: "package",
       name: values.name,
       regularPrice,
@@ -218,7 +235,9 @@ export function MenuPage() {
       includedMenuItemIds: []
     });
     await menuQuery.refetch();
-    setSelectedPackage(values.name);
+    // Selected by the id the server assigned, so the panel opens on the package
+    // that was just created even if another one shares its name.
+    setSelectedPackageId(created?.package?.id ?? null);
     setActiveTab("Packages");
     setIsNewPackageOpen(false);
   };
@@ -315,7 +334,7 @@ export function MenuPage() {
         initialValues={isEditingPackage && activePackage ? {
           name: activePackage.name,
           type: activePackage.type,
-          basePrice: activePackage.price.replace(/[^0-9.]/g, ""),
+          basePrice: String(activePackage.regularPrice),
           perCouplePrice: "0"
         } : undefined}
         onClose={() => { setIsNewPackageOpen(false); setIsEditingPackage(false); }}
@@ -375,18 +394,18 @@ export function MenuPage() {
 
               <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-1">
                 {visiblePackages.map((item) => {
-                  const isActive = selectedPackage === item.name;
+                  const isActive = activePackage?.id === item.id;
 
                   return (
                     <button
-                      key={item.name}
+                      key={item.id}
                       className={`flex min-h-24 w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border p-2 text-center sm:h-14 sm:min-h-0 sm:flex-row sm:justify-start sm:gap-3 sm:px-3 sm:text-left ${
                         isActive
                           ? "border-[#1f4d73] bg-[#eef4fa]"
                           : "border-[#d8dde5] bg-white hover:bg-[#eef4fa]"
                       }`}
                       type="button"
-                      onClick={() => setSelectedPackage(item.name)}
+                      onClick={() => setSelectedPackageId(item.id)}
                     >
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73] sm:h-9 sm:w-9">
                         <LineIcon name="box" className="h-4 w-4" />
@@ -423,8 +442,9 @@ export function MenuPage() {
                         </h2>
                       </div>
                       <p className="mt-1 text-xs text-[#6a7483]">
-                        {activePackage.type} - Base {activePackage.price} -
-                        $95.00 per couple
+                        Base {activePackage.price} - {activePackageItems.length}{" "}
+                        {activePackageItems.length === 1 ? "item" : "items"}{" "}
+                        included
                       </p>
                     </div>
                     <button
@@ -436,59 +456,69 @@ export function MenuPage() {
                     </button>
                   </header>
 
-                  <div className="space-y-2 p-3">
-                    {activePackageItems.map((item) => (
-                      <article
-                        key={`${activePackage.name}-${item.id}`}
-                        className="flex min-h-14 min-w-0 flex-wrap items-center gap-2 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 sm:flex-nowrap sm:gap-3"
+                  {/* Neither adding nor removing opens a dialog, so this banner
+                      is the only place a rejected write can be read. */}
+                  {packageItemActions.errorMessage ? (
+                    <div className="mx-3 mt-3 flex items-start justify-between gap-3 rounded-lg border border-[#f0b4ae] bg-[#fff5f4] px-3 py-2">
+                      <p
+                        className="text-xs font-bold text-[#a62b24]"
+                        role="alert"
                       >
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-black text-[#17202a]">
-                            {item.name}
-                          </h3>
-                          <p className="mt-0.5 text-xs text-[#516174]">
-                            {item.category}
-                          </p>
-                        </div>
-                        <span className="shrink-0 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-3 py-1 text-center text-[10px] font-black text-[#1f4d73] sm:w-22">
-                          Included
-                        </span>
-                        <button
-                          className="shrink-0 rounded-md border border-[#f0b4ae] bg-white px-2 py-1 text-xs font-black text-[#a62b24] hover:bg-[#fff5f4]"
-                          type="button"
-                          onClick={() =>
-                            void updatePackage({
-                              includedMenuItemIds:
-                                activePackage.includedMenuItemIds.filter(
-                                  (id) => id !== item.id
-                                )
-                            })
-                          }
-                        >
-                          Remove
-                        </button>
-                      </article>
-                    ))}
-                  </div>
-
-                  <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-                    <header className="flex h-11 items-center border-b border-[#d8dde5] px-3">
-                      <h3 className="text-sm font-black text-[#17202a]">
-                        Add Buffet or Plated items
-                      </h3>
-                    </header>
-                    <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
-                      {packageAddItems.map((item) => (
-                        <PackageAddCard
-                          key={item.name}
-                          category={item.category}
-                          name={item.name}
-                          rule={item.rule}
-                          price={item.price}
-                        />
-                      ))}
+                        {packageItemActions.errorMessage}
+                      </p>
+                      <button
+                        className="shrink-0 text-xs font-black text-[#a62b24] hover:underline"
+                        onClick={packageItemActions.dismissError}
+                        type="button"
+                      >
+                        Dismiss
+                      </button>
                     </div>
-                  </section>
+                  ) : null}
+
+                  {/* The same card as the Menu Library grid, so an item looks
+                      like itself - picture included - wherever it is shown, and
+                      removing it is the three-dot action it already is there. */}
+                  {activePackageItems.length === 0 ? (
+                    <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
+                      No items in this package yet. Pick them from the library
+                      below.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 p-3 sm:gap-3 md:grid-cols-4 2xl:grid-cols-6">
+                      {activePackageItems.map((item) => {
+                        const isPending =
+                          packageItemActions.pendingItemId === item.id;
+
+                        return (
+                          <MenuItemCard
+                            key={`${activePackage.id}-${item.id}`}
+                            actions={[
+                              {
+                                label: "Remove",
+                                disabled: !canEditMenu,
+                                tone: "danger",
+                                onSelect: () =>
+                                  void packageItemActions.removeItem(item.id)
+                              }
+                            ]}
+                            category={item.category}
+                            name={item.name}
+                            pendingLabel={isPending ? "Removing…" : null}
+                            pictureUrl={item.pictureUrl}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <PackageItemPicker
+                    availableItems={addablePackageItems}
+                    isDisabled={!canEditMenu}
+                    libraryItemCount={allMenuItems.length}
+                    onAdd={(itemId) => void packageItemActions.addItem(itemId)}
+                    pendingItemId={packageItemActions.pendingItemId}
+                  />
                 </div>
               ) : (
                 <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 py-10 text-center">

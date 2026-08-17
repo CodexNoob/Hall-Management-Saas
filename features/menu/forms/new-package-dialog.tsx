@@ -15,7 +15,10 @@ type NewPackageDialogProps = {
   initialValues?: NewPackageFormValues;
   open: boolean;
   onClose: () => void;
-  onSave: (values: NewPackageFormValues) => void;
+  // Awaited, not fired and forgotten, for the reason NewLibraryItemDialog is:
+  // the save is a round trip that can be refused, and this dialog is the only
+  // surface left to say so once it has closed.
+  onSave: (values: NewPackageFormValues) => void | Promise<void>;
 };
 
 const initialValues: NewPackageFormValues = {
@@ -40,14 +43,28 @@ function PackageIcon() {
 export function NewPackageDialog({ initialValues: editValues, open, onClose, onSave }: NewPackageDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
+  // Tracks the closed -> open edge. Seeding on every run of the effect instead
+  // would overwrite what the user is typing each time the parent re-renders,
+  // because `editValues` is an object the parent rebuilds as it goes.
+  const wasOpenRef = useRef(false);
   const [values, setValues] = useState(initialValues);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<
     Partial<Record<"basePrice" | "perCouplePrice", string>>
   >({});
 
   useEffect(() => {
-    if (!open) return;
-    setValues(editValues ?? initialValues);
+    if (!open) {
+      wasOpenRef.current = false;
+      return;
+    }
+
+    if (!wasOpenRef.current) {
+      wasOpenRef.current = true;
+      setValues(editValues ?? initialValues);
+      setSaveError(null);
+    }
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -72,8 +89,9 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
     setFieldErrors((current) => ({ ...current, [field]: undefined }));
   };
 
-  const handleSubmit = (formEvent: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (formEvent: FormEvent<HTMLFormElement>) => {
     formEvent.preventDefault();
+    if (isSaving) return;
 
     const prices = readNumericFields<"basePrice" | "perCouplePrice">({
       basePrice: {
@@ -94,8 +112,24 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
     }
 
     setFieldErrors({});
-    onSave(values);
-    setValues(initialValues);
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      await onSave(values);
+      // Only on success, and only for a create: blanking an edit would fight
+      // the seed it is about to be given, and clearing after a refusal would
+      // throw away what the user typed along with the reason it did not save.
+      if (!editValues) setValues(initialValues);
+    } catch (error) {
+      setSaveError(
+        error instanceof Error && error.message
+          ? error.message
+          : "The package could not be saved. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -153,12 +187,15 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
             </label>
           </div>
 
-          <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
+          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
+            {saveError ? (
+              <p className="mr-auto text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
+            ) : null}
             <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
               Cancel
             </button>
-            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f]" type="submit">
-              Save package
+            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} type="submit">
+              {isSaving ? "Saving…" : "Save package"}
             </button>
           </footer>
         </form>
