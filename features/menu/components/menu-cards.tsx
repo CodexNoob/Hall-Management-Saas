@@ -4,20 +4,39 @@ import { LineIcon } from "@/features/menu/components/menu-shared";
 
 export function MenuItemCard({
   category,
-  name
+  name,
+  pictureUrl
 }: {
   category: string;
   name: string;
+  pictureUrl?: string | null;
 }) {
   return (
     <article className="flex h-50 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
       <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+          {pictureUrl ? (
+            // Plain <img>, not next/image: the signed URL carries a token that
+            // rotates every few minutes, so the optimizer would never serve a
+            // cache hit and its host would have to be added to remotePatterns.
+            // alt="" because the name is already rendered below - announcing it
+            // twice is worse than treating the thumbnail as decorative.
+            // Absolute, not in flow: a flex item defaults to min-height:auto,
+            // so an image left in the flow stretches this slot to its intrinsic
+            // height and pushes the name out of the card's fixed h-50.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+          ) : (
+            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
+            </span>
+          )}
           <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {category}
-          </span>
-          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
           </span>
         </div>
         <div className="flex h-16 min-w-0 items-center justify-center border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">

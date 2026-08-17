@@ -63,6 +63,8 @@ export type MenuResponse = {
     name: string;
     category: string | null;
     usageType: string;
+    // Signed by GET /api/menu; the raw bucket and path never reach the client.
+    pictureUrl: string | null;
   }>;
   packages: Array<{
     id: string;

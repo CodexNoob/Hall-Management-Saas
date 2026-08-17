@@ -19,6 +19,7 @@ import {
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 
@@ -70,7 +71,8 @@ export function MenuPage() {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
       id: item.id,
       name: item.name,
-      category: item.category ?? "More"
+      category: item.category ?? "More",
+      pictureUrl: item.pictureUrl
     }));
     return savedItems;
   }, [menuQuery.data]);
@@ -221,13 +223,20 @@ export function MenuPage() {
   };
 
   const saveLibraryItem = async (values: NewLibraryItemFormValues) => {
+    // Upload before the row is created, so a failure anywhere in here leaves an
+    // unreferenced object in the bucket rather than an item pointing at nothing.
+    const picturePath = values.picture
+      ? await uploadMenuPicture(values.picture)
+      : undefined;
+
     await menuMutation.mutate({
       resource: "item",
       name: values.name,
       category: values.category,
       usageType: "Library",
       kosherType: values.kashrutType,
-      notes: values.description
+      notes: values.description,
+      picturePath
     });
     await menuQuery.refetch();
     setSelectedCategory(values.category);
@@ -616,6 +625,7 @@ export function MenuPage() {
                       key={item.id}
                       category={item.category}
                       name={item.name}
+                      pictureUrl={item.pictureUrl}
                     />
                   ))}
                   <AddItemCard onClick={() => setIsNewLibraryItemOpen(true)} />
