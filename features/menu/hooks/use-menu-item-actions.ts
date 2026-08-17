@@ -6,6 +6,11 @@ import type {
   LibraryItemSeedValues,
   NewLibraryItemFormValues
 } from "@/features/menu/forms/new-library-item-dialog";
+import { formatAllergens, parseAllergens } from "@/features/menu/lib/allergens";
+import {
+  readServiceStyleFormValues,
+  toServiceRules
+} from "@/features/menu/lib/service-style";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import {
   deleteMenuItem,
@@ -52,11 +57,11 @@ export function useMenuItemActions({
     ? {
         name: editingItem.name,
         category: editingItem.category,
+        kind: editingItem.kind,
         kashrutType: editingItem.kosherType ?? "Parve",
-        // Not a column on menu_items - there is nothing to seed it from, and
-        // nothing stores it on the way back out either.
-        allergies: "",
-        description: editingItem.notes ?? ""
+        allergies: formatAllergens(editingItem.allergens),
+        description: editingItem.notes ?? "",
+        services: readServiceStyleFormValues(editingItem.services)
       }
     : undefined;
 
@@ -67,6 +72,9 @@ export function useMenuItemActions({
       // Same order as a create: upload first, so a failure leaves an unused
       // object in the bucket rather than a row pointing at nothing. An untouched
       // file input sends no path at all, which is what keeps the current picture.
+      // Parsed before the upload: a bad counting rule should cost nothing, and
+      // this throws for the dialog to render.
+      const services = toServiceRules(values.services);
       const picturePath = values.picture
         ? await uploadMenuPicture(values.picture)
         : undefined;
@@ -74,7 +82,17 @@ export function useMenuItemActions({
       await updateMenuItem(editingItemId, {
         name: values.name,
         category: values.category,
+        kind: values.kind,
+        // `usageType` is deliberately absent. It is the business segment now,
+        // this dialog does not ask for it, and sending the service style into it
+        // is the exact bug the service rows were split out to end.
+        //
+        // An empty array is meaningful here: it moves an item back to
+        // library-only by clearing its rules, the way an explicit `null` used to
+        // clear the single rule.
+        services,
         kosherType: values.kashrutType,
+        allergens: parseAllergens(values.allergies),
         notes: values.description,
         picturePath
       });

@@ -131,6 +131,9 @@ export function AddItemCard({ onClick }: { onClick: () => void }) {
  * The whole card is the button rather than a small "Add" control inside it:
  * these sit in a grid that is three columns wide on a phone, where a 24px
  * target in the corner of a card is the hardest thing on the page to hit.
+ *
+ * No price here either, for the reason spelled out on `MenuRuleCard`: this
+ * card offers a dish to a package, and the price belongs to the package.
  */
 export function PackageAddCard({
   category,
@@ -197,26 +200,44 @@ export function PackageAddCard({
   );
 }
 
+/**
+ * A dish as a service tab shows it: what it is, and how much of it to cook.
+ *
+ * No price. A dish is not sold on its own - a package or an add-on is - and
+ * the `$0.00` that used to sit here came from a hardcoded string, not a column.
+ */
 export function MenuRuleCard({
-  category,
+  badge,
   name,
   rule,
-  price
+  pictureUrl
 }: {
-  category: string;
+  /** Kosher type, which is what an operator actually needs at a glance. */
+  badge: string;
   name: string;
   rule: string;
-  price: string;
+  pictureUrl?: string | null;
 }) {
   return (
     <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
       <div className="flex min-w-0 w-full flex-col">
-        <div className="relative flex flex-1 items-center justify-center bg-[#fbfcfd]">
+        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
+          {pictureUrl ? (
+            // Plain <img> for the same reason MenuItemCard uses one: the URL is
+            // signed and rotates, so the optimizer would never get a cache hit.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+          ) : (
+            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
+            </span>
+          )}
           <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
-            {category}
-          </span>
-          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
+            {badge}
           </span>
         </div>
         <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
@@ -226,21 +247,26 @@ export function MenuRuleCard({
           <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
             {rule}
           </p>
-          <p className="w-full truncate text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
-            {price}
-          </p>
         </div>
       </div>
     </article>
   );
 }
 
+export type MenuRuleCardItem = {
+  id: string;
+  name: string;
+  badge: string;
+  rule: string;
+  pictureUrl: string | null;
+};
+
 export function MenuRuleSection({
   title,
   items
 }: {
   title: string;
-  items: Array<{ name: string; category: string; rule: string; price: string }>;
+  items: MenuRuleCardItem[];
 }) {
   return (
     <section className="min-h-21 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
@@ -254,11 +280,11 @@ export function MenuRuleSection({
         <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-col sm:gap-3">
           {items.map((item) => (
             <MenuRuleCard
-              key={`${title}-${item.name}`}
-              category={item.category}
+              key={item.id}
+              badge={item.badge}
               name={item.name}
+              pictureUrl={item.pictureUrl}
               rule={item.rule}
-              price={item.price}
             />
           ))}
         </div>

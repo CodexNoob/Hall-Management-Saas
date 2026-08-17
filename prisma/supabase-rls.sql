@@ -67,6 +67,7 @@ BEGIN
     'events',
     'booking_reservations',
     'menu_items',
+    'menu_item_services',
     'packages',
     'add_ons',
     'kitchen_workers',

@@ -90,6 +90,7 @@ const groupDefinitions = [
     tables: [
       "menu_categories",
       "menu_items",
+      "menu_item_services",
       "packages",
       "add_ons",
       "tablecloth_options",

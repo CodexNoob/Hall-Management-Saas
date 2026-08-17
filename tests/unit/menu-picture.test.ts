@@ -50,7 +50,11 @@ function libraryItem(overrides: Record<string, unknown> = {}) {
     resource: "item",
     name: "Roasted chicken",
     category: "Main",
-    usageType: "Library",
+    // The business segment. This used to read "Library", which was a service
+    // style in a column that never meant service style - the two now have
+    // separate homes, and "Library" is expressed as sending no `services`.
+    usageType: "Both",
+    kind: "Food",
     ...overrides
   };
 }

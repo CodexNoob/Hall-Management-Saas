@@ -28,6 +28,7 @@ model Organization {
   eventTypes              EventType[]
   events                  Event[]
   menuItems               MenuItem[]
+  menuItemServices        MenuItemService[]
   eventPackages           EventPackage[]
   addOns                  AddOn[]
   kitchenWorkers          KitchenWorker[]
@@ -440,9 +441,18 @@ model MenuItem {
   organizationId String   @map("organization_id") @db.Uuid
   name           String
   category       String?
+  /// Which side of the business the dish belongs to: School, Simcha or Both.
+  /// Not the service style - that is one `MenuItemService` row per style.
   usageType      String   @map("usage_type")
+  kind           String   @default("Food")
   kosherType     String?  @map("kosher_type")
+  /// Superseded by `MenuItemService`, which holds the rule as columns Postgres
+  /// can check. Left in place unread for one release as a safety net; nothing
+  /// reads it and the next phase drops it.
   countingRules  Json?    @map("counting_rules")
+  /// Labels, not references - a text array is the right shape here, unlike the
+  /// id arrays elsewhere in this schema that stand in for real relationships.
+  allergens      String[] @default([])
   notes          String?
   pictureBucket  String?  @map("picture_bucket")
   picturePath    String?  @map("picture_path")
@@ -451,6 +461,7 @@ model MenuItem {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  services            MenuItemService[]
   kitchenItemStatuses KitchenItemStatus[]
 
   @@index([organizationId, isActive])
@@ -458,6 +469,46 @@ model MenuItem {
   @@index([usageType])
   @@index([isActive])
   @@map("menu_items")
+}
+
+/// How a dish is served, and how much of it to cook - one row per dish per
+/// service style.
+///
+/// A dish with no rows here is catalogued but not yet served; a dish served two
+/// ways has two rows, each with its own rule. That is the case a single column
+/// could not hold: grilled chicken is one tray per thirty on a buffet and one
+/// plate per guest when plated.
+///
+/// `organizationId` is redundant - it is reachable through `menuItemId` - and
+/// required anyway, because the tenant policy in `supabase-rls.sql` is written
+/// per table as `is_organization_member(organization_id)`.
+model MenuItemService {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  menuItemId     String   @map("menu_item_id") @db.Uuid
+  serviceStyle   String   @map("service_style")
+  /// Decimal, not Int: half a tray is a real answer.
+  quantity       Decimal  @db.Decimal(10, 3)
+  unit           String
+  per            Int
+  /// Which of the event's head counts the rule divides. The piece the old
+  /// `counting_rules` json had no way to express.
+  perBasis       String   @map("per_basis")
+  rounding       String   @default("Up")
+  /// Never send out fewer than this, whatever the arithmetic says.
+  minimumUnits   Int?     @map("minimum_units")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItem     MenuItem     @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  /// Includes `perBasis` so a future second rule for the same style - one rate
+  /// for adults, another for children - is a row rather than a migration.
+  @@unique([menuItemId, serviceStyle, perBasis])
+  @@index([organizationId, serviceStyle])
+  @@map("menu_item_services")
 }
 
 model EventPackage {

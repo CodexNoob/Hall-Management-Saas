@@ -23,6 +23,7 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { useMenuItemActions } from "@/features/menu/hooks/use-menu-item-actions";
 import { usePackageItems } from "@/features/menu/hooks/use-package-items";
+import { parseAllergens } from "@/features/menu/lib/allergens";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import { updateMenuPackage } from "@/features/menu/services/menu-packages";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
@@ -37,12 +38,19 @@ import {
 import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
 import {
   LineIcon,
-  buffetItems,
-  platedSections,
   tabs,
   type MenuLibraryItem,
   type MenuResponse
 } from "@/features/menu/components/menu-shared";
+import {
+  DEFAULT_SEGMENT,
+  findRuleForStyle,
+  formatServiceRule,
+  readServiceRules,
+  servesStyle,
+  toServiceRules,
+  type ServiceStyle
+} from "@/features/menu/lib/service-style";
 /**
  * The dialogs validate before calling back, so reaching an invalid value here
  * means a caller skipped that check - throw rather than send `NaN`, which
@@ -83,7 +91,11 @@ export function MenuPage() {
       id: item.id,
       name: item.name,
       category: item.category ?? "More",
+      usageType: item.usageType,
+      kind: item.kind,
+      services: readServiceRules(item.services),
       kosherType: item.kosherType,
+      allergens: item.allergens ?? [],
       notes: item.notes,
       pictureUrl: item.pictureUrl
     }));
@@ -208,6 +220,43 @@ export function MenuPage() {
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const isPlatedMenu = activeTab === "Plated Menu";
   const ruleMode = isPlatedMenu ? "plated" : "buffet";
+  const serviceStyle: ServiceStyle = isPlatedMenu ? "Plated" : "Buffet";
+  // The service tabs are views over the same catalog the library tab renders,
+  // not lists of their own. A dish served both ways carries a rule for each and
+  // shows under both tabs without being stored twice.
+  //
+  // Filtering the items rather than flattening their rules is what keeps this
+  // one card per dish: the unique key allows a dish to hold more than one rule
+  // for the same style, and flattening would render it twice.
+  const servedItems = allMenuItems
+    .filter((item) => servesStyle(item.services, serviceStyle))
+    .filter(
+      (item) =>
+        !normalizedSearch ||
+        `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
+    );
+  const toRuleCard = (item: MenuLibraryItem) => ({
+    id: item.id,
+    name: item.name,
+    // Kashrut, not the service style: you already know which tab you are on.
+    badge: item.kosherType ?? item.category,
+    // The rule for the tab you are on, which is the whole reason these live on
+    // their own rows - the same dish reads differently under Buffet and Plated.
+    rule: formatServiceRule(findRuleForStyle(item.services, serviceStyle)),
+    pictureUrl: item.pictureUrl
+  });
+  // Plated keeps its courses - a plated meal is served in them - while buffet
+  // is one flat list. Empty courses are dropped rather than rendered as a row
+  // of placeholders, because these come from org-defined categories now.
+  const platedCourses = categoryNames
+    .filter((label) => label !== "All")
+    .map((label) => ({
+      title: label,
+      items: servedItems
+        .filter((item) => item.category === label)
+        .map(toRuleCard)
+    }))
+    .filter((course) => course.items.length > 0);
 
   const savePackage = async (values: NewPackageFormValues) => {
     const regularPrice = readPrice(values.basePrice, "Base price");
@@ -254,6 +303,9 @@ export function MenuPage() {
   };
 
   const saveLibraryItem = async (values: NewLibraryItemFormValues) => {
+    // Parsed first: a bad counting rule should not cost an upload, and this
+    // throws for the dialog to render.
+    const services = toServiceRules(values.services);
     // Upload before the row is created, so a failure anywhere in here leaves an
     // unreferenced object in the bucket rather than an item pointing at nothing.
     const picturePath = values.picture
@@ -264,14 +316,21 @@ export function MenuPage() {
       resource: "item",
       name: values.name,
       category: values.category,
-      usageType: "Library",
+      // The business segment, not the service style. Nothing filters on it yet,
+      // so a new dish starts visible to both sides of the business.
+      usageType: DEFAULT_SEGMENT,
+      kind: values.kind,
+      services,
       kosherType: values.kashrutType,
+      allergens: parseAllergens(values.allergies),
       notes: values.description,
       picturePath
     });
     await menuQuery.refetch();
     setSelectedCategory(values.category);
-    setActiveTab("Menu Library");
+    // Stay on the tab the item was added from. Jumping to the library is what
+    // made "Add buffet item" look like it had created the wrong thing.
+    if (!isRuleMenu) setActiveTab("Menu Library");
     setIsNewLibraryItemOpen(false);
   };
 
@@ -349,6 +408,8 @@ export function MenuPage() {
       {/* One dialog for both flows: `initialValues` is what makes it an edit,
           and the save handler follows it. */}
       <NewLibraryItemDialog
+        // A create started from a service tab is already that kind of item.
+        defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
         initialValues={libraryItemActions.editingValues}
         onClose={() => {
           setIsNewLibraryItemOpen(false);
@@ -570,34 +631,40 @@ export function MenuPage() {
                 </button>
               </header>
 
-              {isPlatedMenu ? (
+              {!servedItems.length ? (
+                <p className="px-3 py-6 text-xs text-[#516174]">
+                  {normalizedSearch
+                    ? `No ${ruleMode} items match "${pageSearchQuery.trim()}".`
+                    : `No items are served ${ruleMode} yet. Add one here, or open a library item and set its service style.`}
+                </p>
+              ) : isPlatedMenu ? (
                 <div className="grid items-start gap-3 p-3 md:grid-cols-2 2xl:grid-cols-4">
-                  {platedSections.map((section) => (
+                  {platedCourses.map((course) => (
                     <MenuRuleSection
-                      key={`${activeTab}-${section.title}`}
-                      title={section.title}
-                      items={section.items}
-                    />
-                  ))}
-                </div>
-              ) : buffetItems.length ? (
-                // Ungrouped: the buffet has no courses, so the cards sit in one
-                // wrapping row rather than under section headers.
-                <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
-                  {buffetItems.map((item) => (
-                    <MenuRuleCard
-                      key={item.name}
-                      category={item.category}
-                      name={item.name}
-                      rule={item.rule}
-                      price={item.price}
+                      key={`${activeTab}-${course.title}`}
+                      title={course.title}
+                      items={course.items}
                     />
                   ))}
                 </div>
               ) : (
-                <p className="px-3 py-4 text-xs text-[#516174]">
-                  No buffet items yet.
-                </p>
+                // Ungrouped: the buffet has no courses, so the cards sit in one
+                // wrapping row rather than under section headers.
+                <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
+                  {servedItems.map((item) => {
+                    const card = toRuleCard(item);
+
+                    return (
+                      <MenuRuleCard
+                        key={card.id}
+                        badge={card.badge}
+                        name={card.name}
+                        pictureUrl={card.pictureUrl}
+                        rule={card.rule}
+                      />
+                    );
+                  })}
+                </div>
               )}
             </div>
           </section>
