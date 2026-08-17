@@ -37,7 +37,12 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   SUPPORT_EMAIL_FROM: z.string().optional(),
   SUPPORT_WEBHOOK_URL: z.string().url().optional(),
-  CARDKNOX_PAYMENT_LINK: z.string().url().default("https://secure.cardknox.com/belzcheiderevents"),
+  // Deliberately optional with no default. The public client portal renders for
+  // every organization, so a global payment link sent one venue's clients to
+  // another venue's merchant account. Per-organization links live in
+  // PaymentSetting.paymentLink; this variable survives only as the input to
+  // scripts/backfill-payment-links.ts and can be removed once that has run.
+  CARDKNOX_PAYMENT_LINK: z.string().url().optional(),
   ENABLE_GOOGLE_CALENDAR_SYNC: booleanFlag,
   ENABLE_GMAIL_PAYMENT_EMAILS: booleanFlag,
   ENABLE_PDF_GENERATION: booleanFlag.default("true"),

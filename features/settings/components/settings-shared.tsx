@@ -15,6 +15,9 @@ export type SettingsResponse = {
     billingAlerts: boolean;
     systemAnnouncements: boolean;
   };
+  // Where this organization's client portal sends Pay balance. Empty means
+  // unconfigured, and the portal hides the action rather than falling back.
+  payments: { paymentLink: string };
 };
 
 export type IconName =
@@ -123,16 +126,17 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
   }
 ];
 
-export const modalHubTitlesBySection: Partial<Record<ModalSettingsSection, string[]>> =
-  {
-    Halls: ["Halls"],
-    "Event Types": ["Event Types"],
-    "User Access": ["User Types", "User Access", "Feature Access"],
-    "Payments & Gmail": ["Payments & Gmail"],
-    "Google Calendar": ["Google Calendar"],
-    "PDF & Branding": ["PDF & Branding"],
-    "Activity Logs": ["Activity Logs"]
-  };
+export const modalHubTitlesBySection: Partial<
+  Record<ModalSettingsSection, string[]>
+> = {
+  Halls: ["Halls"],
+  "Event Types": ["Event Types"],
+  "User Access": ["User Types", "User Access", "Feature Access"],
+  "Payments & Gmail": ["Payments & Gmail"],
+  "Google Calendar": ["Google Calendar"],
+  "PDF & Branding": ["PDF & Branding"],
+  "Activity Logs": ["Activity Logs"]
+};
 
 export const settingsHubItems: SettingsHubItem[] = [
   {
@@ -317,7 +321,13 @@ export function Icon({
   return <svg {...common}>{icons[name]}</svg>;
 }
 
-export function PanelHeader({ title, icon }: { title: string; icon?: IconName }) {
+export function PanelHeader({
+  title,
+  icon
+}: {
+  title: string;
+  icon?: IconName;
+}) {
   return (
     <header className="flex min-h-12 items-center gap-2 border-b border-[#d8dde5] px-4 py-3">
       {icon ? <Icon name={icon} /> : null}
