@@ -6,6 +6,18 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema } from "@/lib/validation/number";
 
+// The portal shows this link to clients, so an empty string is a meaningful
+// value: it clears the link and hides the Pay balance action rather than
+// leaving a stale merchant configured.
+const paymentLinkSchema = z
+  .string()
+  .trim()
+  .max(2000)
+  .refine(
+    (value) => value === "" || z.string().url().safeParse(value).success,
+    "Payment link must be a valid URL."
+  );
+
 const settingsSchema = z.object({
   language: z.enum(["en-US", "en-GB", "he-IL", "es-US"]).optional(),
   timezone: z.string().trim().min(1).optional(),
@@ -29,6 +41,11 @@ const settingsSchema = z.object({
       businessName: z.string().trim().min(1).max(200),
       paymentTerms: z.string().trim().min(1).max(100),
       invoiceFooter: z.string().trim().max(2000)
+    })
+    .optional(),
+  payments: z
+    .object({
+      paymentLink: paymentLinkSchema
     })
     .optional()
 });
@@ -93,26 +110,31 @@ function mergeBillingSettings(
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewSettings");
-    const [organization, settings, notifications] = await Promise.all([
-      prisma.organization.findUniqueOrThrow({
-        where: { id: actor.organizationId }
-      }),
-      prisma.organizationSetting.upsert({
-        where: { organizationId: actor.organizationId },
-        update: {},
-        create: { organizationId: actor.organizationId }
-      }),
-      prisma.notificationPreference.upsert({
-        where: {
-          organizationId_userId: {
-            organizationId: actor.organizationId,
-            userId: actor.id
-          }
-        },
-        update: {},
-        create: { organizationId: actor.organizationId, userId: actor.id }
-      })
-    ]);
+    const [organization, settings, notifications, paymentSetting] =
+      await Promise.all([
+        prisma.organization.findUniqueOrThrow({
+          where: { id: actor.organizationId }
+        }),
+        prisma.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: {},
+          create: { organizationId: actor.organizationId }
+        }),
+        prisma.notificationPreference.upsert({
+          where: {
+            organizationId_userId: {
+              organizationId: actor.organizationId,
+              userId: actor.id
+            }
+          },
+          update: {},
+          create: { organizationId: actor.organizationId, userId: actor.id }
+        }),
+        prisma.paymentSetting.findUnique({
+          where: { organizationId: actor.organizationId },
+          select: { paymentLink: true }
+        })
+      ]);
 
     return NextResponse.json({
       organization,
@@ -120,7 +142,8 @@ export async function GET(request: Request) {
         ...settings,
         calendar: calendarSettingsFromIntegrations(settings.integrations)
       },
-      notifications
+      notifications,
+      payments: { paymentLink: paymentSetting?.paymentLink ?? "" }
     });
   } catch (error) {
     return createApiErrorResponse(error);
@@ -140,6 +163,11 @@ export async function PATCH(request: Request) {
       input.billing !== undefined
     ) {
       await requirePermission(request, "canEditSettings");
+    }
+    // Changing where client payments land is a money decision, not a general
+    // settings edit, so it needs the dedicated payments permission.
+    if (input.payments !== undefined) {
+      await requirePermission(request, "canManagePayments");
     }
     const currentSettings = await prisma.organizationSetting.upsert({
       where: { organizationId: actor.organizationId },
@@ -193,12 +221,29 @@ export async function PATCH(request: Request) {
       })
     ]);
 
+    const payments =
+      input.payments !== undefined
+        ? await prisma.paymentSetting.upsert({
+            where: { organizationId: actor.organizationId },
+            update: { paymentLink: input.payments.paymentLink },
+            create: {
+              organizationId: actor.organizationId,
+              paymentLink: input.payments.paymentLink
+            },
+            select: { paymentLink: true }
+          })
+        : await prisma.paymentSetting.findUnique({
+            where: { organizationId: actor.organizationId },
+            select: { paymentLink: true }
+          });
+
     return NextResponse.json({
       settings: {
         ...settings,
         calendar: calendarSettingsFromIntegrations(settings.integrations)
       },
-      notifications
+      notifications,
+      payments: { paymentLink: payments?.paymentLink ?? "" }
     });
   } catch (error) {
     return createApiErrorResponse(error);

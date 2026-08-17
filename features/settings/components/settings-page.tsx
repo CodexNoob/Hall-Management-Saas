@@ -47,11 +47,13 @@ export function SettingsPage({
     "/api/settings",
     canViewSettings
   );
+  const canManagePayments = hasPermission("canManagePayments");
   const settingsMutation = useAuthenticatedMutation<
     Partial<
       SettingsResponse["notifications"] & {
         language: string;
         timezone: string;
+        payments: { paymentLink: string };
       }
     >,
     SettingsResponse
@@ -67,6 +69,8 @@ export function SettingsPage({
   const [activeModalSection, setActiveModalSection] =
     useState<ModalSettingsSection>("General");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [paymentLink, setPaymentLink] = useState("");
+  const [paymentMessage, setPaymentMessage] = useState("");
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -78,7 +82,28 @@ export function SettingsPage({
     );
     setLanguage(settingsQuery.data.settings.language);
     setTimezone(settingsQuery.data.settings.timezone);
+    setPaymentLink(settingsQuery.data.payments?.paymentLink ?? "");
   }, [settingsQuery.data]);
+
+  const savePaymentLink = async () => {
+    setPaymentMessage("");
+    const trimmed = paymentLink.trim();
+
+    try {
+      await settingsMutation.mutate({ payments: { paymentLink: trimmed } });
+      setPaymentMessage(
+        trimmed
+          ? "Payment link saved."
+          : "Payment link cleared. Pay balance is hidden on the client portal."
+      );
+    } catch (error) {
+      setPaymentMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save the payment link."
+      );
+    }
+  };
 
   const savePreference = async (
     field: keyof SettingsResponse["notifications"],
@@ -474,10 +499,10 @@ export function SettingsPage({
               </aside>
 
               <div className={isModal ? "contents" : "min-w-0 space-y-4"}>
-                {(!isModal || activeModalSection === "Halls") ? (
+                {!isModal || activeModalSection === "Halls" ? (
                   <HallsSettingsPanel canEdit={canEditSettings} />
                 ) : null}
-                {(!isModal || activeModalSection === "Event Types") ? (
+                {!isModal || activeModalSection === "Event Types" ? (
                   <EventTypesSettingsPanel canEdit={canEditSettings} />
                 ) : null}
                 {(showAllSettingsContent ||
@@ -603,6 +628,56 @@ export function SettingsPage({
                             </span>
                           </div>
                         ))}
+                      </div>
+                    </section>
+                  ) : null}
+
+                  {(showAllSettingsContent ||
+                    activeModalSection === "Payments & Gmail") &&
+                  canManagePayments ? (
+                    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                      <PanelHeader title="Client Payment Link" icon="billing" />
+
+                      <div className="space-y-3 p-4">
+                        <label
+                          className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#516174]"
+                          htmlFor="organization-payment-link"
+                        >
+                          Payment link
+                        </label>
+                        <input
+                          className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                          id="organization-payment-link"
+                          name="paymentLink"
+                          onChange={(changeEvent) =>
+                            setPaymentLink(changeEvent.target.value)
+                          }
+                          placeholder="https://secure.example.com/your-venue"
+                          type="url"
+                          value={paymentLink}
+                        />
+                        <p className="text-[10px] text-[#6a7483]">
+                          Where the Pay balance button on your client portal
+                          sends clients. Leave this empty to hide that button.
+                        </p>
+                        <button
+                          className={`${secondaryButton} w-full`}
+                          disabled={settingsMutation.isPending}
+                          onClick={savePaymentLink}
+                          type="button"
+                        >
+                          {settingsMutation.isPending
+                            ? "Saving..."
+                            : "Save Payment Link"}
+                        </button>
+                        {paymentMessage ? (
+                          <p
+                            className="text-[10px] font-bold text-[#516174]"
+                            role="status"
+                          >
+                            {paymentMessage}
+                          </p>
+                        ) : null}
                       </div>
                     </section>
                   ) : null}

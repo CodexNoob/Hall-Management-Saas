@@ -1,52 +1,68 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
+import { AsyncState } from "@/components/ui/async-state";
 import {
   Badge,
   LineIcon,
   portalChecklist,
   type EventFile
 } from "@/features/events/components/event-manager-shared";
-import { Field } from "@/features/events/components/event-details-panel";
+import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import type {
+  ClientPortalOption,
+  ClientPortalEvent
+} from "@/features/events/types/client-portal";
 import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
 import { copyText } from "@/lib/ui/copy-text";
+import { formatMoney } from "@/lib/ui/format-money";
 
-export type ClientPortalPreviewEvent = Pick<
-  EventFile,
-  "children" | "couples" | "date" | "room" | "status" | "time" | "title"
->;
+type PortalResponse = {
+  portal: ClientPortalEvent;
+  paymentUrl: string | null;
+};
 
 function PortalOptionCard({
-  title,
-  price,
-  selected = false,
-  highlight = false
+  option,
+  group,
+  type,
+  disabled,
+  onSelect
 }: {
-  title: string;
-  price?: string;
-  selected?: boolean;
-  highlight?: boolean;
+  option: ClientPortalOption;
+  group: string;
+  type: "radio" | "checkbox";
+  disabled: boolean;
+  onSelect: (checked: boolean) => void;
 }) {
   return (
     <label className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div
-        className={`flex h-20 items-center justify-center rounded-lg border border-[#d8dde5] text-center text-xs font-black uppercase tracking-[0.08em] text-[#516174] ${highlight ? "bg-[#fff2b8]" : "bg-white"}`}
-      >
-        {title}
+      <div className="flex h-20 items-center justify-center rounded-lg border border-[#d8dde5] bg-white px-2 text-center text-xs font-black uppercase tracking-[0.08em] text-[#516174]">
+        {option.name}
       </div>
       <div className="mt-3 flex items-start gap-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516174]">
         <input
+          checked={option.selected}
           className="mt-0.5 h-3.5 w-3.5"
-          type={selected ? "radio" : "checkbox"}
-          defaultChecked={selected}
-          name={selected ? "menu-package" : "menu-item"}
+          disabled={disabled}
+          name={group}
+          onChange={(changeEvent) => onSelect(changeEvent.target.checked)}
+          type={type}
         />
         <span>
-          {title}
-          {price ? (
-            <span className="ml-0.5 text-[#17202a]">{price}</span>
+          {option.name}
+          {option.priceCents !== null ? (
+            <span className="ml-1 text-[#17202a]">
+              {option.priceCents === 0
+                ? "Included"
+                : formatMoney(option.priceCents)}
+            </span>
+          ) : null}
+          {option.description ? (
+            <span className="mt-1 block text-[10px] font-semibold normal-case tracking-normal text-[#6a7483]">
+              {option.description}
+            </span>
           ) : null}
         </span>
       </div>
@@ -54,73 +70,160 @@ function PortalOptionCard({
   );
 }
 
-function LayoutPreview() {
-  const gridStyle = {
-    backgroundImage:
-      "linear-gradient(#d8dde5 1px, transparent 1px), linear-gradient(90deg, #d8dde5 1px, transparent 1px)",
-    backgroundSize: "22px 22px"
-  };
+function OptionSection({
+  title,
+  badge,
+  options,
+  group,
+  type,
+  disabled,
+  onSelect
+}: {
+  title: string;
+  badge?: string;
+  options: ClientPortalOption[];
+  group: string;
+  type: "radio" | "checkbox";
+  disabled: boolean;
+  onSelect: (option: ClientPortalOption, checked: boolean) => void;
+}) {
+  if (options.length === 0) return null;
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white p-3 sm:p-4">
-      <h2 className="text-sm font-black text-[#17202a]">Layout preview</h2>
-      <div
-        className="mt-3 min-w-0 rounded-lg border border-[#d8dde5] p-2 sm:p-8"
-        style={gridStyle}
-      >
-        <div className="mx-auto grid min-w-0 max-w-96 grid-cols-4 gap-1 text-[9px] font-black sm:gap-0 sm:text-xs">
-          {[
-            "Table 1",
-            "Table 2",
-            "Table 5",
-            "Table 6",
-            "Table 3",
-            "Table 4",
-            "Table 7",
-            "Table 8"
-          ].map((table) => (
-            <div
-              key={table}
-              className="flex h-11 items-center justify-center rounded-full border border-[#17202a] bg-white"
-            >
-              {table}
-            </div>
-          ))}
-        </div>
-        <div className="mx-auto my-2 h-2 max-w-100 rounded-full bg-[#17202a] text-center text-[10px] font-black leading-2 text-white">
-          Mechitza
-        </div>
-        <div className="mx-auto mt-8 grid min-w-0 max-w-lg grid-cols-3 gap-2 text-[9px] font-black sm:mt-10 sm:gap-8 sm:text-xs">
-          {["Buffet", "Head table", "Drinks"].map((label) => (
-            <div
-              key={label}
-              className="flex h-11 items-center justify-center rounded-lg border border-[#17202a] bg-white"
-            >
-              {label}
-            </div>
-          ))}
-        </div>
+    <section className="rounded-lg border border-[#d8dde5] p-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-black">{title}</h2>
+        {badge ? <Badge tone="green">{badge}</Badge> : null}
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {options.map((option) => (
+          <PortalOptionCard
+            disabled={disabled}
+            group={group}
+            key={option.id}
+            onSelect={(checked) => onSelect(option, checked)}
+            option={option}
+            type={type}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
+function GuestCount({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
+      <strong className="text-[11px] font-black uppercase tracking-[0.08em] text-[#516174]">
+        {label}
+      </strong>
+      <p className="mt-1 text-sm font-medium text-[#17202a]">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * The client-facing portal body, shared by the public page at
+ * /client/[eventId] and the staff preview in Event Manager.
+ *
+ * Everything rendered here comes from the organization's own records. It used
+ * to hardcode menu, linen and add-on prices plus a fixed estimated total, which
+ * meant a venue's real customers were shown another venue's invented pricing.
+ *
+ * `interactive` is off by default so the staff preview stays read-only.
+ */
 export function ClientPortalPreviewContent({
-  event,
-  paymentUrl
+  portal,
+  paymentUrl,
+  interactive = false
 }: {
-  event: ClientPortalPreviewEvent;
-  paymentUrl?: string;
+  portal: ClientPortalEvent;
+  paymentUrl?: string | null;
+  interactive?: boolean;
 }) {
-  const router = useRouter();
+  const [packages, setPackages] = useState(portal.packages);
+  const [menuItems, setMenuItems] = useState(portal.menuItems);
+  const [tablecloths, setTablecloths] = useState(portal.tablecloths);
+  const [addOns, setAddOns] = useState(portal.addOns);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+
+  // Staff confirmation closes the menu; the kitchen has already committed.
+  const locked = !interactive || portal.menuConfirmed;
+  const hasOptions =
+    packages.length > 0 ||
+    menuItems.length > 0 ||
+    tablecloths.length > 0 ||
+    addOns.length > 0;
+
+  const selectSingle = (
+    options: ClientPortalOption[],
+    option: ClientPortalOption,
+    checked: boolean
+  ) =>
+    options.map((candidate) => ({
+      ...candidate,
+      selected: checked && candidate.id === option.id
+    }));
+
+  const selectMany = (
+    options: ClientPortalOption[],
+    option: ClientPortalOption,
+    checked: boolean
+  ) =>
+    options.map((candidate) =>
+      candidate.id === option.id
+        ? { ...candidate, selected: checked }
+        : candidate
+    );
+
+  const selectedId = (options: ClientPortalOption[]) =>
+    options.find((option) => option.selected)?.id ?? null;
+  const selectedIds = (options: ClientPortalOption[]) =>
+    options.filter((option) => option.selected).map((option) => option.id);
+
+  const saveSelections = async () => {
+    setIsSaving(true);
+    setSaveMessage("");
+
+    try {
+      const response = await fetch(
+        `/api/client-portal/${portal.id}/selections`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            packageId: selectedId(packages),
+            tableclothId: selectedId(tablecloths),
+            menuItemIds: selectedIds(menuItems),
+            addOnIds: selectedIds(addOns)
+          })
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      setSaveMessage(
+        response.ok
+          ? "Your selections were saved."
+          : (payload?.error ?? "Could not save your selections.")
+      );
+    } catch {
+      setSaveMessage("Could not save your selections.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
       <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
         <h1 className="break-words text-xl font-black sm:text-2xl">
-          {event.title}
+          {portal.title}
         </h1>
         <p className="mt-2 text-sm font-semibold">
-          {event.date} - {event.time} - {event.room}
+          {portal.date} - {portal.time} - {portal.room}
         </p>
       </header>
       <div className="min-w-0 space-y-3 p-3 sm:p-4">
@@ -129,72 +232,110 @@ export function ClientPortalPreviewContent({
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
               <strong>Status</strong>
-              <p className="mt-1 text-sm text-[#6a7483]">{event.status}</p>
+              <p className="mt-1 text-sm text-[#6a7483]">{portal.status}</p>
             </div>
             <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
               <strong>Hall</strong>
-              <p className="mt-1 text-sm text-[#6a7483]">{event.room}</p>
+              <p className="mt-1 text-sm text-[#6a7483]">{portal.room}</p>
             </div>
           </div>
         </section>
 
         <section className="rounded-lg border border-[#d8dde5] p-4">
           <h2 className="text-sm font-black">Guest count</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {[
-              ["Couples", event.couples],
-              ["Children", event.children],
-              ["Extra guests", "0"]
-            ].map(([label, value]) => (
-              <Field key={label} label={label}>
-                <input
-                  className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
-                  defaultValue={value}
-                  name={`dining-${label.toLowerCase().replaceAll(" ", "-")}`}
-                />
-              </Field>
-            ))}
+          <p className="mt-1 text-xs text-[#6a7483]">
+            Contact the venue to change your guest count.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <GuestCount label="Couples" value={portal.couples} />
+            <GuestCount label="Children" value={portal.children} />
           </div>
         </section>
 
-        <section className="rounded-lg border border-[#d8dde5] p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-black">Menu selection</h2>
-            <Badge tone="green">client selectable</Badge>
-          </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <PortalOptionCard
-              title="Standard dinner"
-              price="Included"
-              selected
+        {portal.menuConfirmed ? (
+          <p
+            className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 text-sm font-semibold text-[#516174]"
+            role="status"
+          >
+            Your menu has been confirmed by the venue. Contact them directly to
+            make further changes.
+          </p>
+        ) : null}
+
+        {hasOptions ? (
+          <>
+            <OptionSection
+              badge={locked ? undefined : "client selectable"}
+              disabled={locked}
+              group="menu-package"
+              onSelect={(option, checked) =>
+                setPackages((current) => selectSingle(current, option, checked))
+              }
+              options={packages}
+              title="Package"
+              type="radio"
             />
-            <PortalOptionCard title="Premium dinner" price="$1,800.00" />
-            <PortalOptionCard title="Gold dinner" price="$3,500.00" />
-            <PortalOptionCard title="Dairy buffet" price="$1,200.00" />
-          </div>
-        </section>
+            <OptionSection
+              badge={locked ? undefined : "client selectable"}
+              disabled={locked}
+              group="menu-item"
+              onSelect={(option, checked) =>
+                setMenuItems((current) => selectMany(current, option, checked))
+              }
+              options={menuItems}
+              title="Menu selection"
+              type="checkbox"
+            />
+            <OptionSection
+              disabled={locked}
+              group="tablecloth-option"
+              onSelect={(option, checked) =>
+                setTablecloths((current) =>
+                  selectSingle(current, option, checked)
+                )
+              }
+              options={tablecloths}
+              title="Tablecloth options"
+              type="radio"
+            />
+            <OptionSection
+              disabled={locked}
+              group="add-on"
+              onSelect={(option, checked) =>
+                setAddOns((current) => selectMany(current, option, checked))
+              }
+              options={addOns}
+              title="Add-ons"
+              type="checkbox"
+            />
+          </>
+        ) : (
+          <p className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 text-sm text-[#6a7483]">
+            Your venue has not published selectable options yet.
+          </p>
+        )}
 
-        <section className="rounded-lg border border-[#d8dde5] p-4">
-          <h2 className="text-sm font-black">Tablecloth options</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <PortalOptionCard title="Ivory linen" price="$300.00" />
-            <PortalOptionCard title="White linen" price="Included" />
-            <PortalOptionCard title="Gold runner" price="$450.00" highlight />
-            <PortalOptionCard title="Velvet accent" price="$650.00" />
+        {interactive && !portal.menuConfirmed && hasOptions ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition-colors hover:bg-[#15344f] disabled:opacity-60"
+              disabled={isSaving}
+              onClick={saveSelections}
+              type="button"
+            >
+              <LineIcon name="document" />
+              {isSaving ? "Saving..." : "Save my selections"}
+            </button>
+            {saveMessage ? (
+              <span
+                className="text-xs font-semibold text-[#516174]"
+                role="status"
+              >
+                {saveMessage}
+              </span>
+            ) : null}
           </div>
-        </section>
-
-        <section className="rounded-lg border border-[#d8dde5] p-4">
-          <h2 className="text-sm font-black">Add-ons</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            <PortalOptionCard title="Coffee station" price="$350.00" />
-            <PortalOptionCard title="Sweet table" price="$900.00" />
-            <PortalOptionCard title="Extra buffet" price="$750.00" />
-            <PortalOptionCard title="Late night snacks" price="$600.00" />
-          </div>
-        </section>
-
-        <LayoutPreview />
+        ) : null}
 
         <section className="rounded-lg border border-[#d8dde5] p-4">
           <h2 className="text-sm font-black">Payment</h2>
@@ -209,21 +350,34 @@ export function ClientPortalPreviewContent({
               Pay balance
             </a>
           ) : (
-            <button
-              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
-              type="button"
-              onClick={() => router.push("/dashboard/billing")}
-            >
-              <LineIcon name="document" />
-              Pay balance
-            </button>
+            // No global fallback: an unconfigured organization shows no button
+            // rather than sending the client to another venue's merchant.
+            <p className="mt-3 text-sm text-[#6a7483]">
+              Online payment is not set up for this event. Please contact the
+              venue to arrange payment.
+            </p>
           )}
         </section>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
-          <span className="text-sm text-[#17202a]">Estimated client total</span>
-          <strong className="text-xl text-[#17202a]">$55,200.00</strong>
-        </div>
+        {portal.totals ? (
+          <div className="space-y-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-[#17202a]">Invoice total</span>
+              <strong className="text-lg text-[#17202a]">
+                {formatMoney(portal.totals.totalCents, portal.totals.currency)}
+              </strong>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm text-[#17202a]">Balance due</span>
+              <strong className="text-xl text-[#17202a]">
+                {formatMoney(
+                  portal.totals.balanceDueCents,
+                  portal.totals.currency
+                )}
+              </strong>
+            </div>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -232,6 +386,10 @@ export function ClientPortalPreviewContent({
 export function ClientPortalContent({ event }: { event: EventFile }) {
   const [portalUrl, setPortalUrl] = useState("");
   const [copyMessage, setCopyMessage] = useState("");
+  const portalQuery = useAuthenticatedQuery<PortalResponse>(
+    `/api/client-portal/${event.id}`
+  );
+
   return (
     <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[340px_minmax(0,1fr)]">
       <aside className="min-w-0 space-y-3">
@@ -313,7 +471,18 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
         </section>
       </aside>
 
-      <ClientPortalPreviewContent event={event} />
+      {portalQuery.data ? (
+        <ClientPortalPreviewContent
+          paymentUrl={portalQuery.data.paymentUrl}
+          portal={portalQuery.data.portal}
+        />
+      ) : (
+        <AsyncState
+          error={portalQuery.error}
+          isLoading={portalQuery.isLoading}
+          onRetry={portalQuery.refetch}
+        />
+      )}
     </div>
   );
 }

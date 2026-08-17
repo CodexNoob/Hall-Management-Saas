@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ClientPortalPreviewContent } from "@/features/events/components/event-client-portal-content";
-import { getCardknoxPaymentLink } from "@/lib/payments/cardknox";
-import { prisma } from "@/lib/prisma";
+import { getClientPortalEvent } from "@/features/events/server/client-portal-data";
+import { getOrganizationPaymentLink } from "@/lib/payments/payment-settings";
 
 export const metadata: Metadata = {
   title: "Client event portal | Event Core",
@@ -25,56 +25,21 @@ export default async function ClientEventPortalPage({
     notFound();
   }
 
-  const event = await prisma.event.findFirst({
-    where: { id: eventId, deleted: false },
-    select: {
-      clientName: true,
-      eventType: true,
-      eventDate: true,
-      startsAt: true,
-      eventStatus: true,
-      couplesCount: true,
-      boysCount: true,
-      girlsCount: true,
-      kidsCount: true,
-      hall: { select: { name: true } }
-    }
-  });
+  const lookup = await getClientPortalEvent(eventId);
 
-  if (!event) notFound();
+  if (!lookup) notFound();
 
-  const title = `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`;
-  const date = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC"
-  }).format(event.eventDate);
-  const time = event.startsAt
-    ? new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "2-digit"
-      }).format(event.startsAt)
-    : "Time not set";
+  // Per organization. A global link here previously sent every venue's clients
+  // to the same merchant account.
+  const paymentUrl = await getOrganizationPaymentLink(lookup.organizationId);
 
   return (
     <main className="min-h-screen bg-[#eef4fa] px-3 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <ClientPortalPreviewContent
-          event={{
-            title,
-            date,
-            time,
-            room: event.hall.name,
-            status: event.eventStatus.toLowerCase().includes("confirm")
-              ? "Confirmed"
-              : "Hold",
-            couples: String(event.couplesCount),
-            children: String(
-              event.kidsCount + event.boysCount + event.girlsCount
-            )
-          }}
-          paymentUrl={getCardknoxPaymentLink()}
+          interactive
+          paymentUrl={paymentUrl}
+          portal={lookup.portal}
         />
       </div>
     </main>

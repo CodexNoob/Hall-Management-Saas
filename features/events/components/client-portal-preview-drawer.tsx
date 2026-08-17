@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { AsyncState } from "@/components/ui/async-state";
 import { ClientPortalPreviewContent } from "@/features/events/components/event-client-portal-content";
 import { type EventFile } from "@/features/events/components/event-manager-shared";
+import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import type { ClientPortalEvent } from "@/features/events/types/client-portal";
 import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
 import { copyText } from "@/lib/ui/copy-text";
 
@@ -35,6 +38,12 @@ export function ClientPortalPreviewDrawer({
 }: ClientPortalPreviewDrawerProps) {
   const titleId = useId();
   const [copyLabel, setCopyLabel] = useState("Copy link");
+  // Same payload the public page renders, so the preview matches what the
+  // client actually sees. Only fetched while the drawer is open.
+  const portalQuery = useAuthenticatedQuery<{
+    portal: ClientPortalEvent;
+    paymentUrl: string | null;
+  }>(`/api/client-portal/${event.id}`, open);
 
   useEffect(() => {
     if (!open) return;
@@ -100,7 +109,18 @@ export function ClientPortalPreviewDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <ClientPortalPreviewContent event={event} />
+          {portalQuery.data ? (
+            <ClientPortalPreviewContent
+              paymentUrl={portalQuery.data.paymentUrl}
+              portal={portalQuery.data.portal}
+            />
+          ) : (
+            <AsyncState
+              error={portalQuery.error}
+              isLoading={portalQuery.isLoading}
+              onRetry={portalQuery.refetch}
+            />
+          )}
         </div>
 
         <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-white px-3 py-3">
