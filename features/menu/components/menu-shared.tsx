@@ -97,60 +97,39 @@ export type MenuLibraryItem = {
   pictureUrl: string | null;
 };
 
-export const buffetSections = [
+// Flat, not grouped by course: the buffet tab lists its items directly, so
+// there is no section to belong to.
+export const buffetItems = [
   {
-    title: "Appetizers",
-    items: [
-      {
-        name: "Challah rolls",
-        category: "Buffet",
-        rule: "1 roll per 1 people",
-        price: "$0.00"
-      },
-      {
-        name: "Dips platter",
-        category: "Buffet",
-        rule: "1 set per 1 tables",
-        price: "$0.00"
-      }
-    ]
-  },
-  { title: "Soups", items: [] },
-  {
-    title: "Mains",
-    items: [
-      {
-        name: "Grilled chicken",
-        category: "Buffet",
-        rule: "1 tray per 30 people",
-        price: "$0.00"
-      }
-    ]
+    name: "Challah rolls",
+    category: "Buffet",
+    rule: "1 roll per 1 people",
+    price: "$0.00"
   },
   {
-    title: "Sides",
-    items: [
-      {
-        name: "Potato kugel",
-        category: "Buffet",
-        rule: "1 tray per 30 people",
-        price: "$0.00"
-      }
-    ]
+    name: "Dips platter",
+    category: "Buffet",
+    rule: "1 set per 1 tables",
+    price: "$0.00"
   },
   {
-    title: "Drinks",
-    items: [
-      {
-        name: "Soda package",
-        category: "Buffet",
-        rule: "1 bottle per 8 people",
-        price: "$0.00"
-      }
-    ]
+    name: "Grilled chicken",
+    category: "Buffet",
+    rule: "1 tray per 30 people",
+    price: "$0.00"
   },
-  { title: "Desserts", items: [] },
-  { title: "Other", items: [] }
+  {
+    name: "Potato kugel",
+    category: "Buffet",
+    rule: "1 tray per 30 people",
+    price: "$0.00"
+  },
+  {
+    name: "Soda package",
+    category: "Buffet",
+    rule: "1 bottle per 8 people",
+    price: "$0.00"
+  }
 ];
 
 export const platedSections = [

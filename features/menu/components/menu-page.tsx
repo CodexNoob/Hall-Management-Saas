@@ -31,12 +31,13 @@ import {
   AddItemCard,
   AddOnCard,
   MenuItemCard,
+  MenuRuleCard,
   MenuRuleSection
 } from "@/features/menu/components/menu-cards";
 import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
 import {
   LineIcon,
-  buffetSections,
+  buffetItems,
   platedSections,
   tabs,
   type MenuLibraryItem,
@@ -205,9 +206,8 @@ export function MenuPage() {
       )
     : [];
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
-  const ruleSections =
-    activeTab === "Plated Menu" ? platedSections : buffetSections;
-  const ruleMode = activeTab === "Plated Menu" ? "plated" : "buffet";
+  const isPlatedMenu = activeTab === "Plated Menu";
+  const ruleMode = isPlatedMenu ? "plated" : "buffet";
 
   const savePackage = async (values: NewPackageFormValues) => {
     const regularPrice = readPrice(values.basePrice, "Base price");
@@ -570,15 +570,35 @@ export function MenuPage() {
                 </button>
               </header>
 
-              <div className="grid items-start gap-3 p-3 md:grid-cols-2 2xl:grid-cols-4">
-                {ruleSections.map((section) => (
-                  <MenuRuleSection
-                    key={`${activeTab}-${section.title}`}
-                    title={section.title}
-                    items={section.items}
-                  />
-                ))}
-              </div>
+              {isPlatedMenu ? (
+                <div className="grid items-start gap-3 p-3 md:grid-cols-2 2xl:grid-cols-4">
+                  {platedSections.map((section) => (
+                    <MenuRuleSection
+                      key={`${activeTab}-${section.title}`}
+                      title={section.title}
+                      items={section.items}
+                    />
+                  ))}
+                </div>
+              ) : buffetItems.length ? (
+                // Ungrouped: the buffet has no courses, so the cards sit in one
+                // wrapping row rather than under section headers.
+                <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
+                  {buffetItems.map((item) => (
+                    <MenuRuleCard
+                      key={item.name}
+                      category={item.category}
+                      name={item.name}
+                      rule={item.rule}
+                      price={item.price}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="px-3 py-4 text-xs text-[#516174]">
+                  No buffet items yet.
+                </p>
+              )}
             </div>
           </section>
         ) : activeTab === "Add-ons" ? (
