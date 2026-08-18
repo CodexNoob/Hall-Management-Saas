@@ -131,14 +131,18 @@ CREATE TABLE "event_menus" (
     CONSTRAINT "event_menus_pkey" PRIMARY KEY ("id")
 );
 
+-- A line is one thing the event is getting: a dish, or an add-on. They live in
+-- separate catalogs - an add-on carries a price, a dish carries production
+-- rules - but on an event they are the same kind of thing, and one table is
+-- what gives add-ons the ordering, the confirmation lock and the delete
+-- protection they would not get sitting in `events.add_on_ids`.
 CREATE TABLE "event_menu_lines" (
     "id" UUID NOT NULL,
     "organization_id" UUID NOT NULL,
     "event_menu_id" UUID NOT NULL,
-    "menu_item_id" UUID NOT NULL,
+    "menu_item_id" UUID,
+    "add_on_id" UUID,
     "item_name" TEXT,
-    "category_id" UUID,
-    "category_name" TEXT,
     "service_style" TEXT,
     "notes" TEXT,
     "sort_order" INTEGER NOT NULL DEFAULT 0,
@@ -153,12 +157,17 @@ CREATE TABLE "event_menu_lines" (
 CREATE UNIQUE INDEX "event_menus_event_id_meal_key" ON "event_menus"("event_id", "meal");
 CREATE INDEX "event_menus_organization_id_status_idx" ON "event_menus"("organization_id", "status");
 
+-- A dish appears once per menu, carrying the one style it is served in. NULLs
+-- are distinct in a unique index, so add-on lines do not collide under the
+-- first of these and dish lines do not collide under the second.
 CREATE UNIQUE INDEX "event_menu_lines_event_menu_id_menu_item_id_key" ON "event_menu_lines"("event_menu_id", "menu_item_id");
+CREATE UNIQUE INDEX "event_menu_lines_event_menu_id_add_on_id_key" ON "event_menu_lines"("event_menu_id", "add_on_id");
 CREATE INDEX "event_menu_lines_organization_id_event_menu_id_sort_order_idx" ON "event_menu_lines"("organization_id", "event_menu_id", "sort_order");
--- Carries the delete guard. Without it, refusing to delete a dish still on a
+-- Carries the delete guard. Without it, refusing to delete something still on a
 -- menu is a sequential scan of every event in the org - which is what
 -- /api/menu/items/[itemId] does today against `menu_item_ids`.
 CREATE INDEX "event_menu_lines_menu_item_id_idx" ON "event_menu_lines"("menu_item_id");
+CREATE INDEX "event_menu_lines_add_on_id_idx" ON "event_menu_lines"("add_on_id");
 
 -- One header per event that has a menu today. Events whose array is empty and
 -- whose menu was never confirmed get no row; the API creates one on first save.
@@ -183,6 +192,7 @@ SELECT
     CURRENT_TIMESTAMP
 FROM "events" AS event
 WHERE array_length(event."menu_item_ids", 1) > 0
+   OR array_length(event."add_on_ids", 1) > 0
    OR (
         jsonb_typeof(event."workspace_data") = 'object'
     AND event."workspace_data"->>'menuConfirmed' = 'true'
@@ -199,13 +209,25 @@ WHERE array_length(event."menu_item_ids", 1) > 0
 --
 -- `menu_item_ids` is TEXT[], so the values are cast. The regex guard is there
 -- because a cast that fails takes the whole migration with it.
-INSERT INTO "event_menu_lines" ("id", "organization_id", "event_menu_id", "menu_item_id", "category_id", "sort_order", "source", "created_at", "updated_at")
+INSERT INTO "event_menu_lines" ("id", "organization_id", "event_menu_id", "menu_item_id", "service_style", "sort_order", "source", "created_at", "updated_at")
 SELECT
     gen_random_uuid(),
     menu."organization_id",
     menu."id",
     item."id",
-    item."category_id",
+    -- Only when the dish is served exactly one way. A dish carrying both a
+    -- Buffet and a Plated rule genuinely has no recorded answer for this event -
+    -- the array it came from could not hold one - and guessing would put the
+    -- wrong rule in front of the kitchen. Staff pick it on the menu tab.
+    -- `min` rather than a bare column so the HAVING is legal without a GROUP BY:
+    -- with exactly one distinct style it is that style, and with none or two the
+    -- HAVING drops the row and the subquery yields NULL.
+    (
+        SELECT min(service."service_style")
+        FROM "menu_item_services" AS service
+        WHERE service."menu_item_id" = item."id"
+        HAVING count(DISTINCT service."service_style") = 1
+    ),
     (selected."ordinality" - 1)::INTEGER,
     'Manual',
     CURRENT_TIMESTAMP,
@@ -222,19 +244,39 @@ WHERE selected."menu_item_id" ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[
 -- the menu stored B twice. The unique below is what stops that recurring.
 ON CONFLICT ("event_menu_id", "menu_item_id") DO NOTHING;
 
+-- Add-ons the client portal had already put on an event become lines too, so
+-- the menu tab shows everything the event is getting rather than dishes only.
+-- They sort after the dishes, which is how they read on a menu.
+INSERT INTO "event_menu_lines" ("id", "organization_id", "event_menu_id", "add_on_id", "sort_order", "source", "created_at", "updated_at")
+SELECT
+    gen_random_uuid(),
+    menu."organization_id",
+    menu."id",
+    "add_on"."id",
+    coalesce(array_length(event."menu_item_ids", 1), 0) + (selected."ordinality" - 1)::INTEGER,
+    'ClientPortal',
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM "event_menus" AS menu
+JOIN "events" AS event ON event."id" = menu."event_id"
+CROSS JOIN LATERAL unnest(event."add_on_ids") WITH ORDINALITY AS selected("add_on_id", "ordinality")
+JOIN "add_ons" AS "add_on"
+    ON "add_on"."id" = selected."add_on_id"::UUID
+   AND "add_on"."organization_id" = menu."organization_id"
+WHERE selected."add_on_id" ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+ON CONFLICT ("event_menu_id", "add_on_id") DO NOTHING;
+
 -- A confirmed menu is frozen, so its lines carry their own copy of the names.
 -- A draft deliberately does not: it should follow a library rename right up
 -- until somebody signs it off.
 UPDATE "event_menu_lines" AS line
-SET "item_name" = item."name",
-    "category_name" = (
-        SELECT category."name" FROM "menu_categories" AS category
-        WHERE category."id" = line."category_id"
-    )
-FROM "event_menus" AS menu, "menu_items" AS item
+SET "item_name" = coalesce(
+    (SELECT item."name" FROM "menu_items" AS item WHERE item."id" = line."menu_item_id"),
+    (SELECT "add_on"."name" FROM "add_ons" AS "add_on" WHERE "add_on"."id" = line."add_on_id")
+)
+FROM "event_menus" AS menu
 WHERE menu."id" = line."event_menu_id"
-  AND menu."status" = 'Confirmed'
-  AND item."id" = line."menu_item_id";
+  AND menu."status" = 'Confirmed';
 
 -- AddForeignKey
 ALTER TABLE "event_menus" ADD CONSTRAINT "event_menus_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organizations"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -247,7 +289,7 @@ ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_event_menu_id_fk
 -- event still serves" from an app-level count into something the database
 -- guarantees, and it cannot be bypassed by a route that forgot to check.
 ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_menu_item_id_fkey" FOREIGN KEY ("menu_item_id") REFERENCES "menu_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "menu_categories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_add_on_id_fkey" FOREIGN KEY ("add_on_id") REFERENCES "add_ons"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_added_by_fkey" FOREIGN KEY ("added_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Closed value sets as CHECK rather than a native enum, matching
@@ -259,6 +301,13 @@ ALTER TABLE "event_menus" ADD CONSTRAINT "event_menus_service_style_check" CHECK
 
 ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_source_check" CHECK ("source" IN ('Manual', 'Package', 'ClientPortal'));
 ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_service_style_check" CHECK ("service_style" IS NULL OR "service_style" IN ('Buffet', 'Plated'));
+
+-- A line points at a dish or at an add-on, never both and never neither. Two
+-- nullable columns without this would let a row mean nothing at all, and every
+-- reader would have to defend against it.
+ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_target_check" CHECK (num_nonnulls("menu_item_id", "add_on_id") = 1);
+-- An add-on is not served buffet or plated; it is simply on the event.
+ALTER TABLE "event_menu_lines" ADD CONSTRAINT "event_menu_lines_add_on_style_check" CHECK ("add_on_id" IS NULL OR "service_style" IS NULL);
 
 -- Tenant isolation, written per table the way supabase-rls.sql does it. Both
 -- tables are also added to the loop in that file so a re-run keeps them.

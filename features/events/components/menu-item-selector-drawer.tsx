@@ -3,41 +3,61 @@
 import { useEffect, useId, useState } from "react";
 
 /**
- * A course, as the organization defines it.
+ * The three things an event's menu is made of.
  *
- * This used to be a hardcoded list of seven strings, and a dish was filed under
- * one by matching its category text - `value.includes("appetizer")` - so a
- * venue that files things as "Fish Appetizers" got them silently swallowed into
- * Appetizer, and anything unrecognised fell into "More". The tabs come from
- * `menu_categories` now, so they are whatever the venue actually uses.
+ * This used to be seven hardcoded courses - Appetizer, Soup, Main and so on -
+ * that a dish was filed under by matching its category text. The menu library
+ * does not organise by course any more; it organises by how a dish is served,
+ * with add-ons kept separate. The event menu now reads the same way.
  */
-export type MenuCategoryOption = {
-  id: string;
-  name: string;
-};
+export const MENU_SECTIONS = [
+  { id: "Buffet", label: "Buffet" },
+  { id: "Plated", label: "Plated" },
+  { id: "AddOn", label: "Add-ons" }
+] as const;
+
+export type MenuSection = (typeof MENU_SECTIONS)[number]["id"];
 
 export type MenuSelectorItem = {
+  /// The menu item id for a dish, the add-on id for an add-on.
   id: string;
+  kind: "Dish" | "AddOn";
   name: string;
-  categoryId: string | null;
-  categoryName: string | null;
+  /// Which styles the dish has a counting rule for. Empty for an add-on.
+  styles: string[];
+  price: number | null;
 };
 
+export function sectionLabel(section: MenuSection) {
+  return MENU_SECTIONS.find((entry) => entry.id === section)?.label ?? section;
+}
+
 /**
- * The tab for dishes that have not been filed under any course. Only offered
- * when there is at least one, so a tidy library never sees it.
+ * A dish belongs to a service tab iff it has a rule for that style - the same
+ * test the menu library's Buffet and Plated tabs use. A dish served both ways
+ * appears under both without being stored twice.
  */
-export const UNFILED_CATEGORY_ID = null;
-const UNFILED_LABEL = "Unfiled";
+export function itemsForSection(
+  items: MenuSelectorItem[],
+  section: MenuSection
+) {
+  return section === "AddOn"
+    ? items.filter((item) => item.kind === "AddOn")
+    : items.filter(
+        (item) => item.kind === "Dish" && item.styles.includes(section)
+      );
+}
 
 type MenuItemSelectorDrawerProps = {
-  categories: MenuCategoryOption[];
-  initialCategoryId: string | null;
+  initialSection: MenuSection;
   items: MenuSelectorItem[];
+  /// Already on the menu, so the drawer can show it as added rather than
+  /// letting someone add it twice.
+  selectedIds: Set<string>;
   open: boolean;
-  onClear: (categoryId: string | null) => void;
+  onClear: (section: MenuSection) => void;
   onClose: () => void;
-  onSelect: (item: MenuSelectorItem) => void;
+  onSelect: (item: MenuSelectorItem, section: MenuSection) => void;
 };
 
 function MenuIcon() {
@@ -56,24 +76,33 @@ function MenuIcon() {
   );
 }
 
+function formatPrice(price: number | null) {
+  if (price === null) return null;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2
+  }).format(price);
+}
+
 export function MenuItemSelectorDrawer({
-  categories,
-  initialCategoryId,
+  initialSection,
   items,
+  selectedIds,
   open,
   onClear,
   onClose,
   onSelect
 }: MenuItemSelectorDrawerProps) {
   const titleId = useId();
-  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
-    initialCategoryId
-  );
+  const [activeSection, setActiveSection] =
+    useState<MenuSection>(initialSection);
 
   useEffect(() => {
     if (!open) return;
 
-    setActiveCategoryId(initialCategoryId);
+    setActiveSection(initialSection);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -88,20 +117,12 @@ export function MenuItemSelectorDrawer({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [initialCategoryId, open, onClose]);
+  }, [initialSection, open, onClose]);
 
   if (!open) return null;
 
-  const hasUnfiled = items.some((item) => item.categoryId === null);
-  const tabs: Array<{ id: string | null; name: string }> = hasUnfiled
-    ? [...categories, { id: UNFILED_CATEGORY_ID, name: UNFILED_LABEL }]
-    : categories;
-
-  const activeTab = tabs.find((tab) => tab.id === activeCategoryId) ?? tabs[0];
-  const activeLabel = activeTab?.name ?? UNFILED_LABEL;
-  const visibleItems = items.filter(
-    (item) => item.categoryId === (activeTab?.id ?? null)
-  );
+  const visibleItems = itemsForSection(items, activeSection);
+  const isAddOnSection = activeSection === "AddOn";
 
   return (
     <div
@@ -123,7 +144,7 @@ export function MenuItemSelectorDrawer({
               className="min-w-0 truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Select {activeLabel}
+              Add to {sectionLabel(activeSection)}
             </h2>
           </div>
 
@@ -138,52 +159,60 @@ export function MenuItemSelectorDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <nav aria-label="Menu courses" className="flex flex-wrap gap-2">
-            {tabs.map((tab) => (
+          <nav aria-label="Menu sections" className="flex flex-wrap gap-2">
+            {MENU_SECTIONS.map((section) => (
               <button
-                aria-pressed={activeTab?.id === tab.id}
+                aria-pressed={activeSection === section.id}
                 className={`h-8 rounded-lg border px-2.5 text-[11px] font-black transition sm:px-3 sm:text-xs ${
-                  activeTab?.id === tab.id
+                  activeSection === section.id
                     ? "border-[#a9c6df] bg-[#eef4fa] text-[#173b58]"
                     : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
                 }`}
-                key={tab.id ?? "unfiled"}
-                onClick={() => setActiveCategoryId(tab.id)}
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
                 type="button"
               >
-                {tab.name}
+                {section.label}
               </button>
             ))}
           </nav>
 
-          {tabs.length === 0 ? (
-            <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
-              No courses have been set up yet. Add a category to a menu item in
-              the menu library first.
-            </p>
-          ) : null}
-
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
-            {visibleItems.map((item) => (
-              <button
-                className="dashboard-hover-card min-h-21 rounded-xl border border-[#d8dde5] bg-white p-3 text-left hover:bg-[#fbfcfd]"
-                key={item.id}
-                onClick={() => onSelect(item)}
-                type="button"
-              >
-                <strong className="block wrap-break-word text-[13px] leading-5 text-[#17202a] sm:text-sm">
-                  {item.name}
-                </strong>
-                <span className="mt-1 block text-xs text-[#6a7483]">
-                  {item.categoryName ?? UNFILED_LABEL}
-                </span>
-              </button>
-            ))}
+            {visibleItems.map((item) => {
+              const isAdded = selectedIds.has(item.id);
+              const price = formatPrice(item.price);
+
+              return (
+                <button
+                  className="dashboard-hover-card min-h-21 rounded-xl border border-[#d8dde5] bg-white p-3 text-left hover:bg-[#fbfcfd] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
+                  disabled={isAdded}
+                  key={item.id}
+                  onClick={() => onSelect(item, activeSection)}
+                  type="button"
+                >
+                  <strong className="block wrap-break-word text-[13px] leading-5 text-[#17202a] sm:text-sm">
+                    {item.name}
+                  </strong>
+                  <span className="mt-1 block text-xs text-[#6a7483]">
+                    {isAdded
+                      ? "Already on this menu"
+                      : (price ??
+                        // A dish served both ways is being pinned to this tab's
+                        // style by the click, which is worth saying out loud.
+                        (item.styles.length > 1
+                          ? `Served ${item.styles.join(" and ").toLowerCase()}`
+                          : sectionLabel(activeSection)))}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {tabs.length > 0 && visibleItems.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
-              No {activeLabel.toLowerCase()} items are available.
+              {isAddOnSection
+                ? "No add-ons have been set up yet. Create one on the Add-ons tab of the menu library."
+                : `No items are served ${sectionLabel(activeSection).toLowerCase()} yet. Open a library item and give it a ${sectionLabel(activeSection).toLowerCase()} rule.`}
             </p>
           ) : null}
         </div>
@@ -191,10 +220,10 @@ export function MenuItemSelectorDrawer({
         <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
           <button
             className="h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] hover:bg-[#fff4f2]"
-            onClick={() => onClear(activeTab?.id ?? null)}
+            onClick={() => onClear(activeSection)}
             type="button"
           >
-            Clear
+            Clear {sectionLabel(activeSection).toLowerCase()}
           </button>
           <button
             className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"

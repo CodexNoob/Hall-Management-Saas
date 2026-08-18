@@ -13,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: { findFirst: vi.fn(), update: vi.fn() },
     menuItem: { count: vi.fn(), findMany: vi.fn() },
-    menuCategory: { findMany: vi.fn() },
+    addOn: { count: vi.fn() },
     eventMenu: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -39,7 +39,7 @@ const hallId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const otherMenuItemId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const eventMenuId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
-const categoryId = "12345678-1234-4234-8234-123456789012";
+const addOnId = "12345678-1234-4234-8234-123456789012";
 
 const actor = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -72,10 +72,9 @@ function storedMenu(overrides: Record<string, unknown> = {}) {
       {
         id: "line-1",
         menuItemId,
+        addOnId: null,
         itemName: null,
-        categoryId,
-        categoryName: null,
-        serviceStyle: null,
+        serviceStyle: "Buffet",
         notes: null,
         sortOrder: 0,
         source: "Manual",
@@ -83,9 +82,21 @@ function storedMenu(overrides: Record<string, unknown> = {}) {
           name: "Braised ribs",
           kind: "Food",
           isActive: true,
-          categoryId
+          services: [{ serviceStyle: "Buffet" }, { serviceStyle: "Plated" }]
         },
-        category: { name: "Main", sortOrder: 2 }
+        addOn: null
+      },
+      {
+        id: "line-2",
+        menuItemId: null,
+        addOnId,
+        itemName: null,
+        serviceStyle: null,
+        notes: null,
+        sortOrder: 1,
+        source: "Manual",
+        menuItem: null,
+        addOn: { name: "Viennese table", price: "850", isActive: true }
       }
     ],
     ...overrides
@@ -103,12 +114,10 @@ describe("event menu route", () => {
       workspaceData: null
     } as never);
     vi.mocked(prisma.event.update).mockResolvedValue({ id: eventId } as never);
-    vi.mocked(prisma.menuCategory.findMany).mockResolvedValue([
-      { id: categoryId, name: "Main", sortOrder: 2 }
-    ] as never);
     vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
+    vi.mocked(prisma.addOn.count).mockResolvedValue(1);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
-      { id: menuItemId, categoryId }
+      { id: menuItemId, services: [{ serviceStyle: "Buffet" }] }
     ] as never);
     vi.mocked(prisma.eventMenu.updateMany).mockResolvedValue({
       count: 1
@@ -140,7 +149,7 @@ describe("event menu route", () => {
     expect(response.status).toBe(404);
   });
 
-  it("hands back an empty draft and the course tabs before anything is saved", async () => {
+  it("hands back an empty draft before anything is saved", async () => {
     vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(null);
 
     const response = await GET(request("GET"), { params });
@@ -148,11 +157,36 @@ describe("event menu route", () => {
 
     expect(response.status).toBe(200);
     // Version 0 is what the first PUT sends, and no row is created by a read.
-    expect(payload.menu).toMatchObject({ id: null, status: "Draft", version: 0 });
+    expect(payload.menu).toMatchObject({
+      id: null,
+      status: "Draft",
+      version: 0
+    });
     expect(payload.menu.lines).toEqual([]);
-    expect(payload.categories).toEqual([
-      { id: categoryId, name: "Main", sortOrder: 2 }
-    ]);
+  });
+
+  it("presents a dish and an add-on line differently", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu() as never
+    );
+
+    const response = await GET(request("GET"), { params });
+    const payload = await response.json();
+
+    expect(payload.menu.lines[0]).toMatchObject({
+      kind: "Dish",
+      name: "Braised ribs",
+      serviceStyle: "Buffet",
+      // Both styles are reported so the tab can ask when one is not recorded.
+      availableStyles: ["Buffet", "Plated"],
+      price: null
+    });
+    expect(payload.menu.lines[1]).toMatchObject({
+      kind: "AddOn",
+      name: "Viennese table",
+      serviceStyle: null,
+      price: 850
+    });
   });
 
   it("mirrors the saved ids back onto the event", async () => {
@@ -165,23 +199,89 @@ describe("event menu route", () => {
       .mockResolvedValueOnce(storedMenu() as never);
 
     const response = await PUT(
-      request("PUT", { version: 1, lines: [{ menuItemId }] }),
+      request("PUT", {
+        version: 1,
+        lines: [
+          { menuItemId, serviceStyle: "Buffet" },
+          { addOnId }
+        ]
+      }),
       { params }
     );
 
     expect(response.status).toBe(200);
-    // The mirror is what keeps the kitchen dashboard and the event PDF working
-    // while they still read the id array.
+    // Both mirrors keep the kitchen dashboard, the event PDF and the client
+    // portal working while they still read the id arrays.
     expect(prisma.event.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ menuItemIds: [menuItemId] })
+        data: expect.objectContaining({
+          menuItemIds: [menuItemId],
+          addOnIds: [addOnId]
+        })
       })
     );
     expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({ menuItemId, sortOrder: 0, categoryId })
+        expect.objectContaining({
+          menuItemId,
+          addOnId: null,
+          serviceStyle: "Buffet",
+          sortOrder: 0
+        }),
+        // An add-on is not served in a style, so the column stays null.
+        expect.objectContaining({
+          menuItemId: null,
+          addOnId,
+          serviceStyle: null,
+          sortOrder: 1
+        })
       ]
     });
+  });
+
+  it("rejects a line that is both a dish and an add-on", async () => {
+    const response = await PUT(
+      request("PUT", { version: 1, lines: [{ menuItemId, addOnId }] }),
+      { params }
+    );
+
+    expect(response.status).toBe(400);
+    expect(prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a line that is neither a dish nor an add-on", async () => {
+    const response = await PUT(
+      request("PUT", { version: 1, lines: [{ serviceStyle: "Buffet" }] }),
+      { params }
+    );
+
+    expect(response.status).toBe(400);
+    expect(prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a service style on an add-on", async () => {
+    const response = await PUT(
+      request("PUT", {
+        version: 1,
+        lines: [{ addOnId, serviceStyle: "Buffet" }]
+      }),
+      { params }
+    );
+
+    expect(response.status).toBe(400);
+    expect(prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an add-on belonging to another organization", async () => {
+    vi.mocked(prisma.addOn.count).mockResolvedValue(0);
+
+    const response = await PUT(
+      request("PUT", { version: 1, lines: [{ addOnId }] }),
+      { params }
+    );
+
+    expect(response.status).toBe(400);
+    expect(prisma.event.update).not.toHaveBeenCalled();
   });
 
   it("refuses a save built on a stale version", async () => {
@@ -352,7 +452,7 @@ describe("event menu route", () => {
     // Back to answering from the library until it is confirmed again.
     expect(prisma.eventMenuLine.updateMany).toHaveBeenCalledWith({
       where: { eventMenuId },
-      data: { itemName: null, categoryName: null }
+      data: { itemName: null }
     });
     expect(prisma.event.update).toHaveBeenCalledWith(
       expect.objectContaining({

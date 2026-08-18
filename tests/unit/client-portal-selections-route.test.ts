@@ -24,6 +24,7 @@ const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const packageId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const addOnId = "99999999-9999-4999-8999-999999999999";
 const eventMenuId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
 function post(body: unknown, id = eventId) {
@@ -193,6 +194,44 @@ describe("public client portal selections", () => {
           sortOrder: 0,
           source: "ClientPortal"
         })
+      ]
+    });
+  });
+
+  it("turns the client's add-ons into lines beside the dishes", async () => {
+    vi.mocked(prisma.addOn.count).mockResolvedValue(1);
+
+    const response = await post({ addOnIds: [addOnId] });
+
+    expect(response.status).toBe(200);
+    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ addOnId, sortOrder: 0, source: "ClientPortal" })
+      ]
+    });
+  });
+
+  it("keeps the dishes when the client only changes add-ons", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      id: eventId,
+      organizationId,
+      packageId: null,
+      tableclothId: null,
+      menuItemIds: [menuItemId],
+      addOnIds: [],
+      workspaceData: null
+    } as never);
+    vi.mocked(prisma.addOn.count).mockResolvedValue(1);
+
+    await post({ addOnIds: [addOnId] });
+
+    // The lines are replaced wholesale, so a request carrying only one of the
+    // two lists has to rebuild the other from what the event already had or it
+    // would silently wipe it.
+    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({ menuItemId, sortOrder: 0 }),
+        expect.objectContaining({ addOnId, sortOrder: 1 })
       ]
     });
   });

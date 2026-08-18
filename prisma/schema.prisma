@@ -565,7 +565,8 @@ model AddOn {
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventMenuLines EventMenuLine[]
 
   @@index([organizationId, isActive])
   @@index([isActive])
@@ -776,9 +777,8 @@ model MenuCategory {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  menuItems      MenuItem[]
-  eventMenuLines EventMenuLine[]
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItems    MenuItem[]
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive, sortOrder])
@@ -824,24 +824,27 @@ model EventMenu {
   @@map("event_menus")
 }
 
-/// One dish on one event's menu.
+/// One thing the event is getting: a dish, or an add-on.
+///
+/// Exactly one of `menuItemId` / `addOnId` is set, enforced by a CHECK. The two
+/// are separate tables today - an add-on carries a price and a dish carries
+/// production rules - but on an event they are the same kind of thing, a line
+/// on the menu, and giving them one table means add-ons get the ordering, the
+/// confirmation lock and the delete protection dishes get instead of staying in
+/// a bare id array beside them.
 model EventMenuLine {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   eventMenuId    String   @map("event_menu_id") @db.Uuid
-  menuItemId     String   @map("menu_item_id") @db.Uuid
-  /// Null while the menu is a draft, filled when it is confirmed. One rule,
-  /// applied to both snapshots: a draft should follow a library rename, a
-  /// confirmed menu must not change under the kitchen that already read it.
+  menuItemId     String?  @map("menu_item_id") @db.Uuid
+  addOnId        String?  @map("add_on_id") @db.Uuid
+  /// Null while the menu is a draft, filled when it is confirmed: a draft
+  /// should follow a library rename, a confirmed menu must not change under
+  /// the kitchen that already read it.
   itemName       String?  @map("item_name")
-  /// Snapshotted for the same reason. Re-filing a dish in the library must not
-  /// silently reshuffle a menu somebody already signed off. Null falls back to
-  /// the item's current category.
-  categoryId     String?  @map("category_id") @db.Uuid
-  categoryName   String?  @map("category_name")
-  /// Null means inherit the header's style. Only set when the dish carries both
-  /// a Buffet and a Plated rule and this event picked one - without it the
-  /// quantity math has no way to know which rule to run.
+  /// Which way this dish is served at this event, and therefore which of its
+  /// `MenuItemService` rules the quantity math runs. Null on an add-on, which
+  /// is not served in a style at all.
   serviceStyle   String?  @map("service_style")
   notes          String?
   sortOrder      Int      @default(0) @map("sort_order")
@@ -852,18 +855,23 @@ model EventMenuLine {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  eventMenu    EventMenu     @relation(fields: [eventMenuId], references: [id], onDelete: Cascade)
-  /// Restrict, not Cascade: deleting a dish still on a menu is the thing the
-  /// delete route currently prevents with an org-wide sequential scan over
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventMenu    EventMenu    @relation(fields: [eventMenuId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: deleting something an event is still serving is
+  /// what the delete route prevents today with an org-wide sequential scan over
   /// `menu_item_ids`. With the foreign key here it is an index lookup.
-  menuItem     MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
-  category     MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  addedBy      User?         @relation("EventMenuLineAddedBy", fields: [addedById], references: [id])
+  menuItem     MenuItem?    @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  addOn        AddOn?       @relation(fields: [addOnId], references: [id], onDelete: Restrict)
+  addedBy      User?        @relation("EventMenuLineAddedBy", fields: [addedById], references: [id])
 
+  /// A dish appears once per menu, carrying the one style it is served in.
+  /// Nulls do not collide in a unique index, so add-on lines are unaffected by
+  /// this one and dish lines are unaffected by the next.
   @@unique([eventMenuId, menuItemId])
+  @@unique([eventMenuId, addOnId])
   @@index([organizationId, eventMenuId, sortOrder])
   @@index([menuItemId])
+  @@index([addOnId])
   @@map("event_menu_lines")
 }
 

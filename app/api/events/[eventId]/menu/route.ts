@@ -10,7 +10,8 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
 /**
- * The menu for one event, as a document rather than an id array.
+ * The menu for one event: what it is serving buffet, what it is serving plated,
+ * and which add-ons it is getting.
  *
  * Replaces the `menuItemIds` half of `PATCH /api/events/[eventId]`, which could
  * only store an unordered list of uuids and only ever got written when the user
@@ -20,7 +21,8 @@ import { prisma } from "@/lib/prisma";
  * readers that have not moved across yet depend on them and every branch shares
  * one database:
  *
- * - `Event.menuItemIds`, read by the kitchen dashboard and the event PDF.
+ * - `Event.menuItemIds` and `Event.addOnIds`, read by the kitchen dashboard,
+ *   the event PDF and the client portal.
  * - `Event.workspaceData.menuConfirmed`, read by the client portal to decide
  *   whether the client may still change their selections.
  */
@@ -31,13 +33,23 @@ const SERVICE_STYLES = ["Buffet", "Plated"] as const;
 const mealSchema = z.enum(MEALS).default("Main");
 const serviceStyleSchema = z.enum(SERVICE_STYLES).nullable().optional();
 
-const menuLineSchema = z.object({
-  menuItemId: z.string().uuid(),
-  // Only meaningful for a dish carrying both a Buffet and a Plated rule. Null
-  // means "inherit the header", which is what a single-rule dish wants.
-  serviceStyle: serviceStyleSchema,
-  notes: z.string().trim().max(2000).nullable().optional()
-});
+const menuLineSchema = z
+  .object({
+    menuItemId: z.string().uuid().optional(),
+    addOnId: z.string().uuid().optional(),
+    /// Which way this dish is served at this event, and so which of its
+    /// `MenuItemService` rules the kitchen quantity math runs.
+    serviceStyle: serviceStyleSchema,
+    notes: z.string().trim().max(2000).nullable().optional()
+  })
+  .refine(
+    (line) => Boolean(line.menuItemId) !== Boolean(line.addOnId),
+    "A menu line is either a dish or an add-on, not both and not neither."
+  )
+  .refine(
+    (line) => !line.addOnId || !line.serviceStyle,
+    "An add-on is not served buffet or plated."
+  );
 
 const replaceMenuSchema = z.object({
   meal: mealSchema,
@@ -64,13 +76,7 @@ function conflict() {
   return NextResponse.json({ error: CONFLICT_MESSAGE }, { status: 409 });
 }
 
-/**
- * Ordered the way the tabs read: category first, then the dish's position
- * inside it.
- */
 const lineOrder = [
-  { category: { sortOrder: "asc" } },
-  { category: { name: "asc" } },
   { sortOrder: "asc" },
   { createdAt: "asc" }
 ] satisfies Prisma.EventMenuLineOrderByWithRelationInput[];
@@ -78,18 +84,33 @@ const lineOrder = [
 const lineSelect = {
   id: true,
   menuItemId: true,
+  addOnId: true,
   itemName: true,
-  categoryId: true,
-  categoryName: true,
   serviceStyle: true,
   notes: true,
   sortOrder: true,
   source: true,
   menuItem: {
-    select: { name: true, kind: true, isActive: true, categoryId: true }
+    select: {
+      name: true,
+      kind: true,
+      isActive: true,
+      services: { select: { serviceStyle: true } }
+    }
   },
-  category: { select: { name: true, sortOrder: true } }
+  addOn: { select: { name: true, price: true, isActive: true } }
 } satisfies Prisma.EventMenuLineSelect;
+
+const menuSelect = {
+  id: true,
+  meal: true,
+  status: true,
+  serviceStyle: true,
+  confirmedAt: true,
+  version: true,
+  confirmedBy: { select: { id: true, name: true } },
+  lines: { select: lineSelect, orderBy: lineOrder }
+} satisfies Prisma.EventMenuSelect;
 
 type MenuLineRow = Prisma.EventMenuLineGetPayload<{ select: typeof lineSelect }>;
 
@@ -99,25 +120,31 @@ type MenuLineRow = Prisma.EventMenuLineGetPayload<{ select: typeof lineSelect }>
  * nobody has signed off yet, and must not change one the kitchen already read.
  */
 function presentLine(line: MenuLineRow) {
+  const isAddOn = line.addOnId !== null;
+
   return {
     id: line.id,
     menuItemId: line.menuItemId,
-    name: line.itemName ?? line.menuItem.name,
-    categoryId: line.categoryId ?? line.menuItem.categoryId,
-    categoryName: line.categoryName ?? line.category?.name ?? null,
+    addOnId: line.addOnId,
+    kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
+    name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
     serviceStyle: line.serviceStyle,
+    // Which styles the dish could be served in, so the menu tab can ask when a
+    // dish carries a rule for both and this event has not said which.
+    availableStyles: [
+      ...new Set((line.menuItem?.services ?? []).map((s) => s.serviceStyle))
+    ],
+    price: line.addOn?.price === undefined ? null : Number(line.addOn.price),
     notes: line.notes,
     sortOrder: line.sortOrder,
     source: line.source,
-    kind: line.menuItem.kind,
-    isRetired: !line.menuItem.isActive
+    isRetired: isAddOn
+      ? line.addOn?.isActive === false
+      : line.menuItem?.isActive === false
   };
 }
 
-async function loadEvent(
-  actor: { organizationId: string },
-  eventId: string
-) {
+async function loadEvent(actor: { organizationId: string }, eventId: string) {
   return prisma.event.findFirst({
     where: { id: eventId, organizationId: actor.organizationId, deleted: false },
     select: { id: true, hallId: true, workspaceData: true }
@@ -128,7 +155,10 @@ async function loadEvent(
  * Merges one key into the event's workspace json without disturbing the
  * timeline that lives beside it. Same read-merge-write the event PATCH does.
  */
-function mergeWorkspace(current: Prisma.JsonValue | null, menuConfirmed: boolean) {
+function mergeWorkspace(
+  current: Prisma.JsonValue | null,
+  menuConfirmed: boolean
+) {
   const previous =
     current && typeof current === "object" && !Array.isArray(current)
       ? (current as Record<string, unknown>)
@@ -136,6 +166,17 @@ function mergeWorkspace(current: Prisma.JsonValue | null, menuConfirmed: boolean
 
   return { ...previous, menuConfirmed } as Prisma.InputJsonObject;
 }
+
+const emptyMenu = (meal: string) => ({
+  id: null,
+  meal,
+  status: "Draft",
+  serviceStyle: null,
+  confirmedAt: null,
+  version: 0,
+  confirmedBy: null,
+  lines: []
+});
 
 export async function GET(
   request: Request,
@@ -160,44 +201,16 @@ export async function GET(
 
     assertHallAccess(actor, event.hallId);
 
-    const [menu, categories] = await Promise.all([
-      prisma.eventMenu.findUnique({
-        where: { eventId_meal: { eventId: id, meal } },
-        select: {
-          id: true,
-          meal: true,
-          status: true,
-          serviceStyle: true,
-          confirmedAt: true,
-          version: true,
-          confirmedBy: { select: { id: true, name: true } },
-          lines: { select: lineSelect, orderBy: lineOrder }
-        }
-      }),
-      // The course tabs. Org-defined, ordered, and the reason
-      // `normalizeMenuCourse` could be deleted.
-      prisma.menuCategory.findMany({
-        where: { organizationId: actor.organizationId, isActive: true },
-        select: { id: true, name: true, sortOrder: true },
-        orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
-      })
-    ]);
+    const menu = await prisma.eventMenu.findUnique({
+      where: { eventId_meal: { eventId: id, meal } },
+      select: menuSelect
+    });
 
     return NextResponse.json({
       // No row until the first save. Version 0 is what the first PUT sends.
       menu: menu
         ? { ...menu, lines: menu.lines.map(presentLine) }
-        : {
-            id: null,
-            meal,
-            status: "Draft",
-            serviceStyle: null,
-            confirmedAt: null,
-            version: 0,
-            confirmedBy: null,
-            lines: []
-          },
-      categories
+        : emptyMenu(meal)
     });
   } catch (error) {
     return createApiErrorResponse(error);
@@ -230,38 +243,53 @@ export async function PUT(
     assertHallAccess(actor, event.hallId);
 
     // Last one wins rather than rejecting: the unique on (menu, dish) makes a
-    // repeated id unstorable, and the client has no way to have meant two.
-    const linesByMenuItemId = new Map(
-      input.lines.map((line) => [line.menuItemId, line])
+    // repeated target unstorable, and the client has no way to have meant two.
+    const linesByTarget = new Map(
+      input.lines.map((line) => [
+        line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
+        line
+      ])
     );
-    const lines = [...linesByMenuItemId.values()];
+    const lines = [...linesByTarget.values()];
+    const menuItemIds = lines
+      .map((line) => line.menuItemId)
+      .filter((value): value is string => Boolean(value));
+    const addOnIds = lines
+      .map((line) => line.addOnId)
+      .filter((value): value is string => Boolean(value));
 
-    if (lines.length > 0) {
-      const owned = await prisma.menuItem.count({
-        where: {
-          id: { in: lines.map((line) => line.menuItemId) },
-          organizationId: actor.organizationId
-        }
-      });
+    const [ownedMenuItems, ownedAddOns] = await Promise.all([
+      menuItemIds.length
+        ? prisma.menuItem.count({
+            where: {
+              id: { in: menuItemIds },
+              organizationId: actor.organizationId
+            }
+          })
+        : 0,
+      addOnIds.length
+        ? prisma.addOn.count({
+            where: {
+              id: { in: addOnIds },
+              organizationId: actor.organizationId
+            }
+          })
+        : 0
+    ]);
 
-      if (owned !== lines.length) {
-        return NextResponse.json(
-          { error: "One or more selected menu items were not found." },
-          { status: 400 }
-        );
-      }
+    if (ownedMenuItems !== menuItemIds.length) {
+      return NextResponse.json(
+        { error: "One or more selected menu items were not found." },
+        { status: 400 }
+      );
     }
 
-    // Snapshotted onto the line so re-filing a dish in the library later cannot
-    // reshuffle a menu somebody already built.
-    const categoryByMenuItemId = new Map(
-      (
-        await prisma.menuItem.findMany({
-          where: { id: { in: lines.map((line) => line.menuItemId) } },
-          select: { id: true, categoryId: true }
-        })
-      ).map((item) => [item.id, item.categoryId])
-    );
+    if (ownedAddOns !== addOnIds.length) {
+      return NextResponse.json(
+        { error: "One or more selected add-ons were not found." },
+        { status: 400 }
+      );
+    }
 
     const saved = await prisma.$transaction(async (transaction) => {
       const existing = await transaction.eventMenu.findUnique({
@@ -274,7 +302,7 @@ export async function PUT(
         // the 0 of a menu that does not exist yet.
         if (input.version !== undefined && input.version !== 0) return null;
 
-        const created = await transaction.eventMenu.create({
+        return transaction.eventMenu.create({
           data: {
             organizationId: actor.organizationId,
             eventId: id,
@@ -285,8 +313,6 @@ export async function PUT(
           },
           select: { id: true, version: true }
         });
-
-        return created;
       }
 
       if (input.version !== undefined && input.version !== existing.version) {
@@ -327,37 +353,26 @@ export async function PUT(
         data: lines.map((line, index) => ({
           organizationId: actor.organizationId,
           eventMenuId: saved.id,
-          menuItemId: line.menuItemId,
-          categoryId: categoryByMenuItemId.get(line.menuItemId) ?? null,
-          serviceStyle: line.serviceStyle ?? null,
+          menuItemId: line.menuItemId ?? null,
+          addOnId: line.addOnId ?? null,
+          serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
           notes: line.notes ?? null,
           sortOrder: index,
           source: "Manual",
           addedById: actor.id
         }))
       }),
-      // The mirror. Dropped once the kitchen dashboard and the PDF read lines.
+      // The mirrors. Dropped once the kitchen dashboard, the PDF and the client
+      // portal read lines instead.
       prisma.event.update({
         where: { id, organizationId: actor.organizationId },
-        data: {
-          menuItemIds: lines.map((line) => line.menuItemId),
-          updatedById: actor.id
-        }
+        data: { menuItemIds, addOnIds, updatedById: actor.id }
       })
     ]);
 
     const menu = await prisma.eventMenu.findUnique({
       where: { id: saved.id },
-      select: {
-        id: true,
-        meal: true,
-        status: true,
-        serviceStyle: true,
-        confirmedAt: true,
-        version: true,
-        confirmedBy: { select: { id: true, name: true } },
-        lines: { select: lineSelect, orderBy: lineOrder }
-      }
+      select: menuSelect
     });
 
     return NextResponse.json({
@@ -378,7 +393,7 @@ export async function PUT(
 }
 
 /**
- * Confirm locks the menu and freezes the names on every line; reopen puts it
+ * Confirm locks the menu and freezes the name on every line; reopen puts it
  * back to a draft that follows the library again.
  */
 export async function POST(
@@ -424,24 +439,24 @@ export async function POST(
       if (bumped.count === 0) return null;
 
       if (confirming) {
-        // Freeze the names. Raw SQL because this copies per-row from two joined
-        // tables, which `updateMany` cannot express.
+        // Freeze the name. Raw SQL because it copies per-row from whichever of
+        // the two catalogs the line points at, which `updateMany` cannot say.
         await transaction.$executeRaw`
           UPDATE "event_menu_lines" AS line
-          SET "item_name" = item."name",
-              "category_name" = category."name",
+          SET "item_name" = coalesce(
+                (SELECT item."name" FROM "menu_items" AS item
+                  WHERE item."id" = line."menu_item_id"),
+                (SELECT "add_on"."name" FROM "add_ons" AS "add_on"
+                  WHERE "add_on"."id" = line."add_on_id")
+              ),
               "updated_at" = NOW()
-          FROM "menu_items" AS item
-          LEFT JOIN "menu_categories" AS category
-            ON category."id" = item."category_id"
-          WHERE item."id" = line."menu_item_id"
-            AND line."event_menu_id" = ${existing.id}::uuid
+          WHERE line."event_menu_id" = ${existing.id}::uuid
         `;
       } else {
         // Back to answering from the library.
         await transaction.eventMenuLine.updateMany({
           where: { eventMenuId: existing.id },
-          data: { itemName: null, categoryName: null }
+          data: { itemName: null }
         });
       }
 
@@ -469,16 +484,7 @@ export async function POST(
 
     const menu = await prisma.eventMenu.findUnique({
       where: { id: result.id },
-      select: {
-        id: true,
-        meal: true,
-        status: true,
-        serviceStyle: true,
-        confirmedAt: true,
-        version: true,
-        confirmedBy: { select: { id: true, name: true } },
-        lines: { select: lineSelect, orderBy: lineOrder }
-      }
+      select: menuSelect
     });
 
     return NextResponse.json({

@@ -159,19 +159,20 @@ export const timelineRows = [
   ["10:45 PM", "Cleanup instructions begin", "Event"]
 ];
 
-/// The dish library, read from /api/menu to populate the selector drawer.
+/// The catalog, read from /api/menu to populate the selector drawer. Dishes and
+/// add-ons come back together because the menu tab offers both.
 export type EventMenuResponse = {
   items: Array<{
     id: string;
     name: string;
-    category: string | null;
-    categoryId: string | null;
     isActive: boolean;
+    services: Array<{ serviceStyle: string }>;
   }>;
-  categories: Array<{
+  addOns: Array<{
     id: string;
     name: string;
-    sortOrder: number;
+    price: string | number | null;
+    isActive: boolean;
   }>;
 };
 
@@ -191,23 +192,26 @@ export type EventMenuDocument = {
 
 export type EventMenuLine = {
   id: string;
-  menuItemId: string;
+  menuItemId: string | null;
+  addOnId: string | null;
+  kind: "Dish" | "AddOn";
   name: string;
-  categoryId: string | null;
-  categoryName: string | null;
+  /// Buffet or Plated for a dish. Null on an add-on, and null on a dish that
+  /// is served both ways and has not been told which applies here.
   serviceStyle: string | null;
+  /// The styles the dish has a rule for, so the tab can ask when there are two.
+  availableStyles: string[];
+  price: number | null;
   notes: string | null;
   sortOrder: number;
   source: string;
-  kind: string;
-  /// The dish has been deactivated in the library since it was put on this
-  /// menu. Still served, but it will not be offered for anything new.
+  /// Deactivated in the library since it was put on this menu. Still served,
+  /// but it will not be offered for anything new.
   isRetired: boolean;
 };
 
 export type EventMenuDocumentResponse = {
   menu: EventMenuDocument;
-  categories: Array<{ id: string; name: string; sortOrder: number }>;
 };
 
 export const portalChecklist = [

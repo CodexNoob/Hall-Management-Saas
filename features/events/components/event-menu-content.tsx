@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  MENU_SECTIONS,
   MenuItemSelectorDrawer,
+  type MenuSection,
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
 import {
@@ -19,39 +21,60 @@ import {
   type EventMenuResponse
 } from "@/features/events/components/event-manager-shared";
 
-const UNFILED_LABEL = "Unfiled";
+const priceFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2
+});
+
+/** The id a line points at, which is what the drawer matches against. */
+function targetId(line: EventMenuLine) {
+  return line.menuItemId ?? line.addOnId ?? "";
+}
 
 function MenuDishCard({
-  course,
+  badge,
   name,
-  onClick,
+  detail,
+  onRemove,
   disabled = false
 }: {
-  course: string;
+  badge: string;
   name: string;
-  onClick: () => void;
+  detail?: string | null;
+  onRemove: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
-      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left disabled:cursor-not-allowed disabled:opacity-65 sm:h-40 lg:h-44"
-      onClick={onClick}
-      disabled={disabled}
-      type="button"
-    >
+    <div className="relative flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:h-40 lg:h-44">
+      {!disabled ? (
+        <button
+          aria-label={`Remove ${name}`}
+          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
+          onClick={onRemove}
+          type="button"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      ) : null}
       <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
         <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
           <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
-            {course}
+            {badge}
           </span>
         </div>
       </div>
-      <div className="flex h-10 items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+      <div className="flex h-10 flex-col items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
         <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
           {name}
         </h3>
+        {detail ? (
+          <span className="mt-0.5 text-[8px] text-[#6a7483] sm:text-[10px]">
+            {detail}
+          </span>
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -96,13 +119,12 @@ export function EventMenuContent({
 }) {
   const menuUrl = `/api/events/${event.id}/menu`;
   const libraryQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
-  const documentQuery = useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
+  const documentQuery =
+    useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
 
   const [menu, setMenu] = useState<EventMenuDocument | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [selectorCategoryId, setSelectorCategoryId] = useState<string | null>(
-    null
-  );
+  const [selectorSection, setSelectorSection] = useState<MenuSection>("Buffet");
   const [message, setMessage] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -114,25 +136,66 @@ export function EventMenuContent({
   const isConfirmed = menu?.status === "Confirmed";
   const lines = useMemo(() => menu?.lines ?? [], [menu]);
 
-  // The course tabs, straight from the organization's own categories.
-  const categories = useMemo(
-    () => documentQuery.data?.categories ?? [],
-    [documentQuery.data]
-  );
+  const libraryItems = useMemo<MenuSelectorItem[]>(() => {
+    const data = libraryQuery.data;
 
-  const libraryItems = useMemo<MenuSelectorItem[]>(
-    () =>
-      (libraryQuery.data?.items ?? [])
-        // A deactivated dish stays on menus that already carry it but is not
-        // offered for anything new.
+    if (!data) return [];
+
+    // Deactivated entries stay on menus that already carry them but are not
+    // offered for anything new.
+    return [
+      ...data.items
         .filter((item) => item.isActive)
         .map((item) => ({
           id: item.id,
+          kind: "Dish" as const,
           name: item.name,
-          categoryId: item.categoryId,
-          categoryName: item.category
+          styles: [
+            ...new Set((item.services ?? []).map((s) => s.serviceStyle))
+          ],
+          price: null
         })),
-    [libraryQuery.data]
+      ...data.addOns
+        .filter((addOn) => addOn.isActive)
+        .map((addOn) => ({
+          id: addOn.id,
+          kind: "AddOn" as const,
+          name: addOn.name,
+          styles: [],
+          price: addOn.price === null ? null : Number(addOn.price)
+        }))
+    ];
+  }, [libraryQuery.data]);
+
+  const selectedIds = useMemo(
+    () => new Set(lines.map(targetId)),
+    [lines]
+  );
+
+  /** Buffet, Plated, Add-ons - plus the dishes still waiting for an answer. */
+  const sections = useMemo(
+    () =>
+      MENU_SECTIONS.map((section) => ({
+        ...section,
+        lines: lines.filter((line) =>
+          section.id === "AddOn"
+            ? line.kind === "AddOn"
+            : line.kind === "Dish" && line.serviceStyle === section.id
+        )
+      })),
+    [lines]
+  );
+
+  // A dish that carries both a Buffet and a Plated rule and reached this event
+  // through the old id array has no recorded answer for which one applies. It
+  // is surfaced rather than filed under a guess, because the guess would decide
+  // the quantity the kitchen cooks.
+  const unassignedLines = useMemo(
+    () =>
+      lines.filter(
+        (line) => line.kind === "Dish" && line.serviceStyle === null
+      ),
+    [lines]
   );
 
   /**
@@ -157,11 +220,15 @@ export function EventMenuContent({
         body: JSON.stringify({
           meal: menu.meal,
           version: menu.version,
-          lines: nextLines.map((line) => ({
-            menuItemId: line.menuItemId,
-            serviceStyle: line.serviceStyle,
-            notes: line.notes
-          }))
+          lines: nextLines.map((line) =>
+            line.kind === "AddOn"
+              ? { addOnId: line.addOnId, notes: line.notes }
+              : {
+                  menuItemId: line.menuItemId,
+                  serviceStyle: line.serviceStyle,
+                  notes: line.notes
+                }
+          )
         })
       });
 
@@ -193,36 +260,56 @@ export function EventMenuContent({
     }
   };
 
-  const selectMenuItem = (item: MenuSelectorItem) => {
+  const selectMenuItem = (item: MenuSelectorItem, section: MenuSection) => {
     setIsSelectorOpen(false);
 
-    if (!menu || lines.some((line) => line.menuItemId === item.id)) return;
+    if (!menu || selectedIds.has(item.id)) return;
 
     void saveLines([
       ...lines,
       {
         // Provisional until the server answers with the real row.
         id: `pending-${item.id}`,
-        menuItemId: item.id,
+        menuItemId: item.kind === "Dish" ? item.id : null,
+        addOnId: item.kind === "AddOn" ? item.id : null,
+        kind: item.kind,
         name: item.name,
-        categoryId: item.categoryId,
-        categoryName: item.categoryName,
-        serviceStyle: null,
+        // The tab it was added from is the style it is served in here.
+        serviceStyle: section === "AddOn" ? null : section,
+        availableStyles: item.styles,
+        price: item.price,
         notes: null,
         sortOrder: lines.length,
         source: "Manual",
-        kind: "Food",
         isRetired: false
       }
     ]);
   };
 
-  const clearCategory = (categoryId: string | null) => {
-    void saveLines(lines.filter((line) => line.categoryId !== categoryId));
+  const removeLine = (line: EventMenuLine) => {
+    void saveLines(lines.filter((candidate) => candidate.id !== line.id));
   };
 
-  const openSelector = (categoryId: string | null) => {
-    setSelectorCategoryId(categoryId);
+  const clearSection = (section: MenuSection) => {
+    void saveLines(
+      lines.filter((line) =>
+        section === "AddOn"
+          ? line.kind !== "AddOn"
+          : !(line.kind === "Dish" && line.serviceStyle === section)
+      )
+    );
+  };
+
+  const assignStyle = (line: EventMenuLine, serviceStyle: string) => {
+    void saveLines(
+      lines.map((candidate) =>
+        candidate.id === line.id ? { ...candidate, serviceStyle } : candidate
+      )
+    );
+  };
+
+  const openSelector = (section: MenuSection) => {
+    setSelectorSection(section);
     setIsSelectorOpen(true);
   };
 
@@ -352,35 +439,104 @@ export function EventMenuContent({
             </span>
           ) : null}
         </header>
-        <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
-          {lines.map((line) => (
-            <MenuDishCard
-              key={line.id}
-              course={line.categoryName ?? UNFILED_LABEL}
-              name={line.name}
-              onClick={() => openSelector(line.categoryId)}
-              disabled={isConfirmed}
-            />
-          ))}
-          {categories.map((category) => (
-            <AddMenuCard
-              key={category.id}
-              label={`Add ${category.name}`}
-              onClick={() => openSelector(category.id)}
-              disabled={isConfirmed}
-            />
-          ))}
-        </div>
+
+        {unassignedLines.length > 0 ? (
+          <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
+            <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
+              Needs a service style
+            </h3>
+            <p className="mt-1 text-xs text-[#6a7483]">
+              These dishes are served both ways. Pick the one this event uses so
+              the kitchen gets the right quantity.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {unassignedLines.map((line) => (
+                <li
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dcc2] bg-white px-3 py-2"
+                  key={line.id}
+                >
+                  <span className="text-sm font-black text-[#17202a]">
+                    {line.name}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {(line.availableStyles.length > 0
+                      ? line.availableStyles
+                      : ["Buffet", "Plated"]
+                    ).map((style) => (
+                      <button
+                        className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
+                        disabled={isSaving || isConfirmed}
+                        key={style}
+                        onClick={() => assignStyle(line, style)}
+                        type="button"
+                      >
+                        {style}
+                      </button>
+                    ))}
+                    <button
+                      aria-label={`Remove ${line.name}`}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
+                      disabled={isSaving || isConfirmed}
+                      onClick={() => removeLine(line)}
+                      type="button"
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {sections.map((section) => (
+          <section
+            className="border-b border-[#d8dde5] last:border-b-0"
+            key={section.id}
+          >
+            <h3 className="px-3 pt-3 text-xs font-black uppercase tracking-wide text-[#1f4d73] sm:px-4">
+              {section.label}
+              <span className="ml-2 font-semibold normal-case text-[#6a7483]">
+                {section.lines.length}
+              </span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
+              {section.lines.map((line) => (
+                <MenuDishCard
+                  key={line.id}
+                  badge={section.id === "AddOn" ? "ADD-ON" : section.label}
+                  name={line.name}
+                  detail={
+                    line.price === null
+                      ? null
+                      : priceFormatter.format(line.price)
+                  }
+                  onRemove={() => removeLine(line)}
+                  disabled={isConfirmed}
+                />
+              ))}
+              <AddMenuCard
+                label={
+                  section.id === "AddOn"
+                    ? "Add add-on"
+                    : `Add ${section.label.toLowerCase()} item`
+                }
+                onClick={() => openSelector(section.id)}
+                disabled={isConfirmed}
+              />
+            </div>
+          </section>
+        ))}
       </section>
 
       <MenuItemSelectorDrawer
-        categories={categories}
-        initialCategoryId={selectorCategoryId}
+        initialSection={selectorSection}
         items={libraryItems}
-        onClear={clearCategory}
+        onClear={clearSection}
         onClose={() => setIsSelectorOpen(false)}
         onSelect={selectMenuItem}
         open={isSelectorOpen}
+        selectedIds={selectedIds}
       />
 
       {isReviewOpen ? (
@@ -413,32 +569,31 @@ export function EventMenuContent({
             </header>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto p-5">
-              {/* Already ordered by course then position, so grouping is just
-                  a walk over the distinct labels in that order. */}
-              {[
-                ...new Set(
-                  lines.map((line) => line.categoryName ?? UNFILED_LABEL)
-                )
-              ].map((course) => (
-                <section
-                  className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"
-                  key={course}
-                >
-                  <h3 className="text-xs font-black uppercase tracking-wide text-[#1f4d73]">
-                    {course}
-                  </h3>
-                  <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
-                    {lines
-                      .filter(
-                        (line) =>
-                          (line.categoryName ?? UNFILED_LABEL) === course
-                      )
-                      .map((line) => (
+              {unassignedLines.length > 0 ? (
+                <p className="rounded-lg border border-[#f0d9a8] bg-[#fdf8ec] p-3 text-sm text-[#8a6414]">
+                  {unassignedLines.length} dish
+                  {unassignedLines.length === 1 ? "" : "es"} still need a
+                  service style. Confirming without one leaves the kitchen no
+                  quantity rule to run.
+                </p>
+              ) : null}
+              {sections
+                .filter((section) => section.lines.length > 0)
+                .map((section) => (
+                  <section
+                    className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"
+                    key={section.id}
+                  >
+                    <h3 className="text-xs font-black uppercase tracking-wide text-[#1f4d73]">
+                      {section.label}
+                    </h3>
+                    <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
+                      {section.lines.map((line) => (
                         <li key={line.id}>• {line.name}</li>
                       ))}
-                  </ul>
-                </section>
-              ))}
+                    </ul>
+                  </section>
+                ))}
             </div>
 
             <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">
