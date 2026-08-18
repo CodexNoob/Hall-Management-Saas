@@ -3,7 +3,14 @@
 import { type ReactNode } from "react";
 import type { MenuItemServiceRule } from "@/features/menu/lib/service-style";
 
-export type IconName = "box" | "chevron" | "dollar" | "document" | "filter" | "plus";
+export type IconName =
+  | "box"
+  | "chevron"
+  | "dollar"
+  | "document"
+  | "filter"
+  | "plus"
+  | "upload";
 
 export function LineIcon({
   name,
@@ -44,7 +51,13 @@ export function LineIcon({
       </>
     ),
     filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
-    plus: <path d="M12 5v14M5 12h14" />
+    plus: <path d="M12 5v14M5 12h14" />,
+    upload: (
+      <>
+        <path d="M12 16V4m0 0L8 8m4-4 4 4" />
+        <path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" />
+      </>
+    )
   };
 
   return <svg {...common}>{paths[name]}</svg>;
