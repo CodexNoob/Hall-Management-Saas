@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
+import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -39,6 +40,22 @@ export async function POST(request: Request) {
     const actor = await requirePermission(request, "canEditMenu");
     const input = schema.parse(await request.json());
 
+    // Resolved once per distinct name rather than once per row: a 500-row sheet
+    // is usually a handful of courses, and a name that reaches this twice must
+    // come back as the same category both times. Sequential for the same
+    // reason - two creates of one new course would otherwise race.
+    const categoryIdByName = new Map<string, string | null>();
+    for (const { category } of input.items) {
+      const key = category?.trim().toLowerCase() ?? "";
+
+      if (categoryIdByName.has(key)) continue;
+
+      categoryIdByName.set(
+        key,
+        await resolveMenuCategoryId(actor.organizationId, category)
+      );
+    }
+
     // `createMany` cannot write the nested service rows, and a bulk import is
     // all-or-nothing by intent: the operator reviewed the file and confirmed a
     // count, so a partial write would leave them with a menu they cannot
@@ -51,6 +68,11 @@ export async function POST(request: Request) {
             // other tenant-owned write in this app follows.
             organizationId: actor.organizationId,
             ...fields,
+            // Imported dishes get a real course too, or they would all arrive
+            // unfiled on the event menu's tabs.
+            categoryId:
+              categoryIdByName.get(fields.category?.trim().toLowerCase() ?? "") ??
+              null,
             allergens: allergens ?? [],
             services: {
               create: (services ?? []).map((service) => ({

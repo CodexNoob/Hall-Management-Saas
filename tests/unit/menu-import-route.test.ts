@@ -6,6 +6,7 @@ vi.mock("@/lib/security/rate-limit", () => ({ enforceRateLimit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     menuItem: { create: vi.fn() },
+    menuCategory: { findFirst: vi.fn(), create: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn()
   }
@@ -61,6 +62,12 @@ describe("POST /api/menu/import", () => {
     vi.mocked(requirePermission).mockResolvedValue(actor as never);
     vi.mocked(prisma.menuItem.create).mockImplementation((() =>
       Promise.resolve({ id: "created" })) as never);
+    // Imported rows are filed under a real course, creating it the first time
+    // that name is seen.
+    vi.mocked(prisma.menuCategory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.menuCategory.create).mockResolvedValue({
+      id: "category-1"
+    } as never);
     vi.mocked(prisma.activityLog.create).mockResolvedValue({} as never);
     vi.mocked(prisma.$transaction).mockImplementation(((
       operations: Promise<unknown>[]
@@ -78,6 +85,19 @@ describe("POST /api/menu/import", () => {
     // Written through the transaction, not one loose call at a time - a
     // half-imported sheet is the failure this endpoint is built to avoid.
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    // Both rows share one course, so it is resolved once rather than per row.
+    expect(prisma.menuCategory.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("files imported rows under a real course, not just the text column", async () => {
+    await POST(importRequest({ items: [item()] }));
+
+    // Without this an imported dish carries category text but no category row,
+    // so it arrives unfiled on the event menu's tabs.
+    expect(createdData()).toMatchObject({
+      category: "Main",
+      categoryId: "category-1"
+    });
   });
 
   it("writes the parsed columns onto the row", async () => {

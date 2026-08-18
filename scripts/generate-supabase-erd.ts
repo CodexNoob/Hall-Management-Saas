@@ -91,6 +91,8 @@ const groupDefinitions = [
       "menu_categories",
       "menu_items",
       "menu_item_services",
+      "event_menus",
+      "event_menu_lines",
       "packages",
       "add_ons",
       "tablecloth_options",

@@ -1,10 +1,6 @@
 "use client";
 
 import { type ReactNode } from "react";
-import {
-  type MenuCourse,
-  type MenuSelectorItem
-} from "@/features/events/components/menu-item-selector-drawer";
 
 export type BadgeTone = "green" | "gold" | "red";
 export type IconName =
@@ -163,49 +159,101 @@ export const timelineRows = [
   ["10:45 PM", "Cleanup instructions begin", "Event"]
 ];
 
-export const menuItems = [
-  { course: "Appetizer", name: "Challah rolls" },
-  { course: "Soup", name: "Chicken soup" },
-  { course: "Main", name: "Braised short ribs" },
-  { course: "Side", name: "Potato kugel" },
-  { course: "Main", name: "Children schnitzel" }
-] satisfies Array<{ course: MenuCourse; name: string }>;
-
-export const addMenuItems = [
-  "Add Appetizer",
-  "Add Soup",
-  "Add Main",
-  "Add Side",
-  "Add Drink",
-  "Add Dessert",
-  "Add more"
-];
-
-export const fallbackMenuLibrary: MenuSelectorItem[] = [
-  { id: "appetizer-challah", course: "Appetizer", name: "Challah rolls" },
-  { id: "appetizer-quiche", course: "Appetizer", name: "Mini quiche" },
-  { id: "appetizer-salad", course: "Appetizer", name: "Garden salad" },
-  { id: "appetizer-gefilte", course: "Appetizer", name: "Gefilte fish" },
-  { id: "appetizer-dips", course: "Appetizer", name: "Dips platter" },
-  { id: "soup-chicken", course: "Soup", name: "Chicken soup" },
-  { id: "soup-vegetable", course: "Soup", name: "Vegetable soup" },
-  { id: "main-ribs", course: "Main", name: "Braised short ribs" },
-  { id: "main-schnitzel", course: "Main", name: "Children schnitzel" },
-  { id: "side-kugel", course: "Side", name: "Potato kugel" },
-  { id: "side-vegetables", course: "Side", name: "Seasonal vegetables" },
-  { id: "drink-water", course: "Drink", name: "Bottled water" },
-  { id: "drink-soda", course: "Drink", name: "Assorted soda" },
-  { id: "dessert-cups", course: "Dessert", name: "Dessert cups" },
-  { id: "more-coffee", course: "More", name: "Coffee station" }
-];
-
+/// The catalog, read from /api/menu to populate the selector drawer. Dishes and
+/// add-ons come back together because the menu tab offers both.
 export type EventMenuResponse = {
   items: Array<{
     id: string;
     name: string;
-    category: string | null;
+    isActive: boolean;
+    services: Array<{ serviceStyle: string }>;
+    /// Signed by GET /api/menu; the raw bucket and path never reach the client.
+    pictureUrl: string | null;
+  }>;
+  addOns: Array<{
+    id: string;
+    name: string;
+    price: string | number | null;
+    isActive: boolean;
+    pictureUrl: string | null;
   }>;
 };
+
+/// One event's menu, read from /api/events/[eventId]/menu.
+export type EventMenuDocument = {
+  id: string | null;
+  meal: string;
+  status: "Draft" | "ClientSubmitted" | "Confirmed";
+  serviceStyle: string | null;
+  confirmedAt: string | null;
+  /// Sent back on every write and checked, so two people editing one menu get
+  /// a conflict rather than one of them silently losing their changes.
+  version: number;
+  confirmedBy: { id: string; name: string } | null;
+  lines: EventMenuLine[];
+};
+
+export type EventMenuLine = {
+  id: string;
+  menuItemId: string | null;
+  addOnId: string | null;
+  kind: "Dish" | "AddOn";
+  name: string;
+  /// Signed per request and optional - a dish or add-on with no picture shows
+  /// the placeholder instead. Read live from the catalog rather than frozen
+  /// with the name, so a better photo reaches a confirmed menu.
+  pictureUrl: string | null;
+  /// Buffet or Plated for a dish. Null on an add-on, and null on a dish that
+  /// is served both ways and has not been told which applies here.
+  serviceStyle: string | null;
+  /// The styles the dish has a rule for, so the tab can ask when there are two.
+  availableStyles: string[];
+  price: number | null;
+  notes: string | null;
+  sortOrder: number;
+  source: string;
+  /// Deactivated in the library since it was put on this menu. Still served,
+  /// but it will not be offered for anything new.
+  isRetired: boolean;
+};
+
+export type EventMenuDocumentResponse = {
+  menu: EventMenuDocument;
+};
+
+/**
+ * A dish or add-on picture at list size, with a placeholder when there is none.
+ *
+ * Plain `<img>` and `alt=""`, the same call the menu library's cards make: the
+ * URL is signed and rotates, so the image optimizer would never get a cache
+ * hit, and the name is already rendered beside it.
+ */
+export function MenuThumbnail({
+  pictureUrl,
+  className = "h-12 w-12"
+}: {
+  pictureUrl: string | null;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd] ${className}`}
+    >
+      {pictureUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          src={pictureUrl}
+        />
+      ) : (
+        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#b9c2cf]">
+          <span className="h-2.5 w-2.5 rounded-full border border-[#b9c2cf]" />
+        </span>
+      )}
+    </span>
+  );
+}
 
 export const portalChecklist = [
   ["Event date and time", true],

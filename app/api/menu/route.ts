@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import { readPackageItemIdsError } from "@/features/menu/server/menu-package-items";
 import { readPicturePathError } from "@/features/menu/server/menu-picture";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
@@ -69,9 +70,11 @@ export async function GET(request: Request) {
         omit: { pictureBucket: true },
         orderBy: { name: "asc" }
       }),
+      // Ordered by `sortOrder`, because these are the course tabs on the event
+      // menu now and menu order is not alphabetical order.
       prisma.menuCategory.findMany({
         where: { organizationId: actor.organizationId },
-        orderBy: { name: "asc" }
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
       })
     ]);
 
@@ -156,7 +159,14 @@ export async function POST(request: Request) {
         data: {
           organizationId: actor.organizationId,
           name: input.name,
+          // Both are written: `category` is the deprecated free-text column,
+          // still populated for readers on other branches, and `categoryId` is
+          // the row the event menu's course tabs are built from.
           category: input.category,
+          categoryId: await resolveMenuCategoryId(
+            actor.organizationId,
+            input.category
+          ),
           usageType: input.usageType,
           kind: input.kind,
           kosherType: input.kosherType,

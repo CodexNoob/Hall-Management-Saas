@@ -68,6 +68,8 @@ BEGIN
     'booking_reservations',
     'menu_items',
     'menu_item_services',
+    'event_menus',
+    'event_menu_lines',
     'packages',
     'add_ons',
     'kitchen_workers',

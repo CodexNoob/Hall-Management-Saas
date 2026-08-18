@@ -2,69 +2,100 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  MENU_SECTIONS,
   MenuItemSelectorDrawer,
-  type MenuCourse,
+  type MenuSection,
+  type MenuSelection,
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
-  addMenuItems,
+  MenuThumbnail,
   type EventFile,
+  type EventMenuDocument,
+  type EventMenuDocumentResponse,
+  type EventMenuLine,
   type EventMenuResponse
 } from "@/features/events/components/event-manager-shared";
 
-function normalizeMenuCourse(category: string | null): MenuCourse {
-  const value = category?.trim().toLowerCase() ?? "";
+const priceFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2
+});
 
-  if (value.includes("appetizer")) return "Appetizer";
-  if (value.includes("soup")) return "Soup";
-  if (value.includes("main") || value.includes("entree")) return "Main";
-  if (value.includes("side")) return "Side";
-  if (value.includes("drink") || value.includes("beverage")) return "Drink";
-  if (value.includes("dessert")) return "Dessert";
-  return "More";
-}
-
-function courseFromAddLabel(label: string): MenuCourse {
-  const course = label.replace(/^Add\s+/i, "").trim();
-  return course === "more" || course === "More"
-    ? "More"
-    : (course as MenuCourse);
+/** The id a line points at, which is what the drawer matches against. */
+function targetId(line: EventMenuLine) {
+  return line.menuItemId ?? line.addOnId ?? "";
 }
 
 function MenuDishCard({
-  course,
+  badge,
   name,
-  onClick,
+  detail,
+  pictureUrl,
+  onRemove,
   disabled = false
 }: {
-  course: MenuCourse;
+  badge: string;
   name: string;
-  onClick: () => void;
+  detail?: string | null;
+  pictureUrl: string | null;
+  onRemove: () => void;
   disabled?: boolean;
 }) {
   return (
-    <button
-      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left disabled:cursor-not-allowed disabled:opacity-65 sm:h-40 lg:h-44"
-      onClick={onClick}
-      disabled={disabled}
-      type="button"
-    >
-      <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
-          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
-            {course}
-          </span>
-        </div>
+    <div className="relative flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:h-40 lg:h-44">
+      {!disabled ? (
+        <button
+          aria-label={`Remove ${name}`}
+          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
+          onClick={onRemove}
+          type="button"
+        >
+          <span aria-hidden="true">×</span>
+        </button>
+      ) : null}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
+        {pictureUrl ? (
+          <>
+            {/* Plain <img> for the reason the menu library's cards give: the
+                URL is signed and rotates, so the optimizer never gets a cache
+                hit. Decorative - the name is right below it. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+            <span className="absolute left-1.5 top-1.5 truncate rounded-full bg-white/90 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-normal text-[#1f4d73] sm:text-[9px]">
+              {badge}
+            </span>
+          </>
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
+            <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
+              {badge}
+            </span>
+          </div>
+        )}
       </div>
-      <div className="flex h-10 items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+      <div className="flex h-10 flex-col items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
         <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
           {name}
         </h3>
+        {detail ? (
+          <span className="mt-0.5 text-[8px] text-[#6a7483] sm:text-[10px]">
+            {detail}
+          </span>
+        ) : null}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -107,38 +138,214 @@ export function EventMenuContent({
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
-  const menuQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
-  const [selectedItems, setSelectedItems] = useState<MenuSelectorItem[]>([]);
-  const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(null);
-  const [confirmMessage, setConfirmMessage] = useState("");
+  const menuUrl = `/api/events/${event.id}/menu`;
+  const libraryQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
+  const documentQuery =
+    useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
+
+  const [menu, setMenu] = useState<EventMenuDocument | null>(null);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [selectorSection, setSelectorSection] = useState<MenuSection>("Buffet");
+  const [message, setMessage] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const isConfirmed = event.workspaceData.menuConfirmed === true;
-  const libraryItems = useMemo<MenuSelectorItem[]>(() => {
-    const liveItems = (menuQuery.data?.items ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      course: normalizeMenuCourse(item.category)
-    }));
-
-    return liveItems;
-  }, [menuQuery.data]);
 
   useEffect(() => {
-    if (menuQuery.isLoading) return;
+    if (documentQuery.data) setMenu(documentQuery.data.menu);
+  }, [documentQuery.data]);
 
-    const selectedIds = new Set(event.menuItemIds ?? []);
-    setSelectedItems(libraryItems.filter((item) => selectedIds.has(item.id)));
-    setConfirmMessage(
-      event.workspaceData.menuConfirmed === true ? "Menu confirmed." : ""
+  const isConfirmed = menu?.status === "Confirmed";
+  const lines = useMemo(() => menu?.lines ?? [], [menu]);
+
+  const libraryItems = useMemo<MenuSelectorItem[]>(() => {
+    const data = libraryQuery.data;
+
+    if (!data) return [];
+
+    // Deactivated entries stay on menus that already carry them but are not
+    // offered for anything new.
+    return [
+      ...data.items
+        .filter((item) => item.isActive)
+        .map((item) => ({
+          id: item.id,
+          kind: "Dish" as const,
+          name: item.name,
+          styles: [
+            ...new Set((item.services ?? []).map((s) => s.serviceStyle))
+          ],
+          price: null,
+          pictureUrl: item.pictureUrl ?? null
+        })),
+      ...data.addOns
+        .filter((addOn) => addOn.isActive)
+        .map((addOn) => ({
+          id: addOn.id,
+          kind: "AddOn" as const,
+          name: addOn.name,
+          styles: [],
+          price: addOn.price === null ? null : Number(addOn.price),
+          pictureUrl: addOn.pictureUrl ?? null
+        }))
+    ];
+  }, [libraryQuery.data]);
+
+  const selectedIds = useMemo(
+    () => new Set(lines.map(targetId)),
+    [lines]
+  );
+
+  /** Buffet, Plated, Add-ons - plus the dishes still waiting for an answer. */
+  const sections = useMemo(
+    () =>
+      MENU_SECTIONS.map((section) => ({
+        ...section,
+        lines: lines.filter((line) =>
+          section.id === "AddOn"
+            ? line.kind === "AddOn"
+            : line.kind === "Dish" && line.serviceStyle === section.id
+        )
+      })),
+    [lines]
+  );
+
+  // A dish that carries both a Buffet and a Plated rule and reached this event
+  // through the old id array has no recorded answer for which one applies. It
+  // is surfaced rather than filed under a guess, because the guess would decide
+  // the quantity the kitchen cooks.
+  const unassignedLines = useMemo(
+    () =>
+      lines.filter(
+        (line) => line.kind === "Dish" && line.serviceStyle === null
+      ),
+    [lines]
+  );
+
+  /**
+   * Sends the menu the user now wants. Every add and remove goes through here,
+   * which is the whole point of the rewrite: the previous version only ever
+   * saved as part of confirming, so a menu built and left unconfirmed was gone
+   * on the next reload.
+   */
+  const saveLines = async (nextLines: EventMenuLine[]) => {
+    if (!menu) return;
+
+    const previous = menu;
+    // Shown immediately; rolled back below if the write does not land.
+    setMenu({ ...menu, lines: nextLines });
+    setIsSaving(true);
+    setMessage("");
+
+    try {
+      const response = await authenticatedFetch(menuUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meal: menu.meal,
+          version: menu.version,
+          lines: nextLines.map((line) =>
+            line.kind === "AddOn"
+              ? { addOnId: line.addOnId, notes: line.notes }
+              : {
+                  menuItemId: line.menuItemId,
+                  serviceStyle: line.serviceStyle,
+                  notes: line.notes
+                }
+          )
+        })
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { menu?: EventMenuDocument; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.menu) {
+        setMenu(previous);
+        setMessage(payload?.error ?? "Could not save the menu.");
+
+        // A conflict means somebody else's version is the real one, so pull it
+        // rather than leaving the stale one on screen.
+        if (response.status === 409) {
+          invalidateAuthenticatedQuery(menuUrl);
+          await documentQuery.refetch();
+        }
+
+        return;
+      }
+
+      setMenu(payload.menu);
+      invalidateAuthenticatedQuery(menuUrl);
+    } catch {
+      setMenu(previous);
+      setMessage("Could not save the menu.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  /**
+   * Everything the drawer queued, in one save. Adding them one at a time would
+   * mean one request each against the menu's version, so all but the first
+   * would come back as a conflict.
+   */
+  const addSelections = (selections: MenuSelection[]) => {
+    setIsSelectorOpen(false);
+
+    if (!menu) return;
+
+    const fresh = selections
+      .filter(({ item }) => !selectedIds.has(item.id))
+      .map(({ item, section }, index) => ({
+        // Provisional until the server answers with the real rows.
+        id: `pending-${item.id}`,
+        menuItemId: item.kind === "Dish" ? item.id : null,
+        addOnId: item.kind === "AddOn" ? item.id : null,
+        kind: item.kind,
+        name: item.name,
+        // Carried over from the drawer so the thumbnail is there straight away
+        // rather than appearing when the save comes back.
+        pictureUrl: item.pictureUrl,
+        // The tab it was picked under is the style it is served in here.
+        serviceStyle: section === "AddOn" ? null : section,
+        availableStyles: item.styles,
+        price: item.price,
+        notes: null,
+        sortOrder: lines.length + index,
+        source: "Manual",
+        isRetired: false
+      }));
+
+    if (fresh.length === 0) return;
+
+    void saveLines([...lines, ...fresh]);
+  };
+
+  const removeLine = (line: EventMenuLine) => {
+    void saveLines(lines.filter((candidate) => candidate.id !== line.id));
+  };
+
+  const clearSection = (section: MenuSection) => {
+    void saveLines(
+      lines.filter((line) =>
+        section === "AddOn"
+          ? line.kind !== "AddOn"
+          : !(line.kind === "Dish" && line.serviceStyle === section)
+      )
     );
-  }, [
-    event.id,
-    event.menuItemIds,
-    event.workspaceData,
-    libraryItems,
-    menuQuery.isLoading
-  ]);
+  };
+
+  const assignStyle = (line: EventMenuLine, serviceStyle: string) => {
+    void saveLines(
+      lines.map((candidate) =>
+        candidate.id === line.id ? { ...candidate, serviceStyle } : candidate
+      )
+    );
+  };
+
+  const openSelector = (section: MenuSection) => {
+    setSelectorSection(section);
+    setIsSelectorOpen(true);
+  };
 
   useEffect(() => {
     if (!isReviewOpen) return;
@@ -159,50 +366,51 @@ export function EventMenuContent({
     };
   }, [isReviewOpen, isSaving]);
 
-  const selectMenuItem = (item: MenuSelectorItem) => {
-    setSelectedItems((current) =>
-      current.some((selected) => selected.id === item.id)
-        ? current
-        : [...current, item]
-    );
-    setSelectorCourse(null);
-  };
+  const saveConfirmationState = async (confirming: boolean) => {
+    if (!menu) return;
 
-  const clearCourse = (course: MenuCourse) => {
-    setSelectedItems((current) =>
-      current.filter((item) => item.course !== course)
-    );
-  };
-
-  const saveConfirmationState = async (menuConfirmed: boolean) => {
     setIsSaving(true);
-    setConfirmMessage("");
+    setMessage("");
 
     try {
-      const response = await authenticatedFetch(`/api/events/${event.id}`, {
-        method: "PATCH",
+      const response = await authenticatedFetch(menuUrl, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(menuConfirmed
-            ? { menuItemIds: selectedItems.map((item) => item.id) }
-            : {}),
-          menuConfirmed
+          action: confirming ? "confirm" : "reopen",
+          meal: menu.meal,
+          version: menu.version
         })
       });
 
-      if (!response.ok) {
-        setConfirmMessage(
-          menuConfirmed ? "Could not confirm menu." : "Could not reopen menu."
+      const payload = (await response.json().catch(() => null)) as
+        | { menu?: EventMenuDocument; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.menu) {
+        setMessage(
+          payload?.error ??
+            (confirming ? "Could not confirm menu." : "Could not reopen menu.")
         );
+
+        if (response.status === 409) {
+          invalidateAuthenticatedQuery(menuUrl);
+          await documentQuery.refetch();
+        }
+
         return;
       }
 
+      setMenu(payload.menu);
+      invalidateAuthenticatedQuery(menuUrl);
       setIsReviewOpen(false);
+      // The event row carries the mirrored ids and the confirmation flag, so
+      // the rest of the manager has to re-read it.
       await onEventSaved();
-      setConfirmMessage(menuConfirmed ? "Menu confirmed." : "Menu reopened.");
+      setMessage(confirming ? "Menu confirmed." : "Menu reopened.");
     } catch {
-      setConfirmMessage(
-        menuConfirmed ? "Could not confirm menu." : "Could not reopen menu."
+      setMessage(
+        confirming ? "Could not confirm menu." : "Could not reopen menu."
       );
     } finally {
       setIsSaving(false);
@@ -238,16 +446,14 @@ export function EventMenuContent({
             ) : (
               <button
                 className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-xs"
-                disabled={isSaving}
+                disabled={isSaving || documentQuery.isLoading}
                 type="button"
                 onClick={() => {
-                  if (selectedItems.length === 0) {
-                    setConfirmMessage(
-                      "Add at least one menu item before confirming."
-                    );
+                  if (lines.length === 0) {
+                    setMessage("Add at least one menu item before confirming.");
                     return;
                   }
-                  setConfirmMessage("");
+                  setMessage("");
                   setIsReviewOpen(true);
                 }}
               >
@@ -256,40 +462,122 @@ export function EventMenuContent({
               </button>
             )}
           </div>
-          {confirmMessage ? (
+          {message ? (
             <span className="text-xs text-[#516174]" role="status">
-              {confirmMessage}
+              {message}
+            </span>
+          ) : null}
+          {!message && isSaving ? (
+            <span className="text-xs text-[#516174]" role="status">
+              Saving...
             </span>
           ) : null}
         </header>
-        <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
-          {selectedItems.map((item) => (
-            <MenuDishCard
-              key={`${item.course}-${item.name}`}
-              course={item.course}
-              name={item.name}
-              onClick={() => setSelectorCourse(item.course)}
-              disabled={isConfirmed}
-            />
-          ))}
-          {addMenuItems.map((label) => (
-            <AddMenuCard
-              key={label}
-              label={label}
-              onClick={() => setSelectorCourse(courseFromAddLabel(label))}
-              disabled={isConfirmed}
-            />
-          ))}
-        </div>
+
+        {unassignedLines.length > 0 ? (
+          <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
+            <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
+              Needs a service style
+            </h3>
+            <p className="mt-1 text-xs text-[#6a7483]">
+              These dishes are served both ways. Pick the one this event uses so
+              the kitchen gets the right quantity.
+            </p>
+            <ul className="mt-2 space-y-2">
+              {unassignedLines.map((line) => (
+                <li
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dcc2] bg-white px-3 py-2"
+                  key={line.id}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <MenuThumbnail
+                      className="h-9 w-9"
+                      pictureUrl={line.pictureUrl}
+                    />
+                    <span className="truncate text-sm font-black text-[#17202a]">
+                      {line.name}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {(line.availableStyles.length > 0
+                      ? line.availableStyles
+                      : ["Buffet", "Plated"]
+                    ).map((style) => (
+                      <button
+                        className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
+                        disabled={isSaving || isConfirmed}
+                        key={style}
+                        onClick={() => assignStyle(line, style)}
+                        type="button"
+                      >
+                        {style}
+                      </button>
+                    ))}
+                    <button
+                      aria-label={`Remove ${line.name}`}
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
+                      disabled={isSaving || isConfirmed}
+                      onClick={() => removeLine(line)}
+                      type="button"
+                    >
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {sections.map((section) => (
+          <section
+            className="border-b border-[#d8dde5] last:border-b-0"
+            key={section.id}
+          >
+            <h3 className="px-3 pt-3 text-xs font-black uppercase tracking-wide text-[#1f4d73] sm:px-4">
+              {section.label}
+              <span className="ml-2 font-semibold normal-case text-[#6a7483]">
+                {section.lines.length}
+              </span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
+              {section.lines.map((line) => (
+                <MenuDishCard
+                  key={line.id}
+                  badge={section.id === "AddOn" ? "ADD-ON" : section.label}
+                  name={line.name}
+                  pictureUrl={line.pictureUrl}
+                  detail={
+                    line.price === null
+                      ? null
+                      : priceFormatter.format(line.price)
+                  }
+                  onRemove={() => removeLine(line)}
+                  disabled={isConfirmed}
+                />
+              ))}
+              <AddMenuCard
+                label={
+                  section.id === "AddOn"
+                    ? "Add add-on"
+                    : `Add ${section.label.toLowerCase()} item`
+                }
+                onClick={() => openSelector(section.id)}
+                disabled={isConfirmed}
+              />
+            </div>
+          </section>
+        ))}
       </section>
 
       <MenuItemSelectorDrawer
-        initialCourse={selectorCourse ?? "Appetizer"}
+        initialSection={selectorSection}
         items={libraryItems}
-        onClear={clearCourse}
-        onClose={() => setSelectorCourse(null)}
-        onSelect={selectMenuItem}
-        open={selectorCourse !== null}
+        onAdd={addSelections}
+        onClear={clearSection}
+        onClose={() => setIsSelectorOpen(false)}
+        open={isSelectorOpen}
+        selectedIds={selectedIds}
       />
 
       {isReviewOpen ? (
@@ -315,32 +603,38 @@ export function EventMenuContent({
                 Confirm event menu?
               </h2>
               <p className="mt-1 text-sm text-[#64748b]">
-                Review {selectedItems.length} selected item
-                {selectedItems.length === 1 ? "" : "s"}. The menu will be locked
-                until it is reopened.
+                Review {lines.length} selected item
+                {lines.length === 1 ? "" : "s"}. The menu will be locked until
+                it is reopened.
               </p>
             </header>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto p-5">
-              {Array.from(
-                new Set(selectedItems.map((item) => item.course))
-              ).map((course) => (
-                <section
-                  className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"
-                  key={course}
-                >
-                  <h3 className="text-xs font-black uppercase tracking-wide text-[#1f4d73]">
-                    {course}
-                  </h3>
-                  <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
-                    {selectedItems
-                      .filter((item) => item.course === course)
-                      .map((item) => (
-                        <li key={item.id}>• {item.name}</li>
+              {unassignedLines.length > 0 ? (
+                <p className="rounded-lg border border-[#f0d9a8] bg-[#fdf8ec] p-3 text-sm text-[#8a6414]">
+                  {unassignedLines.length} dish
+                  {unassignedLines.length === 1 ? "" : "es"} still need a
+                  service style. Confirming without one leaves the kitchen no
+                  quantity rule to run.
+                </p>
+              ) : null}
+              {sections
+                .filter((section) => section.lines.length > 0)
+                .map((section) => (
+                  <section
+                    className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"
+                    key={section.id}
+                  >
+                    <h3 className="text-xs font-black uppercase tracking-wide text-[#1f4d73]">
+                      {section.label}
+                    </h3>
+                    <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
+                      {section.lines.map((line) => (
+                        <li key={line.id}>• {line.name}</li>
                       ))}
-                  </ul>
-                </section>
-              ))}
+                    </ul>
+                  </section>
+                ))}
             </div>
 
             <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">

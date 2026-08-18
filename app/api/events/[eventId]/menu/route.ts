@@ -1,0 +1,557 @@
+import { Prisma } from "@prisma/client";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import {
+  assertHallAccess,
+  requireAnyPermission,
+  requirePermission
+} from "@/lib/auth/server-auth";
+import { createApiErrorResponse } from "@/lib/http/api-error";
+import { prisma } from "@/lib/prisma";
+import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
+import { createSignedFileUrls } from "@/lib/storage/files";
+
+/**
+ * The menu for one event: what it is serving buffet, what it is serving plated,
+ * and which add-ons it is getting.
+ *
+ * Replaces the `menuItemIds` half of `PATCH /api/events/[eventId]`, which could
+ * only store an unordered list of uuids and only ever got written when the user
+ * confirmed - so a menu built and left unconfirmed was lost on reload.
+ *
+ * Two things are still mirrored back onto the event on every write, because
+ * readers that have not moved across yet depend on them and every branch shares
+ * one database:
+ *
+ * - `Event.menuItemIds` and `Event.addOnIds`, read by the kitchen dashboard,
+ *   the event PDF and the client portal.
+ * - `Event.workspaceData.menuConfirmed`, read by the client portal to decide
+ *   whether the client may still change their selections.
+ */
+
+const MEALS = ["Main", "FridayNight", "ShabbosDay", "SeudahShlishis"] as const;
+const SERVICE_STYLES = ["Buffet", "Plated"] as const;
+
+const mealSchema = z.enum(MEALS).default("Main");
+const serviceStyleSchema = z.enum(SERVICE_STYLES).nullable().optional();
+
+const menuLineSchema = z
+  .object({
+    menuItemId: z.string().uuid().optional(),
+    addOnId: z.string().uuid().optional(),
+    /// Which way this dish is served at this event, and so which of its
+    /// `MenuItemService` rules the kitchen quantity math runs.
+    serviceStyle: serviceStyleSchema,
+    notes: z.string().trim().max(2000).nullable().optional()
+  })
+  .refine(
+    (line) => Boolean(line.menuItemId) !== Boolean(line.addOnId),
+    "A menu line is either a dish or an add-on, not both and not neither."
+  )
+  .refine(
+    (line) => !line.addOnId || !line.serviceStyle,
+    "An add-on is not served buffet or plated."
+  );
+
+const replaceMenuSchema = z.object({
+  meal: mealSchema,
+  serviceStyle: serviceStyleSchema,
+  // Absent on the very first save, when there is no header to have a version
+  // yet. Present after that, and checked - the array this replaces was
+  // read-modify-written by three routes with nothing to detect a collision.
+  version: z.number().int().min(0).optional(),
+  lines: z.array(menuLineSchema).max(500)
+});
+
+const lifecycleSchema = z.object({
+  action: z.enum(["confirm", "reopen"]),
+  meal: mealSchema,
+  version: z.number().int().min(0)
+});
+
+const eventIdSchema = z.string().uuid();
+
+const CONFLICT_MESSAGE =
+  "This menu was changed somewhere else. Reload before saving again.";
+
+function conflict() {
+  return NextResponse.json({ error: CONFLICT_MESSAGE }, { status: 409 });
+}
+
+const lineOrder = [
+  { sortOrder: "asc" },
+  { createdAt: "asc" }
+] satisfies Prisma.EventMenuLineOrderByWithRelationInput[];
+
+const lineSelect = {
+  id: true,
+  menuItemId: true,
+  addOnId: true,
+  itemName: true,
+  serviceStyle: true,
+  notes: true,
+  sortOrder: true,
+  source: true,
+  menuItem: {
+    select: {
+      name: true,
+      kind: true,
+      isActive: true,
+      // Signed below and handed over as a URL. The bucket is never selected and
+      // the path never reaches the client, the same rule GET /api/menu follows:
+      // these two columns are the only thing that would let a caller address
+      // the stored object directly instead of through a short-lived URL.
+      picturePath: true,
+      services: { select: { serviceStyle: true } }
+    }
+  },
+  addOn: {
+    select: { name: true, price: true, isActive: true, picturePath: true }
+  }
+} satisfies Prisma.EventMenuLineSelect;
+
+const menuSelect = {
+  id: true,
+  meal: true,
+  status: true,
+  serviceStyle: true,
+  confirmedAt: true,
+  version: true,
+  confirmedBy: { select: { id: true, name: true } },
+  lines: { select: lineSelect, orderBy: lineOrder }
+} satisfies Prisma.EventMenuSelect;
+
+type MenuLineRow = Prisma.EventMenuLineGetPayload<{ select: typeof lineSelect }>;
+
+/**
+ * A confirmed line answers from its own snapshot; a draft answers from the
+ * library. That is the whole rule: renaming a dish should flow into a menu
+ * nobody has signed off yet, and must not change one the kitchen already read.
+ */
+function presentLine(line: MenuLineRow, pictureUrl: string | null) {
+  const isAddOn = line.addOnId !== null;
+
+  return {
+    id: line.id,
+    menuItemId: line.menuItemId,
+    addOnId: line.addOnId,
+    kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
+    name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
+    // Live, not snapshotted like the name. A picture is how staff recognise the
+    // dish on the sheet; a stale one is worse than a renamed one, and the
+    // catalog row cannot be deleted out from under a line anyway.
+    pictureUrl,
+    serviceStyle: line.serviceStyle,
+    // Which styles the dish could be served in, so the menu tab can ask when a
+    // dish carries a rule for both and this event has not said which.
+    availableStyles: [
+      ...new Set((line.menuItem?.services ?? []).map((s) => s.serviceStyle))
+    ],
+    price: line.addOn?.price === undefined ? null : Number(line.addOn.price),
+    notes: line.notes,
+    sortOrder: line.sortOrder,
+    source: line.source,
+    isRetired: isAddOn
+      ? line.addOn?.isActive === false
+      : line.menuItem?.isActive === false
+  };
+}
+
+type StoredMenu = Prisma.EventMenuGetPayload<{ select: typeof menuSelect }>;
+
+/**
+ * One signing request for the whole menu rather than one per card, matching
+ * what GET /api/menu does for the library grid.
+ *
+ * The 300s default outlives the 2 minute client query cache, so a cached
+ * response never holds an expired URL. Storage being unreachable costs the
+ * thumbnails, not the menu.
+ */
+async function presentMenu(menu: StoredMenu, organizationId: string) {
+  const picturePaths = menu.lines
+    .map((line) => line.menuItem?.picturePath ?? line.addOn?.picturePath)
+    .filter((path): path is string => Boolean(path));
+
+  let signedUrlsByPath = new Map<string, string>();
+
+  if (picturePaths.length > 0) {
+    try {
+      signedUrlsByPath = await createSignedFileUrls({
+        organizationId,
+        bucket: MENU_IMAGE_BUCKET,
+        paths: [...new Set(picturePaths)]
+      });
+    } catch (signingError) {
+      console.error("Failed to sign event menu pictures", signingError);
+    }
+  }
+
+  return {
+    ...menu,
+    lines: menu.lines.map((line) => {
+      const picturePath =
+        line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
+
+      return presentLine(
+        line,
+        picturePath ? (signedUrlsByPath.get(picturePath) ?? null) : null
+      );
+    })
+  };
+}
+
+async function loadEvent(actor: { organizationId: string }, eventId: string) {
+  return prisma.event.findFirst({
+    where: { id: eventId, organizationId: actor.organizationId, deleted: false },
+    select: { id: true, hallId: true, workspaceData: true }
+  });
+}
+
+/**
+ * Merges one key into the event's workspace json without disturbing the
+ * timeline that lives beside it. Same read-merge-write the event PATCH does.
+ */
+function mergeWorkspace(
+  current: Prisma.JsonValue | null,
+  menuConfirmed: boolean
+) {
+  const previous =
+    current && typeof current === "object" && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+
+  return { ...previous, menuConfirmed } as Prisma.InputJsonObject;
+}
+
+const emptyMenu = (meal: string) => ({
+  id: null,
+  meal,
+  status: "Draft",
+  serviceStyle: null,
+  confirmedAt: null,
+  version: 0,
+  confirmedBy: null,
+  lines: []
+});
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  try {
+    const actor = await requireAnyPermission(request, [
+      "canViewEventManager",
+      "canViewCalendar"
+    ]);
+    const { eventId } = await params;
+    const id = eventIdSchema.parse(eventId);
+    const meal = mealSchema.parse(
+      new URL(request.url).searchParams.get("meal") ?? undefined
+    );
+
+    const event = await loadEvent(actor, id);
+
+    if (!event) {
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    assertHallAccess(actor, event.hallId);
+
+    const menu = await prisma.eventMenu.findUnique({
+      where: { eventId_meal: { eventId: id, meal } },
+      select: menuSelect
+    });
+
+    return NextResponse.json({
+      // No row until the first save. Version 0 is what the first PUT sends.
+      menu: menu
+        ? await presentMenu(menu, actor.organizationId)
+        : emptyMenu(meal)
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}
+
+/**
+ * Replaces the whole line set for one meal. The client sends the menu it wants
+ * to end up with, so this is safe to call on every edit - which is what makes
+ * an unconfirmed menu survive a reload.
+ */
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  try {
+    // The same permission the menu save has always required, back when it went
+    // through PATCH /api/events/[eventId].
+    const actor = await requirePermission(request, "canCreateBooking");
+    const { eventId } = await params;
+    const id = eventIdSchema.parse(eventId);
+    const input = replaceMenuSchema.parse(await request.json());
+
+    const event = await loadEvent(actor, id);
+
+    if (!event) {
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    assertHallAccess(actor, event.hallId);
+
+    // Last one wins rather than rejecting: the unique on (menu, dish) makes a
+    // repeated target unstorable, and the client has no way to have meant two.
+    const linesByTarget = new Map(
+      input.lines.map((line) => [
+        line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
+        line
+      ])
+    );
+    const lines = [...linesByTarget.values()];
+    const menuItemIds = lines
+      .map((line) => line.menuItemId)
+      .filter((value): value is string => Boolean(value));
+    const addOnIds = lines
+      .map((line) => line.addOnId)
+      .filter((value): value is string => Boolean(value));
+
+    const [ownedMenuItems, ownedAddOns] = await Promise.all([
+      menuItemIds.length
+        ? prisma.menuItem.count({
+            where: {
+              id: { in: menuItemIds },
+              organizationId: actor.organizationId
+            }
+          })
+        : 0,
+      addOnIds.length
+        ? prisma.addOn.count({
+            where: {
+              id: { in: addOnIds },
+              organizationId: actor.organizationId
+            }
+          })
+        : 0
+    ]);
+
+    if (ownedMenuItems !== menuItemIds.length) {
+      return NextResponse.json(
+        { error: "One or more selected menu items were not found." },
+        { status: 400 }
+      );
+    }
+
+    if (ownedAddOns !== addOnIds.length) {
+      return NextResponse.json(
+        { error: "One or more selected add-ons were not found." },
+        { status: 400 }
+      );
+    }
+
+    const saved = await prisma.$transaction(async (transaction) => {
+      const existing = await transaction.eventMenu.findUnique({
+        where: { eventId_meal: { eventId: id, meal: input.meal } },
+        select: { id: true, status: true, version: true }
+      });
+
+      if (!existing) {
+        // First save. `version` may be absent, but if it was sent it has to be
+        // the 0 of a menu that does not exist yet.
+        if (input.version !== undefined && input.version !== 0) return null;
+
+        return transaction.eventMenu.create({
+          data: {
+            organizationId: actor.organizationId,
+            eventId: id,
+            meal: input.meal,
+            serviceStyle: input.serviceStyle ?? null,
+            status: "Draft",
+            version: 1
+          },
+          select: { id: true, version: true }
+        });
+      }
+
+      if (input.version !== undefined && input.version !== existing.version) {
+        return null;
+      }
+
+      // A confirmed menu is what the kitchen has already been handed. Reopen it
+      // first. The client portal refuses writes on the same grounds.
+      if (existing.status === "Confirmed") return "confirmed" as const;
+
+      const bumped = await transaction.eventMenu.updateMany({
+        where: { id: existing.id, version: existing.version },
+        data: {
+          serviceStyle:
+            input.serviceStyle === undefined ? undefined : input.serviceStyle,
+          version: { increment: 1 }
+        }
+      });
+
+      // Someone else committed between the read above and this write.
+      if (bumped.count === 0) return null;
+
+      return { id: existing.id, version: existing.version + 1 };
+    });
+
+    if (saved === "confirmed") {
+      return NextResponse.json(
+        { error: "This menu is confirmed. Reopen it before editing." },
+        { status: 409 }
+      );
+    }
+
+    if (!saved) return conflict();
+
+    await prisma.$transaction([
+      prisma.eventMenuLine.deleteMany({ where: { eventMenuId: saved.id } }),
+      prisma.eventMenuLine.createMany({
+        data: lines.map((line, index) => ({
+          organizationId: actor.organizationId,
+          eventMenuId: saved.id,
+          menuItemId: line.menuItemId ?? null,
+          addOnId: line.addOnId ?? null,
+          serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
+          notes: line.notes ?? null,
+          sortOrder: index,
+          source: "Manual",
+          addedById: actor.id
+        }))
+      }),
+      // The mirrors. Dropped once the kitchen dashboard, the PDF and the client
+      // portal read lines instead.
+      prisma.event.update({
+        where: { id, organizationId: actor.organizationId },
+        data: { menuItemIds, addOnIds, updatedById: actor.id }
+      })
+    ]);
+
+    const menu = await prisma.eventMenu.findUnique({
+      where: { id: saved.id },
+      select: menuSelect
+    });
+
+    return NextResponse.json({
+      menu: menu ? await presentMenu(menu, actor.organizationId) : null
+    });
+  } catch (error) {
+    // Two first-saves racing each other: both saw no header, both created one,
+    // the unique caught the loser. That is a conflict, not a server fault.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return conflict();
+    }
+
+    return createApiErrorResponse(error);
+  }
+}
+
+/**
+ * Confirm locks the menu and freezes the name on every line; reopen puts it
+ * back to a draft that follows the library again.
+ */
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ eventId: string }> }
+) {
+  try {
+    const actor = await requirePermission(request, "canCreateBooking");
+    const { eventId } = await params;
+    const id = eventIdSchema.parse(eventId);
+    const input = lifecycleSchema.parse(await request.json());
+
+    const event = await loadEvent(actor, id);
+
+    if (!event) {
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    assertHallAccess(actor, event.hallId);
+
+    const confirming = input.action === "confirm";
+
+    const result = await prisma.$transaction(async (transaction) => {
+      const existing = await transaction.eventMenu.findUnique({
+        where: { eventId_meal: { eventId: id, meal: input.meal } },
+        select: { id: true, version: true, _count: { select: { lines: true } } }
+      });
+
+      // A menu nobody has saved yet is empty, not contested. Answering "changed
+      // somewhere else" would send the user to reload a page that is already
+      // showing the truth, and hide the one thing they need to do.
+      if (!existing) return confirming ? ("empty" as const) : null;
+
+      if (existing.version !== input.version) return null;
+
+      if (confirming && existing._count.lines === 0) return "empty" as const;
+
+      const bumped = await transaction.eventMenu.updateMany({
+        where: { id: existing.id, version: existing.version },
+        data: {
+          status: confirming ? "Confirmed" : "Draft",
+          confirmedAt: confirming ? new Date() : null,
+          confirmedById: confirming ? actor.id : null,
+          version: { increment: 1 }
+        }
+      });
+
+      if (bumped.count === 0) return null;
+
+      if (confirming) {
+        // Freeze the name. Raw SQL because it copies per-row from whichever of
+        // the two catalogs the line points at, which `updateMany` cannot say.
+        await transaction.$executeRaw`
+          UPDATE "event_menu_lines" AS line
+          SET "item_name" = coalesce(
+                (SELECT item."name" FROM "menu_items" AS item
+                  WHERE item."id" = line."menu_item_id"),
+                (SELECT "add_on"."name" FROM "add_ons" AS "add_on"
+                  WHERE "add_on"."id" = line."add_on_id")
+              ),
+              "updated_at" = NOW()
+          WHERE line."event_menu_id" = ${existing.id}::uuid
+        `;
+      } else {
+        // Back to answering from the library.
+        await transaction.eventMenuLine.updateMany({
+          where: { eventMenuId: existing.id },
+          data: { itemName: null }
+        });
+      }
+
+      // Kept in step for the client portal, which still reads this json to
+      // decide whether the client may change their selections.
+      await transaction.event.update({
+        where: { id, organizationId: actor.organizationId },
+        data: {
+          workspaceData: mergeWorkspace(event.workspaceData, confirming),
+          updatedById: actor.id
+        }
+      });
+
+      return { id: existing.id };
+    });
+
+    if (result === "empty") {
+      return NextResponse.json(
+        { error: "Add at least one menu item before confirming." },
+        { status: 400 }
+      );
+    }
+
+    if (!result) return conflict();
+
+    const menu = await prisma.eventMenu.findUnique({
+      where: { id: result.id },
+      select: menuSelect
+    });
+
+    return NextResponse.json({
+      menu: menu ? await presentMenu(menu, actor.organizationId) : null
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}
