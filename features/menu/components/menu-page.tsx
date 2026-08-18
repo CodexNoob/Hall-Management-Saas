@@ -123,13 +123,15 @@ export function MenuPage() {
   const addOns = useMemo(
     () =>
       (menuQuery.data?.addOns ?? []).map((item) => ({
+        id: item.id,
         name: item.name,
         description: item.notes ?? item.pricingType,
         price: new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: "USD"
         }).format(Number(item.price ?? 0)),
-        tag: item.pricingType
+        tag: item.pricingType,
+        pictureUrl: item.pictureUrl
       })),
     [menuQuery.data]
   );
@@ -292,12 +294,23 @@ export function MenuPage() {
   };
 
   const saveAddOn = async (values: NewAddOnValues) => {
+    // Priced first, then uploaded: a price the parser rejects should not cost an
+    // upload, the same order `saveLibraryItem` below works in.
+    const price = readPrice(values.price, "Price");
+    // Uploaded before the row is created, so a failure anywhere in here leaves
+    // an unreferenced object in the bucket rather than an add-on pointing at
+    // nothing.
+    const picturePath = values.picture
+      ? await uploadMenuPicture(values.picture)
+      : undefined;
+
     await menuMutation.mutate({
       resource: "addon",
       name: values.name,
-      price: readPrice(values.price, "Price"),
+      price,
       pricingType: "fixed",
-      hallIds: []
+      hallIds: [],
+      picturePath
     });
     await menuQuery.refetch();
   };
@@ -693,10 +706,13 @@ export function MenuPage() {
             <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)]">
               {visibleAddOns.map((item) => (
                 <AddOnCard
-                  key={item.name}
+                  // By id, not name: two add-ons may share a name, and a
+                  // duplicate key would drop one of the cards.
+                  key={item.id}
                   name={item.name}
                   description={item.description}
                   price={item.price}
+                  pictureUrl={item.pictureUrl}
                   tag={item.tag}
                 />
               ))}

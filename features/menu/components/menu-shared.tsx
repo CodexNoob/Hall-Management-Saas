@@ -87,6 +87,8 @@ export type MenuResponse = {
     price: string | number | null;
     pricingType: string;
     notes: string | null;
+    // Signed by GET /api/menu, exactly as the items above are.
+    pictureUrl: string | null;
   }>;
   categories: Array<{ id: string; name: string }>;
 };

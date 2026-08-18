@@ -301,18 +301,32 @@ export function AddOnCard({
   name,
   description,
   price,
+  pictureUrl,
   tag
 }: {
   name: string;
   description: string;
   price: string;
+  pictureUrl?: string | null;
   tag: string;
 }) {
   return (
     <article className="flex min-h-25 min-w-0 rounded-lg border border-[#d8dde5] bg-white p-3">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-18 w-18 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
-          <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+        <div className="relative flex h-18 w-18 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
+          {pictureUrl ? (
+            // Plain <img> and alt="", for the reasons spelled out on
+            // MenuItemCard: a signed URL that rotates faster than the optimizer
+            // could ever cache it, beside a name this card already renders.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+          ) : (
+            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+          )}
         </div>
         <div className="min-w-0">
           <h3 className="text-sm font-black text-[#17202a]">{name}</h3>
