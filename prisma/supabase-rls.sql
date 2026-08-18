@@ -102,6 +102,7 @@ BEGIN
     'today_notes',
     'dining_plans',
     'hall_map_presets',
+    'hall_map_shape_library_items',
     'support_tickets',
     'support_ticket_messages'
   ]
