@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/storage/files", () => ({ createSignedFileUrls: vi.fn() }));
 vi.mock("@/lib/auth/server-auth", () => ({
   AuthorizationError: class AuthorizationError extends Error {
     status = 403;
@@ -32,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
 import { GET, POST, PUT } from "@/app/api/events/[eventId]/menu/route";
 import { requireAnyPermission, requirePermission } from "@/lib/auth/server-auth";
 import { prisma } from "@/lib/prisma";
+import { createSignedFileUrls } from "@/lib/storage/files";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -40,6 +42,8 @@ const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const otherMenuItemId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const eventMenuId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const addOnId = "12345678-1234-4234-8234-123456789012";
+const dishPicturePath = `${organizationId}/menu/ribs.jpg`;
+const signedUrl = "https://storage.example/signed/ribs.jpg?token=abc";
 
 const actor = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -59,7 +63,10 @@ function request(method: string, body?: unknown) {
 }
 
 /** The shape the final read hands back after a successful write. */
-function storedMenu(overrides: Record<string, unknown> = {}) {
+function storedMenu(
+  overrides: Record<string, unknown> = {},
+  dishPicture: string | null = dishPicturePath
+) {
   return {
     id: eventMenuId,
     meal: "Main",
@@ -82,6 +89,7 @@ function storedMenu(overrides: Record<string, unknown> = {}) {
           name: "Braised ribs",
           kind: "Food",
           isActive: true,
+          picturePath: dishPicture,
           services: [{ serviceStyle: "Buffet" }, { serviceStyle: "Plated" }]
         },
         addOn: null
@@ -96,7 +104,14 @@ function storedMenu(overrides: Record<string, unknown> = {}) {
         sortOrder: 1,
         source: "Manual",
         menuItem: null,
-        addOn: { name: "Viennese table", price: "850", isActive: true }
+        addOn: {
+          name: "Viennese table",
+          price: "850",
+          isActive: true,
+          // Deliberately without a picture: a menu mixes things that have one
+          // with things that do not.
+          picturePath: null
+        }
       }
     ],
     ...overrides
@@ -114,6 +129,9 @@ describe("event menu route", () => {
       workspaceData: null
     } as never);
     vi.mocked(prisma.event.update).mockResolvedValue({ id: eventId } as never);
+    vi.mocked(createSignedFileUrls).mockResolvedValue(
+      new Map([[dishPicturePath, signedUrl]])
+    );
     vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
     vi.mocked(prisma.addOn.count).mockResolvedValue(1);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
@@ -187,6 +205,56 @@ describe("event menu route", () => {
       serviceStyle: null,
       price: 850
     });
+  });
+
+  it("signs pictures once for the whole menu and never leaks the path", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu() as never
+    );
+
+    const response = await GET(request("GET"), { params });
+    const payload = await response.json();
+
+    // One request for the menu, not one per card.
+    expect(createSignedFileUrls).toHaveBeenCalledTimes(1);
+    expect(createSignedFileUrls).toHaveBeenCalledWith(
+      expect.objectContaining({ organizationId, paths: [dishPicturePath] })
+    );
+    expect(payload.menu.lines[0].pictureUrl).toBe(signedUrl);
+    // An add-on with no picture is null, not a broken URL.
+    expect(payload.menu.lines[1].pictureUrl).toBeNull();
+    // The stored path is the one thing that would let a caller address the
+    // object directly, so it must not travel with the response.
+    expect(JSON.stringify(payload)).not.toContain(dishPicturePath);
+  });
+
+  it("skips signing entirely when nothing on the menu has a picture", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu({}, null) as never
+    );
+
+    const response = await GET(request("GET"), { params });
+    const payload = await response.json();
+
+    expect(createSignedFileUrls).not.toHaveBeenCalled();
+    expect(payload.menu.lines[0].pictureUrl).toBeNull();
+  });
+
+  it("still serves the menu when signing fails", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu() as never
+    );
+    vi.mocked(createSignedFileUrls).mockRejectedValue(
+      new Error("storage unreachable")
+    );
+
+    const response = await GET(request("GET"), { params });
+    const payload = await response.json();
+
+    // Storage being down costs the thumbnails, not the menu.
+    expect(response.status).toBe(200);
+    expect(payload.menu.lines).toHaveLength(2);
+    expect(payload.menu.lines[0].pictureUrl).toBeNull();
   });
 
   it("mirrors the saved ids back onto the event", async () => {

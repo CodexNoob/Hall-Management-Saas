@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { MenuThumbnail } from "@/features/events/components/event-manager-shared";
 
 /**
  * The three things an event's menu is made of.
@@ -26,6 +27,8 @@ export type MenuSelectorItem = {
   /// Which styles the dish has a counting rule for. Empty for an add-on.
   styles: string[];
   price: number | null;
+  /// Optional: plenty of dishes have no photo. Null shows the placeholder.
+  pictureUrl: string | null;
 };
 
 export function sectionLabel(section: MenuSection) {
@@ -184,24 +187,27 @@ export function MenuItemSelectorDrawer({
 
               return (
                 <button
-                  className="dashboard-hover-card min-h-21 rounded-xl border border-[#d8dde5] bg-white p-3 text-left hover:bg-[#fbfcfd] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
+                  className="dashboard-hover-card flex min-h-21 items-center gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left hover:bg-[#fbfcfd] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
                   disabled={isAdded}
                   key={item.id}
                   onClick={() => onSelect(item, activeSection)}
                   type="button"
                 >
-                  <strong className="block wrap-break-word text-[13px] leading-5 text-[#17202a] sm:text-sm">
-                    {item.name}
-                  </strong>
-                  <span className="mt-1 block text-xs text-[#6a7483]">
-                    {isAdded
-                      ? "Already on this menu"
-                      : (price ??
-                        // A dish served both ways is being pinned to this tab's
-                        // style by the click, which is worth saying out loud.
-                        (item.styles.length > 1
-                          ? `Served ${item.styles.join(" and ").toLowerCase()}`
-                          : sectionLabel(activeSection)))}
+                  <MenuThumbnail pictureUrl={item.pictureUrl} />
+                  <span className="min-w-0 flex-1">
+                    <strong className="block wrap-break-word text-[13px] leading-5 text-[#17202a] sm:text-sm">
+                      {item.name}
+                    </strong>
+                    <span className="mt-1 block text-xs text-[#6a7483]">
+                      {isAdded
+                        ? "Already on this menu"
+                        : (price ??
+                          // A dish served both ways is being pinned to this
+                          // tab's style by the click, worth saying out loud.
+                          (item.styles.length > 1
+                            ? `Served ${item.styles.join(" and ").toLowerCase()}`
+                            : sectionLabel(activeSection)))}
+                    </span>
                   </span>
                 </button>
               );

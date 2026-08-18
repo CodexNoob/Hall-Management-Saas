@@ -8,6 +8,8 @@ import {
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
+import { createSignedFileUrls } from "@/lib/storage/files";
 
 /**
  * The menu for one event: what it is serving buffet, what it is serving plated,
@@ -95,10 +97,17 @@ const lineSelect = {
       name: true,
       kind: true,
       isActive: true,
+      // Signed below and handed over as a URL. The bucket is never selected and
+      // the path never reaches the client, the same rule GET /api/menu follows:
+      // these two columns are the only thing that would let a caller address
+      // the stored object directly instead of through a short-lived URL.
+      picturePath: true,
       services: { select: { serviceStyle: true } }
     }
   },
-  addOn: { select: { name: true, price: true, isActive: true } }
+  addOn: {
+    select: { name: true, price: true, isActive: true, picturePath: true }
+  }
 } satisfies Prisma.EventMenuLineSelect;
 
 const menuSelect = {
@@ -119,7 +128,7 @@ type MenuLineRow = Prisma.EventMenuLineGetPayload<{ select: typeof lineSelect }>
  * library. That is the whole rule: renaming a dish should flow into a menu
  * nobody has signed off yet, and must not change one the kitchen already read.
  */
-function presentLine(line: MenuLineRow) {
+function presentLine(line: MenuLineRow, pictureUrl: string | null) {
   const isAddOn = line.addOnId !== null;
 
   return {
@@ -128,6 +137,10 @@ function presentLine(line: MenuLineRow) {
     addOnId: line.addOnId,
     kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
     name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
+    // Live, not snapshotted like the name. A picture is how staff recognise the
+    // dish on the sheet; a stale one is worse than a renamed one, and the
+    // catalog row cannot be deleted out from under a line anyway.
+    pictureUrl,
     serviceStyle: line.serviceStyle,
     // Which styles the dish could be served in, so the menu tab can ask when a
     // dish carries a rule for both and this event has not said which.
@@ -141,6 +154,49 @@ function presentLine(line: MenuLineRow) {
     isRetired: isAddOn
       ? line.addOn?.isActive === false
       : line.menuItem?.isActive === false
+  };
+}
+
+type StoredMenu = Prisma.EventMenuGetPayload<{ select: typeof menuSelect }>;
+
+/**
+ * One signing request for the whole menu rather than one per card, matching
+ * what GET /api/menu does for the library grid.
+ *
+ * The 300s default outlives the 2 minute client query cache, so a cached
+ * response never holds an expired URL. Storage being unreachable costs the
+ * thumbnails, not the menu.
+ */
+async function presentMenu(menu: StoredMenu, organizationId: string) {
+  const picturePaths = menu.lines
+    .map((line) => line.menuItem?.picturePath ?? line.addOn?.picturePath)
+    .filter((path): path is string => Boolean(path));
+
+  let signedUrlsByPath = new Map<string, string>();
+
+  if (picturePaths.length > 0) {
+    try {
+      signedUrlsByPath = await createSignedFileUrls({
+        organizationId,
+        bucket: MENU_IMAGE_BUCKET,
+        paths: [...new Set(picturePaths)]
+      });
+    } catch (signingError) {
+      console.error("Failed to sign event menu pictures", signingError);
+    }
+  }
+
+  return {
+    ...menu,
+    lines: menu.lines.map((line) => {
+      const picturePath =
+        line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
+
+      return presentLine(
+        line,
+        picturePath ? (signedUrlsByPath.get(picturePath) ?? null) : null
+      );
+    })
   };
 }
 
@@ -209,7 +265,7 @@ export async function GET(
     return NextResponse.json({
       // No row until the first save. Version 0 is what the first PUT sends.
       menu: menu
-        ? { ...menu, lines: menu.lines.map(presentLine) }
+        ? await presentMenu(menu, actor.organizationId)
         : emptyMenu(meal)
     });
   } catch (error) {
@@ -376,7 +432,7 @@ export async function PUT(
     });
 
     return NextResponse.json({
-      menu: menu ? { ...menu, lines: menu.lines.map(presentLine) } : null
+      menu: menu ? await presentMenu(menu, actor.organizationId) : null
     });
   } catch (error) {
     // Two first-saves racing each other: both saw no header, both created one,
@@ -488,7 +544,7 @@ export async function POST(
     });
 
     return NextResponse.json({
-      menu: menu ? { ...menu, lines: menu.lines.map(presentLine) } : null
+      menu: menu ? await presentMenu(menu, actor.organizationId) : null
     });
   } catch (error) {
     return createApiErrorResponse(error);

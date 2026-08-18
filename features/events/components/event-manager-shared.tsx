@@ -167,12 +167,15 @@ export type EventMenuResponse = {
     name: string;
     isActive: boolean;
     services: Array<{ serviceStyle: string }>;
+    /// Signed by GET /api/menu; the raw bucket and path never reach the client.
+    pictureUrl: string | null;
   }>;
   addOns: Array<{
     id: string;
     name: string;
     price: string | number | null;
     isActive: boolean;
+    pictureUrl: string | null;
   }>;
 };
 
@@ -196,6 +199,10 @@ export type EventMenuLine = {
   addOnId: string | null;
   kind: "Dish" | "AddOn";
   name: string;
+  /// Signed per request and optional - a dish or add-on with no picture shows
+  /// the placeholder instead. Read live from the catalog rather than frozen
+  /// with the name, so a better photo reaches a confirmed menu.
+  pictureUrl: string | null;
   /// Buffet or Plated for a dish. Null on an add-on, and null on a dish that
   /// is served both ways and has not been told which applies here.
   serviceStyle: string | null;
@@ -213,6 +220,40 @@ export type EventMenuLine = {
 export type EventMenuDocumentResponse = {
   menu: EventMenuDocument;
 };
+
+/**
+ * A dish or add-on picture at list size, with a placeholder when there is none.
+ *
+ * Plain `<img>` and `alt=""`, the same call the menu library's cards make: the
+ * URL is signed and rotates, so the image optimizer would never get a cache
+ * hit, and the name is already rendered beside it.
+ */
+export function MenuThumbnail({
+  pictureUrl,
+  className = "h-12 w-12"
+}: {
+  pictureUrl: string | null;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd] ${className}`}
+    >
+      {pictureUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          src={pictureUrl}
+        />
+      ) : (
+        <span className="flex h-5 w-5 items-center justify-center rounded-full border border-[#b9c2cf]">
+          <span className="h-2.5 w-2.5 rounded-full border border-[#b9c2cf]" />
+        </span>
+      )}
+    </span>
+  );
+}
 
 export const portalChecklist = [
   ["Event date and time", true],

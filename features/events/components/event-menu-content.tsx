@@ -14,6 +14,7 @@ import {
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
+  MenuThumbnail,
   type EventFile,
   type EventMenuDocument,
   type EventMenuDocumentResponse,
@@ -36,12 +37,14 @@ function MenuDishCard({
   badge,
   name,
   detail,
+  pictureUrl,
   onRemove,
   disabled = false
 }: {
   badge: string;
   name: string;
   detail?: string | null;
+  pictureUrl: string | null;
   onRemove: () => void;
   disabled?: boolean;
 }) {
@@ -50,19 +53,36 @@ function MenuDishCard({
       {!disabled ? (
         <button
           aria-label={`Remove ${name}`}
-          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
+          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
           onClick={onRemove}
           type="button"
         >
           <span aria-hidden="true">×</span>
         </button>
       ) : null}
-      <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
-          <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
-            {badge}
-          </span>
-        </div>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
+        {pictureUrl ? (
+          <>
+            {/* Plain <img> for the reason the menu library's cards give: the
+                URL is signed and rotates, so the optimizer never gets a cache
+                hit. Decorative - the name is right below it. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              src={pictureUrl}
+            />
+            <span className="absolute left-1.5 top-1.5 truncate rounded-full bg-white/90 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-normal text-[#1f4d73] sm:text-[9px]">
+              {badge}
+            </span>
+          </>
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
+            <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
+              {badge}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex h-10 flex-col items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
         <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
@@ -153,7 +173,8 @@ export function EventMenuContent({
           styles: [
             ...new Set((item.services ?? []).map((s) => s.serviceStyle))
           ],
-          price: null
+          price: null,
+          pictureUrl: item.pictureUrl ?? null
         })),
       ...data.addOns
         .filter((addOn) => addOn.isActive)
@@ -162,7 +183,8 @@ export function EventMenuContent({
           kind: "AddOn" as const,
           name: addOn.name,
           styles: [],
-          price: addOn.price === null ? null : Number(addOn.price)
+          price: addOn.price === null ? null : Number(addOn.price),
+          pictureUrl: addOn.pictureUrl ?? null
         }))
     ];
   }, [libraryQuery.data]);
@@ -274,6 +296,9 @@ export function EventMenuContent({
         addOnId: item.kind === "AddOn" ? item.id : null,
         kind: item.kind,
         name: item.name,
+        // Carried over from the drawer so the thumbnail is there straight away
+        // rather than appearing when the save comes back.
+        pictureUrl: item.pictureUrl,
         // The tab it was added from is the style it is served in here.
         serviceStyle: section === "AddOn" ? null : section,
         availableStyles: item.styles,
@@ -455,8 +480,14 @@ export function EventMenuContent({
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dcc2] bg-white px-3 py-2"
                   key={line.id}
                 >
-                  <span className="text-sm font-black text-[#17202a]">
-                    {line.name}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <MenuThumbnail
+                      className="h-9 w-9"
+                      pictureUrl={line.pictureUrl}
+                    />
+                    <span className="truncate text-sm font-black text-[#17202a]">
+                      {line.name}
+                    </span>
                   </span>
                   <span className="flex items-center gap-2">
                     {(line.availableStyles.length > 0
@@ -506,6 +537,7 @@ export function EventMenuContent({
                   key={line.id}
                   badge={section.id === "AddOn" ? "ADD-ON" : section.label}
                   name={line.name}
+                  pictureUrl={line.pictureUrl}
                   detail={
                     line.price === null
                       ? null
