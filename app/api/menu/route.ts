@@ -20,7 +20,10 @@ const menuMutationSchema = z.discriminatedUnion("resource", [
     price: moneySchema({ label: "Price" }).optional(),
     pricingType: z.string().trim().min(1),
     hallIds: z.array(z.string().uuid()).default([]),
-    notes: z.string().trim().optional()
+    notes: z.string().trim().optional(),
+    // A storage path, never a bucket and never a URL - the same contract
+    // `menuItemFieldsSchema` states for the column of the same name.
+    picturePath: z.string().trim().min(1).optional()
   })
 ]);
 
@@ -61,6 +64,9 @@ export async function GET(request: Request) {
       }),
       prisma.addOn.findMany({
         where: { organizationId: actor.organizationId },
+        // Dropped for the same reason it is on the items above: the bucket is a
+        // constant on this side and the client is handed a signed URL instead.
+        omit: { pictureBucket: true },
         orderBy: { name: "asc" }
       }),
       prisma.menuCategory.findMany({
@@ -69,12 +75,14 @@ export async function GET(request: Request) {
       })
     ]);
 
-    // One batch call for the whole grid rather than one per card. The 300s URL
-    // outlives the 2 minute client query cache, so a cached response never
-    // holds an expired URL.
+    // One batch call for the whole grid rather than one per card, and add-ons
+    // ride along in it: they live in the same bucket under the same tenant
+    // prefix, so splitting them out would only cost a second round trip. The
+    // 300s URL outlives the 2 minute client query cache, so a cached response
+    // never holds an expired URL.
     let signedUrlsByPath = new Map<string, string>();
-    const picturePaths = items
-      .map((item) => item.picturePath)
+    const picturePaths = [...items, ...addOns]
+      .map((row) => row.picturePath)
       .filter((path): path is string => Boolean(path));
 
     if (picturePaths.length > 0) {
@@ -86,9 +94,12 @@ export async function GET(request: Request) {
         });
       } catch (signingError) {
         // Storage being unreachable should cost the thumbnails, not the page.
-        console.error("Failed to sign menu item pictures", signingError);
+        console.error("Failed to sign menu pictures", signingError);
       }
     }
+
+    const readPictureUrl = (picturePath: string | null) =>
+      picturePath ? (signedUrlsByPath.get(picturePath) ?? null) : null;
 
     const itemsWithPictures = items.map(({ picturePath, services, ...item }) => ({
       ...item,
@@ -99,15 +110,18 @@ export async function GET(request: Request) {
         ...service,
         quantity: Number(service.quantity)
       })),
-      pictureUrl: picturePath
-        ? (signedUrlsByPath.get(picturePath) ?? null)
-        : null
+      pictureUrl: readPictureUrl(picturePath)
+    }));
+
+    const addOnsWithPictures = addOns.map(({ picturePath, ...addOn }) => ({
+      ...addOn,
+      pictureUrl: readPictureUrl(picturePath)
     }));
 
     return NextResponse.json({
       items: itemsWithPictures,
       packages,
-      addOns,
+      addOns: addOnsWithPictures,
       categories
     });
   } catch (error) {
@@ -120,20 +134,21 @@ export async function POST(request: Request) {
     const actor = await requirePermission(request, "canEditMenu");
     const input = menuMutationSchema.parse(await request.json());
 
-    if (input.resource === "item") {
-      if (input.picturePath) {
-        const picturePathError = readPicturePathError(
-          actor.organizationId,
-          input.picturePath
-        );
-        if (picturePathError) {
-          return NextResponse.json(
-            { error: picturePathError },
-            { status: 400 }
-          );
-        }
+    // Checked once for every resource that stores a picture rather than inside
+    // each branch: a path the library item refuses must not be one an add-on
+    // accepts. `package` carries no picture, hence the `in` guard.
+    const picturePath = "picturePath" in input ? input.picturePath : undefined;
+    if (picturePath) {
+      const picturePathError = readPicturePathError(
+        actor.organizationId,
+        picturePath
+      );
+      if (picturePathError) {
+        return NextResponse.json({ error: picturePathError }, { status: 400 });
       }
+    }
 
+    if (input.resource === "item") {
       // The item and its service rules are one thing to a caller, so they are
       // one transaction here. A dish that saved without the rule it was created
       // with would sit on no service tab and read as a failed save.
@@ -194,7 +209,11 @@ export async function POST(request: Request) {
         price: input.price,
         pricingType: input.pricingType,
         hallIds: input.hallIds,
-        notes: input.notes
+        notes: input.notes,
+        picturePath: input.picturePath,
+        // Set here, not taken from the request - the same reason
+        // organizationId is injected rather than accepted.
+        pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null
       }
     });
     return NextResponse.json({ addOn }, { status: 201 });

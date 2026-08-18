@@ -543,6 +543,11 @@ model AddOn {
   hallIds          String[] @default([]) @map("hall_ids")
   isKitchenVisible Boolean  @default(false) @map("is_kitchen_visible")
   notes            String?
+  /// The same pair `MenuItem` carries, and for the same reasons: the bucket is
+  /// written by the server so a client cannot point a row at another one, and
+  /// the path is signed on read rather than stored as a URL that would expire.
+  pictureBucket    String?  @map("picture_bucket")
+  picturePath      String?  @map("picture_path")
   isActive         Boolean  @default(true) @map("is_active")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @updatedAt @map("updated_at")
