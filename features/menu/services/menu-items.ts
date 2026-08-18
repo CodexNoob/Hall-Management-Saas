@@ -1,6 +1,7 @@
 "use client";
 
 import { invalidateAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import type { MenuItemServiceRule } from "@/features/menu/lib/service-style";
 import { readApiError } from "@/lib/http/api-request-error";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
@@ -9,7 +10,16 @@ const MENU_URL = "/api/menu";
 export type MenuItemChanges = {
   name?: string;
   category?: string;
+  /** School | Simcha | Both; the server rejects anything else. */
+  usageType?: string;
+  kind?: string;
+  /**
+   * Omitted leaves the stored rules alone; `[]` clears them, which is how an
+   * item moves back to library-only. Same distinction `picturePath` draws.
+   */
+  services?: MenuItemServiceRule[];
   kosherType?: string;
+  allergens?: string[];
   notes?: string;
   /** `null` clears the stored picture; omitted leaves it as it is. */
   picturePath?: string | null;

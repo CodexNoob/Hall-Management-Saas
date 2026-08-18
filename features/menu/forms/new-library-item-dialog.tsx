@@ -1,13 +1,40 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import {
+  COUNT_BASES,
+  COUNT_BASIS_LABELS,
+  COUNTING_UNITS,
+  MENU_ITEM_KINDS,
+  ROUNDING_MODES,
+  SERVICE_FORM_DEFAULTS,
+  SERVICE_STYLES,
+  type ServiceRuleFormValues,
+  type ServiceStyle,
+  type ServiceStyleFormValues
+} from "@/features/menu/lib/service-style";
 
 export type NewLibraryItemFormValues = {
   name: string;
   category: string;
+  kind: string;
   kashrutType: string;
+  /** Comma separated; the page splits it into the `text[]` column. */
   allergies: string;
   description: string;
+  /**
+   * One entry per service style, each with its own rule.
+   *
+   * A style is served when its checkbox is on, so an item with both off is
+   * library-only and one with both on carries two independent rules - which is
+   * the case a single style field could not express: grilled chicken is one
+   * tray per thirty on a buffet and one plate per guest when plated.
+   *
+   * Rule numbers are held as text, like every other input here. The page parses
+   * them with `parseNumericInput` so an unparseable value cannot reach the
+   * database as a silent zero.
+   */
+  services: ServiceStyleFormValues;
   picture: File | null;
 };
 
@@ -19,6 +46,11 @@ type NewLibraryItemDialogProps = {
    * the two apart, the same way `NewPackageDialog` does it.
    */
   initialValues?: LibraryItemSeedValues;
+  /**
+   * What a create starts on, so "Add buffet item" opens a form that is already
+   * a buffet item. Ignored for an edit, which seeds from the row itself.
+   */
+  defaultServiceStyle?: string;
   open: boolean;
   onClose: () => void;
   // Awaited, not fired and forgotten: saving uploads the picture before it
@@ -29,9 +61,11 @@ type NewLibraryItemDialogProps = {
 const initialValues: LibraryItemSeedValues = {
   name: "",
   category: "Main",
+  kind: "Food",
   kashrutType: "Parve",
   allergies: "",
   description: "",
+  services: SERVICE_FORM_DEFAULTS
 };
 
 const controlClass =
@@ -46,7 +80,7 @@ function LibraryIcon() {
   );
 }
 
-export function NewLibraryItemDialog({ initialValues: editValues, open, onClose, onSave }: NewLibraryItemDialogProps) {
+export function NewLibraryItemDialog({ initialValues: editValues, defaultServiceStyle, open, onClose, onSave }: NewLibraryItemDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +93,20 @@ export function NewLibraryItemDialog({ initialValues: editValues, open, onClose,
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const isEditing = Boolean(editValues);
+  // A function rather than a computed object: the seeding effect depends on it,
+  // and an object rebuilt every render would re-seed the form mid-typing.
+  const buildCreateValues = useCallback((): LibraryItemSeedValues => {
+    // "Add buffet item" opens a form that is already a buffet item - the style
+    // it was opened from starts checked, and nothing else does.
+    const services = Object.fromEntries(
+      SERVICE_STYLES.map((style) => [
+        style,
+        { ...SERVICE_FORM_DEFAULTS[style], enabled: style === defaultServiceStyle }
+      ])
+    ) as ServiceStyleFormValues;
+
+    return { ...initialValues, services };
+  }, [defaultServiceStyle]);
 
   useEffect(() => {
     if (!open) {
@@ -68,7 +116,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, open, onClose,
 
     if (!wasOpenRef.current) {
       wasOpenRef.current = true;
-      setValues(editValues ?? initialValues);
+      setValues(editValues ?? buildCreateValues());
       setPicture(null);
       setSaveError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -88,16 +136,33 @@ export function NewLibraryItemDialog({ initialValues: editValues, open, onClose,
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [editValues, onClose, open]);
+  }, [buildCreateValues, editValues, onClose, open]);
 
   if (!open) return null;
 
-  const updateValue = (field: keyof typeof initialValues, value: string) => {
+  // Narrowed to the text fields so `services`, which is not a string, cannot be
+  // passed here by accident.
+  type TextField = Exclude<keyof LibraryItemSeedValues, "services">;
+
+  const updateValue = (field: TextField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
   };
 
+  const updateService = (
+    style: ServiceStyle,
+    patch: Partial<ServiceRuleFormValues>
+  ) => {
+    setValues((current) => ({
+      ...current,
+      services: {
+        ...current.services,
+        [style]: { ...current.services[style], ...patch }
+      }
+    }));
+  };
+
   const resetForm = () => {
-    setValues(initialValues);
+    setValues(buildCreateValues());
     setPicture(null);
     setSaveError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -170,6 +235,72 @@ export function NewLibraryItemDialog({ initialValues: editValues, open, onClose,
               Allergies
               <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
             </label>
+            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+              Food or drink
+              <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateValue("kind", event.target.value)} value={values.kind}>
+                {MENU_ITEM_KINDS.map((kind) => (
+                  <option key={kind}>{kind}</option>
+                ))}
+              </select>
+            </label>
+            {/* One block per style, each with its own rule. Ticking neither
+                leaves the dish catalogued but not served - which is what the
+                old "Library" option meant, without a value standing in for it.
+                Ticking both is how one dish carries a tray rule for the buffet
+                and a plate rule for the plated menu at the same time. */}
+            <fieldset className="sm:col-span-2">
+              <legend className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                Served as
+              </legend>
+              <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
+                Decides which service tabs list it, and how much to cook for each. Price stays on the package.
+              </p>
+              <div className="mt-2 grid gap-2">
+                {SERVICE_STYLES.map((style) => {
+                  const entry = values.services[style];
+
+                  return (
+                    <div className="rounded-lg border border-[#d8dde5] p-2" key={style}>
+                      <label className="flex items-center gap-2 text-xs font-black normal-case tracking-normal text-[#17202a]">
+                        <input checked={entry.enabled} className="h-4 w-4" name={`serves${style}`} onChange={(event) => updateService(style, { enabled: event.target.checked })} type="checkbox" />
+                        {style}
+                      </label>
+                      {entry.enabled ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <input aria-label={`${style} quantity`} className={`${controlClass} w-20`} inputMode="decimal" onChange={(event) => updateService(style, { quantity: event.target.value })} required value={entry.quantity} />
+                          <select aria-label={`${style} unit`} className={`${controlClass} w-28`} onChange={(event) => updateService(style, { unit: event.target.value })} value={entry.unit}>
+                            {COUNTING_UNITS.map((unit) => (
+                              <option key={unit}>{unit}</option>
+                            ))}
+                          </select>
+                          <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
+                          {/* A whole-event rule - one cake, however many guests -
+                              divides nothing, so the count is not asked for. */}
+                          {entry.perBasis === "Event" ? null : (
+                            <input aria-label={`${style} per quantity`} className={`${controlClass} w-20`} inputMode="numeric" onChange={(event) => updateService(style, { per: event.target.value })} required value={entry.per} />
+                          )}
+                          <select aria-label={`${style} per basis`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { perBasis: event.target.value })} value={entry.perBasis}>
+                            {COUNT_BASES.map((basis) => (
+                              <option key={basis} value={basis}>
+                                {COUNT_BASIS_LABELS[basis]}
+                              </option>
+                            ))}
+                          </select>
+                          <select aria-label={`${style} rounding`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { rounding: event.target.value })} value={entry.rounding}>
+                            {ROUNDING_MODES.map((mode) => (
+                              <option key={mode} value={mode}>
+                                {mode === "Exact" ? "no rounding" : `round ${mode.toLowerCase()}`}
+                              </option>
+                            ))}
+                          </select>
+                          <input aria-label={`${style} minimum`} className={`${controlClass} w-28`} inputMode="numeric" onChange={(event) => updateService(style, { minimumUnits: event.target.value })} placeholder="min (opt)" value={entry.minimumUnits} />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </fieldset>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Description
               <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" name="description" onChange={(event) => updateValue("description", event.target.value)} placeholder="Short description for reference" value={values.description} />

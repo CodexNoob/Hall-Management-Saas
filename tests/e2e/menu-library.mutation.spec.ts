@@ -60,7 +60,11 @@ async function createItem(page: Page, name: string) {
       resource: "item",
       name,
       category: "Main",
-      usageType: "Library",
+      // The business segment, not a service style. Sending no `services` is what
+      // makes this a library-only item - the fixture wants a dish that exists,
+      // not one that is served anywhere.
+      usageType: "Both",
+      kind: "Food",
       kosherType: "Parve"
     }
   });

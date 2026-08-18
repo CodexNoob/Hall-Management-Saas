@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  businessSegmentSchema,
+  menuItemKindSchema,
+  serviceRuleSchema
+} from "@/features/menu/lib/service-style";
 
 /**
  * The columns a client may set on a menu item.
@@ -11,8 +16,18 @@ import { z } from "zod";
 export const menuItemFieldsSchema = z.object({
   name: z.string().trim().min(1).max(200),
   category: z.string().trim().optional(),
-  usageType: z.string().trim().min(1),
-  kosherType: z.string().trim().optional(),
+  // Which side of the business the item belongs to. This column briefly held the
+  // service style instead, which is why the two are named apart now: the styles
+  // live in `services` below, on their own rows.
+  usageType: businessSegmentSchema,
+  kind: menuItemKindSchema,
+  // One entry per style the dish is served in. An empty array is a dish that is
+  // catalogued but not served - what used to be the "Library" sentinel.
+  // Capped at the number of styles that exist, since the unique index makes a
+  // second rule for the same style and basis impossible anyway.
+  services: z.array(serviceRuleSchema).max(2).optional(),
+  kosherType: z.enum(["Milchig", "Fleishig", "Parve"]).optional(),
+  allergens: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   notes: z.string().trim().optional(),
   // A storage path, never a bucket and never a URL. The bucket is decided
   // server-side; a signed URL would be dead within five minutes.

@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import type { MenuItemServiceRule } from "@/features/menu/lib/service-style";
 
 export type IconName = "box" | "chevron" | "dollar" | "document" | "filter" | "plus";
 
@@ -62,8 +63,14 @@ export type MenuResponse = {
     id: string;
     name: string;
     category: string | null;
+    /** School | Simcha | Both. The service style lives in `services`. */
     usageType: string;
+    kind: string;
+    // One row per style the dish is served in, so `unknown` here and parsed
+    // with `readServiceRules` rather than asserted into shape.
+    services: unknown;
     kosherType: string | null;
+    allergens: string[];
     notes: string | null;
     // Signed by GET /api/menu; the raw bucket and path never reach the client.
     pictureUrl: string | null;
@@ -92,109 +99,28 @@ export type MenuLibraryItem = {
   id: string;
   name: string;
   category: string;
+  /** School | Simcha | Both. */
+  usageType: string;
+  kind: string;
+  /**
+   * One rule per style the dish is served in. Empty means catalogued but not
+   * served, which is what drives the Buffet and Plated tabs - a dish appears
+   * under a tab iff it has a rule for that style.
+   */
+  services: MenuItemServiceRule[];
   kosherType: string | null;
+  allergens: string[];
   notes: string | null;
   pictureUrl: string | null;
 };
 
-export const buffetSections = [
-  {
-    title: "Appetizers",
-    items: [
-      {
-        name: "Challah rolls",
-        category: "Buffet",
-        rule: "1 roll per 1 people",
-        price: "$0.00"
-      },
-      {
-        name: "Dips platter",
-        category: "Buffet",
-        rule: "1 set per 1 tables",
-        price: "$0.00"
-      }
-    ]
-  },
-  { title: "Soups", items: [] },
-  {
-    title: "Mains",
-    items: [
-      {
-        name: "Grilled chicken",
-        category: "Buffet",
-        rule: "1 tray per 30 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  {
-    title: "Sides",
-    items: [
-      {
-        name: "Potato kugel",
-        category: "Buffet",
-        rule: "1 tray per 30 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  {
-    title: "Drinks",
-    items: [
-      {
-        name: "Soda package",
-        category: "Buffet",
-        rule: "1 bottle per 8 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  { title: "Desserts", items: [] },
-  { title: "Other", items: [] }
-];
-
-export const platedSections = [
-  { title: "Appetizers", items: [] },
-  {
-    title: "Soups",
-    items: [
-      {
-        name: "Chicken soup",
-        category: "Plated",
-        rule: "1 bowl per 1 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  {
-    title: "Mains",
-    items: [
-      {
-        name: "Grilled chicken",
-        category: "Plated",
-        rule: "1 plate per 1 people",
-        price: "$0.00"
-      },
-      {
-        name: "Roasted vegetables",
-        category: "Plated",
-        rule: "1 portion per 1 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  { title: "Sides", items: [] },
-  { title: "Drinks", items: [] },
-  {
-    title: "Desserts",
-    items: [
-      {
-        name: "Dessert cups",
-        category: "Plated",
-        rule: "1 cup per 1 people",
-        price: "$0.00"
-      }
-    ]
-  },
-  { title: "Other", items: [] }
-];
+// The hardcoded `buffetItems` and `platedSections` that used to live here are
+// gone: both tabs now read `menu_items` and filter on service style, so there
+// is no second copy of the menu to keep in sync.
+//
+// The `packageItems` and `packageAddItems` fixtures went the same way. Every
+// one of these arrays carried a "$0.00" price on the dish itself, and a priced
+// menu item is exactly what this schema says cannot exist - price belongs to a
+// package or an add-on - so leaving them would have contradicted the rule the
+// rest of this feature now enforces. The Packages pane fills its add grid from
+// the library instead, through `PackageItemPicker`.

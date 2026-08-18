@@ -30,9 +30,29 @@ export async function GET(request: Request) {
     const [items, packages, addOns, categories] = await Promise.all([
       prisma.menuItem.findMany({
         where: { organizationId: actor.organizationId },
-        // Never read back: every stored picture lives in MENU_IMAGE_BUCKET by
-        // construction, and the client is given a signed URL, not a location.
-        omit: { pictureBucket: true },
+        // `pictureBucket` is never read back: every stored picture lives in
+        // MENU_IMAGE_BUCKET by construction, and the client is given a signed
+        // URL, not a location. `countingRules` is superseded by `services` and
+        // kept only as a migration safety net - not shipping it is what keeps it
+        // dead until the column is dropped.
+        omit: { pictureBucket: true, countingRules: true },
+        // The Buffet and Plated tabs are "items having a rule for this style",
+        // so the rules have to travel with the item or the grid would need a
+        // request per card.
+        include: {
+          services: {
+            select: {
+              serviceStyle: true,
+              quantity: true,
+              unit: true,
+              per: true,
+              perBasis: true,
+              rounding: true,
+              minimumUnits: true
+            },
+            orderBy: { serviceStyle: "asc" }
+          }
+        },
         orderBy: { name: "asc" }
       }),
       prisma.eventPackage.findMany({
@@ -70,8 +90,15 @@ export async function GET(request: Request) {
       }
     }
 
-    const itemsWithPictures = items.map(({ picturePath, ...item }) => ({
+    const itemsWithPictures = items.map(({ picturePath, services, ...item }) => ({
       ...item,
+      // `quantity` is a Prisma `Decimal`, which JSON-encodes as a string. The
+      // client parses these rules with a schema that expects numbers, so the
+      // conversion belongs here rather than in every reader.
+      services: (services ?? []).map((service) => ({
+        ...service,
+        quantity: Number(service.quantity)
+      })),
       pictureUrl: picturePath
         ? (signedUrlsByPath.get(picturePath) ?? null)
         : null
@@ -107,19 +134,31 @@ export async function POST(request: Request) {
         }
       }
 
+      // The item and its service rules are one thing to a caller, so they are
+      // one transaction here. A dish that saved without the rule it was created
+      // with would sit on no service tab and read as a failed save.
       const item = await prisma.menuItem.create({
         data: {
           organizationId: actor.organizationId,
           name: input.name,
           category: input.category,
           usageType: input.usageType,
+          kind: input.kind,
           kosherType: input.kosherType,
+          allergens: input.allergens ?? [],
           notes: input.notes,
           picturePath: input.picturePath,
           // Set here, not taken from the request - the same reason
           // organizationId is injected rather than accepted.
-          pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null
-        }
+          pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null,
+          services: {
+            create: (input.services ?? []).map((service) => ({
+              organizationId: actor.organizationId,
+              ...service
+            }))
+          }
+        },
+        include: { services: true }
       });
       return NextResponse.json({ item }, { status: 201 });
     }
