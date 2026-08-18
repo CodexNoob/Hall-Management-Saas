@@ -64,6 +64,7 @@ async function createItem(page: Page, name: string) {
       // makes this a library-only item - the fixture wants a dish that exists,
       // not one that is served anywhere.
       usageType: "Both",
+      kind: "Food",
       kosherType: "Parve"
     }
   });

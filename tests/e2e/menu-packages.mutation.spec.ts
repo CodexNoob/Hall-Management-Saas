@@ -65,7 +65,11 @@ async function createItem(page: Page, name: string) {
       resource: "item",
       name,
       category: "Main",
-      usageType: "Library",
+      // The business segment, not a service style. "Library" used to live in
+      // this column; it is now expressed by sending no `services` at all, which
+      // is what this fixture wants - a dish that exists but is served nowhere.
+      usageType: "Both",
+      kind: "Food",
       kosherType: "Parve"
     }
   });
