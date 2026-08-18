@@ -106,7 +106,9 @@ test("a value outside the bound the server enforces is refused", async ({
 });
 
 test("a fractional seat count is refused", async ({ page }) => {
-  await page.getByLabel("Seats").fill("10.5");
+  // exact: the library panel's bulk-add form labels a field "Seats per table",
+  // which an unanchored "Seats" also matches.
+  await page.getByLabel("Seats", { exact: true }).fill("10.5");
 
   await expect(page.locator(inspectorError)).toContainText(
     "Seats must be a whole number."

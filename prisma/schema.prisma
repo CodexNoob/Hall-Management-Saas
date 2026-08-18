@@ -1300,6 +1300,7 @@ model HallMapPreset {
   hallId         String   @map("hall_id") @db.Uuid
   name           String
   objects        Json     @default("[]")
+  backgroundPath String?  @map("background_path")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 

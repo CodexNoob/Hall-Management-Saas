@@ -3,10 +3,10 @@
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { MapObject, SavedHallMap } from "@/features/hall-room-map/components/hall-map-shared";
 type Options = {
- clampObjectPosition: (object: MapObject, x: number, y: number) => {x:number;y:number}; clearObjectSelection:()=>void; fitAllShapes:()=>void; getActiveObjectIds:()=>string[]; hasSelectedMap:boolean; latestObjectsRef:MutableRefObject<MapObject[]>; objectClipboardRef:MutableRefObject<MapObject[]>; objects:MapObject[]; rememberObjectsSnapshot:()=>void; resetMapZoom:()=>void; saveCurrentMap:()=>Promise<void>; selectedMap:SavedHallMap|null; selectedObjectId:string|null; selectedObjectIds:string[]; setObjects:Dispatch<SetStateAction<MapObject[]>>; setSelectedObjectId:Dispatch<SetStateAction<string|null>>; setSelectedObjectIds:Dispatch<SetStateAction<string[]>>; showFeedback:(message:string)=>void; undoStackRef:MutableRefObject<MapObject[][]>; zoomAtPointer:(direction:"in"|"out",clientX:number,clientY:number)=>void; zoomIn:()=>void; zoomOut:()=>void;
+ clampObjectPosition: (object: MapObject, x: number, y: number) => {x:number;y:number}; clearObjectSelection:()=>void; fitAllShapes:()=>void; getActiveObjectIds:()=>string[]; hasSelectedMap:boolean; latestObjectsRef:MutableRefObject<MapObject[]>; objectClipboardRef:MutableRefObject<MapObject[]>; objects:MapObject[]; redoStackRef:MutableRefObject<MapObject[][]>; rememberObjectsSnapshot:()=>void; resetMapZoom:()=>void; saveCurrentMap:()=>Promise<void>; selectedMap:SavedHallMap|null; selectedObjectId:string|null; selectedObjectIds:string[]; setObjects:Dispatch<SetStateAction<MapObject[]>>; setSelectedObjectId:Dispatch<SetStateAction<string|null>>; setSelectedObjectIds:Dispatch<SetStateAction<string[]>>; showFeedback:(message:string)=>void; undoStackRef:MutableRefObject<MapObject[][]>; zoomAtPointer:(direction:"in"|"out",clientX:number,clientY:number)=>void; zoomIn:()=>void; zoomOut:()=>void;
 };
 export function useHallMapKeyboardShortcuts(options: Options) {
- const { clampObjectPosition, clearObjectSelection, fitAllShapes, getActiveObjectIds, hasSelectedMap, latestObjectsRef, objectClipboardRef, objects, rememberObjectsSnapshot, resetMapZoom, saveCurrentMap, selectedMap, selectedObjectId, selectedObjectIds, setObjects, setSelectedObjectId, setSelectedObjectIds, showFeedback, undoStackRef, zoomAtPointer, zoomIn, zoomOut } = options;
+ const { clampObjectPosition, clearObjectSelection, fitAllShapes, getActiveObjectIds, hasSelectedMap, latestObjectsRef, objectClipboardRef, objects, redoStackRef, rememberObjectsSnapshot, resetMapZoom, saveCurrentMap, selectedMap, selectedObjectId, selectedObjectIds, setObjects, setSelectedObjectId, setSelectedObjectIds, showFeedback, undoStackRef, zoomAtPointer, zoomIn, zoomOut } = options;
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
       if (!(target instanceof HTMLElement)) {
@@ -165,11 +165,38 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         return;
       }
 
+      // Redo before undo: Ctrl+Shift+Z also matches the plain "z" check below.
+      const isRedo =
+        isModifier &&
+        ((event.key.toLowerCase() === "z" && event.shiftKey) ||
+          event.key.toLowerCase() === "y");
+
+      if (isRedo) {
+        const nextSnapshot = redoStackRef.current.at(-1);
+        if (!nextSnapshot) return;
+        event.preventDefault();
+        redoStackRef.current = redoStackRef.current.slice(0, -1);
+        // Straight onto the undo stack, not through rememberObjectsSnapshot -
+        // that would clear the redo stack this step is walking.
+        undoStackRef.current = [
+          ...undoStackRef.current.slice(-24),
+          latestObjectsRef.current.map((object) => ({ ...object }))
+        ];
+        setObjects(nextSnapshot.map((object) => ({ ...object })));
+        clearObjectSelection();
+        showFeedback("Redo applied.");
+        return;
+      }
+
       if (isModifier && event.key.toLowerCase() === "z") {
         const previousSnapshot = undoStackRef.current.at(-1);
         if (!previousSnapshot) return;
         event.preventDefault();
         undoStackRef.current = undoStackRef.current.slice(0, -1);
+        redoStackRef.current = [
+          ...redoStackRef.current.slice(-24),
+          latestObjectsRef.current.map((object) => ({ ...object }))
+        ];
         setObjects(previousSnapshot.map((object) => ({ ...object })));
         clearObjectSelection();
         showFeedback("Undo applied.");

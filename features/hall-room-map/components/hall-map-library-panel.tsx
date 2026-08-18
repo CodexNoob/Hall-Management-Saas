@@ -37,18 +37,28 @@ type HallMapLibraryPanelProps = {
   selectedMapId: string;
   selectedObjectExists: boolean;
   shapeLibrary: ShapeLibraryItem[];
+  hasFloorPlan: boolean;
   onAddObject: (type: ShapeType) => void;
   onAddShapeLibraryObject: (shape: ShapeLibraryItem) => void;
+  onAddTableRows: (input: {
+    type: "round-table" | "rect-table";
+    count: number;
+    perRow: number;
+    seats: number;
+  }) => void;
+  onCopyMapToHall: (hallId: string) => void;
   onCreateShapeLibraryItem: (input: NewTableInput) => Promise<void>;
   onDeleteMap: () => void;
   onDeleteSelectedObject: () => void;
   onDuplicateSelectedObject: () => void;
   onLoadPreset: () => void;
   onNewMap: () => void;
+  onRemoveFloorPlan: () => void;
   onRenameMap: () => void;
   onSavePreset: () => void;
   onSelectHall: (hallId: string) => void;
   onSelectMap: (map: SavedHallMap) => void;
+  onUploadFloorPlan: (file: File) => void;
 };
 
 export function HallMapLibraryPanel({
@@ -61,20 +71,31 @@ export function HallMapLibraryPanel({
   selectedMapId,
   selectedObjectExists,
   shapeLibrary,
+  hasFloorPlan,
   onAddObject,
   onAddShapeLibraryObject,
+  onAddTableRows,
+  onCopyMapToHall,
   onCreateShapeLibraryItem,
   onDeleteMap,
   onDeleteSelectedObject,
   onDuplicateSelectedObject,
   onLoadPreset,
   onNewMap,
+  onRemoveFloorPlan,
   onRenameMap,
   onSavePreset,
   onSelectHall,
-  onSelectMap
+  onSelectMap,
+  onUploadFloorPlan
 }: HallMapLibraryPanelProps) {
   const [isNewTableOpen, setIsNewTableOpen] = useState(false);
+  const [rowsForm, setRowsForm] = useState({
+    count: "8",
+    perRow: "4",
+    seats: "10"
+  });
+  const [copyTargetHallId, setCopyTargetHallId] = useState("");
   const [newTableError, setNewTableError] = useState("");
   const [newTableForm, setNewTableForm] = useState({
     name: "",
@@ -161,6 +182,82 @@ export function HallMapLibraryPanel({
           >
             New table
           </button>
+
+          <section className="mt-3 rounded-lg border border-[#d8dde5] p-2 max-md:pointer-events-none max-md:opacity-60">
+            <h3 className="text-[10px] font-black">Add in rows</h3>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <label className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
+                  Tables
+                </span>
+                <input
+                  className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
+                  inputMode="numeric"
+                  name="rowTablesCount"
+                  onChange={(event) =>
+                    setRowsForm((current) => ({
+                      ...current,
+                      count: event.target.value
+                    }))
+                  }
+                  value={rowsForm.count}
+                />
+              </label>
+              <label className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
+                  Per row
+                </span>
+                <input
+                  className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
+                  inputMode="numeric"
+                  name="rowTablesPerRow"
+                  onChange={(event) =>
+                    setRowsForm((current) => ({
+                      ...current,
+                      perRow: event.target.value
+                    }))
+                  }
+                  value={rowsForm.perRow}
+                />
+              </label>
+              <label className="min-w-0">
+                <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
+                  Seats per table
+                </span>
+                <input
+                  className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
+                  inputMode="numeric"
+                  name="rowTablesSeats"
+                  onChange={(event) =>
+                    setRowsForm((current) => ({
+                      ...current,
+                      seats: event.target.value
+                    }))
+                  }
+                  value={rowsForm.seats}
+                />
+              </label>
+            </div>
+            <button
+              className="mt-2 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45"
+              disabled={
+                !hasSelectedMap ||
+                !Number.isFinite(Number(rowsForm.count)) ||
+                Number(rowsForm.count) < 1
+              }
+              onClick={() =>
+                onAddTableRows({
+                  type: "round-table",
+                  count: Math.min(100, Math.max(1, Number(rowsForm.count))),
+                  perRow: Math.min(20, Math.max(1, Number(rowsForm.perRow))),
+                  seats: Math.min(100, Math.max(0, Number(rowsForm.seats)))
+                })
+              }
+              type="button"
+            >
+              Add round tables in rows
+            </button>
+          </section>
 
           <section className="mt-3 rounded-lg border border-[#d8dde5] p-2">
             <h3 className="text-[10px] font-black">Custom tables</h3>
@@ -278,6 +375,87 @@ export function HallMapLibraryPanel({
               >
                 Delete map
               </button>
+            </div>
+
+            {halls.length > 1 ? (
+              <div className="mt-2 max-md:pointer-events-none max-md:opacity-60">
+                <label
+                  className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
+                  htmlFor="copy-map-target"
+                >
+                  Copy this map to
+                </label>
+                <div className="mt-1 flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <CompactSelect
+                      disabled={!hasSelectedMap}
+                      id="copy-map-target"
+                      onChange={setCopyTargetHallId}
+                      options={[
+                        { label: "Choose a hall", value: "" },
+                        ...halls
+                          .filter((hall) => hall.id !== selectedHallId)
+                          .map((hall) => ({
+                            label: hall.name,
+                            value: hall.id
+                          }))
+                      ]}
+                      value={copyTargetHallId}
+                    />
+                  </div>
+                  <button
+                    className="h-8 shrink-0 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50 sm:h-9"
+                    disabled={!hasSelectedMap || !copyTargetHallId}
+                    onClick={() => {
+                      onCopyMapToHall(copyTargetHallId);
+                      setCopyTargetHallId("");
+                    }}
+                    type="button"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-2 max-md:pointer-events-none max-md:opacity-60">
+              <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
+                Floor plan
+              </span>
+              <div className="mt-1 flex gap-2">
+                <label
+                  className={`flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] ${
+                    hasSelectedMap ? "" : "pointer-events-none opacity-50"
+                  }`}
+                >
+                  {hasFloorPlan ? "Replace image" : "Upload image"}
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Upload floor plan image"
+                    className="sr-only"
+                    disabled={!hasSelectedMap}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) onUploadFloorPlan(file);
+                      event.target.value = "";
+                    }}
+                    type="file"
+                  />
+                </label>
+                {hasFloorPlan ? (
+                  <button
+                    className="h-9 shrink-0 rounded-lg border border-[#efb5ad] bg-white px-2 text-[10px] font-black text-[#c3291b] hover:bg-[#fff4f2]"
+                    onClick={onRemoveFloorPlan}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              <p className="mt-1 text-[9px] leading-4 text-[#617086]">
+                Drawn under the shapes so you can lay tables over the
+                hall&apos;s real plan.
+              </p>
             </div>
           </section>
 

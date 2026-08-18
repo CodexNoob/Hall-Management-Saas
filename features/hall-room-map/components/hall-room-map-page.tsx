@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent
@@ -23,18 +24,29 @@ import {
   MAP_VIEWPORT_PADDING,
   clampObjectToMap,
   clampViewportPosition,
+  defaultShapeDimensions,
+  findOverlappingObjectIds,
+  generateTableRows,
   getMapObjectBounds,
   getRotationFromPointer,
   initialHallMaps,
-  resizeMapObjectFromEdge,
+  snapToGrid,
+  summarizeSeats,
   type HallMapsResponse,
   type MapObject,
   type ResizeEdge,
   type SaveHallMapInput,
   type SavedHallMap,
   type ShapeLibraryItem,
-  type ShapeType
+  type ShapeType,
+  type TableRowsInput,
+  resizeMapObjectFromEdge
 } from "@/features/hall-room-map/components/hall-map-shared";
+import { HallMapPrintSheet } from "@/features/hall-room-map/components/hall-map-print-sheet";
+import {
+  getFloorPlanUrl,
+  uploadHallFloorPlan
+} from "@/features/hall-room-map/lib/upload-floor-plan";
 
 const MIN_MAP_SCALE = 0.05;
 const MAX_MAP_SCALE = 2;
@@ -47,8 +59,10 @@ export function HallRoomMapPage() {
     SaveHallMapInput,
     { preset: SavedHallMap }
   >("/api/hall-maps", "POST");
+  // Partial on purpose: the PATCH schema is partial server-side, and callers
+  // like the floor-plan handlers update one field without resending the layout.
   const updateMapMutation = useAuthenticatedMutation<
-    SaveHallMapInput & { id: string },
+    Partial<SaveHallMapInput> & { id: string },
     { preset: SavedHallMap }
   >("/api/hall-maps", "PATCH");
   const deleteMapMutation = useAuthenticatedMutation<
@@ -88,11 +102,16 @@ export function HallRoomMapPage() {
     width: MAP_WORLD_SIZE,
     height: MAP_WORLD_SIZE
   });
+  // Placement snapping to the 20px visual grid. Alt while dragging bypasses it.
+  const [isSnapEnabled, setIsSnapEnabled] = useState(true);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
   const latestObjectsRef = useRef<MapObject[]>(objects);
   const objectClipboardRef = useRef<MapObject[]>([]);
   const undoStackRef = useRef<MapObject[][]>([]);
+  const redoStackRef = useRef<MapObject[][]>([]);
   const mapScaleRef = useRef(1);
   const mapDimensionsRef = useRef(mapDimensions);
   const panRef = useRef<{
@@ -136,6 +155,28 @@ export function HallRoomMapPage() {
   const saveConfirmationTimerRef = useRef<ReturnType<
     typeof setTimeout
   > | null>(null);
+
+  const selectedMapBackgroundPath =
+    hallMaps.find((map) => map.id === selectedMapId)?.backgroundPath ?? null;
+
+  // The floor-plan bucket is private, so rendering needs a short-lived signed
+  // URL. Refreshed whenever the selected map's stored path changes.
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedMapBackgroundPath) {
+      setFloorPlanUrl(null);
+      return;
+    }
+
+    getFloorPlanUrl(selectedMapBackgroundPath).then((url) => {
+      if (!cancelled) setFloorPlanUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMapBackgroundPath]);
 
   useEffect(() => {
     latestObjectsRef.current = objects;
@@ -338,6 +379,18 @@ export function HallRoomMapPage() {
   const selectedObjectIdSet = new Set(selectedObjectIds);
   const hasSelectedObject = selectedObjectIds.length > 0 || Boolean(selectedObject);
   const selectedMap = hallMaps.find((map) => map.id === selectedMapId) ?? null;
+  const selectedHall =
+    hallMapsQuery.data?.halls.find((hall) => hall.id === selectedHallId) ??
+    null;
+  const seatSummary = summarizeSeats(objects);
+  const isOverCapacity =
+    typeof selectedHall?.capacity === "number" &&
+    selectedHall.capacity > 0 &&
+    seatSummary.total > selectedHall.capacity;
+  const overlappingObjectIds = useMemo(
+    () => findOverlappingObjectIds(objects),
+    [objects]
+  );
   const hasSelectedHall = Boolean(selectedHallId);
   const hasSelectedMap = Boolean(
     selectedMap && selectedMap.hallId === selectedHallId
@@ -449,6 +502,8 @@ export function HallRoomMapPage() {
       ...undoStackRef.current.slice(-24),
       snapshot.map((object) => ({ ...object }))
     ];
+    // A fresh edit forks history: whatever was undone is no longer reachable.
+    redoStackRef.current = [];
   }
 
   function clearObjectSelection() {
@@ -517,6 +572,7 @@ export function HallRoomMapPage() {
     latestObjectsRef,
     objectClipboardRef,
     objects,
+    redoStackRef,
     rememberObjectsSnapshot,
     resetMapZoom,
     saveCurrentMap,
@@ -554,17 +610,7 @@ export function HallRoomMapPage() {
     const id = `${type}-${crypto.randomUUID()}`;
     const circleShape =
       type === "round-table" || type === "kids-table" || type === "circle";
-    const dimensions: Record<ShapeType, { width: number; height: number }> = {
-      "round-table": { width: 68, height: 68 },
-      "rect-table": { width: 96, height: 48 },
-      "kids-table": { width: 68, height: 68 },
-      box: { width: 80, height: 54 },
-      circle: { width: 68, height: 68 },
-      divider: { width: 250, height: 12 },
-      buffet: { width: 100, height: 38 },
-      "head-table": { width: 112, height: 48 },
-      drinks: { width: 82, height: 38 }
-    };
+    const dimensions = defaultShapeDimensions;
     const seats =
       type === "head-table"
         ? 12
@@ -629,6 +675,117 @@ export function HallRoomMapPage() {
     setObjects((current) => [...current, newObject]);
     selectSingleObject(newObject.id);
     showFeedback(`${newObject.name} added.`);
+  }
+
+  /** World-space map coordinates at the centre of what the user can see. */
+  function getViewportCenterWorld() {
+    const viewport = mapViewportRef.current;
+    const scale = mapScaleRef.current || 1;
+
+    if (!viewport) return { x: 0, y: 0 };
+
+    return {
+      x:
+        (viewport.scrollLeft + viewport.clientWidth / 2) / scale -
+        MAP_WORLD_ORIGIN,
+      y:
+        (viewport.scrollTop + viewport.clientHeight / 2) / scale -
+        MAP_WORLD_ORIGIN
+    };
+  }
+
+  function addTableRows(
+    input: Pick<TableRowsInput, "type" | "count" | "perRow" | "seats">
+  ) {
+    if (!hasSelectedMap) {
+      showFeedback("Create or select a hall room map first.");
+      return;
+    }
+
+    const center = getViewportCenterWorld();
+    const added = generateTableRows({
+      ...input,
+      centerX: center.x,
+      centerY: center.y,
+      startNumber: objects.length + 1
+    });
+
+    if (!added.length) return;
+
+    rememberObjectsSnapshot();
+    setObjects((current) => [...current, ...added]);
+    setSelectedObjectIds(added.map((object) => object.id));
+    setSelectedObjectId(added.at(-1)?.id ?? null);
+    showFeedback(`${added.length} tables added in rows.`);
+  }
+
+  async function copyMapToHall(targetHallId: string) {
+    if (!selectedMap) return;
+
+    const targetHall = hallMapsQuery.data?.halls.find(
+      (hall) => hall.id === targetHallId
+    );
+
+    if (!targetHall) return;
+
+    try {
+      const result = await createMapMutation.mutate({
+        name: `${selectedMap.name} (${targetHall.name})`,
+        hallId: targetHall.id,
+        objects: objects.map((object) => ({ ...object })),
+        // The image is organization-scoped, not hall-scoped, so both presets
+        // may point at the same stored file.
+        backgroundPath: selectedMap.backgroundPath ?? null
+      });
+      await hallMapsQuery.refetch();
+      showFeedback(
+        `${result.preset.name} copied to ${targetHall.name}.`
+      );
+    } catch (error) {
+      showFeedback(
+        error instanceof Error ? error.message : "Unable to copy this map."
+      );
+    }
+  }
+
+  async function uploadFloorPlan(file: File) {
+    if (!selectedMap) return;
+
+    try {
+      const path = await uploadHallFloorPlan(file);
+      await updateMapMutation.mutate({
+        id: selectedMap.id,
+        backgroundPath: path
+      });
+      await hallMapsQuery.refetch();
+      showFeedback("Floor plan added under the layout.");
+    } catch (error) {
+      showFeedback(
+        error instanceof Error
+          ? error.message
+          : "The floor plan could not be uploaded."
+      );
+    }
+  }
+
+  async function removeFloorPlan() {
+    if (!selectedMap?.backgroundPath) return;
+
+    try {
+      await updateMapMutation.mutate({
+        id: selectedMap.id,
+        backgroundPath: null
+      });
+      await hallMapsQuery.refetch();
+      setFloorPlanUrl(null);
+      showFeedback("Floor plan removed.");
+    } catch (error) {
+      showFeedback(
+        error instanceof Error
+          ? error.message
+          : "The floor plan could not be removed."
+      );
+    }
   }
 
   async function createShapeLibraryItem(input: {
@@ -735,7 +892,10 @@ export function HallRoomMapPage() {
     }
 
     suppressNextObjectClickRef.current = true;
-    rememberObjectsSnapshot();
+    // No snapshot yet: every selection click starts here, and snapshotting on
+    // pointerdown filled the undo stack with no-op entries - and, since redo
+    // forks on fresh edits, a plain click would erase the redo stack. The
+    // snapshot is taken in dragObject the moment movement actually starts.
     dragRef.current = {
       objectId: object.id,
       usesMultiSelect,
@@ -792,13 +952,36 @@ export function HallRoomMapPage() {
         scaleY;
 
     if (
-      Math.abs(event.clientX - drag.startClientX) > 3 ||
-      Math.abs(event.clientY - drag.startClientY) > 3 ||
-      Math.abs(viewport.scrollLeft - drag.startScrollLeft) > 3 ||
-      Math.abs(viewport.scrollTop - drag.startScrollTop) > 3
+      !drag.moved &&
+      (Math.abs(event.clientX - drag.startClientX) > 3 ||
+        Math.abs(event.clientY - drag.startClientY) > 3 ||
+        Math.abs(viewport.scrollLeft - drag.startScrollLeft) > 3 ||
+        Math.abs(viewport.scrollTop - drag.startScrollTop) > 3)
     ) {
       drag.moved = true;
+      // First real movement: snapshot the pre-drag state for undo. Positions
+      // may already have shifted by a few sub-threshold pixels, so rebuild
+      // them from the recorded starts rather than trusting current state.
+      rememberObjectsSnapshot(
+        latestObjectsRef.current.map((object) => {
+          const start = drag.startPositions[object.id];
+          return start ? { ...object, x: start.x, y: start.y } : { ...object };
+        })
+      );
     }
+
+    // Snap the shared delta, not each object: snapping positions individually
+    // would collapse a multi-selection's relative offsets onto the grid. The
+    // anchor object lands on the grid and everything else keeps its distance.
+    // Alt bypasses for free-hand placement.
+    const anchor = drag.startPositions[drag.objectId];
+    const applySnap = isSnapEnabled && !event.altKey && anchor;
+    const effectiveDeltaX = applySnap
+      ? snapToGrid(anchor.x + deltaX) - anchor.x
+      : deltaX;
+    const effectiveDeltaY = applySnap
+      ? snapToGrid(anchor.y + deltaY) - anchor.y
+      : deltaY;
 
     setObjects((current) =>
       current.map((object) => {
@@ -809,8 +992,8 @@ export function HallRoomMapPage() {
               ...object,
               ...clampObjectPosition(
                 object,
-                start.x + deltaX,
-                start.y + deltaY
+                start.x + effectiveDeltaX,
+                start.y + effectiveDeltaY
               )
             }
           : object;
@@ -1208,10 +1391,15 @@ export function HallRoomMapPage() {
             halls={hallMapsQuery.data?.halls ?? []}
             hasSelectedHall={hasSelectedHall}
             hasSelectedMap={hasSelectedMap}
+            hasFloorPlan={Boolean(selectedMap?.backgroundPath)}
             onAddObject={addObject}
             onAddShapeLibraryObject={addShapeLibraryObject}
+            onAddTableRows={addTableRows}
+            onCopyMapToHall={copyMapToHall}
             onCreateShapeLibraryItem={createShapeLibraryItem}
             onDeleteMap={deleteCurrentMap}
+            onRemoveFloorPlan={removeFloorPlan}
+            onUploadFloorPlan={uploadFloorPlan}
             onDeleteSelectedObject={deleteSelectedObject}
             onDuplicateSelectedObject={duplicateSelectedObject}
             onLoadPreset={loadPreset}
@@ -1246,9 +1434,54 @@ export function HallRoomMapPage() {
                 Hall Room Map
               </h2>
 
-              <span className="hidden rounded-lg border border-[#d8dde5] bg-[#f8fafc] px-3 py-2 text-[10px] font-bold text-[#617086] md:inline-flex">
-                Single-screen editor
+              <span
+                aria-label="Seat capacity"
+                className={`hidden rounded-lg border px-3 py-2 text-[10px] font-black md:inline-flex ${
+                  isOverCapacity
+                    ? "border-[#f3b4ae] bg-[#fef2f1] text-[#b42318]"
+                    : "border-[#d8dde5] bg-[#f8fafc] text-[#617086]"
+                }`}
+                title={`${seatSummary.adult} adult · ${seatSummary.kids} kids · ${seatSummary.head} head table`}
+              >
+                {seatSummary.total} seats
+                {typeof selectedHall?.capacity === "number" &&
+                selectedHall.capacity > 0
+                  ? ` / ${selectedHall.capacity}`
+                  : ""}
               </span>
+
+              {overlappingObjectIds.size > 0 ? (
+                <span
+                  className="hidden rounded-lg border border-[#f3b4ae] bg-[#fef2f1] px-3 py-2 text-[10px] font-black text-[#b42318] md:inline-flex"
+                  role="status"
+                >
+                  {overlappingObjectIds.size} overlapping
+                </span>
+              ) : null}
+
+              <button
+                aria-pressed={isSnapEnabled}
+                className={`hidden h-9 rounded-lg border px-3 text-[10px] font-black md:inline-flex md:items-center ${
+                  isSnapEnabled
+                    ? "border-[#1f4d73] bg-[#eef6fc] text-[#1f4d73]"
+                    : "border-[#b9c2cf] bg-white text-[#617086] hover:bg-[#eef4fa]"
+                }`}
+                onClick={() => setIsSnapEnabled((current) => !current)}
+                title="Snap dragged shapes to the grid. Hold Alt while dragging to bypass."
+                type="button"
+              >
+                Snap {isSnapEnabled ? "on" : "off"}
+              </button>
+
+              <button
+                aria-label="Print map"
+                className="hidden h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-[10px] font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40 md:inline-flex md:items-center"
+                disabled={!hasSelectedMap || objects.length === 0}
+                onClick={() => setIsPrintOpen(true)}
+                type="button"
+              >
+                Print
+              </button>
 
               <div
                 aria-label="Map zoom controls"
@@ -1393,10 +1626,28 @@ export function HallRoomMapPage() {
                     width: mapDimensions.width
                   }}
                 >
+                  {floorPlanUrl ? (
+                    // The hall's real floor plan, anchored at map (0,0) so
+                    // shape coordinates line up with it. Decorative: it takes
+                    // no pointer events and screen readers skip it. A plain
+                    // img on purpose - next/image would proxy the short-lived
+                    // signed URL through the optimizer, which caches beyond
+                    // the URL's lifetime and needs fixed dimensions this
+                    // natural-size layer does not have.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt=""
+                      className="pointer-events-none absolute max-w-none opacity-60"
+                      src={floorPlanUrl}
+                      style={{ left: MAP_WORLD_ORIGIN, top: MAP_WORLD_ORIGIN }}
+                    />
+                  ) : null}
+
                   {objects.map((object) => (
                     <MapObjectView
                       key={object.id}
                       object={object}
+                      overlapping={overlappingObjectIds.has(object.id)}
                       onDragEnd={stopDragging}
                       onDragMove={dragObject}
                       onDragStart={(event) => startDragging(event, object)}
@@ -1471,6 +1722,15 @@ export function HallRoomMapPage() {
           />
         </div>
       </main>
+
+      {isPrintOpen && selectedMap ? (
+        <HallMapPrintSheet
+          hallName={selectedHall?.name ?? ""}
+          mapName={selectedMap.name}
+          objects={objects}
+          onClose={() => setIsPrintOpen(false)}
+        />
+      ) : null}
 
       <HallMapDialog
         halls={hallMapsQuery.data?.halls ?? []}
