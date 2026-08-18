@@ -22,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
     menuItem: { findMany: vi.fn(), create: vi.fn() },
     eventPackage: { findMany: vi.fn() },
     addOn: { findMany: vi.fn(), create: vi.fn() },
-    menuCategory: { findMany: vi.fn() }
+    menuCategory: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() }
   }
 }));
 
@@ -71,6 +71,12 @@ describe("menu item pictures", () => {
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([]);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([]);
     vi.mocked(prisma.menuCategory.findMany).mockResolvedValue([]);
+    // Creating an item now resolves its category to a real row, creating that
+    // course the first time a dish is filed under it.
+    vi.mocked(prisma.menuCategory.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.menuCategory.create).mockResolvedValue({
+      id: "category-1"
+    } as never);
     vi.mocked(prisma.menuItem.create).mockResolvedValue({ id: "1" } as never);
     vi.mocked(prisma.addOn.create).mockResolvedValue({ id: "1" } as never);
   });

@@ -20,7 +20,9 @@ vi.mock("@/lib/auth/server-auth", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     menuItem: { findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    menuCategory: { findFirst: vi.fn(), create: vi.fn() },
     event: { count: vi.fn() },
+    eventMenuLine: { count: vi.fn() },
     eventPackage: { count: vi.fn() }
   }
 }));
@@ -71,7 +73,9 @@ describe("menu item update and delete", () => {
       id: itemId
     } as never);
     vi.mocked(prisma.event.count).mockResolvedValue(0);
+    vi.mocked(prisma.eventMenuLine.count).mockResolvedValue(0);
     vi.mocked(prisma.eventPackage.count).mockResolvedValue(0);
+    vi.mocked(prisma.menuCategory.findFirst).mockResolvedValue(null);
   });
 
   it("answers 404 for an item belonging to another organization", async () => {
@@ -154,6 +158,17 @@ describe("menu item update and delete", () => {
 
     const response = await DELETE(deleteRequest(), { params });
 
+    expect(response.status).toBe(409);
+    expect(prisma.menuItem.delete).not.toHaveBeenCalled();
+  });
+
+  it("refuses to delete an item still on an event menu", async () => {
+    vi.mocked(prisma.eventMenuLine.count).mockResolvedValue(1);
+
+    const response = await DELETE(deleteRequest(), { params });
+
+    // The foreign key would refuse this anyway; the count is what turns that
+    // into an error the caller can read instead of a constraint violation.
     expect(response.status).toBe(409);
     expect(prisma.menuItem.delete).not.toHaveBeenCalled();
   });

@@ -1,10 +1,6 @@
 "use client";
 
 import { type ReactNode } from "react";
-import {
-  type MenuCourse,
-  type MenuSelectorItem
-} from "@/features/events/components/menu-item-selector-drawer";
 
 export type BadgeTone = "green" | "gold" | "red";
 export type IconName =
@@ -163,48 +159,55 @@ export const timelineRows = [
   ["10:45 PM", "Cleanup instructions begin", "Event"]
 ];
 
-export const menuItems = [
-  { course: "Appetizer", name: "Challah rolls" },
-  { course: "Soup", name: "Chicken soup" },
-  { course: "Main", name: "Braised short ribs" },
-  { course: "Side", name: "Potato kugel" },
-  { course: "Main", name: "Children schnitzel" }
-] satisfies Array<{ course: MenuCourse; name: string }>;
-
-export const addMenuItems = [
-  "Add Appetizer",
-  "Add Soup",
-  "Add Main",
-  "Add Side",
-  "Add Drink",
-  "Add Dessert",
-  "Add more"
-];
-
-export const fallbackMenuLibrary: MenuSelectorItem[] = [
-  { id: "appetizer-challah", course: "Appetizer", name: "Challah rolls" },
-  { id: "appetizer-quiche", course: "Appetizer", name: "Mini quiche" },
-  { id: "appetizer-salad", course: "Appetizer", name: "Garden salad" },
-  { id: "appetizer-gefilte", course: "Appetizer", name: "Gefilte fish" },
-  { id: "appetizer-dips", course: "Appetizer", name: "Dips platter" },
-  { id: "soup-chicken", course: "Soup", name: "Chicken soup" },
-  { id: "soup-vegetable", course: "Soup", name: "Vegetable soup" },
-  { id: "main-ribs", course: "Main", name: "Braised short ribs" },
-  { id: "main-schnitzel", course: "Main", name: "Children schnitzel" },
-  { id: "side-kugel", course: "Side", name: "Potato kugel" },
-  { id: "side-vegetables", course: "Side", name: "Seasonal vegetables" },
-  { id: "drink-water", course: "Drink", name: "Bottled water" },
-  { id: "drink-soda", course: "Drink", name: "Assorted soda" },
-  { id: "dessert-cups", course: "Dessert", name: "Dessert cups" },
-  { id: "more-coffee", course: "More", name: "Coffee station" }
-];
-
+/// The dish library, read from /api/menu to populate the selector drawer.
 export type EventMenuResponse = {
   items: Array<{
     id: string;
     name: string;
     category: string | null;
+    categoryId: string | null;
+    isActive: boolean;
   }>;
+  categories: Array<{
+    id: string;
+    name: string;
+    sortOrder: number;
+  }>;
+};
+
+/// One event's menu, read from /api/events/[eventId]/menu.
+export type EventMenuDocument = {
+  id: string | null;
+  meal: string;
+  status: "Draft" | "ClientSubmitted" | "Confirmed";
+  serviceStyle: string | null;
+  confirmedAt: string | null;
+  /// Sent back on every write and checked, so two people editing one menu get
+  /// a conflict rather than one of them silently losing their changes.
+  version: number;
+  confirmedBy: { id: string; name: string } | null;
+  lines: EventMenuLine[];
+};
+
+export type EventMenuLine = {
+  id: string;
+  menuItemId: string;
+  name: string;
+  categoryId: string | null;
+  categoryName: string | null;
+  serviceStyle: string | null;
+  notes: string | null;
+  sortOrder: number;
+  source: string;
+  kind: string;
+  /// The dish has been deactivated in the library since it was put on this
+  /// menu. Still served, but it will not be offered for anything new.
+  isRetired: boolean;
+};
+
+export type EventMenuDocumentResponse = {
+  menu: EventMenuDocument;
+  categories: Array<{ id: string; name: string; sortOrder: number }>;
 };
 
 export const portalChecklist = [

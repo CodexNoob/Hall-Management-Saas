@@ -2,29 +2,40 @@
 
 import { useEffect, useId, useState } from "react";
 
-export const menuCourses = [
-  "Appetizer",
-  "Soup",
-  "Main",
-  "Side",
-  "Drink",
-  "Dessert",
-  "More"
-] as const;
-
-export type MenuCourse = (typeof menuCourses)[number];
+/**
+ * A course, as the organization defines it.
+ *
+ * This used to be a hardcoded list of seven strings, and a dish was filed under
+ * one by matching its category text - `value.includes("appetizer")` - so a
+ * venue that files things as "Fish Appetizers" got them silently swallowed into
+ * Appetizer, and anything unrecognised fell into "More". The tabs come from
+ * `menu_categories` now, so they are whatever the venue actually uses.
+ */
+export type MenuCategoryOption = {
+  id: string;
+  name: string;
+};
 
 export type MenuSelectorItem = {
   id: string;
   name: string;
-  course: MenuCourse;
+  categoryId: string | null;
+  categoryName: string | null;
 };
 
+/**
+ * The tab for dishes that have not been filed under any course. Only offered
+ * when there is at least one, so a tidy library never sees it.
+ */
+export const UNFILED_CATEGORY_ID = null;
+const UNFILED_LABEL = "Unfiled";
+
 type MenuItemSelectorDrawerProps = {
-  initialCourse: MenuCourse;
+  categories: MenuCategoryOption[];
+  initialCategoryId: string | null;
   items: MenuSelectorItem[];
   open: boolean;
-  onClear: (course: MenuCourse) => void;
+  onClear: (categoryId: string | null) => void;
   onClose: () => void;
   onSelect: (item: MenuSelectorItem) => void;
 };
@@ -46,7 +57,8 @@ function MenuIcon() {
 }
 
 export function MenuItemSelectorDrawer({
-  initialCourse,
+  categories,
+  initialCategoryId,
   items,
   open,
   onClear,
@@ -54,13 +66,14 @@ export function MenuItemSelectorDrawer({
   onSelect
 }: MenuItemSelectorDrawerProps) {
   const titleId = useId();
-  const [activeCourse, setActiveCourse] =
-    useState<MenuCourse>(initialCourse);
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(
+    initialCategoryId
+  );
 
   useEffect(() => {
     if (!open) return;
 
-    setActiveCourse(initialCourse);
+    setActiveCategoryId(initialCategoryId);
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -75,12 +88,19 @@ export function MenuItemSelectorDrawer({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [initialCourse, onClose, open]);
+  }, [initialCategoryId, open, onClose]);
 
   if (!open) return null;
 
+  const hasUnfiled = items.some((item) => item.categoryId === null);
+  const tabs: Array<{ id: string | null; name: string }> = hasUnfiled
+    ? [...categories, { id: UNFILED_CATEGORY_ID, name: UNFILED_LABEL }]
+    : categories;
+
+  const activeTab = tabs.find((tab) => tab.id === activeCategoryId) ?? tabs[0];
+  const activeLabel = activeTab?.name ?? UNFILED_LABEL;
   const visibleItems = items.filter(
-    (item) => item.course === activeCourse
+    (item) => item.categoryId === (activeTab?.id ?? null)
   );
 
   return (
@@ -103,7 +123,7 @@ export function MenuItemSelectorDrawer({
               className="min-w-0 truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Select {activeCourse}
+              Select {activeLabel}
             </h2>
           </div>
 
@@ -118,26 +138,30 @@ export function MenuItemSelectorDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <nav
-            aria-label="Menu courses"
-            className="flex flex-wrap gap-2"
-          >
-            {menuCourses.map((course) => (
+          <nav aria-label="Menu courses" className="flex flex-wrap gap-2">
+            {tabs.map((tab) => (
               <button
-                aria-pressed={activeCourse === course}
+                aria-pressed={activeTab?.id === tab.id}
                 className={`h-8 rounded-lg border px-2.5 text-[11px] font-black transition sm:px-3 sm:text-xs ${
-                  activeCourse === course
+                  activeTab?.id === tab.id
                     ? "border-[#a9c6df] bg-[#eef4fa] text-[#173b58]"
                     : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
                 }`}
-                key={course}
-                onClick={() => setActiveCourse(course)}
+                key={tab.id ?? "unfiled"}
+                onClick={() => setActiveCategoryId(tab.id)}
                 type="button"
               >
-                {course}
+                {tab.name}
               </button>
             ))}
           </nav>
+
+          {tabs.length === 0 ? (
+            <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
+              No courses have been set up yet. Add a category to a menu item in
+              the menu library first.
+            </p>
+          ) : null}
 
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
             {visibleItems.map((item) => (
@@ -151,15 +175,15 @@ export function MenuItemSelectorDrawer({
                   {item.name}
                 </strong>
                 <span className="mt-1 block text-xs text-[#6a7483]">
-                  {item.course}
+                  {item.categoryName ?? UNFILED_LABEL}
                 </span>
               </button>
             ))}
           </div>
 
-          {visibleItems.length === 0 ? (
+          {tabs.length > 0 && visibleItems.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
-              No {activeCourse.toLowerCase()} items are available.
+              No {activeLabel.toLowerCase()} items are available.
             </p>
           ) : null}
         </div>
@@ -167,7 +191,7 @@ export function MenuItemSelectorDrawer({
         <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
           <button
             className="h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] hover:bg-[#fff4f2]"
-            onClick={() => onClear(activeCourse)}
+            onClick={() => onClear(activeTab?.id ?? null)}
             type="button"
           >
             Clear

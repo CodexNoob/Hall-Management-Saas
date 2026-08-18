@@ -172,6 +172,54 @@ export async function POST(
         }
       });
 
+      // The event menu is a document now, so the client's picks have to land on
+      // it as lines and not only in the mirrored id array - otherwise staff open
+      // the menu tab and cannot see what the client chose.
+      //
+      // `ClientSubmitted` is exactly the middle state the status column exists
+      // for: the client has answered, staff have not signed it off yet. A
+      // confirmed menu never reaches here; the guard above already refused it.
+      if (input.menuItemIds !== undefined) {
+        const menuItemIds = [...new Set(input.menuItemIds)];
+        const menu = await transaction.eventMenu.upsert({
+          where: { eventId_meal: { eventId: event.id, meal: "Main" } },
+          create: {
+            organizationId,
+            eventId: event.id,
+            meal: "Main",
+            status: "ClientSubmitted",
+            version: 1
+          },
+          update: { status: "ClientSubmitted", version: { increment: 1 } },
+          select: { id: true }
+        });
+
+        const categoryByMenuItemId = new Map(
+          (
+            await transaction.menuItem.findMany({
+              where: { id: { in: menuItemIds }, organizationId },
+              select: { id: true, categoryId: true }
+            })
+          ).map((item) => [item.id, item.categoryId])
+        );
+
+        await transaction.eventMenuLine.deleteMany({
+          where: { eventMenuId: menu.id }
+        });
+        await transaction.eventMenuLine.createMany({
+          data: menuItemIds.map((menuItemId, index) => ({
+            organizationId,
+            eventMenuId: menu.id,
+            menuItemId,
+            categoryId: categoryByMenuItemId.get(menuItemId) ?? null,
+            sortOrder: index,
+            // Recorded rather than assumed: a line staff added and a line the
+            // client picked are not the same thing when they disagree.
+            source: "ClientPortal"
+          }))
+        });
+      }
+
       await transaction.activityLog.create({
         data: {
           organizationId,

@@ -29,6 +29,8 @@ model Organization {
   events                  Event[]
   menuItems               MenuItem[]
   menuItemServices        MenuItemService[]
+  eventMenus              EventMenu[]
+  eventMenuLines          EventMenuLine[]
   eventPackages           EventPackage[]
   addOns                  AddOn[]
   kitchenWorkers          KitchenWorker[]
@@ -160,6 +162,8 @@ model User {
   updatedEvents                    Event[]                  @relation("EventUpdatedBy")
   createdSchoolCycles              SchoolCycle[]            @relation("SchoolCycleCreatedBy")
   updatedKitchenItemStatuses       KitchenItemStatus[]      @relation("KitchenItemStatusUpdatedBy")
+  confirmedEventMenus              EventMenu[]              @relation("EventMenuConfirmedBy")
+  addedEventMenuLines              EventMenuLine[]          @relation("EventMenuLineAddedBy")
   changedKitchenNotifications      KitchenNotification[]    @relation("KitchenNotificationChangedBy")
   acknowledgedKitchenNotifications KitchenNotification[]    @relation("KitchenNotificationAcknowledgedBy")
   activityLogs                     ActivityLog[]
@@ -388,6 +392,7 @@ model Event {
   updatedBy             User?                 @relation("EventUpdatedBy", fields: [updatedById], references: [id])
   kitchenItemStatuses   KitchenItemStatus[]
   kitchenNotifications  KitchenNotification[]
+  eventMenus            EventMenu[]
   activityLogs          ActivityLog[]
   generatedPdfs         GeneratedPdf[]
   emailLogs             EmailLog[]
@@ -440,7 +445,12 @@ model MenuItem {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   name           String
+  /// Superseded by `categoryId`, which points at the `MenuCategory` row the
+  /// course tabs are built from. Left in place written-but-unread for one
+  /// release the way `countingRules` was, because every branch shares one
+  /// database and dropping it would break whatever another branch is running.
   category       String?
+  categoryId     String?  @map("category_id") @db.Uuid
   /// Which side of the business the dish belongs to: School, Simcha or Both.
   /// Not the service style - that is one `MenuItemService` row per style.
   usageType      String   @map("usage_type")
@@ -461,10 +471,13 @@ model MenuItem {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryRef         MenuCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   services            MenuItemService[]
   kitchenItemStatuses KitchenItemStatus[]
+  eventMenuLines      EventMenuLine[]
 
   @@index([organizationId, isActive])
+  @@index([organizationId, categoryId])
   @@index([category])
   @@index([usageType])
   @@index([isActive])
@@ -749,20 +762,109 @@ model TableclothOption {
   @@map("tablecloth_options")
 }
 
+/// A course, and the tab it gets on the event menu. Org-defined: the seven
+/// hardcoded courses the event menu used to fuzzy-match dish text into lived in
+/// the frontend, so "Fish Appetizers" landed under Appetizer by accident and
+/// "Kugel" fell into "More".
 model MenuCategory {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
   name           String
+  /// Tab order, left to right. Ties fall back to name.
+  sortOrder      Int      @default(0) @map("sort_order")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menuItems      MenuItem[]
+  eventMenuLines EventMenuLine[]
 
   @@unique([organizationId, name])
-  @@index([organizationId, isActive])
+  @@index([organizationId, isActive, sortOrder])
   @@index([isActive])
   @@map("menu_categories")
+}
+
+/// What an event is serving, as a document: this header plus its lines.
+///
+/// Replaces `Event.menuItemIds`, a bare uuid array with no foreign key, no
+/// ordering and nowhere to record anything about a dish on this particular
+/// event. That array is still written as a mirror until the readers that have
+/// not moved over yet - the kitchen dashboard and the event PDF - are repointed.
+///
+/// `meal` is 'Main' for every event today. It exists so a Shabbos event serving
+/// three separate menus is an INSERT rather than a migration.
+model EventMenu {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  eventId        String    @map("event_id") @db.Uuid
+  meal           String    @default("Main")
+  /// The style the lines inherit when they do not name one of their own.
+  serviceStyle   String?   @map("service_style")
+  /// Draft | ClientSubmitted | Confirmed. Lifted out of
+  /// `Event.workspaceData.menuConfirmed`, a bare json boolean that had nowhere
+  /// to record who confirmed the menu or when.
+  status         String    @default("Draft")
+  confirmedAt    DateTime? @map("confirmed_at") @db.Timestamptz(3)
+  confirmedById  String?   @map("confirmed_by") @db.Uuid
+  /// Checked on write. The array this replaces was read-modify-written by three
+  /// separate routes, so two people editing one menu was last-write-wins.
+  version        Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  confirmedBy  User?           @relation("EventMenuConfirmedBy", fields: [confirmedById], references: [id])
+  lines        EventMenuLine[]
+
+  @@unique([eventId, meal])
+  @@index([organizationId, status])
+  @@map("event_menus")
+}
+
+/// One dish on one event's menu.
+model EventMenuLine {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  eventMenuId    String   @map("event_menu_id") @db.Uuid
+  menuItemId     String   @map("menu_item_id") @db.Uuid
+  /// Null while the menu is a draft, filled when it is confirmed. One rule,
+  /// applied to both snapshots: a draft should follow a library rename, a
+  /// confirmed menu must not change under the kitchen that already read it.
+  itemName       String?  @map("item_name")
+  /// Snapshotted for the same reason. Re-filing a dish in the library must not
+  /// silently reshuffle a menu somebody already signed off. Null falls back to
+  /// the item's current category.
+  categoryId     String?  @map("category_id") @db.Uuid
+  categoryName   String?  @map("category_name")
+  /// Null means inherit the header's style. Only set when the dish carries both
+  /// a Buffet and a Plated rule and this event picked one - without it the
+  /// quantity math has no way to know which rule to run.
+  serviceStyle   String?  @map("service_style")
+  notes          String?
+  sortOrder      Int      @default(0) @map("sort_order")
+  /// Manual | Package | ClientPortal. 'Package' is unused until packages
+  /// materialise their items onto the event; it reserves the room.
+  source         String   @default("Manual")
+  addedById      String?  @map("added_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventMenu    EventMenu     @relation(fields: [eventMenuId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: deleting a dish still on a menu is the thing the
+  /// delete route currently prevents with an org-wide sequential scan over
+  /// `menu_item_ids`. With the foreign key here it is an index lookup.
+  menuItem     MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Restrict)
+  category     MenuCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  addedBy      User?         @relation("EventMenuLineAddedBy", fields: [addedById], references: [id])
+
+  @@unique([eventMenuId, menuItemId])
+  @@index([organizationId, eventMenuId, sortOrder])
+  @@index([menuItemId])
+  @@map("event_menu_lines")
 }
 
 model HolidayBlockedDate {

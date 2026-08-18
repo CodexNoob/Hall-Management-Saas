@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import {
   discardMenuPicture,
   readPicturePathError
@@ -64,6 +65,17 @@ export async function PATCH(
       where: { id: current.id },
       data: {
         ...fields,
+        // Kept in step with the free-text column above it. An omitted
+        // `category` leaves both alone; re-filing a dish moves it to the tab
+        // that now matches, creating that course if it is a new one.
+        ...(fields.category !== undefined
+          ? {
+              categoryId: await resolveMenuCategoryId(
+                actor.organizationId,
+                fields.category
+              )
+            }
+          : {}),
         // The bucket follows the path instead of being accepted from the
         // request, exactly as it does on create.
         ...(input.picturePath !== undefined
@@ -128,17 +140,26 @@ export async function DELETE(
       );
     }
 
-    // `Event.menuItemIds` and `EventPackage.includedMenuItemIds` are id arrays,
-    // not foreign keys, so the database would happily let this delete leave them
-    // pointing at a row that no longer exists. Refuse instead, the way
-    // /api/event-types does for an event type an event still references.
-    // Kitchen statuses do have a foreign key, and it would raise a constraint
-    // error the caller could not read - so it is counted here too.
+    // `event_menu_lines` has a real foreign key with ON DELETE RESTRICT, so a
+    // dish still on a menu cannot be deleted whatever this route does. It is
+    // counted anyway, because the constraint error it would otherwise raise is
+    // not something the caller could read.
+    //
+    // `EventPackage.includedMenuItemIds` is still a bare id array with no
+    // foreign key behind it, so that count is doing real work rather than
+    // duplicating a guarantee. `Event.menuItemIds` is counted too while it is
+    // still written as a mirror - it should never disagree with the line table,
+    // and if it ever does, refusing is the safe direction.
+    //
+    // Kitchen statuses have a foreign key of their own, for the same reason.
     //
     // `menu_item_services` is deliberately NOT counted. Those rows belong to the
     // item and cascade with it; counting them would make every dish that is
     // actually served permanently undeletable.
-    const [eventCount, packageCount] = await Promise.all([
+    const [menuLineCount, eventCount, packageCount] = await Promise.all([
+      prisma.eventMenuLine.count({
+        where: { organizationId: actor.organizationId, menuItemId: id }
+      }),
       prisma.event.count({
         where: {
           organizationId: actor.organizationId,
@@ -155,6 +176,7 @@ export async function DELETE(
 
     if (
       item._count.kitchenItemStatuses > 0 ||
+      menuLineCount > 0 ||
       eventCount > 0 ||
       packageCount > 0
     ) {

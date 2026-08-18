@@ -7,9 +7,11 @@ vi.mock("@/lib/prisma", () => ({
     event: { findFirst: vi.fn(), update: vi.fn() },
     eventPackage: { findFirst: vi.fn() },
     tableclothOption: { findFirst: vi.fn() },
-    menuItem: { count: vi.fn() },
+    menuItem: { count: vi.fn(), findMany: vi.fn() },
     addOn: { count: vi.fn() },
     activityLog: { create: vi.fn() },
+    eventMenu: { upsert: vi.fn() },
+    eventMenuLine: { deleteMany: vi.fn(), createMany: vi.fn() },
     $transaction: vi.fn()
   }
 }));
@@ -22,6 +24,7 @@ const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const packageId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const eventMenuId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 
 function post(body: unknown, id = eventId) {
   return POST(
@@ -55,6 +58,16 @@ describe("public client portal selections", () => {
       addOnIds: []
     } as never);
     vi.mocked(prisma.activityLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.eventMenu.upsert).mockResolvedValue({
+      id: eventMenuId
+    } as never);
+    vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.eventMenuLine.deleteMany).mockResolvedValue({
+      count: 0
+    } as never);
+    vi.mocked(prisma.eventMenuLine.createMany).mockResolvedValue({
+      count: 0
+    } as never);
     vi.mocked(prisma.$transaction).mockImplementation((async (
       callback: (tx: unknown) => Promise<unknown>
     ) => callback(prisma)) as never);
@@ -153,5 +166,48 @@ describe("public client portal selections", () => {
         data: expect.objectContaining({ organizationId, eventId })
       })
     );
+  });
+
+  it("writes the client's picks onto the event menu, not only the id array", async () => {
+    vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
+
+    const response = await post({ menuItemIds: [menuItemId] });
+
+    expect(response.status).toBe(200);
+    // Without this the client's choices reach the mirrored array but never the
+    // menu document, so staff open the menu tab and see nothing.
+    expect(prisma.eventMenu.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { eventId_meal: { eventId, meal: "Main" } },
+        update: expect.objectContaining({ status: "ClientSubmitted" })
+      })
+    );
+    expect(prisma.eventMenuLine.deleteMany).toHaveBeenCalledWith({
+      where: { eventMenuId }
+    });
+    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          eventMenuId,
+          menuItemId,
+          sortOrder: 0,
+          source: "ClientPortal"
+        })
+      ]
+    });
+  });
+
+  it("leaves the event menu alone when the client sends no menu items", async () => {
+    vi.mocked(prisma.eventPackage.findFirst).mockResolvedValue({
+      id: packageId,
+      name: "Gold dinner"
+    } as never);
+
+    const response = await post({ packageId });
+
+    expect(response.status).toBe(200);
+    // A tablecloth or package change must not wipe the menu lines.
+    expect(prisma.eventMenu.upsert).not.toHaveBeenCalled();
+    expect(prisma.eventMenuLine.deleteMany).not.toHaveBeenCalled();
   });
 });

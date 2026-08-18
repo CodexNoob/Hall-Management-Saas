@@ -3,36 +3,23 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   MenuItemSelectorDrawer,
-  type MenuCourse,
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
-  addMenuItems,
   type EventFile,
+  type EventMenuDocument,
+  type EventMenuDocumentResponse,
+  type EventMenuLine,
   type EventMenuResponse
 } from "@/features/events/components/event-manager-shared";
 
-function normalizeMenuCourse(category: string | null): MenuCourse {
-  const value = category?.trim().toLowerCase() ?? "";
-
-  if (value.includes("appetizer")) return "Appetizer";
-  if (value.includes("soup")) return "Soup";
-  if (value.includes("main") || value.includes("entree")) return "Main";
-  if (value.includes("side")) return "Side";
-  if (value.includes("drink") || value.includes("beverage")) return "Drink";
-  if (value.includes("dessert")) return "Dessert";
-  return "More";
-}
-
-function courseFromAddLabel(label: string): MenuCourse {
-  const course = label.replace(/^Add\s+/i, "").trim();
-  return course === "more" || course === "More"
-    ? "More"
-    : (course as MenuCourse);
-}
+const UNFILED_LABEL = "Unfiled";
 
 function MenuDishCard({
   course,
@@ -40,7 +27,7 @@ function MenuDishCard({
   onClick,
   disabled = false
 }: {
-  course: MenuCourse;
+  course: string;
   name: string;
   onClick: () => void;
   disabled?: boolean;
@@ -107,38 +94,137 @@ export function EventMenuContent({
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
-  const menuQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
-  const [selectedItems, setSelectedItems] = useState<MenuSelectorItem[]>([]);
-  const [selectorCourse, setSelectorCourse] = useState<MenuCourse | null>(null);
-  const [confirmMessage, setConfirmMessage] = useState("");
+  const menuUrl = `/api/events/${event.id}/menu`;
+  const libraryQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
+  const documentQuery = useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
+
+  const [menu, setMenu] = useState<EventMenuDocument | null>(null);
+  const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [selectorCategoryId, setSelectorCategoryId] = useState<string | null>(
+    null
+  );
+  const [message, setMessage] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const isConfirmed = event.workspaceData.menuConfirmed === true;
-  const libraryItems = useMemo<MenuSelectorItem[]>(() => {
-    const liveItems = (menuQuery.data?.items ?? []).map((item) => ({
-      id: item.id,
-      name: item.name,
-      course: normalizeMenuCourse(item.category)
-    }));
-
-    return liveItems;
-  }, [menuQuery.data]);
 
   useEffect(() => {
-    if (menuQuery.isLoading) return;
+    if (documentQuery.data) setMenu(documentQuery.data.menu);
+  }, [documentQuery.data]);
 
-    const selectedIds = new Set(event.menuItemIds ?? []);
-    setSelectedItems(libraryItems.filter((item) => selectedIds.has(item.id)));
-    setConfirmMessage(
-      event.workspaceData.menuConfirmed === true ? "Menu confirmed." : ""
-    );
-  }, [
-    event.id,
-    event.menuItemIds,
-    event.workspaceData,
-    libraryItems,
-    menuQuery.isLoading
-  ]);
+  const isConfirmed = menu?.status === "Confirmed";
+  const lines = useMemo(() => menu?.lines ?? [], [menu]);
+
+  // The course tabs, straight from the organization's own categories.
+  const categories = useMemo(
+    () => documentQuery.data?.categories ?? [],
+    [documentQuery.data]
+  );
+
+  const libraryItems = useMemo<MenuSelectorItem[]>(
+    () =>
+      (libraryQuery.data?.items ?? [])
+        // A deactivated dish stays on menus that already carry it but is not
+        // offered for anything new.
+        .filter((item) => item.isActive)
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          categoryId: item.categoryId,
+          categoryName: item.category
+        })),
+    [libraryQuery.data]
+  );
+
+  /**
+   * Sends the menu the user now wants. Every add and remove goes through here,
+   * which is the whole point of the rewrite: the previous version only ever
+   * saved as part of confirming, so a menu built and left unconfirmed was gone
+   * on the next reload.
+   */
+  const saveLines = async (nextLines: EventMenuLine[]) => {
+    if (!menu) return;
+
+    const previous = menu;
+    // Shown immediately; rolled back below if the write does not land.
+    setMenu({ ...menu, lines: nextLines });
+    setIsSaving(true);
+    setMessage("");
+
+    try {
+      const response = await authenticatedFetch(menuUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meal: menu.meal,
+          version: menu.version,
+          lines: nextLines.map((line) => ({
+            menuItemId: line.menuItemId,
+            serviceStyle: line.serviceStyle,
+            notes: line.notes
+          }))
+        })
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { menu?: EventMenuDocument; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.menu) {
+        setMenu(previous);
+        setMessage(payload?.error ?? "Could not save the menu.");
+
+        // A conflict means somebody else's version is the real one, so pull it
+        // rather than leaving the stale one on screen.
+        if (response.status === 409) {
+          invalidateAuthenticatedQuery(menuUrl);
+          await documentQuery.refetch();
+        }
+
+        return;
+      }
+
+      setMenu(payload.menu);
+      invalidateAuthenticatedQuery(menuUrl);
+    } catch {
+      setMenu(previous);
+      setMessage("Could not save the menu.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const selectMenuItem = (item: MenuSelectorItem) => {
+    setIsSelectorOpen(false);
+
+    if (!menu || lines.some((line) => line.menuItemId === item.id)) return;
+
+    void saveLines([
+      ...lines,
+      {
+        // Provisional until the server answers with the real row.
+        id: `pending-${item.id}`,
+        menuItemId: item.id,
+        name: item.name,
+        categoryId: item.categoryId,
+        categoryName: item.categoryName,
+        serviceStyle: null,
+        notes: null,
+        sortOrder: lines.length,
+        source: "Manual",
+        kind: "Food",
+        isRetired: false
+      }
+    ]);
+  };
+
+  const clearCategory = (categoryId: string | null) => {
+    void saveLines(lines.filter((line) => line.categoryId !== categoryId));
+  };
+
+  const openSelector = (categoryId: string | null) => {
+    setSelectorCategoryId(categoryId);
+    setIsSelectorOpen(true);
+  };
 
   useEffect(() => {
     if (!isReviewOpen) return;
@@ -159,50 +245,51 @@ export function EventMenuContent({
     };
   }, [isReviewOpen, isSaving]);
 
-  const selectMenuItem = (item: MenuSelectorItem) => {
-    setSelectedItems((current) =>
-      current.some((selected) => selected.id === item.id)
-        ? current
-        : [...current, item]
-    );
-    setSelectorCourse(null);
-  };
+  const saveConfirmationState = async (confirming: boolean) => {
+    if (!menu) return;
 
-  const clearCourse = (course: MenuCourse) => {
-    setSelectedItems((current) =>
-      current.filter((item) => item.course !== course)
-    );
-  };
-
-  const saveConfirmationState = async (menuConfirmed: boolean) => {
     setIsSaving(true);
-    setConfirmMessage("");
+    setMessage("");
 
     try {
-      const response = await authenticatedFetch(`/api/events/${event.id}`, {
-        method: "PATCH",
+      const response = await authenticatedFetch(menuUrl, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(menuConfirmed
-            ? { menuItemIds: selectedItems.map((item) => item.id) }
-            : {}),
-          menuConfirmed
+          action: confirming ? "confirm" : "reopen",
+          meal: menu.meal,
+          version: menu.version
         })
       });
 
-      if (!response.ok) {
-        setConfirmMessage(
-          menuConfirmed ? "Could not confirm menu." : "Could not reopen menu."
+      const payload = (await response.json().catch(() => null)) as
+        | { menu?: EventMenuDocument; error?: string }
+        | null;
+
+      if (!response.ok || !payload?.menu) {
+        setMessage(
+          payload?.error ??
+            (confirming ? "Could not confirm menu." : "Could not reopen menu.")
         );
+
+        if (response.status === 409) {
+          invalidateAuthenticatedQuery(menuUrl);
+          await documentQuery.refetch();
+        }
+
         return;
       }
 
+      setMenu(payload.menu);
+      invalidateAuthenticatedQuery(menuUrl);
       setIsReviewOpen(false);
+      // The event row carries the mirrored ids and the confirmation flag, so
+      // the rest of the manager has to re-read it.
       await onEventSaved();
-      setConfirmMessage(menuConfirmed ? "Menu confirmed." : "Menu reopened.");
+      setMessage(confirming ? "Menu confirmed." : "Menu reopened.");
     } catch {
-      setConfirmMessage(
-        menuConfirmed ? "Could not confirm menu." : "Could not reopen menu."
+      setMessage(
+        confirming ? "Could not confirm menu." : "Could not reopen menu."
       );
     } finally {
       setIsSaving(false);
@@ -238,16 +325,14 @@ export function EventMenuContent({
             ) : (
               <button
                 className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-3 text-[11px] font-black text-white transition hover:-translate-y-0.5 hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-xs"
-                disabled={isSaving}
+                disabled={isSaving || documentQuery.isLoading}
                 type="button"
                 onClick={() => {
-                  if (selectedItems.length === 0) {
-                    setConfirmMessage(
-                      "Add at least one menu item before confirming."
-                    );
+                  if (lines.length === 0) {
+                    setMessage("Add at least one menu item before confirming.");
                     return;
                   }
-                  setConfirmMessage("");
+                  setMessage("");
                   setIsReviewOpen(true);
                 }}
               >
@@ -256,27 +341,32 @@ export function EventMenuContent({
               </button>
             )}
           </div>
-          {confirmMessage ? (
+          {message ? (
             <span className="text-xs text-[#516174]" role="status">
-              {confirmMessage}
+              {message}
+            </span>
+          ) : null}
+          {!message && isSaving ? (
+            <span className="text-xs text-[#516174]" role="status">
+              Saving...
             </span>
           ) : null}
         </header>
         <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
-          {selectedItems.map((item) => (
+          {lines.map((line) => (
             <MenuDishCard
-              key={`${item.course}-${item.name}`}
-              course={item.course}
-              name={item.name}
-              onClick={() => setSelectorCourse(item.course)}
+              key={line.id}
+              course={line.categoryName ?? UNFILED_LABEL}
+              name={line.name}
+              onClick={() => openSelector(line.categoryId)}
               disabled={isConfirmed}
             />
           ))}
-          {addMenuItems.map((label) => (
+          {categories.map((category) => (
             <AddMenuCard
-              key={label}
-              label={label}
-              onClick={() => setSelectorCourse(courseFromAddLabel(label))}
+              key={category.id}
+              label={`Add ${category.name}`}
+              onClick={() => openSelector(category.id)}
               disabled={isConfirmed}
             />
           ))}
@@ -284,12 +374,13 @@ export function EventMenuContent({
       </section>
 
       <MenuItemSelectorDrawer
-        initialCourse={selectorCourse ?? "Appetizer"}
+        categories={categories}
+        initialCategoryId={selectorCategoryId}
         items={libraryItems}
-        onClear={clearCourse}
-        onClose={() => setSelectorCourse(null)}
+        onClear={clearCategory}
+        onClose={() => setIsSelectorOpen(false)}
         onSelect={selectMenuItem}
-        open={selectorCourse !== null}
+        open={isSelectorOpen}
       />
 
       {isReviewOpen ? (
@@ -315,16 +406,20 @@ export function EventMenuContent({
                 Confirm event menu?
               </h2>
               <p className="mt-1 text-sm text-[#64748b]">
-                Review {selectedItems.length} selected item
-                {selectedItems.length === 1 ? "" : "s"}. The menu will be locked
-                until it is reopened.
+                Review {lines.length} selected item
+                {lines.length === 1 ? "" : "s"}. The menu will be locked until
+                it is reopened.
               </p>
             </header>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto p-5">
-              {Array.from(
-                new Set(selectedItems.map((item) => item.course))
-              ).map((course) => (
+              {/* Already ordered by course then position, so grouping is just
+                  a walk over the distinct labels in that order. */}
+              {[
+                ...new Set(
+                  lines.map((line) => line.categoryName ?? UNFILED_LABEL)
+                )
+              ].map((course) => (
                 <section
                   className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3"
                   key={course}
@@ -333,10 +428,13 @@ export function EventMenuContent({
                     {course}
                   </h3>
                   <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
-                    {selectedItems
-                      .filter((item) => item.course === course)
-                      .map((item) => (
-                        <li key={item.id}>• {item.name}</li>
+                    {lines
+                      .filter(
+                        (line) =>
+                          (line.categoryName ?? UNFILED_LABEL) === course
+                      )
+                      .map((line) => (
+                        <li key={line.id}>• {line.name}</li>
                       ))}
                   </ul>
                 </section>
