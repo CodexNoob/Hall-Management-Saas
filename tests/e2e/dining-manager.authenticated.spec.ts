@@ -127,7 +127,7 @@ test("selecting a hall map preset immediately previews its dining table layout",
 
 test("saving a dining plan persists the selected hall map preset layout", async ({
   page
-}) => {
+}, testInfo) => {
   let savedPayload: {
     eventId?: string;
     hallMapPresetId?: string | null;
@@ -186,7 +186,20 @@ test("saving a dining plan persists the selected hall map preset layout", async 
   await saveRequest;
   await refetchResponse;
 
-  await expect(page.getByRole("status")).toHaveText("Dining plan saved.");
+  const confirmation = page.getByRole("status");
+  await expect(confirmation).toContainText("Dining plan saved.");
+
+  // Present in the DOM is not the same as on screen: the hall map's equivalent
+  // toast rendered inside the pannable canvas and sat thousands of pixels out
+  // of view while still passing toBeVisible.
+  //
+  // Desktop only, and that is a real limitation rather than a test convenience.
+  // On mobile the layout stacks, so the board - and the confirmation pinned to
+  // it - sits well below the topbar that holds the Save button. The message is
+  // rendered but a phone user never sees it without scrolling.
+  if (!testInfo.project.name.includes("mobile")) {
+    await expect(confirmation).toBeInViewport();
+  }
   expect(savedPayload).toMatchObject({
     eventId: diningEvent.id,
     hallMapPresetId: presetB.id,
@@ -200,4 +213,89 @@ test("saving a dining plan persists the selected hall map preset layout", async 
       })
     ]
   });
+});
+
+test("the movable dining grid pans and allows dragging past its old bottom edge", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Pointer-drag coverage runs on the desktop dining workspace."
+  );
+  let savedTables: Array<{ x?: number; y?: number }> = [];
+
+  await page.route("**/api/dining", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          events: [diningEvent],
+          hallMapPresets: [presetA]
+        })
+      });
+      return;
+    }
+
+    if (route.request().method() === "PATCH") {
+      savedTables = route.request().postDataJSON().tables;
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          plan: { id: "55555555-5555-4555-8555-555555555555" }
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/dining-manager");
+  await page.getByLabel("Hall map preset").click();
+  await page.getByRole("option", { name: "Preset A" }).click();
+
+  const grid = page.getByLabel("Dining map grid");
+  const table = grid.getByRole("button", { name: "Preset A Table" });
+  await expect(grid).toBeVisible();
+  await expect(table).toBeVisible();
+
+  await page.getByRole("button", { name: "Reset dining map zoom" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reset dining map zoom" })
+  ).toHaveText("100%");
+  await page.getByRole("button", { name: "Zoom dining map out" }).click();
+  await expect(
+    page.getByRole("button", { name: "Reset dining map zoom" })
+  ).toHaveText("80%");
+
+  // The three dashboard columns stretch to a common row height, so on a short
+  // window the board can extend past the fold. Bring it into view first, as a
+  // user would: otherwise the drag target below is clamped to the window and
+  // never reaches the 48px auto-pan edge, and this fails for a layout reason
+  // rather than a panning one.
+  await grid.scrollIntoViewIfNeeded();
+
+  const beforeScrollTop = await grid.evaluate((element) => element.scrollTop);
+  const gridBox = await grid.boundingBox();
+  const tableBox = await table.boundingBox();
+  if (!gridBox || !tableBox) throw new Error("Dining map is not visible.");
+
+  await page.mouse.move(
+    tableBox.x + tableBox.width / 2,
+    tableBox.y + tableBox.height / 2
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    gridBox.x + gridBox.width / 2,
+    gridBox.y + gridBox.height + 250,
+    { steps: 12 }
+  );
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => grid.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(beforeScrollTop);
+
+  await page.getByRole("button", { name: "Save dining plan" }).click();
+  await expect.poll(() => savedTables[0]?.y ?? 0).toBeGreaterThan(520);
 });

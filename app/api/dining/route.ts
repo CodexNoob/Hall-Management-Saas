@@ -5,6 +5,7 @@ import { requireAnyPermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema, dimensionSchema } from "@/lib/validation/number";
+import { seatingSidesSchema } from "@/lib/hall-map/seating";
 
 const tableSchema = z.object({
   id: z.string().min(1).max(100),
@@ -17,11 +18,15 @@ const tableSchema = z.object({
   mapType: z.string().max(40).optional(),
   // Bounded to match the equivalent geometry in app/api/hall-maps/route.ts;
   // these were previously bare z.number() with no finiteness or range check.
-  x: dimensionSchema({ max: 10_000, label: "X" }).optional(),
-  y: dimensionSchema({ max: 10_000, label: "Y" }).optional(),
+  x: dimensionSchema({ min: -10_000, max: 10_000, label: "X" }).optional(),
+  y: dimensionSchema({ min: -10_000, max: 10_000, label: "Y" }).optional(),
   width: dimensionSchema({ max: 5_000, label: "Width" }).optional(),
   height: dimensionSchema({ max: 5_000, label: "Height" }).optional(),
-  rotation: dimensionSchema({ max: 360, label: "Rotation" }).optional()
+  rotation: dimensionSchema({ max: 360, label: "Rotation" }).optional(),
+  // Listed explicitly because Zod strips unknown keys and normalizeTables
+  // re-parses on read: omit it and a table's one- or four-side seating choice
+  // is lost the first time the plan is saved.
+  seatingSides: seatingSidesSchema
 });
 
 const saveDiningPlanSchema = z.object({

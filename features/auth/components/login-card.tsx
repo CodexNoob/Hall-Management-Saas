@@ -187,7 +187,7 @@ export function LoginCard() {
     <section
       className={
         isDesktopApp
-          ? "desktop-auth-soft-page desktop-auth-soft-back mx-auto grid max-h-[760px] w-full min-w-0 grid-cols-[0.92fr_1fr] overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl"
+          ? "desktop-auth-soft-page desktop-auth-soft-back mx-auto grid max-h-190 w-full min-w-0 grid-cols-[0.92fr_1fr] overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl"
           : "grid min-h-dvh w-full min-w-0 lg:grid-cols-2"
       }
     >
@@ -201,7 +201,7 @@ export function LoginCard() {
           </>
         ) : (
           <>
-            <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-md rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
             <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
           </>
         )}

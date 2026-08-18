@@ -7,7 +7,10 @@ import { LiveNumberField } from "@/components/ui/number-field";
 import { InspectorField } from "@/features/hall-room-map/components/hall-map-inspector-field";
 import { Panel } from "@/features/hall-room-map/components/hall-map-panel";
 import {
+  getDefaultSeatingSides,
+  isTableShape,
   type MapObject,
+  type SeatingSides,
   type SeatingUse
 } from "@/features/hall-room-map/components/hall-map-shared";
 import { mapObjectFieldSchemas } from "@/features/hall-room-map/validations/hall-map.schema";
@@ -173,6 +176,35 @@ export function HallMapObjectInspector({
             />
           </div>
 
+          {/* Round tables always seat the full perimeter, so the choice only
+              applies to rectangular shapes. */}
+          {selectedObject && !isTableShape(selectedObject.type) ? (
+            <div>
+              <InspectorField htmlFor="seating-sides">
+                Seating sides
+              </InspectorField>
+
+              <CompactSelect
+                disabled={disabled}
+                id="seating-sides"
+                onChange={(value) =>
+                  onUpdateSelectedObject({
+                    seatingSides: Number(value) as SeatingSides
+                  })
+                }
+                options={[
+                  { label: "One side", value: "1" },
+                  { label: "Two sides", value: "2" },
+                  { label: "Four sides", value: "4" }
+                ]}
+                value={String(
+                  selectedObject.seatingSides ??
+                    getDefaultSeatingSides(selectedObject.type)
+                )}
+              />
+            </div>
+          ) : null}
+
           <NumericInspectorInput
             disabled={disabled}
             id="object-x"
@@ -213,6 +245,7 @@ export function HallMapObjectInspector({
           The inspector updates one selected object. Tables have a seat count
           and seating use. Edit the name field to rename a shape.
         </p>
+
       </div>
     </Panel>
   );

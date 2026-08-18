@@ -64,6 +64,7 @@ model Organization {
   todayNotes              TodayNote[]
   diningPlans             DiningPlan[]
   hallMapPresets          HallMapPreset[]
+  hallMapShapeLibraryItems HallMapShapeLibraryItem[]
   supportTickets          SupportTicket[]
   supportTicketMessages   SupportTicketMessage[]
 
@@ -1253,4 +1254,22 @@ model HallMapPreset {
   @@unique([organizationId, hallId, name])
   @@index([organizationId, hallId, updatedAt])
   @@map("hall_map_presets")
+}
+
+model HallMapShapeLibraryItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String
+  shapeType      String   @map("shape_type")
+  width          Int
+  height         Int
+  seats          Int
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, name])
+  @@index([organizationId, updatedAt])
+  @@map("hall_map_shape_library_items")
 }
