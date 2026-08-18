@@ -219,7 +219,7 @@ export function ClientPortalPreviewContent({
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
       <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
-        <h1 className="break-words text-xl font-black sm:text-2xl">
+        <h1 className="wrap-break-word text-xl font-black sm:text-2xl">
           {portal.title}
         </h1>
         <p className="mt-2 text-sm font-semibold">
