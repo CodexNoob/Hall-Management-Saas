@@ -424,7 +424,11 @@ export function HallMapLibraryPanel({
               </span>
               <div className="mt-1 flex gap-2">
                 <label
-                  className={`flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] ${
+                  // `relative` is load-bearing: the sr-only input inside is
+                  // position:absolute, and with no positioned ancestor it
+                  // resolves against the document - escaping the app's
+                  // overflow-hidden root and adding a window scrollbar.
+                  className={`relative flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa] ${
                     hasSelectedMap ? "" : "pointer-events-none opacity-50"
                   }`}
                 >
