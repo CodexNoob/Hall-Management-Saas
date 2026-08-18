@@ -1,16 +1,51 @@
 "use client";
 
-import { Badge, LineIcon, type EventFile } from "@/features/events/components/event-manager-shared";
+import { useEffect, useRef } from "react";
+import {
+  Badge,
+  LineIcon,
+  type EventFile
+} from "@/features/events/components/event-manager-shared";
+
+// Long enough that sweeping the pointer down a list of a hundred events asks
+// for nothing, short enough that the pause before a click covers most of the
+// round trip.
+const PREFETCH_HOVER_DELAY_MS = 150;
 
 export function EventListCard({
   event,
   selected,
-  onClick
+  onClick,
+  onPrefetch
 }: {
   event: EventFile;
   selected: boolean;
   onClick: () => void;
+  /// Called when the pointer or keyboard settles on this row, to warm whatever
+  /// the workspace would need if it were opened. Optional: a list that has
+  /// nothing worth warming simply leaves it off.
+  onPrefetch?: () => void;
 }) {
+  const prefetchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelPrefetch = () => {
+    if (prefetchTimer.current === null) return;
+
+    clearTimeout(prefetchTimer.current);
+    prefetchTimer.current = null;
+  };
+
+  const schedulePrefetch = () => {
+    if (!onPrefetch || prefetchTimer.current !== null) return;
+
+    prefetchTimer.current = setTimeout(() => {
+      prefetchTimer.current = null;
+      onPrefetch();
+    }, PREFETCH_HOVER_DELAY_MS);
+  };
+
+  useEffect(() => cancelPrefetch, []);
+
   const lifecycleLabel =
     event.bookingStatus === "COMPLETED"
       ? "Completed"
@@ -35,6 +70,10 @@ export function EventListCard({
       }`}
       type="button"
       onClick={onClick}
+      onBlur={cancelPrefetch}
+      onFocus={schedulePrefetch}
+      onPointerEnter={schedulePrefetch}
+      onPointerLeave={cancelPrefetch}
     >
       <div className="flex items-start gap-2">
         <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-[#b9c2cf] bg-[#fbfcfd] text-[#1f4d73]">

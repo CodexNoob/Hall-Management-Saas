@@ -29,16 +29,20 @@ import {
 } from "@/features/events/components/event-manager-shared";
 
 export function EventWorkspace({
+  activeTab,
   event,
   halls,
-  onEventSaved
+  onEventSaved,
+  onTabChange
 }: {
+  activeTab: EventWorkspaceTab;
   event: EventFile;
   halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
+  /// Held by the page rather than here, because the event list needs to know
+  /// which tab is open to decide what is worth warming when a row is hovered.
+  onTabChange: (tab: EventWorkspaceTab) => void;
 }) {
-  const [activeTab, setActiveTab] =
-    useState<EventWorkspaceTab>("Event details");
   const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
@@ -149,7 +153,7 @@ export function EventWorkspace({
             }`}
             type="button"
             onClick={(clickEvent) => {
-              setActiveTab(tab.label);
+              onTabChange(tab.label);
               centerMobileTab(clickEvent.currentTarget);
               setIsWorkspaceExpanded(true);
             }}

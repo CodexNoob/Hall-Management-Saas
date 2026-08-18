@@ -4,7 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  prefetchAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 import { EventListCard } from "@/features/events/components/event-list-panel";
@@ -12,7 +15,8 @@ import { EventWorkspace } from "@/features/events/components/event-workspace";
 import {
   LineIcon,
   type EventFile,
-  type EventsResponse
+  type EventsResponse,
+  type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
 export function EventManagerPage() {
   const [pageSearchQuery, setPageSearchQuery] =
@@ -32,6 +36,8 @@ export function EventManagerPage() {
       : "/api/events"
   );
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [activeTab, setActiveTab] =
+    useState<EventWorkspaceTab>("Event details");
   const [eventStatusFilter, setEventStatusFilter] = useState("All events");
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
@@ -353,6 +359,18 @@ export function EventManagerPage() {
                     setSelectedEventId(event.id);
                     setIsEventListExpanded(false);
                   }}
+                  // Only what the open tab would actually ask for. Warming
+                  // every tab of every hovered row would trade one wait for a
+                  // burst of requests nobody asked for.
+                  onPrefetch={
+                    activeTab === "Menu"
+                      ? () => {
+                          void prefetchAuthenticatedQuery(
+                            `/api/events/${event.id}/menu`
+                          );
+                        }
+                      : undefined
+                  }
                 />
               ))}
               {visibleEvents.length === 0 ? (
@@ -364,9 +382,11 @@ export function EventManagerPage() {
           </aside>
 
           <EventWorkspace
+            activeTab={activeTab}
             event={selectedEvent}
             halls={eventsQuery.data?.halls ?? []}
             onEventSaved={eventsQuery.refetch}
+            onTabChange={setActiveTab}
           />
         </div>
       </div>
