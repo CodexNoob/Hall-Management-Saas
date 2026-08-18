@@ -5,6 +5,7 @@ import {
   MENU_SECTIONS,
   MenuItemSelectorDrawer,
   type MenuSection,
+  type MenuSelection,
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
 import {
@@ -282,15 +283,20 @@ export function EventMenuContent({
     }
   };
 
-  const selectMenuItem = (item: MenuSelectorItem, section: MenuSection) => {
+  /**
+   * Everything the drawer queued, in one save. Adding them one at a time would
+   * mean one request each against the menu's version, so all but the first
+   * would come back as a conflict.
+   */
+  const addSelections = (selections: MenuSelection[]) => {
     setIsSelectorOpen(false);
 
-    if (!menu || selectedIds.has(item.id)) return;
+    if (!menu) return;
 
-    void saveLines([
-      ...lines,
-      {
-        // Provisional until the server answers with the real row.
+    const fresh = selections
+      .filter(({ item }) => !selectedIds.has(item.id))
+      .map(({ item, section }, index) => ({
+        // Provisional until the server answers with the real rows.
         id: `pending-${item.id}`,
         menuItemId: item.kind === "Dish" ? item.id : null,
         addOnId: item.kind === "AddOn" ? item.id : null,
@@ -299,16 +305,19 @@ export function EventMenuContent({
         // Carried over from the drawer so the thumbnail is there straight away
         // rather than appearing when the save comes back.
         pictureUrl: item.pictureUrl,
-        // The tab it was added from is the style it is served in here.
+        // The tab it was picked under is the style it is served in here.
         serviceStyle: section === "AddOn" ? null : section,
         availableStyles: item.styles,
         price: item.price,
         notes: null,
-        sortOrder: lines.length,
+        sortOrder: lines.length + index,
         source: "Manual",
         isRetired: false
-      }
-    ]);
+      }));
+
+    if (fresh.length === 0) return;
+
+    void saveLines([...lines, ...fresh]);
   };
 
   const removeLine = (line: EventMenuLine) => {
@@ -564,9 +573,9 @@ export function EventMenuContent({
       <MenuItemSelectorDrawer
         initialSection={selectorSection}
         items={libraryItems}
+        onAdd={addSelections}
         onClear={clearSection}
         onClose={() => setIsSelectorOpen(false)}
-        onSelect={selectMenuItem}
         open={isSelectorOpen}
         selectedIds={selectedIds}
       />

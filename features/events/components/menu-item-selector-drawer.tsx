@@ -31,6 +31,10 @@ export type MenuSelectorItem = {
   pictureUrl: string | null;
 };
 
+/// One chosen dish or add-on and the section it is being added under, which is
+/// the style it will be served in.
+export type MenuSelection = { item: MenuSelectorItem; section: MenuSection };
+
 export function sectionLabel(section: MenuSection) {
   return MENU_SECTIONS.find((entry) => entry.id === section)?.label ?? section;
 }
@@ -60,7 +64,10 @@ type MenuItemSelectorDrawerProps = {
   open: boolean;
   onClear: (section: MenuSection) => void;
   onClose: () => void;
-  onSelect: (item: MenuSelectorItem, section: MenuSection) => void;
+  /// The whole batch at once. One call rather than one per dish, because each
+  /// add is a save against the menu's version - firing them separately would
+  /// have them race each other.
+  onAdd: (selections: MenuSelection[]) => void;
 };
 
 function MenuIcon() {
@@ -75,6 +82,21 @@ function MenuIcon() {
     >
       <path d="M6 3h12v18H6Z" />
       <path d="M9 7h6M9 11h6M9 15h4" />
+    </svg>
+  );
+}
+
+function CheckMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      viewBox="0 0 24 24"
+    >
+      <path d="m5 13 4 4L19 7" />
     </svg>
   );
 }
@@ -96,16 +118,23 @@ export function MenuItemSelectorDrawer({
   open,
   onClear,
   onClose,
-  onSelect
+  onAdd
 }: MenuItemSelectorDrawerProps) {
   const titleId = useId();
   const [activeSection, setActiveSection] =
     useState<MenuSection>(initialSection);
+  // id -> the section it was picked under. Keyed by id rather than held as a
+  // list so a dish cannot be queued twice, and holding the section means a
+  // selection made on one tab survives switching to another.
+  const [pending, setPending] = useState<Map<string, MenuSection>>(new Map());
 
   useEffect(() => {
     if (!open) return;
 
     setActiveSection(initialSection);
+    // A fresh drawer starts empty; leftovers from the last time it was open
+    // would be added by a click the user does not connect to them.
+    setPending(new Map());
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -126,6 +155,36 @@ export function MenuItemSelectorDrawer({
 
   const visibleItems = itemsForSection(items, activeSection);
   const isAddOnSection = activeSection === "AddOn";
+
+  /**
+   * Clicking a dish already queued under this tab takes it back out; clicking
+   * one queued under another tab moves it here, which is what someone reaching
+   * for a dish on the Plated tab after picking it on Buffet actually means.
+   */
+  const toggle = (item: MenuSelectorItem) => {
+    setPending((current) => {
+      const next = new Map(current);
+
+      if (next.get(item.id) === activeSection) next.delete(item.id);
+      else next.set(item.id, activeSection);
+
+      return next;
+    });
+  };
+
+  const commit = () => {
+    if (pending.size === 0) return;
+
+    const byId = new Map(items.map((item) => [item.id, item]));
+    const selections: MenuSelection[] = [];
+
+    for (const [id, section] of pending) {
+      const item = byId.get(id);
+      if (item) selections.push({ item, section });
+    }
+
+    onAdd(selections);
+  };
 
   return (
     <div
@@ -163,34 +222,57 @@ export function MenuItemSelectorDrawer({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <nav aria-label="Menu sections" className="flex flex-wrap gap-2">
-            {MENU_SECTIONS.map((section) => (
-              <button
-                aria-pressed={activeSection === section.id}
-                className={`h-8 rounded-lg border px-2.5 text-[11px] font-black transition sm:px-3 sm:text-xs ${
-                  activeSection === section.id
-                    ? "border-[#a9c6df] bg-[#eef4fa] text-[#173b58]"
-                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
-                }`}
-                key={section.id}
-                onClick={() => setActiveSection(section.id)}
-                type="button"
-              >
-                {section.label}
-              </button>
-            ))}
+            {MENU_SECTIONS.map((section) => {
+              const queuedHere = [...pending.values()].filter(
+                (value) => value === section.id
+              ).length;
+
+              return (
+                <button
+                  aria-pressed={activeSection === section.id}
+                  className={`flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-black transition sm:px-3 sm:text-xs ${
+                    activeSection === section.id
+                      ? "border-[#a9c6df] bg-[#eef4fa] text-[#173b58]"
+                      : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                  }`}
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  type="button"
+                >
+                  {section.label}
+                  {/* So a selection made on another tab is not invisible. */}
+                  {queuedHere > 0 ? (
+                    <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1f4d73] px-1 text-[9px] font-black text-white">
+                      {queuedHere}
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
           </nav>
+
+          <p className="mt-2 text-xs text-[#6a7483]">
+            Pick as many as you need, then add them together.
+          </p>
 
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
             {visibleItems.map((item) => {
               const isAdded = selectedIds.has(item.id);
+              const queuedIn = pending.get(item.id);
+              const isQueuedHere = queuedIn === activeSection;
               const price = formatPrice(item.price);
 
               return (
                 <button
-                  className="dashboard-hover-card flex min-h-21 items-center gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left hover:bg-[#fbfcfd] disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:bg-white"
+                  aria-pressed={isQueuedHere}
+                  className={`dashboard-hover-card flex min-h-21 items-center gap-3 rounded-xl border p-3 text-left disabled:cursor-not-allowed disabled:opacity-55 ${
+                    isQueuedHere
+                      ? "border-[#1f4d73] bg-[#eef4fa] ring-1 ring-[#1f4d73]"
+                      : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd] disabled:hover:bg-white"
+                  }`}
                   disabled={isAdded}
                   key={item.id}
-                  onClick={() => onSelect(item, activeSection)}
+                  onClick={() => toggle(item)}
                   type="button"
                 >
                   <MenuThumbnail pictureUrl={item.pictureUrl} />
@@ -201,14 +283,21 @@ export function MenuItemSelectorDrawer({
                     <span className="mt-1 block text-xs text-[#6a7483]">
                       {isAdded
                         ? "Already on this menu"
-                        : (price ??
-                          // A dish served both ways is being pinned to this
-                          // tab's style by the click, worth saying out loud.
-                          (item.styles.length > 1
-                            ? `Served ${item.styles.join(" and ").toLowerCase()}`
-                            : sectionLabel(activeSection)))}
+                        : queuedIn && queuedIn !== activeSection
+                          ? `Queued under ${sectionLabel(queuedIn)}`
+                          : (price ??
+                            // A dish served both ways is being pinned to this
+                            // tab's style by the click, worth saying out loud.
+                            (item.styles.length > 1
+                              ? `Served ${item.styles.join(" and ").toLowerCase()}`
+                              : sectionLabel(activeSection)))}
                     </span>
                   </span>
+                  {isQueuedHere ? (
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#1f4d73] text-white">
+                      <CheckMark />
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
@@ -223,9 +312,9 @@ export function MenuItemSelectorDrawer({
           ) : null}
         </div>
 
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
+        <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
           <button
-            className="h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] hover:bg-[#fff4f2]"
+            className="mr-auto h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] hover:bg-[#fff4f2]"
             onClick={() => onClear(activeSection)}
             type="button"
           >
@@ -237,6 +326,16 @@ export function MenuItemSelectorDrawer({
             type="button"
           >
             Close
+          </button>
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={pending.size === 0}
+            onClick={commit}
+            type="button"
+          >
+            {pending.size === 0
+              ? "Add selected"
+              : `Add ${pending.size} item${pending.size === 1 ? "" : "s"}`}
           </button>
         </footer>
       </aside>
