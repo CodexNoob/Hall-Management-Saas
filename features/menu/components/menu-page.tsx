@@ -17,6 +17,7 @@ import {
   NewAddOnDialog,
   type NewAddOnValues
 } from "@/features/menu/forms/new-addon-dialog";
+import { BulkUploadDialog } from "@/features/menu/forms/bulk-upload-dialog";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -86,6 +87,7 @@ export function MenuPage() {
   const [isEditingPackage, setIsEditingPackage] = useState(false);
   const [isNewAddOnOpen, setIsNewAddOnOpen] = useState(false);
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const allMenuItems = useMemo<MenuLibraryItem[]>(() => {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
       id: item.id,
@@ -365,6 +367,20 @@ export function MenuPage() {
               <LineIcon name="plus" />
               <span className="hidden lg:inline">New library item</span>
             </button>
+            {/* Only where a create button would also be: the import writes the
+                same rows `New library item` does, through the same permission. */}
+            {canEditMenu ? (
+              <button
+                aria-label="Bulk upload menu items"
+                className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-black lg:[&_svg]:h-4 lg:[&_svg]:w-4"
+                onClick={() => setIsBulkUploadOpen(true)}
+                title="Bulk upload"
+                type="button"
+              >
+                <LineIcon name="upload" />
+                <span className="hidden lg:inline">Bulk upload</span>
+              </button>
+            ) : null}
             <button
               aria-label="Create new package"
               className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#1f4d73] hover:text-[#15344f] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-black lg:text-white lg:shadow-sm lg:[&_svg]:h-4 lg:[&_svg]:w-4"
@@ -434,6 +450,18 @@ export function MenuPage() {
             : saveLibraryItem
         }
         open={isNewLibraryItemOpen || Boolean(libraryItemActions.editingItem)}
+      />
+      {/* Reads `defaultServiceStyle` the same way the create dialog above does:
+          a file uploaded from the Buffet tab should land on the buffet, not in
+          a library the operator then has to open dish by dish. */}
+      <BulkUploadDialog
+        defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
+        existingNames={allMenuItems.map((item) => item.name)}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onImported={async () => {
+          await menuQuery.refetch();
+        }}
+        open={canEditMenu && isBulkUploadOpen}
       />
       <ConfirmDialog
         confirmLabel="Remove item"
