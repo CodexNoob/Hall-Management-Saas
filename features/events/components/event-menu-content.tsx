@@ -10,8 +10,11 @@ import {
 } from "@/features/events/components/menu-item-selector-drawer";
 import {
   invalidateAuthenticatedQuery,
+  setAuthenticatedQueryData,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import { AsyncState } from "@/components/ui/async-state";
+import { EventMenuSkeleton } from "@/features/events/components/event-menu-skeleton";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
@@ -143,16 +146,28 @@ export function EventMenuContent({
   const documentQuery =
     useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
 
-  const [menu, setMenu] = useState<EventMenuDocument | null>(null);
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const [selectorSection, setSelectorSection] = useState<MenuSection>("Buffet");
   const [message, setMessage] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // What the user has just done, shown while the write is in the air. Tagged
+  // with the url it belongs to because this component is not remounted when the
+  // sidebar selects another event - untagged, an optimistic menu would stay on
+  // screen over the next event's, which is how this tab used to show the
+  // previous event's dishes for as long as the new ones took to arrive.
+  const [pendingMenu, setPendingMenu] = useState<{
+    url: string;
+    menu: EventMenuDocument;
+  } | null>(null);
 
-  useEffect(() => {
-    if (documentQuery.data) setMenu(documentQuery.data.menu);
-  }, [documentQuery.data]);
+  // The cache is the source of truth; the overlay only wins while it belongs to
+  // the event on screen. Nothing is mirrored into state, so a cache hit renders
+  // the menu on the first paint rather than a frame later.
+  const menu =
+    pendingMenu?.url === menuUrl
+      ? pendingMenu.menu
+      : (documentQuery.data?.menu ?? null);
 
   const isConfirmed = menu?.status === "Confirmed";
   const lines = useMemo(() => menu?.lines ?? [], [menu]);
@@ -190,10 +205,7 @@ export function EventMenuContent({
     ];
   }, [libraryQuery.data]);
 
-  const selectedIds = useMemo(
-    () => new Set(lines.map(targetId)),
-    [lines]
-  );
+  const selectedIds = useMemo(() => new Set(lines.map(targetId)), [lines]);
 
   /** Buffet, Plated, Add-ons - plus the dishes still waiting for an answer. */
   const sections = useMemo(
@@ -230,9 +242,10 @@ export function EventMenuContent({
   const saveLines = async (nextLines: EventMenuLine[]) => {
     if (!menu) return;
 
-    const previous = menu;
-    // Shown immediately; rolled back below if the write does not land.
-    setMenu({ ...menu, lines: nextLines });
+    // Shown immediately. Dropping the overlay is the whole rollback: the cache
+    // still holds what the server last confirmed, so clearing it puts that back
+    // on screen without this component having to remember it.
+    setPendingMenu({ url: menuUrl, menu: { ...menu, lines: nextLines } });
     setIsSaving(true);
     setMessage("");
 
@@ -255,12 +268,13 @@ export function EventMenuContent({
         })
       });
 
-      const payload = (await response.json().catch(() => null)) as
-        | { menu?: EventMenuDocument; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        menu?: EventMenuDocument;
+        error?: string;
+      } | null;
 
       if (!response.ok || !payload?.menu) {
-        setMenu(previous);
+        setPendingMenu(null);
         setMessage(payload?.error ?? "Could not save the menu.");
 
         // A conflict means somebody else's version is the real one, so pull it
@@ -273,10 +287,15 @@ export function EventMenuContent({
         return;
       }
 
-      setMenu(payload.menu);
-      invalidateAuthenticatedQuery(menuUrl);
+      // The response carries the whole saved menu, so it is written into the
+      // cache instead of the cache being thrown away. That is what stops the
+      // next visit to this event from paying for a fetch it does not need.
+      setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
+        menu: payload.menu
+      });
+      setPendingMenu(null);
     } catch {
-      setMenu(previous);
+      setPendingMenu(null);
       setMessage("Could not save the menu.");
     } finally {
       setIsSaving(false);
@@ -383,9 +402,10 @@ export function EventMenuContent({
         })
       });
 
-      const payload = (await response.json().catch(() => null)) as
-        | { menu?: EventMenuDocument; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as {
+        menu?: EventMenuDocument;
+        error?: string;
+      } | null;
 
       if (!response.ok || !payload?.menu) {
         setMessage(
@@ -401,8 +421,10 @@ export function EventMenuContent({
         return;
       }
 
-      setMenu(payload.menu);
-      invalidateAuthenticatedQuery(menuUrl);
+      setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
+        menu: payload.menu
+      });
+      setPendingMenu(null);
       setIsReviewOpen(false);
       // The event row carries the mirrored ids and the confirmation flag, so
       // the rest of the manager has to re-read it.
@@ -474,100 +496,113 @@ export function EventMenuContent({
           ) : null}
         </header>
 
-        {unassignedLines.length > 0 ? (
-          <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
-            <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
-              Needs a service style
-            </h3>
-            <p className="mt-1 text-xs text-[#6a7483]">
-              These dishes are served both ways. Pick the one this event uses so
-              the kitchen gets the right quantity.
-            </p>
-            <ul className="mt-2 space-y-2">
-              {unassignedLines.map((line) => (
-                <li
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dcc2] bg-white px-3 py-2"
-                  key={line.id}
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <MenuThumbnail
-                      className="h-9 w-9"
-                      pictureUrl={line.pictureUrl}
-                    />
-                    <span className="truncate text-sm font-black text-[#17202a]">
-                      {line.name}
-                    </span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    {(line.availableStyles.length > 0
-                      ? line.availableStyles
-                      : ["Buffet", "Plated"]
-                    ).map((style) => (
-                      <button
-                        className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
-                        disabled={isSaving || isConfirmed}
-                        key={style}
-                        onClick={() => assignStyle(line, style)}
-                        type="button"
-                      >
-                        {style}
-                      </button>
-                    ))}
-                    <button
-                      aria-label={`Remove ${line.name}`}
-                      className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
-                      disabled={isSaving || isConfirmed}
-                      onClick={() => removeLine(line)}
-                      type="button"
+        {documentQuery.isLoading ? (
+          <EventMenuSkeleton />
+        ) : documentQuery.error ? (
+          <div className="p-4">
+            <AsyncState
+              error={documentQuery.error}
+              onRetry={() => void documentQuery.refetch()}
+            />
+          </div>
+        ) : (
+          <>
+            {unassignedLines.length > 0 ? (
+              <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
+                <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
+                  Needs a service style
+                </h3>
+                <p className="mt-1 text-xs text-[#6a7483]">
+                  These dishes are served both ways. Pick the one this event
+                  uses so the kitchen gets the right quantity.
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {unassignedLines.map((line) => (
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#e6dcc2] bg-white px-3 py-2"
+                      key={line.id}
                     >
-                      <span aria-hidden="true">×</span>
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+                      <span className="flex min-w-0 items-center gap-2">
+                        <MenuThumbnail
+                          className="h-9 w-9"
+                          pictureUrl={line.pictureUrl}
+                        />
+                        <span className="truncate text-sm font-black text-[#17202a]">
+                          {line.name}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2">
+                        {(line.availableStyles.length > 0
+                          ? line.availableStyles
+                          : ["Buffet", "Plated"]
+                        ).map((style) => (
+                          <button
+                            className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
+                            disabled={isSaving || isConfirmed}
+                            key={style}
+                            onClick={() => assignStyle(line, style)}
+                            type="button"
+                          >
+                            {style}
+                          </button>
+                        ))}
+                        <button
+                          aria-label={`Remove ${line.name}`}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
+                          disabled={isSaving || isConfirmed}
+                          onClick={() => removeLine(line)}
+                          type="button"
+                        >
+                          <span aria-hidden="true">×</span>
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
 
-        {sections.map((section) => (
-          <section
-            className="border-b border-[#d8dde5] last:border-b-0"
-            key={section.id}
-          >
-            <h3 className="px-3 pt-3 text-xs font-black uppercase tracking-wide text-[#1f4d73] sm:px-4">
-              {section.label}
-              <span className="ml-2 font-semibold normal-case text-[#6a7483]">
-                {section.lines.length}
-              </span>
-            </h3>
-            <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
-              {section.lines.map((line) => (
-                <MenuDishCard
-                  key={line.id}
-                  badge={section.id === "AddOn" ? "ADD-ON" : section.label}
-                  name={line.name}
-                  pictureUrl={line.pictureUrl}
-                  detail={
-                    line.price === null
-                      ? null
-                      : priceFormatter.format(line.price)
-                  }
-                  onRemove={() => removeLine(line)}
-                  disabled={isConfirmed}
-                />
-              ))}
-              <AddMenuCard
-                label={
-                  section.id === "AddOn"
-                    ? "Add add-on"
-                    : `Add ${section.label.toLowerCase()} item`
-                }
-                onClick={() => openSelector(section.id)}
-                disabled={isConfirmed}
-              />
-            </div>
-          </section>
-        ))}
+            {sections.map((section) => (
+              <section
+                className="border-b border-[#d8dde5] last:border-b-0"
+                key={section.id}
+              >
+                <h3 className="px-3 pt-3 text-xs font-black uppercase tracking-wide text-[#1f4d73] sm:px-4">
+                  {section.label}
+                  <span className="ml-2 font-semibold normal-case text-[#6a7483]">
+                    {section.lines.length}
+                  </span>
+                </h3>
+                <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-4 sm:gap-3">
+                  {section.lines.map((line) => (
+                    <MenuDishCard
+                      key={line.id}
+                      badge={section.id === "AddOn" ? "ADD-ON" : section.label}
+                      name={line.name}
+                      pictureUrl={line.pictureUrl}
+                      detail={
+                        line.price === null
+                          ? null
+                          : priceFormatter.format(line.price)
+                      }
+                      onRemove={() => removeLine(line)}
+                      disabled={isConfirmed}
+                    />
+                  ))}
+                  <AddMenuCard
+                    label={
+                      section.id === "AddOn"
+                        ? "Add add-on"
+                        : `Add ${section.label.toLowerCase()} item`
+                    }
+                    onClick={() => openSelector(section.id)}
+                    disabled={isConfirmed}
+                  />
+                </div>
+              </section>
+            ))}
+          </>
+        )}
       </section>
 
       <MenuItemSelectorDrawer
