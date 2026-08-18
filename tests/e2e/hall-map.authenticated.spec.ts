@@ -97,10 +97,16 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
 
   await page.getByRole("button", { name: "Save map" }).click();
 
-  const confirmation = page.getByText("Layout saved").locator("..");
+  const confirmation = page
+    .getByRole("status")
+    .filter({ hasText: "Layout saved" });
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText("charles is saved to Hall 1.");
-  await expect(grid.getByRole("status")).toContainText("Layout saved");
+  // The check that matters. This toast used to render inside the pannable
+  // canvas, which opens scrolled to the world origin - so it was present and
+  // "visible" to the DOM while sitting thousands of pixels off screen, and no
+  // user ever saw it. toBeVisible alone does not catch that; toBeInViewport does.
+  await expect(confirmation).toBeInViewport();
   await expect(page.locator(".fixed.bottom-5")).toHaveCount(0);
   expect(saveRequestCount).toBe(1);
 });

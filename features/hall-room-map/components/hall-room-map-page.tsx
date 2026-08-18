@@ -1315,19 +1315,16 @@ export function HallRoomMapPage() {
                   ✓
             */}
 
-            <div
-              aria-label="Hall map grid"
-              className="relative min-h-90 min-w-0 flex-1 cursor-grab touch-none overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] p-2 active:cursor-grabbing md:min-h-107.5 lg:min-h-125 xl:min-h-0"
-              onPointerCancel={stopMapPan}
-              onPointerDown={startMapPan}
-              onPointerMove={panMap}
-              onPointerUp={stopMapPan}
-              ref={mapViewportRef}
-              // The world surface is intentionally very large. Size
-              // containment prevents it from increasing the dashboard row's
-              // height, while its scrollable overflow remains available.
-              style={{ contain: "size" }}
-            >
+            {/*
+              The confirmation is a sibling of the pannable viewport, not a
+              child of it. Inside, it scrolled with the 20,000-unit canvas: the
+              board opens centred on the world origin, so a toast pinned to
+              `top: 12px` of the content sat thousands of pixels above anything
+              the user could see. Out here it stays pinned to the visible board.
+              The wrapper carries the viewport's original layout classes so the
+              board occupies exactly the same box as before.
+            */}
+            <div className="relative min-h-90 min-w-0 flex-1 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] md:min-h-107.5 lg:min-h-125 xl:min-h-0">
               {saveConfirmation ? (
                 <div
                   className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
@@ -1338,9 +1335,6 @@ export function HallRoomMapPage() {
                     className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-sm font-black text-white"
                   >
                     ✓
-                    {/*
-                    ✓
-                    */}
                   </span>
                   <div className="min-w-0">
                     <p className="text-sm font-black">
@@ -1353,6 +1347,19 @@ export function HallRoomMapPage() {
                 </div>
               ) : null}
 
+              <div
+                aria-label="Hall map grid"
+                className="absolute inset-0 cursor-grab touch-none overflow-hidden p-2 active:cursor-grabbing"
+                onPointerCancel={stopMapPan}
+                onPointerDown={startMapPan}
+                onPointerMove={panMap}
+                onPointerUp={stopMapPan}
+                ref={mapViewportRef}
+                // The world surface is intentionally very large. Size
+                // containment prevents it from increasing the dashboard row's
+                // height, while its scrollable overflow remains available.
+                style={{ contain: "size" }}
+              >
               <div
                 className="relative mx-auto"
                 style={{
@@ -1414,6 +1421,7 @@ export function HallRoomMapPage() {
                     />
                   ))}
                 </div>
+              </div>
               </div>
             </div>
 

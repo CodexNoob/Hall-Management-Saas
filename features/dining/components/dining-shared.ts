@@ -1,3 +1,5 @@
+import type { SeatingSides } from "@/lib/hall-map/seating";
+
 export type TableSide = "men" | "women" | "kids" | "head";
 
 export const DINING_MAP_WORLD_SIZE = 20_000;
@@ -19,6 +21,11 @@ export type DiningTableData = {
   width?: number;
   height?: number;
   rotation?: number;
+  /**
+   * Carried over from the hall map object so the Dining Manager draws the same
+   * chairs the editor did. Absent on presets saved before seating existed.
+   */
+  seatingSides?: SeatingSides;
 };
 
 export type DiningPlan = {
@@ -47,6 +54,7 @@ export type HallMapObject = {
   rotation: number;
   seats: number;
   seatingUse: "none" | "adult" | "kids" | "head";
+  seatingSides?: SeatingSides;
 };
 
 export type HallMapPreset = {
@@ -325,6 +333,7 @@ export function buildDiningTablesFromHallMapPresetObjects(
       name: object.name,
       number: index + 1,
       rotation: object.rotation,
+      seatingSides: object.seatingSides,
       seats: object.seats,
       side,
       x: object.x,

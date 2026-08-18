@@ -4,7 +4,9 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent
 } from "react";
+import { TableSeats } from "@/components/shared/table-seats";
 import {
+  getDefaultSeatingSides,
   getRenderedObjectSize,
   isTableShape,
   type MapObject,
@@ -97,6 +99,14 @@ export function MapObjectView({
       }}
       type="button"
     >
+      <TableSeats
+        height={renderedHeight}
+        round={isTable}
+        seats={object.seats}
+        sides={object.seatingSides ?? getDefaultSeatingSides(object.type)}
+        width={renderedWidth}
+      />
+
       <span className="max-w-full wrap-break-word">{object.name}</span>
 
       {object.seats > 0 ? (

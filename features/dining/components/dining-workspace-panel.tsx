@@ -10,7 +10,12 @@ import {
   useRef
 } from "react";
 import { CompactSelect } from "@/components/ui/compact-select";
+import { TableSeats } from "@/components/shared/table-seats";
 import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
+import {
+  getDefaultSeatingSides,
+  isRoundSeatingShape
+} from "@/lib/hall-map/seating";
 import {
   DINING_MAP_MAX_SCALE,
   DINING_MAP_MIN_SCALE,
@@ -185,6 +190,10 @@ export function DiningWorkspacePanel({
   }
 
   return (
+    // No max-height: the page grid stretches every column to the same row
+    // height, and capping this one left it ending short of the Events and
+    // Dining details columns beside it. The map fills whatever height the row
+    // gives, so the three columns finish level.
     <Panel className="flex min-h-0 min-w-0 flex-col overflow-hidden sm:min-h-125 lg:min-h-[calc(100dvh-120px)] xl:min-h-0">
       <header className="border-b border-[#d8dde5] p-3">
         <div className="flex items-start justify-between gap-3">
@@ -281,21 +290,36 @@ export function DiningWorkspacePanel({
         </div>
       </header>
       <div
-        className={`min-h-0 flex-1 overflow-auto overscroll-contain p-2.5 sm:p-3 lg:block ${
-          isWorkspaceExpanded ? "block" : "hidden"
+        // A flex column so the map can grow into the panel. As a block it could
+        // not, and the gap below the board was dead space.
+        className={`min-h-0 flex-1 flex-col overflow-auto overscroll-contain p-2.5 sm:p-3 lg:flex ${
+          isWorkspaceExpanded ? "flex" : "hidden"
         }`}
         data-dining-workspace-scroll="true"
       >
         <div
-          className="relative min-h-90 min-w-0 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px] sm:min-h-133.75"
+          // A low floor on purpose. The previous 535px minimum was taller than
+          // the space a capped panel actually offers on a short screen, so the
+          // board overflowed instead of fitting. flex-1 sizes it to whatever is
+          // there, and it grows on taller screens.
+          className="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px]"
           onWheel={scrollPageFromMapWheel}
         >
           {savedMessage ? (
+            // Same treatment as the hall map's saved confirmation, so a save
+            // reads the same way in both modules. Sits outside the pannable
+            // viewport so it stays pinned to the visible board.
             <div
-              className="absolute left-1/2 top-3 z-10 max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-full border border-[#9fd9bd] bg-[#ecfdf3] px-4 py-2 text-center text-xs font-black text-[#087047] shadow-lg"
+              className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
               role="status"
             >
-              {savedMessage}
+              <span
+                aria-hidden="true"
+                className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-sm font-black text-white"
+              >
+                ✓
+              </span>
+              <p className="min-w-0 text-sm font-black">{savedMessage}</p>
             </div>
           ) : null}
           {hasPresetCoordinates ? (
@@ -340,7 +364,10 @@ export function DiningWorkspacePanel({
             </div>
             <div
               aria-label="Dining map grid"
-              className="relative min-h-90 cursor-grab touch-none overflow-hidden active:cursor-grabbing sm:min-h-133.75"
+              // Fills the wrapper instead of carrying its own fixed height.
+              // `contain: size` means it takes no size from its 20,000-unit
+              // contents, so the inset has to supply it.
+              className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
               onPointerCancel={onMapPanEnd}
               onPointerDown={onMapPanStart}
               onPointerMove={onMapPanMove}
@@ -370,10 +397,7 @@ export function DiningWorkspacePanel({
                   }}
                 >
                 {tables.map((table) => {
-                const isRound =
-                  table.mapType === "round-table" ||
-                  table.mapType === "kids-table" ||
-                  table.mapType === "circle";
+                const isRound = isRoundSeatingShape(table.mapType);
                 const isDivider = table.mapType === "divider";
                 const isServiceShape =
                   table.mapType === "buffet" || table.mapType === "drinks";
@@ -382,7 +406,10 @@ export function DiningWorkspacePanel({
                 return (
                   <button
                     data-dining-map-object="true"
-                    className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-hidden px-1 text-center select-none ${
+                    // overflow-visible so the chairs, which sit outside the
+                    // table box, are not clipped. The name below clips itself
+                    // via line-clamp.
+                    className={`absolute flex touch-none cursor-move flex-col items-center justify-center overflow-visible px-1 text-center select-none ${
                       isDivider
                         ? "rounded bg-[#344a60] text-white shadow-none"
                         : "border bg-white shadow-sm"
@@ -413,6 +440,17 @@ export function DiningWorkspacePanel({
                     }}
                     type="button"
                   >
+                    <TableSeats
+                      height={table.height ?? 72}
+                      round={isRound}
+                      seats={isSeating ? table.seats : 0}
+                      sides={
+                        table.seatingSides ??
+                        getDefaultSeatingSides(table.mapType)
+                      }
+                      width={table.width ?? 72}
+                    />
+
                     <strong
                       className={`line-clamp-2 leading-3 ${
                         isDivider ? "text-[10px]" : "text-[10px]"

@@ -203,16 +203,19 @@ export function DiningManagerPage() {
   useEffect(() => {
     if (!hasPresetCoordinates) return;
 
-    mapScaleRef.current = 1;
-    setMapScale(1);
+    // Fit the saved tables rather than parking on the world origin at 100%.
+    // The origin is the middle of an empty 20,000-unit canvas: a layout saved
+    // anywhere other than dead centre opened off screen, so reopening the
+    // Dining Manager appeared to lose the map. fitDiningMapTables already
+    // measures the tables, picks a scale that fits them and converts to scaled
+    // scroll coordinates, which the old inline maths did not do.
     window.requestAnimationFrame(() => {
-      const viewport = mapViewportRef.current;
-      if (!viewport) return;
-      viewport.scrollTo({
-        left: DINING_MAP_WORLD_ORIGIN - viewport.clientWidth / 2,
-        top: DINING_MAP_WORLD_ORIGIN - viewport.clientHeight / 2
-      });
+      if (!mapViewportRef.current) return;
+      fitDiningMapTables();
     });
+    // Deliberately not depending on the tables themselves: re-fitting on every
+    // change would fight the user while they drag one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPresetCoordinates, selectedEventId]);
 
   function updateForm<K extends keyof DiningForm>(
@@ -235,10 +238,13 @@ export function DiningManagerPage() {
     }
 
     setSavedMessage(message);
+    // Matches the hall map's confirmation. At 2.6s this cleared before a user
+    // who was looking at the Save button, at the top of the page, had shifted
+    // focus down to the board where the message appears.
     savedMessageTimerRef.current = setTimeout(() => {
       setSavedMessage("");
       savedMessageTimerRef.current = null;
-    }, 2600);
+    }, 6000);
   }
 
   function rememberTablesSnapshot(snapshot = tables) {

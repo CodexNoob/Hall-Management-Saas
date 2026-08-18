@@ -127,7 +127,7 @@ test("selecting a hall map preset immediately previews its dining table layout",
 
 test("saving a dining plan persists the selected hall map preset layout", async ({
   page
-}) => {
+}, testInfo) => {
   let savedPayload: {
     eventId?: string;
     hallMapPresetId?: string | null;
@@ -186,7 +186,20 @@ test("saving a dining plan persists the selected hall map preset layout", async 
   await saveRequest;
   await refetchResponse;
 
-  await expect(page.getByRole("status")).toHaveText("Dining plan saved.");
+  const confirmation = page.getByRole("status");
+  await expect(confirmation).toContainText("Dining plan saved.");
+
+  // Present in the DOM is not the same as on screen: the hall map's equivalent
+  // toast rendered inside the pannable canvas and sat thousands of pixels out
+  // of view while still passing toBeVisible.
+  //
+  // Desktop only, and that is a real limitation rather than a test convenience.
+  // On mobile the layout stacks, so the board - and the confirmation pinned to
+  // it - sits well below the topbar that holds the Save button. The message is
+  // rendered but a phone user never sees it without scrolling.
+  if (!testInfo.project.name.includes("mobile")) {
+    await expect(confirmation).toBeInViewport();
+  }
   expect(savedPayload).toMatchObject({
     eventId: diningEvent.id,
     hallMapPresetId: presetB.id,
@@ -254,6 +267,13 @@ test("the movable dining grid pans and allows dragging past its old bottom edge"
   await expect(
     page.getByRole("button", { name: "Reset dining map zoom" })
   ).toHaveText("80%");
+
+  // The three dashboard columns stretch to a common row height, so on a short
+  // window the board can extend past the fold. Bring it into view first, as a
+  // user would: otherwise the drag target below is clamped to the window and
+  // never reaches the 48px auto-pan edge, and this fails for a layout reason
+  // rather than a panning one.
+  await grid.scrollIntoViewIfNeeded();
 
   const beforeScrollTop = await grid.evaluate((element) => element.scrollTop);
   const gridBox = await grid.boundingBox();

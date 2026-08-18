@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { expect, test as setup } from "@playwright/test";
+import { waitForHydration } from "./hydration";
 
 const authDirectory = path.resolve("playwright/.auth");
 
@@ -24,6 +25,11 @@ async function authenticate(
   });
 
   await page.goto("/login");
+  // The login markup is server-rendered, so the submit button is clickable
+  // before React attaches onSubmit. Clicking early performs a native GET
+  // submission, which lands back on /login with the credentials in the query
+  // string and never reaches Supabase.
+  await waitForHydration(page);
   await page.getByLabel("Email Address").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Remember me").check();

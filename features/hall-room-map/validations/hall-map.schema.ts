@@ -1,5 +1,8 @@
 import { z } from "zod";
 import { countSchema, dimensionSchema } from "@/lib/validation/number";
+import { seatingSidesSchema } from "@/lib/hall-map/seating";
+
+export { seatingSidesSchema };
 
 /**
  * Shared by the hall-map API route and the object inspector, so the bounds the
@@ -32,7 +35,8 @@ export const mapObjectSchema = z.object({
   type: shapeTypeSchema,
   name: z.string().trim().min(1).max(100),
   ...mapObjectFieldSchemas,
-  seatingUse: z.enum(["none", "adult", "kids", "head"])
+  seatingUse: z.enum(["none", "adult", "kids", "head"]),
+  seatingSides: seatingSidesSchema
 });
 
 export type MapObject = z.infer<typeof mapObjectSchema>;

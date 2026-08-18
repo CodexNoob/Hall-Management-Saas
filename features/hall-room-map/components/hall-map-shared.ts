@@ -1,3 +1,13 @@
+import {
+  getDefaultSeatingSides,
+  getSeatPlacements,
+  type SeatPlacement,
+  type SeatingSides
+} from "@/lib/hall-map/seating";
+
+export { getDefaultSeatingSides };
+export type { SeatPlacement, SeatingSides };
+
 export type ShapeType =
   | "round-table"
   | "rect-table"
@@ -22,6 +32,12 @@ export type MapObject = {
   rotation: number;
   seats: number;
   seatingUse: SeatingUse;
+  /**
+   * How many edges of a rectangular table are seated. Optional because presets
+   * saved before seating existed have no value, and round tables ignore it -
+   * they always seat the full perimeter.
+   */
+  seatingSides?: SeatingSides;
 };
 
 export type SavedHallMap = {
@@ -113,6 +129,19 @@ export function getRotatedBounds(
     width: width * cos + height * sin,
     height: width * sin + height * cos
   };
+}
+
+/** Chair positions for one object, in that object's own coordinate space. */
+export function getObjectSeatPlacements(object: MapObject): SeatPlacement[] {
+  const { width, height } = getRenderedObjectSize(object);
+
+  return getSeatPlacements({
+    round: isTableShape(object.type),
+    width,
+    height,
+    seats: object.seats,
+    sides: object.seatingSides ?? getDefaultSeatingSides(object.type)
+  });
 }
 
 export function resizeMapObjectFromEdge(
