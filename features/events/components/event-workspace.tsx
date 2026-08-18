@@ -130,7 +130,11 @@ export function EventWorkspace({
         open={isPortalPreviewOpen}
       />
 
+      {/* Named because the sidebar has its own "Menu" and "Files" buttons, so
+          without this the two navigations are indistinguishable to a screen
+          reader - and to anything else looking a tab up by name. */}
       <nav
+        aria-label="Event workspace"
         className={`scrollbar-none shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-3 xl:flex ${
           isWorkspaceExpanded ? "flex" : "hidden"
         }`}

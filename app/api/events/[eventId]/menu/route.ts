@@ -478,7 +478,12 @@ export async function POST(
         select: { id: true, version: true, _count: { select: { lines: true } } }
       });
 
-      if (!existing || existing.version !== input.version) return null;
+      // A menu nobody has saved yet is empty, not contested. Answering "changed
+      // somewhere else" would send the user to reload a page that is already
+      // showing the truth, and hide the one thing they need to do.
+      if (!existing) return confirming ? ("empty" as const) : null;
+
+      if (existing.version !== input.version) return null;
 
       if (confirming && existing._count.lines === 0) return "empty" as const;
 

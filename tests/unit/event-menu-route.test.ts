@@ -531,6 +531,20 @@ describe("event menu route", () => {
     );
   });
 
+  it("asks for a dish rather than reporting a conflict on a menu never saved", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(null);
+
+    const response = await POST(
+      request("POST", { action: "confirm", version: 0 }),
+      { params }
+    );
+    const payload = await response.json();
+
+    // 409 here used to tell the user to reload a page already showing the truth.
+    expect(response.status).toBe(400);
+    expect(payload.error).toMatch(/at least one/i);
+  });
+
   it("refuses to confirm a menu with no dishes on it", async () => {
     vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue({
       id: eventMenuId,
