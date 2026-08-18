@@ -12,6 +12,7 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 
 import { EventListCard } from "@/features/events/components/event-list-panel";
 import { EventWorkspace } from "@/features/events/components/event-workspace";
+import { EventWorkspaceEmpty } from "@/features/events/components/event-workspace-empty";
 import {
   LineIcon,
   type EventFile,
@@ -130,17 +131,20 @@ export function EventManagerPage() {
   const isDeepLinkMissing =
     Boolean(deepLinkEventId) && !eventsQuery.isLoading && !deepLinkEvent;
 
+  // A link that names an event is the one thing that opens one on arrival.
+  // Nothing else does: the workspace used to fall back to the first event in the
+  // list, which presented a selection the user had not made - and since the list
+  // filters to Active by default while the first event by start time is usually
+  // finished or expired, its row was normally not even rendered to be
+  // highlighted. Landing on an empty pane says what is true, that nothing is
+  // open yet.
   useEffect(() => {
-    if (allEvents.length === 0) return;
-    const nextSelectedEvent =
-      allEvents.find((event) => event.id === selectedEventId) ??
-      deepLinkEvent ??
-      allEvents[0];
+    if (!deepLinkEvent) return;
 
-    if (nextSelectedEvent.id !== selectedEventId) {
-      setSelectedEventId(nextSelectedEvent.id);
-    }
-  }, [allEvents, deepLinkEvent, selectedEventId]);
+    // Only ever the first selection, so a later click in the list is not
+    // snapped back to whatever the link said.
+    setSelectedEventId((current) => current || deepLinkEvent.id);
+  }, [deepLinkEvent]);
 
   if (eventsQuery.isLoading) {
     return (
@@ -182,12 +186,14 @@ export function EventManagerPage() {
     );
   }
 
-  // `deepLinkEvent` ahead of the first row, so the render before the selection
-  // effect lands does not open somebody else's event for a moment.
+  // `deepLinkEvent` is read here as well as in the effect, so the render before
+  // the effect lands already has the linked event open rather than flashing the
+  // empty pane on the way to it. Null when nothing is selected, which is the
+  // state the page now starts in.
   const selectedEvent =
     allEvents.find((event) => event.id === selectedEventId) ??
     deepLinkEvent ??
-    allEvents[0];
+    null;
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
   const visibleEvents = allEvents.filter((event) => {
     const matchesSearch =
@@ -279,7 +285,9 @@ export function EventManagerPage() {
                     setEventStatusFilter("All events");
                     setEventLifecycleFilter("Active");
                     setRoomFilter("All rooms");
-                    setSelectedEventId(allEvents[0]?.id ?? "");
+                    // Clearing the filters clears the selection too, rather than
+                    // handing the pane the first row of the reset list.
+                    setSelectedEventId("");
                   }}
                   type="button"
                 >
@@ -354,7 +362,7 @@ export function EventManagerPage() {
                 <EventListCard
                   key={event.id}
                   event={event}
-                  selected={event.id === selectedEvent.id}
+                  selected={event.id === selectedEvent?.id}
                   onClick={() => {
                     setSelectedEventId(event.id);
                     setIsEventListExpanded(false);
@@ -381,13 +389,17 @@ export function EventManagerPage() {
             </div>
           </aside>
 
-          <EventWorkspace
-            activeTab={activeTab}
-            event={selectedEvent}
-            halls={eventsQuery.data?.halls ?? []}
-            onEventSaved={eventsQuery.refetch}
-            onTabChange={setActiveTab}
-          />
+          {selectedEvent ? (
+            <EventWorkspace
+              activeTab={activeTab}
+              event={selectedEvent}
+              halls={eventsQuery.data?.halls ?? []}
+              onEventSaved={eventsQuery.refetch}
+              onTabChange={setActiveTab}
+            />
+          ) : (
+            <EventWorkspaceEmpty />
+          )}
         </div>
       </div>
     </div>

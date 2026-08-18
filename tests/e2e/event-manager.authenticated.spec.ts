@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const eventResponse = {
   events: [
@@ -81,6 +81,26 @@ test.beforeEach(async () => {
   );
 });
 
+/**
+ * Opens the fixture's event.
+ *
+ * The workspace no longer opens anything on arrival - it shows an empty pane
+ * until a row is chosen, because the old fallback to the first event presented a
+ * selection nobody had made. So every test that works inside the workspace picks
+ * the event first.
+ */
+async function openFixtureEvent(page: Page) {
+  await page
+    .getByRole("button", { name: /E2E Event/ })
+    .first()
+    .click();
+  // The workspace's own tab strip, rather than the event's title: the title is
+  // rendered by the list row as well, so waiting on it would match two things.
+  await expect(
+    page.getByRole("navigation", { name: "Event workspace" })
+  ).toBeVisible({ timeout: 45_000 });
+}
+
 test("Hall map tab shows the Dining Manager saved preset layout", async ({
   page
 }) => {
@@ -99,6 +119,7 @@ test("Hall map tab shows the Dining Manager saved preset layout", async ({
   });
 
   await page.goto("/dashboard/events");
+  await openFixtureEvent(page);
   await page.getByRole("button", { name: "Hall map" }).click();
 
   await expect(
@@ -159,6 +180,7 @@ test("Event details save and persist edited fields", async ({ page }) => {
   });
 
   await page.goto("/dashboard/events");
+  await openFixtureEvent(page);
 
   await expect(page.getByText("Activity history")).toBeVisible();
   await expect(
@@ -187,9 +209,7 @@ test("Event details save and persist edited fields", async ({ page }) => {
   // spinbutton because the count fields moved off type="number" - that input
   // type hands JavaScript "" for anything it cannot parse, which is how
   // garbage used to be stored as a silent 0.
-  await page
-    .getByRole("textbox", { name: "Guests", exact: true })
-    .fill("370");
+  await page.getByRole("textbox", { name: "Guests", exact: true }).fill("370");
   await page.getByRole("button", { name: "Save event details" }).click();
 
   await expect(page.getByRole("status")).toContainText("Event details saved");
@@ -268,6 +288,7 @@ test("Event details prevent invalid guest count values before saving", async ({
   );
 
   await page.goto("/dashboard/events");
+  await openFixtureEvent(page);
   await page
     .getByRole("textbox", { exact: true, name: "Children" })
     .fill("999");
@@ -324,13 +345,14 @@ test("Event lifecycle actions expose valid transitions with confirmation", async
   });
 
   await page.goto("/dashboard/events");
+  await openFixtureEvent(page);
 
-  await expect(page.getByRole("combobox", { name: "Event status" })).toHaveValue(
-    "TENTATIVE_HOLD"
-  );
   await expect(
-    page.getByRole("option", { name: "Confirm event" })
-  ).toHaveCount(1);
+    page.getByRole("combobox", { name: "Event status" })
+  ).toHaveValue("TENTATIVE_HOLD");
+  await expect(page.getByRole("option", { name: "Confirm event" })).toHaveCount(
+    1
+  );
   await expect(
     page.getByRole("option", { name: "Mark completed" })
   ).toHaveCount(0);
@@ -353,9 +375,9 @@ test("Event lifecycle actions expose valid transitions with confirmation", async
     status: "CONFIRMED",
     expectedVersion: 1
   });
-  await expect(page.getByRole("combobox", { name: "Event status" })).toHaveValue(
-    "CONFIRMED"
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Event status" })
+  ).toHaveValue("CONFIRMED");
   await expect(
     page.getByRole("option", { name: "Mark completed" })
   ).toHaveCount(1);
