@@ -231,6 +231,11 @@ test("Event details save and persist edited fields", async ({ page }) => {
   });
 
   await page.reload();
+  // A reload is a fresh page with no ?eventId= on it, so the selection is gone
+  // and the pane is back to empty. Choosing the row again is what re-reads the
+  // saved values from the server, which is the half of this test the reload is
+  // here for.
+  await openFixtureEvent(page);
   await expect(page.getByLabel("Client")).toHaveValue("Updated E2E Event");
   await expect(
     page.getByRole("textbox", { exact: true, name: "Guests" })
