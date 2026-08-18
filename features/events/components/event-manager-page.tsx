@@ -17,7 +17,20 @@ import {
 export function EventManagerPage() {
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Event Manager");
-  const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
+  // Read once, on the way in: this decides the first selection only, so that a
+  // later click in the list is not snapped back to whatever the link said.
+  const [deepLinkEventId] = useState(() =>
+    typeof window === "undefined"
+      ? ""
+      : (new URLSearchParams(window.location.search).get("eventId") ?? "")
+  );
+  const eventsQuery = useAuthenticatedQuery<EventsResponse>(
+    // The list is capped and ordered by start time, so an event can easily sit
+    // outside it. Asking for it by id is what keeps a deep link honest.
+    deepLinkEventId
+      ? `/api/events?eventId=${encodeURIComponent(deepLinkEventId)}`
+      : "/api/events"
+  );
   const [selectedEventId, setSelectedEventId] = useState("");
   const [eventStatusFilter, setEventStatusFilter] = useState("All events");
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
@@ -102,20 +115,26 @@ export function EventManagerPage() {
     [eventsQuery.data]
   );
 
+  const deepLinkEvent = deepLinkEventId
+    ? allEvents.find((event) => event.id === deepLinkEventId)
+    : undefined;
+  // The link named an event this organization does not have, or one this user
+  // may not see. Said out loud below, rather than answered with a different
+  // event that the page would then present as the one that was asked for.
+  const isDeepLinkMissing =
+    Boolean(deepLinkEventId) && !eventsQuery.isLoading && !deepLinkEvent;
+
   useEffect(() => {
     if (allEvents.length === 0) return;
-    const eventIdFromUrl = new URLSearchParams(window.location.search).get(
-      "eventId"
-    );
     const nextSelectedEvent =
-      allEvents.find((event) => event.id === eventIdFromUrl) ??
       allEvents.find((event) => event.id === selectedEventId) ??
+      deepLinkEvent ??
       allEvents[0];
 
     if (nextSelectedEvent.id !== selectedEventId) {
       setSelectedEventId(nextSelectedEvent.id);
     }
-  }, [allEvents, selectedEventId]);
+  }, [allEvents, deepLinkEvent, selectedEventId]);
 
   if (eventsQuery.isLoading) {
     return (
@@ -143,8 +162,26 @@ export function EventManagerPage() {
     );
   }
 
+  if (isDeepLinkMissing) {
+    return (
+      <DashboardPageState
+        emptyMessage="It may have been deleted, or it belongs to a hall you do not have access to."
+        emptyTitle="That event could not be opened"
+        isEmpty
+        onRetry={eventsQuery.refetch}
+        showNewBookingAction={false}
+        subtitle="Select an event, then manage every connected section from one workspace."
+        title="Event Manager"
+      />
+    );
+  }
+
+  // `deepLinkEvent` ahead of the first row, so the render before the selection
+  // effect lands does not open somebody else's event for a moment.
   const selectedEvent =
-    allEvents.find((event) => event.id === selectedEventId) ?? allEvents[0];
+    allEvents.find((event) => event.id === selectedEventId) ??
+    deepLinkEvent ??
+    allEvents[0];
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
   const visibleEvents = allEvents.filter((event) => {
     const matchesSearch =

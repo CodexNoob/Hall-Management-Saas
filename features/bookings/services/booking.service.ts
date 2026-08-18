@@ -270,13 +270,55 @@ async function assertAvailable(
   }
 }
 
-async function runSerializable<T>(
-  operation: (transaction: Transaction) => Promise<T>
+/**
+ * Postgres aborts a serializable transaction it cannot order against the ones
+ * running beside it, with SQLSTATE 40001. It reaches us in two shapes: `P2034`
+ * when the query engine raises it, and a driver-adapter `TransactionWriteConflict`
+ * when the pg adapter does. Only the first was recognised, so the second walked
+ * past the retry and out of the route as a 500.
+ */
+export function isWriteConflictError(error: unknown) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  ) {
+    return true;
+  }
+
+  const cause = (
+    error as { cause?: { kind?: unknown; originalCode?: unknown } } | null
+  )?.cause;
+
+  return (
+    cause?.kind === "TransactionWriteConflict" || cause?.originalCode === "40001"
+  );
+}
+
+const WRITE_CONFLICT_ATTEMPTS = 5;
+
+const sleep = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Jittered, because the transactions that just collided would otherwise retry
+ * in lockstep and collide again. Roughly 25ms, 50ms, 100ms, 200ms, each plus
+ * up to its own length.
+ */
+function retryDelay(attempt: number) {
+  const base = 25 * 2 ** attempt;
+
+  return base + Math.floor(Math.random() * base);
+}
+
+async function runInTransaction<T>(
+  operation: (transaction: Transaction) => Promise<T>,
+  isolationLevel: Prisma.TransactionIsolationLevel = Prisma.TransactionIsolationLevel
+    .Serializable
 ) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < WRITE_CONFLICT_ATTEMPTS; attempt += 1) {
     try {
       return await prisma.$transaction(operation, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel,
         maxWait: 5000,
         timeout: 15000
       });
@@ -288,16 +330,26 @@ async function runSerializable<T>(
           "BOOKING_CONFLICT"
         );
       }
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2034" &&
-        attempt < 2
-      ) {
+      if (isWriteConflictError(error)) {
+        // Out of attempts. A retryable conflict is a 409 the caller can act on,
+        // never the 500 the raw error used to become.
+        if (attempt === WRITE_CONFLICT_ATTEMPTS - 1) {
+          throw new BookingError(
+            "The booking could not be committed. Please retry.",
+            409,
+            "BOOKING_RETRY"
+          );
+        }
+
+        await sleep(retryDelay(attempt));
         continue;
       }
       throw error;
     }
   }
+
+  // Unreachable: the loop only leaves through a return or a throw. Here for the
+  // type checker.
   throw new BookingError(
     "The booking could not be committed. Please retry.",
     409,
@@ -325,10 +377,20 @@ export async function createBooking(
     );
   }
   const hash = requestHash(input);
+  // An inquiry holds nothing: it writes no reservation, and neither the daily
+  // limit nor the availability check below runs for it. Serializable buys it
+  // no invariant, and costs a write conflict against every other booking being
+  // created at the same moment - the idempotency key is guarded by its unique
+  // index either way. So only the statuses that take a hall pay for it.
+  const holdsAHall = activeStatuses.has(status);
 
   try {
-    return await runSerializable(async (transaction) => {
-      await expireHolds(transaction, actor.organizationId, new Date());
+    return await runInTransaction(async (transaction) => {
+      // Only worth doing where it changes an answer: expiring holds exists to
+      // keep the availability and daily-limit checks honest.
+      if (holdsAHall) {
+        await expireHolds(transaction, actor.organizationId, new Date());
+      }
 
       const replay = await transaction.event.findFirst({
         where: { organizationId: actor.organizationId, idempotencyKey },
@@ -569,7 +631,10 @@ export async function createBooking(
         }
       });
       return { event, replayed: false };
-    });
+    },
+    holdsAHall
+      ? Prisma.TransactionIsolationLevel.Serializable
+      : Prisma.TransactionIsolationLevel.ReadCommitted);
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -609,7 +674,7 @@ export async function transitionBooking(
   holdDurationMinutes: number,
   actor: BookingActor
 ) {
-  return runSerializable(async (transaction) => {
+  return runInTransaction(async (transaction) => {
     await expireHolds(transaction, actor.organizationId, new Date());
     const event = await transaction.event.findFirst({
       where: {
@@ -734,7 +799,7 @@ export async function transitionBooking(
 }
 
 export async function expireOrganizationHolds(organizationId: string) {
-  return runSerializable((transaction) =>
+  return runInTransaction((transaction) =>
     expireHolds(transaction, organizationId, new Date())
   );
 }

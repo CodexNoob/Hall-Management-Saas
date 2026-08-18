@@ -4,7 +4,10 @@ import { ZodError } from "zod";
 import { AuthorizationError } from "@/lib/auth/errors";
 import { formatZodErrorMessage } from "@/lib/http/zod-error-message";
 import { BillingError } from "@/features/billing/services/billing-error";
-import { BookingError } from "@/features/bookings/services/booking.service";
+import {
+  BookingError,
+  isWriteConflictError
+} from "@/features/bookings/services/booking.service";
 
 export function createApiErrorResponse(error: unknown) {
   if (error instanceof BookingError) {
@@ -58,6 +61,19 @@ export function createApiErrorResponse(error: unknown) {
   ) {
     return NextResponse.json(
       { error: "A record with the same provider reference already exists." },
+      { status: 409 }
+    );
+  }
+
+  // Two transactions Postgres could not order against each other. The caller
+  // resending it is the fix, so it is a 409 - a 500 tells them to give up on
+  // something that would have worked on the next try.
+  if (isWriteConflictError(error)) {
+    return NextResponse.json(
+      {
+        error: "That request collided with another write. Please try again.",
+        code: "WRITE_CONFLICT"
+      },
       { status: 409 }
     );
   }

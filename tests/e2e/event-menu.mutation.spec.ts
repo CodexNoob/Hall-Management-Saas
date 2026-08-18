@@ -246,8 +246,11 @@ async function cleanUp(page: Page, eventId: string) {
       if (emptied.ok()) break;
     }
 
+    // By id: without it the event can sit outside the capped list, and the
+    // cancel below would be skipped every run - which is how the list fills up
+    // with events a finished test meant to close.
     const { events } = (await (
-      await page.request.get("/api/events")
+      await page.request.get(`/api/events?eventId=${eventId}`)
     ).json()) as { events: Array<{ id: string; version: number }> };
     const event = events.find((candidate) => candidate.id === eventId);
 
@@ -283,11 +286,22 @@ function workspaceTab(page: Page, label: string) {
 }
 
 async function openMenuTab(page: Page, eventId: string) {
+  // The heading renders while the menu is still loading, and every control on
+  // the tab is disabled until it lands. Waiting for the document itself is the
+  // difference between clicking a button and clicking a disabled one.
+  const loaded = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      new URL(response.url()).pathname === `/api/events/${eventId}/menu`,
+    { timeout: 30_000 }
+  );
+
   await page.goto(`/dashboard/events?eventId=${eventId}`);
   await workspaceTab(page, "Menu").click();
   await expect(
     page.getByRole("heading", { name: "Menu for this event" })
   ).toBeVisible({ timeout: 30_000 });
+  await loaded;
 }
 
 function drawer(page: Page) {
@@ -405,9 +419,14 @@ test.describe("event menu", () => {
 
       // The mirrors the kitchen dashboard, the PDF and the client portal still
       // read while they have not moved to the line table.
+      // Named, because the list is capped and an event dated this far out is
+      // not in the first page of it.
       const { events } = await readJson<{
         events: Array<{ id: string; menuItemIds: string[]; addOnIds: string[] }>;
-      }>(await page.request.get("/api/events"), "GET /api/events");
+      }>(
+        await page.request.get(`/api/events?eventId=${eventId}`),
+        "GET /api/events"
+      );
       const stored = events.find((candidate) => candidate.id === eventId);
 
       expect(stored?.menuItemIds).toHaveLength(2);
@@ -437,7 +456,10 @@ test.describe("event menu", () => {
 
       const already = drawer(page).getByRole("button", { name: BUFFET_A });
       await expect(already).toBeDisabled();
-      await expect(drawer(page).getByText("Already on this menu")).toBeVisible();
+      // Scoped to this dish. An unscoped lookup matches every already-added
+      // item in the drawer and fails on strict mode instead of on the thing
+      // being asserted.
+      await expect(already.getByText("Already on this menu")).toBeVisible();
 
       // Nothing picked, so there is nothing to commit.
       await expect(
@@ -467,7 +489,18 @@ test.describe("event menu", () => {
       });
 
       await openMenuTab(page, eventId);
+
+      // The card is removed optimistically, so the button going away proves
+      // nothing about the server. Wait for the write the way the bulk test
+      // does, or a slow save reads as a removal that did not stick.
+      const saved = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PUT" &&
+          new URL(response.url()).pathname === `/api/events/${eventId}/menu`,
+        { timeout: 30_000 }
+      );
       await page.getByRole("button", { name: `Remove ${BUFFET_A}` }).click();
+      expect((await saved).status()).toBe(200);
 
       await expect(
         page.getByRole("button", { name: `Remove ${BUFFET_A}` })

@@ -141,6 +141,9 @@ async function listEventActivityLogs(organizationId: string, eventIds: string[])
   return logsByEventId;
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
@@ -150,6 +153,11 @@ export async function GET(request: Request) {
     const allowedHallIds = actor.access?.allowedHallIds ?? [];
     const restrictHalls =
       !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
+    // The list below is capped, so an event a caller opened by id can fall
+    // outside it - the workspace then had nothing to select and quietly showed
+    // a different event instead. Naming it here guarantees it is in the answer.
+    const requestedEventId =
+      new URL(request.url).searchParams.get("eventId") ?? "";
 
     await expireOrganizationHolds(actor.organizationId);
     const [events, halls, eventTypes, packages, settings] = await Promise.all([
@@ -186,6 +194,25 @@ export async function GET(request: Request) {
         create: { organizationId: actor.organizationId }
       })
     ]);
+
+    if (
+      UUID_PATTERN.test(requestedEventId) &&
+      !events.some((event) => event.id === requestedEventId)
+    ) {
+      const requested = await prisma.event.findFirst({
+        where: {
+          id: requestedEventId,
+          organizationId: actor.organizationId,
+          deleted: false,
+          // Still behind the same hall restriction: naming an id is not a way
+          // around what this actor is allowed to see.
+          ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+        },
+        include: { hall: true, package: true, client: true }
+      });
+
+      if (requested) events.push(requested);
+    }
 
     const eventIds = events.map((event) => event.id);
     const [
