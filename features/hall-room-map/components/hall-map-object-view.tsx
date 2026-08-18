@@ -35,11 +35,14 @@ export function MapObjectView({
   onRotateEnd,
   onRotateMove,
   onRotateStart,
+  overlapping = false,
   selected,
   onSelect,
   worldOrigin = 0
 }: {
   object: MapObject;
+  /** Another shape's footprint (chairs included) intersects this one. */
+  overlapping?: boolean;
   onDragEnd: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onDragMove: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   onDragStart: (event: ReactPointerEvent<HTMLButtonElement>) => void;
@@ -80,7 +83,9 @@ export function MapObjectView({
       } ${
         selected
           ? "z-10 ring-2 ring-[#1f5f91] ring-offset-2"
-          : "hover:ring-2 hover:ring-[#8fbce3]"
+          : overlapping
+            ? "ring-2 ring-[#dc2626]/70 hover:ring-[#dc2626]"
+            : "hover:ring-2 hover:ring-[#8fbce3]"
       }`}
       onClick={(event) => {
         event.stopPropagation();

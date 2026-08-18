@@ -6,6 +6,11 @@ import { isAdministrativeRole } from "@/lib/auth/roles";
 import { requireAnyPermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { HALL_FLOOR_PLAN_BUCKET } from "@/lib/storage/buckets";
+import {
+  deleteStorageFiles,
+  isOrgScopedStoragePath
+} from "@/lib/storage/files";
 import {
   mapObjectSchema,
   type MapObject
@@ -14,7 +19,10 @@ import {
 const createPresetSchema = z.object({
   name: z.string().trim().min(1).max(100),
   hallId: z.string().uuid(),
-  objects: z.array(mapObjectSchema).max(1000)
+  objects: z.array(mapObjectSchema).max(1000),
+  // Nullable so a PATCH can clear the floor plan; the prefix is verified
+  // against the acting organization before it is stored.
+  backgroundPath: z.string().min(1).max(500).nullable().optional()
 });
 
 const updatePresetSchema = createPresetSchema
@@ -125,8 +133,45 @@ async function findPresetIdentity(
       organizationId,
       ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
     },
-    select: { id: true, hallId: true }
+    select: { id: true, hallId: true, backgroundPath: true }
   });
+}
+
+/**
+ * A client-supplied floor-plan path must live under the acting organization's
+ * prefix - the same rule the storage policies enforce - or a crafted body
+ * could point one tenant's map at another tenant's file.
+ */
+function backgroundPathError(
+  organizationId: string,
+  backgroundPath: string | null | undefined
+) {
+  if (backgroundPath === null || backgroundPath === undefined) return null;
+
+  return isOrgScopedStoragePath(organizationId, backgroundPath)
+    ? null
+    : "Invalid floor plan path.";
+}
+
+/**
+ * Best effort: an orphaned image costs kilobytes, while failing here would
+ * cost the user the save that already happened.
+ */
+async function discardFloorPlan(
+  organizationId: string,
+  path: string | null | undefined
+) {
+  if (!path) return;
+
+  try {
+    await deleteStorageFiles({
+      organizationId,
+      bucket: HALL_FLOOR_PLAN_BUCKET,
+      paths: [path]
+    });
+  } catch (error) {
+    console.error("Failed to remove hall floor plan", error);
+  }
 }
 
 function createHallMapErrorResponse(error: unknown) {
@@ -195,12 +240,21 @@ export async function POST(request: Request) {
       );
     }
 
+    const pathError = backgroundPathError(
+      actor.organizationId,
+      input.backgroundPath
+    );
+    if (pathError) {
+      return NextResponse.json({ error: pathError }, { status: 400 });
+    }
+
     const created = await prisma.hallMapPreset.create({
       data: {
         organizationId: actor.organizationId,
         hallId: hall.id,
         name: input.name,
-        objects: input.objects
+        objects: input.objects,
+        backgroundPath: input.backgroundPath ?? null
       },
       select: { id: true }
     });
@@ -248,14 +302,36 @@ export async function PATCH(request: Request) {
       }
     }
 
+    const pathError = backgroundPathError(
+      actor.organizationId,
+      input.backgroundPath
+    );
+    if (pathError) {
+      return NextResponse.json({ error: pathError }, { status: 400 });
+    }
+
     await prisma.hallMapPreset.update({
       where: { id: current.id },
       data: {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.hallId !== undefined ? { hallId: input.hallId } : {}),
-        ...(input.objects !== undefined ? { objects: input.objects } : {})
+        ...(input.objects !== undefined ? { objects: input.objects } : {}),
+        ...(input.backgroundPath !== undefined
+          ? { backgroundPath: input.backgroundPath }
+          : {})
       }
     });
+
+    // The row is written; dropping the replaced image afterwards means a
+    // storage failure leaves an orphaned object rather than a broken save.
+    if (
+      input.backgroundPath !== undefined &&
+      current.backgroundPath &&
+      current.backgroundPath !== input.backgroundPath
+    ) {
+      await discardFloorPlan(actor.organizationId, current.backgroundPath);
+    }
+
     const preset = await readPreset(current.id, actor.organizationId);
 
     return NextResponse.json({ preset });
@@ -283,6 +359,7 @@ export async function DELETE(request: Request) {
     }
 
     await prisma.hallMapPreset.delete({ where: { id: preset.id } });
+    await discardFloorPlan(actor.organizationId, preset.backgroundPath);
     return NextResponse.json({ deleted: true });
   } catch (error) {
     return createHallMapErrorResponse(error);

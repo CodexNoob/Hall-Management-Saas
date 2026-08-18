@@ -7,6 +7,7 @@ import { LiveNumberField } from "@/components/ui/number-field";
 import { InspectorField } from "@/features/hall-room-map/components/hall-map-inspector-field";
 import { Panel } from "@/features/hall-room-map/components/hall-map-panel";
 import {
+  formatFeet,
   getDefaultSeatingSides,
   isTableShape,
   type MapObject,
@@ -240,6 +241,13 @@ export function HallMapObjectInspector({
             value={selectedObject?.rotation}
           />
         </div>
+
+        {selectedObject ? (
+          <p className="mt-2 text-[10px] text-[#617086]">
+            Real size ≈ {formatFeet(selectedObject.width)} ×{" "}
+            {formatFeet(selectedObject.height)}
+          </p>
+        ) : null}
 
         <p className="mt-3 text-[10px] leading-5 text-[#617086]">
           The inspector updates one selected object. Tables have a seat count

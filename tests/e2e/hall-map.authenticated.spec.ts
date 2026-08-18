@@ -371,9 +371,17 @@ test("Shift-click and Select All operate on groups of shapes", async ({ page }) 
     second.boundingBox(),
     third.boundingBox()
   ]);
+  // Snap-to-grid rounds the dragged anchor onto the 20px grid, so the exact
+  // landing point can differ from the raw pointer delta by up to half a cell.
+  // The invariant this test guards is that the whole selection moves as one:
+  // every member shifts by the same delta, and that delta tracks the pointer.
+  const groupDeltaX = (after[0]?.x ?? 0) - (before[0]?.x ?? 0);
+  const groupDeltaY = (after[0]?.y ?? 0) - (before[0]?.y ?? 0);
+  expect(Math.abs(groupDeltaX - 60)).toBeLessThanOrEqual(10);
+  expect(Math.abs(groupDeltaY - 30)).toBeLessThanOrEqual(10);
   after.forEach((box, index) => {
-    expect(box?.x).toBeCloseTo((before[index]?.x ?? 0) + 60, 0);
-    expect(box?.y).toBeCloseTo((before[index]?.y ?? 0) + 30, 0);
+    expect(box?.x).toBeCloseTo((before[index]?.x ?? 0) + groupDeltaX, 0);
+    expect(box?.y).toBeCloseTo((before[index]?.y ?? 0) + groupDeltaY, 0);
   });
 
   await second.click();
@@ -486,5 +494,122 @@ test("clear selection resets the selected hall map object", async ({
   await expect(page.getByLabel("Name")).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Clear selection" })
+  ).toHaveCount(0);
+});
+
+test("planner tools: capacity readout, snap-to-grid drag, undo and redo", async ({
+  page
+}) => {
+  await page.route("**/api/hall-maps", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ halls: [hall], presets: [preset], shapeLibrary: [] })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/hall-room-map");
+  await page.getByLabel("Assigned hall").click();
+  await page.getByRole("option", { name: "Hall 1" }).click();
+
+  // The layout's seats measured against the hall's stored capacity.
+  await expect(page.getByLabel("Seat capacity")).toHaveText("10 seats / 500");
+  await expect(page.getByText(/overlapping/)).toHaveCount(0);
+
+  const table = page.getByRole("button", { name: "Select Round table" });
+  await table.click();
+  const positionX = page.getByLabel("X", { exact: true });
+  await expect(positionX).toHaveValue("120");
+
+  // Drag by an off-grid amount; snapping lands the shape on the next line.
+  const box = await table.boundingBox();
+  if (!box) throw new Error("Table is not visible.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 33, box.y + box.height / 2 + 17, {
+    steps: 8
+  });
+  await page.mouse.up();
+
+  await table.click();
+  await expect(positionX).toHaveValue("160");
+  await expect(page.getByLabel("Y", { exact: true })).toHaveValue("140");
+
+  // Undo returns to the pre-drag position; redo replays the snapped move.
+  await page.keyboard.press("Control+z");
+  await table.click();
+  await expect(positionX).toHaveValue("120");
+
+  await page.keyboard.press("Control+Shift+z");
+  await table.click();
+  await expect(positionX).toHaveValue("160");
+});
+
+test("planner tools: overlap warning, bulk rows, and the print sheet", async ({
+  page
+}) => {
+  const crowded = {
+    ...preset,
+    id: "44444444-4444-4444-8444-444444444444",
+    name: "crowded",
+    objects: [
+      preset.objects[0],
+      {
+        ...preset.objects[0],
+        id: "table-2",
+        name: "Second table",
+        // 10px from the first table: the chair rings collide even though the
+        // table tops do not.
+        x: 226,
+        y: 120
+      }
+    ]
+  };
+
+  await page.route("**/api/hall-maps", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          halls: [hall],
+          presets: [crowded],
+          shapeLibrary: []
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/hall-room-map");
+  await page.getByLabel("Assigned hall").click();
+  await page.getByRole("option", { name: "Hall 1" }).click();
+
+  await expect(page.getByText("2 overlapping")).toBeVisible();
+
+  // Bulk add: six more tables in rows of three, placed clear of the originals.
+  await page.getByLabel("Tables").fill("6");
+  await page.getByLabel("Per row").fill("3");
+  await page.getByLabel("Seats per table").fill("8");
+  await page.getByRole("button", { name: "Add round tables in rows" }).click();
+
+  await expect(page.getByRole("button", { name: /^Select / })).toHaveCount(8);
+  await expect(page.getByLabel("Seat capacity")).toHaveText("68 seats / 500");
+
+  // The print sheet renders the layout with the map's name and totals.
+  await page.getByRole("button", { name: "Print map" }).click();
+  await expect(
+    page.getByRole("heading", { name: "crowded", exact: true })
+  ).toBeVisible();
+  await expect(page.getByText(/68 seats \(68 adult/)).toBeVisible();
+  // exact: an unanchored "Close" also matches the topbar's "Close Sidebar".
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Print preview" })
   ).toHaveCount(0);
 });

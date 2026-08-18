@@ -15,3 +15,11 @@
  * key on the first path segment being the caller's organization id.
  */
 export const MENU_IMAGE_BUCKET = "menu-images";
+
+/**
+ * Hall floor-plan backgrounds. Same shape as MENU_IMAGE_BUCKET and for the
+ * same reason: the browser uploads directly, so the name has to resolve on
+ * both sides, and the bucket-agnostic storage.objects policies key on the
+ * org-id path prefix. Private; created by hand in the Supabase dashboard.
+ */
+export const HALL_FLOOR_PLAN_BUCKET = "hall-floor-plans";

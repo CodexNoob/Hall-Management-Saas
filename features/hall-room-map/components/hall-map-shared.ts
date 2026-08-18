@@ -1,4 +1,5 @@
 import {
+  SEAT_FOOTPRINT_OVERHANG,
   getDefaultSeatingSides,
   getSeatPlacements,
   type SeatPlacement,
@@ -46,6 +47,8 @@ export type SavedHallMap = {
   objects: MapObject[];
   hallId: string;
   hall?: { id: string; name: string };
+  /** Storage path of the hall's floor-plan image, drawn under the shapes. */
+  backgroundPath?: string | null;
 };
 
 export type ShapeLibraryItem = {
@@ -68,6 +71,7 @@ export type SaveHallMapInput = {
   name: string;
   hallId: string;
   objects: MapObject[];
+  backgroundPath?: string | null;
 };
 
 export const HALL_MAP_STORAGE_KEY = "event-core-hall-room-maps";
@@ -292,6 +296,182 @@ export function getMapObjectBounds(objects: MapObject[]) {
       maxY: Number.NEGATIVE_INFINITY
     }
   );
+}
+
+/** The visual grid the board draws; snapping rounds to the same pitch. */
+export const MAP_GRID_SIZE = 20;
+
+export function snapToGrid(value: number, enabled = true) {
+  return enabled ? Math.round(value / MAP_GRID_SIZE) * MAP_GRID_SIZE : value;
+}
+
+/**
+ * The scale the default shapes were drawn at: a 96px rect table is the
+ * standard 8ft banquet table, so 12px to the foot. Presentation only - nothing
+ * stored changes units.
+ */
+export const PIXELS_PER_FOOT = 12;
+
+export function formatFeet(pixels: number) {
+  const feet = pixels / PIXELS_PER_FOOT;
+  const rounded = Math.round(feet * 10) / 10;
+
+  return `${Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1)} ft`;
+}
+
+export type SeatSummary = {
+  total: number;
+  adult: number;
+  kids: number;
+  head: number;
+};
+
+/**
+ * Seats a layout actually offers, bucketed the way the Dining Manager splits
+ * them. `none` shapes (buffets, boxes, dividers) contribute nothing even if a
+ * seat count was typed on them.
+ */
+export function summarizeSeats(objects: MapObject[]): SeatSummary {
+  return objects.reduce<SeatSummary>(
+    (summary, object) => {
+      if (object.seatingUse === "none" || object.seats <= 0) return summary;
+
+      return {
+        total: summary.total + object.seats,
+        adult: summary.adult + (object.seatingUse === "adult" ? object.seats : 0),
+        kids: summary.kids + (object.seatingUse === "kids" ? object.seats : 0),
+        head: summary.head + (object.seatingUse === "head" ? object.seats : 0)
+      };
+    },
+    { total: 0, adult: 0, kids: 0, head: 0 }
+  );
+}
+
+/**
+ * The axis-aligned box a shape truly occupies: rendered size, rotated, plus
+ * the chair ring when the shape seats anyone. This is what overlap means to a
+ * guest - two tables whose chairs touch back-to-back are overlapping even if
+ * the table tops are apart.
+ */
+export function getObjectFootprint(object: MapObject) {
+  const rendered = getRenderedObjectSize(object);
+  const pad = object.seats > 0 ? SEAT_FOOTPRINT_OVERHANG : 0;
+  const width = rendered.width + pad * 2;
+  const height = rendered.height + pad * 2;
+  const radians = (object.rotation * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(radians));
+  const sin = Math.abs(Math.sin(radians));
+  const rotatedWidth = width * cos + height * sin;
+  const rotatedHeight = width * sin + height * cos;
+  const centerX = object.x + rendered.width / 2;
+  const centerY = object.y + rendered.height / 2;
+
+  return {
+    minX: centerX - rotatedWidth / 2,
+    minY: centerY - rotatedHeight / 2,
+    maxX: centerX + rotatedWidth / 2,
+    maxY: centerY + rotatedHeight / 2
+  };
+}
+
+/** Ids of every object whose footprint intersects another's. */
+export function findOverlappingObjectIds(objects: MapObject[]) {
+  const overlapping = new Set<string>();
+  const footprints = objects.map((object) => ({
+    id: object.id,
+    box: getObjectFootprint(object)
+  }));
+
+  for (let a = 0; a < footprints.length; a += 1) {
+    for (let b = a + 1; b < footprints.length; b += 1) {
+      const first = footprints[a].box;
+      const second = footprints[b].box;
+      const intersects =
+        first.minX < second.maxX &&
+        second.minX < first.maxX &&
+        first.minY < second.maxY &&
+        second.minY < first.maxY;
+
+      if (intersects) {
+        overlapping.add(footprints[a].id);
+        overlapping.add(footprints[b].id);
+      }
+    }
+  }
+
+  return overlapping;
+}
+
+export const defaultShapeDimensions: Record<
+  ShapeType,
+  { width: number; height: number }
+> = {
+  "round-table": { width: 68, height: 68 },
+  "rect-table": { width: 96, height: 48 },
+  "kids-table": { width: 68, height: 68 },
+  box: { width: 80, height: 54 },
+  circle: { width: 68, height: 68 },
+  divider: { width: 250, height: 12 },
+  buffet: { width: 100, height: 38 },
+  "head-table": { width: 112, height: 48 },
+  drinks: { width: 82, height: 38 }
+};
+
+export type TableRowsInput = {
+  type: "round-table" | "rect-table";
+  count: number;
+  perRow: number;
+  seats: number;
+  /** World-space point (map coordinates) the block of rows is centred on. */
+  centerX: number;
+  centerY: number;
+  /** Numbering starts here so bulk-added tables continue an existing layout. */
+  startNumber: number;
+};
+
+/**
+ * Lays `count` identical tables out in rows around a centre point, spaced so
+ * neighbouring chair rings never touch, and snapped to the grid so the block
+ * lands tidy. Pure so it can be tested without a canvas.
+ */
+export function generateTableRows(input: TableRowsInput): MapObject[] {
+  const count = Math.max(0, Math.floor(input.count));
+  const perRow = Math.max(1, Math.floor(input.perRow));
+
+  if (count === 0) return [];
+
+  const dimensions = defaultShapeDimensions[input.type];
+  const rendered = getRenderedObjectSize({ ...dimensions, type: input.type });
+  const aisle = 24;
+  const cellWidth = rendered.width + SEAT_FOOTPRINT_OVERHANG * 2 + aisle;
+  const cellHeight = rendered.height + SEAT_FOOTPRINT_OVERHANG * 2 + aisle;
+  const columns = Math.min(perRow, count);
+  const rows = Math.ceil(count / perRow);
+  const originX = input.centerX - (columns * cellWidth) / 2;
+  const originY = input.centerY - (rows * cellHeight) / 2;
+  const label = input.type === "round-table" ? "Round Table" : "Rect Table";
+
+  return Array.from({ length: count }, (_, index) => {
+    const column = index % perRow;
+    const row = Math.floor(index / perRow);
+
+    return {
+      id: `${input.type}-${crypto.randomUUID()}`,
+      type: input.type,
+      name: `${label} ${input.startNumber + index}`,
+      x: snapToGrid(
+        originX + column * cellWidth + (cellWidth - rendered.width) / 2
+      ),
+      y: snapToGrid(
+        originY + row * cellHeight + (cellHeight - rendered.height) / 2
+      ),
+      width: dimensions.width,
+      height: dimensions.height,
+      rotation: 0,
+      seats: Math.max(0, Math.floor(input.seats)),
+      seatingUse: "adult"
+    };
+  });
 }
 
 export const shapeOptions: Array<{
