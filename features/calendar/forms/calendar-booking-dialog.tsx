@@ -11,37 +11,30 @@ import type { CountryCode } from "libphonenumber-js";
 
 import { PhoneField } from "@/components/ui/phone-field";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { countSchema } from "@/lib/validation/number";
-import { readNumericFields } from "@/lib/validation/numeric-form";
-import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
+import {
+  calendarBookingFormSchema,
+  toFieldErrors,
+  type CalendarBookingFormErrors,
+  type CalendarBookingFormValues
+} from "@/features/calendar/validations/calendar-booking-form.schema";
+import { DEFAULT_PHONE_COUNTRY } from "@/lib/validation/phone";
 
 type LookupOption = {
   id: string;
   name: string;
 };
 
-type BookingFormValues = {
+type BookingPayload = {
   clientName: string;
   phone: string;
   eventDate: string;
   hallId: string;
   eventTypeId: string;
-  status: "Hold" | "Confirmed";
-  couples: string;
-  children: string;
-  notes: string;
-};
-
-type BookingPayload = {
-  clientName: string;
-  phone?: string;
-  eventDate: string;
-  hallId: string;
-  eventTypeId?: string;
-  bookingStatus: "TENTATIVE_HOLD" | "CONFIRMED";
-  eventStatus: "Hold" | "Confirmed";
+  bookingStatus: "TENTATIVE_HOLD";
+  eventStatus: "Hold";
   couplesCount: number;
   kidsCount: number;
+  menCount: number;
   notes?: string;
   idempotencyKey: string;
 };
@@ -60,13 +53,13 @@ const controlClass =
   "text-sm text-[#17202a] outline-none transition " +
   "focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
-const initialValues: BookingFormValues = {
+const initialValues: CalendarBookingFormValues = {
   clientName: "",
   phone: "",
   eventDate: "",
   hallId: "",
   eventTypeId: "",
-  status: "Hold",
+  guests: "0",
   couples: "0",
   children: "0",
   notes: ""
@@ -86,6 +79,18 @@ function FieldLabel({
     >
       {children}
     </label>
+  );
+}
+
+function FieldError({ children, id }: { children: string; id: string }) {
+  return (
+    <p
+      className="mt-1 text-[10px] font-bold text-[#c2410c]"
+      id={id}
+      role="alert"
+    >
+      {children}
+    </p>
   );
 }
 
@@ -122,11 +127,8 @@ export function CalendarBookingDialog({
   const { resetError } = bookingMutation;
 
   const [values, setValues] =
-    useState<BookingFormValues>(initialValues);
-  const [countErrors, setCountErrors] = useState<
-    Partial<Record<"couples" | "children", string>>
-  >({});
-  const [phoneError, setPhoneError] = useState("");
+    useState<CalendarBookingFormValues>(initialValues);
+  const [errors, setErrors] = useState<CalendarBookingFormErrors>({});
   const [phoneCountry, setPhoneCountry] =
     useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
 
@@ -140,6 +142,7 @@ export function CalendarBookingDialog({
       eventTypeId: eventTypes[0]?.id ?? ""
     });
 
+    setErrors({});
     resetError();
 
     const previousOverflow = document.body.style.overflow;
@@ -172,15 +175,35 @@ export function CalendarBookingDialog({
     );
   }, [halls, open]);
 
+  // Event types load on the same request as the halls, and the field is now
+  // required, so it needs the same late-arrival fill.
+  useEffect(() => {
+    if (!open || !eventTypes.length) return;
+
+    setValues((current) =>
+      current.eventTypeId
+        ? current
+        : { ...current, eventTypeId: eventTypes[0].id }
+    );
+  }, [eventTypes, open]);
+
   if (!open) return null;
 
   const updateValue = (
-    field: keyof BookingFormValues,
+    field: keyof CalendarBookingFormValues,
     value: string
   ) => {
     resetError();
-    setCountErrors((current) => ({ ...current, [field]: undefined }));
-    if (field === "phone") setPhoneError("");
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      // The guests message is about how the three counts relate, so editing
+      // either part has to clear it too - otherwise fixing the couples leaves a
+      // complaint on screen that is no longer true.
+      ...(field === "couples" || field === "children"
+        ? { guests: undefined }
+        : {})
+    }));
 
     setValues((current) => ({
       ...current,
@@ -193,56 +216,40 @@ export function CalendarBookingDialog({
   ) => {
     event.preventDefault();
 
-    const bookingStatuses = {
-      Hold: "TENTATIVE_HOLD",
-      Confirmed: "CONFIRMED"
-    } as const;
+    // One schema for the whole form, sharing the phone and count vocabulary the
+    // route handler validates with, so the two layers cannot disagree.
+    const parsed = calendarBookingFormSchema({
+      country: phoneCountry
+    }).safeParse(values);
 
-    const counts = readNumericFields<"couples" | "children">({
-      couples: {
-        raw: values.couples,
-        schema: countSchema({ label: "Couples" }),
-        emptyMessage: "Enter a couples count."
-      },
-      children: {
-        raw: values.children,
-        schema: countSchema({ label: "Children" }),
-        emptyMessage: "Enter a children count."
-      }
-    });
-
-    if (!counts.ok) {
-      setCountErrors(counts.errors);
+    if (!parsed.success) {
+      setErrors(toFieldErrors(parsed.error));
       return;
     }
 
-    setCountErrors({});
-
-    // Same parser the route handler runs, so the two layers cannot disagree.
-    const parsedPhone = parsePhoneInput(values.phone, {
-      country: phoneCountry,
-      label: "Phone number"
-    });
-
-    if (parsedPhone.status === "invalid") {
-      setPhoneError(parsedPhone.message);
-      return;
-    }
-
-    setPhoneError("");
+    setErrors({});
 
     try {
       await bookingMutation.mutate({
-        clientName: values.clientName.trim(),
-        phone: parsedPhone.status === "valid" ? parsedPhone.value : undefined,
-        eventDate: values.eventDate,
-        hallId: values.hallId,
-        eventTypeId: values.eventTypeId || undefined,
-        bookingStatus: bookingStatuses[values.status],
-        eventStatus: values.status,
-        couplesCount: counts.values.couples ?? 0,
-        kidsCount: counts.values.children ?? 0,
-        notes: values.notes.trim() || undefined,
+        clientName: parsed.data.clientName,
+        phone: parsed.data.phone,
+        eventDate: parsed.data.eventDate,
+        hallId: parsed.data.hallId,
+        eventTypeId: parsed.data.eventTypeId,
+        // The status picker is gone: a booking made from the calendar is always
+        // a hold, which is what the picker defaulted to.
+        bookingStatus: "TENTATIVE_HOLD",
+        eventStatus: "Hold",
+        couplesCount: parsed.data.couples,
+        kidsCount: parsed.data.children,
+        // There is no total-guests column: the total is the sum of the count
+        // columns, so whatever the couples and children do not account for goes
+        // to the same catch-all the event manager's guest count writes to.
+        menCount: Math.max(
+          parsed.data.guests - parsed.data.couples * 2 - parsed.data.children,
+          0
+        ),
+        notes: parsed.data.notes || undefined,
         idempotencyKey: crypto.randomUUID()
       });
 
@@ -302,6 +309,10 @@ export function CalendarBookingDialog({
 
         <form
           className="flex min-h-0 flex-1 flex-col"
+          // The schema decides what is acceptable. Leaving the browser's own
+          // validation on would swallow the submit first and replace those
+          // messages with its generic bubble.
+          noValidate
           onSubmit={handleSubmit}
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
@@ -312,6 +323,10 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <input
+                  aria-describedby={
+                    errors.clientName ? "calendar-client-name-error" : undefined
+                  }
+                  aria-invalid={errors.clientName ? true : undefined}
                   autoFocus
                   className={controlClass}
                   id="calendar-client-name"
@@ -322,6 +337,11 @@ export function CalendarBookingDialog({
                   required
                   value={values.clientName}
                 />
+                {errors.clientName ? (
+                  <FieldError id="calendar-client-name-error">
+                    {errors.clientName}
+                  </FieldError>
+                ) : null}
               </div>
 
               <div>
@@ -336,9 +356,10 @@ export function CalendarBookingDialog({
                   name="phone"
                   onChange={(value) => updateValue("phone", value)}
                   onCountryChange={setPhoneCountry}
+                  required
                   rowClassName="flex gap-2"
                   selectClassName={`${controlClass} max-w-[8.5rem]`}
-                  serverError={phoneError}
+                  serverError={errors.phone}
                   value={values.phone}
                 />
               </div>
@@ -349,6 +370,10 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <input
+                  aria-describedby={
+                    errors.eventDate ? "calendar-date-error" : undefined
+                  }
+                  aria-invalid={errors.eventDate ? true : undefined}
                   className={controlClass}
                   id="calendar-date"
                   onChange={(event) =>
@@ -358,6 +383,11 @@ export function CalendarBookingDialog({
                   type="date"
                   value={values.eventDate}
                 />
+                {errors.eventDate ? (
+                  <FieldError id="calendar-date-error">
+                    {errors.eventDate}
+                  </FieldError>
+                ) : null}
               </div>
 
               <div>
@@ -366,6 +396,10 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <select
+                  aria-describedby={
+                    errors.hallId ? "calendar-hall-error" : undefined
+                  }
+                  aria-invalid={errors.hallId ? true : undefined}
                   className={controlClass}
                   id="calendar-hall"
                   onChange={(event) =>
@@ -384,6 +418,11 @@ export function CalendarBookingDialog({
                     </option>
                   ))}
                 </select>
+                {errors.hallId ? (
+                  <FieldError id="calendar-hall-error">
+                    {errors.hallId}
+                  </FieldError>
+                ) : null}
               </div>
 
               <div>
@@ -392,14 +431,21 @@ export function CalendarBookingDialog({
                 </FieldLabel>
 
                 <select
+                  aria-describedby={
+                    errors.eventTypeId ? "calendar-event-type-error" : undefined
+                  }
+                  aria-invalid={errors.eventTypeId ? true : undefined}
                   className={controlClass}
                   id="calendar-event-type"
                   onChange={(event) =>
                     updateValue("eventTypeId", event.target.value)
                   }
+                  required
                   value={values.eventTypeId}
                 >
-                  <option value="">Not assigned</option>
+                  <option disabled value="">
+                    Select event type
+                  </option>
 
                   {eventTypes.map((eventType) => (
                     <option
@@ -410,24 +456,37 @@ export function CalendarBookingDialog({
                     </option>
                   ))}
                 </select>
+                {errors.eventTypeId ? (
+                  <FieldError id="calendar-event-type-error">
+                    {errors.eventTypeId}
+                  </FieldError>
+                ) : null}
               </div>
 
               <div>
-                <FieldLabel htmlFor="calendar-status">
-                  Status
+                <FieldLabel htmlFor="calendar-guests">
+                  Guests
                 </FieldLabel>
 
-                <select
-                  className={controlClass}
-                  id="calendar-status"
-                  onChange={(event) =>
-                    updateValue("status", event.target.value)
+                <input
+                  aria-describedby={
+                    errors.guests ? "calendar-guests-error" : undefined
                   }
-                  value={values.status}
-                >
-                  <option>Hold</option>
-                  <option>Confirmed</option>
-                </select>
+                  aria-invalid={errors.guests ? true : undefined}
+                  className={controlClass}
+                  id="calendar-guests"
+                  inputMode="decimal"
+                  onChange={(event) =>
+                    updateValue("guests", event.target.value)
+                  }
+                  type="text"
+                  value={values.guests}
+                />
+                {errors.guests ? (
+                  <FieldError id="calendar-guests-error">
+                    {errors.guests}
+                  </FieldError>
+                ) : null}
               </div>
 
               <div>
@@ -437,9 +496,9 @@ export function CalendarBookingDialog({
 
                 <input
                   aria-describedby={
-                    countErrors.couples ? "calendar-couples-error" : undefined
+                    errors.couples ? "calendar-couples-error" : undefined
                   }
-                  aria-invalid={countErrors.couples ? true : undefined}
+                  aria-invalid={errors.couples ? true : undefined}
                   className={controlClass}
                   id="calendar-couples"
                   inputMode="decimal"
@@ -449,14 +508,10 @@ export function CalendarBookingDialog({
                   type="text"
                   value={values.couples}
                 />
-                {countErrors.couples ? (
-                  <p
-                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                    id="calendar-couples-error"
-                    role="alert"
-                  >
-                    {countErrors.couples}
-                  </p>
+                {errors.couples ? (
+                  <FieldError id="calendar-couples-error">
+                    {errors.couples}
+                  </FieldError>
                 ) : null}
               </div>
 
@@ -467,9 +522,9 @@ export function CalendarBookingDialog({
 
                 <input
                   aria-describedby={
-                    countErrors.children ? "calendar-children-error" : undefined
+                    errors.children ? "calendar-children-error" : undefined
                   }
-                  aria-invalid={countErrors.children ? true : undefined}
+                  aria-invalid={errors.children ? true : undefined}
                   className={controlClass}
                   id="calendar-children"
                   inputMode="decimal"
@@ -479,14 +534,10 @@ export function CalendarBookingDialog({
                   type="text"
                   value={values.children}
                 />
-                {countErrors.children ? (
-                  <p
-                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                    id="calendar-children-error"
-                    role="alert"
-                  >
-                    {countErrors.children}
-                  </p>
+                {errors.children ? (
+                  <FieldError id="calendar-children-error">
+                    {errors.children}
+                  </FieldError>
                 ) : null}
               </div>
 
@@ -498,6 +549,10 @@ export function CalendarBookingDialog({
               </FieldLabel>
 
               <textarea
+                aria-describedby={
+                  errors.notes ? "calendar-notes-error" : undefined
+                }
+                aria-invalid={errors.notes ? true : undefined}
                 className="min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                 id="calendar-notes"
                 onChange={(event) =>
@@ -506,6 +561,11 @@ export function CalendarBookingDialog({
                 placeholder="Internal notes"
                 value={values.notes}
               />
+              {errors.notes ? (
+                <FieldError id="calendar-notes-error">
+                  {errors.notes}
+                </FieldError>
+              ) : null}
             </div>
 
             {bookingMutation.error ? (
