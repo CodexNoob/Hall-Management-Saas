@@ -43,7 +43,15 @@ export function EventManagerPage() {
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  // Event details keeps its edits in a draft that only survives while it is
+  // mounted, so leaving the tab or the event throws them away. The page holds
+  // the flag because both of those moves are made out here.
+  const [hasUnsavedDetails, setHasUnsavedDetails] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<
+    (() => void) | null
+  >(null);
   const allEvents = useMemo<EventFile[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -146,6 +154,18 @@ export function EventManagerPage() {
     setSelectedEventId((current) => current || deepLinkEvent.id);
   }, [deepLinkEvent]);
 
+  // Covers the exits this page cannot intercept itself - closing the tab, the
+  // back button, a link out to another dashboard page.
+  useEffect(() => {
+    if (!hasUnsavedDetails) return;
+
+    const warnBeforeLeaving = (unloadEvent: BeforeUnloadEvent) =>
+      unloadEvent.preventDefault();
+
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [hasUnsavedDetails]);
+
   if (eventsQuery.isLoading) {
     return (
       <DashboardPageState
@@ -228,6 +248,38 @@ export function EventManagerPage() {
       (roomFilter === "All rooms" || event.hallId === roomFilter)
     );
   });
+  // The API hands the list back ordered by start time, so runs of the same day
+  // are already adjacent and a single pass is enough to head them.
+  const eventsByDate = visibleEvents.reduce<
+    Array<{ date: string; events: EventFile[] }>
+  >((groups, event) => {
+    const openGroup = groups.at(-1);
+
+    if (openGroup?.date === event.date) {
+      openGroup.events.push(event);
+    } else {
+      groups.push({ date: event.date, events: [event] });
+    }
+
+    return groups;
+  }, []);
+  const activeFilterCount =
+    (eventStatusFilter === "All events" ? 0 : 1) +
+    (eventLifecycleFilter === "Active" ? 0 : 1) +
+    (roomFilter === "All rooms" ? 0 : 1);
+
+  /**
+   * Runs `navigate` unless Event details is holding edits, in which case it is
+   * parked until the user says what to do with them.
+   */
+  function guardUnsavedWork(navigate: () => void) {
+    if (!hasUnsavedDetails) {
+      navigate();
+      return;
+    }
+
+    setPendingNavigation(() => navigate);
+  }
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-hidden bg-[#f5f6f8] text-[#17202a] xl:h-screen xl:overflow-hidden">
@@ -247,17 +299,33 @@ export function EventManagerPage() {
       <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
         <div className="grid h-auto w-full min-w-0 max-w-full gap-3 overflow-hidden xl:h-full xl:grid-cols-[360px_minmax(0,1fr)]">
           <aside className="flex w-full min-w-0 max-w-full flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <header className="flex shrink-0 items-start justify-between gap-3 border-b border-[#d8dde5] p-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <LineIcon name="calendar" />
-                  <h2 className="text-sm font-black text-[#17202a]">Events</h2>
-                </div>
-                <p className="mt-1 text-xs text-[#6a7483]">
-                  {allEvents.length} records
+            <header className="flex shrink-0 items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-sm font-semibold text-[#17202a]">Events</h2>
+                <p className="text-xs font-normal text-[#8b95a5]">
+                  {visibleEvents.length === allEvents.length
+                    ? `${allEvents.length}`
+                    : `${visibleEvents.length} of ${allEvents.length}`}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <button
+                  className="hidden h-8 items-center rounded-lg px-2.5 text-xs font-medium text-[#516174] hover:bg-[#eef4fa] xl:inline-flex"
+                  onClick={() =>
+                    guardUnsavedWork(() => {
+                      setPageSearchQuery("");
+                      setEventStatusFilter("All events");
+                      setEventLifecycleFilter("Active");
+                      setRoomFilter("All rooms");
+                      // Clearing the filters clears the selection too, rather
+                      // than handing the pane the first row of the reset list.
+                      setSelectedEventId("");
+                    })
+                  }
+                  type="button"
+                >
+                  Clear
+                </button>
                 <button
                   aria-expanded={isEventListExpanded}
                   aria-label={
@@ -278,111 +346,133 @@ export function EventManagerPage() {
                     }`}
                   />
                 </button>
-                <button
-                  className="hidden h-8 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black hover:bg-[#eef4fa] xl:inline-flex"
-                  onClick={() => {
-                    setPageSearchQuery("");
-                    setEventStatusFilter("All events");
-                    setEventLifecycleFilter("Active");
-                    setRoomFilter("All rooms");
-                    // Clearing the filters clears the selection too, rather than
-                    // handing the pane the first row of the reset list.
-                    setSelectedEventId("");
-                  }}
-                  type="button"
-                >
-                  <LineIcon name="close" />
-                  Clear
-                </button>
               </div>
             </header>
 
             <div
-              className={`shrink-0 border-b border-[#d8dde5] p-3 xl:block ${
+              className={`shrink-0 border-b border-[#d8dde5] px-3 py-3 xl:block ${
                 isEventListExpanded ? "block" : "hidden"
               }`}
             >
-              <div className="grid grid-cols-2 gap-2 xl:grid-cols-[minmax(0,1fr)_136px]">
+              {/* Search stays out; the three selects sit behind a disclosure,
+                  because presenting all four at equal weight implied they all
+                  get equal use and left the list starting 150px down. */}
+              <div className="flex gap-2">
                 <input
-                  className="col-span-2 h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-1"
+                  className="h-9 min-w-0 flex-1 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
                   name="eventSearch"
                   onChange={(event) => setPageSearchQuery(event.target.value)}
                   placeholder="Search client, hall, type"
                   type="search"
                   value={pageSearchQuery}
                 />
-                <select
-                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]"
-                  aria-label="Event filter"
-                  name="eventFilter"
-                  onChange={(event) => setEventStatusFilter(event.target.value)}
-                  value={eventStatusFilter}
-                >
-                  <option>All events</option>
-                  <option>Confirmed</option>
-                  <option>Hold</option>
-                </select>
-                <select
-                  aria-label="Lifecycle filter"
-                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
-                  name="lifecycleFilter"
-                  onChange={(event) =>
-                    setEventLifecycleFilter(event.target.value)
+                <button
+                  aria-expanded={isFilterPanelOpen}
+                  className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium ${
+                    activeFilterCount
+                      ? "border-[#1f4d73] bg-[#eef4fa] text-[#1f4d73]"
+                      : "border-[#b9c2cf] bg-white text-[#516174] hover:bg-[#eef4fa]"
+                  }`}
+                  onClick={() =>
+                    setIsFilterPanelOpen((isOpen) => !isOpen)
                   }
-                  value={eventLifecycleFilter}
+                  type="button"
                 >
-                  <option>Active</option>
-                  <option>Completed</option>
-                  <option>Cancelled</option>
-                  <option>All</option>
-                </select>
-                <select
-                  className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
-                  aria-label="Room filter"
-                  name="roomFilter"
-                  onChange={(event) => setRoomFilter(event.target.value)}
-                  value={roomFilter}
-                >
-                  <option>All rooms</option>
-                  {(eventsQuery.data?.halls ?? []).map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name}
-                    </option>
-                  ))}
-                </select>
+                  Filters
+                  {activeFilterCount ? (
+                    <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1f4d73] px-1 text-[10px] font-semibold text-white">
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </button>
               </div>
+
+              {isFilterPanelOpen ? (
+                <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                  <select
+                    className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                    aria-label="Event filter"
+                    name="eventFilter"
+                    onChange={(event) =>
+                      setEventStatusFilter(event.target.value)
+                    }
+                    value={eventStatusFilter}
+                  >
+                    <option>All events</option>
+                    <option>Confirmed</option>
+                    <option>Hold</option>
+                  </select>
+                  <select
+                    aria-label="Lifecycle filter"
+                    className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                    name="lifecycleFilter"
+                    onChange={(event) =>
+                      setEventLifecycleFilter(event.target.value)
+                    }
+                    value={eventLifecycleFilter}
+                  >
+                    <option>Active</option>
+                    <option>Completed</option>
+                    <option>Cancelled</option>
+                    <option>All</option>
+                  </select>
+                  <select
+                    className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
+                    aria-label="Room filter"
+                    name="roomFilter"
+                    onChange={(event) => setRoomFilter(event.target.value)}
+                    value={roomFilter}
+                  >
+                    <option>All rooms</option>
+                    {(eventsQuery.data?.halls ?? []).map((hall) => (
+                      <option key={hall.id} value={hall.id}>
+                        {hall.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
 
             <div
-              className={`max-h-56 min-h-0 flex-none space-y-2 overflow-y-auto p-3 xl:flex xl:max-h-none xl:flex-1 xl:flex-col ${
+              className={`max-h-56 min-h-0 flex-none overflow-y-auto px-2 py-2 xl:flex xl:max-h-none xl:flex-1 xl:flex-col ${
                 isEventListExpanded ? "block" : "hidden"
               }`}
             >
-              {visibleEvents.map((event) => (
-                <EventListCard
-                  key={event.id}
-                  event={event}
-                  selected={event.id === selectedEvent?.id}
-                  onClick={() => {
-                    setSelectedEventId(event.id);
-                    setIsEventListExpanded(false);
-                  }}
-                  // Only what the open tab would actually ask for. Warming
-                  // every tab of every hovered row would trade one wait for a
-                  // burst of requests nobody asked for.
-                  onPrefetch={
-                    activeTab === "Menu"
-                      ? () => {
-                          void prefetchAuthenticatedQuery(
-                            `/api/events/${event.id}/menu`
-                          );
-                        }
-                      : undefined
-                  }
-                />
+              {eventsByDate.map((group) => (
+                <section key={group.date}>
+                  <h3 className="sticky top-0 z-10 bg-white/95 px-2 py-1.5 text-xs font-medium text-[#8b95a5] backdrop-blur">
+                    {group.date}
+                  </h3>
+                  {group.events.map((event) => (
+                    <EventListCard
+                      key={event.id}
+                      event={event}
+                      selected={event.id === selectedEvent?.id}
+                      onClick={() =>
+                        guardUnsavedWork(() => {
+                          setSelectedEventId(event.id);
+                          setIsEventListExpanded(false);
+                        })
+                      }
+                      // Only what the open tab would actually ask for. Warming
+                      // every tab of every hovered row would trade one wait for
+                      // a burst of requests nobody asked for.
+                      onPrefetch={
+                        activeTab === "Menu"
+                          ? () => {
+                              void prefetchAuthenticatedQuery(
+                                `/api/events/${event.id}/menu`
+                              );
+                            }
+                          : undefined
+                      }
+                    />
+                  ))}
+                </section>
               ))}
               {visibleEvents.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
+                <p className="px-2 py-6 text-center text-sm font-normal text-[#8b95a5]">
                   No events match this search.
                 </p>
               ) : null}
@@ -394,14 +484,63 @@ export function EventManagerPage() {
               activeTab={activeTab}
               event={selectedEvent}
               halls={eventsQuery.data?.halls ?? []}
+              onDirtyChange={setHasUnsavedDetails}
               onEventSaved={eventsQuery.refetch}
-              onTabChange={setActiveTab}
+              onTabChange={(tab) => guardUnsavedWork(() => setActiveTab(tab))}
             />
           ) : (
             <EventWorkspaceEmpty />
           )}
         </div>
       </div>
+
+      {pendingNavigation ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#17202a]/45 p-4 backdrop-blur-sm"
+          role="presentation"
+        >
+          <section
+            aria-labelledby="event-unsaved-title"
+            aria-modal="true"
+            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
+            role="dialog"
+          >
+            <header className="px-5 pb-2 pt-5">
+              <h3
+                className="text-lg font-semibold text-[#17202a]"
+                id="event-unsaved-title"
+              >
+                Leave without saving?
+              </h3>
+            </header>
+            <p className="px-5 pb-5 text-sm font-normal leading-6 text-[#516174]">
+              Your edits to this event&apos;s details have not been saved yet.
+              Leaving now discards them.
+            </p>
+            <footer className="flex flex-wrap justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">
+              <button
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-medium text-[#17202a] hover:bg-[#eef4fa]"
+                onClick={() => setPendingNavigation(null)}
+                type="button"
+              >
+                Keep editing
+              </button>
+              <button
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#b42318] px-4 text-sm font-medium text-white hover:bg-[#912018]"
+                onClick={() => {
+                  const navigate = pendingNavigation;
+                  setPendingNavigation(null);
+                  setHasUnsavedDetails(false);
+                  navigate();
+                }}
+                type="button"
+              >
+                Discard changes
+              </button>
+            </footer>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }

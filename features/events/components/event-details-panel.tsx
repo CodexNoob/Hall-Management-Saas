@@ -17,11 +17,13 @@ import {
   timelineRows,
   type EventFile,
   type EventHallOption,
+  type EventWorkspaceTab,
   type IconName
 } from "@/features/events/components/event-manager-shared";
 import {
   getEventReadinessSummary,
-  getScopedEventReadinessItems
+  getScopedEventReadinessItems,
+  type EventReadinessItem
 } from "@/features/events/components/event-readiness";
 
 export function Field({
@@ -34,35 +36,63 @@ export function Field({
   className?: string;
 }) {
   return (
-    <label
-      className={`block text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483] ${className}`}
-    >
+    <label className={`block text-xs font-medium text-[#6a7483] ${className}`}>
       {label}
       {children}
     </label>
   );
 }
 
+/**
+ * Sections collapse only when they hold nothing, so a blank event opens as a
+ * short form while an event with operations filled in still shows them. Hiding
+ * saved values behind a chevron reads as data loss, which is why "empty" rather
+ * than "secondary" decides the default.
+ */
 function EventDetailsSection({
+  id,
   title,
-  description,
+  summary,
+  defaultOpen,
+  forceOpen = false,
   children
 }: {
+  id: string;
   title: string;
-  description: string;
+  summary: string;
+  defaultOpen: boolean;
+  forceOpen?: boolean;
   children: ReactNode;
 }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const isExpanded = isOpen || forceOpen;
+
   return (
-    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div className="mb-3">
-        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
+    <section className="border-t border-[#e7ebf0] pt-4 first:border-t-0 first:pt-0" id={id}>
+      <button
+        aria-expanded={isExpanded}
+        className="group flex w-full items-center gap-2 rounded-lg text-left"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+      >
+        <LineIcon
+          name="chevron"
+          className={`h-4 w-4 shrink-0 text-[#8b95a5] transition-transform ${
+            isExpanded ? "rotate-90" : ""
+          }`}
+        />
+        <h3 className="shrink-0 text-[13px] font-semibold text-[#17202a]">
           {title}
         </h3>
-        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
-          {description}
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">{children}</div>
+        {isExpanded ? null : (
+          <span className="min-w-0 flex-1 truncate text-xs font-normal text-[#8b95a5]">
+            {summary}
+          </span>
+        )}
+      </button>
+      {isExpanded ? (
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">{children}</div>
+      ) : null}
     </section>
   );
 }
@@ -86,25 +116,33 @@ export function ClientContact({ event }: { event: EventFile }) {
     <section className="rounded-lg border border-[#d8dde5] bg-white">
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="user" />
-        <h2 className="text-sm font-black text-[#17202a]">Client contact</h2>
+        <h2 className="text-sm font-semibold text-[#17202a]">Client contact</h2>
       </header>
-      <div className="space-y-3 p-3">
+      <div className="p-2">
         {rows.map((row) => (
           <a
             key={row.label}
-            className={`flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] ${row.href ? "hover:bg-[#eef4fa]" : "cursor-default"}`}
+            className={`flex h-11 w-full items-center gap-3 rounded-lg px-2 text-left text-sm ${
+              row.href
+                ? "font-medium text-[#17202a] hover:bg-[#eef4fa]"
+                : "cursor-default font-normal text-[#8b95a5]"
+            }`}
             href={row.href}
             aria-disabled={!row.href}
             onClick={(clickEvent) => {
               if (!row.href) clickEvent.preventDefault();
             }}
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f1f5f9] ${
+                row.href ? "text-[#1f4d73]" : "text-[#a3adba]"
+              }`}
+            >
               <LineIcon name={row.icon} />
             </span>
             <span className="min-w-0 flex-1 truncate">{row.label}</span>
             {row.href ? (
-              <LineIcon name="chevron" className="h-4 w-4 text-[#17202a]" />
+              <LineIcon name="chevron" className="h-4 w-4 text-[#8b95a5]" />
             ) : null}
           </a>
         ))}
@@ -113,50 +151,174 @@ export function ClientContact({ event }: { event: EventFile }) {
   );
 }
 
-export function ReadinessPanel({ event }: { event: EventFile }) {
+/**
+ * Where each readiness item is actually fixed. The checklist used to state a
+ * problem and leave the reader to hunt for the field, so every row now carries
+ * the route to its own remedy.
+ */
+const readinessTargets: Record<
+  EventReadinessItem["id"],
+  { tab: EventWorkspaceTab; sectionId?: string; fieldId?: string }
+> = {
+  "event-details": {
+    tab: "Event details",
+    sectionId: "event-section-basic",
+    fieldId: "event-client-name"
+  },
+  "event-confirmed": {
+    tab: "Event details",
+    sectionId: "event-section-basic",
+    fieldId: "event-booking-status"
+  },
+  "guest-count": {
+    tab: "Event details",
+    sectionId: "event-section-guests",
+    fieldId: "event-guest-count"
+  },
+  menu: { tab: "Menu" },
+  "hall-map": { tab: "Hall map" },
+  timeline: { tab: "Event details", sectionId: "event-timeline" },
+  "dining-plan": {
+    tab: "Event details",
+    sectionId: "event-section-notes",
+    fieldId: "event-internal-notes"
+  },
+  billing: { tab: "Billing" },
+  "kitchen-packet": {
+    tab: "Event details",
+    sectionId: "event-section-notes",
+    fieldId: "event-internal-notes"
+  }
+};
+
+function revealReadinessTarget(target: {
+  sectionId?: string;
+  fieldId?: string;
+}) {
+  const section = target.sectionId
+    ? document.getElementById(target.sectionId)
+    : null;
+  // A collapsed section has not rendered its inputs yet, so it has to be opened
+  // before there is anything to focus.
+  section
+    ?.querySelector<HTMLButtonElement>('button[aria-expanded="false"]')
+    ?.click();
+
+  requestAnimationFrame(() => {
+    const field = target.fieldId
+      ? document.getElementById(target.fieldId)
+      : null;
+    (field ?? section)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    field?.focus({ preventScroll: true });
+  });
+}
+
+export function ReadinessPanel({
+  event,
+  onOpenTab
+}: {
+  event: EventFile;
+  onOpenTab?: (tab: EventWorkspaceTab) => void;
+}) {
   const rows = getScopedEventReadinessItems(event, "event");
   const summary = getEventReadinessSummary(event, "event");
+  const [showCompleted, setShowCompleted] = useState(false);
+  const outstanding = rows.filter((row) => !row.done);
+  const completed = rows.filter((row) => row.done);
+  const visibleRows = showCompleted ? rows : outstanding;
 
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex min-h-11 items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-2">
-        <div className="flex items-center gap-2">
-          <LineIcon name="files" />
-          <h2 className="text-sm font-black text-[#17202a]">Readiness</h2>
-        </div>
-        <span
-          className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${
-            summary.ready
-              ? "bg-[#eefaf5] text-[#146c43]"
-              : "bg-[#fff8dd] text-[#946200]"
-          }`}
-        >
-          {summary.completed}/{summary.total}
-        </span>
-      </header>
-      <div className="space-y-2 p-3">
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className="flex min-h-14 items-start gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 py-2 text-sm font-black text-[#17202a]"
-          >
-            <span
-              className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
-                row.done
-                  ? "border-[#146c43] bg-[#eefaf5] text-[#146c43]"
-                  : "border-[#b9c2cf] text-transparent"
-              }`}
-            >
-              {row.done ? <LineIcon name="check" className="h-4 w-4" /> : null}
-            </span>
-            <span className="min-w-0">
-              <span className="block leading-4">{row.label}</span>
-              <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#64748b]">
-                {row.helper}
-              </span>
-            </span>
+      <header className="border-b border-[#d8dde5] px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <LineIcon name="files" />
+            <h2 className="text-sm font-semibold text-[#17202a]">Readiness</h2>
           </div>
-        ))}
+          <span
+            className={`text-xs font-medium ${
+              summary.ready ? "text-[#146c43]" : "text-[#946200]"
+            }`}
+          >
+            {summary.ready
+              ? "Ready"
+              : `${summary.completed} of ${summary.total}`}
+          </span>
+        </div>
+        <div
+          aria-hidden="true"
+          className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#eef1f5]"
+        >
+          <div
+            className={`h-full rounded-full transition-[width] ${
+              summary.ready ? "bg-[#12b76a]" : "bg-[#1f4d73]"
+            }`}
+            style={{
+              width: `${Math.round((summary.completed / summary.total) * 100)}%`
+            }}
+          />
+        </div>
+      </header>
+      <div className="p-2">
+        {summary.ready ? (
+          <p className="px-2 py-3 text-sm font-medium text-[#146c43]">
+            Everything for this event is in place.
+          </p>
+        ) : null}
+
+        {visibleRows.map((row) => {
+          const target = readinessTargets[row.id];
+
+          return (
+            <button
+              key={row.id}
+              className="flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-[#eef4fa]"
+              onClick={() => {
+                onOpenTab?.(target.tab);
+                revealReadinessTarget(target);
+              }}
+              type="button"
+            >
+              <span
+                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${
+                  row.done
+                    ? "border-[#12b76a] bg-[#12b76a] text-white"
+                    : "border-[#b9c2cf] text-transparent"
+                }`}
+              >
+                {row.done ? <LineIcon name="check" className="h-3 w-3" /> : null}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span
+                  className={`block text-sm leading-5 ${
+                    row.done
+                      ? "font-normal text-[#8b95a5]"
+                      : "font-medium text-[#17202a]"
+                  }`}
+                >
+                  {row.label}
+                </span>
+                {row.done ? null : (
+                  <span className="mt-0.5 block text-xs font-normal leading-4 text-[#6a7483]">
+                    {row.helper}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+
+        {completed.length && !summary.ready ? (
+          <button
+            className="mt-1 w-full rounded-lg px-2 py-2 text-left text-xs font-medium text-[#1f4d73] hover:bg-[#eef4fa]"
+            onClick={() => setShowCompleted((current) => !current)}
+            type="button"
+          >
+            {showCompleted
+              ? "Hide completed"
+              : `Show ${completed.length} completed`}
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -169,51 +331,37 @@ function formatActivityTimestamp(value: string) {
   }).format(new Date(value));
 }
 
-function EventActivityHistory({ event }: { event: EventFile }) {
+export function EventActivityHistory({ event }: { event: EventFile }) {
   const activityLogs = event.activityLogs.slice(0, 6);
 
   return (
-    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div className="mb-3">
-        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
-          Activity history
-        </h3>
-        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
-          Recent event changes recorded for this organization.
-        </p>
-      </div>
+    <section className="rounded-lg border border-[#d8dde5] bg-white">
+      <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
+        <LineIcon name="clock" />
+        <h2 className="text-sm font-semibold text-[#17202a]">Activity history</h2>
+      </header>
 
       {activityLogs.length ? (
-        <ol className="space-y-2">
+        <ol className="divide-y divide-[#eef1f5] px-4">
           {activityLogs.map((activity) => (
-            <li
-              key={activity.id}
-              className="rounded-lg border border-[#d8dde5] bg-white p-3"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[#eef4fa] px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#1f4d73]">
-                  {activity.actionType}
-                </span>
-                <time
-                  className="text-xs font-bold text-[#6a7483]"
-                  dateTime={activity.createdAt}
-                >
-                  {formatActivityTimestamp(activity.createdAt)}
-                </time>
-              </div>
-              <p className="mt-2 text-sm font-semibold leading-5 text-[#17202a]">
+            <li key={activity.id} className="py-3">
+              <p className="text-sm font-medium leading-5 text-[#17202a]">
                 {activity.message}
               </p>
-              <p className="mt-1 text-xs font-bold text-[#6a7483]">
-                {activity.userName ? `Changed by ${activity.userName}` : "System recorded"}
+              <p className="mt-1 text-xs font-normal text-[#8b95a5]">
+                {activity.actionType} ·{" "}
+                {activity.userName ? `${activity.userName} · ` : "System · "}
+                <time dateTime={activity.createdAt}>
+                  {formatActivityTimestamp(activity.createdAt)}
+                </time>
               </p>
             </li>
           ))}
         </ol>
       ) : (
-        <div className="rounded-lg border border-dashed border-[#b9c2cf] bg-white p-4 text-sm font-semibold text-[#6a7483]">
+        <p className="px-4 py-6 text-center text-sm font-normal text-[#8b95a5]">
           No activity has been recorded for this event yet.
-        </div>
+        </p>
       )}
     </section>
   );
@@ -251,6 +399,74 @@ type EventDetailsDraft = {
 function countText(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? String(parsed) : "0";
+}
+
+function isPositiveCount(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+/**
+ * Builds the line a collapsed section shows in place of its fields, and reports
+ * whether it holds anything - which is also what decides if it starts open.
+ */
+function summarize(
+  parts: Array<string | false | null | undefined>,
+  emptyText: string
+) {
+  const filled = parts.filter((part): part is string => Boolean(part));
+
+  return {
+    text: filled.length ? filled.join(" · ") : emptyText,
+    isFilled: filled.length > 0
+  };
+}
+
+function summarizeBasics(source: EventDetailsDraft, hallName?: string) {
+  return summarize(
+    [source.clientName.trim(), source.eventType.trim(), hallName],
+    "Not filled in yet"
+  );
+}
+
+function summarizeGuests(source: EventDetailsDraft) {
+  return summarize(
+    [
+      isPositiveCount(source.guestCount) && `${source.guestCount} guests`,
+      isPositiveCount(source.childrenCount) && `${source.childrenCount} children`,
+      isPositiveCount(source.couplesCount) && `${source.couplesCount} couples`
+    ],
+    "No counts yet"
+  );
+}
+
+function summarizeOperations(source: EventDetailsDraft) {
+  return summarize(
+    [
+      source.setupTime && `Setup ${source.setupTime}`,
+      source.washingTime && `Washing ${source.washingTime}`,
+      isPositiveCount(source.waitersCount) && `${source.waitersCount} waiters`,
+      source.tableclothName.trim(),
+      source.memberShulName.trim()
+    ],
+    "Nothing set"
+  );
+}
+
+function summarizeNotes(
+  source: EventDetailsDraft,
+  diningManagerNotes: string | null
+) {
+  return summarize(
+    [
+      source.internalNotes.trim() && "Internal",
+      source.daveningNote.trim() && "Davening",
+      source.sideBoxes.trim() && "Side boxes",
+      source.shabbosSetup.trim() && "Shabbos setup",
+      diningManagerNotes && "Dining Manager"
+    ],
+    "No notes yet"
+  );
 }
 
 type EventLifecycleStatus =
@@ -427,10 +643,12 @@ export function normalizeEventStatusForSave(status: string) {
 export function EventInformation({
   event,
   halls,
+  onDirtyChange,
   onEventSaved
 }: {
   event: EventFile;
   halls: EventHallOption[];
+  onDirtyChange?: (isDirty: boolean) => void;
   onEventSaved: () => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState<EventDetailsDraft>(() =>
@@ -452,9 +670,10 @@ export function EventInformation({
     null
   );
   const previousEventIdRef = useRef(event.id);
+  const savedDraft = useMemo(() => createEventDetailsDraft(event), [event]);
   const savedDraftSignature = useMemo(
-    () => createEventDetailsDraftSignature(createEventDetailsDraft(event)),
-    [event]
+    () => createEventDetailsDraftSignature(savedDraft),
+    [savedDraft]
   );
   const currentDraftSignature = useMemo(
     () => createEventDetailsDraftSignature(draft),
@@ -486,6 +705,14 @@ export function EventInformation({
     },
     []
   );
+
+  // The draft lives and dies with this component, so the page has to be told
+  // while it is holding something, and told again once it no longer is.
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
+
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function updateDraft<K extends keyof EventDetailsDraft>(
     field: K,
@@ -636,10 +863,20 @@ export function EventInformation({
     event.bookingStatus
   );
   const lifecycleActions = getEventLifecycleActions(event.bookingStatus);
+  const hallName = halls.find((hall) => hall.id === draft.hallId)?.name;
+  const basicSummary = summarizeBasics(draft, hallName);
+  const guestSummary = summarizeGuests(draft);
+  const operationsSummary = summarizeOperations(draft);
+  const notesSummary = summarizeNotes(draft, event.diningManagerNotes);
+  // Whether a section starts open has to come from the saved event: `draft`
+  // only catches up in an effect, so on the render that switches events it
+  // still describes the event we just left.
+  const savedOperations = summarizeOperations(savedDraft);
+  const savedNotes = summarizeNotes(savedDraft, event.diningManagerNotes);
 
   return (
     <form
-      className="relative rounded-lg border border-[#1f4d73] bg-white shadow-sm shadow-[#1f4d73]/10"
+      className="relative rounded-lg border border-[#d8dde5] bg-white"
       onSubmit={saveEvent}
     >
       {showSaveConfirmation ? (
@@ -725,21 +962,27 @@ export function EventInformation({
       ) : null}
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="calendar" />
-        <h2 className="text-sm font-black text-[#17202a]">Event information</h2>
+        <h2 className="text-sm font-semibold text-[#17202a]">
+          Event information
+        </h2>
         {hasUnsavedChanges ? (
-          <span className="ml-auto rounded-full border border-[#fedf89] bg-[#fffbeb] px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#b54708]">
+          <span className="ml-auto rounded-full border border-[#fedf89] bg-[#fffbeb] px-2.5 py-0.5 text-[11px] font-medium text-[#b54708]">
             Unsaved changes
           </span>
         ) : null}
       </header>
-      <div className="space-y-3 p-3">
+      <div className="space-y-4 p-4">
         <EventDetailsSection
+          defaultOpen
+          id="event-section-basic"
+          key={`${event.id}-basic`}
+          summary={basicSummary.text}
           title="Basic details"
-          description="Client, event type, date, time, room, and booking state."
         >
           <Field label="Client">
             <input
               className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
+              id="event-client-name"
               name="clientName"
               onChange={(changeEvent) =>
                 updateDraft("clientName", changeEvent.target.value)
@@ -762,6 +1005,7 @@ export function EventInformation({
               aria-label="Event status"
               className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
               disabled={Boolean(statusAction) || isFinalBookingStatus}
+              id="event-booking-status"
               name="bookingStatus"
               onChange={(changeEvent) => {
                 const selectedAction = lifecycleActions.find(
@@ -786,7 +1030,7 @@ export function EventInformation({
               ))}
             </select>
             {isFinalBookingStatus ? (
-              <p className="mt-1 text-xs font-semibold normal-case tracking-normal text-[#64748b]">
+              <p className="mt-1 text-xs font-normal text-[#8b95a5]">
                 Lifecycle closed
               </p>
             ) : null}
@@ -833,8 +1077,11 @@ export function EventInformation({
         </EventDetailsSection>
 
         <EventDetailsSection
+          defaultOpen
+          id="event-section-guests"
+          key={`${event.id}-guests`}
+          summary={guestSummary.text}
           title="Guest counts"
-          description="Attendance counts used by dining, staffing, and operations."
         >
           <Field label="Guests">
             <input
@@ -921,8 +1168,12 @@ export function EventInformation({
         </EventDetailsSection>
 
         <EventDetailsSection
+          defaultOpen={savedOperations.isFilled}
+          forceOpen={Boolean(countErrors.waitersCount)}
+          id="event-section-operations"
+          key={`${event.id}-operations`}
+          summary={operationsSummary.text}
           title="Operations"
-          description="Setup, washing, tablecloth, waiters, and shul-specific details."
         >
           <Field label="Setup time">
             <input
@@ -997,12 +1248,16 @@ export function EventInformation({
         </EventDetailsSection>
 
         <EventDetailsSection
+          defaultOpen={savedNotes.isFilled}
+          id="event-section-notes"
+          key={`${event.id}-notes`}
+          summary={notesSummary.text}
           title="Notes"
-          description="Separate internal, davening, Shabbos, side-box, and Dining Manager notes."
         >
           <Field label="Internal notes" className="sm:col-span-3">
             <textarea
               className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
+              id="event-internal-notes"
               name="internalNotes"
               onChange={(changeEvent) =>
                 updateDraft("internalNotes", changeEvent.target.value)
@@ -1044,51 +1299,52 @@ export function EventInformation({
             />
           </Field>
           {event.diningManagerNotes ? (
-            <section className="rounded-lg border border-[#b9c2cf] bg-white p-3 sm:col-span-3">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+            <div className="rounded-lg bg-[#f6f8fa] p-3 sm:col-span-3">
+              <p className="text-xs font-medium text-[#6a7483]">
                 Dining Manager notes
-              </h3>
-              <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-[#17202a]">
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm font-normal leading-5 text-[#17202a]">
                 {event.diningManagerNotes}
               </p>
-            </section>
+            </div>
           ) : null}
         </EventDetailsSection>
-
-        <EventActivityHistory event={event} />
       </div>
-      <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-        {hasUnsavedChanges ? (
-          <button
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
-            disabled={isSaving}
-            onClick={discardChanges}
-            type="button"
-          >
-            Discard changes
-          </button>
-        ) : null}
-        <button
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={isSaving || !hasUnsavedChanges || hasValidationErrors}
-          type="submit"
-        >
-          <LineIcon name="save" className="h-4 w-4" />
-          {isSaving ? "Saving..." : "Save event details"}
-        </button>
-        {message && !showSaveConfirmation ? (
-          <p className="w-full text-xs text-[#516174]" role="status">
-            {message}
-          </p>
-        ) : null}
+
+      <div className="border-t border-[#e7ebf0] px-4 py-3">
         {hasValidationErrors ? (
-          <div
-            className="w-full rounded-lg border border-[#fedf89] bg-[#fffbeb] px-3 py-2 text-xs font-bold leading-5 text-[#b54708]"
+          <p
+            className="mb-2 text-xs font-medium leading-5 text-[#b54708]"
             role="alert"
           >
             {validationErrors[0]}
-          </div>
+          </p>
         ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-sm font-medium text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-40"
+            disabled={isSaving || !hasUnsavedChanges || hasValidationErrors}
+            type="submit"
+          >
+            <LineIcon name="save" className="h-4 w-4" />
+            {isSaving ? "Saving..." : "Save event details"}
+          </button>
+          {hasUnsavedChanges ? (
+            <button
+              className="inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium text-[#516174] hover:bg-[#eef4fa]"
+              disabled={isSaving}
+              onClick={discardChanges}
+              type="button"
+            >
+              Discard changes
+            </button>
+          ) : null}
+          {message && !showSaveConfirmation ? (
+            <p className="w-full text-xs font-normal text-[#6a7483]" role="status">
+              {message}
+            </p>
+          ) : null}
+        </div>
       </div>
     </form>
   );
@@ -1185,16 +1441,19 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+    <section
+      className="overflow-hidden rounded-lg border border-[#d8dde5] bg-white"
+      id="event-timeline"
+    >
       <header className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3 py-2 sm:h-14 sm:px-4 sm:py-0">
         <div className="flex min-w-0 items-center gap-2">
           <LineIcon name="clock" className="h-5 w-5 shrink-0" />
-          <h2 className="min-w-0 text-sm font-black leading-tight text-[#17202a] sm:text-base">
+          <h2 className="min-w-0 text-sm font-semibold leading-tight text-[#17202a]">
             Timeline instructions
           </h2>
         </div>
         <button
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
           type="button"
           onClick={() =>
             setRows((current) => [
@@ -1316,17 +1575,17 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
           Confirm timeline
         </button>
         {message ? (
-          <div 
-        className={`col-span-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium sm:text-sm ${
-          messageType === "success"
-         ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-        : "border-red-200 bg-red-50 text-red-700"
-        }`}
-        role={messageType === "success" ? "status" : "alert"}
-        >
-          <LineIcon
-            name = {messageType === "success" ? "check" : "close"}
-            className="mt-0.5 h-4 w-4 shrink-0"
+          <div
+            className={`col-span-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium sm:text-sm ${
+              messageType === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+            role={messageType === "success" ? "status" : "alert"}
+          >
+            <LineIcon
+              name={messageType === "success" ? "check" : "close"}
+              className="mt-0.5 h-4 w-4 shrink-0"
             />
             <span>{message}</span>
           </div>
