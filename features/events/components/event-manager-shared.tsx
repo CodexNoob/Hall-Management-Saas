@@ -140,24 +140,18 @@ export type EventsResponse = {
   eventTypes: Array<{ id: string; name: string }>;
 };
 
-/**
- * Labels only. These carried an icon each, but "Menu" and "Billing" shared one
- * and so did "Client portal" and "Files" - a repeated icon tells the eye two
- * tabs are the same thing, and eight of them cost the strip enough width to
- * push a tab off the end.
- */
 export const tabs = [
-  "Event details",
-  "Menu",
-  "Client portal",
-  "Billing",
-  "Hall map",
-  "Kitchen",
-  "Vendors",
-  "Files"
-] as const;
+  { label: "Event details", icon: "calendar" },
+  { label: "Menu", icon: "document" },
+  { label: "Client portal", icon: "files" },
+  { label: "Billing", icon: "document" },
+  { label: "Hall map", icon: "map" },
+  { label: "Kitchen", icon: "fork" },
+  { label: "Vendors", icon: "store" },
+  { label: "Files", icon: "files" }
+] satisfies Array<{ label: string; icon: IconName }>;
 
-export type EventWorkspaceTab = (typeof tabs)[number];
+export type EventWorkspaceTab = (typeof tabs)[number]["label"];
 
 export const timelineRows = [
   ["03:00 PM", "Dining room setup begins", "Event"],
@@ -519,14 +513,14 @@ export function Badge({
   tone: BadgeTone;
 }) {
   const classes = {
-    green: "border-[#146c43]/20 bg-[#f0f9f4] text-[#146c43]",
-    gold: "border-[#9a5b00]/20 bg-[#fffaf0] text-[#9a5b00]",
-    red: "border-[#a62b24]/20 bg-[#fef4f3] text-[#a62b24]"
+    green: "border-[#146c43]/30 bg-[#eef4fa] text-[#146c43]",
+    gold: "border-[#9a5b00]/35 bg-[#fbfcfd] text-[#9a5b00]",
+    red: "border-[#a62b24]/35 bg-[#fbfcfd] text-[#a62b24]"
   };
 
   return (
     <span
-      className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-medium ${classes[tone]}`}
+      className={`inline-flex h-5 items-center rounded-full border px-2 text-[11px] font-black ${classes[tone]}`}
     >
       {children}
     </span>
@@ -546,9 +540,9 @@ export function ActionButton({
 }) {
   return (
     <button
-      className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 text-sm font-medium transition ${
+      className={`inline-flex h-8 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-2.5 text-xs font-black transition hover:-translate-y-0.5 ${
         primary
-          ? "border-[#1f4d73] bg-[#1f4d73] text-white hover:bg-[#15344f]"
+          ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
           : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
       }`}
       onClick={onClick}
