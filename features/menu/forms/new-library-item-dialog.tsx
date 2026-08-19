@@ -99,6 +99,9 @@ function LibraryIcon() {
 
 export function NewLibraryItemDialog({ initialValues: editValues, defaultServiceStyle, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
   const titleId = useId();
+  // One list for both style blocks - the suggestions are the same, and a
+  // per-style copy would only duplicate eight options in the DOM.
+  const unitListId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks the closed -> open edge. Seeding on every run of the effect instead
@@ -290,11 +293,12 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
                       {entry.enabled ? (
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <input aria-label={`${style} quantity`} className={`${controlClass} w-20`} inputMode="decimal" onChange={(event) => updateService(style, { quantity: event.target.value })} required value={entry.quantity} />
-                          <select aria-label={`${style} unit`} className={`${controlClass} w-28`} onChange={(event) => updateService(style, { unit: event.target.value })} value={entry.unit}>
-                            {COUNTING_UNITS.map((unit) => (
-                              <option key={unit}>{unit}</option>
-                            ))}
-                          </select>
+                          {/* Typed, not picked: the eight presets never covered
+                              every kitchen's vocabulary, and an operator who
+                              counts in pans had to file them under the nearest
+                              wrong word. The list is still offered, as
+                              suggestions the field does not enforce. */}
+                          <input aria-label={`${style} unit`} className={`${controlClass} w-28`} list={unitListId} maxLength={24} onChange={(event) => updateService(style, { unit: event.target.value })} required value={entry.unit} />
                           <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
                           {/* A whole-event rule - one cake, however many guests -
                               divides nothing, so the count is not asked for. */}
@@ -322,6 +326,11 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
                   );
                 })}
               </div>
+              <datalist id={unitListId}>
+                {COUNTING_UNITS.map((unit) => (
+                  <option key={unit} value={unit} />
+                ))}
+              </datalist>
             </fieldset>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Description

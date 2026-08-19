@@ -44,7 +44,14 @@ export type MenuItemKind = (typeof MENU_ITEM_KINDS)[number];
 
 export const menuItemKindSchema = z.enum(MENU_ITEM_KINDS);
 
-/** Counting units, kept short because they render inside a card. */
+/**
+ * Suggested counting units, kept short because they render inside a card.
+ *
+ * Suggestions, not the allowed set: the unit is free text, so a kitchen that
+ * counts in pans, urns or half-hotels types its own word instead of picking the
+ * nearest wrong one. These are what the dialog offers as a datalist, and what
+ * the bulk import still picks from.
+ */
 export const COUNTING_UNITS = [
   "tray",
   "plate",
@@ -120,10 +127,22 @@ const ruleQuantitySchema = z
   .positive("Quantity must be greater than zero.")
   .max(9_999_999.999, "Quantity is too large.");
 
+/**
+ * The column is plain `TEXT` with no CHECK behind it, so the only bounds worth
+ * enforcing are the ones a card can render: something non-blank, and short
+ * enough not to wrap. Trimmed on the way in so " tray" and "tray" group as one
+ * unit in `calculateMenuQuantity`, which keys its groups on this string.
+ */
+export const unitSchema = z
+  .string({ invalid_type_error: "Unit must be text." })
+  .trim()
+  .min(1, "Unit is required.")
+  .max(24, "Unit must be 24 characters or fewer.");
+
 export const serviceRuleSchema = z.object({
   serviceStyle: serviceStyleSchema,
   quantity: ruleQuantitySchema,
-  unit: z.enum(COUNTING_UNITS),
+  unit: unitSchema,
   per: countSchema({ min: 1, label: "Per" }),
   perBasis: countBasisSchema,
   rounding: roundingModeSchema,
@@ -287,6 +306,17 @@ export function toServiceRules(
       );
     }
 
+    // Free text now, so it needs the same explicit check the numbers get -
+    // otherwise a blank unit surfaces as a raw ZodError from the parse below,
+    // and the dialog renders whatever that error stringifies to.
+    const unit = unitSchema.safeParse(entry.unit);
+
+    if (!unit.success) {
+      throw new Error(
+        unit.error.issues[0]?.message ?? "Unit is required for a served item."
+      );
+    }
+
     // "per 1 event" is the shape a whole-event rule takes, so the Per input is
     // not asked for and must not be validated as if it were.
     const per =
@@ -303,7 +333,7 @@ export function toServiceRules(
       serviceRuleSchema.parse({
         serviceStyle: style,
         quantity: quantity.value,
-        unit: entry.unit,
+        unit: unit.data,
         per,
         perBasis: entry.perBasis,
         rounding: entry.rounding,

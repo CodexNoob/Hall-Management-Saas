@@ -168,6 +168,28 @@ describe("toServiceRules", () => {
     ).toBe(2);
   });
 
+  it("keeps a unit the preset list never had", () => {
+    // The point of the field being typed rather than picked: a kitchen that
+    // counts in hotel pans no longer has to file them under "tray".
+    const [rule] = toServiceRules({
+      ...formValues,
+      Buffet: { ...formValues.Buffet, unit: "hotel pan" }
+    });
+
+    expect(rule.unit).toBe("hotel pan");
+  });
+
+  it("trims the unit so spacing does not split a kitchen line in two", () => {
+    // `calculateMenuQuantity` groups on this string, so " tray" and "tray"
+    // would otherwise print as two lines of the same thing.
+    const [rule] = toServiceRules({
+      ...formValues,
+      Buffet: { ...formValues.Buffet, unit: "  tray  " }
+    });
+
+    expect(rule.unit).toBe("tray");
+  });
+
   it("throws rather than telling the kitchen to cook nothing", () => {
     // `Number("")` is 0 and `Number("abc")` is NaN, which JSON.stringify sends
     // as null - both used to reach the database as a silent zero.
@@ -181,6 +203,8 @@ describe("toServiceRules", () => {
     expect(() => toServiceRules(buffet({ quantity: "0" }))).toThrow();
     expect(() => toServiceRules(buffet({ per: "0" }))).toThrow();
     expect(() => toServiceRules(buffet({ per: "1.5" }))).toThrow();
+    expect(() => toServiceRules(buffet({ unit: "" }))).toThrow();
+    expect(() => toServiceRules(buffet({ unit: "   " }))).toThrow();
   });
 });
 
