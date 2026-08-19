@@ -82,6 +82,7 @@ function menuDocument(dishNames: string[]): EventMenuDocument {
     confirmedAt: null,
     version: 1,
     confirmedBy: null,
+    packageId: null,
     lines: dishNames.map((name, index) => ({
       id: `line-${name}`,
       menuItemId: `item-${name}`,
