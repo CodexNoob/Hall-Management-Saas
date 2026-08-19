@@ -23,7 +23,7 @@ import {
   COUNTING_UNITS,
   DEFAULT_SEGMENT,
   ROUNDING_MODES,
-  SERVICE_FORM_DEFAULTS,
+  serviceFormDefaults,
   toServiceRules,
   type ServiceRuleFormValues,
   type ServiceStyle,
@@ -39,6 +39,15 @@ import {
  * after, so a stray video does not get pulled into memory to be rejected.
  */
 const MAX_FILE_BYTES = 1024 * 1024;
+
+/**
+ * The import applies ONE rule to every row, and a sheet mixes food and drink -
+ * each row carries its own kind, but the rule above them does not. So it anchors
+ * on the food vocabulary rather than picking a kind it cannot know here; a
+ * drink imported this way is corrected by editing it, the same as any other
+ * per-row detail the sheet does not carry.
+ */
+const IMPORT_RULE_DEFAULTS = serviceFormDefaults("Food");
 
 type Step = "format" | "upload" | "review";
 
@@ -350,7 +359,7 @@ export function BulkUploadDialog({
   const [result, setResult] = useState<MenuCsvParseResult | null>(null);
   const [includeDuplicates, setIncludeDuplicates] = useState(false);
   const [serviceValues, setServiceValues] = useState<ServiceRuleFormValues>(
-    SERVICE_FORM_DEFAULTS.Buffet
+    IMPORT_RULE_DEFAULTS.Buffet
   );
   const [isImporting, setIsImporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -363,8 +372,8 @@ export function BulkUploadDialog({
     setIncludeDuplicates(false);
     setServiceValues(
       defaultServiceStyle
-        ? SERVICE_FORM_DEFAULTS[defaultServiceStyle]
-        : SERVICE_FORM_DEFAULTS.Buffet
+        ? IMPORT_RULE_DEFAULTS[defaultServiceStyle]
+        : IMPORT_RULE_DEFAULTS.Buffet
     );
     setIsImporting(false);
     setError(null);
@@ -460,7 +469,7 @@ export function BulkUploadDialog({
       // dish in the file at once.
       const services = defaultServiceStyle
         ? toServiceRules({
-            ...SERVICE_FORM_DEFAULTS,
+            ...IMPORT_RULE_DEFAULTS,
             [defaultServiceStyle]: { ...serviceValues, enabled: true }
           } as ServiceStyleFormValues)
         : [];

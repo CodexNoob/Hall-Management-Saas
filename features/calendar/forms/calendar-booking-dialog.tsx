@@ -9,39 +9,35 @@ import {
 
 import type { CountryCode } from "libphonenumber-js";
 
-import { PhoneField } from "@/components/ui/phone-field";
+import {
+  BookingFormFields,
+  type BookingLookupOption
+} from "@/features/bookings/forms/booking-form-fields";
+import {
+  bookingFormSchema,
+  emptyBookingFormValues,
+  toFieldErrors,
+  toGuestCountPayload,
+  type BookingFormErrors,
+  type BookingFormValues
+} from "@/features/bookings/validations/booking-form.schema";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { countSchema } from "@/lib/validation/number";
-import { readNumericFields } from "@/lib/validation/numeric-form";
-import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
+import { DEFAULT_PHONE_COUNTRY } from "@/lib/validation/phone";
 
-type LookupOption = {
-  id: string;
-  name: string;
-};
-
-type BookingFormValues = {
+type BookingPayload = {
   clientName: string;
   phone: string;
   eventDate: string;
   hallId: string;
   eventTypeId: string;
-  status: "Hold" | "Confirmed";
-  couples: string;
-  children: string;
-  notes: string;
-};
-
-type BookingPayload = {
-  clientName: string;
-  phone?: string;
-  eventDate: string;
-  hallId: string;
-  eventTypeId?: string;
-  bookingStatus: "TENTATIVE_HOLD" | "CONFIRMED";
-  eventStatus: "Hold" | "Confirmed";
+  bookingStatus: "TENTATIVE_HOLD";
+  eventStatus: "Hold";
   couplesCount: number;
   kidsCount: number;
+  menCount: number;
+  boysCount: number;
+  girlsCount: number;
+  ladiesCount: number;
   notes?: string;
   idempotencyKey: string;
 };
@@ -49,45 +45,11 @@ type BookingPayload = {
 type CalendarBookingDialogProps = {
   open: boolean;
   selectedDate: string;
-  halls: LookupOption[];
-  eventTypes: LookupOption[];
+  halls: BookingLookupOption[];
+  eventTypes: BookingLookupOption[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 };
-
-const controlClass =
-  "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 " +
-  "text-sm text-[#17202a] outline-none transition " +
-  "focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
-
-const initialValues: BookingFormValues = {
-  clientName: "",
-  phone: "",
-  eventDate: "",
-  hallId: "",
-  eventTypeId: "",
-  status: "Hold",
-  couples: "0",
-  children: "0",
-  notes: ""
-};
-
-function FieldLabel({
-  children,
-  htmlFor
-}: {
-  children: string;
-  htmlFor: string;
-}) {
-  return (
-    <label
-      className="mb-1 block text-[10px] font-black uppercase tracking-[0.06em] text-[#64748b]"
-      htmlFor={htmlFor}
-    >
-      {children}
-    </label>
-  );
-}
 
 function CalendarIcon() {
   return (
@@ -121,12 +83,10 @@ export function CalendarBookingDialog({
   >("/api/events");
   const { resetError } = bookingMutation;
 
-  const [values, setValues] =
-    useState<BookingFormValues>(initialValues);
-  const [countErrors, setCountErrors] = useState<
-    Partial<Record<"couples" | "children", string>>
-  >({});
-  const [phoneError, setPhoneError] = useState("");
+  const [values, setValues] = useState<BookingFormValues>(
+    emptyBookingFormValues
+  );
+  const [errors, setErrors] = useState<BookingFormErrors>({});
   const [phoneCountry, setPhoneCountry] =
     useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
 
@@ -134,12 +94,13 @@ export function CalendarBookingDialog({
     if (!open) return;
 
     setValues({
-      ...initialValues,
+      ...emptyBookingFormValues,
       eventDate: selectedDate,
       hallId: halls[0]?.id ?? "",
       eventTypeId: eventTypes[0]?.id ?? ""
     });
 
+    setErrors({});
     resetError();
 
     const previousOverflow = document.body.style.overflow;
@@ -163,7 +124,7 @@ export function CalendarBookingDialog({
 
   // Halls can still be loading when the dialog opens. Fill in the default hall
   // once they arrive - without this the required select stays empty and the
-  // browser blocks the submit with no explanation. Existing input is kept.
+  // form is refused with no explanation. Existing input is kept.
   useEffect(() => {
     if (!open || !halls.length) return;
 
@@ -172,15 +133,32 @@ export function CalendarBookingDialog({
     );
   }, [halls, open]);
 
+  // Event types load on the same request as the halls, and the field is
+  // required, so it needs the same late-arrival fill.
+  useEffect(() => {
+    if (!open || !eventTypes.length) return;
+
+    setValues((current) =>
+      current.eventTypeId
+        ? current
+        : { ...current, eventTypeId: eventTypes[0].id }
+    );
+  }, [eventTypes, open]);
+
   if (!open) return null;
 
-  const updateValue = (
-    field: keyof BookingFormValues,
-    value: string
-  ) => {
+  const updateValue = (field: keyof BookingFormValues, value: string) => {
     resetError();
-    setCountErrors((current) => ({ ...current, [field]: undefined }));
-    if (field === "phone") setPhoneError("");
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      // The guests message is about how the three counts relate, so editing
+      // either part has to clear it too - otherwise fixing the couples leaves a
+      // complaint on screen that is no longer true.
+      ...(field === "couples" || field === "children"
+        ? { guests: undefined }
+        : {})
+    }));
 
     setValues((current) => ({
       ...current,
@@ -193,56 +171,32 @@ export function CalendarBookingDialog({
   ) => {
     event.preventDefault();
 
-    const bookingStatuses = {
-      Hold: "TENTATIVE_HOLD",
-      Confirmed: "CONFIRMED"
-    } as const;
+    // One schema for the whole form, sharing the phone and count vocabulary the
+    // route handler validates with, so the two layers cannot disagree.
+    const parsed = bookingFormSchema({ country: phoneCountry }).safeParse(
+      values
+    );
 
-    const counts = readNumericFields<"couples" | "children">({
-      couples: {
-        raw: values.couples,
-        schema: countSchema({ label: "Couples" }),
-        emptyMessage: "Enter a couples count."
-      },
-      children: {
-        raw: values.children,
-        schema: countSchema({ label: "Children" }),
-        emptyMessage: "Enter a children count."
-      }
-    });
-
-    if (!counts.ok) {
-      setCountErrors(counts.errors);
+    if (!parsed.success) {
+      setErrors(toFieldErrors(parsed.error));
       return;
     }
 
-    setCountErrors({});
-
-    // Same parser the route handler runs, so the two layers cannot disagree.
-    const parsedPhone = parsePhoneInput(values.phone, {
-      country: phoneCountry,
-      label: "Phone number"
-    });
-
-    if (parsedPhone.status === "invalid") {
-      setPhoneError(parsedPhone.message);
-      return;
-    }
-
-    setPhoneError("");
+    setErrors({});
 
     try {
       await bookingMutation.mutate({
-        clientName: values.clientName.trim(),
-        phone: parsedPhone.status === "valid" ? parsedPhone.value : undefined,
-        eventDate: values.eventDate,
-        hallId: values.hallId,
-        eventTypeId: values.eventTypeId || undefined,
-        bookingStatus: bookingStatuses[values.status],
-        eventStatus: values.status,
-        couplesCount: counts.values.couples ?? 0,
-        kidsCount: counts.values.children ?? 0,
-        notes: values.notes.trim() || undefined,
+        clientName: parsed.data.clientName,
+        phone: parsed.data.phone,
+        eventDate: parsed.data.eventDate,
+        hallId: parsed.data.hallId,
+        eventTypeId: parsed.data.eventTypeId,
+        // The status picker is gone: a booking made from the calendar is always
+        // a hold, which is what the picker defaulted to.
+        bookingStatus: "TENTATIVE_HOLD",
+        eventStatus: "Hold",
+        ...toGuestCountPayload(parsed.data),
+        notes: parsed.data.notes || undefined,
         idempotencyKey: crypto.randomUUID()
       });
 
@@ -302,211 +256,24 @@ export function CalendarBookingDialog({
 
         <form
           className="flex min-h-0 flex-1 flex-col"
+          // The schema decides what is acceptable. Leaving the browser's own
+          // validation on would swallow the submit first and replace those
+          // messages with its generic bubble.
+          noValidate
           onSubmit={handleSubmit}
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-            <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2">
-              <div>
-                <FieldLabel htmlFor="calendar-client-name">
-                  Client name
-                </FieldLabel>
-
-                <input
-                  autoFocus
-                  className={controlClass}
-                  id="calendar-client-name"
-                  onChange={(event) =>
-                    updateValue("clientName", event.target.value)
-                  }
-                  placeholder="Client name"
-                  required
-                  value={values.clientName}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-phone">
-                  Phone
-                </FieldLabel>
-
-                <PhoneField
-                  country={phoneCountry}
-                  id="calendar-phone"
-                  inputClassName={`${controlClass} min-w-0 flex-1`}
-                  name="phone"
-                  onChange={(value) => updateValue("phone", value)}
-                  onCountryChange={setPhoneCountry}
-                  rowClassName="flex gap-2"
-                  selectClassName={`${controlClass} max-w-[8.5rem]`}
-                  serverError={phoneError}
-                  value={values.phone}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-date">
-                  Date
-                </FieldLabel>
-
-                <input
-                  className={controlClass}
-                  id="calendar-date"
-                  onChange={(event) =>
-                    updateValue("eventDate", event.target.value)
-                  }
-                  required
-                  type="date"
-                  value={values.eventDate}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-hall">
-                  Hall / room
-                </FieldLabel>
-
-                <select
-                  className={controlClass}
-                  id="calendar-hall"
-                  onChange={(event) =>
-                    updateValue("hallId", event.target.value)
-                  }
-                  required
-                  value={values.hallId}
-                >
-                  <option disabled value="">
-                    Select hall
-                  </option>
-
-                  {halls.map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-event-type">
-                  Event type
-                </FieldLabel>
-
-                <select
-                  className={controlClass}
-                  id="calendar-event-type"
-                  onChange={(event) =>
-                    updateValue("eventTypeId", event.target.value)
-                  }
-                  value={values.eventTypeId}
-                >
-                  <option value="">Not assigned</option>
-
-                  {eventTypes.map((eventType) => (
-                    <option
-                      key={eventType.id}
-                      value={eventType.id}
-                    >
-                      {eventType.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-status">
-                  Status
-                </FieldLabel>
-
-                <select
-                  className={controlClass}
-                  id="calendar-status"
-                  onChange={(event) =>
-                    updateValue("status", event.target.value)
-                  }
-                  value={values.status}
-                >
-                  <option>Hold</option>
-                  <option>Confirmed</option>
-                </select>
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-couples">
-                  Couples
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    countErrors.couples ? "calendar-couples-error" : undefined
-                  }
-                  aria-invalid={countErrors.couples ? true : undefined}
-                  className={controlClass}
-                  id="calendar-couples"
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    updateValue("couples", event.target.value)
-                  }
-                  type="text"
-                  value={values.couples}
-                />
-                {countErrors.couples ? (
-                  <p
-                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                    id="calendar-couples-error"
-                    role="alert"
-                  >
-                    {countErrors.couples}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-children">
-                  Children
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    countErrors.children ? "calendar-children-error" : undefined
-                  }
-                  aria-invalid={countErrors.children ? true : undefined}
-                  className={controlClass}
-                  id="calendar-children"
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    updateValue("children", event.target.value)
-                  }
-                  type="text"
-                  value={values.children}
-                />
-                {countErrors.children ? (
-                  <p
-                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                    id="calendar-children-error"
-                    role="alert"
-                  >
-                    {countErrors.children}
-                  </p>
-                ) : null}
-              </div>
-
-            </div>
-
-            <div className="mt-2">
-              <FieldLabel htmlFor="calendar-notes">
-                Notes
-              </FieldLabel>
-
-              <textarea
-                className="min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
-                id="calendar-notes"
-                onChange={(event) =>
-                  updateValue("notes", event.target.value)
-                }
-                placeholder="Internal notes"
-                value={values.notes}
-              />
-            </div>
+            <BookingFormFields
+              autoFocus
+              errors={errors}
+              eventTypes={eventTypes}
+              halls={halls}
+              idPrefix="calendar"
+              onChange={updateValue}
+              onPhoneCountryChange={setPhoneCountry}
+              phoneCountry={phoneCountry}
+              values={values}
+            />
 
             {bookingMutation.error ? (
               <p

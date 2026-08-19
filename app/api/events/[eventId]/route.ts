@@ -5,6 +5,7 @@ import { assertHallAccess, requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema } from "@/lib/validation/number";
+import { requiredPhoneSchema } from "@/lib/validation/phone";
 import { assertHallCapacity } from "@/features/bookings/services/booking.service";
 
 const timelineItemSchema = z.object({
@@ -26,12 +27,20 @@ const countFields = [
 const updateEventSchema = z
   .object({
     clientName: z.string().trim().min(1).max(200).optional(),
+    // `Event.phone` is not nullable, so a supplied number has to be a real one.
+    // Same parser the forms run, so a number cannot be accepted in the browser
+    // and refused here.
+    phone: requiredPhoneSchema({ label: "Phone number" }).optional(),
     eventType: z
       .string()
       .trim()
       .max(100)
       .transform((value) => value || null)
       .optional(),
+    // The id, not the name. The event carries both columns and the name is a
+    // copy of the row's, so it is resolved below rather than trusted from the
+    // client - otherwise the two drift the moment a type is renamed.
+    eventTypeId: z.string().uuid().optional(),
     eventStatus: z.enum(["Confirmed", "Hold"]).optional(),
     eventDate: z.coerce.date().optional(),
     hallId: z.string().uuid().optional(),
@@ -94,6 +103,25 @@ export async function PATCH(
           { status: 404 }
         );
       }
+    }
+
+    // Looked up rather than taken on trust: it proves the type belongs to this
+    // organization, and gives the name that is stored alongside the id.
+    const eventType = input.eventTypeId
+      ? await prisma.eventType.findFirst({
+          where: {
+            id: input.eventTypeId,
+            organizationId: actor.organizationId
+          },
+          select: { id: true, name: true }
+        })
+      : null;
+
+    if (input.eventTypeId && !eventType) {
+      return NextResponse.json(
+        { error: "Selected event type was not found." },
+        { status: 404 }
+      );
     }
 
     const current = await prisma.event.findFirst({
@@ -187,6 +215,7 @@ export async function PATCH(
       where: { id, organizationId: actor.organizationId },
       data: {
         ...eventChanges,
+        ...(eventType ? { eventType: eventType.name } : {}),
         ...(sideBoxes !== undefined
           ? { sideBoxes: sideBoxes ?? Prisma.JsonNull }
           : {}),

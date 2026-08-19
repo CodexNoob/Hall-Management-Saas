@@ -2,9 +2,11 @@ import { addDays, format, isSameMonth, parseISO } from "date-fns";
 import { expect, test, type Page } from "@playwright/test";
 
 const E2E_HALL_NAME = "E2E Hall";
+const E2E_EVENT_TYPE_NAME = "E2E Event Type";
 
 type OrganizationFixture = {
   hallNames: string[];
+  eventTypeNames: string[];
   bookedDates: string[];
 };
 
@@ -12,7 +14,11 @@ type OrganizationFixture = {
  * The E2E organization is a throwaway trial workspace that can be recreated at
  * any time, so this spec provisions what it needs instead of assuming seeded
  * data: without a bookable hall the New booking form's required Hall / room
- * select can never be satisfied and the browser blocks the submit silently.
+ * select can never be satisfied and the form is refused.
+ *
+ * Event type is required by that form too, and a type can be restricted to
+ * certain weekdays - booking one on any other day is rejected - so what this
+ * needs is specifically a type with no day restriction at all.
  */
 async function prepareOrganization(page: Page): Promise<OrganizationFixture> {
   // page.request shares the browser context's cookie jar, which is where the
@@ -35,8 +41,13 @@ async function prepareOrganization(page: Page): Promise<OrganizationFixture> {
     return response.json() as Promise<{
       events: Array<{ eventDate: string; bookingStatus: string }>;
       halls: Array<{ name: string }>;
+      eventTypes: Array<{ name: string; validDays: number[] }>;
     }>;
   };
+
+  const bookableOnAnyDay = (
+    eventTypes: Array<{ name: string; validDays: number[] }>
+  ) => eventTypes.filter((eventType) => eventType.validDays.length === 0);
 
   let data = await readEvents();
 
@@ -62,10 +73,35 @@ async function prepareOrganization(page: Page): Promise<OrganizationFixture> {
     );
   }
 
+  if (bookableOnAnyDay(data.eventTypes).length === 0) {
+    const created = await page.request.post("/api/event-types", {
+      data: { name: E2E_EVENT_TYPE_NAME, validDays: [] }
+    });
+
+    // 409 means the name is taken by a type that is inactive or day-restricted,
+    // which the refetch below surfaces as a clearer failure.
+    if (!created.ok() && created.status() !== 409) {
+      throw new Error(
+        `POST /api/event-types failed with ${created.status()}: ${await created.text()}`
+      );
+    }
+
+    data = await readEvents();
+  }
+
+  if (bookableOnAnyDay(data.eventTypes).length === 0) {
+    throw new Error(
+      "The E2E organization has no event type that can be booked on any day and one could not be created."
+    );
+  }
+
   const activeStatuses = new Set(["CONFIRMED", "TENTATIVE_HOLD"]);
 
   return {
     hallNames: data.halls.map((hall) => hall.name),
+    eventTypeNames: bookableOnAnyDay(data.eventTypes).map(
+      (eventType) => eventType.name
+    ),
     bookedDates: data.events
       .filter((event) => activeStatuses.has(event.bookingStatus))
       .map((event) => String(event.eventDate).slice(0, 10))
@@ -129,7 +165,8 @@ test("creates an isolated event from the Calendar Book date form", async ({
 
   try {
     await page.goto("/dashboard/calendar");
-    const { hallNames, bookedDates } = await prepareOrganization(page);
+    const { hallNames, eventTypeNames, bookedDates } =
+      await prepareOrganization(page);
     // The calendar already cached the pre-provisioning /api/events payload.
     await page.reload();
 
@@ -187,12 +224,12 @@ test("creates an isolated event from the Calendar Book date form", async ({
     await dialog
       .getByLabel("Hall / room")
       .selectOption({ label: hallNames[0] });
-    // Event types can restrict which weekdays they're bookable on; this test
-    // doesn't care about that rule, so opt out of it rather than couple the
-    // booking date to this org's event-type configuration.
+    // Event type is required now, and types can restrict which weekdays they
+    // are bookable on. `prepareOrganization` hands back only the unrestricted
+    // ones, so this stays independent of the org's event-type configuration.
     await dialog
       .getByLabel("Event type")
-      .selectOption({ label: "Not assigned" });
+      .selectOption({ label: eventTypeNames[0] });
     await dialog.getByRole("button", { name: "Save booking" }).click();
 
     await expect(dialog).toBeHidden({ timeout: 20_000 });

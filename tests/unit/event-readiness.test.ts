@@ -11,6 +11,7 @@ function createEvent(overrides: Partial<EventFile> = {}): EventFile {
     bookingStatus: "CONFIRMED",
     clientName: "E2E Wedding",
     eventType: "Wedding",
+    eventTypeId: "event-type-1",
     title: "E2E Wedding",
     date: "Aug 22, 2026",
     dateInput: "2026-08-22",
