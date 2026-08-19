@@ -142,6 +142,11 @@ export function EventMenuContent({
   onEventSaved: () => Promise<unknown>;
 }) {
   const menuUrl = `/api/events/${event.id}/menu`;
+  /// The kitchen tab reads these same lines through its own route, so a write
+  /// here has to age that entry too. Without this the sheet keeps its cached
+  /// copy for the two minute stale window and shows a dish list the user has
+  /// just changed one tab across.
+  const kitchenUrl = `/api/events/${event.id}/kitchen`;
   const libraryQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
   const documentQuery =
     useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
@@ -293,6 +298,7 @@ export function EventMenuContent({
       setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
         menu: payload.menu
       });
+      invalidateAuthenticatedQuery(kitchenUrl);
       setPendingMenu(null);
     } catch {
       setPendingMenu(null);
@@ -424,6 +430,7 @@ export function EventMenuContent({
       setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
         menu: payload.menu
       });
+      invalidateAuthenticatedQuery(kitchenUrl);
       setPendingMenu(null);
       setIsReviewOpen(false);
       // The event row carries the mirrored ids and the confirmation flag, so

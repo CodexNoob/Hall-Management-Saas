@@ -196,7 +196,7 @@ export function EventWorkspace({
         ) : null}
         {activeTab === "Billing" ? <EventBillingContent /> : null}
         {activeTab === "Hall map" ? <HallMapContent event={event} /> : null}
-        {activeTab === "Kitchen" ? <EventKitchenContent /> : null}
+        {activeTab === "Kitchen" ? <EventKitchenContent event={event} /> : null}
         {activeTab === "Vendors" ? <EventVendorsContent /> : null}
         {activeTab === "Files" ? <EventFilesContent /> : null}
         {![
