@@ -221,6 +221,88 @@ export type EventMenuDocumentResponse = {
   menu: EventMenuDocument;
 };
 
+/// One event's kitchen sheet, read from /api/events/[eventId]/kitchen.
+///
+/// The quantities arrive already worked out, because the counts they divide are
+/// not on the client: `EventFile` collapses the seven head counts into display
+/// strings, and the table count lives in the dining plan's json.
+export type EventKitchenQuantity = {
+  unit: string;
+  /// What to cook. Whole unless the rule's rounding is `Exact`.
+  units: number;
+  /// Before rounding, so a row can explain where its number came from.
+  raw: number;
+};
+
+/// Why a line has the number it has - or why it has none.
+export type EventKitchenCountState =
+  | "Counted"
+  | "Unresolved"
+  | "NeedsStyle"
+  | "NoRule"
+  | "NotCounted";
+
+export type EventKitchenLine = {
+  /// EventMenuLine.id - the line, not the catalog row.
+  id: string;
+  menuItemId: string | null;
+  addOnId: string | null;
+  kind: "Dish" | "AddOn";
+  name: string;
+  pictureUrl: string | null;
+  serviceStyle: string | null;
+  availableStyles: string[];
+  notes: string | null;
+  sortOrder: number;
+  isRetired: boolean;
+  quantities: EventKitchenQuantity[];
+  /// Counts this event could not answer - in practice ["Tables"], on an event
+  /// with no dining plan.
+  unresolvedBases: string[];
+  countState: EventKitchenCountState;
+  /// PENDING | COMPLETE | null, where null is "not started": the absence of a
+  /// KitchenItemStatus row, which is what the board's reset leaves behind.
+  status: "PENDING" | "COMPLETE" | null;
+  assignedWorkerName: string | null;
+};
+
+export type EventKitchenSheet = {
+  meal: string;
+  /// The menu document's lifecycle, not the kitchen's progress: whether these
+  /// numbers can still move. `Draft` before the first save, matching the menu
+  /// route's answer for an event with no menu row yet.
+  menuStatus: "Draft" | "ClientSubmitted" | "Confirmed";
+  confirmedAt: string | null;
+  version: number;
+  counts: {
+    /// Waiters excluded, the same rule the quantity math applies: they eat, but
+    /// counting them into a per-guest tray over-caters every staffed event.
+    totalGuests: number;
+    couples: number;
+    men: number;
+    ladies: number;
+    boys: number;
+    girls: number;
+    kids: number;
+    waiters: number;
+    /// null when the event has no dining plan to count tables from.
+    tables: number | null;
+  };
+  lines: EventKitchenLine[];
+  summary: {
+    dishes: number;
+    addOns: number;
+    complete: number;
+    pending: number;
+    notStarted: number;
+    /// Dishes with no quantity to cook to, for any of the three reasons.
+    needsAttention: number;
+    unresolvedBases: string[];
+  };
+};
+
+export type EventKitchenResponse = { kitchen: EventKitchenSheet };
+
 /**
  * A dish or add-on picture at list size, with a placeholder when there is none.
  *
