@@ -28,17 +28,22 @@ import {
   type EventHallOption,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
+import { getEventReadinessSummary } from "@/features/events/components/event-readiness";
 
 export function EventWorkspace({
   activeTab,
   event,
   halls,
+  onDirtyChange,
   onEventSaved,
   onTabChange
 }: {
   activeTab: EventWorkspaceTab;
   event: EventFile;
   halls: EventHallOption[];
+  /// Reported up so the page can stop a tab or event change from throwing away
+  /// an unsaved draft.
+  onDirtyChange: (isDirty: boolean) => void;
   onEventSaved: () => Promise<unknown>;
   /// Held by the page rather than here, because the event list needs to know
   /// which tab is open to decide what is worth warming when a row is hovered.
@@ -61,6 +66,26 @@ export function EventWorkspace({
         : event.status === "Confirmed"
           ? "green"
           : "gold";
+  const readiness = getEventReadinessSummary(event, "event");
+  /**
+   * Only what is actually true of this event. Three of the four chips that used
+   * to sit here were literals with no data behind them, so they lit up on every
+   * event forever - and a warning that is always on is one nobody reads. The
+   * two with a real source survived; "Today notes unread" and "Needs review"
+   * had none and are gone rather than faked.
+   */
+  const attention: Array<{ label: string; tab: EventWorkspaceTab }> = [];
+
+  if (event.balance !== "Paid") {
+    attention.push({ label: "Balance outstanding", tab: "Billing" });
+  }
+
+  if (!readiness.ready) {
+    attention.push({
+      label: `${readiness.total - readiness.completed} to finish`,
+      tab: "Event details"
+    });
+  }
 
   return (
     <section className="flex h-auto w-full min-w-0 max-w-full flex-col overflow-x-hidden overflow-y-visible rounded-lg border border-[#d8dde5] bg-[#fbfcfd] xl:h-full xl:overflow-hidden">
@@ -95,11 +120,39 @@ export function EventWorkspace({
                 />
               </button>
             </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <Badge tone={lifecycleTone}>{lifecycleLabel}</Badge>
-              <Badge tone="gold">Open balance {event.balance}</Badge>
-              <Badge tone="gold">Today notes unread</Badge>
-              <Badge tone="gold">Needs review</Badge>
+              <span className="text-xs font-normal text-[#6a7483]">
+                {event.date} · {event.time} · {event.room}
+              </span>
+              {/* Off the Event details tab the checklist is out of sight, so a
+                  compact meter keeps the remaining work visible everywhere. */}
+              {activeTab === "Event details" ? null : (
+                <button
+                  className="inline-flex items-center gap-2 rounded-full px-2 py-0.5 text-xs font-medium text-[#516174] hover:bg-[#eef4fa]"
+                  onClick={() => onTabChange("Event details")}
+                  type="button"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-12 overflow-hidden rounded-full bg-[#eef1f5]"
+                  >
+                    <span
+                      className={`block h-full rounded-full ${
+                        readiness.ready ? "bg-[#12b76a]" : "bg-[#1f4d73]"
+                      }`}
+                      style={{
+                        width: `${Math.round(
+                          (readiness.completed / readiness.total) * 100
+                        )}%`
+                      }}
+                    />
+                  </span>
+                  {readiness.ready
+                    ? "Ready"
+                    : `${readiness.completed} of ${readiness.total} ready`}
+                </button>
+              )}
             </div>
           </div>
           <div
@@ -124,6 +177,23 @@ export function EventWorkspace({
         </div>
       </header>
 
+      {attention.length && isWorkspaceExpanded ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-1 gap-y-1 border-b border-[#fedf89] bg-[#fffbeb] px-4 py-2 text-xs font-medium text-[#b54708]">
+          {attention.map((item, index) => (
+            <span key={item.label} className="inline-flex items-center gap-1">
+              {index ? <span aria-hidden="true">·</span> : null}
+              <button
+                className="rounded underline underline-offset-2 hover:text-[#93370d]"
+                onClick={() => onTabChange(item.tab)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       <PrintPacketDrawer
         event={event}
         onClose={() => setIsPrintPacketOpen(false)}
@@ -146,21 +216,21 @@ export function EventWorkspace({
       >
         {tabs.map((tab) => (
           <button
-            key={tab.label}
-            className={`inline-flex h-10 shrink-0 items-center gap-2 border-b-3 px-2 text-xs font-black ${
-              activeTab === tab.label
-                ? "border-[#1f4d73] text-[#17202a]"
-                : "border-transparent text-[#17202a] hover:bg-[#eef4fa]"
+            key={tab}
+            aria-current={activeTab === tab ? "page" : undefined}
+            className={`inline-flex h-11 shrink-0 items-center border-b-2 px-3 text-sm ${
+              activeTab === tab
+                ? "border-[#1f4d73] font-semibold text-[#17202a]"
+                : "border-transparent font-normal text-[#516174] hover:bg-[#eef4fa] hover:text-[#17202a]"
             }`}
             type="button"
             onClick={(clickEvent) => {
-              onTabChange(tab.label);
+              onTabChange(tab);
               centerMobileTab(clickEvent.currentTarget);
               setIsWorkspaceExpanded(true);
             }}
           >
-            <LineIcon name={tab.icon} className="h-3.5 w-3.5 text-[#516174]" />
-            {tab.label}
+            {tab}
           </button>
         ))}
       </nav>
@@ -177,6 +247,7 @@ export function EventWorkspace({
                 <EventInformation
                   event={event}
                   halls={halls}
+                  onDirtyChange={onDirtyChange}
                   onEventSaved={onEventSaved}
                 />
                 <TimelineInstructions event={event} />

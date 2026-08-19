@@ -643,10 +643,12 @@ export function normalizeEventStatusForSave(status: string) {
 export function EventInformation({
   event,
   halls,
+  onDirtyChange,
   onEventSaved
 }: {
   event: EventFile;
   halls: EventHallOption[];
+  onDirtyChange?: (isDirty: boolean) => void;
   onEventSaved: () => Promise<unknown>;
 }) {
   const [draft, setDraft] = useState<EventDetailsDraft>(() =>
@@ -703,6 +705,14 @@ export function EventInformation({
     },
     []
   );
+
+  // The draft lives and dies with this component, so the page has to be told
+  // while it is holding something, and told again once it no longer is.
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onDirtyChange]);
+
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   function updateDraft<K extends keyof EventDetailsDraft>(
     field: K,
