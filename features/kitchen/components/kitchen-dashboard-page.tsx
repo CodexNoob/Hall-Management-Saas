@@ -210,21 +210,14 @@ export function KitchenDashboardPage() {
 
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#07162d]">
+      {/* No actionsSlot - see the note in dashboard-shell. The topbar's own
+          Today notes button already collapses to an icon below xl, which is
+          what keeps it on the same line as the title on a phone. */}
       <DashboardTopbar
         title="Kitchen Dashboard"
         subtitle="Review kitchen events, production schedules, and assigned work."
         onTodayNotes={() => setIsTodayNotesOpen(true)}
-        actionsSlot={
-          <button
-            aria-label="Open today notes"
-            className="dashboard-topbar-icon-action flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:flex-none xl:rounded-xl xl:px-4 2xl:px-5"
-            onClick={() => setIsTodayNotesOpen(true)}
-            title="Today notes"
-            type="button"
-          >
-            Today notes
-          </button>
-        }
+        showNewBookingAction={false}
       />
 
       <div className="shrink-0 overflow-x-hidden">

@@ -414,7 +414,7 @@ export function DashboardTopbar({
                         disabled={!canCreateBooking}
                         onClick={onNewBooking}
                         title="New booking"
-                        className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:-translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
+                        className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
                       >
                         <TopbarIcon
                           className="h-6.5 w-6.5 xl:h-4 xl:w-4"
@@ -433,7 +433,7 @@ export function DashboardTopbar({
         </div>
       </header>
 
-      <div className="h-[5.25rem] xl:h-20" aria-hidden="true" />
+      <div className="h-21 xl:h-20" aria-hidden="true" />
     </>
   );
 }

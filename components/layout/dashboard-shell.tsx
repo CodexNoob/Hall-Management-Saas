@@ -203,23 +203,17 @@ export function DashboardShell({
   return (
     <div className="dashboard-scrollbars flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <header className="relative z-40 shrink-0 bg-white">
+        {/* No actionsSlot: the topbar's own Today notes button is the same
+            control, and it already collapses to an icon below xl. The custom
+            copy kept its label, border and padding at every width, which made
+            the actions row too wide to sit beside the title and pushed it onto
+            a second line on phones. */}
         <DashboardTopbar
           title="Dashboard"
           subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
           onTodayNotes={openTodayNotes}
+          showNewBookingAction={false}
           todayNotesNeedRevision={todayNotesNeedRevision}
-          actionsSlot={
-            <button
-              aria-label="Open today notes"
-              className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 items-center justify-center whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-bold text-[#17202a] shadow-sm transition hover:bg-[#eef4fa] hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:flex-none xl:rounded-xl xl:px-4 2xl:px-5"
-              data-needs-revision={todayNotesNeedRevision || undefined}
-              onClick={openTodayNotes}
-              title="Today notes"
-              type="button"
-            >
-              Today notes
-            </button>
-          }
         />
       </header>
 

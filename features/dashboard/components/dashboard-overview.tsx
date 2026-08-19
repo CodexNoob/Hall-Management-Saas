@@ -120,7 +120,12 @@ export function DashboardOverview({
         />
       ) : null}
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
+      {/* The single mobile column needs minmax(0,1fr) for the same reason the
+          xl tracks do: an implicit `auto` track is sized by its items'
+          min-content, so one long client name or a nowrap status badge widened
+          the column past the screen and pushed Operating schedule, Events
+          timeline, Attention needed and Quick actions off the right edge. */}
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,0.75fr)]">
         {showEventOverview ? (
           <DashboardOperatingSchedule
             customEndDate={customEndDate}

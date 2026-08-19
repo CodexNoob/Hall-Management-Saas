@@ -21,6 +21,131 @@ test("authenticated state opens the dashboard without logging in again", async (
   ).toBeVisible();
 });
 
+for (const [label, route] of [
+  ["Dashboard", "/dashboard"],
+  ["Kitchen", "/dashboard/kitchen"]
+] as Array<[string, string]>) {
+  test(`${label} keeps the topbar actions on the title line on a phone`, async ({
+    page
+  }) => {
+    // Both pages used to pass a custom Today notes button that kept its label,
+    // border and padding at every width. The actions row was then too wide to
+    // sit beside the title and wrapped onto a second line, costing 36px of
+    // vertical space on every phone.
+    await page.setViewportSize({ width: 360, height: 727 });
+    await page.goto(route);
+
+    // Scoped to the topbar: the Kitchen page has a second h1 of its own.
+    const topbar = page.locator(".dashboard-topbar-content");
+    const title = topbar.getByRole("heading", { level: 1 });
+    const search = topbar.getByRole("button", { name: "Search", exact: true });
+    const notes = topbar.getByRole("button", { name: "Open today notes" });
+    await expect(title).toBeVisible();
+    await expect(search).toBeVisible();
+    await expect(notes).toBeVisible();
+
+    const [titleBox, searchBox, notesBox] = await Promise.all([
+      title.boundingBox(),
+      search.boundingBox(),
+      notes.boundingBox()
+    ]);
+    if (!titleBox || !searchBox || !notesBox) {
+      throw new Error("Topbar is not visible.");
+    }
+
+    // Same row as each other, and level with the title rather than under it.
+    expect(Math.abs(searchBox.y - notesBox.y)).toBeLessThan(4);
+    expect(searchBox.y).toBeLessThan(titleBox.y + titleBox.height);
+    // And clear of the title, so nothing overlaps at the narrowest width.
+    expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(searchBox.x);
+  });
+}
+
+test("dashboard cards stay inside a narrow phone screen", async ({
+  page
+}, testInfo) => {
+  // The test sets its own 360px viewport, so running it again under the Pixel 5
+  // project measures the same thing while doubling the authenticated traffic -
+  // which is what starved the route handler below and made it flaky.
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "Viewport is set explicitly; one project is enough."
+  );
+
+  // The overflow is driven by the widest client name in the data, so the name
+  // is injected rather than left to whatever the account happens to hold that
+  // day - otherwise this passes against the bug whenever the data is short.
+  const longName = "Rosenbaum-Weiss Anniversary Reception 1786752877440";
+
+  // Rewrite the first /api/dashboard response so the check does not depend on
+  // whatever names the account holds that day - with short data it passes
+  // against the bug. Only the first of the page's three dashboard calls is
+  // rewritten; re-fetching all three tripled the round-trips.
+  let rewritten = false;
+  await page.route("**/api/dashboard**", async (route) => {
+    if (rewritten) {
+      await route.fallback();
+      return;
+    }
+    try {
+      const response = await route.fetch();
+      const body = await response.json();
+      if (Array.isArray(body?.events) && body.events.length) {
+        body.events[0] = { ...body.events[0], clientName: longName };
+        rewritten = true;
+      }
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify(body)
+      });
+    } catch {
+      await route.fallback();
+    }
+  });
+
+  // 360px rather than the 393px Pixel 5 the suite already uses: this is the
+  // narrowest phone worth supporting, and where the clipping is worst.
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/dashboard");
+
+  for (const heading of [
+    "Operating schedule",
+    "Events timeline",
+    "Attention needed",
+    "Quick actions"
+  ]) {
+    await expect(
+      page.getByRole("heading", { name: heading, exact: true })
+    ).toBeVisible();
+  }
+
+  // Wait for the rewritten name to reach the DOM. The headings render with the
+  // loading skeleton, so measuring on those alone reads a layout with no long
+  // text in it yet - and passes against the bug.
+  await expect(page.getByText(longName).first()).toBeAttached({
+    timeout: 20_000
+  });
+
+  // The grid holding all four used to size its single mobile column from its
+  // items' min-content. With this name it resolved to 576px inside a 336px
+  // box, pushing the cards 228px off the right of the screen.
+  const overflow = await page.evaluate(() => {
+    const doc = document.documentElement;
+    const widest = Array.from(
+      document.querySelectorAll<HTMLElement>("main *")
+    ).reduce((worst, el) => {
+      // Ignore deliberate horizontal scrollers, such as the module carousel.
+      if (el.closest("[data-allow-x-scroll], .overflow-x-auto")) return worst;
+      const right = Math.round(el.getBoundingClientRect().right);
+      return right > worst ? right : worst;
+    }, 0);
+
+    return { clientWidth: doc.clientWidth, widestRight: widest };
+  });
+
+  expect(overflow.widestRight).toBeLessThanOrEqual(overflow.clientWidth + 1);
+});
+
 test("file workspace is protected and renders for an authorized user", async ({
   page
 }) => {
