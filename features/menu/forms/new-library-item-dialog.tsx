@@ -8,8 +8,9 @@ import {
   COUNTING_UNITS,
   MENU_ITEM_KINDS,
   ROUNDING_MODES,
-  SERVICE_FORM_DEFAULTS,
   SERVICE_STYLES,
+  serviceFormDefaults,
+  serviceStyleLabel,
   type ServiceRuleFormValues,
   type ServiceStyle,
   type ServiceStyleFormValues
@@ -82,7 +83,7 @@ const initialValues: LibraryItemSeedValues = {
   kashrutType: "Parve",
   allergies: "",
   description: "",
-  services: SERVICE_FORM_DEFAULTS
+  services: serviceFormDefaults("Food")
 };
 
 const controlClass =
@@ -118,10 +119,11 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
   const buildCreateValues = useCallback((): LibraryItemSeedValues => {
     // "Add buffet item" opens a form that is already a buffet item - the style
     // it was opened from starts checked, and nothing else does.
+    const defaults = serviceFormDefaults(initialValues.kind);
     const services = Object.fromEntries(
       SERVICE_STYLES.map((style) => [
         style,
-        { ...SERVICE_FORM_DEFAULTS[style], enabled: style === defaultServiceStyle }
+        { ...defaults[style], enabled: style === defaultServiceStyle }
       ])
     ) as ServiceStyleFormValues;
 
@@ -170,6 +172,35 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
 
   const updateValue = (field: TextField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
+  };
+
+  /**
+   * Switching Food <-> Drink re-seeds the styles that are still switched off,
+   * so a drink opens on bottles per table rather than the plated "1 plate per 1
+   * guest" it used to inherit.
+   *
+   * Enabled blocks are left exactly as typed. Their numbers are on screen, and
+   * rewriting what someone is looking at is worse than a default that no longer
+   * matches the kind - the disabled ones are invisible, so re-seeding those
+   * costs nothing and is what makes the new defaults actually reachable.
+   */
+  const updateKind = (kind: string) => {
+    setValues((current) => {
+      const defaults = serviceFormDefaults(kind);
+
+      return {
+        ...current,
+        kind,
+        services: Object.fromEntries(
+          SERVICE_STYLES.map((style) => [
+            style,
+            current.services[style].enabled
+              ? current.services[style]
+              : { ...defaults[style] }
+          ])
+        ) as ServiceStyleFormValues
+      };
+    });
   };
 
   const updateService = (
@@ -262,7 +293,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Food or drink
-              <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateValue("kind", event.target.value)} value={values.kind}>
+              <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
                 {MENU_ITEM_KINDS.map((kind) => (
                   <option key={kind}>{kind}</option>
                 ))}
@@ -283,43 +314,47 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
               <div className="mt-2 grid gap-2">
                 {SERVICE_STYLES.map((style) => {
                   const entry = values.services[style];
+                  // A drink is served at the table, not plated. Only the word
+                  // changes - `style` is still what gets stored, and it stays
+                  // the field name so a form key never shifts under a rename.
+                  const label = serviceStyleLabel(style, values.kind);
 
                   return (
                     <div className="rounded-lg border border-[#d8dde5] p-2" key={style}>
                       <label className="flex items-center gap-2 text-xs font-black normal-case tracking-normal text-[#17202a]">
                         <input checked={entry.enabled} className="h-4 w-4" name={`serves${style}`} onChange={(event) => updateService(style, { enabled: event.target.checked })} type="checkbox" />
-                        {style}
+                        {label}
                       </label>
                       {entry.enabled ? (
                         <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <input aria-label={`${style} quantity`} className={`${controlClass} w-20`} inputMode="decimal" onChange={(event) => updateService(style, { quantity: event.target.value })} required value={entry.quantity} />
+                          <input aria-label={`${label} quantity`} className={`${controlClass} w-20`} inputMode="decimal" onChange={(event) => updateService(style, { quantity: event.target.value })} required value={entry.quantity} />
                           {/* Typed, not picked: the eight presets never covered
                               every kitchen's vocabulary, and an operator who
                               counts in pans had to file them under the nearest
                               wrong word. The list is still offered, as
                               suggestions the field does not enforce. */}
-                          <input aria-label={`${style} unit`} className={`${controlClass} w-28`} list={unitListId} maxLength={24} onChange={(event) => updateService(style, { unit: event.target.value })} required value={entry.unit} />
+                          <input aria-label={`${label} unit`} className={`${controlClass} w-28`} list={unitListId} maxLength={24} onChange={(event) => updateService(style, { unit: event.target.value })} required value={entry.unit} />
                           <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
                           {/* A whole-event rule - one cake, however many guests -
                               divides nothing, so the count is not asked for. */}
                           {entry.perBasis === "Event" ? null : (
-                            <input aria-label={`${style} per quantity`} className={`${controlClass} w-20`} inputMode="numeric" onChange={(event) => updateService(style, { per: event.target.value })} required value={entry.per} />
+                            <input aria-label={`${label} per quantity`} className={`${controlClass} w-20`} inputMode="numeric" onChange={(event) => updateService(style, { per: event.target.value })} required value={entry.per} />
                           )}
-                          <select aria-label={`${style} per basis`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { perBasis: event.target.value })} value={entry.perBasis}>
+                          <select aria-label={`${label} per basis`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { perBasis: event.target.value })} value={entry.perBasis}>
                             {COUNT_BASES.map((basis) => (
                               <option key={basis} value={basis}>
                                 {COUNT_BASIS_LABELS[basis]}
                               </option>
                             ))}
                           </select>
-                          <select aria-label={`${style} rounding`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { rounding: event.target.value })} value={entry.rounding}>
+                          <select aria-label={`${label} rounding`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { rounding: event.target.value })} value={entry.rounding}>
                             {ROUNDING_MODES.map((mode) => (
                               <option key={mode} value={mode}>
                                 {mode === "Exact" ? "no rounding" : `round ${mode.toLowerCase()}`}
                               </option>
                             ))}
                           </select>
-                          <input aria-label={`${style} minimum`} className={`${controlClass} w-28`} inputMode="numeric" onChange={(event) => updateService(style, { minimumUnits: event.target.value })} placeholder="min (opt)" value={entry.minimumUnits} />
+                          <input aria-label={`${label} minimum`} className={`${controlClass} w-28`} inputMode="numeric" onChange={(event) => updateService(style, { minimumUnits: event.target.value })} placeholder="min (opt)" value={entry.minimumUnits} />
                         </div>
                       ) : null}
                     </div>

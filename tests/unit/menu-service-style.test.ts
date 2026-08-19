@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  SERVICE_FORM_DEFAULTS,
+  serviceFormDefaults,
+  serviceStyleLabel,
   formatServiceRule,
   readServiceRules,
   readServiceStyleFormValues,
@@ -10,6 +11,8 @@ import {
   type MenuItemServiceRule,
   type ServiceStyleFormValues
 } from "@/features/menu/lib/service-style";
+
+const FOOD_DEFAULTS = serviceFormDefaults("Food");
 
 const buffetRule: MenuItemServiceRule = {
   serviceStyle: "Buffet",
@@ -41,7 +44,7 @@ const formValues: ServiceStyleFormValues = {
     rounding: "Up",
     minimumUnits: ""
   },
-  Plated: SERVICE_FORM_DEFAULTS.Plated
+  Plated: FOOD_DEFAULTS.Plated
 };
 
 describe("servesStyle", () => {
@@ -132,7 +135,7 @@ describe("toServiceRules", () => {
     expect(
       toServiceRules({
         Buffet: { ...formValues.Buffet, enabled: false },
-        Plated: SERVICE_FORM_DEFAULTS.Plated
+        Plated: FOOD_DEFAULTS.Plated
       })
     ).toEqual([]);
   });
@@ -140,7 +143,7 @@ describe("toServiceRules", () => {
   it("stores one rule per style for a dish served both ways", () => {
     const rules = toServiceRules({
       Buffet: formValues.Buffet,
-      Plated: { ...SERVICE_FORM_DEFAULTS.Plated, enabled: true }
+      Plated: { ...FOOD_DEFAULTS.Plated, enabled: true }
     });
 
     expect(rules).toHaveLength(2);
@@ -208,9 +211,58 @@ describe("toServiceRules", () => {
   });
 });
 
+describe("serviceStyleLabel", () => {
+  it("calls the plated style Table for a drink", () => {
+    expect(serviceStyleLabel("Plated", "Drink")).toBe("Table");
+    expect(serviceStyleLabel("Plated", "Food")).toBe("Plated");
+  });
+
+  it("leaves buffet alone, because a drinks station is still a buffet", () => {
+    expect(serviceStyleLabel("Buffet", "Drink")).toBe("Buffet");
+  });
+
+  it("falls back to the food words for a kind it does not know", () => {
+    // `kind` is form text, so it can be anything - an unknown one must render
+    // a word rather than `undefined`.
+    expect(serviceStyleLabel("Plated", "Rental")).toBe("Plated");
+    expect(serviceStyleLabel("Plated", "")).toBe("Plated");
+  });
+});
+
+describe("serviceFormDefaults", () => {
+  it("opens a drink on bottles at the table, not one plate per guest", () => {
+    const drink = serviceFormDefaults("Drink");
+
+    expect(drink.Plated.unit).toBe("bottle");
+    expect(drink.Plated.perBasis).toBe("Tables");
+    expect(drink.Buffet.unit).toBe("bottle");
+  });
+
+  it("keeps the stored style, so only the vocabulary is per kind", () => {
+    // The whole point of labelling rather than storing: a drink's table rule is
+    // still a `Plated` row, which is what keeps the CHECK constraint, the
+    // library tabs and the kitchen sheet out of this change.
+    const rules = toServiceRules({
+      ...serviceFormDefaults("Drink"),
+      Plated: { ...serviceFormDefaults("Drink").Plated, enabled: true }
+    });
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0].serviceStyle).toBe("Plated");
+    expect(rules[0].perBasis).toBe("Tables");
+  });
+
+  it("falls back to food for a kind it does not know", () => {
+    // Same reason the label does: `kind` is form text, and a lookup miss must
+    // not hand the dialog an undefined block to render.
+    expect(serviceFormDefaults("Nonsense")).toEqual(serviceFormDefaults("Food"));
+    expect(serviceFormDefaults("")).toEqual(serviceFormDefaults("Food"));
+  });
+});
+
 describe("readServiceStyleFormValues", () => {
   it("seeds an edit from the stored rows", () => {
-    const seeded = readServiceStyleFormValues([buffetRule]);
+    const seeded = readServiceStyleFormValues([buffetRule], "Food");
 
     expect(seeded.Buffet).toEqual({
       enabled: true,
@@ -228,7 +280,7 @@ describe("readServiceStyleFormValues", () => {
   it("seeds each style independently, so two rules survive an edit", () => {
     // Round-tripping through the dialog must not flatten a dish that is served
     // one way on a buffet and another way plated.
-    const seeded = readServiceStyleFormValues([buffetRule, platedRule]);
+    const seeded = readServiceStyleFormValues([buffetRule, platedRule], "Food");
 
     expect(seeded.Buffet.unit).toBe("tray");
     expect(seeded.Buffet.per).toBe("30");
@@ -237,8 +289,26 @@ describe("readServiceStyleFormValues", () => {
     expect(toServiceRules(seeded)).toHaveLength(2);
   });
 
+  it("seeds an unserved style from the item's own kind", () => {
+    // A drink served only on the buffet still has a Table block waiting behind
+    // its checkbox; it should be the drink default, not the food one.
+    const seeded = readServiceStyleFormValues([buffetRule], "Drink");
+
+    expect(seeded.Plated.unit).toBe("bottle");
+    expect(seeded.Plated.perBasis).toBe("Tables");
+  });
+
+  it("reads a stored rule back as saved, whatever the kind is now", () => {
+    // Only the fallback is per kind. Re-labelling an item must never rewrite a
+    // rule the kitchen is already cooking to.
+    const seeded = readServiceStyleFormValues([platedRule], "Drink");
+
+    expect(seeded.Plated.unit).toBe("plate");
+    expect(seeded.Plated.perBasis).toBe("TotalGuests");
+  });
+
   it("leaves both styles off for a library-only item", () => {
-    const seeded = readServiceStyleFormValues([]);
+    const seeded = readServiceStyleFormValues([], "Food");
 
     expect(seeded.Buffet.enabled).toBe(false);
     expect(seeded.Plated.enabled).toBe(false);

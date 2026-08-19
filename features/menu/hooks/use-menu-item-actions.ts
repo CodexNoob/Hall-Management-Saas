@@ -65,7 +65,10 @@ export function useMenuItemActions({
         kashrutType: editingItem.kosherType ?? "Parve",
         allergies: formatAllergens(editingItem.allergens),
         description: editingItem.notes ?? "",
-        services: readServiceStyleFormValues(editingItem.services)
+        services: readServiceStyleFormValues(
+          editingItem.services,
+          editingItem.kind
+        )
       }
     : undefined;
 

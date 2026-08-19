@@ -44,6 +44,43 @@ export type MenuItemKind = (typeof MENU_ITEM_KINDS)[number];
 
 export const menuItemKindSchema = z.enum(MENU_ITEM_KINDS);
 
+/** Kinds arrive from form text, so an unrecognised one reads as Food. */
+function readKind(kind: string): MenuItemKind {
+  const parsed = menuItemKindSchema.safeParse(kind);
+
+  return parsed.success ? parsed.data : "Food";
+}
+
+/**
+ * What a style is CALLED, which depends on what is being served.
+ *
+ * "Plated" and "Table" are one channel under two vocabularies - either way the
+ * food comes to the seated guest rather than the guest going to the food - so
+ * this is a label and never a stored value. `service_style` stays `Buffet` or
+ * `Plated` in the database, which keeps the CHECK constraint, the library tabs,
+ * the event menu sections and the kitchen sheet out of it entirely.
+ *
+ * That is also what makes it reversible in the cheap direction. If table
+ * service ever has to become its own bucket, the rows to promote are exactly
+ * `kind = 'Drink' AND service_style = 'Plated'` - one UPDATE, against data
+ * already sitting where it can be found. Collapsing a third value back into two
+ * is the expensive direction, and this defers it rather than taking it on.
+ *
+ * A kind whose words differ again - Rental, say, where "Buffet" means nothing -
+ * is a row here, not a branch at the call site.
+ */
+export const SERVICE_STYLE_LABELS: Record<
+  MenuItemKind,
+  Record<ServiceStyle, string>
+> = {
+  Food: { Buffet: "Buffet", Plated: "Plated" },
+  Drink: { Buffet: "Buffet", Plated: "Table" }
+};
+
+export function serviceStyleLabel(style: ServiceStyle, kind: string) {
+  return SERVICE_STYLE_LABELS[readKind(kind)][style];
+}
+
 /**
  * Suggested counting units, kept short because they render inside a card.
  *
@@ -240,19 +277,69 @@ const PLATED_DEFAULTS: ServiceRuleFormValues = {
   minimumUnits: ""
 };
 
-export const SERVICE_FORM_DEFAULTS: ServiceStyleFormValues = {
-  Buffet: BUFFET_DEFAULTS,
-  Plated: PLATED_DEFAULTS
+/**
+ * A drink is not plated, it is put on the table - and the numbers move with the
+ * word. Inheriting the plated default meant every drink opened on "1 plate per
+ * 1 guest", which is wrong in the unit AND wrong in the basis, so an operator
+ * had to correct two fields before the first one they came to type.
+ *
+ * `Tables` is the basis it wants and the one case that can go unanswered: an
+ * event with no dining plan has no table count, and `calculateMenuQuantity`
+ * reports that as unresolved rather than cooking zero.
+ */
+const DRINK_BUFFET_DEFAULTS: ServiceRuleFormValues = {
+  enabled: false,
+  quantity: "1",
+  unit: "bottle",
+  per: "8",
+  perBasis: "TotalGuests",
+  rounding: "Up",
+  minimumUnits: ""
 };
 
-/** Seeds the dialog from an item's stored rows, for an edit. */
+const TABLE_DEFAULTS: ServiceRuleFormValues = {
+  enabled: false,
+  quantity: "2",
+  unit: "bottle",
+  per: "1",
+  perBasis: "Tables",
+  // Unlike a plate, a bottle is a whole thing: a table left half a bottle short
+  // is a table that asks for another one.
+  rounding: "Up",
+  minimumUnits: ""
+};
+
+/**
+ * Keyed by kind for the same reason the labels are: what a style starts on is
+ * part of that kind's vocabulary, so a new kind is a row here rather than a
+ * branch in the dialog.
+ */
+export const SERVICE_FORM_DEFAULTS: Record<MenuItemKind, ServiceStyleFormValues> =
+  {
+    Food: { Buffet: BUFFET_DEFAULTS, Plated: PLATED_DEFAULTS },
+    Drink: { Buffet: DRINK_BUFFET_DEFAULTS, Plated: TABLE_DEFAULTS }
+  };
+
+export function serviceFormDefaults(kind: string): ServiceStyleFormValues {
+  return SERVICE_FORM_DEFAULTS[readKind(kind)];
+}
+
+/**
+ * Seeds the dialog from an item's stored rows, for an edit.
+ *
+ * `kind` decides only what an UNSERVED style falls back to - a stored rule is
+ * read back exactly as saved, whatever kind the item is now.
+ */
 export function readServiceStyleFormValues(
-  services: MenuItemServiceRule[]
+  services: MenuItemServiceRule[],
+  kind: string
 ): ServiceStyleFormValues {
+  const defaults = serviceFormDefaults(kind);
+
   const seed = (style: ServiceStyle): ServiceRuleFormValues => {
     const rule = findRuleForStyle(services, style);
 
-    if (!rule) return SERVICE_FORM_DEFAULTS[style];
+    if (!rule) return defaults[style];
 
     return {
       enabled: true,
