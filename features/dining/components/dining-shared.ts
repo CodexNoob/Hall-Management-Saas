@@ -128,6 +128,44 @@ export function isDiningSeatingTable(table: DiningTableData) {
   return table.isSeating !== false && table.seats > 0;
 }
 
+/**
+ * How the adults split between the men's and women's sides.
+ *
+ * Derived from the booking rather than assumed. This used to be a flat
+ * `ceil(adults / 2)`, which meant a 60/40 event and a 40/60 event produced
+ * identical seating - the counts the client actually gave were on the event
+ * all along. Couples contribute one seat to each side.
+ *
+ * The ratio, not the raw numbers, is applied to `adultCount`: the dining form
+ * lets a planner adjust the head count, and that edit has to keep working
+ * without silently reverting to the booked figure.
+ */
+export function diningGenderSplit(
+  event: Pick<DiningEvent, "couplesCount" | "menCount" | "ladiesCount"> | null,
+  adultCount: number
+) {
+  const evenSplit = () => {
+    const menRequired = Math.ceil(adultCount / 2);
+    return { menRequired, womenRequired: adultCount - menRequired };
+  };
+
+  if (!event) return evenSplit();
+
+  const eventMen = event.couplesCount + event.menCount;
+  const eventWomen = event.couplesCount + event.ladiesCount;
+  const eventAdults = eventMen + eventWomen;
+
+  // No gender breakdown recorded - an older booking, or counts left at zero.
+  if (eventAdults <= 0) return evenSplit();
+
+  const menRequired = Math.min(
+    adultCount,
+    Math.round((adultCount * eventMen) / eventAdults)
+  );
+
+  return { menRequired, womenRequired: adultCount - menRequired };
+}
+
 export function diningTableRequirements(input: {
   childrenCount: number;
   menRequired: number;
@@ -153,28 +191,71 @@ export function diningTableSignature(tables: DiningTableData[]) {
   };
 }
 
+function daysApart(left: string, right: string) {
+  const difference = Date.parse(left) - Date.parse(right);
+  return Number.isFinite(difference)
+    ? Math.abs(difference) / 86_400_000
+    : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * The best saved layout to reuse for an event, or null.
+ *
+ * Two rules beyond matching the required table counts:
+ *
+ * - **Same hall only.** Table coordinates are meaningless in a room of a
+ *   different shape, and this previously reused a layout from any hall whose
+ *   table counts happened to line up.
+ * - **Ranked, not first-found.** Candidates are ordered by how close their
+ *   guest counts are, then by how near in date, so the suggestion is the most
+ *   comparable event rather than whichever one sorts earliest.
+ */
 export function findMatchingDiningLayout({
-  currentEventId,
+  currentEvent,
   events,
-  requirements
+  requirements,
+  adultCount,
+  childrenCount
 }: {
-  currentEventId: string;
+  currentEvent: Pick<DiningEvent, "id" | "hall" | "eventDate">;
   events: DiningEvent[];
   requirements: ReturnType<typeof diningTableRequirements>;
+  adultCount: number;
+  childrenCount: number;
 }) {
+  const candidates = events.filter((event) => {
+    if (event.id === currentEvent.id || !event.diningPlan) return false;
+    if (event.hall.id !== currentEvent.hall.id) return false;
+
+    const signature = diningTableSignature(validTables(event.diningPlan.tables));
+
+    return (
+      signature.men === requirements.men &&
+      signature.women === requirements.women &&
+      signature.kids === requirements.kids
+    );
+  });
+
+  if (candidates.length === 0) return null;
+
+  const guestDistance = (event: DiningEvent) =>
+    Math.abs((event.diningPlan?.adultCount ?? 0) - adultCount) +
+    Math.abs((event.diningPlan?.childrenCount ?? 0) - childrenCount);
+
   return (
-    events.find((event) => {
-      if (event.id === currentEventId || !event.diningPlan) return false;
+    [...candidates].sort((left, right) => {
+      const byGuests = guestDistance(left) - guestDistance(right);
+      if (byGuests !== 0) return byGuests;
 
-      const tables = validTables(event.diningPlan.tables);
-      const signature = diningTableSignature(tables);
+      const byDate =
+        daysApart(left.eventDate, currentEvent.eventDate) -
+        daysApart(right.eventDate, currentEvent.eventDate);
+      if (byDate !== 0) return byDate;
 
-      return (
-        signature.men === requirements.men &&
-        signature.women === requirements.women &&
-        signature.kids === requirements.kids
-      );
-    }) ?? null
+      // Deterministic tie-break so the same click always suggests the same
+      // event.
+      return left.id.localeCompare(right.id);
+    })[0] ?? null
   );
 }
 

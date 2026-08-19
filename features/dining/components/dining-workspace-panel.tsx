@@ -39,6 +39,8 @@ export function DiningWorkspacePanel({
   dragTable,
   hasPresetCoordinates,
   isWorkspaceExpanded,
+  seatRequirements,
+  seatTotals,
   mapScale,
   mapSurfaceRef,
   mapViewportRef,
@@ -67,6 +69,8 @@ export function DiningWorkspacePanel({
   dragTable: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   hasPresetCoordinates: boolean;
   isWorkspaceExpanded: boolean;
+  seatRequirements: { men: number; women: number; kids: number };
+  seatTotals: { men: number; women: number; kids: number };
   mapScale: number;
   mapSurfaceRef: RefObject<HTMLDivElement | null>;
   mapViewportRef: RefObject<HTMLDivElement | null>;
@@ -189,6 +193,16 @@ export function DiningWorkspacePanel({
     scrollState.frame = window.requestAnimationFrame(animateScroll);
   }
 
+  const seatsRequired =
+    seatRequirements.men + seatRequirements.women + seatRequirements.kids;
+  const seatsProvided = seatTotals.men + seatTotals.women + seatTotals.kids;
+  // Short on any single side counts as short, even if the overall total looks
+  // sufficient: men cannot be seated at the women's tables.
+  const isSeatingShort =
+    seatTotals.men < seatRequirements.men ||
+    seatTotals.women < seatRequirements.women ||
+    seatTotals.kids < seatRequirements.kids;
+
   return (
     // No max-height: the page grid stretches every column to the same row
     // height, and capping this one left it ending short of the Events and
@@ -205,6 +219,22 @@ export function DiningWorkspacePanel({
               {selectedEvent.hall.name} Â· {eventSchedule(selectedEvent)}
             </p>
           </div>
+
+          {/* Seated against required, at a glance. The details panel breaks
+              this down per side; this is the number a planner checks while
+              dragging tables, without looking away from the board. */}
+          <span
+            aria-label="Seats provided"
+            className={`hidden shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-black sm:inline-flex ${
+              isSeatingShort
+                ? "border-[#f3b4ae] bg-[#fef2f1] text-[#b42318]"
+                : "border-[#a6e7c3] bg-[#ecfdf3] text-[#087047]"
+            }`}
+            title={`Men ${seatTotals.men}/${seatRequirements.men} · Women ${seatTotals.women}/${seatRequirements.women} · Kids ${seatTotals.kids}/${seatRequirements.kids}`}
+          >
+            {seatsProvided}/{seatsRequired} seats
+            {isSeatingShort ? ` · short ${seatsRequired - seatsProvided}` : ""}
+          </span>
           <button
             aria-expanded={isWorkspaceExpanded}
             aria-label={
@@ -307,10 +337,13 @@ export function DiningWorkspacePanel({
         >
           {savedMessage ? (
             // Same treatment as the hall map's saved confirmation, so a save
-            // reads the same way in both modules. Sits outside the pannable
-            // viewport so it stays pinned to the visible board.
+            // reads the same way in both modules. Fixed to the viewport, not
+            // the board: the board can be scrolled out of view (and sits far
+            // below the Save button on mobile), and a message pinned to it
+            // fired into invisible space. Under the topbar it is visible at
+            // every scroll position, on every screen size.
             <div
-              className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
+              className="pointer-events-none fixed left-1/2 top-17 z-50 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur lg:top-22"
               role="status"
             >
               <span

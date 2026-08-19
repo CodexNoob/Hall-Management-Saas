@@ -9,6 +9,7 @@ import {
   type PointerEvent as ReactPointerEvent
 } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { DashboardLoadingIndicator } from "@/components/ui/dashboard-loading-indicator";
 import { useHallMapKeyboardShortcuts } from "@/features/hall-room-map/hooks/use-hall-map-keyboard-shortcuts";
 import { HallMapDialog } from "@/features/hall-room-map/components/hall-map-dialog";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
@@ -105,6 +106,7 @@ export function HallRoomMapPage() {
   // Placement snapping to the 20px visual grid. Alt while dragging bypasses it.
   const [isSnapEnabled, setIsSnapEnabled] = useState(true);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
   const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapViewportRef = useRef<HTMLDivElement>(null);
@@ -1224,6 +1226,7 @@ export function HallRoomMapPage() {
       return;
     }
 
+    setIsSavingLayout(true);
     try {
       const payload = {
         name: selectedMap.name,
@@ -1244,6 +1247,8 @@ export function HallRoomMapPage() {
       showFeedback(
         error instanceof Error ? error.message : "Unable to save this preset."
       );
+    } finally {
+      setIsSavingLayout(false);
     }
   }
 
@@ -1359,7 +1364,7 @@ export function HallRoomMapPage() {
             <button
               aria-label="Save layout"
               className="hidden h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 md:flex lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
-              disabled={!hasSelectedMap}
+              disabled={!hasSelectedMap || isSavingLayout}
               onClick={saveCurrentMap}
               type="button"
             >
@@ -1535,7 +1540,7 @@ export function HallRoomMapPage() {
 
                 <button
                   className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={!hasSelectedMap}
+                  disabled={!hasSelectedMap || isSavingLayout}
                   onClick={saveCurrentMap}
                   type="button"
                 >
@@ -1558,28 +1563,6 @@ export function HallRoomMapPage() {
               board occupies exactly the same box as before.
             */}
             <div className="relative min-h-90 min-w-0 flex-1 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] md:min-h-107.5 lg:min-h-125 xl:min-h-0">
-              {saveConfirmation ? (
-                <div
-                  className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
-                  role="status"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-sm font-black text-white"
-                  >
-                    ✓
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-black">
-                      {saveConfirmation.title}
-                    </p>
-                    <p className="mt-0.5 text-xs font-semibold text-[#047857]">
-                      {saveConfirmation.detail}
-                    </p>
-                  </div>
-                </div>
-              ) : null}
-
               <div
                 aria-label="Hall map grid"
                 className="absolute inset-0 cursor-grab touch-none overflow-hidden p-2 active:cursor-grabbing"
@@ -1722,6 +1705,48 @@ export function HallRoomMapPage() {
           />
         </div>
       </main>
+
+      {saveConfirmation ? (
+        // Pinned to the viewport, not the board: the board's top edge can be
+        // scrolled out of view when the user saves from the bottom of the
+        // page, and a message positioned there fired into invisible space.
+        // Fixed under the topbar it sits directly below the Save button the
+        // user just clicked, at every scroll position.
+        <div
+          className="pointer-events-none fixed left-1/2 top-17 z-50 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur lg:top-22"
+          role="status"
+        >
+          <span
+            aria-hidden="true"
+            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-sm font-black text-white"
+          >
+            ✓
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-black">{saveConfirmation.title}</p>
+            <p className="mt-0.5 text-xs font-semibold text-[#047857]">
+              {saveConfirmation.detail}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {isSavingLayout ? (
+        // Same loading design as the rest of the app: the dashboard's
+        // animated indicator centred on the app ground, translucent so the
+        // board stays visible underneath while the save round-trips.
+        <div
+          aria-label="Saving layout"
+          aria-live="polite"
+          className="fixed inset-0 z-2000 flex flex-col items-center justify-center gap-4 bg-[#f5f6f8]/90"
+          role="status"
+        >
+          <DashboardLoadingIndicator />
+          <p className="text-sm font-black text-[#1f4d73]">
+            Saving your layout…
+          </p>
+        </div>
+      ) : null}
 
       {isPrintOpen && selectedMap ? (
         <HallMapPrintSheet

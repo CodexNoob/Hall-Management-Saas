@@ -71,6 +71,9 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
 
     if (method === "PATCH") {
       saveRequestCount += 1;
+      // Slow enough for the saving overlay to be observable, fast enough not
+      // to slow the suite.
+      await new Promise((resolve) => setTimeout(resolve, 400));
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
@@ -92,15 +95,28 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
   await page.getByRole("option", { name: "Hall 1" }).click();
 
   const grid = page.getByLabel("Hall map grid");
-  await grid.scrollIntoViewIfNeeded();
   await expect(grid).toBeVisible();
 
-  await page.getByRole("button", { name: "Save map" }).click();
+  // Save from the very bottom of the page - the position where the old
+  // board-pinned confirmation fired out of view. The topbar Save button is
+  // fixed, so it stays clickable; the message must too.
+  await page.evaluate(() => {
+    document.querySelectorAll("main").forEach((main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+  });
+
+  await page.getByRole("button", { name: "Save layout" }).click();
+
+  // While the save round-trips, the site's loading indicator covers the page.
+  const savingOverlay = page.getByRole("status", { name: "Saving layout" });
+  await expect(savingOverlay).toBeVisible();
 
   const confirmation = page
     .getByRole("status")
     .filter({ hasText: "Layout saved" });
   await expect(confirmation).toBeVisible();
+  await expect(savingOverlay).toHaveCount(0);
   await expect(confirmation).toContainText("charles is saved to Hall 1.");
   // The check that matters. This toast used to render inside the pannable
   // canvas, which opens scrolled to the world origin - so it was present and

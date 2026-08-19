@@ -28,6 +28,27 @@ const diningEvent = {
   diningPlan: null
 };
 
+// 90 men and 10 ladies. Deliberately lopsided: under the old ceil(adults / 2)
+// assumption this booking read as 50/50, which is what the gender-aware split
+// and the seats chip below have to disprove.
+const lopsidedEvent = {
+  ...diningEvent,
+  id: "66666666-6666-4666-8666-666666666666",
+  clientName: "E2E Lopsided Event",
+  couplesCount: 0,
+  menCount: 90,
+  ladiesCount: 10
+};
+
+// Same shape, same hall, but a wildly different head count - the ranking has
+// to pass it over in favour of the closer match.
+const otherHallEvent = {
+  ...diningEvent,
+  id: "77777777-7777-4777-8777-777777777777",
+  clientName: "E2E Other Hall Event",
+  hall: { id: "88888888-8888-4888-8888-888888888888", name: "Hall 2" }
+};
+
 const presetA = {
   id: "33333333-3333-4333-8333-333333333333",
   hallId: hall.id,
@@ -127,7 +148,7 @@ test("selecting a hall map preset immediately previews its dining table layout",
 
 test("saving a dining plan persists the selected hall map preset layout", async ({
   page
-}, testInfo) => {
+}) => {
   let savedPayload: {
     eventId?: string;
     hallMapPresetId?: string | null;
@@ -182,6 +203,14 @@ test("saving a dining plan persists the selected hall map preset layout", async 
     return response.url().includes("/api/dining") && response.status() === 200;
   });
 
+  // Save from the bottom of the page - the position where the old
+  // board-pinned message used to fire out of view.
+  await page.evaluate(() => {
+    document.querySelectorAll("main").forEach((main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+  });
+
   await page.getByRole("button", { name: "Save dining plan" }).click();
   await saveRequest;
   await refetchResponse;
@@ -189,17 +218,11 @@ test("saving a dining plan persists the selected hall map preset layout", async 
   const confirmation = page.getByRole("status");
   await expect(confirmation).toContainText("Dining plan saved.");
 
-  // Present in the DOM is not the same as on screen: the hall map's equivalent
-  // toast rendered inside the pannable canvas and sat thousands of pixels out
-  // of view while still passing toBeVisible.
-  //
-  // Desktop only, and that is a real limitation rather than a test convenience.
-  // On mobile the layout stacks, so the board - and the confirmation pinned to
-  // it - sits well below the topbar that holds the Save button. The message is
-  // rendered but a phone user never sees it without scrolling.
-  if (!testInfo.project.name.includes("mobile")) {
-    await expect(confirmation).toBeInViewport();
-  }
+  // Present in the DOM is not the same as on screen. The confirmation is
+  // fixed to the viewport now, so this holds at any scroll position and on
+  // every screen size - including mobile, where the board sits far below the
+  // Save button and the old board-pinned message was never actually seen.
+  await expect(confirmation).toBeInViewport();
   expect(savedPayload).toMatchObject({
     eventId: diningEvent.id,
     hallMapPresetId: presetB.id,
@@ -213,6 +236,108 @@ test("saving a dining plan persists the selected hall map preset layout", async 
       })
     ]
   });
+});
+
+test("the seats chip counts against the booking's own men and ladies split", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "The board header chip is a desktop affordance (hidden below the sm breakpoint)."
+  );
+
+  await page.route("**/api/dining", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({ events: [lopsidedEvent], hallMapPresets: [] })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/dining-manager");
+
+  // The eight default tables seat 40 men and 40 women. Against 90 men and 10
+  // ladies that is 80 of 100 seats - and short, because the surplus women's
+  // seats cannot take the overflow of men.
+  const chip = page.getByLabel("Seats provided");
+  await expect(chip).toHaveText("80/100 seats · short 20");
+  // The per-side breakdown is the part a 50/50 split would get wrong: it would
+  // have read "Men 40/50 · Women 40/50" and called this layout nearly right.
+  await expect(chip).toHaveAttribute(
+    "title",
+    "Men 40/90 · Women 40/10 · Kids 0/0"
+  );
+
+  await page.getByRole("button", { name: "Auto layout" }).click();
+
+  await expect(
+    page.getByText("Auto layout generated 9 men, 1 women, and 0 kids tables.")
+  ).toBeVisible();
+  await expect(chip).toHaveText("100/100 seats");
+});
+
+test("auto layout never reuses a layout from another hall", async ({ page }) => {
+  const matchingTables = [
+    ...Array.from({ length: 9 }, (_, index) => ({
+      id: `men-${index}`,
+      number: index + 1,
+      seats: 10,
+      side: "men",
+      x: 40 * index,
+      y: 20
+    })),
+    { id: "women-0", number: 10, seats: 10, side: "women", x: 400, y: 20 }
+  ];
+
+  await page.route("**/api/dining", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          events: [
+            lopsidedEvent,
+            {
+              ...otherHallEvent,
+              diningPlan: {
+                id: "99999999-9999-4999-8999-999999999999",
+                eventId: otherHallEvent.id,
+                adultCount: 100,
+                childrenCount: 0,
+                countType: "People",
+                hallMapPresetId: null,
+                menWaiters: 0,
+                womenWaiters: 0,
+                specialNotes: null,
+                tablecloth: null,
+                washingTime: null,
+                tables: matchingTables
+              }
+            }
+          ],
+          hallMapPresets: []
+        })
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/dining-manager");
+  await page.getByRole("button", { name: "Auto layout" }).click();
+
+  // Hall 2's plan matches this booking on every count, but its table
+  // coordinates describe a different room, so it must be generated fresh.
+  await expect(
+    page.getByText("Auto layout generated 9 men, 1 women, and 0 kids tables.")
+  ).toBeVisible();
+  // Scoped to the phrase, not the client name: the events list legitimately
+  // shows "E2E Other Hall Event" whether or not its layout was reused.
+  await expect(page.getByText("Auto layout reused")).toHaveCount(0);
 });
 
 test("the movable dining grid pans and allows dragging past its old bottom edge", async ({

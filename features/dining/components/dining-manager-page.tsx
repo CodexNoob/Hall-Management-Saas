@@ -28,6 +28,7 @@ import {
   DINING_MAP_MIN_SCALE,
   DINING_MAP_WORLD_ORIGIN,
   DINING_MAP_WORLD_SIZE,
+  diningGenderSplit,
   diningTableRequirements,
   findMatchingDiningLayout,
   generateDiningAutoLayout,
@@ -186,8 +187,12 @@ export function DiningManagerPage() {
         : totals,
     { men: 0, women: 0, kids: 0, head: 0 }
   );
-  const menRequired = Math.ceil(form.adultCount / 2);
-  const womenRequired = form.adultCount - menRequired;
+  // Split by the booking's own men/ladies/couples counts rather than assuming
+  // half and half.
+  const { menRequired, womenRequired } = diningGenderSplit(
+    selectedEvent,
+    form.adultCount
+  );
   const hasPresetCoordinates = tables.some(
     (table) =>
       typeof table.x === "number" &&
@@ -491,9 +496,11 @@ export function DiningManagerPage() {
       womenRequired
     });
     const previousEvent = findMatchingDiningLayout({
-      currentEventId: selectedEvent.id,
+      currentEvent: selectedEvent,
       events,
-      requirements
+      requirements,
+      adultCount: form.adultCount,
+      childrenCount: form.childrenCount
     });
     const nextTables = previousEvent?.diningPlan
       ? cloneDiningLayoutTables(validTables(previousEvent.diningPlan.tables))
@@ -506,10 +513,16 @@ export function DiningManagerPage() {
     setSelectedTableId(null);
     setSelectedTableIds([]);
     window.requestAnimationFrame(() => fitDiningMapTables(nextTables));
+    // Name the reason, not just the source: "same table count" was true of any
+    // hall and any date, which is what made the old suggestion feel arbitrary.
     setCheckMessage(
       previousEvent
-        ? `Auto layout reused ${eventTitle(previousEvent)} because it has the same table count.`
-        : "Auto layout generated the required men, women, and kids tables."
+        ? `Auto layout reused ${eventTitle(previousEvent)} in ${
+            previousEvent.hall.name
+          } - ${previousEvent.diningPlan?.adultCount ?? 0} adults, ${
+            previousEvent.diningPlan?.childrenCount ?? 0
+          } children, the closest match in this hall.`
+        : `Auto layout generated ${requirements.men} men, ${requirements.women} women, and ${requirements.kids} kids tables.`
     );
   }
 
@@ -924,6 +937,12 @@ export function DiningManagerPage() {
             availableHallMapPresets={availableHallMapPresets}
             dragTable={dragTable}
             hasPresetCoordinates={hasPresetCoordinates}
+            seatRequirements={{
+              men: menRequired,
+              women: womenRequired,
+              kids: form.childrenCount
+            }}
+            seatTotals={seatTotals}
             isWorkspaceExpanded={isWorkspaceExpanded}
             mapScale={mapScale}
             mapSurfaceRef={mapSurfaceRef}
