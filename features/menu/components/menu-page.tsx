@@ -262,6 +262,10 @@ export function MenuPage() {
     }))
     .filter((course) => course.items.length > 0);
 
+  // Read off once so the remove button below closes over an id rather than over
+  // the item object, which the next refetch replaces.
+  const editingItemId = libraryItemActions.editingItem?.id ?? null;
+
   const savePackage = async (values: NewPackageFormValues) => {
     const regularPrice = readPrice(values.basePrice, "Base price");
 
@@ -440,10 +444,21 @@ export function MenuPage() {
         // A create started from a service tab is already that kind of item.
         defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
         initialValues={libraryItemActions.editingValues}
+        // The confirmation below sits on top of this form; while it is up, an
+        // Escape belongs to it and must not take the edit down with it.
+        isDismissBlocked={Boolean(libraryItemActions.removingItem)}
         onClose={() => {
           setIsNewLibraryItemOpen(false);
           libraryItemActions.cancelEdit();
         }}
+        // Only for an editor opened on a real item, and only for someone allowed
+        // to write - a create has nothing to remove, and the server would refuse
+        // the rest anyway.
+        onRemove={
+          canEditMenu && editingItemId
+            ? () => libraryItemActions.startRemove(editingItemId)
+            : undefined
+        }
         onSave={
           libraryItemActions.editingItem
             ? libraryItemActions.saveEdit
@@ -463,8 +478,13 @@ export function MenuPage() {
         }}
         open={canEditMenu && isBulkUploadOpen}
       />
+      {/* An alert dialog, not `window.confirm`: it has to name the item, carry
+          the server's refusal when a package still holds it, and stack above the
+          editor the removal was started from. `confirmLabel` deliberately does
+          not repeat the editor's "Remove item" - the two buttons are on screen
+          together, and only one of them deletes anything. */}
       <ConfirmDialog
-        confirmLabel="Remove item"
+        confirmLabel="Remove from library"
         description={`"${libraryItemActions.removingItem?.name ?? ""}" will be removed from the menu library. This cannot be undone.`}
         fallbackErrorMessage="The item could not be removed. Please try again."
         onClose={libraryItemActions.cancelRemove}
@@ -579,8 +599,11 @@ export function MenuPage() {
                   ) : null}
 
                   {/* The same card as the Menu Library grid, so an item looks
-                      like itself - picture included - wherever it is shown, and
-                      removing it is the three-dot action it already is there. */}
+                      like itself - picture included - wherever it is shown.
+                      It keeps the three-dot menu the library grid gave up: the
+                      one action here takes the item out of this package, and a
+                      card that deletes on click is not what an operator scanning
+                      a package expects. */}
                   {activePackageItems.length === 0 ? (
                     <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
                       No items in this package yet. Pick them from the library
@@ -805,25 +828,18 @@ export function MenuPage() {
                   </div>
                 </div>
 
+                {/* The card is the update: one click opens the editor, and
+                    removing is a button inside it. The three-dot menu that used
+                    to sit in the corner held those same two entries behind a
+                    28px target that was the hardest thing on a phone to hit. */}
                 <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
                   {visibleItems.map((item) => (
                     <MenuItemCard
                       key={item.id}
-                      actions={[
-                        {
-                          label: "Update",
-                          disabled: !canEditMenu,
-                          onSelect: () => libraryItemActions.startEdit(item.id)
-                        },
-                        {
-                          label: "Remove",
-                          disabled: !canEditMenu,
-                          tone: "danger",
-                          onSelect: () => libraryItemActions.startRemove(item.id)
-                        }
-                      ]}
                       category={item.category}
+                      isSelectDisabled={!canEditMenu}
                       name={item.name}
+                      onSelect={() => libraryItemActions.startEdit(item.id)}
                       pictureUrl={item.pictureUrl}
                     />
                   ))}

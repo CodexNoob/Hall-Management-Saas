@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useScrollLock } from "@/lib/ui/use-scroll-lock";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -44,14 +45,20 @@ export function ConfirmDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Shared with whatever this is stacked on top of, so closing an editor and
+  // the confirmation over it in the same commit cannot leave the page locked.
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) return;
 
     setErrorMessage(null);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     cancelButtonRef.current?.focus();
 
+    // Escape is not swallowed here. A dialog underneath listens on the same
+    // window, and two listeners on one target cannot stop each other - so a
+    // caller that stacks this on top of its own dialog has to suppress that
+    // one's Escape itself while this is up.
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape" && !isSubmittingRef.current) onClose();
     }
@@ -59,7 +66,6 @@ export function ConfirmDialog({
     window.addEventListener("keydown", closeOnEscape);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [onClose, open]);
