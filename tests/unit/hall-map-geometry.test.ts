@@ -5,7 +5,9 @@ import {
   DESIGN_MAP_WIDTH,
   MIN_TABLE_SIZE,
   clampObjectToMap,
+  findObjectIdsInRegion,
   getMapFitScale,
+  normalizeWorldRect,
   getRenderedObjectSize,
   getRotationFromPointer,
   getRotatedBounds,
@@ -216,5 +218,112 @@ describe("hall map pointer rotation", () => {
 
   it("snaps to 15-degree increments while Shift is held", () => {
     expect(getRotationFromPointer(0, 0, 38, true)).toBe(45);
+  });
+});
+
+describe("marquee region selection", () => {
+  it("builds the same rectangle whichever way it was dragged", () => {
+    const downRight = normalizeWorldRect({ x: 10, y: 20 }, { x: 110, y: 220 });
+    const upLeft = normalizeWorldRect({ x: 110, y: 220 }, { x: 10, y: 20 });
+
+    expect(downRight).toEqual({ minX: 10, minY: 20, maxX: 110, maxY: 220 });
+    expect(upLeft).toEqual(downRight);
+  });
+
+  it("picks up only the shapes the box touches", () => {
+    const inside = object({ id: "inside", x: 100, y: 100 });
+    const outside = object({ id: "outside", x: 900, y: 900 });
+
+    expect(
+      findObjectIdsInRegion(
+        [inside, outside],
+        { minX: 50, minY: 50, maxX: 400, maxY: 400 }
+      )
+    ).toEqual(["inside"]);
+  });
+
+  it("selects a shape the box only clips", () => {
+    // Touch, not containment: requiring the box to swallow a table whole means
+    // dragging across half the room to collect two of them.
+    const clipped = object({ id: "clipped", x: 100, y: 100 });
+
+    expect(
+      findObjectIdsInRegion([clipped], {
+        minX: 0,
+        minY: 0,
+        maxX: 110,
+        maxY: 110
+      })
+    ).toEqual(["clipped"]);
+  });
+
+  it("catches a rotated shape by the space it really occupies", () => {
+    // A 250x12 divider turned 90deg is a tall bar. A box beside its unrotated
+    // footprint still crosses it, and must select it.
+    const divider = object({
+      id: "divider",
+      type: "divider",
+      width: 250,
+      height: 12,
+      rotation: 90,
+      x: 0,
+      y: 0
+    });
+    const bounds = getRotatedBounds(divider);
+    expect(bounds.height).toBeGreaterThan(200);
+
+    expect(
+      findObjectIdsInRegion([divider], {
+        minX: 100,
+        minY: 100,
+        maxX: 140,
+        maxY: 140
+      })
+    ).toEqual(["divider"]);
+  });
+
+  it("does not select a shape the box merely approaches", () => {
+    const box = object({ id: "far", x: 0, y: 0, width: 80, height: 54 });
+
+    expect(
+      findObjectIdsInRegion([box], {
+        minX: 200,
+        minY: 200,
+        maxX: 300,
+        maxY: 300
+      })
+    ).toEqual([]);
+  });
+
+  it("returns nothing for an empty board or an empty box", () => {
+    expect(
+      findObjectIdsInRegion([], { minX: 0, minY: 0, maxX: 500, maxY: 500 })
+    ).toEqual([]);
+    // A click without a drag collapses to zero area and must select nothing.
+    expect(
+      findObjectIdsInRegion([object({ id: "any", x: 300, y: 300 })], {
+        minX: 10,
+        minY: 10,
+        maxX: 10,
+        maxY: 10
+      })
+    ).toEqual([]);
+  });
+
+  it("returns every shape it spans, in board order", () => {
+    const shapes = [
+      object({ id: "a", x: 0, y: 0 }),
+      object({ id: "b", x: 200, y: 0 }),
+      object({ id: "c", x: 400, y: 0 })
+    ];
+
+    expect(
+      findObjectIdsInRegion(shapes, {
+        minX: -50,
+        minY: -50,
+        maxX: 300,
+        maxY: 300
+      })
+    ).toEqual(["a", "b"]);
   });
 });

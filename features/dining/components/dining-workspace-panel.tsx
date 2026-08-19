@@ -4,10 +4,7 @@ import {
   type Dispatch,
   type PointerEvent as ReactPointerEvent,
   type RefObject,
-  type SetStateAction,
-  type WheelEvent as ReactWheelEvent,
-  useEffect,
-  useRef
+  type SetStateAction
 } from "react";
 import { CompactSelect } from "@/components/ui/compact-select";
 import { TableSeats } from "@/components/shared/table-seats";
@@ -38,6 +35,7 @@ export function DiningWorkspacePanel({
   availableHallMapPresets,
   dragTable,
   hasPresetCoordinates,
+  isPresetModified,
   isWorkspaceExpanded,
   seatRequirements,
   seatTotals,
@@ -45,6 +43,7 @@ export function DiningWorkspacePanel({
   mapSurfaceRef,
   mapViewportRef,
   onFitMap,
+  onResetToPreset,
   onMapPanEnd,
   onMapPanMove,
   onMapPanStart,
@@ -68,6 +67,7 @@ export function DiningWorkspacePanel({
   availableHallMapPresets: HallMapPreset[];
   dragTable: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   hasPresetCoordinates: boolean;
+  isPresetModified: boolean;
   isWorkspaceExpanded: boolean;
   seatRequirements: { men: number; women: number; kids: number };
   seatTotals: { men: number; women: number; kids: number };
@@ -75,6 +75,7 @@ export function DiningWorkspacePanel({
   mapSurfaceRef: RefObject<HTMLDivElement | null>;
   mapViewportRef: RefObject<HTMLDivElement | null>;
   onFitMap: () => void;
+  onResetToPreset: () => void;
   onMapPanEnd: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onMapPanMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onMapPanStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -97,102 +98,6 @@ export function DiningWorkspacePanel({
   stopTableDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   tables: DiningTableData[];
 }) {
-  const smoothScrollRef = useRef<{
-    element: HTMLElement | null;
-    frame: number | null;
-    targetLeft: number;
-    targetTop: number;
-  }>({
-    element: null,
-    frame: null,
-    targetLeft: 0,
-    targetTop: 0
-  });
-
-  useEffect(
-    () => () => {
-      if (smoothScrollRef.current.frame !== null) {
-        window.cancelAnimationFrame(smoothScrollRef.current.frame);
-      }
-    },
-    []
-  );
-
-  function scrollPageFromMapWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    const workspaceScroller = event.currentTarget.closest(
-      "[data-dining-workspace-scroll]"
-    );
-    const mainScroller = event.currentTarget.closest("main");
-    const pageScroller =
-      workspaceScroller instanceof HTMLElement &&
-      workspaceScroller.scrollHeight > workspaceScroller.clientHeight
-        ? workspaceScroller
-        : mainScroller;
-
-    if (!(pageScroller instanceof HTMLElement)) {
-      return;
-    }
-
-    event.preventDefault();
-
-    const wheelUnit =
-      event.deltaMode === WheelEvent.DOM_DELTA_LINE
-        ? 16
-        : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
-          ? pageScroller.clientHeight
-          : 1;
-    const scrollState = smoothScrollRef.current;
-
-    if (scrollState.element !== pageScroller) {
-      scrollState.element = pageScroller;
-      scrollState.targetLeft = pageScroller.scrollLeft;
-      scrollState.targetTop = pageScroller.scrollTop;
-    }
-
-    scrollState.targetLeft = Math.max(
-      0,
-      Math.min(
-        pageScroller.scrollWidth - pageScroller.clientWidth,
-        scrollState.targetLeft + event.deltaX * wheelUnit * 0.42
-      )
-    );
-    scrollState.targetTop = Math.max(
-      0,
-      Math.min(
-        pageScroller.scrollHeight - pageScroller.clientHeight,
-        scrollState.targetTop + event.deltaY * wheelUnit * 0.42
-      )
-    );
-
-    if (scrollState.frame !== null) {
-      return;
-    }
-
-    const animateScroll = () => {
-      const state = smoothScrollRef.current;
-      const scroller = state.element;
-
-      if (!scroller) {
-        state.frame = null;
-        return;
-      }
-
-      const nextLeft =
-        scroller.scrollLeft + (state.targetLeft - scroller.scrollLeft) * 0.24;
-      const nextTop =
-        scroller.scrollTop + (state.targetTop - scroller.scrollTop) * 0.24;
-      const isSettled =
-        Math.abs(nextLeft - state.targetLeft) < 0.5 &&
-        Math.abs(nextTop - state.targetTop) < 0.5;
-
-      scroller.scrollLeft = isSettled ? state.targetLeft : nextLeft;
-      scroller.scrollTop = isSettled ? state.targetTop : nextTop;
-      state.frame = isSettled ? null : window.requestAnimationFrame(animateScroll);
-    };
-
-    scrollState.frame = window.requestAnimationFrame(animateScroll);
-  }
-
   const seatsRequired =
     seatRequirements.men + seatRequirements.women + seatRequirements.kids;
   const seatsProvided = seatTotals.men + seatTotals.women + seatTotals.kids;
@@ -281,6 +186,24 @@ export function DiningWorkspacePanel({
               ]}
               value={selectedPresetId}
             />
+
+            {/* Names the relationship the dropdown alone cannot: these tables
+                are a copy, and this one has been rearranged since. Editing
+                here never writes back to the preset. */}
+            {isPresetModified ? (
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="rounded-md border border-[#f0d08a] bg-[#fffaeb] px-2 py-1 text-[10px] font-black text-[#93600b]">
+                  Modified - this event only
+                </span>
+                <button
+                  className="rounded-md border border-[#b9c2cf] bg-white px-2 py-1 text-[10px] font-black hover:bg-[#eef4fa]"
+                  onClick={onResetToPreset}
+                  type="button"
+                >
+                  Reset to preset
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
         <div
@@ -322,7 +245,13 @@ export function DiningWorkspacePanel({
       <div
         // A flex column so the map can grow into the panel. As a block it could
         // not, and the gap below the board was dead space.
-        className={`min-h-0 flex-1 flex-col overflow-auto overscroll-contain p-2.5 sm:p-3 lg:flex ${
+        // No overscroll-contain. It stopped the wheel from chaining out to the
+        // page once this container was involved, which is what the board's
+        // hand-rolled smooth-scroll existed to work around - and that
+        // workaround left a requestAnimationFrame loop running forever,
+        // dragging the page back to a stale offset on every scroll made
+        // anywhere else. Native chaining does the job and cannot go stale.
+        className={`min-h-0 flex-1 flex-col overflow-auto p-2.5 sm:p-3 lg:flex ${
           isWorkspaceExpanded ? "flex" : "hidden"
         }`}
         data-dining-workspace-scroll="true"
@@ -333,7 +262,6 @@ export function DiningWorkspacePanel({
           // board overflowed instead of fitting. flex-1 sizes it to whatever is
           // there, and it grows on taller screens.
           className="relative min-h-64 min-w-0 flex-1 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] bg-[linear-gradient(#dce5ef_1px,transparent_1px),linear-gradient(90deg,#dce5ef_1px,transparent_1px)] bg-size-[20px_20px]"
-          onWheel={scrollPageFromMapWheel}
         >
           {savedMessage ? (
             // Same treatment as the hall map's saved confirmation, so a save

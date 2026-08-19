@@ -28,8 +28,12 @@ import {
   DINING_MAP_MIN_SCALE,
   DINING_MAP_WORLD_ORIGIN,
   DINING_MAP_WORLD_SIZE,
+  clampSeatsPerTable,
+  DEFAULT_SEATS_PER_TABLE,
+  deriveSeatsPerTable,
   diningGenderSplit,
   diningTableRequirements,
+  diningTablesMatchPreset,
   findMatchingDiningLayout,
   generateDiningAutoLayout,
   eventCounts,
@@ -87,6 +91,9 @@ export function DiningManagerPage() {
     scaleY: number;
   } | null>(null);
   const [checkMessage, setCheckMessage] = useState("");
+  // Read back from the saved layout rather than stored on the plan, so it can
+  // never disagree with the tables it describes. See deriveSeatsPerTable.
+  const [seatsPerTable, setSeatsPerTable] = useState(DEFAULT_SEATS_PER_TABLE);
   const [savedMessage, setSavedMessage] = useState("");
   const savedMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
@@ -170,6 +177,7 @@ export function DiningManagerPage() {
     const storedTables = validTables(plan?.tables);
     const nextTables = storedTables.length ? storedTables : defaultTables();
     setTables(nextTables);
+    setSeatsPerTable(deriveSeatsPerTable(nextTables));
     setSelectedPresetId(plan?.hallMapPresetId ?? "");
     setSelectedTableId(null);
     setSelectedTableIds([]);
@@ -192,6 +200,15 @@ export function DiningManagerPage() {
   const { menRequired, womenRequired } = diningGenderSplit(
     selectedEvent,
     form.adultCount
+  );
+  // The plan records which preset it came from, but the tables are a copy that
+  // the planner is free to rearrange. Without this the screen showed the preset
+  // name whether or not anything still resembled it.
+  const sourcePreset =
+    availableHallMapPresets.find((preset) => preset.id === selectedPresetId) ??
+    null;
+  const isPresetModified = Boolean(
+    sourcePreset && !diningTablesMatchPreset(tables, sourcePreset.objects)
   );
   const hasPresetCoordinates = tables.some(
     (table) =>
@@ -436,7 +453,7 @@ export function DiningManagerPage() {
         isSeating: true,
         mapType: mapTypeForSide(side),
         number: current.length + 1,
-        seats: side === "head" ? 12 : 10,
+        seats: side === "head" ? 12 : seatsPerTable,
         side,
         width: side === "head" ? 98 : 58,
         x: 330 + ((current.length % 5) - 2) * 22,
@@ -446,6 +463,30 @@ export function DiningManagerPage() {
     setDiningSelection(id);
   }
 
+  function changeSeatsPerTable(value: number) {
+    const seats = clampSeatsPerTable(value);
+    if (seats === seatsPerTable) return;
+
+    setSavedMessage("");
+    resetError();
+    rememberTablesSnapshot();
+    setSeatsPerTable(seats);
+    // Resize the tables already on the board, not just the ones added next.
+    // The figure is read back from the layout on reload, so leaving the
+    // existing tables alone would quietly undo the change. Head tables keep
+    // their own size - they are not what this setting describes.
+    setTables((current) =>
+      current.map((table) =>
+        isDiningSeatingTable(table) && table.side !== "head"
+          ? { ...table, seats }
+          : table
+      )
+    );
+    setCheckMessage(
+      `Tables resized to ${seats} seats. Re-run Auto layout to match the table count to the guests.`
+    );
+  }
+
   function addRequiredTables() {
     const requirements: Array<[TableSide, number]> = [
       ["men", Math.max(0, menRequired - seatTotals.men)],
@@ -453,7 +494,7 @@ export function DiningManagerPage() {
       ["kids", Math.max(0, form.childrenCount - seatTotals.kids)]
     ];
     const requiredTableCount = requirements.reduce(
-      (total, [, missingSeats]) => total + Math.ceil(missingSeats / 10),
+      (total, [, missingSeats]) => total + Math.ceil(missingSeats / seatsPerTable),
       0
     );
     if (requiredTableCount === 0) {
@@ -466,7 +507,7 @@ export function DiningManagerPage() {
     setTables((current) => {
       const next = [...current];
       for (const [side, missingSeats] of requirements) {
-        const count = Math.ceil(missingSeats / 10);
+        const count = Math.ceil(missingSeats / seatsPerTable);
         for (let index = 0; index < count; index += 1) {
           next.push({
             id: crypto.randomUUID(),
@@ -474,7 +515,7 @@ export function DiningManagerPage() {
             isSeating: true,
             mapType: mapTypeForSide(side),
             number: next.length + 1,
-            seats: 10,
+            seats: seatsPerTable,
             side,
             width: 58,
             x: 330 + ((next.length % 5) - 2) * 22,
@@ -493,7 +534,8 @@ export function DiningManagerPage() {
     const requirements = diningTableRequirements({
       childrenCount: form.childrenCount,
       menRequired,
-      womenRequired
+      womenRequired,
+      tableCapacity: seatsPerTable
     });
     const previousEvent = findMatchingDiningLayout({
       currentEvent: selectedEvent,
@@ -504,12 +546,15 @@ export function DiningManagerPage() {
     });
     const nextTables = previousEvent?.diningPlan
       ? cloneDiningLayoutTables(validTables(previousEvent.diningPlan.tables))
-      : generateDiningAutoLayout(requirements);
+      : generateDiningAutoLayout(requirements, seatsPerTable);
 
     setSavedMessage("");
     resetError();
     rememberTablesSnapshot();
     setTables(nextTables);
+    // A reused layout brings its own table size with it, which may not be the
+    // one this event was sized against.
+    setSeatsPerTable(deriveSeatsPerTable(nextTables));
     setSelectedTableId(null);
     setSelectedTableIds([]);
     window.requestAnimationFrame(() => fitDiningMapTables(nextTables));
@@ -541,6 +586,9 @@ export function DiningManagerPage() {
     );
 
     setTables(presetTables);
+    // The preset's own tables decide the venue's table size, the same way a
+    // saved plan's do.
+    setSeatsPerTable(deriveSeatsPerTable(presetTables));
     setSelectedTableId(null);
     setSelectedTableIds([]);
     setSavedMessage("");
@@ -570,6 +618,17 @@ export function DiningManagerPage() {
 
     rememberTablesSnapshot();
     setTablesFromPreset(preset);
+  }
+
+  function resetToPreset() {
+    if (!sourcePreset) return;
+    rememberTablesSnapshot();
+    setSavedMessage("");
+    resetError();
+    setTablesFromPreset(sourcePreset);
+    setCheckMessage(
+      `Reset to ${sourcePreset.name}. Save the dining plan to keep it.`
+    );
   }
 
   function removeSelectedTable() {
@@ -937,6 +996,8 @@ export function DiningManagerPage() {
             availableHallMapPresets={availableHallMapPresets}
             dragTable={dragTable}
             hasPresetCoordinates={hasPresetCoordinates}
+            isPresetModified={isPresetModified}
+            onResetToPreset={resetToPreset}
             seatRequirements={{
               men: menRequired,
               women: womenRequired,
@@ -980,9 +1041,11 @@ export function DiningManagerPage() {
               menRequired={menRequired}
               onAddRequiredTables={addRequiredTables}
               onAutoLayoutTables={autoLayoutTables}
+              onSeatsPerTableChange={changeSeatsPerTable}
               onSetCheckMessage={setCheckMessage}
               onSetTables={setTables}
               onUpdateForm={updateForm}
+              seatsPerTable={seatsPerTable}
               seatTotals={seatTotals}
               selectedTable={
                 tables.find((table) => table.id === selectedTableId) ?? null

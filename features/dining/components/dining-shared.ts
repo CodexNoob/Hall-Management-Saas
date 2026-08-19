@@ -1,4 +1,4 @@
-import type { SeatingSides } from "@/lib/hall-map/seating";
+﻿import type { SeatingSides } from "@/lib/hall-map/seating";
 
 export type TableSide = "men" | "women" | "kids" | "head";
 
@@ -166,13 +166,64 @@ export function diningGenderSplit(
   return { menRequired, womenRequired: adultCount - menRequired };
 }
 
+export const DEFAULT_SEATS_PER_TABLE = 10;
+export const MIN_SEATS_PER_TABLE = 1;
+export const MAX_SEATS_PER_TABLE = 30;
+
+/**
+ * How many seats a table holds at this venue, read back from the layout.
+ *
+ * Deliberately derived rather than stored. The tables already carry their own
+ * `seats`, so a separate saved figure would be a second source of truth free to
+ * disagree with the layout it describes - and the honest answer to "what is a
+ * table here" is whatever most of the tables actually are.
+ *
+ * Head tables are excluded: they are a different piece of furniture (12 by
+ * default) and there is usually exactly one, so counting it would drag the
+ * figure away from the round tables the requirement maths is about.
+ */
+export function deriveSeatsPerTable(tables: DiningTableData[]) {
+  const frequency = new Map<number, number>();
+
+  for (const table of tables) {
+    if (!isDiningSeatingTable(table) || table.side === "head") continue;
+    frequency.set(table.seats, (frequency.get(table.seats) ?? 0) + 1);
+  }
+
+  let seatsPerTable = DEFAULT_SEATS_PER_TABLE;
+  let highestCount = 0;
+
+  for (const [seats, count] of frequency) {
+    // A tie goes to the larger table. Rounding capacity down would inflate the
+    // table requirement, which is the safer error only until it stops fitting
+    // in the room.
+    if (count > highestCount || (count === highestCount && seats > seatsPerTable)) {
+      seatsPerTable = seats;
+      highestCount = count;
+    }
+  }
+
+  return seatsPerTable;
+}
+
+export function clampSeatsPerTable(value: number) {
+  if (!Number.isFinite(value)) return DEFAULT_SEATS_PER_TABLE;
+  return Math.min(
+    MAX_SEATS_PER_TABLE,
+    Math.max(MIN_SEATS_PER_TABLE, Math.round(value))
+  );
+}
+
 export function diningTableRequirements(input: {
   childrenCount: number;
   menRequired: number;
   womenRequired: number;
   tableCapacity?: number;
 }) {
-  const tableCapacity = Math.max(1, input.tableCapacity ?? 10);
+  const tableCapacity = Math.max(
+    1,
+    input.tableCapacity ?? DEFAULT_SEATS_PER_TABLE
+  );
 
   return {
     kids: Math.ceil(input.childrenCount / tableCapacity),
@@ -272,11 +323,13 @@ export function cloneDiningLayoutTables(
 
 function generatedTable({
   index,
+  seats,
   side,
   x,
   y
 }: {
   index: number;
+  seats: number;
   side: TableSide;
   x: number;
   y: number;
@@ -293,7 +346,7 @@ function generatedTable({
           ? `Men table ${index + 1}`
           : `Women table ${index + 1}`,
     number: index + 1,
-    seats: 10,
+    seats,
     side,
     width: 58,
     x,
@@ -302,8 +355,13 @@ function generatedTable({
 }
 
 export function generateDiningAutoLayout(
-  requirements: ReturnType<typeof diningTableRequirements>
+  requirements: ReturnType<typeof diningTableRequirements>,
+  // The same figure the requirement counts were worked out from. Generating
+  // ten-seat tables to satisfy a count derived from twelve-seat ones would
+  // leave the layout short of the seats it claims to provide.
+  seatsPerTable: number = DEFAULT_SEATS_PER_TABLE
 ) {
+  const seats = clampSeatsPerTable(seatsPerTable);
   const tables: DiningTableData[] = [];
   const rowGap = 88;
   const columnGap = 92;
@@ -316,6 +374,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "men",
         x: leftStartX + (index % columns) * columnGap,
         y: adultStartY + Math.floor(index / columns) * rowGap
@@ -327,6 +386,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "women",
         x: rightStartX + (index % columns) * columnGap,
         y: adultStartY + Math.floor(index / columns) * rowGap
@@ -339,6 +399,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "kids",
         x:
           (goesLeft ? -160 : 120) +
@@ -423,6 +484,50 @@ export function buildDiningTablesFromHallMapPresetObjects(
       height: object.height
     };
   });
+}
+
+/**
+ * Whether the board still matches the preset it was loaded from.
+ *
+ * The Dining Manager edits a *copy*: picking a preset converts its objects into
+ * this event's tables, and saving writes them to the dining plan, never back to
+ * the preset. That is deliberate - a preset edited in January must not rewrite
+ * the seating of an event that already ran in December - but the screen kept
+ * showing the preset's name either way, so a rearranged plan was indistinguish-
+ * able from an untouched one. This is what tells them apart.
+ */
+export function diningTablesMatchPreset(
+  tables: DiningTableData[],
+  presetObjects: unknown
+) {
+  // Ids are minted fresh on every load, so they carry no meaning here.
+  const presetTables = buildDiningTablesFromHallMapPresetObjects(
+    presetObjects,
+    () => ""
+  );
+
+  if (presetTables.length !== tables.length) return false;
+
+  // `number` is left out on purpose: it is positional bookkeeping that gets
+  // rewritten by unrelated edits, not something a planner changed.
+  const fingerprint = (table: DiningTableData) =>
+    JSON.stringify([
+      table.mapObjectId ?? null,
+      table.name ?? null,
+      table.side,
+      table.seats,
+      table.isSeating !== false,
+      Math.round(table.x ?? 0),
+      Math.round(table.y ?? 0),
+      Math.round(table.width ?? 0),
+      Math.round(table.height ?? 0),
+      Math.round(table.rotation ?? 0)
+    ]);
+
+  const fromPreset = presetTables.map(fingerprint).sort();
+  const onBoard = tables.map(fingerprint).sort();
+
+  return fromPreset.every((table, index) => table === onBoard[index]);
 }
 
 export function defaultTables(): DiningTableData[] {

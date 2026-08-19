@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  clampSeatsPerTable,
   cloneDiningLayoutTables,
+  deriveSeatsPerTable,
   diningGenderSplit,
   diningTableRequirements,
   findMatchingDiningLayout,
@@ -216,7 +218,107 @@ describe("dining gender split", () => {
     expect(split.menRequired).toBe(10);
     expect(split.womenRequired).toBe(0);
   });
+});
 
+describe("dining seats per table", () => {
+  const seating = (seats: number, side: DiningTableData["side"] = "men") => ({
+    id: `t-${seats}-${side}-${Math.round(seats * 7)}`,
+    number: 1,
+    seats,
+    side
+  });
+
+  it("reads the venue's table size back from the layout", () => {
+    expect(
+      deriveSeatsPerTable([
+        seating(12),
+        seating(12, "women"),
+        seating(12, "kids"),
+        seating(10)
+      ])
+    ).toBe(12);
+  });
+
+  it("ignores the head table, which is its own size", () => {
+    // One 12-seat head table must not outvote the 8-seat rounds.
+    expect(
+      deriveSeatsPerTable([
+        { id: "h", number: 1, seats: 12, side: "head" },
+        seating(8),
+        seating(8, "women")
+      ])
+    ).toBe(8);
+  });
+
+  it("ignores dividers and other non-seating objects", () => {
+    expect(
+      deriveSeatsPerTable([
+        { id: "d", number: 1, seats: 0, side: "men", isSeating: false },
+        seating(12),
+        seating(12, "women")
+      ])
+    ).toBe(12);
+  });
+
+  it("breaks a tie towards the larger table", () => {
+    // Under-stating capacity inflates the table count; over-stating it seats
+    // everyone. On an even split, prefer the one that seats everyone.
+    expect(deriveSeatsPerTable([seating(10), seating(12, "women")])).toBe(12);
+  });
+
+  it("falls back to ten with nothing to read", () => {
+    expect(deriveSeatsPerTable([])).toBe(10);
+  });
+
+  it("clamps out-of-range and nonsense input", () => {
+    expect(clampSeatsPerTable(0)).toBe(1);
+    expect(clampSeatsPerTable(999)).toBe(30);
+    expect(clampSeatsPerTable(10.4)).toBe(10);
+    expect(clampSeatsPerTable(Number.NaN)).toBe(10);
+  });
+
+  it("needs fewer tables when the tables are bigger", () => {
+    const guests = { childrenCount: 40, menRequired: 120, womenRequired: 120 };
+
+    expect(diningTableRequirements({ ...guests, tableCapacity: 10 })).toEqual({
+      kids: 4,
+      men: 12,
+      women: 12
+    });
+    expect(diningTableRequirements({ ...guests, tableCapacity: 12 })).toEqual({
+      kids: 4,
+      men: 10,
+      women: 10
+    });
+  });
+
+  it("generates tables at the size the counts were worked out from", () => {
+    // The bug this guards: counts derived from 12-seat tables, tables built at
+    // 10 seats, layout silently 40 seats short of what it claims.
+    const requirements = diningTableRequirements({
+      childrenCount: 0,
+      menRequired: 120,
+      womenRequired: 120,
+      tableCapacity: 12
+    });
+    const layout = generateDiningAutoLayout(requirements, 12);
+    const seatingTables = layout.filter((table) => table.isSeating !== false);
+
+    expect(seatingTables).toHaveLength(20);
+    expect(seatingTables.every((table) => table.seats === 12)).toBe(true);
+    expect(
+      seatingTables.reduce((total, table) => total + table.seats, 0)
+    ).toBe(240);
+  });
+
+  it("still defaults to ten-seat tables when no size is given", () => {
+    const layout = generateDiningAutoLayout({ kids: 0, men: 1, women: 0 });
+
+    expect(layout.find((table) => table.side === "men")?.seats).toBe(10);
+  });
+});
+
+describe("dining layout generation", () => {
   it("clones matched tables with fresh ids", () => {
     const createId = vi.fn().mockReturnValueOnce("new-1").mockReturnValueOnce("new-2");
     const cloned = cloneDiningLayoutTables(

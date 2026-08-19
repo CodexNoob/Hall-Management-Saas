@@ -26,14 +26,17 @@ import {
   clampObjectToMap,
   clampViewportPosition,
   defaultShapeDimensions,
+  findObjectIdsInRegion,
   findOverlappingObjectIds,
   generateTableRows,
   getMapObjectBounds,
   getRotationFromPointer,
   initialHallMaps,
+  normalizeWorldRect,
   snapToGrid,
   summarizeSeats,
   type HallMapsResponse,
+  type WorldRect,
   type MapObject,
   type ResizeEdge,
   type SaveHallMapInput,
@@ -103,6 +106,17 @@ export function HallRoomMapPage() {
     width: MAP_WORLD_SIZE,
     height: MAP_WORLD_SIZE
   });
+  // Right-drag box select. Held in world coordinates and drawn inside the
+  // scaled surface, so the box stays anchored to the floor plan if the map is
+  // scrolled or zoomed part-way through the drag.
+  const [marquee, setMarquee] = useState<WorldRect | null>(null);
+  const marqueeRef = useRef<{
+    pointerId: number;
+    additive: boolean;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
   // Placement snapping to the 20px visual grid. Alt while dragging bypasses it.
   const [isSnapEnabled, setIsSnapEnabled] = useState(true);
   const [isPrintOpen, setIsPrintOpen] = useState(false);
@@ -801,6 +815,127 @@ export function HallRoomMapPage() {
     setShapeLibrary((current) => [...current, shape]);
     await hallMapsQuery.refetch();
     showFeedback(`${shape.name} saved to the shape library.`);
+  }
+
+  /**
+   * Pointer position in object coordinates.
+   *
+   * Measured off the rendered surface rather than the `mapScale` state: the
+   * two can disagree by a fraction while a zoom settles, and a marquee that
+   * lands a few units off the cursor picks up the wrong shapes.
+   */
+  function toWorldPoint(clientX: number, clientY: number) {
+    const surface = mapRef.current;
+    if (!surface) return null;
+
+    const rect = surface.getBoundingClientRect();
+    const scale = rect.width / MAP_WORLD_SIZE;
+    if (!Number.isFinite(scale) || scale <= 0) return null;
+
+    return {
+      x: (clientX - rect.left) / scale - MAP_WORLD_ORIGIN,
+      y: (clientY - rect.top) / scale - MAP_WORLD_ORIGIN
+    };
+  }
+
+  // Right-drag draws a selection box; left-drag still pans. The three handlers
+  // below try the marquee first and otherwise hand the event to the pan
+  // functions untouched, so panning behaves exactly as it always has.
+  function startMarquee(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 2) return false;
+
+    const target = event.target;
+    if (target instanceof Element && target.closest("[data-map-object]")) {
+      return false;
+    }
+
+    const origin = toWorldPoint(event.clientX, event.clientY);
+    if (!origin) return false;
+
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    marqueeRef.current = {
+      pointerId: event.pointerId,
+      // Shift keeps what is already selected, matching Shift-click.
+      additive: event.shiftKey,
+      originX: origin.x,
+      originY: origin.y,
+      moved: false
+    };
+    setMarquee({
+      minX: origin.x,
+      minY: origin.y,
+      maxX: origin.x,
+      maxY: origin.y
+    });
+    return true;
+  }
+
+  function updateMarquee(event: ReactPointerEvent<HTMLDivElement>) {
+    const active = marqueeRef.current;
+    if (!active || active.pointerId !== event.pointerId) return false;
+
+    const point = toWorldPoint(event.clientX, event.clientY);
+    if (!point) return true;
+
+    if (
+      Math.abs(point.x - active.originX) > 2 ||
+      Math.abs(point.y - active.originY) > 2
+    ) {
+      active.moved = true;
+    }
+
+    event.preventDefault();
+    setMarquee(
+      normalizeWorldRect({ x: active.originX, y: active.originY }, point)
+    );
+    return true;
+  }
+
+  function commitMarquee(event: ReactPointerEvent<HTMLDivElement>) {
+    const active = marqueeRef.current;
+    if (!active || active.pointerId !== event.pointerId) return false;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    marqueeRef.current = null;
+    const region = marquee;
+    setMarquee(null);
+
+    // A right-click that never moved is not a selection gesture; leave the
+    // current selection alone rather than silently clearing it.
+    if (!active.moved || !region) return true;
+
+    const hits = findObjectIdsInRegion(objects, region);
+    const nextIds = active.additive
+      ? Array.from(new Set([...selectedObjectIds, ...hits]))
+      : hits;
+
+    setSelectedObjectIds(nextIds);
+    setSelectedObjectId(nextIds.at(-1) ?? null);
+    showFeedback(
+      nextIds.length === 1
+        ? "1 shape selected."
+        : `${nextIds.length} shapes selected.`
+    );
+    return true;
+  }
+
+  function handleMapPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (startMarquee(event)) return;
+    startMapPan(event);
+  }
+
+  function handleMapPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (updateMarquee(event)) return;
+    panMap(event);
+  }
+
+  function handleMapPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (commitMarquee(event)) return;
+    stopMapPan(event);
   }
 
   function startMapPan(event: ReactPointerEvent<HTMLDivElement>) {
@@ -1566,10 +1701,16 @@ export function HallRoomMapPage() {
               <div
                 aria-label="Hall map grid"
                 className="absolute inset-0 cursor-grab touch-none overflow-hidden p-2 active:cursor-grabbing"
-                onPointerCancel={stopMapPan}
-                onPointerDown={startMapPan}
-                onPointerMove={panMap}
-                onPointerUp={stopMapPan}
+                // Scoped to the board, never the document: right-click keeps
+                // working everywhere else in the app. The event fires on
+                // mouse-up on Windows and mouse-down on some Linux and macOS
+                // setups, so it is suppressed here rather than inside the
+                // pointer handlers.
+                onContextMenu={(event) => event.preventDefault()}
+                onPointerCancel={handleMapPointerUp}
+                onPointerDown={handleMapPointerDown}
+                onPointerMove={handleMapPointerMove}
+                onPointerUp={handleMapPointerUp}
                 ref={mapViewportRef}
                 // The world surface is intentionally very large. Size
                 // containment prevents it from increasing the dashboard row's
@@ -1623,6 +1764,24 @@ export function HallRoomMapPage() {
                       className="pointer-events-none absolute max-w-none opacity-60"
                       src={floorPlanUrl}
                       style={{ left: MAP_WORLD_ORIGIN, top: MAP_WORLD_ORIGIN }}
+                    />
+                  ) : null}
+
+                  {marquee ? (
+                    // Drawn inside the scaled surface in world coordinates, so
+                    // it stays anchored to the floor plan if the board is
+                    // scrolled mid-drag. The border is divided by the scale to
+                    // stay a hairline at any zoom.
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute z-30 border-dashed border-[#1f4d73] bg-[#1f4d73]/10"
+                      style={{
+                        borderWidth: Math.max(1, 1.5 / mapScale),
+                        height: marquee.maxY - marquee.minY,
+                        left: marquee.minX + MAP_WORLD_ORIGIN,
+                        top: marquee.minY + MAP_WORLD_ORIGIN,
+                        width: marquee.maxX - marquee.minX
+                      }}
                     />
                   ) : null}
 
