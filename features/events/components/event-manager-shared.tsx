@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 
 export type BadgeTone = "green" | "gold" | "red";
 export type IconName =
+  | "box"
   | "calendar"
   | "check"
   | "chevron"
@@ -177,6 +178,16 @@ export type EventMenuResponse = {
     isActive: boolean;
     pictureUrl: string | null;
   }>;
+  /// The saved dish lists a venue sells as one thing. Read here so the menu tab
+  /// can offer them without a second request - the drawer resolves the ids
+  /// against `items` above, which is already on hand.
+  packages: Array<{
+    id: string;
+    name: string;
+    regularPrice: string | number | null;
+    includedMenuItemIds: string[];
+    isActive: boolean;
+  }>;
 };
 
 /// One event's menu, read from /api/events/[eventId]/menu.
@@ -190,6 +201,11 @@ export type EventMenuDocument = {
   /// a conflict rather than one of them silently losing their changes.
   version: number;
   confirmedBy: { id: string; name: string } | null;
+  /// The package this event is on, or null. Read off `Event.package_id` rather
+  /// than the menu, because that is the column the calendar, the kitchen board
+  /// and the dining manager already name the package from. The name and price
+  /// are looked up in the catalog the tab has already fetched.
+  packageId: string | null;
   lines: EventMenuLine[];
 };
 
@@ -369,6 +385,14 @@ export function LineIcon({
   };
 
   const paths: Record<IconName, ReactNode> = {
+    // The same carton the menu library draws beside its Packages tab, so the
+    // two places a package appears are recognisably the same thing.
+    box: (
+      <>
+        <path d="m21 8-9-5-9 5 9 5Z" />
+        <path d="M3 8v8l9 5 9-5V8M12 13v8" />
+      </>
+    ),
     calendar: (
       <>
         <rect x="3" y="4" width="18" height="17" rx="2" />

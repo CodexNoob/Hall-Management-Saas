@@ -13,7 +13,12 @@ import {
   setAuthenticatedQueryData,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  PackageSelectorDrawer,
+  type PackageOption
+} from "@/features/events/components/package-selector-drawer";
 import { AsyncState } from "@/components/ui/async-state";
+import { EventMenuPackageBar } from "@/features/events/components/event-menu-package-bar";
 import { EventMenuSkeleton } from "@/features/events/components/event-menu-skeleton";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
@@ -142,6 +147,10 @@ export function EventMenuContent({
   onEventSaved: () => Promise<unknown>;
 }) {
   const menuUrl = `/api/events/${event.id}/menu`;
+  /// Applying a package is a menu write plus a change to the event's own
+  /// package columns, which is why it is its own route rather than another
+  /// shape of the PUT below.
+  const packageUrl = `${menuUrl}/package`;
   /// The kitchen tab reads these same lines through its own route, so a write
   /// here has to age that entry too. Without this the sheet keeps its cached
   /// copy for the two minute stale window and shows a dish list the user has
@@ -152,6 +161,7 @@ export function EventMenuContent({
     useAuthenticatedQuery<EventMenuDocumentResponse>(menuUrl);
 
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
+  const [isPackageSelectorOpen, setIsPackageSelectorOpen] = useState(false);
   const [selectorSection, setSelectorSection] = useState<MenuSection>("Buffet");
   const [message, setMessage] = useState("");
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -212,6 +222,84 @@ export function EventMenuContent({
 
   const selectedIds = useMemo(() => new Set(lines.map(targetId)), [lines]);
 
+  /**
+   * The packages this event could be served from, with their ids resolved
+   * against the library that is already on hand. Deactivated dishes are left
+   * out on purpose - they are not offered for anything new, and the server
+   * skips them for the same reason, so what the drawer previews is what lands.
+   */
+  const packageOptions = useMemo<
+    Array<PackageOption & { isActive: boolean }>
+  >(() => {
+    const data = libraryQuery.data;
+
+    if (!data) return [];
+
+    const dishesById = new Map(
+      data.items
+        .filter((item) => item.isActive)
+        .map((item) => [
+          item.id,
+          {
+            id: item.id,
+            name: item.name,
+            styles: [
+              ...new Set((item.services ?? []).map((s) => s.serviceStyle))
+            ]
+          }
+        ])
+    );
+
+    return (data.packages ?? []).map((entry) => {
+      const items = entry.includedMenuItemIds
+        .map((id) => dishesById.get(id))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+      return {
+        id: entry.id,
+        name: entry.name,
+        price: entry.regularPrice === null ? null : Number(entry.regularPrice),
+        items,
+        // Ids the package still lists that no active dish answers to. Shown
+        // rather than hidden, because a package quietly one dish short is worse
+        // than one that says so.
+        missingCount: entry.includedMenuItemIds.length - items.length,
+        isActive: entry.isActive
+      };
+    });
+  }, [libraryQuery.data]);
+
+  /// A package that has since been deactivated still names itself here - the
+  /// event is on it - but it is not offered for a new event.
+  const offeredPackages = useMemo(
+    () => packageOptions.filter((option) => option.isActive),
+    [packageOptions]
+  );
+
+  const appliedPackage = useMemo(
+    () =>
+      menu?.packageId
+        ? (packageOptions.find((option) => option.id === menu.packageId) ??
+          null)
+        : null,
+    [menu?.packageId, packageOptions]
+  );
+
+  const packageLineCount = useMemo(
+    () => lines.filter((line) => line.source === "Package").length,
+    [lines]
+  );
+
+  const menuItemIds = useMemo(
+    () =>
+      new Set(
+        lines
+          .map((line) => line.menuItemId)
+          .filter((value): value is string => Boolean(value))
+      ),
+    [lines]
+  );
+
   /** Buffet, Plated, Add-ons - plus the dishes still waiting for an answer. */
   const sections = useMemo(
     () =>
@@ -239,40 +327,28 @@ export function EventMenuContent({
   );
 
   /**
-   * Sends the menu the user now wants. Every add and remove goes through here,
-   * which is the whole point of the rewrite: the previous version only ever
-   * saved as part of confirming, so a menu built and left unconfirmed was gone
-   * on the next reload.
+   * One write to this event's menu, whichever route it goes through.
+   *
+   * Every one of them answers with the whole saved menu, so the cache is
+   * written rather than thrown away - that is what stops the next visit to this
+   * event from paying for a fetch it does not need. `optimistic` is what the
+   * user should see while the request is in the air; dropping the overlay is
+   * the whole rollback, because the cache still holds what the server last
+   * confirmed.
    */
-  const saveLines = async (nextLines: EventMenuLine[]) => {
-    if (!menu) return;
+  const commitMenu = async (
+    optimistic: EventMenuDocument | null,
+    send: () => Promise<Response>,
+    fallbackMessage: string,
+    { refreshEvent = false }: { refreshEvent?: boolean } = {}
+  ) => {
+    if (optimistic) setPendingMenu({ url: menuUrl, menu: optimistic });
 
-    // Shown immediately. Dropping the overlay is the whole rollback: the cache
-    // still holds what the server last confirmed, so clearing it puts that back
-    // on screen without this component having to remember it.
-    setPendingMenu({ url: menuUrl, menu: { ...menu, lines: nextLines } });
     setIsSaving(true);
     setMessage("");
 
     try {
-      const response = await authenticatedFetch(menuUrl, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          meal: menu.meal,
-          version: menu.version,
-          lines: nextLines.map((line) =>
-            line.kind === "AddOn"
-              ? { addOnId: line.addOnId, notes: line.notes }
-              : {
-                  menuItemId: line.menuItemId,
-                  serviceStyle: line.serviceStyle,
-                  notes: line.notes
-                }
-          )
-        })
-      });
-
+      const response = await send();
       const payload = (await response.json().catch(() => null)) as {
         menu?: EventMenuDocument;
         error?: string;
@@ -280,7 +356,7 @@ export function EventMenuContent({
 
       if (!response.ok || !payload?.menu) {
         setPendingMenu(null);
-        setMessage(payload?.error ?? "Could not save the menu.");
+        setMessage(payload?.error ?? fallbackMessage);
 
         // A conflict means somebody else's version is the real one, so pull it
         // rather than leaving the stale one on screen.
@@ -289,23 +365,164 @@ export function EventMenuContent({
           await documentQuery.refetch();
         }
 
-        return;
+        return null;
       }
 
-      // The response carries the whole saved menu, so it is written into the
-      // cache instead of the cache being thrown away. That is what stops the
-      // next visit to this event from paying for a fetch it does not need.
       setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
         menu: payload.menu
       });
+      /// The kitchen tab reads these same lines through its own route, so a
+      /// write here has to age that entry too.
       invalidateAuthenticatedQuery(kitchenUrl);
       setPendingMenu(null);
+
+      // Only for writes that touch the event row itself - the package name and
+      // the confirmation flag are read all over the manager, and re-reading the
+      // event list is not something an ordinary dish add should cost.
+      if (refreshEvent) await onEventSaved();
+
+      return payload.menu;
     } catch {
       setPendingMenu(null);
-      setMessage("Could not save the menu.");
+      setMessage(fallbackMessage);
+
+      return null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  /**
+   * Sends the menu the user now wants. Every add and remove goes through here,
+   * which is the whole point of the rewrite: the previous version only ever
+   * saved as part of confirming, so a menu built and left unconfirmed was gone
+   * on the next reload.
+   */
+  const saveLines = async (nextLines: EventMenuLine[]) => {
+    if (!menu) return;
+
+    await commitMenu(
+      { ...menu, lines: nextLines },
+      () =>
+        authenticatedFetch(menuUrl, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            meal: menu.meal,
+            version: menu.version,
+            lines: nextLines.map((line) =>
+              line.kind === "AddOn"
+                ? {
+                    addOnId: line.addOnId,
+                    notes: line.notes,
+                    source: line.source
+                  }
+                : {
+                    menuItemId: line.menuItemId,
+                    serviceStyle: line.serviceStyle,
+                    notes: line.notes,
+                    // Sent back as it was read, so a dish the package put here
+                    // is still the package's after an unrelated edit.
+                    source: line.source
+                  }
+            )
+          })
+        }),
+      "Could not save the menu."
+    );
+  };
+
+  /**
+   * Drops a whole package onto the menu. The server decides which dishes land
+   * and under which style, because those rules live beside the library rows;
+   * what is built here is only what to show while it answers.
+   */
+  const applyPackage = async (option: PackageOption) => {
+    setIsPackageSelectorOpen(false);
+
+    if (!menu) return;
+
+    const includedIds = new Set(option.items.map((item) => item.id));
+    // Swapping packages takes the old one's dishes off, exactly as the server
+    // does, so the two never disagree while the request is in the air.
+    const kept = lines.filter(
+      (line) =>
+        !(
+          line.source === "Package" &&
+          line.menuItemId !== null &&
+          !includedIds.has(line.menuItemId)
+        )
+    );
+    const keptIds = new Set(kept.map(targetId));
+    const fresh = option.items
+      .filter((item) => !keptIds.has(item.id))
+      .map((item, index) => ({
+        // Provisional until the server answers with the real rows.
+        id: `pending-package-${item.id}`,
+        menuItemId: item.id,
+        addOnId: null,
+        kind: "Dish" as const,
+        name: item.name,
+        pictureUrl: null,
+        // A dish served exactly one way needs no decision; one with a rule for
+        // both is left for the section above to ask about.
+        serviceStyle: item.styles.length === 1 ? item.styles[0] : null,
+        availableStyles: item.styles,
+        price: null,
+        notes: null,
+        sortOrder: kept.length + index,
+        source: "Package",
+        isRetired: false
+      }));
+
+    const saved = await commitMenu(
+      { ...menu, packageId: option.id, lines: [...kept, ...fresh] },
+      () =>
+        authenticatedFetch(packageUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            meal: menu.meal,
+            version: menu.version,
+            packageId: option.id
+          })
+        }),
+      "Could not add the package.",
+      // The event row carries the package name the rest of the manager shows.
+      { refreshEvent: true }
+    );
+
+    if (saved) {
+      const added = saved.lines.filter(
+        (line) => line.source === "Package"
+      ).length;
+
+      setMessage(
+        `${option.name} added - ${added} dish${added === 1 ? "" : "es"} on this menu.`
+      );
+    }
+  };
+
+  /** Takes the package back off. Dishes added by hand are left alone. */
+  const removePackage = async () => {
+    if (!menu) return;
+
+    const saved = await commitMenu(
+      {
+        ...menu,
+        packageId: null,
+        lines: lines.filter((line) => line.source !== "Package")
+      },
+      () =>
+        authenticatedFetch(
+          `${packageUrl}?meal=${encodeURIComponent(menu.meal)}&version=${menu.version}`,
+          { method: "DELETE" }
+        ),
+      "Could not remove the package.",
+      { refreshEvent: true }
+    );
+
+    if (saved) setMessage("Package removed.");
   };
 
   /**
@@ -394,56 +611,30 @@ export function EventMenuContent({
   const saveConfirmationState = async (confirming: boolean) => {
     if (!menu) return;
 
-    setIsSaving(true);
-    setMessage("");
-
-    try {
-      const response = await authenticatedFetch(menuUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: confirming ? "confirm" : "reopen",
-          meal: menu.meal,
-          version: menu.version
-        })
-      });
-
-      const payload = (await response.json().catch(() => null)) as {
-        menu?: EventMenuDocument;
-        error?: string;
-      } | null;
-
-      if (!response.ok || !payload?.menu) {
-        setMessage(
-          payload?.error ??
-            (confirming ? "Could not confirm menu." : "Could not reopen menu.")
-        );
-
-        if (response.status === 409) {
-          invalidateAuthenticatedQuery(menuUrl);
-          await documentQuery.refetch();
-        }
-
-        return;
-      }
-
-      setAuthenticatedQueryData<EventMenuDocumentResponse>(menuUrl, {
-        menu: payload.menu
-      });
-      invalidateAuthenticatedQuery(kitchenUrl);
-      setPendingMenu(null);
-      setIsReviewOpen(false);
+    const saved = await commitMenu(
+      // Nothing to show ahead of the answer: confirming changes the lock, not
+      // the dishes, and a lock that flips back on a refusal reads as a bug.
+      null,
+      () =>
+        authenticatedFetch(menuUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: confirming ? "confirm" : "reopen",
+            meal: menu.meal,
+            version: menu.version
+          })
+        }),
+      confirming ? "Could not confirm menu." : "Could not reopen menu.",
       // The event row carries the mirrored ids and the confirmation flag, so
       // the rest of the manager has to re-read it.
-      await onEventSaved();
-      setMessage(confirming ? "Menu confirmed." : "Menu reopened.");
-    } catch {
-      setMessage(
-        confirming ? "Could not confirm menu." : "Could not reopen menu."
-      );
-    } finally {
-      setIsSaving(false);
-    }
+      { refreshEvent: true }
+    );
+
+    if (!saved) return;
+
+    setIsReviewOpen(false);
+    setMessage(confirming ? "Menu confirmed." : "Menu reopened.");
   };
 
   return (
@@ -514,6 +705,16 @@ export function EventMenuContent({
           </div>
         ) : (
           <>
+            <EventMenuPackageBar
+              appliedPackage={appliedPackage}
+              hasPackages={offeredPackages.length > 0}
+              isConfirmed={isConfirmed}
+              isSaving={isSaving}
+              onOpenSelector={() => setIsPackageSelectorOpen(true)}
+              onRemove={() => void removePackage()}
+              packageLineCount={packageLineCount}
+            />
+
             {unassignedLines.length > 0 ? (
               <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
                 <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
@@ -611,6 +812,16 @@ export function EventMenuContent({
           </>
         )}
       </section>
+
+      <PackageSelectorDrawer
+        appliedPackageId={menu?.packageId ?? null}
+        isSaving={isSaving}
+        menuItemIds={menuItemIds}
+        onApply={(option) => void applyPackage(option)}
+        onClose={() => setIsPackageSelectorOpen(false)}
+        open={isPackageSelectorOpen}
+        packages={offeredPackages}
+      />
 
       <MenuItemSelectorDrawer
         initialSection={selectorSection}

@@ -2,14 +2,25 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
+  conflict,
+  confirmedMenu,
+  emptyMenu,
+  eventIdSchema,
+  LINE_SOURCES,
+  loadEventForMenu,
+  mealSchema,
+  menuSelect,
+  presentMenu,
+  readPresentedMenu,
+  serviceStyleSchema
+} from "@/features/events/server/event-menu-document";
+import {
   assertHallAccess,
   requireAnyPermission,
   requirePermission
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
-import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
-import { createSignedFileUrls } from "@/lib/storage/files";
 
 /**
  * The menu for one event: what it is serving buffet, what it is serving plated,
@@ -29,12 +40,6 @@ import { createSignedFileUrls } from "@/lib/storage/files";
  *   whether the client may still change their selections.
  */
 
-const MEALS = ["Main", "FridayNight", "ShabbosDay", "SeudahShlishis"] as const;
-const SERVICE_STYLES = ["Buffet", "Plated"] as const;
-
-const mealSchema = z.enum(MEALS).default("Main");
-const serviceStyleSchema = z.enum(SERVICE_STYLES).nullable().optional();
-
 const menuLineSchema = z
   .object({
     menuItemId: z.string().uuid().optional(),
@@ -42,6 +47,10 @@ const menuLineSchema = z
     /// Which way this dish is served at this event, and so which of its
     /// `MenuItemService` rules the kitchen quantity math runs.
     serviceStyle: serviceStyleSchema,
+    /// Sent back as it was read. Without this every line a package put on the
+    /// menu would be relabelled `Manual` by the next unrelated edit, and
+    /// removing the package would no longer find them.
+    source: z.enum(LINE_SOURCES).optional(),
     notes: z.string().trim().max(2000).nullable().optional()
   })
   .refine(
@@ -69,144 +78,6 @@ const lifecycleSchema = z.object({
   version: z.number().int().min(0)
 });
 
-const eventIdSchema = z.string().uuid();
-
-const CONFLICT_MESSAGE =
-  "This menu was changed somewhere else. Reload before saving again.";
-
-function conflict() {
-  return NextResponse.json({ error: CONFLICT_MESSAGE }, { status: 409 });
-}
-
-const lineOrder = [
-  { sortOrder: "asc" },
-  { createdAt: "asc" }
-] satisfies Prisma.EventMenuLineOrderByWithRelationInput[];
-
-const lineSelect = {
-  id: true,
-  menuItemId: true,
-  addOnId: true,
-  itemName: true,
-  serviceStyle: true,
-  notes: true,
-  sortOrder: true,
-  source: true,
-  menuItem: {
-    select: {
-      name: true,
-      kind: true,
-      isActive: true,
-      // Signed below and handed over as a URL. The bucket is never selected and
-      // the path never reaches the client, the same rule GET /api/menu follows:
-      // these two columns are the only thing that would let a caller address
-      // the stored object directly instead of through a short-lived URL.
-      picturePath: true,
-      services: { select: { serviceStyle: true } }
-    }
-  },
-  addOn: {
-    select: { name: true, price: true, isActive: true, picturePath: true }
-  }
-} satisfies Prisma.EventMenuLineSelect;
-
-const menuSelect = {
-  id: true,
-  meal: true,
-  status: true,
-  serviceStyle: true,
-  confirmedAt: true,
-  version: true,
-  confirmedBy: { select: { id: true, name: true } },
-  lines: { select: lineSelect, orderBy: lineOrder }
-} satisfies Prisma.EventMenuSelect;
-
-type MenuLineRow = Prisma.EventMenuLineGetPayload<{ select: typeof lineSelect }>;
-
-/**
- * A confirmed line answers from its own snapshot; a draft answers from the
- * library. That is the whole rule: renaming a dish should flow into a menu
- * nobody has signed off yet, and must not change one the kitchen already read.
- */
-function presentLine(line: MenuLineRow, pictureUrl: string | null) {
-  const isAddOn = line.addOnId !== null;
-
-  return {
-    id: line.id,
-    menuItemId: line.menuItemId,
-    addOnId: line.addOnId,
-    kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
-    name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
-    // Live, not snapshotted like the name. A picture is how staff recognise the
-    // dish on the sheet; a stale one is worse than a renamed one, and the
-    // catalog row cannot be deleted out from under a line anyway.
-    pictureUrl,
-    serviceStyle: line.serviceStyle,
-    // Which styles the dish could be served in, so the menu tab can ask when a
-    // dish carries a rule for both and this event has not said which.
-    availableStyles: [
-      ...new Set((line.menuItem?.services ?? []).map((s) => s.serviceStyle))
-    ],
-    price: line.addOn?.price === undefined ? null : Number(line.addOn.price),
-    notes: line.notes,
-    sortOrder: line.sortOrder,
-    source: line.source,
-    isRetired: isAddOn
-      ? line.addOn?.isActive === false
-      : line.menuItem?.isActive === false
-  };
-}
-
-type StoredMenu = Prisma.EventMenuGetPayload<{ select: typeof menuSelect }>;
-
-/**
- * One signing request for the whole menu rather than one per card, matching
- * what GET /api/menu does for the library grid.
- *
- * The 300s default outlives the 2 minute client query cache, so a cached
- * response never holds an expired URL. Storage being unreachable costs the
- * thumbnails, not the menu.
- */
-async function presentMenu(menu: StoredMenu, organizationId: string) {
-  const picturePaths = menu.lines
-    .map((line) => line.menuItem?.picturePath ?? line.addOn?.picturePath)
-    .filter((path): path is string => Boolean(path));
-
-  let signedUrlsByPath = new Map<string, string>();
-
-  if (picturePaths.length > 0) {
-    try {
-      signedUrlsByPath = await createSignedFileUrls({
-        organizationId,
-        bucket: MENU_IMAGE_BUCKET,
-        paths: [...new Set(picturePaths)]
-      });
-    } catch (signingError) {
-      console.error("Failed to sign event menu pictures", signingError);
-    }
-  }
-
-  return {
-    ...menu,
-    lines: menu.lines.map((line) => {
-      const picturePath =
-        line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
-
-      return presentLine(
-        line,
-        picturePath ? (signedUrlsByPath.get(picturePath) ?? null) : null
-      );
-    })
-  };
-}
-
-async function loadEvent(actor: { organizationId: string }, eventId: string) {
-  return prisma.event.findFirst({
-    where: { id: eventId, organizationId: actor.organizationId, deleted: false },
-    select: { id: true, hallId: true, workspaceData: true }
-  });
-}
-
 /**
  * Merges one key into the event's workspace json without disturbing the
  * timeline that lives beside it. Same read-merge-write the event PATCH does.
@@ -223,17 +94,6 @@ function mergeWorkspace(
   return { ...previous, menuConfirmed } as Prisma.InputJsonObject;
 }
 
-const emptyMenu = (meal: string) => ({
-  id: null,
-  meal,
-  status: "Draft",
-  serviceStyle: null,
-  confirmedAt: null,
-  version: 0,
-  confirmedBy: null,
-  lines: []
-});
-
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ eventId: string }> }
@@ -249,7 +109,7 @@ export async function GET(
       new URL(request.url).searchParams.get("meal") ?? undefined
     );
 
-    const event = await loadEvent(actor, id);
+    const event = await loadEventForMenu(actor, id);
 
     if (!event) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
@@ -265,8 +125,11 @@ export async function GET(
     return NextResponse.json({
       // No row until the first save. Version 0 is what the first PUT sends.
       menu: menu
-        ? await presentMenu(menu, actor.organizationId)
-        : emptyMenu(meal)
+        ? await presentMenu(menu, {
+            organizationId: actor.organizationId,
+            packageId: event.packageId
+          })
+        : emptyMenu(meal, event.packageId)
     });
   } catch (error) {
     return createApiErrorResponse(error);
@@ -290,7 +153,7 @@ export async function PUT(
     const id = eventIdSchema.parse(eventId);
     const input = replaceMenuSchema.parse(await request.json());
 
-    const event = await loadEvent(actor, id);
+    const event = await loadEventForMenu(actor, id);
 
     if (!event) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
@@ -394,12 +257,7 @@ export async function PUT(
       return { id: existing.id, version: existing.version + 1 };
     });
 
-    if (saved === "confirmed") {
-      return NextResponse.json(
-        { error: "This menu is confirmed. Reopen it before editing." },
-        { status: 409 }
-      );
-    }
+    if (saved === "confirmed") return confirmedMenu();
 
     if (!saved) return conflict();
 
@@ -414,7 +272,9 @@ export async function PUT(
           serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
           notes: line.notes ?? null,
           sortOrder: index,
-          source: "Manual",
+          // Kept as it arrived, so a line a package put here still reads as one
+          // after an unrelated edit rewrites the set around it.
+          source: line.source ?? "Manual",
           addedById: actor.id
         }))
       }),
@@ -426,13 +286,11 @@ export async function PUT(
       })
     ]);
 
-    const menu = await prisma.eventMenu.findUnique({
-      where: { id: saved.id },
-      select: menuSelect
-    });
-
     return NextResponse.json({
-      menu: menu ? await presentMenu(menu, actor.organizationId) : null
+      menu: await readPresentedMenu(saved.id, {
+        organizationId: actor.organizationId,
+        packageId: event.packageId
+      })
     });
   } catch (error) {
     // Two first-saves racing each other: both saw no header, both created one,
@@ -462,7 +320,7 @@ export async function POST(
     const id = eventIdSchema.parse(eventId);
     const input = lifecycleSchema.parse(await request.json());
 
-    const event = await loadEvent(actor, id);
+    const event = await loadEventForMenu(actor, id);
 
     if (!event) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
@@ -543,13 +401,11 @@ export async function POST(
 
     if (!result) return conflict();
 
-    const menu = await prisma.eventMenu.findUnique({
-      where: { id: result.id },
-      select: menuSelect
-    });
-
     return NextResponse.json({
-      menu: menu ? await presentMenu(menu, actor.organizationId) : null
+      menu: await readPresentedMenu(result.id, {
+        organizationId: actor.organizationId,
+        packageId: event.packageId
+      })
     });
   } catch (error) {
     return createApiErrorResponse(error);
