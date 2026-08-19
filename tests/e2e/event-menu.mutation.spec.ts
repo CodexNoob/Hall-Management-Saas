@@ -29,6 +29,13 @@ const BUFFET_A = "E2E Menu Buffet A";
 const BUFFET_B = "E2E Menu Buffet B";
 const PLATED_A = "E2E Menu Plated A";
 const ADD_ON_A = "E2E Menu Add-on A";
+/**
+ * One package, reused forever, for the reason the dishes are: there is no
+ * DELETE for a package in the API or the app, so a fresh one per run would
+ * leave a row behind every time. Its contents are reset on the way in, so a run
+ * that edited it cannot change what a later run applies.
+ */
+const PACKAGE_NAME = "E2E Menu Package";
 
 /** A uuid that is well formed and belongs to nobody. */
 const FOREIGN_ID = "00000000-0000-4000-8000-0000000000ff";
@@ -41,12 +48,15 @@ type MenuLine = {
   name: string;
   serviceStyle: string | null;
   pictureUrl: string | null;
+  /** Manual | Package | ClientPortal - who put the line on the menu. */
+  source: string;
 };
 
 type EventMenu = {
   id: string | null;
   status: string;
   version: number;
+  packageId: string | null;
   lines: MenuLine[];
 };
 
@@ -66,6 +76,11 @@ async function readMenuLibrary(page: Page) {
   return readJson<{
     items: Array<{ id: string; name: string; services: Array<{ serviceStyle: string }> }>;
     addOns: Array<{ id: string; name: string }>;
+    packages: Array<{
+      id: string;
+      name: string;
+      includedMenuItemIds: string[];
+    }>;
   }>(await page.request.get("/api/menu"), "GET /api/menu");
 }
 
@@ -149,6 +164,57 @@ async function provisionCatalog(page: Page) {
     platedA: find(library.items, PLATED_A),
     addOnA: find(library.addOns, ADD_ON_A)
   };
+}
+
+/**
+ * The package the tab applies, holding one buffet dish and one plated one so
+ * both service styles are exercised by a single apply.
+ *
+ * Created once and reused, and its contents rewritten on every run: this row
+ * outlives the test, and a package left holding something else would have a
+ * later run apply a list it never asked for.
+ */
+async function provisionPackage(page: Page, includedMenuItemIds: string[]) {
+  const library = await readMenuLibrary(page);
+  const existing = library.packages.find(
+    (entry) => entry.name === PACKAGE_NAME
+  );
+
+  if (!existing) {
+    const created = await page.request.post("/api/menu", {
+      data: {
+        resource: "package",
+        name: PACKAGE_NAME,
+        regularPrice: 125,
+        includedMenuItemIds
+      }
+    });
+
+    const { package: saved } = await readJson<{ package: { id: string } }>(
+      created,
+      `POST /api/menu (${PACKAGE_NAME})`
+    );
+
+    return { id: saved.id, name: PACKAGE_NAME };
+  }
+
+  const wanted = [...includedMenuItemIds].sort();
+  const stored = [...existing.includedMenuItemIds].sort();
+
+  if (wanted.join() !== stored.join()) {
+    const reset = await page.request.patch(
+      `/api/menu/packages/${existing.id}`,
+      { data: { includedMenuItemIds } }
+    );
+
+    if (!reset.ok()) {
+      throw new Error(
+        `Could not reset ${PACKAGE_NAME}: ${reset.status()} ${await reset.text()}`
+      );
+    }
+  }
+
+  return { id: existing.id, name: PACKAGE_NAME };
 }
 
 /**
@@ -308,6 +374,22 @@ function drawer(page: Page) {
   return page.getByRole("dialog", { name: /Add to/ });
 }
 
+function packageDrawer(page: Page) {
+  return page.getByRole("dialog", { name: "Add a package" });
+}
+
+/** The event row's own package columns, which the manager reads the name from. */
+async function readStoredEvent(page: Page, eventId: string) {
+  const { events } = await readJson<{
+    events: Array<{ id: string; packageName: string | null }>;
+  }>(
+    await page.request.get(`/api/events?eventId=${eventId}`),
+    "GET /api/events"
+  );
+
+  return events.find((candidate) => candidate.id === eventId);
+}
+
 /** Every PUT this page makes to the menu, so a batch can be proved to be one. */
 function recordMenuWrites(page: Page, eventId: string) {
   const writes: string[] = [];
@@ -433,6 +515,151 @@ test.describe("event menu", () => {
       expect(stored?.addOnIds).toEqual([
         (await provisionCatalog(page)).addOnA.id
       ]);
+    } finally {
+      await cleanUp(page, eventId);
+    }
+  });
+
+  test("adds a package from the tab, and takes it back off without touching the rest", async ({
+    page
+  }) => {
+    test.setTimeout(120_000);
+
+    const eventId = await createInquiryEvent(
+      page,
+      `E2E Menu Package ${Date.now()}`
+    );
+
+    try {
+      const catalog = await provisionCatalog(page);
+      const eventPackage = await provisionPackage(page, [
+        catalog.buffetA.id,
+        catalog.platedA.id
+      ]);
+
+      // A dish put on by hand before the package arrives. It is what proves the
+      // two are told apart: removing the package must not take this with it.
+      await page.request.put(`/api/events/${eventId}/menu`, {
+        data: {
+          meal: "Main",
+          version: 0,
+          lines: [{ menuItemId: catalog.buffetB.id, serviceStyle: "Buffet" }]
+        }
+      });
+
+      await openMenuTab(page, eventId);
+
+      await expect(page.getByText("No package on this event")).toBeVisible();
+
+      // Enabled only once the catalog has landed, because the drawer is filled
+      // from it - clicking sooner opens a picker with nothing in it.
+      const addPackage = page.getByRole("button", { name: "Add package" });
+      await expect(addPackage).toBeEnabled({ timeout: 30_000 });
+      await addPackage.click();
+      await expect(packageDrawer(page)).toBeVisible();
+
+      // Scoped to this package's card: the E2E organization accumulates
+      // packages from other suites, so an unscoped count would match theirs.
+      const card = packageDrawer(page).getByRole("button", {
+        name: PACKAGE_NAME
+      });
+
+      // What the package will do, said before it is done.
+      await expect(card.getByText(/2 dishes/)).toBeVisible();
+      await expect(card.getByText("Buffet", { exact: true })).toBeVisible();
+      await expect(card.getByText("Plated", { exact: true })).toBeVisible();
+
+      await card.click();
+
+      const applied = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname ===
+            `/api/events/${eventId}/menu/package`,
+        { timeout: 30_000 }
+      );
+      await packageDrawer(page)
+        .getByRole("button", { name: `Add ${PACKAGE_NAME}` })
+        .click();
+      expect((await applied).status()).toBe(200);
+      await expect(packageDrawer(page)).toBeHidden();
+
+      // Both dishes are on the menu, each filed by its own service rule, and
+      // the hand-added one is still where it was.
+      for (const name of [BUFFET_A, PLATED_A, BUFFET_B]) {
+        await expect(
+          page.getByRole("button", { name: `Remove ${name}` })
+        ).toBeVisible({ timeout: 20_000 });
+      }
+      await expect(
+        page.getByText(/2 dishes on this menu came from the package/)
+      ).toBeVisible();
+
+      const withPackage = await getMenu(page, eventId);
+      expect(withPackage.packageId).toBe(eventPackage.id);
+      expect(
+        withPackage.lines
+          .map((line) => `${line.name}:${line.serviceStyle ?? "-"}:${line.source}`)
+          .sort()
+      ).toEqual(
+        [
+          `${BUFFET_A}:Buffet:Package`,
+          `${PLATED_A}:Plated:Package`,
+          // Untouched by the apply, tag included - it is not the package's.
+          `${BUFFET_B}:Buffet:Manual`
+        ].sort()
+      );
+      // The column the calendar, the kitchen board and the dining manager name
+      // the package from.
+      expect((await readStoredEvent(page, eventId))?.packageName).toBe(
+        PACKAGE_NAME
+      );
+
+      // --- and again from a cold page --------------------------------------
+      await page.reload();
+      await workspaceTab(page, "Menu").click();
+      await expect(
+        page.getByText(/2 dishes on this menu came from the package/)
+      ).toBeVisible({ timeout: 30_000 });
+
+      // --- taking it off ----------------------------------------------------
+      // Exact, or this matches "Remove E2E Menu Buffet A" as well.
+      await page.getByRole("button", { name: "Remove", exact: true }).click();
+
+      const confirmation = page.getByRole("dialog", {
+        name: `Remove ${PACKAGE_NAME}?`
+      });
+      await expect(confirmation).toBeVisible();
+
+      const removed = page.waitForResponse(
+        (response) =>
+          response.request().method() === "DELETE" &&
+          new URL(response.url()).pathname ===
+            `/api/events/${eventId}/menu/package`,
+        { timeout: 30_000 }
+      );
+      await confirmation
+        .getByRole("button", { name: "Remove package", exact: true })
+        .click();
+      expect((await removed).status()).toBe(200);
+
+      await expect(page.getByText("No package on this event")).toBeVisible({
+        timeout: 20_000
+      });
+      for (const name of [BUFFET_A, PLATED_A]) {
+        await expect(
+          page.getByRole("button", { name: `Remove ${name}` })
+        ).toBeHidden();
+      }
+      // The whole point of the source tag: the dish staff added by hand stays.
+      await expect(
+        page.getByRole("button", { name: `Remove ${BUFFET_B}` })
+      ).toBeVisible();
+
+      const withoutPackage = await getMenu(page, eventId);
+      expect(withoutPackage.packageId).toBeNull();
+      expect(withoutPackage.lines.map((line) => line.name)).toEqual([BUFFET_B]);
+      expect((await readStoredEvent(page, eventId))?.packageName).toBeNull();
     } finally {
       await cleanUp(page, eventId);
     }
