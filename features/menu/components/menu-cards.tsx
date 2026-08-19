@@ -9,17 +9,35 @@ import { LineIcon } from "@/features/menu/components/menu-shared";
 export function MenuItemCard({
   actions = [],
   category,
+  isSelectDisabled = false,
   name,
+  onSelect,
   pendingLabel = null,
   pictureUrl
 }: {
   /**
    * Entries for the card's three-dot menu. The card renders them and knows
    * nothing about what they do; pass none and the trigger disappears.
+   *
+   * Not an alternative to `onSelect`, though no grid needs both today: the
+   * library opens an editor on click, and a package keeps the menu because its
+   * one action is destructive and wants a label before it fires.
    */
   actions?: ActionsMenuItem[];
   category: string;
+  /**
+   * Set when the viewer may not edit the item. The card still reads, but stops
+   * offering a form that could not save. Ignored without `onSelect`.
+   */
+  isSelectDisabled?: boolean;
   name: string;
+  /**
+   * Makes the whole card one click target - the update flow's entry point.
+   *
+   * The card, not a control inside it: these sit three columns wide on a phone,
+   * where the corner of a card is the hardest place on the page to hit.
+   */
+  onSelect?: () => void;
   /**
    * Set while a write started from this card is in flight. It takes the corner
    * from the actions menu, because the menu has already closed itself by then
@@ -34,6 +52,50 @@ export function MenuItemCard({
   // Either control sits in the same corner, and the category pill has to give
   // up its right edge for whichever one is there.
   const hasCornerControl = hasActions || isPending;
+  const isSelectable = Boolean(onSelect) && !isSelectDisabled && !isPending;
+
+  // Written once and placed into whichever wrapper this card needs, rather than
+  // duplicated down two branches of the return.
+  const body = (
+    <>
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-lg bg-[#fbfcfd]">
+        {pictureUrl ? (
+          // Plain <img>, not next/image: the signed URL carries a token that
+          // rotates every few minutes, so the optimizer would never serve a
+          // cache hit and its host would have to be added to remotePatterns.
+          // alt="" because the name is already rendered below - announcing it
+          // twice is worse than treating the thumbnail as decorative.
+          // Absolute, not in flow: a flex item defaults to min-height:auto,
+          // so an image left in the flow stretches this slot to its intrinsic
+          // height and pushes the name out of the card's fixed h-50.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            src={pictureUrl}
+          />
+        ) : (
+          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
+            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
+          </span>
+        )}
+        {/* The pill gives up its right edge when there is a menu to sit
+            beside, rather than running underneath it. */}
+        <span
+          className={`absolute left-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:px-2 sm:text-[10px] ${
+            hasCornerControl
+              ? "right-9 sm:max-w-[calc(100%-4rem)]"
+              : "right-1.5 sm:max-w-[calc(100%-1.5rem)]"
+          }`}
+        >
+          {category}
+        </span>
+      </div>
+      <div className="flex h-16 min-w-0 items-center justify-center rounded-b-lg border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
+        <span className="line-clamp-3 wrap-break-word">{name}</span>
+      </div>
+    </>
+  );
 
   return (
     // `relative` anchors the actions menu, and the clipping that used to live
@@ -43,46 +105,24 @@ export function MenuItemCard({
       aria-busy={isPending || undefined}
       className={`relative flex h-50 rounded-lg border border-[#d8dde5] bg-white ${
         isPending ? "opacity-60" : ""
-      }`}
+      } ${isSelectable ? "transition hover:border-[#1f4d73]" : ""}`}
     >
-      <div className="flex min-w-0 w-full flex-col">
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-lg bg-[#fbfcfd]">
-          {pictureUrl ? (
-            // Plain <img>, not next/image: the signed URL carries a token that
-            // rotates every few minutes, so the optimizer would never serve a
-            // cache hit and its host would have to be added to remotePatterns.
-            // alt="" because the name is already rendered below - announcing it
-            // twice is worse than treating the thumbnail as decorative.
-            // Absolute, not in flow: a flex item defaults to min-height:auto,
-            // so an image left in the flow stretches this slot to its intrinsic
-            // height and pushes the name out of the card's fixed h-50.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              src={pictureUrl}
-            />
-          ) : (
-            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
-            </span>
-          )}
-          {/* The pill gives up its right edge when there is a menu to sit
-              beside, rather than running underneath it. */}
-          <span
-            className={`absolute left-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:px-2 sm:text-[10px] ${
-              hasCornerControl
-                ? "right-9 sm:max-w-[calc(100%-4rem)]"
-                : "right-1.5 sm:max-w-[calc(100%-1.5rem)]"
-            }`}
-          >
-            {category}
-          </span>
-        </div>
-        <div className="flex h-16 min-w-0 items-center justify-center rounded-b-lg border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
-          <span className="line-clamp-3 wrap-break-word">{name}</span>
-        </div>
-      </div>
+      {onSelect ? (
+        // The whole card is the button. Its accessible name says what the click
+        // does rather than repeating the category pill and the dish name that
+        // are already rendered inside it.
+        <button
+          aria-label={`Edit ${name}`}
+          className="flex min-w-0 w-full flex-col rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
+          disabled={isSelectDisabled || isPending}
+          onClick={onSelect}
+          type="button"
+        >
+          {body}
+        </button>
+      ) : (
+        <div className="flex min-w-0 w-full flex-col">{body}</div>
+      )}
 
       {isPending ? (
         <span

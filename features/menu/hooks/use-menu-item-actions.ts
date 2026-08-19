@@ -39,6 +39,10 @@ type UseMenuItemActionsInput = {
  * cards and the dialogs stay presentational. Errors are deliberately not
  * swallowed: the dialogs already render what they catch, and doing it here as
  * well would show the same failure twice.
+ *
+ * The two ids are separate rather than one "open item", because a removal is
+ * started from inside the open editor: both dialogs are on screen at once, and
+ * cancelling the confirmation has to leave the edit exactly where it was.
  */
 export function useMenuItemActions({
   items,
@@ -110,6 +114,10 @@ export function useMenuItemActions({
     await deleteMenuItem(removingItemId);
     await onChanged();
     setRemovingItemId(null);
+    // The editor this was started from goes too. The refetch above already
+    // empties it - `editingItem` is resolved from the live list - but leaving
+    // the id set would reopen it the moment another item took that id back.
+    setEditingItemId(null);
   }, [onChanged, removingItemId]);
 
   return {

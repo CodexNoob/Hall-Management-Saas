@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useScrollLock } from "@/lib/ui/use-scroll-lock";
 import {
   COUNT_BASES,
   COUNT_BASIS_LABELS,
@@ -51,8 +52,24 @@ type NewLibraryItemDialogProps = {
    * a buffet item. Ignored for an edit, which seeds from the row itself.
    */
   defaultServiceStyle?: string;
+  /**
+   * Suppresses Escape and the backdrop click while something sits on top of
+   * this form - the remove confirmation, which is the only thing that does.
+   * Without it a single Escape dismisses both, and the operator loses the edit
+   * they were in the middle of along with the confirmation they meant to answer.
+   */
+  isDismissBlocked?: boolean;
   open: boolean;
   onClose: () => void;
+  /**
+   * Opens the removal confirmation. Absent for a create, and absent when the
+   * viewer may not edit the menu - there is nothing to remove in the first case
+   * and nothing they are allowed to remove in the second.
+   *
+   * Deliberately not the deletion itself: the confirmation and the failure it
+   * has to report belong to the page that owns the item, not to this form.
+   */
+  onRemove?: () => void;
   // Awaited, not fired and forgotten: saving uploads the picture before it
   // writes the item, so the form must stay put until that resolves.
   onSave: (values: NewLibraryItemFormValues) => void | Promise<void>;
@@ -80,7 +97,7 @@ function LibraryIcon() {
   );
 }
 
-export function NewLibraryItemDialog({ initialValues: editValues, defaultServiceStyle, open, onClose, onSave }: NewLibraryItemDialogProps) {
+export function NewLibraryItemDialog({ initialValues: editValues, defaultServiceStyle, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -108,6 +125,10 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
     return { ...initialValues, services };
   }, [defaultServiceStyle]);
 
+  // Shared with the remove confirmation that opens on top of this form, so
+  // closing both at once cannot leave the page unscrollable.
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) {
       wasOpenRef.current = false;
@@ -122,21 +143,21 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     firstInputRef.current?.focus();
 
     const handleKeyDown = (keyboardEvent: KeyboardEvent) => {
-      if (keyboardEvent.key === "Escape") onClose();
+      if (keyboardEvent.key === "Escape" && !isDismissBlocked) onClose();
     };
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [buildCreateValues, editValues, onClose, open]);
+    // `isDismissBlocked` is a dependency so the listener sees its current value.
+    // Re-running is safe: the seeding above is gated on the closed -> open edge,
+    // so only the listener and the focus call are re-applied.
+  }, [buildCreateValues, editValues, isDismissBlocked, onClose, open]);
 
   if (!open) return null;
 
@@ -201,6 +222,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
     <div
       className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/30 p-3 sm:p-5"
       onMouseDown={(mouseEvent) => {
+        if (isDismissBlocked) return;
         if (mouseEvent.currentTarget === mouseEvent.target) closeAndReset();
       }}
     >
@@ -315,12 +337,24 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
           </div>
 
           <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
-            {saveError ? (
-              <p className="mr-auto text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
-            ) : null}
-            {/* No Delete button here: removing an item is the card's own
-                "Remove" action, which can confirm and report a refusal. The
-                one that used to sit here only closed the dialog. */}
+            {/* Grouped so one `mr-auto` divides the footer. Two of them - one on
+                the error, one on Cancel - split the free space between
+                themselves instead, and the buttons stop sitting where the
+                previous render put them the moment a save fails. */}
+            <div className="mr-auto flex flex-wrap items-center gap-3">
+              {/* Removing lives here because opening this form is now the only
+                  way into an item - the card is one click target, not a menu.
+                  It only asks: the confirmation in front of the delete, and the
+                  refusal the server may answer with, belong to the page. Kept
+                  at the far end from Save so a destructive click is a
+                  deliberate one, never a slip off the primary button. */}
+              {isEditing && onRemove ? (
+                <button className="h-9 rounded-lg border border-[#efb6b6] bg-white px-4 text-xs font-black text-[#b42318] transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} onClick={onRemove} type="button">Remove item</button>
+              ) : null}
+              {saveError ? (
+                <p className="text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
+              ) : null}
+            </div>
             <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button">Cancel</button>
             <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} type="submit">{isSaving ? "Saving…" : isEditing ? "Save changes" : "Save item"}</button>
           </footer>

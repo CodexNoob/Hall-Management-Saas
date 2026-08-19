@@ -8,8 +8,9 @@ import {
 
 /**
  * Covers the menu library item lifecycle through the UI it actually ships with:
- * the New item dialog, the card's three-dot menu, and the confirmation step in
- * front of a removal.
+ * the New item dialog, the card that opens an editor when it is clicked, the
+ * Remove button inside that editor, and the confirmation step in front of the
+ * removal itself.
  *
  * Both failure paths are here too, and they are provoked differently on purpose.
  * The 409 is real - a package genuinely holds the item and the server refuses -
@@ -131,9 +132,36 @@ function itemCard(page: Page, name: string) {
   return page.getByRole("article").filter({ hasText: name });
 }
 
-async function chooseCardAction(card: Locator, name: string, action: string) {
-  await card.getByRole("button", { name: `More actions for ${name}` }).click();
-  await card.getByRole("menuitem", { name: action, exact: true }).click();
+/**
+ * Opens the editor the way the grid does it: the card itself is the button.
+ *
+ * Returns the dialog rather than leaving the caller to find it, because every
+ * path into an item now goes through this one.
+ */
+async function openItemEditor(page: Page, card: Locator, name: string) {
+  await card.getByRole("button", { name: `Edit ${name}` }).click();
+
+  const editDialog = page.getByRole("dialog", { name: "Edit library item" });
+  await expect(editDialog).toBeVisible();
+
+  return editDialog;
+}
+
+/**
+ * Walks from a card to the open confirmation: click the card, then Remove item
+ * in the editor's footer. The delete has not been sent yet when this returns -
+ * the confirmation is the step that sends it.
+ */
+async function startItemRemoval(page: Page, card: Locator, name: string) {
+  const editDialog = await openItemEditor(page, card, name);
+  await editDialog.getByRole("button", { name: "Remove item" }).click();
+
+  const confirmDialog = page.getByRole("alertdialog", {
+    name: "Remove menu item"
+  });
+  await expect(confirmDialog).toBeVisible();
+
+  return { confirmDialog, editDialog };
 }
 
 function itemResponse(method: string) {
@@ -190,10 +218,7 @@ test("adds, updates and removes a library item from the grid", async ({
   await expect(card).toBeVisible({ timeout: 20_000 });
 
   // --- update -------------------------------------------------------------
-  await chooseCardAction(card, createdName, "Update");
-
-  const editDialog = page.getByRole("dialog", { name: "Edit library item" });
-  await expect(editDialog).toBeVisible();
+  const editDialog = await openItemEditor(page, card, createdName);
   // The seeding is the point of the assertion: an edit form that opens blank
   // quietly turns every field the user did not retype into a deletion.
   await expect(editDialog.getByLabel("Item name")).toHaveValue(createdName);
@@ -216,19 +241,23 @@ test("adds, updates and removes a library item from the grid", async ({
   await expect(itemCard(page, createdName)).toBeHidden();
 
   // --- remove -------------------------------------------------------------
-  await chooseCardAction(renamedCard, renamedName, "Remove");
-
-  const confirmDialog = page.getByRole("alertdialog", {
-    name: "Remove menu item"
-  });
-  await expect(confirmDialog).toBeVisible();
+  const { confirmDialog, editDialog: removalEditor } = await startItemRemoval(
+    page,
+    renamedCard,
+    renamedName
+  );
   await expect(confirmDialog.getByText(renamedName)).toBeVisible();
 
   const removed = page.waitForResponse(itemResponse("DELETE"));
-  await confirmDialog.getByRole("button", { name: "Remove item" }).click();
+  await confirmDialog
+    .getByRole("button", { name: "Remove from library" })
+    .click();
   expect((await removed).status()).toBe(200);
 
   await expect(confirmDialog).toBeHidden({ timeout: 20_000 });
+  // The editor the removal was started from goes with it: leaving it up would
+  // be a form pointing at a row that no longer exists.
+  await expect(removalEditor).toBeHidden({ timeout: 20_000 });
   await expect(itemCard(page, renamedName)).toBeHidden({ timeout: 20_000 });
 });
 
@@ -247,13 +276,16 @@ test("refuses to remove an item a package still includes, and says why", async (
 
     const card = itemCard(page, name);
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await chooseCardAction(card, name, "Remove");
+    const { confirmDialog, editDialog } = await startItemRemoval(
+      page,
+      card,
+      name
+    );
 
-    const confirmDialog = page.getByRole("alertdialog", {
-      name: "Remove menu item"
-    });
     const refused = page.waitForResponse(itemResponse("DELETE"));
-    await confirmDialog.getByRole("button", { name: "Remove item" }).click();
+    await confirmDialog
+      .getByRole("button", { name: "Remove from library" })
+      .click();
     expect((await refused).status()).toBe(409);
 
     // The dialog is the only place that refusal can be read, so it has to stay
@@ -261,8 +293,15 @@ test("refuses to remove an item a package still includes, and says why", async (
     await expect(confirmDialog).toBeVisible();
     await expect(confirmDialog.getByText(IN_USE_MESSAGE)).toBeVisible();
 
+    // Backing out of the confirmation lands back in the editor rather than on
+    // the grid: the removal was refused, not the edit.
     await confirmDialog.getByRole("button", { name: "Cancel" }).click();
     await expect(confirmDialog).toBeHidden();
+    await expect(editDialog).toBeVisible();
+    await expect(editDialog.getByLabel("Item name")).toHaveValue(name);
+
+    await editDialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(editDialog).toBeHidden();
     await expect(itemCard(page, name)).toBeVisible();
   } finally {
     // Empty the guard package before the item goes, or the next run inherits a
@@ -298,9 +337,8 @@ test("keeps the edit open with the server's message when an update fails", async
 
     const card = itemCard(page, name);
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await chooseCardAction(card, name, "Update");
+    const editDialog = await openItemEditor(page, card, name);
 
-    const editDialog = page.getByRole("dialog", { name: "Edit library item" });
     await editDialog.getByLabel("Item name").fill(rejectedName);
     await editDialog.getByRole("button", { name: "Save changes" }).click();
 
