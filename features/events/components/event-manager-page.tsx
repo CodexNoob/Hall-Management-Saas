@@ -62,6 +62,7 @@ export function EventManagerPage() {
           bookingStatus: event.bookingStatus,
           clientName: event.clientName,
           eventType: event.eventType ?? "",
+          eventTypeId: event.eventTypeId ?? "",
           title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
           date: new Intl.DateTimeFormat("en-US", {
             month: "short",
@@ -393,6 +394,7 @@ export function EventManagerPage() {
             <EventWorkspace
               activeTab={activeTab}
               event={selectedEvent}
+              eventTypes={eventsQuery.data?.eventTypes ?? []}
               halls={eventsQuery.data?.halls ?? []}
               onEventSaved={eventsQuery.refetch}
               onTabChange={setActiveTab}

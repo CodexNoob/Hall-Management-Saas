@@ -25,18 +25,21 @@ import {
   tabs,
   type EventFile,
   type EventHallOption,
+  type EventTypeOption,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
 
 export function EventWorkspace({
   activeTab,
   event,
+  eventTypes,
   halls,
   onEventSaved,
   onTabChange
 }: {
   activeTab: EventWorkspaceTab;
   event: EventFile;
+  eventTypes: EventTypeOption[];
   halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
   /// Held by the page rather than here, because the event list needs to know
@@ -175,6 +178,7 @@ export function EventWorkspace({
               <div className="space-y-3">
                 <EventInformation
                   event={event}
+                  eventTypes={eventTypes}
                   halls={halls}
                   onEventSaved={onEventSaved}
                 />

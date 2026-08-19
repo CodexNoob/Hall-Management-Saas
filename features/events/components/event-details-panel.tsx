@@ -4,19 +4,31 @@ import {
   type FormEvent,
   type ReactNode,
   useEffect,
-  useMemo,
-  useRef,
   useState
 } from "react";
+import type { CountryCode } from "libphonenumber-js";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { readApiError } from "@/lib/http/api-request-error";
-import { countSchema } from "@/lib/validation/number";
-import { readNumericFields } from "@/lib/validation/numeric-form";
+import {
+  DEFAULT_PHONE_COUNTRY,
+  countryFromE164,
+  nationalFromE164
+} from "@/lib/validation/phone";
+import { BookingFormFields } from "@/features/bookings/forms/booking-form-fields";
+import {
+  bookingFormSchema,
+  toFieldErrors,
+  toGuestCountPayload,
+  type BookingFormErrors,
+  type BookingFormInput,
+  type BookingFormValues
+} from "@/features/bookings/validations/booking-form.schema";
 import {
   LineIcon,
   timelineRows,
   type EventFile,
   type EventHallOption,
+  type EventTypeOption,
   type IconName
 } from "@/features/events/components/event-manager-shared";
 import {
@@ -40,30 +52,6 @@ export function Field({
       {label}
       {children}
     </label>
-  );
-}
-
-function EventDetailsSection({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div className="mb-3">
-        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
-          {title}
-        </h3>
-        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
-          {description}
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-3">{children}</div>
-    </section>
   );
 }
 
@@ -162,933 +150,278 @@ export function ReadinessPanel({ event }: { event: EventFile }) {
   );
 }
 
-function formatActivityTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short"
-  }).format(new Date(value));
-}
-
-function EventActivityHistory({ event }: { event: EventFile }) {
-  const activityLogs = event.activityLogs.slice(0, 6);
-
-  return (
-    <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
-      <div className="mb-3">
-        <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#17202a]">
-          Activity history
-        </h3>
-        <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
-          Recent event changes recorded for this organization.
-        </p>
-      </div>
-
-      {activityLogs.length ? (
-        <ol className="space-y-2">
-          {activityLogs.map((activity) => (
-            <li
-              key={activity.id}
-              className="rounded-lg border border-[#d8dde5] bg-white p-3"
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full bg-[#eef4fa] px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[#1f4d73]">
-                  {activity.actionType}
-                </span>
-                <time
-                  className="text-xs font-bold text-[#6a7483]"
-                  dateTime={activity.createdAt}
-                >
-                  {formatActivityTimestamp(activity.createdAt)}
-                </time>
-              </div>
-              <p className="mt-2 text-sm font-semibold leading-5 text-[#17202a]">
-                {activity.message}
-              </p>
-              <p className="mt-1 text-xs font-bold text-[#6a7483]">
-                {activity.userName ? `Changed by ${activity.userName}` : "System recorded"}
-              </p>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <div className="rounded-lg border border-dashed border-[#b9c2cf] bg-white p-4 text-sm font-semibold text-[#6a7483]">
-          No activity has been recorded for this event yet.
-        </div>
-      )}
-    </section>
-  );
-}
-
-type EventCountField =
-  | "guestCount"
-  | "childrenCount"
-  | "couplesCount"
-  | "waitersCount";
-
-type EventDetailsDraft = {
-  // Counts stay as the raw text the user typed and are parsed on save. Storing
-  // them as numbers meant `Number("")` silently wrote 0.
-  childrenCount: string;
-  clientName: string;
-  couplesCount: string;
-  eventDate: string;
-  eventStatus: string;
-  eventTime: string;
-  eventType: string;
-  guestCount: string;
-  hallId: string;
-  internalNotes: string;
-  daveningNote: string;
-  memberShulName: string;
-  setupTime: string;
-  shabbosSetup: string;
-  sideBoxes: string;
-  tableclothName: string;
-  waitersCount: string;
-  washingTime: string;
-};
-
 function countText(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? String(parsed) : "0";
 }
 
-type EventLifecycleStatus =
-  | "INQUIRY"
-  | "TENTATIVE_HOLD"
-  | "CONFIRMED"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "EXPIRED";
-
-type EventLifecycleAction = {
-  status: EventLifecycleStatus;
-  label: string;
-  confirmLabel: string;
-  title: string;
-  description: string;
-  tone: "primary" | "danger";
-};
-
-const eventLifecycleActions: Record<EventLifecycleStatus, EventLifecycleAction[]> =
-  {
-    INQUIRY: [
-      {
-        status: "TENTATIVE_HOLD",
-        label: "Place on hold",
-        confirmLabel: "Place on hold",
-        title: "Place this event on hold?",
-        description:
-          "This reserves the event as a tentative hold and keeps it active for planning.",
-        tone: "primary"
-      },
-      {
-        status: "CANCELLED",
-        label: "Cancel event",
-        confirmLabel: "Cancel event",
-        title: "Cancel this event?",
-        description:
-          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
-        tone: "danger"
-      }
-    ],
-    TENTATIVE_HOLD: [
-      {
-        status: "CONFIRMED",
-        label: "Confirm event",
-        confirmLabel: "Confirm event",
-        title: "Confirm this event?",
-        description:
-          "This confirms the booking, keeps the hall reserved, and moves the event into active operations.",
-        tone: "primary"
-      },
-      {
-        status: "CANCELLED",
-        label: "Cancel event",
-        confirmLabel: "Cancel event",
-        title: "Cancel this event?",
-        description:
-          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
-        tone: "danger"
-      }
-    ],
-    CONFIRMED: [
-      {
-        status: "COMPLETED",
-        label: "Mark completed",
-        confirmLabel: "Mark completed",
-        title: "Mark this event as completed?",
-        description:
-          "This closes the event as completed and saves a completed timestamp in Supabase.",
-        tone: "primary"
-      },
-      {
-        status: "CANCELLED",
-        label: "Cancel event",
-        confirmLabel: "Cancel event",
-        title: "Cancel this event?",
-        description:
-          "This will move the event out of active operations and save a cancellation timestamp in Supabase.",
-        tone: "danger"
-      }
-    ],
-    COMPLETED: [],
-    CANCELLED: [],
-    EXPIRED: []
-  };
-
-export function getEventLifecycleActions(bookingStatus: string) {
-  const normalizedStatus = bookingStatus as EventLifecycleStatus;
-
-  return eventLifecycleActions[normalizedStatus] ?? [];
-}
-
-function getEventLifecycleStatusLabel(status: string) {
-  const labels: Record<EventLifecycleStatus, string> = {
-    INQUIRY: "Inquiry",
-    TENTATIVE_HOLD: "Hold",
-    CONFIRMED: "Confirmed",
-    COMPLETED: "Completed",
-    CANCELLED: "Cancelled",
-    EXPIRED: "Expired"
-  };
-
-  return labels[status as EventLifecycleStatus] ?? status;
-}
-
-export function createEventDetailsDraft(event: EventFile): EventDetailsDraft {
+/**
+ * The stored event, as the booking form's fields.
+ *
+ * Event information is the booking form again, over the same nine fields, so an
+ * event is edited with exactly what created it. The phone arrives stored as
+ * E.164 and goes back to the picker as its national part, which is what the
+ * field is typed in.
+ */
+export function createBookingFormValues(event: EventFile): BookingFormValues {
   return {
-    childrenCount: countText(event.children),
     clientName: event.clientName,
-    couplesCount: countText(event.couples),
+    phone: nationalFromE164(event.phone),
     eventDate: event.dateInput,
-    eventStatus: event.status,
-    eventTime: event.timeInput,
-    eventType: event.eventType,
-    guestCount: countText(event.guests),
     hallId: event.hallId,
-    internalNotes: event.internalNotes,
-    daveningNote: event.daveningNote,
-    memberShulName: event.memberShulName,
-    setupTime: event.setupTime,
-    shabbosSetup: event.shabbosSetup,
-    sideBoxes: event.sideBoxes,
-    tableclothName: event.tableclothName,
-    waitersCount: countText(event.waitersCount),
-    washingTime: event.washingTime
+    eventTypeId: event.eventTypeId,
+    guests: countText(event.guests),
+    couples: countText(event.couples),
+    children: countText(event.children),
+    notes: event.internalNotes
   };
 }
 
-export function createEventDetailsDraftSignature(draft: EventDetailsDraft) {
-  return JSON.stringify(draft);
+/**
+ * A validated form as the PATCH body.
+ *
+ * `startsAt` is rebuilt from the event's own stored clock time, not edited
+ * here: moving the date without it would leave the occupancy window on the old
+ * day, and the calendar and the event list would then disagree about when this
+ * event is. Events with no time recorded simply keep having none.
+ */
+export function toEventDetailsPayload(
+  data: BookingFormInput,
+  storedTimeInput: string
+) {
+  return {
+    clientName: data.clientName,
+    phone: data.phone,
+    eventDate: data.eventDate,
+    hallId: data.hallId,
+    eventTypeId: data.eventTypeId,
+    ...toGuestCountPayload(data),
+    notes: data.notes,
+    ...(storedTimeInput
+      ? {
+          startsAt: new Date(
+            `${data.eventDate}T${storedTimeInput}:00`
+          ).toISOString()
+        }
+      : {})
+  };
 }
 
-export function validateEventDetailsDraft(draft: EventDetailsDraft) {
-  const errors: string[] = [];
-  const guests = Number(draft.guestCount);
-  const children = Number(draft.childrenCount);
-  const couples = Number(draft.couplesCount);
-  const integerFields = [
-    ["Guests", guests],
-    ["Children", children],
-    ["Couples", couples],
-    ["Waiters", Number(draft.waitersCount)]
-  ] as const;
+/** Booking states that can still be moved to confirmed. */
+const confirmableStatuses = ["INQUIRY", "TENTATIVE_HOLD"];
 
-  if (!draft.clientName.trim()) {
-    errors.push("Client name is required.");
-  }
-
-  if (!draft.eventDate) {
-    errors.push("Event date is required.");
-  }
-
-  for (const [label, value] of integerFields) {
-    if (!Number.isInteger(value) || value < 0) {
-      errors.push(`${label} must be a whole number of 0 or more.`);
-    }
-  }
-
-  if (Number.isFinite(children) && Number.isFinite(guests) && children > guests) {
-    errors.push("Children cannot be greater than total guests.");
-  }
-
-  if (Number.isFinite(couples) && Number.isFinite(guests) && couples * 2 > guests) {
-    errors.push("Couples cannot require more seats than total guests.");
-  }
-
-  return errors;
-}
-
-export function normalizeEventStatusForSave(status: string) {
-  return status.toLowerCase().includes("confirm") ? "Confirmed" : "Hold";
-}
+type PanelFeedback = { tone: "success" | "error"; text: string };
 
 export function EventInformation({
   event,
+  eventTypes,
   halls,
   onEventSaved
 }: {
   event: EventFile;
+  eventTypes: EventTypeOption[];
   halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
 }) {
-  const [draft, setDraft] = useState<EventDetailsDraft>(() =>
-    createEventDetailsDraft(event)
+  const [values, setValues] = useState<BookingFormValues>(() =>
+    createBookingFormValues(event)
   );
-  const [countErrors, setCountErrors] = useState<
-    Partial<Record<EventCountField, string>>
-  >({});
-  const [message, setMessage] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [statusAction, setStatusAction] = useState<
-    EventLifecycleStatus | null
+  const [errors, setErrors] = useState<BookingFormErrors>({});
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(
+    () => countryFromE164(event.phone) ?? DEFAULT_PHONE_COUNTRY
+  );
+  const [feedback, setFeedback] = useState<PanelFeedback | null>(null);
+  const [pendingIntent, setPendingIntent] = useState<
+    "save" | "confirm" | null
   >(null);
-  const [pendingStatusAction, setPendingStatusAction] = useState<
-    EventLifecycleAction | null
-  >(null);
-  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
-  const saveConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null
-  );
-  const previousEventIdRef = useRef(event.id);
-  const savedDraftSignature = useMemo(
-    () => createEventDetailsDraftSignature(createEventDetailsDraft(event)),
-    [event]
-  );
-  const currentDraftSignature = useMemo(
-    () => createEventDetailsDraftSignature(draft),
-    [draft]
-  );
-  const hasUnsavedChanges = currentDraftSignature !== savedDraftSignature;
-  const validationErrors = useMemo(
-    () => validateEventDetailsDraft(draft),
-    [draft]
-  );
-  const hasValidationErrors = validationErrors.length > 0;
 
+  // Reloads whenever the selected event changes, and after a save, when the
+  // refetched row arrives as a new object.
   useEffect(() => {
-    const didSwitchEvent = previousEventIdRef.current !== event.id;
-    previousEventIdRef.current = event.id;
-
-    setDraft(createEventDetailsDraft(event));
-    if (didSwitchEvent) {
-      setMessage("");
-      setShowSaveConfirmation(false);
-    }
+    setValues(createBookingFormValues(event));
+    setPhoneCountry(countryFromE164(event.phone) ?? DEFAULT_PHONE_COUNTRY);
+    setErrors({});
   }, [event]);
 
-  useEffect(
-    () => () => {
-      if (saveConfirmationTimerRef.current) {
-        clearTimeout(saveConfirmationTimerRef.current);
-      }
-    },
-    []
-  );
+  // Whatever the last save said is about the event that was open at the time,
+  // so it is dropped when a different one is selected.
+  useEffect(() => setFeedback(null), [event.id]);
 
-  function updateDraft<K extends keyof EventDetailsDraft>(
-    field: K,
-    value: EventDetailsDraft[K]
+  const canConfirm = confirmableStatuses.includes(event.bookingStatus);
+  const isBusy = pendingIntent !== null;
+
+  function updateValue(field: keyof BookingFormValues, value: string) {
+    setFeedback(null);
+    setErrors((current) => ({
+      ...current,
+      [field]: undefined,
+      // The guests message is about how the three counts relate, so editing
+      // either part has to clear it too.
+      ...(field === "couples" || field === "children"
+        ? { guests: undefined }
+        : {})
+    }));
+    setValues((current) => ({ ...current, [field]: value }));
+  }
+
+  async function transitionTo(
+    status: "TENTATIVE_HOLD" | "CONFIRMED",
+    expectedVersion: number
   ) {
-    setMessage("");
-    setShowSaveConfirmation(false);
-    setCountErrors((current) => ({ ...current, [field]: undefined }));
-    setDraft((current) => ({ ...current, [field]: value }));
-  }
-
-  function discardChanges() {
-    setDraft(createEventDetailsDraft(event));
-    setCountErrors({});
-    setShowSaveConfirmation(false);
-    setMessage("Unsaved event detail changes discarded.");
-  }
-
-  async function saveEvent(formEvent: FormEvent<HTMLFormElement>) {
-    formEvent.preventDefault();
-    setMessage("");
-
-    const counts = readNumericFields<EventCountField>({
-      guestCount: {
-        raw: draft.guestCount,
-        schema: countSchema({ label: "Guests" }),
-        emptyMessage: "Enter a guest count."
-      },
-      childrenCount: {
-        raw: draft.childrenCount,
-        schema: countSchema({ label: "Children" }),
-        emptyMessage: "Enter a children count."
-      },
-      couplesCount: {
-        raw: draft.couplesCount,
-        schema: countSchema({ label: "Couples" }),
-        emptyMessage: "Enter a couples count."
-      },
-      waitersCount: {
-        raw: draft.waitersCount,
-        schema: countSchema({ label: "Waiters" }),
-        emptyMessage: "Enter a waiter count."
+    const response = await authenticatedFetch(
+      `/api/events/${event.id}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, expectedVersion })
       }
-    });
+    );
 
-    if (!counts.ok) {
-      setCountErrors(counts.errors);
-      setMessage(counts.firstError);
+    if (!response.ok) throw await readApiError(response);
+
+    const result = (await response.json()) as { event: { version: number } };
+
+    return result.event.version;
+  }
+
+  async function submit(intent: "save" | "confirm") {
+    // The same schema the calendar's booking dialog submits through, so an
+    // event cannot be edited into a shape a new booking would be refused for.
+    const parsed = bookingFormSchema({ country: phoneCountry }).safeParse(
+      values
+    );
+
+    if (!parsed.success) {
+      setErrors(toFieldErrors(parsed.error));
+      setFeedback({
+        tone: "error",
+        text: "Fix the highlighted fields before saving."
+      });
       return;
     }
 
-    setCountErrors({});
-    setIsSaving(true);
-
-    const guestCount = counts.values.guestCount ?? 0;
-    const childrenCount = counts.values.childrenCount ?? 0;
-    const couplesCount = counts.values.couplesCount ?? 0;
-    const waitersCount = counts.values.waitersCount ?? 0;
-    const eventDate = draft.eventDate;
-    const eventTime = draft.eventTime;
-    const startsAt =
-      eventDate && eventTime
-        ? new Date(`${eventDate}T${eventTime}:00`).toISOString()
-        : null;
+    setErrors({});
+    setFeedback(null);
+    setPendingIntent(intent);
 
     try {
       const response = await authenticatedFetch(`/api/events/${event.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientName: draft.clientName.trim(),
-          eventType: draft.eventType.trim() || undefined,
-          eventStatus: normalizeEventStatusForSave(draft.eventStatus),
-          eventDate,
-          hallId: draft.hallId,
-          startsAt,
-          couplesCount,
-          boysCount: 0,
-          girlsCount: 0,
-          kidsCount: childrenCount,
-          ladiesCount: 0,
-          menCount: Math.max(guestCount - childrenCount - couplesCount * 2, 0),
-          notes: draft.internalNotes,
-          daveningNote: draft.daveningNote,
-          setupTime: draft.setupTime || null,
-          washingTime: draft.washingTime || null,
-          tableclothName: draft.tableclothName.trim() || null,
-          waitersCount,
-          memberShulName: draft.memberShulName.trim() || null,
-          sideBoxes: draft.sideBoxes.trim() || null,
-          shabbosSetup: draft.shabbosSetup.trim() || null
-        })
+        body: JSON.stringify(toEventDetailsPayload(parsed.data, event.timeInput))
       });
+
       if (!response.ok) throw await readApiError(response);
-      await onEventSaved();
-      setMessage("Event details saved successfully.");
-      setShowSaveConfirmation(true);
-      if (saveConfirmationTimerRef.current) {
-        clearTimeout(saveConfirmationTimerRef.current);
-      }
-      saveConfirmationTimerRef.current = setTimeout(
-        () => setShowSaveConfirmation(false),
-        4000
-      );
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not save event."
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
 
-  async function updateBookingStatus(action: EventLifecycleAction) {
-    const { status } = action;
-    setStatusAction(status);
-    setPendingStatusAction(null);
-    setMessage("");
-    setShowSaveConfirmation(false);
+      const saved = (await response.json()) as { event: { version: number } };
 
-    try {
-      const response = await authenticatedFetch(
-        `/api/events/${event.id}/status`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            status,
-            expectedVersion: event.version
-          })
+      if (intent === "confirm") {
+        // Saving bumped the row's version, so the transition has to quote the
+        // one that came back rather than the one this panel rendered with.
+        let version = saved.event.version;
+
+        // An inquiry cannot jump straight to confirmed - the booking rules only
+        // allow it through a hold - so it takes both steps rather than failing.
+        if (event.bookingStatus === "INQUIRY") {
+          version = await transitionTo("TENTATIVE_HOLD", version);
         }
-      );
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error ?? "Could not update event status.");
+
+        await transitionTo("CONFIRMED", version);
+      }
+
       await onEventSaved();
-      setMessage(`${action.confirmLabel} saved successfully.`);
+      setFeedback({
+        tone: "success",
+        text:
+          intent === "confirm"
+            ? "Event confirmed. The details were saved first."
+            : "Event details saved successfully."
+      });
     } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not update event status."
-      );
+      setFeedback({
+        tone: "error",
+        text:
+          error instanceof Error ? error.message : "Could not save this event."
+      });
     } finally {
-      setStatusAction(null);
+      setPendingIntent(null);
     }
   }
 
-  const isFinalBookingStatus = ["CANCELLED", "COMPLETED", "EXPIRED"].includes(
-    event.bookingStatus
-  );
-  const lifecycleActions = getEventLifecycleActions(event.bookingStatus);
+  function handleSubmit(formEvent: FormEvent<HTMLFormElement>) {
+    formEvent.preventDefault();
+    void submit("save");
+  }
 
   return (
     <form
       className="relative rounded-lg border border-[#1f4d73] bg-white shadow-sm shadow-[#1f4d73]/10"
-      onSubmit={saveEvent}
+      // The schema decides what is acceptable. Leaving the browser's own
+      // validation on would swallow the submit first and replace those messages
+      // with its generic bubble.
+      noValidate
+      onSubmit={handleSubmit}
     >
-      {showSaveConfirmation ? (
-        <div
-          className="pointer-events-none absolute left-1/2 top-3 z-20 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-xl border border-[#a6e7c3] bg-[#ecfdf3]/95 px-4 py-3 text-[#065f46] shadow-lg backdrop-blur"
-          role="status"
-        >
-          <span
-            aria-hidden="true"
-            className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#12b76a] text-white"
-          >
-            <svg
-              className="h-3.5 w-3.5"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="3"
-              viewBox="0 0 24 24"
-            >
-              <path d="m5 13 4 4L19 7" />
-            </svg>
-          </span>
-
-          <div className="min-w-0">
-            <p className="text-sm font-black">Event details saved</p>
-            <p className="mt-0.5 text-xs font-semibold text-[#047857]">
-              Your changes were saved successfully.
-            </p>
-          </div>
-        </div>
-      ) : null}
-      {pendingStatusAction ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#17202a]/45 p-4 backdrop-blur-sm"
-          role="presentation"
-        >
-          <section
-            aria-modal="true"
-            aria-labelledby="event-lifecycle-confirm-title"
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
-            role="dialog"
-          >
-            <header className="border-b border-[#d8dde5] px-5 py-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
-                Event lifecycle
-              </p>
-              <h3
-                className="mt-1 text-lg font-black text-[#17202a]"
-                id="event-lifecycle-confirm-title"
-              >
-                {pendingStatusAction.title}
-              </h3>
-            </header>
-            <div className="space-y-3 px-5 py-4 text-sm font-medium leading-6 text-[#516174]">
-              <p>{pendingStatusAction.description}</p>
-              <p className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs font-bold text-[#17202a]">
-                Event: {event.title}
-              </p>
-            </div>
-            <footer className="flex flex-wrap justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">
-              <button
-                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
-                onClick={() => setPendingStatusAction(null)}
-                type="button"
-              >
-                Keep editing
-              </button>
-              <button
-                className={`inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-black text-white ${
-                  pendingStatusAction.tone === "danger"
-                    ? "bg-[#b42318] hover:bg-[#912018]"
-                    : "bg-[#1f4d73] hover:bg-[#15344f]"
-                }`}
-                onClick={() => updateBookingStatus(pendingStatusAction)}
-                type="button"
-              >
-                {pendingStatusAction.confirmLabel}
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="calendar" />
         <h2 className="text-sm font-black text-[#17202a]">Event information</h2>
-        {hasUnsavedChanges ? (
-          <span className="ml-auto rounded-full border border-[#fedf89] bg-[#fffbeb] px-3 py-1 text-[10px] font-black uppercase tracking-wide text-[#b54708]">
-            Unsaved changes
-          </span>
-        ) : null}
       </header>
-      <div className="space-y-3 p-3">
-        <EventDetailsSection
-          title="Basic details"
-          description="Client, event type, date, time, room, and booking state."
-        >
-          <Field label="Client">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="clientName"
-              onChange={(changeEvent) =>
-                updateDraft("clientName", changeEvent.target.value)
-              }
-              value={draft.clientName}
-            />
-          </Field>
-          <Field label="Event type">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="eventType"
-              onChange={(changeEvent) =>
-                updateDraft("eventType", changeEvent.target.value)
-              }
-              value={draft.eventType}
-            />
-          </Field>
-          <Field label="Status">
-            <select
-              aria-label="Event status"
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              disabled={Boolean(statusAction) || isFinalBookingStatus}
-              name="bookingStatus"
-              onChange={(changeEvent) => {
-                const selectedAction = lifecycleActions.find(
-                  (action) => action.status === changeEvent.target.value
-                );
 
-                if (selectedAction) {
-                  setPendingStatusAction(selectedAction);
-                }
-              }}
-              value={event.bookingStatus}
-            >
-              <option value={event.bookingStatus}>
-                {statusAction
-                  ? "Saving..."
-                  : getEventLifecycleStatusLabel(event.bookingStatus)}
-              </option>
-              {lifecycleActions.map((action) => (
-                <option key={action.status} value={action.status}>
-                  {action.label}
-                </option>
-              ))}
-            </select>
-            {isFinalBookingStatus ? (
-              <p className="mt-1 text-xs font-semibold normal-case tracking-normal text-[#64748b]">
-                Lifecycle closed
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Date">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="eventDate"
-              onChange={(changeEvent) =>
-                updateDraft("eventDate", changeEvent.target.value)
-              }
-              type="date"
-              value={draft.eventDate}
-            />
-          </Field>
-          <Field label="Start Time">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#d8dde5] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="eventTime"
-              onChange={(changeEvent) =>
-                updateDraft("eventTime", changeEvent.target.value)
-              }
-              type="time"
-              value={draft.eventTime}
-            />
-          </Field>
-          <Field label="Hall / Room">
-            <select
-              aria-label="Hall / Room"
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="hallId"
-              onChange={(changeEvent) =>
-                updateDraft("hallId", changeEvent.target.value)
-              }
-              value={draft.hallId}
-            >
-              {halls.map((hall) => (
-                <option key={hall.id} value={hall.id}>
-                  {hall.name}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </EventDetailsSection>
+      <div className="p-3">
+        <BookingFormFields
+          columns={3}
+          errors={errors}
+          eventTypes={eventTypes}
+          halls={halls}
+          idPrefix="event-details"
+          onChange={updateValue}
+          onPhoneCountryChange={setPhoneCountry}
+          phoneCountry={phoneCountry}
+          values={values}
+        />
 
-        <EventDetailsSection
-          title="Guest counts"
-          description="Attendance counts used by dining, staffing, and operations."
-        >
-          <Field label="Guests">
-            <input
-              aria-describedby={
-                countErrors.guestCount ? "event-guest-count-error" : undefined
-              }
-              aria-invalid={countErrors.guestCount ? true : undefined}
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              id="event-guest-count"
-              inputMode="decimal"
-              name="guestCount"
-              onChange={(changeEvent) =>
-                updateDraft("guestCount", changeEvent.target.value)
-              }
-              type="text"
-              value={draft.guestCount}
-            />
-            {countErrors.guestCount ? (
-              <p
-                className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                id="event-guest-count-error"
-                role="alert"
-              >
-                {countErrors.guestCount}
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Children">
-            <input
-              aria-describedby={
-                countErrors.childrenCount
-                  ? "event-children-count-error"
-                  : undefined
-              }
-              aria-invalid={countErrors.childrenCount ? true : undefined}
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              id="event-children-count"
-              inputMode="decimal"
-              name="childrenCount"
-              onChange={(changeEvent) =>
-                updateDraft("childrenCount", changeEvent.target.value)
-              }
-              type="text"
-              value={draft.childrenCount}
-            />
-            {countErrors.childrenCount ? (
-              <p
-                className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                id="event-children-count-error"
-                role="alert"
-              >
-                {countErrors.childrenCount}
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Couples">
-            <input
-              aria-describedby={
-                countErrors.couplesCount
-                  ? "event-couples-count-error"
-                  : undefined
-              }
-              aria-invalid={countErrors.couplesCount ? true : undefined}
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              id="event-couples-count"
-              inputMode="decimal"
-              name="couplesCount"
-              onChange={(changeEvent) =>
-                updateDraft("couplesCount", changeEvent.target.value)
-              }
-              type="text"
-              value={draft.couplesCount}
-            />
-            {countErrors.couplesCount ? (
-              <p
-                className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                id="event-couples-count-error"
-                role="alert"
-              >
-                {countErrors.couplesCount}
-              </p>
-            ) : null}
-          </Field>
-        </EventDetailsSection>
-
-        <EventDetailsSection
-          title="Operations"
-          description="Setup, washing, tablecloth, waiters, and shul-specific details."
-        >
-          <Field label="Setup time">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="setupTime"
-              onChange={(changeEvent) =>
-                updateDraft("setupTime", changeEvent.target.value)
-              }
-              type="time"
-              value={draft.setupTime}
-            />
-          </Field>
-          <Field label="Washing start time">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="washingTime"
-              onChange={(changeEvent) =>
-                updateDraft("washingTime", changeEvent.target.value)
-              }
-              type="time"
-              value={draft.washingTime}
-            />
-          </Field>
-          <Field label="Waiters">
-            <input
-              aria-describedby={
-                countErrors.waitersCount ? "event-waiters-count-error" : undefined
-              }
-              aria-invalid={countErrors.waitersCount ? true : undefined}
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              inputMode="numeric"
-              id="event-waiters-count"
-              name="waitersCount"
-              onChange={(changeEvent) =>
-                updateDraft("waitersCount", changeEvent.target.value)
-              }
-              type="text"
-              value={draft.waitersCount}
-            />
-            {countErrors.waitersCount ? (
-              <p
-                className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                id="event-waiters-count-error"
-                role="alert"
-              >
-                {countErrors.waitersCount}
-              </p>
-            ) : null}
-          </Field>
-          <Field label="Tablecloth">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="tableclothName"
-              onChange={(changeEvent) =>
-                updateDraft("tableclothName", changeEvent.target.value)
-              }
-              placeholder="Ivory, white, champagne..."
-              value={draft.tableclothName}
-            />
-          </Field>
-          <Field label="Member shul">
-            <input
-              className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium text-[#17202a]"
-              name="memberShulName"
-              onChange={(changeEvent) =>
-                updateDraft("memberShulName", changeEvent.target.value)
-              }
-              placeholder="Member shul name"
-              value={draft.memberShulName}
-            />
-          </Field>
-        </EventDetailsSection>
-
-        <EventDetailsSection
-          title="Notes"
-          description="Separate internal, davening, Shabbos, side-box, and Dining Manager notes."
-        >
-          <Field label="Internal notes" className="sm:col-span-3">
-            <textarea
-              className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-              name="internalNotes"
-              onChange={(changeEvent) =>
-                updateDraft("internalNotes", changeEvent.target.value)
-              }
-              value={draft.internalNotes}
-            />
-          </Field>
-          <Field label="Davening notes" className="sm:col-span-3">
-            <textarea
-              className="mt-1 min-h-19 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-              name="daveningNote"
-              onChange={(changeEvent) =>
-                updateDraft("daveningNote", changeEvent.target.value)
-              }
-              placeholder="Example: Shacharis after first course, Mincha before chupah, Maariv in side room."
-              value={draft.daveningNote}
-            />
-          </Field>
-          <Field label="Side boxes" className="sm:col-span-3">
-            <textarea
-              className="mt-1 min-h-16 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-              name="sideBoxes"
-              onChange={(changeEvent) =>
-                updateDraft("sideBoxes", changeEvent.target.value)
-              }
-              placeholder="Example: Men side boxes near entrance; women side boxes by stage."
-              value={draft.sideBoxes}
-            />
-          </Field>
-          <Field label="Shabbos setup" className="sm:col-span-3">
-            <textarea
-              className="mt-1 min-h-16 w-full rounded-lg border border-[#b9c2cf] bg-white p-3 text-sm font-medium leading-5 text-[#17202a]"
-              name="shabbosSetup"
-              onChange={(changeEvent) =>
-                updateDraft("shabbosSetup", changeEvent.target.value)
-              }
-              placeholder="Example: Set before Shabbos, leave hot water urns ready."
-              value={draft.shabbosSetup}
-            />
-          </Field>
-          {event.diningManagerNotes ? (
-            <section className="rounded-lg border border-[#b9c2cf] bg-white p-3 sm:col-span-3">
-              <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                Dining Manager notes
-              </h3>
-              <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-5 text-[#17202a]">
-                {event.diningManagerNotes}
-              </p>
-            </section>
-          ) : null}
-        </EventDetailsSection>
-
-        <EventActivityHistory event={event} />
-      </div>
-      <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-        {hasUnsavedChanges ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
-            disabled={isSaving}
-            onClick={discardChanges}
+            className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isBusy}
+            type="submit"
+          >
+            <LineIcon name="save" className="h-4 w-4" />
+            {pendingIntent === "save" ? "Saving..." : "Save event details"}
+          </button>
+
+          <button
+            className="inline-flex h-9 items-center gap-2 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isBusy || !canConfirm}
+            onClick={() => void submit("confirm")}
+            title={
+              canConfirm
+                ? "Save these details and confirm the booking"
+                : "This event is no longer waiting to be confirmed."
+            }
             type="button"
           >
-            Discard changes
+            <LineIcon name="check" className="h-4 w-4" />
+            {pendingIntent === "confirm" ? "Confirming..." : "Confirm event"}
           </button>
-        ) : null}
-        <button
-          className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-          disabled={isSaving || !hasUnsavedChanges || hasValidationErrors}
-          type="submit"
-        >
-          <LineIcon name="save" className="h-4 w-4" />
-          {isSaving ? "Saving..." : "Save event details"}
-        </button>
-        {message && !showSaveConfirmation ? (
-          <p className="w-full text-xs text-[#516174]" role="status">
-            {message}
-          </p>
-        ) : null}
-        {hasValidationErrors ? (
-          <div
-            className="w-full rounded-lg border border-[#fedf89] bg-[#fffbeb] px-3 py-2 text-xs font-bold leading-5 text-[#b54708]"
-            role="alert"
-          >
-            {validationErrors[0]}
-          </div>
-        ) : null}
+
+          {feedback ? (
+            <div
+              className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${
+                feedback.tone === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                  : "border-red-200 bg-red-50 text-red-700"
+              }`}
+              role={feedback.tone === "success" ? "status" : "alert"}
+            >
+              <LineIcon
+                name={feedback.tone === "success" ? "check" : "close"}
+                className="mt-0.5 h-4 w-4 shrink-0"
+              />
+              <span>{feedback.text}</span>
+            </div>
+          ) : null}
+        </div>
       </div>
     </form>
   );
@@ -1316,7 +649,7 @@ export function TimelineInstructions({ event }: { event: EventFile }) {
           Confirm timeline
         </button>
         {message ? (
-          <div 
+          <div
         className={`col-span-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs font-medium sm:text-sm ${
           messageType === "success"
          ? "border-emerald-200 bg-emerald-50 text-emerald-800"

@@ -5,19 +5,23 @@ import { countSchema, parseNumericInput } from "@/lib/validation/number";
 import { DEFAULT_PHONE_COUNTRY, requiredPhoneSchema } from "@/lib/validation/phone";
 
 /**
- * The calendar quick-booking form, as text.
+ * The booking form, as text.
  *
- * Every value the dialog holds is a string, because that is what an input
- * gives back. The schema owns the whole hop from that text to the payload the
- * `/api/events` route expects, so a field cannot be "checked" in one place and
+ * Every value a booking form holds is a string, because that is what an input
+ * gives back. This schema owns the whole hop from that text to the numbers and
+ * E.164 the API expects, so a field cannot be "checked" in one place and
  * converted in another.
  *
- * Client name, phone, date, hall and event type are all required here. Guests,
- * couples and children stay optional - blank means zero rather than an error -
- * and notes are free text.
+ * Shared deliberately: the calendar's new-booking dialog and the event
+ * manager's Event information panel are the same form over the same fields, one
+ * creating and one editing. Anything added here appears in both.
+ *
+ * Client name, phone, date, hall and event type are required. Guests, couples
+ * and children stay optional - blank means zero rather than an error - and
+ * notes are free text.
  */
 
-export type CalendarBookingFormValues = {
+export type BookingFormValues = {
   clientName: string;
   phone: string;
   eventDate: string;
@@ -29,16 +33,25 @@ export type CalendarBookingFormValues = {
   notes: string;
 };
 
-export type CalendarBookingFormErrors = Partial<
-  Record<keyof CalendarBookingFormValues, string>
->;
+export type BookingFormErrors = Partial<Record<keyof BookingFormValues, string>>;
+
+export const emptyBookingFormValues: BookingFormValues = {
+  clientName: "",
+  phone: "",
+  eventDate: "",
+  hallId: "",
+  eventTypeId: "",
+  guests: "0",
+  couples: "0",
+  children: "0",
+  notes: ""
+};
 
 /**
  * Counts that may be left blank but never left garbage.
  *
  * Same double-parse shape as `phoneSchema`: the refinement decides whether the
- * text is acceptable, the transform then converts it. Blank becomes 0, which is
- * what the old dialog pre-filled by hand.
+ * text is acceptable, the transform then converts it. Blank becomes 0.
  */
 function countTextSchema(label: string) {
   const number = countSchema({ label });
@@ -73,7 +86,7 @@ function countTextSchema(label: string) {
  * from the picker next to the field, and the same digits are a valid number in
  * one country and impossible in another.
  */
-export function calendarBookingFormSchema({
+export function bookingFormSchema({
   country = DEFAULT_PHONE_COUNTRY
 }: { country?: CountryCode } = {}) {
   return z
@@ -97,14 +110,16 @@ export function calendarBookingFormSchema({
       eventTypeId: z.string().uuid("Select an event type."),
       // The head count for the whole event. Couples and children below are the
       // parts of it the kitchen and dining rooms are counted separately by, the
-      // same way the event manager's guest-counts section reads them back.
+      // same way the event manager reads them back.
       guests: countTextSchema("Guests"),
       couples: countTextSchema("Couples"),
       children: countTextSchema("Children"),
+      // 5000 because that is the tighter of the two routes this form posts to;
+      // a note that passes here is accepted by both.
       notes: z
         .string()
         .trim()
-        .max(10000, "Notes must be 10000 characters or less.")
+        .max(5000, "Notes must be 5000 characters or less.")
     })
     .superRefine((values, context) => {
       const parts = values.couples * 2 + values.children;
@@ -123,24 +138,40 @@ export function calendarBookingFormSchema({
     });
 }
 
-export type CalendarBookingFormInput = z.output<
-  ReturnType<typeof calendarBookingFormSchema>
->;
+export type BookingFormInput = z.output<ReturnType<typeof bookingFormSchema>>;
 
 /** First message per field, which is all a single-line error slot can show. */
 export function toFieldErrors(
-  error: z.ZodError<CalendarBookingFormValues>
-): CalendarBookingFormErrors {
+  error: z.ZodError<BookingFormValues>
+): BookingFormErrors {
   const fieldErrors = error.flatten().fieldErrors;
-  const errors: CalendarBookingFormErrors = {};
+  const errors: BookingFormErrors = {};
 
   for (const [field, messages] of Object.entries(fieldErrors)) {
     const message = messages?.[0];
 
     if (message) {
-      errors[field as keyof CalendarBookingFormValues] = message;
+      errors[field as keyof BookingFormValues] = message;
     }
   }
 
   return errors;
+}
+
+/**
+ * The count columns a validated form maps onto.
+ *
+ * There is no total-guests column - the total is the sum of the parts - so
+ * whatever the couples and children do not account for goes to the catch-all,
+ * which is what makes the entered total read back unchanged.
+ */
+export function toGuestCountPayload(data: BookingFormInput) {
+  return {
+    couplesCount: data.couples,
+    kidsCount: data.children,
+    boysCount: 0,
+    girlsCount: 0,
+    ladiesCount: 0,
+    menCount: Math.max(data.guests - data.couples * 2 - data.children, 0)
+  };
 }

@@ -68,11 +68,9 @@ export async function GET(request: Request) {
           //
           // `bookingStatus`, not `eventStatus`: the lifecycle in
           // `booking.service.ts` is the only writer of this column, while
-          // `eventStatus` is free text that PATCH /api/events/[eventId] rewrites
-          // through `normalizeEventStatusForSave`, which collapses every value
-          // to "Confirmed" or "Hold" - so an ordinary details save on a
-          // cancelled event relabels it "Hold" and would put it back on this
-          // board.
+          // `eventStatus` is a display label PATCH /api/events/[eventId] still
+          // accepts as "Confirmed" or "Hold" - so a caller sending it for a
+          // cancelled event would relabel it and put it back on this board.
           bookingStatus: CONFIRMED_STATUS,
           eventDate: { gte: start, lt: end }
         },

@@ -1,35 +1,37 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createEventDetailsDraft,
-  createEventDetailsDraftSignature,
-  getEventLifecycleActions,
-  normalizeEventStatusForSave,
+  createBookingFormValues,
   timelineDisplayTimeToInputValue,
   timelineInputValueToDisplayTime,
-  validateEventDetailsDraft
+  toEventDetailsPayload
 } from "@/features/events/components/event-details-panel";
+import { bookingFormSchema } from "@/features/bookings/validations/booking-form.schema";
 
 const event = {
-  children: 4,
+  children: "4",
   clientName: "Charles Duot",
-  couples: 12,
+  couples: "12",
   dateInput: "2026-09-01",
   eventType: "Wedding",
-  guests: 50,
-  hallId: "hall-1",
+  eventTypeId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607",
+  guests: "50",
+  hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
   internalNotes: "Original note",
-  daveningNote: "Original davening note",
-  memberShulName: "Congregation Event Core",
-  setupTime: "16:30",
-  shabbosSetup: "Set before Shabbos.",
-  sideBoxes: "Men side boxes near entrance.",
+  phone: "+12125550123",
   status: "Confirmed",
-  tableclothName: "Ivory",
-  timeInput: "18:30",
-  waitersCount: 2,
-  washingTime: "22:30"
+  timeInput: "18:30"
 };
+
+function parseValues(values: ReturnType<typeof createBookingFormValues>) {
+  const result = bookingFormSchema({ country: "US" }).safeParse(values);
+
+  if (!result.success) {
+    throw new Error(JSON.stringify(result.error.flatten().fieldErrors));
+  }
+
+  return result.data;
+}
 
 describe("event timeline time conversion", () => {
   it("converts display time into a native time input value", () => {
@@ -45,101 +47,68 @@ describe("event timeline time conversion", () => {
   });
 });
 
-describe("event details draft signatures", () => {
-  it("changes when editable event details change", () => {
-    const draft = createEventDetailsDraft(event as never);
-    const base = createEventDetailsDraftSignature(draft);
-    const changed = createEventDetailsDraftSignature({
-      ...draft,
-      internalNotes: "Updated note"
+describe("event information booking form values", () => {
+  it("reads a stored event into the booking form fields", () => {
+    const values = createBookingFormValues(event as never);
+
+    expect(values).toEqual({
+      clientName: "Charles Duot",
+      // Stored as E.164, typed as the national part.
+      phone: "(212) 555-0123",
+      eventDate: "2026-09-01",
+      hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
+      eventTypeId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607",
+      guests: "50",
+      couples: "12",
+      children: "4",
+      notes: "Original note"
     });
-
-    expect(changed).not.toBe(base);
   });
 
-  it("tracks davening notes as separate editable event details", () => {
-    const draft = createEventDetailsDraft(event as never);
-    const base = createEventDetailsDraftSignature(draft);
-    const changed = createEventDetailsDraftSignature({
-      ...draft,
-      daveningNote: "Updated davening note"
+  it("passes the shared booking schema", () => {
+    expect(() => parseValues(createBookingFormValues(event as never))).not.toThrow();
+  });
+});
+
+describe("event information save payload", () => {
+  it("spreads the guest total across the count columns", () => {
+    const payload = toEventDetailsPayload(
+      parseValues(createBookingFormValues(event as never)),
+      event.timeInput
+    );
+
+    expect(payload).toMatchObject({
+      clientName: "Charles Duot",
+      phone: "+12125550123",
+      eventDate: "2026-09-01",
+      couplesCount: 12,
+      kidsCount: 4,
+      boysCount: 0,
+      girlsCount: 0,
+      ladiesCount: 0,
+      // 50 guests less 12 couples (24 seats) and 4 children.
+      menCount: 22
     });
-
-    expect(draft.daveningNote).toBe("Original davening note");
-    expect(changed).not.toBe(base);
-  });
-});
-
-describe("event details save normalization", () => {
-  it("normalizes display event status into API values", () => {
-    expect(normalizeEventStatusForSave("Confirmed")).toBe("Confirmed");
-    expect(normalizeEventStatusForSave("confirmed")).toBe("Confirmed");
-    expect(normalizeEventStatusForSave("Hold")).toBe("Hold");
-  });
-});
-
-describe("event details form validation", () => {
-  it("accepts a valid draft", () => {
-    const draft = createEventDetailsDraft(event as never);
-
-    expect(validateEventDetailsDraft(draft)).toEqual([]);
   });
 
-  it("rejects invalid number relationships before saving", () => {
-    const draft = createEventDetailsDraft(event as never);
+  it("carries the stored clock time onto a moved date", () => {
+    const values = {
+      ...createBookingFormValues(event as never),
+      eventDate: "2026-09-08"
+    };
+    const payload = toEventDetailsPayload(parseValues(values), "18:30");
 
-    expect(
-      validateEventDetailsDraft({
-        ...draft,
-        guestCount: "10",
-        childrenCount: "11"
-      })
-    ).toContain("Children cannot be greater than total guests.");
-
-    expect(
-      validateEventDetailsDraft({
-        ...draft,
-        guestCount: "10",
-        couplesCount: "6"
-      })
-    ).toContain("Couples cannot require more seats than total guests.");
+    expect(payload.startsAt).toBe(
+      new Date("2026-09-08T18:30:00").toISOString()
+    );
   });
 
-  it("rejects negative and non-integer count values", () => {
-    const draft = createEventDetailsDraft(event as never);
+  it("leaves an event with no recorded time without one", () => {
+    const payload = toEventDetailsPayload(
+      parseValues(createBookingFormValues(event as never)),
+      ""
+    );
 
-    expect(
-      validateEventDetailsDraft({
-        ...draft,
-        waitersCount: "-1"
-      })
-    ).toContain("Waiters must be a whole number of 0 or more.");
-
-    expect(
-      validateEventDetailsDraft({
-        ...draft,
-        guestCount: "10.5"
-      })
-    ).toContain("Guests must be a whole number of 0 or more.");
-  });
-});
-
-describe("event lifecycle actions", () => {
-  it("shows only valid next actions for active booking states", () => {
-    expect(
-      getEventLifecycleActions("INQUIRY").map((action) => action.status)
-    ).toEqual(["TENTATIVE_HOLD", "CANCELLED"]);
-    expect(
-      getEventLifecycleActions("TENTATIVE_HOLD").map((action) => action.status)
-    ).toEqual(["CONFIRMED", "CANCELLED"]);
-    expect(
-      getEventLifecycleActions("CONFIRMED").map((action) => action.status)
-    ).toEqual(["COMPLETED", "CANCELLED"]);
-  });
-
-  it("closes lifecycle actions for final booking states", () => {
-    expect(getEventLifecycleActions("COMPLETED")).toEqual([]);
-    expect(getEventLifecycleActions("CANCELLED")).toEqual([]);
-    expect(getEventLifecycleActions("EXPIRED")).toEqual([]);
+    expect(payload).not.toHaveProperty("startsAt");
   });
 });

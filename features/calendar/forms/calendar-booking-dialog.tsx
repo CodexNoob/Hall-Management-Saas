@@ -9,20 +9,20 @@ import {
 
 import type { CountryCode } from "libphonenumber-js";
 
-import { PhoneField } from "@/components/ui/phone-field";
-import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import {
-  calendarBookingFormSchema,
+  BookingFormFields,
+  type BookingLookupOption
+} from "@/features/bookings/forms/booking-form-fields";
+import {
+  bookingFormSchema,
+  emptyBookingFormValues,
   toFieldErrors,
-  type CalendarBookingFormErrors,
-  type CalendarBookingFormValues
-} from "@/features/calendar/validations/calendar-booking-form.schema";
+  toGuestCountPayload,
+  type BookingFormErrors,
+  type BookingFormValues
+} from "@/features/bookings/validations/booking-form.schema";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { DEFAULT_PHONE_COUNTRY } from "@/lib/validation/phone";
-
-type LookupOption = {
-  id: string;
-  name: string;
-};
 
 type BookingPayload = {
   clientName: string;
@@ -35,6 +35,9 @@ type BookingPayload = {
   couplesCount: number;
   kidsCount: number;
   menCount: number;
+  boysCount: number;
+  girlsCount: number;
+  ladiesCount: number;
   notes?: string;
   idempotencyKey: string;
 };
@@ -42,57 +45,11 @@ type BookingPayload = {
 type CalendarBookingDialogProps = {
   open: boolean;
   selectedDate: string;
-  halls: LookupOption[];
-  eventTypes: LookupOption[];
+  halls: BookingLookupOption[];
+  eventTypes: BookingLookupOption[];
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 };
-
-const controlClass =
-  "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 " +
-  "text-sm text-[#17202a] outline-none transition " +
-  "focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
-
-const initialValues: CalendarBookingFormValues = {
-  clientName: "",
-  phone: "",
-  eventDate: "",
-  hallId: "",
-  eventTypeId: "",
-  guests: "0",
-  couples: "0",
-  children: "0",
-  notes: ""
-};
-
-function FieldLabel({
-  children,
-  htmlFor
-}: {
-  children: string;
-  htmlFor: string;
-}) {
-  return (
-    <label
-      className="mb-1 block text-[10px] font-black uppercase tracking-[0.06em] text-[#64748b]"
-      htmlFor={htmlFor}
-    >
-      {children}
-    </label>
-  );
-}
-
-function FieldError({ children, id }: { children: string; id: string }) {
-  return (
-    <p
-      className="mt-1 text-[10px] font-bold text-[#c2410c]"
-      id={id}
-      role="alert"
-    >
-      {children}
-    </p>
-  );
-}
 
 function CalendarIcon() {
   return (
@@ -126,9 +83,10 @@ export function CalendarBookingDialog({
   >("/api/events");
   const { resetError } = bookingMutation;
 
-  const [values, setValues] =
-    useState<CalendarBookingFormValues>(initialValues);
-  const [errors, setErrors] = useState<CalendarBookingFormErrors>({});
+  const [values, setValues] = useState<BookingFormValues>(
+    emptyBookingFormValues
+  );
+  const [errors, setErrors] = useState<BookingFormErrors>({});
   const [phoneCountry, setPhoneCountry] =
     useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
 
@@ -136,7 +94,7 @@ export function CalendarBookingDialog({
     if (!open) return;
 
     setValues({
-      ...initialValues,
+      ...emptyBookingFormValues,
       eventDate: selectedDate,
       hallId: halls[0]?.id ?? "",
       eventTypeId: eventTypes[0]?.id ?? ""
@@ -166,7 +124,7 @@ export function CalendarBookingDialog({
 
   // Halls can still be loading when the dialog opens. Fill in the default hall
   // once they arrive - without this the required select stays empty and the
-  // browser blocks the submit with no explanation. Existing input is kept.
+  // form is refused with no explanation. Existing input is kept.
   useEffect(() => {
     if (!open || !halls.length) return;
 
@@ -175,7 +133,7 @@ export function CalendarBookingDialog({
     );
   }, [halls, open]);
 
-  // Event types load on the same request as the halls, and the field is now
+  // Event types load on the same request as the halls, and the field is
   // required, so it needs the same late-arrival fill.
   useEffect(() => {
     if (!open || !eventTypes.length) return;
@@ -189,10 +147,7 @@ export function CalendarBookingDialog({
 
   if (!open) return null;
 
-  const updateValue = (
-    field: keyof CalendarBookingFormValues,
-    value: string
-  ) => {
+  const updateValue = (field: keyof BookingFormValues, value: string) => {
     resetError();
     setErrors((current) => ({
       ...current,
@@ -218,9 +173,9 @@ export function CalendarBookingDialog({
 
     // One schema for the whole form, sharing the phone and count vocabulary the
     // route handler validates with, so the two layers cannot disagree.
-    const parsed = calendarBookingFormSchema({
-      country: phoneCountry
-    }).safeParse(values);
+    const parsed = bookingFormSchema({ country: phoneCountry }).safeParse(
+      values
+    );
 
     if (!parsed.success) {
       setErrors(toFieldErrors(parsed.error));
@@ -240,15 +195,7 @@ export function CalendarBookingDialog({
         // a hold, which is what the picker defaulted to.
         bookingStatus: "TENTATIVE_HOLD",
         eventStatus: "Hold",
-        couplesCount: parsed.data.couples,
-        kidsCount: parsed.data.children,
-        // There is no total-guests column: the total is the sum of the count
-        // columns, so whatever the couples and children do not account for goes
-        // to the same catch-all the event manager's guest count writes to.
-        menCount: Math.max(
-          parsed.data.guests - parsed.data.couples * 2 - parsed.data.children,
-          0
-        ),
+        ...toGuestCountPayload(parsed.data),
         notes: parsed.data.notes || undefined,
         idempotencyKey: crypto.randomUUID()
       });
@@ -316,257 +263,17 @@ export function CalendarBookingDialog({
           onSubmit={handleSubmit}
         >
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-            <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2">
-              <div>
-                <FieldLabel htmlFor="calendar-client-name">
-                  Client name
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    errors.clientName ? "calendar-client-name-error" : undefined
-                  }
-                  aria-invalid={errors.clientName ? true : undefined}
-                  autoFocus
-                  className={controlClass}
-                  id="calendar-client-name"
-                  onChange={(event) =>
-                    updateValue("clientName", event.target.value)
-                  }
-                  placeholder="Client name"
-                  required
-                  value={values.clientName}
-                />
-                {errors.clientName ? (
-                  <FieldError id="calendar-client-name-error">
-                    {errors.clientName}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-phone">
-                  Phone
-                </FieldLabel>
-
-                <PhoneField
-                  country={phoneCountry}
-                  id="calendar-phone"
-                  inputClassName={`${controlClass} min-w-0 flex-1`}
-                  name="phone"
-                  onChange={(value) => updateValue("phone", value)}
-                  onCountryChange={setPhoneCountry}
-                  required
-                  rowClassName="flex gap-2"
-                  selectClassName={`${controlClass} max-w-[8.5rem]`}
-                  serverError={errors.phone}
-                  value={values.phone}
-                />
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-date">
-                  Date
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    errors.eventDate ? "calendar-date-error" : undefined
-                  }
-                  aria-invalid={errors.eventDate ? true : undefined}
-                  className={controlClass}
-                  id="calendar-date"
-                  onChange={(event) =>
-                    updateValue("eventDate", event.target.value)
-                  }
-                  required
-                  type="date"
-                  value={values.eventDate}
-                />
-                {errors.eventDate ? (
-                  <FieldError id="calendar-date-error">
-                    {errors.eventDate}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-hall">
-                  Hall / room
-                </FieldLabel>
-
-                <select
-                  aria-describedby={
-                    errors.hallId ? "calendar-hall-error" : undefined
-                  }
-                  aria-invalid={errors.hallId ? true : undefined}
-                  className={controlClass}
-                  id="calendar-hall"
-                  onChange={(event) =>
-                    updateValue("hallId", event.target.value)
-                  }
-                  required
-                  value={values.hallId}
-                >
-                  <option disabled value="">
-                    Select hall
-                  </option>
-
-                  {halls.map((hall) => (
-                    <option key={hall.id} value={hall.id}>
-                      {hall.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.hallId ? (
-                  <FieldError id="calendar-hall-error">
-                    {errors.hallId}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-event-type">
-                  Event type
-                </FieldLabel>
-
-                <select
-                  aria-describedby={
-                    errors.eventTypeId ? "calendar-event-type-error" : undefined
-                  }
-                  aria-invalid={errors.eventTypeId ? true : undefined}
-                  className={controlClass}
-                  id="calendar-event-type"
-                  onChange={(event) =>
-                    updateValue("eventTypeId", event.target.value)
-                  }
-                  required
-                  value={values.eventTypeId}
-                >
-                  <option disabled value="">
-                    Select event type
-                  </option>
-
-                  {eventTypes.map((eventType) => (
-                    <option
-                      key={eventType.id}
-                      value={eventType.id}
-                    >
-                      {eventType.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.eventTypeId ? (
-                  <FieldError id="calendar-event-type-error">
-                    {errors.eventTypeId}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-guests">
-                  Guests
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    errors.guests ? "calendar-guests-error" : undefined
-                  }
-                  aria-invalid={errors.guests ? true : undefined}
-                  className={controlClass}
-                  id="calendar-guests"
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    updateValue("guests", event.target.value)
-                  }
-                  type="text"
-                  value={values.guests}
-                />
-                {errors.guests ? (
-                  <FieldError id="calendar-guests-error">
-                    {errors.guests}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-couples">
-                  Couples
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    errors.couples ? "calendar-couples-error" : undefined
-                  }
-                  aria-invalid={errors.couples ? true : undefined}
-                  className={controlClass}
-                  id="calendar-couples"
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    updateValue("couples", event.target.value)
-                  }
-                  type="text"
-                  value={values.couples}
-                />
-                {errors.couples ? (
-                  <FieldError id="calendar-couples-error">
-                    {errors.couples}
-                  </FieldError>
-                ) : null}
-              </div>
-
-              <div>
-                <FieldLabel htmlFor="calendar-children">
-                  Children
-                </FieldLabel>
-
-                <input
-                  aria-describedby={
-                    errors.children ? "calendar-children-error" : undefined
-                  }
-                  aria-invalid={errors.children ? true : undefined}
-                  className={controlClass}
-                  id="calendar-children"
-                  inputMode="decimal"
-                  onChange={(event) =>
-                    updateValue("children", event.target.value)
-                  }
-                  type="text"
-                  value={values.children}
-                />
-                {errors.children ? (
-                  <FieldError id="calendar-children-error">
-                    {errors.children}
-                  </FieldError>
-                ) : null}
-              </div>
-
-            </div>
-
-            <div className="mt-2">
-              <FieldLabel htmlFor="calendar-notes">
-                Notes
-              </FieldLabel>
-
-              <textarea
-                aria-describedby={
-                  errors.notes ? "calendar-notes-error" : undefined
-                }
-                aria-invalid={errors.notes ? true : undefined}
-                className="min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
-                id="calendar-notes"
-                onChange={(event) =>
-                  updateValue("notes", event.target.value)
-                }
-                placeholder="Internal notes"
-                value={values.notes}
-              />
-              {errors.notes ? (
-                <FieldError id="calendar-notes-error">
-                  {errors.notes}
-                </FieldError>
-              ) : null}
-            </div>
+            <BookingFormFields
+              autoFocus
+              errors={errors}
+              eventTypes={eventTypes}
+              halls={halls}
+              idPrefix="calendar"
+              onChange={updateValue}
+              onPhoneCountryChange={setPhoneCountry}
+              phoneCountry={phoneCountry}
+              values={values}
+            />
 
             {bookingMutation.error ? (
               <p

@@ -32,6 +32,7 @@ export type EventFile = {
   bookingStatus: string;
   clientName: string;
   eventType: string;
+  eventTypeId: string;
   title: string;
   date: string;
   dateInput: string;
@@ -84,12 +85,18 @@ export type EventHallOption = {
   name: string;
 };
 
+export type EventTypeOption = {
+  id: string;
+  name: string;
+};
+
 export type EventsResponse = {
   events: Array<{
     id: string;
     clientName: string;
     eventDate: string;
     eventType: string | null;
+    eventTypeId: string | null;
     eventStatus: string;
     bookingStatus: string;
     startsAt: string | null;
@@ -137,7 +144,7 @@ export type EventsResponse = {
     hall: { id: string; name: string };
   }>;
   halls: EventHallOption[];
-  eventTypes: Array<{ id: string; name: string }>;
+  eventTypes: EventTypeOption[];
 };
 
 export const tabs = [

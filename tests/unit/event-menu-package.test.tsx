@@ -39,6 +39,7 @@ function eventFile(): EventFile {
     bookingStatus: "INQUIRY",
     clientName: "Client",
     eventType: "Wedding",
+    eventTypeId: "event-type-1",
     title: "Event 1",
     date: "Aug 20, 2026",
     dateInput: "2026-08-20",
