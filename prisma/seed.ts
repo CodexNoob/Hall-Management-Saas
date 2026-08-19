@@ -307,6 +307,12 @@ async function main() {
       eventTypeId: weddingType.id,
       eventType: weddingType.name,
       eventStatus: "Confirmed",
+      // Both, because they are two halves of one fact. `bookingStatus` defaults
+      // to INQUIRY, so seeding only the label produced an event that reads
+      // "Confirmed" everywhere a human looks and is an inquiry to every query
+      // that asks the lifecycle - including the kitchen board, which now shows
+      // confirmed bookings only.
+      bookingStatus: "CONFIRMED",
       paymentStatus: "Deposit Paid",
       packageId: weddingPackage.id,
       packageName: weddingPackage.name,

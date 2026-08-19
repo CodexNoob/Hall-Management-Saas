@@ -1,9 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdministrativeRole } from "@/lib/auth/roles";
-import { requireAnyPermission, requirePermission } from "@/lib/auth/server-auth";
+import {
+  requireAnyPermission,
+  requirePermission
+} from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+
+/**
+ * The one booking state the kitchen cooks for.
+ *
+ * Named rather than inlined because the PATCH below has to answer the same
+ * question: an event that leaves this state stops being the kitchen's business,
+ * and a status write against one that is not in it should not be accepted.
+ */
+const CONFIRMED_STATUS = "CONFIRMED";
 
 const kitchenMutationSchema = z.discriminatedUnion("action", [
   z.object({
@@ -49,6 +61,19 @@ export async function GET(request: Request) {
         where: {
           organizationId: actor.organizationId,
           deleted: false,
+          // Only the events the hall is committed to. Without this the board
+          // listed inquiries, expired holds and cancelled bookings beside real
+          // work, so a kitchen reading today's list could not tell what it was
+          // actually cooking.
+          //
+          // `bookingStatus`, not `eventStatus`: the lifecycle in
+          // `booking.service.ts` is the only writer of this column, while
+          // `eventStatus` is free text that PATCH /api/events/[eventId] rewrites
+          // through `normalizeEventStatusForSave`, which collapses every value
+          // to "Confirmed" or "Hold" - so an ordinary details save on a
+          // cancelled event relabels it "Hold" and would put it back on this
+          // board.
+          bookingStatus: CONFIRMED_STATUS,
           eventDate: { gte: start, lt: end }
         },
         include: {
@@ -132,8 +157,7 @@ export async function PATCH(request: Request) {
     const input = kitchenMutationSchema.parse(await request.json());
     const isAdmin = isAdministrativeRole(actor.membership.role);
     const canEditMenu = isAdmin || Boolean(actor.access?.canEditMenu);
-    const canAssignWorkers =
-      isAdmin || Boolean(actor.access?.canAssignWorkers);
+    const canAssignWorkers = isAdmin || Boolean(actor.access?.canAssignWorkers);
     const canUpdateKitchenStatus =
       isAdmin || Boolean(actor.access?.canUpdateKitchenStatus);
 
@@ -169,7 +193,12 @@ export async function PATCH(request: Request) {
       where: {
         id: input.eventId,
         organizationId: actor.organizationId,
-        deleted: false
+        deleted: false,
+        // Matches the GET. A board left open when an event is cancelled would
+        // otherwise keep writing statuses, assignments and menu edits against a
+        // booking that is off - and those writes are what the kitchen reads
+        // back as work to do.
+        bookingStatus: CONFIRMED_STATUS
       },
       select: { id: true, eventDate: true, hallName: true, menuItemIds: true }
     });
@@ -236,7 +265,9 @@ export async function PATCH(request: Request) {
       const updatedEvent = await prisma.event.update({
         where: { id: event.id },
         data: {
-          menuItemIds: event.menuItemIds.filter((itemId) => itemId !== menuItem.id),
+          menuItemIds: event.menuItemIds.filter(
+            (itemId) => itemId !== menuItem.id
+          ),
           updatedById: actor.id
         },
         select: { id: true, menuItemIds: true }
