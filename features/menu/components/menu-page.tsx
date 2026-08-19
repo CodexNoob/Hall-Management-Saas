@@ -201,13 +201,6 @@ export function MenuPage() {
       ])
     )
   ];
-  const displayCategories = categoryNames.map((label) => ({
-    label,
-    count:
-      label === "All"
-        ? allMenuItems.length
-        : allMenuItems.filter((item) => item.category === label).length
-  }));
   // Both lists are resolved against the library rather than read off the
   // package: `included_menu_item_ids` is an id array, so this is the only place
   // the ids become items with names to draw.
@@ -770,7 +763,7 @@ export function MenuPage() {
             </div>
           </section>
         ) : (
-          <div className="grid h-auto min-h-0 min-w-0 items-start gap-3 xl:h-full xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid h-auto min-h-0 min-w-0 items-start gap-3 xl:h-full">
             <section className="flex h-auto min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:h-full">
               <div className="flex min-h-0 flex-1 flex-col">
                 <header className="flex shrink-0 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-start sm:justify-between">
@@ -819,9 +812,9 @@ export function MenuPage() {
                         setSelectedCategory(event.target.value)
                       }
                     >
-                      {displayCategories.map((category) => (
-                        <option key={category.label} value={category.label}>
-                          {category.label}
+                      {categoryNames.map((label) => (
+                        <option key={label} value={label}>
+                          {label}
                         </option>
                       ))}
                     </select>
@@ -847,50 +840,6 @@ export function MenuPage() {
                 </div>
               </div>
             </section>
-
-            <aside className="flex h-auto min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:h-full">
-              <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
-                <LineIcon name="filter" className="h-4 w-4 text-[#17202a]" />
-                <h2 className="text-sm font-black text-[#17202a]">
-                  Categories
-                </h2>
-              </header>
-
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
-                {displayCategories.map((category) => {
-                  const isActive = selectedCategory === category.label;
-
-                  return (
-                    <button
-                      key={category.label}
-                      className={`flex h-13.5 w-full items-center gap-3 rounded-lg border px-3 text-left ${
-                        isActive
-                          ? "border-[#1f4d73] bg-[#eef4fa]"
-                          : "border-[#d8dde5] bg-white hover:bg-[#eef4fa]"
-                      }`}
-                      type="button"
-                      onClick={() => setSelectedCategory(category.label)}
-                    >
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
-                        <LineIcon name="document" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="text-sm font-black text-[#17202a]">
-                          {category.label}
-                        </span>
-                        <span className="ml-0.5 text-xs text-[#6a7483]">
-                          {category.count} items
-                        </span>
-                      </span>
-                      <LineIcon
-                        name="chevron"
-                        className="h-4 w-4 shrink-0 text-[#17202a]"
-                      />
-                    </button>
-                  );
-                })}
-              </div>
-            </aside>
           </div>
         )}
       </main>
