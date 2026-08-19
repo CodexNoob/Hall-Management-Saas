@@ -8,6 +8,7 @@ import { EventBillingContent } from "@/features/events/components/event-billing-
 import { ClientPortalContent } from "@/features/events/components/event-client-portal-content";
 import {
   ClientContact,
+  EventActivityHistory,
   EventInformation,
   ReadinessPanel,
   TimelineInstructions
@@ -179,10 +180,11 @@ export function EventWorkspace({
                   onEventSaved={onEventSaved}
                 />
                 <TimelineInstructions event={event} />
+                <EventActivityHistory event={event} />
               </div>
               <aside className="space-y-3">
                 <ClientContact event={event} />
-                <ReadinessPanel event={event} />
+                <ReadinessPanel event={event} onOpenTab={onTabChange} />
               </aside>
             </div>
           </div>
