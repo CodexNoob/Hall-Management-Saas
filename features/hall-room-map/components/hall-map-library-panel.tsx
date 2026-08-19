@@ -221,10 +221,18 @@ export function HallMapLibraryPanel({
                 />
               </label>
               <label className="min-w-0">
-                <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
-                  Seats per table
+                {/* Visible text is short so all three labels stay on one line
+                    and the inputs align. The accessible name stays
+                    "Seats per table" - a bare "Seats" would collide with the
+                    inspector's field of the same name. */}
+                <span
+                  aria-hidden="true"
+                  className="block whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-[#59677c]"
+                >
+                  Seats
                 </span>
                 <input
+                  aria-label="Seats per table"
                   className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
                   inputMode="numeric"
                   name="rowTablesSeats"

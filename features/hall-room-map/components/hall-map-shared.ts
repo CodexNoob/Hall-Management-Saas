@@ -374,6 +374,51 @@ export function getObjectFootprint(object: MapObject) {
   };
 }
 
+export type WorldRect = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
+/** A rectangle from two corners, whichever direction it was dragged. */
+export function normalizeWorldRect(
+  from: { x: number; y: number },
+  to: { x: number; y: number }
+): WorldRect {
+  return {
+    minX: Math.min(from.x, to.x),
+    minY: Math.min(from.y, to.y),
+    maxX: Math.max(from.x, to.x),
+    maxY: Math.max(from.y, to.y)
+  };
+}
+
+/**
+ * Ids of every object the marquee touches.
+ *
+ * Touch, not full containment: a floor plan is dense, and requiring the box to
+ * swallow a table whole - chairs included - means dragging across half the room
+ * to pick up two tables. Every tool a planner already knows (Figma, Photoshop,
+ * Illustrator) selects on intersection. Compares against `getObjectFootprint`,
+ * so a rotated divider is caught by the space it really occupies rather than
+ * its unrotated box, and a table's chairs count as part of it.
+ */
+export function findObjectIdsInRegion(objects: MapObject[], region: WorldRect) {
+  return objects
+    .filter((object) => {
+      const box = getObjectFootprint(object);
+
+      return (
+        box.minX < region.maxX &&
+        region.minX < box.maxX &&
+        box.minY < region.maxY &&
+        region.minY < box.maxY
+      );
+    })
+    .map((object) => object.id);
+}
+
 /** Ids of every object whose footprint intersects another's. */
 export function findOverlappingObjectIds(objects: MapObject[]) {
   const overlapping = new Set<string>();

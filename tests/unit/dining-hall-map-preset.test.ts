@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildDiningTablesFromHallMapPresetObjects } from "@/features/dining/components/dining-shared";
+import {
+  buildDiningTablesFromHallMapPresetObjects,
+  diningTablesMatchPreset
+} from "@/features/dining/components/dining-shared";
 
 describe("dining hall map preset conversion", () => {
   it("converts valid hall map objects into positioned dining tables", () => {
@@ -96,5 +99,86 @@ describe("dining hall map preset conversion", () => {
         isSeating: false
       })
     ]);
+  });
+});
+
+describe("dining plan divergence from its preset", () => {
+  const objects = [
+    {
+      id: "adult-a",
+      type: "round-table",
+      name: "Adult A",
+      x: 10,
+      y: 20,
+      width: 80,
+      height: 80,
+      rotation: 0,
+      seats: 10,
+      seatingUse: "adult"
+    },
+    {
+      id: "adult-b",
+      type: "round-table",
+      name: "Adult B",
+      x: 100,
+      y: 120,
+      width: 80,
+      height: 80,
+      rotation: 0,
+      seats: 10,
+      seatingUse: "adult"
+    }
+  ];
+  const loaded = () => buildDiningTablesFromHallMapPresetObjects(objects);
+
+  it("matches a freshly loaded preset despite the fresh ids", () => {
+    // Ids are minted on every load; comparing them would report every plan as
+    // modified the moment it was opened.
+    expect(diningTablesMatchPreset(loaded(), objects)).toBe(true);
+  });
+
+  it("reports a dragged table as modified", () => {
+    const tables = loaded();
+    tables[0] = { ...tables[0], x: 400 };
+
+    expect(diningTablesMatchPreset(tables, objects)).toBe(false);
+  });
+
+  it("reports a resized table as modified", () => {
+    // The seats-per-table control rewrites every table, so it has to register.
+    const tables = loaded().map((table) => ({ ...table, seats: 12 }));
+
+    expect(diningTablesMatchPreset(tables, objects)).toBe(false);
+  });
+
+  it("reports a moved side as modified", () => {
+    const tables = loaded();
+    tables[0] = { ...tables[0], side: "kids" };
+
+    expect(diningTablesMatchPreset(tables, objects)).toBe(false);
+  });
+
+  it("reports added and removed tables as modified", () => {
+    expect(diningTablesMatchPreset(loaded().slice(1), objects)).toBe(false);
+    expect(
+      diningTablesMatchPreset(
+        [...loaded(), { id: "extra", number: 3, seats: 10, side: "men" }],
+        objects
+      )
+    ).toBe(false);
+  });
+
+  it("ignores renumbering, which is bookkeeping rather than an edit", () => {
+    const tables = loaded()
+      .slice()
+      .reverse()
+      .map((table, index) => ({ ...table, number: index + 1 }));
+
+    expect(diningTablesMatchPreset(tables, objects)).toBe(true);
+  });
+
+  it("treats an empty or unreadable preset as unmatched", () => {
+    expect(diningTablesMatchPreset(loaded(), null)).toBe(false);
+    expect(diningTablesMatchPreset(loaded(), [])).toBe(false);
   });
 });

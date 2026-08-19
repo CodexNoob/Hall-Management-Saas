@@ -6,6 +6,8 @@ import { countSchema } from "@/lib/validation/number";
 import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
 import { SeatingRow } from "@/features/dining/components/dining-seating-row";
 import {
+  MAX_SEATS_PER_TABLE,
+  MIN_SEATS_PER_TABLE,
   tableclothOptions,
   type DiningForm,
   type DiningTableData,
@@ -21,12 +23,14 @@ type DiningDetailsPanelProps = {
   hasPresetCoordinates: boolean;
   isSaving: boolean;
   menRequired: number;
+  seatsPerTable: number;
   seatTotals: SeatTotals;
   selectedTable: DiningTableData | null;
   selectedTableId: string | null;
   womenRequired: number;
   onAddRequiredTables: () => void;
   onAutoLayoutTables: () => void;
+  onSeatsPerTableChange: (seats: number) => void;
   onSetCheckMessage: (message: string) => void;
   onSetTables: (updater: (current: DiningTableData[]) => DiningTableData[]) => void;
   onUpdateForm: <K extends keyof DiningForm>(
@@ -42,12 +46,14 @@ export function DiningDetailsPanel({
   hasPresetCoordinates,
   isSaving,
   menRequired,
+  seatsPerTable,
   seatTotals,
   selectedTable,
   selectedTableId,
   womenRequired,
   onAddRequiredTables,
   onAutoLayoutTables,
+  onSeatsPerTableChange,
   onSetCheckMessage,
   onSetTables,
   onUpdateForm
@@ -174,6 +180,29 @@ export function DiningDetailsPanel({
           <h3 className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
             Seating check
           </h3>
+
+          {/* Sits above the seating rows because it is what their table counts
+              are worked out from: a venue on 12-seat rounds needs fewer tables
+              for the same guests than one on 10s. */}
+          <div className="mt-3">
+            <FieldLabel htmlFor="seats-per-table">Seats per table</FieldLabel>
+            <LiveNumberField
+              className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
+              id="seats-per-table"
+              onCommit={(value) => onSeatsPerTableChange(value)}
+              schema={countSchema({
+                label: "Seats per table",
+                max: MAX_SEATS_PER_TABLE,
+                min: MIN_SEATS_PER_TABLE
+              })}
+              value={seatsPerTable}
+            />
+            <p className="mt-1 text-[10px] font-medium text-[#617086]">
+              Used by Auto layout and the seating check. Read from your saved
+              tables.
+            </p>
+          </div>
+
           <div className="mt-3 space-y-3">
             <SeatingRow
               current={seatTotals.men}

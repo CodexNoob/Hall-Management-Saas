@@ -71,6 +71,9 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
 
     if (method === "PATCH") {
       saveRequestCount += 1;
+      // Slow enough for the saving overlay to be observable, fast enough not
+      // to slow the suite.
+      await new Promise((resolve) => setTimeout(resolve, 400));
       await route.fulfill({
         contentType: "application/json",
         body: JSON.stringify({
@@ -92,15 +95,28 @@ test("saving a hall map shows a non-layout-shifting saved confirmation", async (
   await page.getByRole("option", { name: "Hall 1" }).click();
 
   const grid = page.getByLabel("Hall map grid");
-  await grid.scrollIntoViewIfNeeded();
   await expect(grid).toBeVisible();
 
-  await page.getByRole("button", { name: "Save map" }).click();
+  // Save from the very bottom of the page - the position where the old
+  // board-pinned confirmation fired out of view. The topbar Save button is
+  // fixed, so it stays clickable; the message must too.
+  await page.evaluate(() => {
+    document.querySelectorAll("main").forEach((main) => {
+      main.scrollTop = main.scrollHeight;
+    });
+  });
+
+  await page.getByRole("button", { name: "Save layout" }).click();
+
+  // While the save round-trips, the site's loading indicator covers the page.
+  const savingOverlay = page.getByRole("status", { name: "Saving layout" });
+  await expect(savingOverlay).toBeVisible();
 
   const confirmation = page
     .getByRole("status")
     .filter({ hasText: "Layout saved" });
   await expect(confirmation).toBeVisible();
+  await expect(savingOverlay).toHaveCount(0);
   await expect(confirmation).toContainText("charles is saved to Hall 1.");
   // The check that matters. This toast used to render inside the pannable
   // canvas, which opens scrolled to the world origin - so it was present and
@@ -301,6 +317,113 @@ test("edge handles resize a hall map shape", async ({ page }) => {
     .poll(async () => Number(await page.getByLabel("Width").inputValue()))
     .toBeGreaterThan(96);
   await expect(page.getByLabel("Height")).toHaveValue("96");
+});
+
+test("right-drag marquee selects the shapes it spans, and left-drag still pans", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name.includes("mobile"),
+    "The editor is view-only below md, where there is no right button."
+  );
+
+  const groupPreset = {
+    ...preset,
+    objects: [
+      { ...preset.objects[0], id: "table-1", name: "First table", x: 60, y: 60 },
+      { ...preset.objects[0], id: "table-2", name: "Second table", x: 220, y: 60 },
+      { ...preset.objects[0], id: "table-3", name: "Third table", x: 700, y: 420 }
+    ]
+  };
+
+  await page.route("**/api/hall-maps", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          halls: [hall],
+          presets: [groupPreset],
+          shapeLibrary: []
+        })
+      });
+      return;
+    }
+    await route.fallback();
+  });
+
+  await page.goto("/dashboard/hall-room-map");
+  await page.getByLabel("Assigned hall").click();
+  await page.getByRole("option", { name: "Hall 1" }).click();
+
+  const grid = page.getByLabel("Hall map grid");
+  const first = grid.getByRole("button", { name: "Select First table" });
+  const second = grid.getByRole("button", { name: "Select Second table" });
+  const third = grid.getByRole("button", { name: "Select Third table" });
+  await expect(first).toBeVisible();
+  await expect(third).toBeVisible();
+
+  // hover() first so the board has finished any fit/zoom animation - measuring
+  // before it settles reads coordinates the shapes have already left.
+  await first.hover();
+  const gridBox = await grid.boundingBox();
+  const firstBox = await first.boundingBox();
+  const secondBox = await second.boundingBox();
+  if (!gridBox || !firstBox || !secondBox) {
+    throw new Error("Shapes are not visible.");
+  }
+
+  // Sweep a band horizontally THROUGH both shapes rather than boxing them in
+  // from above. The grid is taller than the window and its bounding box starts
+  // at a negative y, so any coordinate derived from the grid's top lands on the
+  // topbar instead of the board - the press then never reaches the map and no
+  // marquee begins. Every point below is derived from the shapes themselves,
+  // which Playwright has already confirmed are on screen. Selection is by
+  // intersection, so crossing the shapes is enough; enclosing them is not
+  // required.
+  const bandTop = firstBox.y + 12;
+  const bandBottom = firstBox.y + firstBox.height - 12;
+  // Start in the gap between the grid's left edge and the first shape, so the
+  // press lands on empty canvas and not on one of the table's chairs.
+  const startX = (gridBox.x + firstBox.x) / 2;
+  const endX = Math.min(
+    gridBox.x + gridBox.width - 6,
+    secondBox.x + secondBox.width + 20
+  );
+
+  await page.mouse.move(startX, bandTop);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(endX, bandBottom, { steps: 12 });
+  await page.mouse.up({ button: "right" });
+
+  // The count is announced through the editor's polite live region, which is
+  // sr-only - assert on its text rather than on a visible node.
+  await expect(
+    page.locator('span[role="status"][aria-live="polite"]')
+  ).toHaveText("2 shapes selected.");
+
+  // Deleting proves the selection is real and holds exactly those two.
+  await page.keyboard.press("Delete");
+  await expect(first).toHaveCount(0);
+  await expect(second).toHaveCount(0);
+  await expect(third).toBeVisible();
+
+  await page.keyboard.press("Control+z");
+  await expect(first).toBeVisible();
+
+  // The regression guard: left-drag on empty canvas must still pan, not select.
+  // Anchored below the two shapes - again derived from a shape, so it is on
+  // screen regardless of where the grid's own box starts.
+  const emptyX = (gridBox.x + firstBox.x) / 2;
+  const emptyY = firstBox.y + firstBox.height + 70;
+  const beforePan = await first.boundingBox();
+  await page.mouse.move(emptyX, emptyY);
+  await page.mouse.down();
+  await page.mouse.move(emptyX - 120, emptyY, { steps: 8 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => (await first.boundingBox())?.x ?? 0)
+    .toBeLessThan((beforePan?.x ?? 0) - 40);
 });
 
 test("Shift-click and Select All operate on groups of shapes", async ({ page }) => {

@@ -1,4 +1,4 @@
-import type { SeatingSides } from "@/lib/hall-map/seating";
+﻿import type { SeatingSides } from "@/lib/hall-map/seating";
 
 export type TableSide = "men" | "women" | "kids" | "head";
 
@@ -128,13 +128,102 @@ export function isDiningSeatingTable(table: DiningTableData) {
   return table.isSeating !== false && table.seats > 0;
 }
 
+/**
+ * How the adults split between the men's and women's sides.
+ *
+ * Derived from the booking rather than assumed. This used to be a flat
+ * `ceil(adults / 2)`, which meant a 60/40 event and a 40/60 event produced
+ * identical seating - the counts the client actually gave were on the event
+ * all along. Couples contribute one seat to each side.
+ *
+ * The ratio, not the raw numbers, is applied to `adultCount`: the dining form
+ * lets a planner adjust the head count, and that edit has to keep working
+ * without silently reverting to the booked figure.
+ */
+export function diningGenderSplit(
+  event: Pick<DiningEvent, "couplesCount" | "menCount" | "ladiesCount"> | null,
+  adultCount: number
+) {
+  const evenSplit = () => {
+    const menRequired = Math.ceil(adultCount / 2);
+    return { menRequired, womenRequired: adultCount - menRequired };
+  };
+
+  if (!event) return evenSplit();
+
+  const eventMen = event.couplesCount + event.menCount;
+  const eventWomen = event.couplesCount + event.ladiesCount;
+  const eventAdults = eventMen + eventWomen;
+
+  // No gender breakdown recorded - an older booking, or counts left at zero.
+  if (eventAdults <= 0) return evenSplit();
+
+  const menRequired = Math.min(
+    adultCount,
+    Math.round((adultCount * eventMen) / eventAdults)
+  );
+
+  return { menRequired, womenRequired: adultCount - menRequired };
+}
+
+export const DEFAULT_SEATS_PER_TABLE = 10;
+export const MIN_SEATS_PER_TABLE = 1;
+export const MAX_SEATS_PER_TABLE = 30;
+
+/**
+ * How many seats a table holds at this venue, read back from the layout.
+ *
+ * Deliberately derived rather than stored. The tables already carry their own
+ * `seats`, so a separate saved figure would be a second source of truth free to
+ * disagree with the layout it describes - and the honest answer to "what is a
+ * table here" is whatever most of the tables actually are.
+ *
+ * Head tables are excluded: they are a different piece of furniture (12 by
+ * default) and there is usually exactly one, so counting it would drag the
+ * figure away from the round tables the requirement maths is about.
+ */
+export function deriveSeatsPerTable(tables: DiningTableData[]) {
+  const frequency = new Map<number, number>();
+
+  for (const table of tables) {
+    if (!isDiningSeatingTable(table) || table.side === "head") continue;
+    frequency.set(table.seats, (frequency.get(table.seats) ?? 0) + 1);
+  }
+
+  let seatsPerTable = DEFAULT_SEATS_PER_TABLE;
+  let highestCount = 0;
+
+  for (const [seats, count] of frequency) {
+    // A tie goes to the larger table. Rounding capacity down would inflate the
+    // table requirement, which is the safer error only until it stops fitting
+    // in the room.
+    if (count > highestCount || (count === highestCount && seats > seatsPerTable)) {
+      seatsPerTable = seats;
+      highestCount = count;
+    }
+  }
+
+  return seatsPerTable;
+}
+
+export function clampSeatsPerTable(value: number) {
+  if (!Number.isFinite(value)) return DEFAULT_SEATS_PER_TABLE;
+  return Math.min(
+    MAX_SEATS_PER_TABLE,
+    Math.max(MIN_SEATS_PER_TABLE, Math.round(value))
+  );
+}
+
 export function diningTableRequirements(input: {
   childrenCount: number;
   menRequired: number;
   womenRequired: number;
   tableCapacity?: number;
 }) {
-  const tableCapacity = Math.max(1, input.tableCapacity ?? 10);
+  const tableCapacity = Math.max(
+    1,
+    input.tableCapacity ?? DEFAULT_SEATS_PER_TABLE
+  );
 
   return {
     kids: Math.ceil(input.childrenCount / tableCapacity),
@@ -153,28 +242,71 @@ export function diningTableSignature(tables: DiningTableData[]) {
   };
 }
 
+function daysApart(left: string, right: string) {
+  const difference = Date.parse(left) - Date.parse(right);
+  return Number.isFinite(difference)
+    ? Math.abs(difference) / 86_400_000
+    : Number.POSITIVE_INFINITY;
+}
+
+/**
+ * The best saved layout to reuse for an event, or null.
+ *
+ * Two rules beyond matching the required table counts:
+ *
+ * - **Same hall only.** Table coordinates are meaningless in a room of a
+ *   different shape, and this previously reused a layout from any hall whose
+ *   table counts happened to line up.
+ * - **Ranked, not first-found.** Candidates are ordered by how close their
+ *   guest counts are, then by how near in date, so the suggestion is the most
+ *   comparable event rather than whichever one sorts earliest.
+ */
 export function findMatchingDiningLayout({
-  currentEventId,
+  currentEvent,
   events,
-  requirements
+  requirements,
+  adultCount,
+  childrenCount
 }: {
-  currentEventId: string;
+  currentEvent: Pick<DiningEvent, "id" | "hall" | "eventDate">;
   events: DiningEvent[];
   requirements: ReturnType<typeof diningTableRequirements>;
+  adultCount: number;
+  childrenCount: number;
 }) {
+  const candidates = events.filter((event) => {
+    if (event.id === currentEvent.id || !event.diningPlan) return false;
+    if (event.hall.id !== currentEvent.hall.id) return false;
+
+    const signature = diningTableSignature(validTables(event.diningPlan.tables));
+
+    return (
+      signature.men === requirements.men &&
+      signature.women === requirements.women &&
+      signature.kids === requirements.kids
+    );
+  });
+
+  if (candidates.length === 0) return null;
+
+  const guestDistance = (event: DiningEvent) =>
+    Math.abs((event.diningPlan?.adultCount ?? 0) - adultCount) +
+    Math.abs((event.diningPlan?.childrenCount ?? 0) - childrenCount);
+
   return (
-    events.find((event) => {
-      if (event.id === currentEventId || !event.diningPlan) return false;
+    [...candidates].sort((left, right) => {
+      const byGuests = guestDistance(left) - guestDistance(right);
+      if (byGuests !== 0) return byGuests;
 
-      const tables = validTables(event.diningPlan.tables);
-      const signature = diningTableSignature(tables);
+      const byDate =
+        daysApart(left.eventDate, currentEvent.eventDate) -
+        daysApart(right.eventDate, currentEvent.eventDate);
+      if (byDate !== 0) return byDate;
 
-      return (
-        signature.men === requirements.men &&
-        signature.women === requirements.women &&
-        signature.kids === requirements.kids
-      );
-    }) ?? null
+      // Deterministic tie-break so the same click always suggests the same
+      // event.
+      return left.id.localeCompare(right.id);
+    })[0] ?? null
   );
 }
 
@@ -191,11 +323,13 @@ export function cloneDiningLayoutTables(
 
 function generatedTable({
   index,
+  seats,
   side,
   x,
   y
 }: {
   index: number;
+  seats: number;
   side: TableSide;
   x: number;
   y: number;
@@ -212,7 +346,7 @@ function generatedTable({
           ? `Men table ${index + 1}`
           : `Women table ${index + 1}`,
     number: index + 1,
-    seats: 10,
+    seats,
     side,
     width: 58,
     x,
@@ -221,8 +355,13 @@ function generatedTable({
 }
 
 export function generateDiningAutoLayout(
-  requirements: ReturnType<typeof diningTableRequirements>
+  requirements: ReturnType<typeof diningTableRequirements>,
+  // The same figure the requirement counts were worked out from. Generating
+  // ten-seat tables to satisfy a count derived from twelve-seat ones would
+  // leave the layout short of the seats it claims to provide.
+  seatsPerTable: number = DEFAULT_SEATS_PER_TABLE
 ) {
+  const seats = clampSeatsPerTable(seatsPerTable);
   const tables: DiningTableData[] = [];
   const rowGap = 88;
   const columnGap = 92;
@@ -235,6 +374,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "men",
         x: leftStartX + (index % columns) * columnGap,
         y: adultStartY + Math.floor(index / columns) * rowGap
@@ -246,6 +386,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "women",
         x: rightStartX + (index % columns) * columnGap,
         y: adultStartY + Math.floor(index / columns) * rowGap
@@ -258,6 +399,7 @@ export function generateDiningAutoLayout(
     tables.push(
       generatedTable({
         index: tables.length,
+        seats,
         side: "kids",
         x:
           (goesLeft ? -160 : 120) +
@@ -342,6 +484,50 @@ export function buildDiningTablesFromHallMapPresetObjects(
       height: object.height
     };
   });
+}
+
+/**
+ * Whether the board still matches the preset it was loaded from.
+ *
+ * The Dining Manager edits a *copy*: picking a preset converts its objects into
+ * this event's tables, and saving writes them to the dining plan, never back to
+ * the preset. That is deliberate - a preset edited in January must not rewrite
+ * the seating of an event that already ran in December - but the screen kept
+ * showing the preset's name either way, so a rearranged plan was indistinguish-
+ * able from an untouched one. This is what tells them apart.
+ */
+export function diningTablesMatchPreset(
+  tables: DiningTableData[],
+  presetObjects: unknown
+) {
+  // Ids are minted fresh on every load, so they carry no meaning here.
+  const presetTables = buildDiningTablesFromHallMapPresetObjects(
+    presetObjects,
+    () => ""
+  );
+
+  if (presetTables.length !== tables.length) return false;
+
+  // `number` is left out on purpose: it is positional bookkeeping that gets
+  // rewritten by unrelated edits, not something a planner changed.
+  const fingerprint = (table: DiningTableData) =>
+    JSON.stringify([
+      table.mapObjectId ?? null,
+      table.name ?? null,
+      table.side,
+      table.seats,
+      table.isSeating !== false,
+      Math.round(table.x ?? 0),
+      Math.round(table.y ?? 0),
+      Math.round(table.width ?? 0),
+      Math.round(table.height ?? 0),
+      Math.round(table.rotation ?? 0)
+    ]);
+
+  const fromPreset = presetTables.map(fingerprint).sort();
+  const onBoard = tables.map(fingerprint).sort();
+
+  return fromPreset.every((table, index) => table === onBoard[index]);
 }
 
 export function defaultTables(): DiningTableData[] {
