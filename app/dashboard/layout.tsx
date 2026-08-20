@@ -1,8 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  startRealtimeSync,
+  stopRealtimeSync
+} from "@/lib/realtime/realtime-sync";
 import {
   clearCachedAuthSession,
   fetchAuthSession,
@@ -131,6 +135,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         if (error || !data.session?.access_token) {
           clearCachedAuthSession();
+          // The socket outlives a signed-out session otherwise, and would keep
+          // refetching protected endpoints for the organization just left.
+          stopRealtimeSync();
           const isDesktopApp =
             window.localStorage.getItem("eventCoreDesktopApp") === "true";
           router.replace(
@@ -175,6 +182,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         if (isMounted) {
           setAuthSession(nextSession);
+        // Only once the session is committed: before this point the
+        // organization is not settled, and subscribing to the wrong one
+        // would refetch against an organization the user is about to leave.
+        if (nextSession.activeOrganizationId) {
+          startRealtimeSync(nextSession.activeOrganizationId);
+        }
         }
       } catch (error) {
         if (isMounted) {

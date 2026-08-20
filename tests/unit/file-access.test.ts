@@ -30,7 +30,9 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn()
     },
     storedFile: { findMany: vi.fn(), create: vi.fn() },
-    event: { findFirst: vi.fn() },
+    // findMany as well as findFirst: the listing now returns a short event
+    // list for the Add File dialog's booking picker.
+    event: { findFirst: vi.fn(), findMany: vi.fn() },
     client: { findFirst: vi.fn() }
   }
 }));
@@ -59,6 +61,7 @@ describe("file access isolation", () => {
     vi.mocked(requirePermission).mockResolvedValue(actor as never);
     vi.mocked(prisma.fileFolder.findMany).mockResolvedValue([]);
     vi.mocked(prisma.storedFile.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.event.findMany).mockResolvedValue([]);
   });
 
   it("refuses to sign a path belonging to another tenant", async () => {
@@ -87,6 +90,13 @@ describe("file access isolation", () => {
       })
     );
     expect(prisma.storedFile.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId }
+      })
+    );
+    // The booking picker's list is the newest thing this route returns, and it
+    // names clients - exactly the sort of list that must not cross tenants.
+    expect(prisma.event.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { organizationId }
       })

@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+﻿import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -202,9 +202,24 @@ export async function GET(request: Request) {
 
     const canManageEverything = isAdministrativeRole(actor.membership.role);
 
+    // The menus a kitchen event can be raised against. A kitchen event is a
+    // production job rather than a booking - "cook this menu for this many
+    // people" - so the menu is the one thing it genuinely needs, and a typed
+    // name would tell the kitchen nothing about what to make.
+    const menuOptions = await prisma.eventPackage.findMany({
+      where: { organizationId: actor.organizationId, isActive: true },
+      select: { id: true, name: true, includedMenuItemIds: true },
+      orderBy: { name: "asc" }
+    });
+
     return NextResponse.json({
       events: boardEvents,
       workers,
+      menus: menuOptions.map((menu) => ({
+        id: menu.id,
+        name: menu.name,
+        dishCount: menu.includedMenuItemIds.length
+      })),
       permissions: {
         canAssignWorkers:
           canManageEverything || Boolean(actor.access?.canAssignWorkers),

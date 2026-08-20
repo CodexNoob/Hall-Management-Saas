@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { createSignedFileUrl } from "@/lib/storage/files";
 import { getEnv } from "@/lib/env";
 
 const allowedContentTypes = new Set([
@@ -55,6 +56,30 @@ const PERMANENT_FOLDER_NAME = "Event Core Files";
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewEventManager");
+
+    // ?fileId= asks for a short-lived link to one file. The bucket is private,
+    // so this is the only way the browser can open a document, and the signing
+    // happens here rather than in the client so the service key never leaves
+    // the server.
+    const fileId = new URL(request.url).searchParams.get("fileId");
+    if (fileId) {
+      const file = await prisma.storedFile.findFirst({
+        where: { id: fileId, organizationId: actor.organizationId },
+        select: { bucket: true, storagePath: true, fileName: true }
+      });
+      if (!file) {
+        return NextResponse.json({ error: "File not found." }, { status: 404 });
+      }
+
+      const url = await createSignedFileUrl({
+        organizationId: actor.organizationId,
+        bucket: file.bucket,
+        path: file.storagePath,
+        expiresInSeconds: 120
+      });
+      return NextResponse.json({ url, fileName: file.fileName });
+    }
+
     const permanentFolder = await prisma.fileFolder.findFirst({
       where: {
         organizationId: actor.organizationId,
@@ -73,7 +98,7 @@ export async function GET(request: Request) {
       });
     }
 
-    const [folders, files] = await Promise.all([
+    const [folders, files, events] = await Promise.all([
       prisma.fileFolder.findMany({
         where: { organizationId: actor.organizationId },
         include: { _count: { select: { files: true } } },
@@ -82,9 +107,32 @@ export async function GET(request: Request) {
       prisma.storedFile.findMany({
         where: { organizationId: actor.organizationId },
         orderBy: { createdAt: "desc" }
+      }),
+      // Just enough to fill the Add File dialog's event picker. Served here so
+      // the Files page stays a single request, and so the list can only ever
+      // contain events from the caller's own organization.
+      prisma.event.findMany({
+        where: { organizationId: actor.organizationId },
+        select: {
+          id: true,
+          clientName: true,
+          eventDate: true,
+          eventType: true
+        },
+        orderBy: { eventDate: "desc" },
+        take: 200
       })
     ]);
-    return NextResponse.json({ folders, files });
+    // The browser uploads straight to Supabase Storage, so it needs the bucket
+    // name. Served from here rather than mirrored in a client constant: the
+    // name comes from an env var, and a second copy could drift from it and
+    // fail only in production.
+    return NextResponse.json({
+      folders,
+      files,
+      events,
+      bucket: getEnv().SUPABASE_STORAGE_BUCKET_FILES
+    });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -113,6 +161,22 @@ export async function POST(request: Request) {
             { error: "Parent folder not found." },
             { status: 404 }
           );
+      }
+
+      // Return the existing folder rather than failing on the
+      // (organizationId, parentId, name) unique index. Folders are now created
+      // on demand during an upload, so two people filing into the same new
+      // folder at once would otherwise race and one would lose their upload to
+      // a constraint error - with the object already written to storage.
+      const existing = await prisma.fileFolder.findFirst({
+        where: {
+          organizationId: actor.organizationId,
+          parentId: input.parentId ?? null,
+          name: input.name
+        }
+      });
+      if (existing) {
+        return NextResponse.json({ folder: existing }, { status: 200 });
       }
 
       const folder = await prisma.fileFolder.create({

@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     eventMenu: { findMany: vi.fn() },
+    // The menus a kitchen event can be raised against.
+    eventPackage: { findMany: vi.fn() },
     kitchenWorker: { findMany: vi.fn() },
     menuItem: { findMany: vi.fn(), findFirst: vi.fn() },
     kitchenItemStatus: {
@@ -134,6 +136,7 @@ async function readBoard(response: Response) {
   return (await response.json()) as {
     events: Array<Record<string, unknown>>;
     workers: unknown;
+    menus: Array<{ id: string; name: string; dishCount: number }>;
     permissions: Record<string, boolean>;
   };
 }
@@ -147,6 +150,9 @@ describe("kitchen dashboard route", () => {
     vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
+    { id: "package-1", name: "Shabbos Lunch", includedMenuItemIds: ["a", "b"] }
+  ] as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
   });
 
@@ -308,6 +314,23 @@ describe("kitchen dashboard route", () => {
 
       expect(board).not.toHaveProperty("menuItems");
       expect(board.permissions).not.toHaveProperty("canEditMenu");
+    });
+
+    it("does offer the menu list a kitchen event is raised against", async () => {
+      // Not a reversal of the assertion above: `menuItems` was the dish
+      // library behind the removed replace-a-dish dropdown. This is the list
+      // of menus, which is the one thing a kitchen event needs - it exists to
+      // cook one, and a typed name would not tell the kitchen what to make.
+      const board = await readBoard(await GET(request()));
+
+      expect(board.menus).toEqual([
+        { id: "package-1", name: "Shabbos Lunch", dishCount: 2 }
+      ]);
+      expect(prisma.eventPackage.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ isActive: true })
+        })
+      );
     });
   });
 

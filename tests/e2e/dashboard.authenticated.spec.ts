@@ -71,6 +71,9 @@ test("dashboard cards stay inside a narrow phone screen", async ({
     testInfo.project.name.includes("mobile"),
     "Viewport is set explicitly; one project is enough."
   );
+  // The route handler below re-issues an authenticated request, which the
+  // mutation specs can starve when the whole suite runs at once.
+  test.slow();
 
   // The overflow is driven by the widest client name in the data, so the name
   // is injected rather than left to whatever the account happens to hold that
