@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useAuthPresence } from "@/lib/auth/use-auth-presence";
 import {
   preparePublicPageNavigation,
   restorePublicPageScroll
@@ -23,6 +24,11 @@ function LandingLogo() {
 }
 
 export function LandingNavbar() {
+  // Advisory only - it picks which link to show, never what the visitor may
+  // reach. Both destinations are gated by proxy.ts regardless of what is
+  // rendered here.
+  const presence = useAuthPresence();
+  const isSignedIn = presence === "authenticated";
   const [hasScrolled, setHasScrolled] = useState(false);
   const [isFooterVisible, setIsFooterVisible] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -143,26 +149,51 @@ export function LandingNavbar() {
               className={`h-0.5 w-5 bg-current transition ${isMobileMenuOpen ? "-translate-y-2 -rotate-45" : ""}`}
             />
           </button>
+          {/*
+            `invisible` rather than unmounted while the session resolves: it
+            keeps the button's footprint, so the navbar does not reflow a frame
+            after hydration, and visibility:hidden also takes it out of the tab
+            order so nobody can focus a link that is about to change.
+          */}
           <Link
-            className="navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden"
-            href="/login"
+            aria-hidden={presence === "pending"}
+            className={`navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden ${
+              presence === "pending" ? "invisible" : ""
+            }`}
+            href={isSignedIn ? "/dashboard" : "/login"}
           >
-            Login
+            {isSignedIn ? "Dashboard" : "Login"}
           </Link>
         </div>
         <div className="hidden items-center gap-3 sm:flex">
-          <Link
-            className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1f4d73]/45 hover:shadow-md"
-            href="/login"
-          >
-            Login
-          </Link>
-          <Link
-            className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
-            href="/signup"
-          >
-            Sign Up
-          </Link>
+          {isSignedIn ? (
+            <Link
+              className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
+              href="/dashboard"
+            >
+              Go to Dashboard
+            </Link>
+          ) : (
+            <div
+              aria-hidden={presence === "pending"}
+              className={`flex items-center gap-3 ${
+                presence === "pending" ? "invisible" : ""
+              }`}
+            >
+              <Link
+                className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1f4d73]/45 hover:shadow-md"
+                href="/login"
+              >
+                Login
+              </Link>
+              <Link
+                className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
+                href="/signup"
+              >
+                Sign Up
+              </Link>
+            </div>
+          )}
         </div>
       </div>
       <div
@@ -208,12 +239,18 @@ export function LandingNavbar() {
           >
             Contact
           </button>
+          {/*
+            No pending placeholder here: the panel is closed at hydration, so
+            there is nothing to reflow, and a visitor who opens it before the
+            cookie read lands sees the sign-up CTA - which proxy.ts now bounces
+            straight to the dashboard for them anyway.
+          */}
           <Link
             className="mt-2 rounded-xl bg-[#1f4d73] px-4 py-3 text-center font-black text-white! sm:hidden"
-            href="/signup"
+            href={isSignedIn ? "/dashboard" : "/signup"}
             onClick={() => setIsMobileMenuOpen(false)}
           >
-            Get Started Free
+            {isSignedIn ? "Go to Dashboard" : "Get Started Free"}
           </Link>
         </nav>
       </div>

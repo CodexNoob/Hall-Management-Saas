@@ -147,6 +147,95 @@ describe("the dashboard gate", () => {
   });
 });
 
+describe("the anonymous-only gate", () => {
+  it("sends a signed-in visitor away from the credential pages", async () => {
+    for (const path of ["/login", "/signup", "/forgot-password"]) {
+      const response = await run(requestFor(path));
+      const location = new URL(response.headers.get("location") as string);
+
+      expect(location.pathname, path).toBe("/dashboard");
+    }
+  });
+
+  /**
+   * proxy.ts hands out `/login?next=/dashboard/...` itself. Following a stale
+   * one with a live session should land where it was pointing, not at the root.
+   */
+  it("honours a safe return path", async () => {
+    const response = await run(
+      requestFor("/login?next=%2Fdashboard%2Fmenu%3Ftab%3Dcourses")
+    );
+    const location = new URL(response.headers.get("location") as string);
+
+    expect(location.pathname).toBe("/dashboard/menu");
+    expect(location.searchParams.get("tab")).toBe("courses");
+  });
+
+  it("refuses to be turned into an open redirect", async () => {
+    const response = await run(
+      requestFor("/login?next=https%3A%2F%2Fevil.example.com")
+    );
+    const location = new URL(response.headers.get("location") as string);
+
+    expect(location.origin).toBe("https://app.example.com");
+    expect(location.pathname).toBe("/dashboard");
+  });
+
+  /**
+   * These are reached over recovery and invite links, which sign the user in
+   * *before* they land. Bouncing them would break password recovery outright -
+   * the reason the gate is an exact-path allowlist and not a prefix match.
+   */
+  it("leaves the emailed-link pages reachable with a session", async () => {
+    for (const path of [
+      "/set-password?flow=required",
+      "/verify-email",
+      "/auth/confirm",
+      "/auth/callback",
+      "/auth/auth-error"
+    ]) {
+      const response = await run(requestFor(path));
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+  });
+
+  it("leaves the public marketing pages alone", async () => {
+    for (const path of ["/", "/product/halls", "/documentation"]) {
+      const response = await run(requestFor(path));
+      expect(response.headers.get("location"), path).toBeNull();
+    }
+  });
+
+  /**
+   * The bounce happens after the refresh has run. Dropping the cookies it wrote
+   * would sign the visitor out for the crime of opening the sign-in page.
+   */
+  it("carries a refreshed cookie onto the redirect", async () => {
+    onAuthCall = (setAll) => setAll([REFRESHED_COOKIE], SUPABASE_CACHE_HEADERS);
+
+    const response = await run(requestFor("/login"));
+
+    expect(response.headers.get("location")).toContain("/dashboard");
+    expect(setCookieHeader(response)).toContain("refreshed-token");
+  });
+
+  /**
+   * The remember-window sweep returns before getClaims() ever runs. A visitor
+   * whose window has closed is on their way to being signed out, so the sign-in
+   * page has to stay open to them.
+   */
+  it("does not bounce once the remember window has closed", async () => {
+    const response = await run(
+      requestFor("/login", {
+        [REMEMBER_AUTH_COOKIE]: "true",
+        [REMEMBER_UNTIL_COOKIE]: String(Date.now() - 1000)
+      })
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+  });
+});
+
 describe("session refresh", () => {
   /**
    * The failure this guards against does not look like an error - the refresh

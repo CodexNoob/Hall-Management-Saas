@@ -1,6 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { getDashboardLoginPath } from "@/lib/auth/redirect";
+import {
+  getDashboardLoginPath,
+  getSafeDashboardReturnPath
+} from "@/lib/auth/redirect";
 import {
   ACTIVE_ORGANIZATION_COOKIE,
   DESKTOP_APP_COOKIE,
@@ -51,6 +54,39 @@ const NO_STORE_HEADERS: Record<string, string> = {
 
 const PROTECTED_PATH_PREFIX = "/dashboard";
 
+/**
+ * Pages that only make sense without a session. A signed-in visitor is sent to
+ * the dashboard instead of being shown a sign-in form they cannot use.
+ *
+ * Exact paths, never a prefix, and the list is deliberately this short. The
+ * other credential pages must stay reachable *with* a session:
+ *
+ * - `/set-password` is reached over a recovery or invite link, which signs the
+ *   user in first - that is the whole point of the link. `getPasswordSetupPath`
+ *   also routes authenticated users here.
+ * - `/verify-email` and `/auth/*` are the landing points of those same emailed
+ *   links, and the callback exchanges the code while a session already exists.
+ *
+ * Bouncing any of those would break password recovery for the people least able
+ * to work around it.
+ */
+const ANONYMOUS_ONLY_PATHS = new Set([
+  "/login",
+  "/signup",
+  "/forgot-password"
+]);
+
+function isAnonymousOnly(pathname: string) {
+  // Next normalises away a trailing slash before the proxy runs, but the check
+  // costs nothing and a raw `fetch` can still arrive with one.
+  const normalized =
+    pathname.length > 1 && pathname.endsWith("/")
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return ANONYMOUS_ONLY_PATHS.has(normalized);
+}
+
 function applyHeaders(response: NextResponse, headers: Record<string, string>) {
   for (const [key, value] of Object.entries(headers)) {
     response.headers.set(key, value);
@@ -90,6 +126,24 @@ function loginRedirect(request: NextRequest, carrier: NextResponse) {
     new URL(target, request.nextUrl),
     carrier
   );
+}
+
+/**
+ * The mirror of loginRedirect: where a signed-in visitor to an anonymous-only
+ * page goes instead.
+ *
+ * `?next=` is honoured so that following a stale
+ * `/login?next=/dashboard/menu` link - the shape proxy.ts itself hands out -
+ * lands on the page that was originally asked for rather than the dashboard
+ * root. It is run through `getSafeDashboardReturnPath`, so a crafted `next`
+ * cannot turn this into an open redirect.
+ */
+function dashboardRedirect(request: NextRequest, carrier: NextResponse) {
+  const target = getSafeDashboardReturnPath(
+    request.nextUrl.searchParams.get("next")
+  );
+
+  return redirectPreservingCookies(new URL(target, request.nextUrl), carrier);
 }
 
 function expireAuthCookies(
@@ -205,8 +259,16 @@ export async function updateSession(request: NextRequest) {
   // already been built has nowhere to write its cookies.
   const { data } = await supabase.auth.getClaims();
 
-  if (!data?.claims && isProtected) {
-    return loginRedirect(request, response);
+  if (!data?.claims) {
+    return isProtected ? loginRedirect(request, response) : response;
+  }
+
+  // Checked only on the authenticated branch, and only after the refresh above
+  // has had its chance to write cookies - `redirectPreservingCookies` then
+  // carries them onto the redirect, so bouncing off /login never costs the
+  // visitor the freshly rotated token.
+  if (isAnonymousOnly(request.nextUrl.pathname)) {
+    return dashboardRedirect(request, response);
   }
 
   return response;

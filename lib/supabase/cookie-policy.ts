@@ -46,6 +46,22 @@ export function isSupabaseAuthCookieName(name: string) {
 }
 
 /**
+ * The session-bearing subset of the above: the token cookie and its chunks, but
+ * NOT the PKCE code verifier.
+ *
+ * The verifier is written *before* a session exists and outlives the redirect
+ * to the OAuth provider, so a caller asking "is this browser signed in?" would
+ * read it as yes for the whole round trip - and again for anyone who abandoned
+ * a social sign-in halfway.
+ *
+ * `isSupabaseAuthCookieName` keeps matching it on purpose: sign-out and the
+ * remember-window sweep must clear the verifier too.
+ */
+export function isSupabaseSessionCookieName(name: string) {
+  return /^sb-.+-auth-token(\.\d+)?$/.test(name);
+}
+
+/**
  * Transliterated from the old shouldPersistAuthSession(): persist unless the
  * preference is *exactly* "false", so an ABSENT preference persists.
  *

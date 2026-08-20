@@ -4,6 +4,7 @@ import {
   authCookieMaxAge,
   isRememberWindowExpired,
   isSupabaseAuthCookieName,
+  isSupabaseSessionCookieName,
   mergeAuthCookieOptions,
   nextRememberUntil,
   preferenceCookieMaxAge,
@@ -88,6 +89,21 @@ describe("supabase auth cookie names", () => {
     expect(isSupabaseAuthCookieName("event-core.auth.remember")).toBe(false);
     expect(isSupabaseAuthCookieName("event-core.activeOrg")).toBe(false);
     expect(isSupabaseAuthCookieName("sb-auth-token")).toBe(false);
+  });
+
+  /**
+   * The verifier is written before a session exists and survives the whole
+   * redirect to the OAuth provider. Counting it as a session would show the
+   * marketing navbar's "Dashboard" CTA to anyone who started a social sign-in
+   * and walked away.
+   */
+  it("excludes the PKCE verifier from the session-bearing subset", () => {
+    expect(isSupabaseSessionCookieName("sb-abcdef-auth-token")).toBe(true);
+    expect(isSupabaseSessionCookieName("sb-abcdef-auth-token.0")).toBe(true);
+    expect(
+      isSupabaseSessionCookieName("sb-abcdef-auth-token-code-verifier")
+    ).toBe(false);
+    expect(isSupabaseSessionCookieName("event-core.activeOrg")).toBe(false);
   });
 });
 
