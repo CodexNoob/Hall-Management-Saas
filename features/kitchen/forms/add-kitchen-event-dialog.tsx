@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
@@ -140,7 +140,7 @@ export function AddKitchenEventDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-[650px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="w-full max-w-162.5 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">

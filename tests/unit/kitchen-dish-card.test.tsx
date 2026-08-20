@@ -118,7 +118,7 @@ async function renderDialog(
       onClose={vi.fn()}
       onSaveItemAction={onSaveItemAction}
       permissions={permissions}
-      workers={[{ id: "worker-1", name: "Mendy" }]}
+      workers={[{ id: "worker-1", name: "Mendy", isStaff: false }]}
     />
   );
 
