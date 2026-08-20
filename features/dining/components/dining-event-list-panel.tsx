@@ -1,7 +1,7 @@
 "use client";
 
 import { type SetStateAction } from "react";
-import { Panel } from "@/features/dining/components/dining-panel";
+import { Panel } from "@/components/ui/panel";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
   eventCounts,

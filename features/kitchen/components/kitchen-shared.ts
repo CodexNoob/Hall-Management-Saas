@@ -74,6 +74,48 @@ export type KitchenResponse = {
 
 export const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
 
+/**
+ * How a day is tinted across the three views.
+ *
+ * In one place so a Shabbos reads the same in the week columns as it does in
+ * the four-week grid. The two used to pick their own purples - `#a25bff` in one
+ * and `#8b37f5` in the other - neither of which appears anywhere else in the
+ * product; this is the indigo the calendar already marks school dates with.
+ */
+export function kitchenDayTone(day: KitchenDay) {
+  if (day.today || day.selected) {
+    return {
+      outline: "ring-2 ring-inset ring-[#1f4d73]",
+      header: "border-[#cddff0] bg-[#eef4fa]",
+      title: "text-[#1f4d73]",
+      date: "text-[#3d6d93]"
+    };
+  }
+
+  if (day.shabbos) {
+    return {
+      outline: "",
+      header: "border-[#d8d5f6] bg-[#f4f3fe]",
+      title: "text-[#5649dd]",
+      date: "text-[#6f68c9]"
+    };
+  }
+
+  return {
+    outline: "",
+    header: "border-[#d8dde5] bg-[#fbfcfd]",
+    title: "text-[#17202a]",
+    date: "text-[#6a7483]"
+  };
+}
+
+/** "No events", "1 event", "4 events" - said the way a person would. */
+export function eventCountLabel(events: KitchenEvent[] | undefined) {
+  const count = events?.length ?? 0;
+
+  return count === 1 ? "1 event" : `${count} events`;
+}
+
 const timeFormat = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
   minute: "2-digit"
@@ -106,9 +148,49 @@ export function formatProgress(summary: EventKitchenSheet["summary"] | null) {
   return `${summary.complete}/${summary.dishes} done`;
 }
 
+/**
+ * The same ratio as a fraction of one, for the bar drawn under it.
+ *
+ * Null wherever `formatProgress` has no number to print, so a card can never end
+ * up with an empty bar sitting beside the words "No dishes" - which reads as
+ * work nobody has started rather than work that does not exist.
+ */
+export function progressFraction(summary: EventKitchenSheet["summary"] | null) {
+  if (!summary || summary.dishes === 0) return null;
+
+  return summary.complete / summary.dishes;
+}
+
+/**
+ * The wall clock, as the board's header prints it.
+ *
+ * Kept apart from the range heading because the two change on completely
+ * different schedules: the heading only when someone navigates, the clock every
+ * minute on its own. Formatting them together is what left the board showing the
+ * time it was first rendered for as long as the tab stayed open.
+ */
+export function formatClock(now: Date) {
+  return timeFormat.format(now);
+}
+
+const relativeDayNames = new Map([
+  [-1, "Yesterday"],
+  [0, "Today"],
+  [1, "Tomorrow"]
+]);
+
+/**
+ * What the header says it is showing.
+ *
+ * `heading` is the one line a cook reads to know where the board is pointed;
+ * `rangeLabel` is the supporting detail underneath. They used to be joined with
+ * a middle dot into a single string that had to be truncated on a phone, which
+ * cut the dates off the end - the half that says which four weeks these are.
+ */
 export function kitchenViewInformation(
   activeView: KitchenView,
-  anchorDate: Date
+  anchorDate: Date,
+  today: Date
 ) {
   const fullDate = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -120,15 +202,23 @@ export function kitchenViewInformation(
     month: "short",
     day: "numeric"
   });
-  const rangeStart =
-    activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+
+  if (activeView === "today") {
+    const dayOffset = Math.round(
+      (anchorDate.getTime() - today.getTime()) / 86_400_000
+    );
+
+    return {
+      heading: fullDate.format(anchorDate),
+      rangeLabel: relativeDayNames.get(dayOffset) ?? null
+    };
+  }
+
+  const rangeStart = startOfWeek(anchorDate);
   const rangeEnd = addDays(rangeStart, activeView === "week" ? 6 : 27);
 
   return {
-    heading:
-      activeView === "today"
-        ? fullDate.format(anchorDate)
-        : `${activeView === "week" ? "This Week" : "4 Weeks"} · ${shortDate.format(rangeStart)} – ${shortDate.format(rangeEnd)}`,
-    time: `Current time: ${timeFormat.format(new Date())}`
+    heading: activeView === "week" ? "This Week" : "4 Weeks",
+    rangeLabel: `${shortDate.format(rangeStart)} – ${shortDate.format(rangeEnd)}, ${rangeEnd.getFullYear()}`
   };
 }

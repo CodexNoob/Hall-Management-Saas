@@ -1,5 +1,7 @@
 "use client";
 
+import { LineIcon } from "@/features/events/components/event-manager-shared";
+
 export function KitchenToolbar({
   canAddKitchenEvent,
   canManageWorkers,
@@ -16,14 +18,18 @@ export function KitchenToolbar({
   onWorkersOnlyChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto_222px]">
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
+      {/* The board's one primary action, and drawn as one. It used to be a
+          full-width dashed placeholder box - the shape this product uses for
+          "nothing here yet", which is the opposite of what it does. */}
       <button
-        className="h-12 border border-dashed border-[#c4ccd5] bg-white px-6 text-left text-sm font-black text-[#64748b] hover:border-[#007dbb] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-[#c4ccd5]"
+        className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
         disabled={!canAddKitchenEvent}
         onClick={onAddKitchenEvent}
         type="button"
       >
-        + Add Kitchen Event
+        <LineIcon className="h-4 w-4" name="plus" />
+        Add kitchen event
       </button>
 
       {/* Beside the board rather than under Staff: these are names on a
@@ -31,20 +37,21 @@ export function KitchenToolbar({
           control that consumes them is one click away inside an event. */}
       {canManageWorkers ? (
         <button
-          className="h-12 border border-[#d6dde5] bg-white px-5 text-sm font-black text-[#07162d] hover:border-[#007dbb] hover:bg-[#eef4fa]"
+          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
           onClick={onManageWorkers}
           type="button"
         >
+          <LineIcon className="h-4 w-4 text-[#1f4d73]" name="user" />
           Manage workers
         </button>
       ) : null}
 
       <label
-        className="flex min-h-12 cursor-pointer items-center justify-center gap-3 border border-[#d6dde5] bg-white px-4 text-center text-xs font-black text-[#07162d]"
+        className="inline-flex h-11 w-full cursor-pointer items-center gap-2.5 rounded-xl border border-[#b9c2cf] bg-white px-3.5 text-xs font-bold text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] sm:ml-auto sm:w-auto"
         htmlFor="workers-assigned-only"
       >
         <input
-          className="h-4 w-4 shrink-0 accent-[#1f4d73]"
+          className="h-4 w-4 shrink-0 rounded accent-[#1f4d73]"
           checked={workersOnly}
           id="workers-assigned-only"
           name="workersAssignedOnly"

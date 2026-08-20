@@ -8,7 +8,7 @@ import {
 } from "react";
 import { CompactSelect } from "@/components/ui/compact-select";
 import { TableSeats } from "@/components/shared/table-seats";
-import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
+import { FieldLabel, Panel } from "@/components/ui/panel";
 import {
   getDefaultSeatingSides,
   isRoundSeatingShape

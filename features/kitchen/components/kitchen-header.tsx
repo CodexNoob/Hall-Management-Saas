@@ -1,165 +1,162 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
+  formatClock,
   kitchenViewInformation,
   type KitchenView
 } from "@/features/kitchen/components/kitchen-shared";
 
+/**
+ * Where the board is pointed, and how far it is looking.
+ *
+ * One responsive tree rather than the two it used to draw - a phone copy and a
+ * desktop copy, each with its own arrows, heading and tab strip. Every change to
+ * the header had to be made twice, and the two had already drifted apart.
+ */
+
+const tabs: Array<{ label: string; value: KitchenView }> = [
+  { label: "Day", value: "today" },
+  { label: "Week", value: "week" },
+  { label: "4 Weeks", value: "four-weeks" }
+];
+
+function NavButton({
+  direction,
+  label,
+  onClick
+}: {
+  direction: "previous" | "next";
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white text-[#1f4d73] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+      onClick={onClick}
+      title={label}
+      type="button"
+    >
+      <LineIcon
+        className={`h-5 w-5 ${direction === "previous" ? "rotate-180" : ""}`}
+        name="chevron"
+      />
+    </button>
+  );
+}
+
 export function KitchenHeader({
   activeView,
   anchorDate,
+  isOnToday,
   onChangeView,
   onNext,
-  onPrevious
+  onPrevious,
+  onToday,
+  today
 }: {
   activeView: KitchenView;
   anchorDate: Date;
+  isOnToday: boolean;
   onChangeView: (view: KitchenView) => void;
   onNext: () => void;
   onPrevious: () => void;
+  onToday: () => void;
+  today: Date;
 }) {
-  const information = kitchenViewInformation(activeView, anchorDate);
+  const information = kitchenViewInformation(activeView, anchorDate, today);
+  // Null until mounted: the clock is the one thing on this page whose value
+  // differs between the server render and the first client render, and a
+  // hydration mismatch on it would be reported against the whole header.
+  const [now, setNow] = useState<Date | null>(null);
 
-  const tabs: Array<{
-    label: string;
-    value: KitchenView;
-  }> = [
-    { label: "Today", value: "today" },
-    { label: "This Week", value: "week" },
-    { label: "4 Weeks", value: "four-weeks" }
-  ];
+  useEffect(() => {
+    setNow(new Date());
+    // Every half minute rather than every second: the board prints hours and
+    // minutes, so a per-second tick would re-render the header sixty times to
+    // change nothing.
+    const timer = setInterval(() => setNow(new Date()), 30_000);
 
-  const previousButton = (compact = false) => (
-    <button
-      aria-label="Previous date range"
-      className={`flex shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] ${
-        compact ? "h-10 w-10" : "h-11 w-9"
-      }`}
-      onClick={onPrevious}
-      type="button"
-    >
-      <svg
-        aria-hidden="true"
-        className={compact ? "h-6 w-6" : "h-8 w-8"}
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <path
-          d="m15 4-8 8 8 8"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="3.5"
-        />
-      </svg>
-    </button>
-  );
-
-  const nextButton = (compact = false) => (
-    <button
-      aria-label="Next date range"
-      className={`flex shrink-0 items-center justify-center bg-transparent text-[#07162d] hover:text-[#1f4d73] ${
-        compact ? "h-10 w-10" : "h-11 w-9"
-      }`}
-      onClick={onNext}
-      type="button"
-    >
-      <svg
-        aria-hidden="true"
-        className={compact ? "h-6 w-6" : "h-8 w-8"}
-        fill="none"
-        viewBox="0 0 24 24"
-      >
-        <path
-          d="m9 4 8 8-8 8"
-          stroke="currentColor"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="3.5"
-        />
-      </svg>
-    </button>
-  );
-
-  const viewTabs = (compact = false) =>
-    tabs.map((tab) => {
-      const active = activeView === tab.value;
-
-      return (
-        <button
-          className={`h-11 whitespace-nowrap border text-sm font-black ${
-            compact ? "min-w-0 px-2" : "min-w-20 px-3 2xl:min-w-24 2xl:px-4"
-          } ${
-            active
-              ? "border-2 border-black bg-[#ffc958] shadow-[inset_0_0_0_1px_white]"
-              : "border-[#d6dde5] bg-white hover:bg-[#f6f8fa]"
-          }`}
-          key={tab.value}
-          onClick={() => onChangeView(tab.value)}
-          type="button"
-        >
-          {tab.label}
-        </button>
-      );
-    });
+    return () => clearInterval(timer);
+  }, []);
 
   return (
-    <header className="border-b border-[#d6dde5] bg-white px-4 py-3 xl:py-4">
-      <div className="xl:hidden">
-        <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_2.5rem] items-center gap-1">
-          {previousButton(true)}
-          <h1
-            className="min-w-0 whitespace-nowrap text-center text-[clamp(0.75rem,4vw,1.125rem)] font-black leading-tight text-[#07162d]"
-            title={information.heading}
-          >
-            {information.heading}
-          </h1>
-          {nextButton(true)}
-        </div>
-
-        <div className="mt-3 flex min-w-0 items-center justify-between gap-3">
-          <strong className="min-w-0 flex-1 text-center text-base font-black leading-tight text-[#ffd45c]">
-            {information.time}
-          </strong>
-          <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-white">
-            Hall Manager
-          </span>
-        </div>
-
-        <nav
-          aria-label="Kitchen calendar views"
-          className="mt-3 grid min-w-0 grid-cols-3 gap-2"
-        >
-          {viewTabs(true)}
-        </nav>
-      </div>
-
-      <div className="hidden w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 xl:grid">
+    <header className="border-b border-[#d8dde5] bg-white px-3 py-3 sm:px-5">
+      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          {previousButton()}
-          <h1
-            className="min-w-0 max-w-[24rem] truncate whitespace-nowrap text-xl font-black text-[#07162d] 2xl:text-2xl"
-            title={information.heading}
-          >
-            {information.heading}
-          </h1>
-          {nextButton()}
+          <NavButton
+            direction="previous"
+            label="Show previous dates"
+            onClick={onPrevious}
+          />
+          <NavButton
+            direction="next"
+            label="Show next dates"
+            onClick={onNext}
+          />
+
+          <div className="min-w-0 flex-1 px-1">
+            <h1
+              className="truncate text-base font-black text-[#17202a] sm:text-lg 2xl:text-xl"
+              title={information.heading}
+            >
+              {information.heading}
+            </h1>
+            {information.rangeLabel ? (
+              <p className="mt-0.5 truncate text-xs font-bold text-[#6a7483]">
+                {information.rangeLabel}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Hidden rather than disabled when the board is already on today:
+              a control that does nothing is still a control to read past. */}
+          {isOnToday ? null : (
+            <button
+              className="h-10 shrink-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#1f4d73] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+              onClick={onToday}
+              type="button"
+            >
+              Today
+            </button>
+          )}
         </div>
 
-        <strong className="whitespace-nowrap text-center text-lg font-black text-[#ffd45c] 2xl:text-xl">
-          {information.time}
-        </strong>
-
-        <div className="flex min-w-0 items-center justify-end gap-2">
-          <span className="shrink-0 whitespace-nowrap bg-[#07162d] px-3 py-3 text-xs font-black uppercase tracking-wide text-white">
-            Hall Manager
-          </span>
+        <div className="flex min-w-0 items-center justify-between gap-3 xl:justify-end">
+          <p className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-2.5 py-1.5 text-xs font-black tabular-nums text-[#516071]">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full bg-[#178151]"
+            />
+            <span className="sr-only">Current time</span>
+            {now ? formatClock(now) : "--:--"}
+          </p>
 
           <nav
-            aria-label="Kitchen calendar views"
-            className="flex min-w-0 shrink-0 gap-1"
+            aria-label="Kitchen board range"
+            className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-[#b9c2cf] bg-[#fbfcfd] p-1"
           >
-            {viewTabs()}
+            {tabs.map((tab) => {
+              const active = activeView === tab.value;
+
+              return (
+                <button
+                  aria-current={active ? "page" : undefined}
+                  className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-3 text-xs font-black transition sm:min-w-20 sm:text-sm ${
+                    active
+                      ? "bg-[#1f4d73] text-white shadow-sm"
+                      : "text-[#516071] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                  }`}
+                  key={tab.value}
+                  onClick={() => onChangeView(tab.value)}
+                  type="button"
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </nav>
         </div>
       </div>

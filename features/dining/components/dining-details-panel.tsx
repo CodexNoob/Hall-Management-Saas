@@ -3,7 +3,7 @@
 import { CompactSelect } from "@/components/ui/compact-select";
 import { LiveNumberField } from "@/components/ui/number-field";
 import { countSchema } from "@/lib/validation/number";
-import { FieldLabel, Panel } from "@/features/dining/components/dining-panel";
+import { FieldLabel, Panel } from "@/components/ui/panel";
 import { SeatingRow } from "@/features/dining/components/dining-seating-row";
 import {
   MAX_SEATS_PER_TABLE,

@@ -1,8 +1,13 @@
 "use client";
 
+import { Panel } from "@/components/ui/panel";
 import { KitchenEventCard } from "@/features/kitchen/components/kitchen-event-card";
 import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
-import { type KitchenDay, type KitchenEvent } from "@/features/kitchen/components/kitchen-shared";
+import {
+  dayNames,
+  type KitchenDay,
+  type KitchenEvent
+} from "@/features/kitchen/components/kitchen-shared";
 
 export function FourWeekDay({
   canAddKitchenEvent,
@@ -15,57 +20,39 @@ export function FourWeekDay({
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
 }) {
-  const weekdayLabel = day.shabbos
-    ? "Shabbos"
-    : new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(
-        new Date(`${day.dateKey}T12:00:00`)
-      );
-  const borderColor =
-    day.today || day.selected
-      ? "border-[#009ee8]"
-      : day.shabbos
-        ? "border-[#a25bff]"
-        : "border-[#aeb6bf]";
+  const highlighted = day.today || day.selected;
 
   return (
-    <article
-      className={`min-h-39 min-w-0 overflow-hidden border-2 bg-white ${borderColor} ${
-        day.today || day.selected ? "bg-[#edf9ff]" : ""
+    <div
+      className={`relative flex min-h-36 min-w-0 flex-col border-r border-t border-[#d8dde5] p-2 nth-[7n]:border-r-0 ${
+        highlighted
+          ? "z-1 bg-[#f4f9fd] ring-2 ring-inset ring-[#1f4d73]"
+          : day.shabbos
+            ? "bg-[#faf9ff]"
+            : "bg-white"
       }`}
     >
-      <header
-        className={`grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 overflow-hidden border-b px-2 py-1.5 ${
-          day.shabbos
-            ? "border-[#a25bff] bg-[#fcf8ff]"
-            : "border-[#d6dde5] bg-[#f7f9fb]"
-        }`}
-      >
+      <div className="flex min-w-0 items-center justify-between gap-1">
         <strong
-          className={`min-w-0 truncate text-sm ${
-            day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
+          className={`min-w-0 truncate text-xs font-black tabular-nums ${
+            highlighted
+              ? "text-[#1f4d73]"
+              : day.shabbos
+                ? "text-[#5649dd]"
+                : "text-[#17202a]"
           }`}
-          title={weekdayLabel}
         >
-          {weekdayLabel}
+          {day.dateLabel}
         </strong>
 
-        <div className="flex min-w-0 shrink-0 items-center gap-1">
-          <PlusButton
-            disabled={!canAddKitchenEvent}
-            label={`Add kitchen event on ${day.dateLabel}`}
-            onClick={() => onAddKitchenEvent(day.dateKey)}
-          />
-          <strong
-            className={`whitespace-nowrap text-xs sm:text-sm ${
-              day.shabbos ? "text-[#8b37f5]" : "text-[#07162d]"
-            }`}
-          >
-            {day.dateLabel}
-          </strong>
-        </div>
-      </header>
+        <PlusButton
+          disabled={!canAddKitchenEvent}
+          label={`Add kitchen event on ${day.dateLabel}`}
+          onClick={() => onAddKitchenEvent(day.dateKey)}
+        />
+      </div>
 
-      <div className="min-w-0 space-y-1 p-2">
+      <div className="mt-1.5 min-w-0 space-y-1">
         {day.events?.map((event) => (
           <KitchenEventCard
             compact
@@ -75,63 +62,56 @@ export function FourWeekDay({
           />
         ))}
       </div>
-    </article>
+    </div>
   );
 }
 
+/**
+ * Four weeks at a glance.
+ *
+ * Drawn as one grid inside one card, the way the Calendar draws a month, rather
+ * than as 28 separate bordered boxes floating on a mid-grey slab. It also no
+ * longer carries its own Previous / Current / Next row: the board header has
+ * those controls for every view, and two sets of date navigation on one screen
+ * is one set too many.
+ */
 export function FourWeeksView({
   canAddKitchenEvent,
   days,
-  onCurrent,
   onAddKitchenEvent,
-  onSelectEvent,
-  onNext,
-  onPrevious
+  onSelectEvent
 }: {
   canAddKitchenEvent: boolean;
   days: KitchenDay[];
-  onCurrent: () => void;
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
-  onNext: () => void;
-  onPrevious: () => void;
 }) {
-  const controls = [
-    { label: "Previous", onClick: onPrevious },
-    { label: "Current", onClick: onCurrent },
-    { label: "Next", onClick: onNext }
-  ];
-
   return (
-    <div>
-      <div className="mb-3 grid w-full grid-cols-3 gap-2">
-        {controls.map((control) => (
-          <button
-            className="h-11 min-w-0 border border-[#d6dde5] bg-white px-2 text-sm font-black hover:border-[#9eacbb] hover:bg-[#f6f8fa]"
-            key={control.label}
-            onClick={control.onClick}
-            type="button"
-          >
-            {control.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-2">
-        <div className="w-full min-w-256 bg-[#a9a9a9] p-1.5">
-          <div className="grid grid-cols-7 gap-1.5">
-            {days.map((day) => (
-              <FourWeekDay
-                canAddKitchenEvent={canAddKitchenEvent}
-                day={day}
-                key={day.dateKey}
-                onAddKitchenEvent={onAddKitchenEvent}
-                onSelectEvent={onSelectEvent}
-              />
-            ))}
-          </div>
+    <div className="dashboard-panel-enter w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain pb-2">
+      <Panel className="min-w-232">
+        <div className="grid grid-cols-7 bg-[#fbfcfd]">
+          {dayNames.map((dayName) => (
+            <div
+              className="border-r border-[#d8dde5] py-2.5 text-center text-[10px] font-black uppercase tracking-wider text-[#6a7483] last:border-r-0"
+              key={dayName}
+            >
+              {dayName}
+            </div>
+          ))}
         </div>
-      </div>
+
+        <div className="grid grid-cols-7">
+          {days.map((day) => (
+            <FourWeekDay
+              canAddKitchenEvent={canAddKitchenEvent}
+              day={day}
+              key={day.dateKey}
+              onAddKitchenEvent={onAddKitchenEvent}
+              onSelectEvent={onSelectEvent}
+            />
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
