@@ -27,7 +27,13 @@ export type KitchenWorkerRow = {
   isActive: boolean;
 };
 
-type WorkersResponse = { workers: KitchenWorkerRow[] };
+/** A staff member with the Kitchen Staff role who is not yet on the list. */
+export type AvailableKitchenStaff = { id: string; name: string };
+
+type WorkersResponse = {
+  workers: KitchenWorkerRow[];
+  availableStaff: AvailableKitchenStaff[];
+};
 
 const WORKERS_URL = "/api/kitchen/workers";
 
@@ -69,12 +75,12 @@ export function ManageWorkersDialog({
 }) {
   const titleId = useId();
   const nameId = useId();
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLSelectElement>(null);
   const workersQuery = useAuthenticatedQuery<WorkersResponse>(
     WORKERS_URL,
     open
   );
-  const [name, setName] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [color, setColor] = useState<string | null>(COLOR_CHOICES[0]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
@@ -103,6 +109,7 @@ export function ManageWorkersDialog({
   if (!open) return null;
 
   const workers = workersQuery.data?.workers ?? [];
+  const availableStaff = workersQuery.data?.availableStaff ?? [];
   const active = workers.filter((worker) => worker.isActive);
   const retired = workers.filter((worker) => !worker.isActive);
 
@@ -145,12 +152,10 @@ export function ManageWorkersDialog({
 
   async function addWorker(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = name.trim();
+    if (!canManage || !selectedUserId) return;
 
-    if (!canManage || !trimmed) return;
-
-    if (await run(WORKERS_URL, "POST", { name: trimmed, color })) {
-      setName("");
+    if (await run(WORKERS_URL, "POST", { userId: selectedUserId, color })) {
+      setSelectedUserId("");
     }
   }
 
@@ -217,25 +222,47 @@ export function ManageWorkersDialog({
                   Add a worker
                 </span>
               </label>
+              {/* Chosen from staff rather than typed. A typed name produced a
+                  row with no link to any account, so the same person could
+                  end up on the list twice with neither row aware of the
+                  other. */}
               <div className="mt-1 flex gap-2">
-                <input
+                <select
                   ref={nameInputRef}
-                  autoComplete="off"
+                  aria-label="Add a worker"
                   className={inputClass}
+                  disabled={!availableStaff.length}
                   id={nameId}
-                  name="workerName"
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="e.g. Mendy"
-                  value={name}
-                />
+                  name="workerUserId"
+                  onChange={(event) => setSelectedUserId(event.target.value)}
+                  value={selectedUserId}
+                >
+                  <option value="">
+                    {availableStaff.length
+                      ? "Select a staff member"
+                      : "Everyone with the Kitchen Staff role is already listed"}
+                  </option>
+                  {availableStaff.map((staff) => (
+                    <option key={staff.id} value={staff.id}>
+                      {staff.name}
+                    </option>
+                  ))}
+                </select>
                 <button
                   className="h-10 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={isSaving || !name.trim()}
+                  disabled={isSaving || !selectedUserId}
                   type="submit"
                 >
                   Add
                 </button>
               </div>
+
+              {!availableStaff.length ? (
+                <p className="mt-2 text-xs font-medium text-[#64748b]">
+                  Give someone the Kitchen Staff role on the Staff page to make
+                  them assignable here.
+                </p>
+              ) : null}
 
               <fieldset className="mt-2 flex items-center gap-2">
                 <legend className="sr-only">Colour</legend>

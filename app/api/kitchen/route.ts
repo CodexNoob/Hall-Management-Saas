@@ -1,4 +1,4 @@
-﻿import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -17,6 +17,7 @@ import {
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { syncKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
 
 /**
  * The one booking state the kitchen cooks for.
@@ -133,10 +134,7 @@ export async function GET(request: Request) {
         select: boardEventSelect,
         orderBy: { eventDate: "asc" }
       }),
-      prisma.kitchenWorker.findMany({
-        where: { organizationId: actor.organizationId, isActive: true },
-        orderBy: { name: "asc" }
-      })
+      syncKitchenStaffWorkers(actor.organizationId)
     ]);
 
     const eventIds = events.map((event) => event.id);

@@ -64,7 +64,7 @@ export type KitchenResponse = {
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
   }>;
-  workers: Array<{ id: string; name: string }>;
+  workers: Array<{ id: string; name: string; isStaff: boolean }>;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;
   permissions: {

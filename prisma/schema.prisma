@@ -176,6 +176,7 @@ model User {
   bankConnections                  BankConnection[]
   notificationPreferences          NotificationPreference[]
   createdTodayNotes                TodayNote[]              @relation("TodayNoteCreatedBy")
+  kitchenWorkers                   KitchenWorker[]          @relation("KitchenWorkerUser")
   createdSupportTickets            SupportTicket[]          @relation("SupportTicketCreatedBy")
   supportTicketMessages            SupportTicketMessage[]   @relation("SupportTicketMessageAuthor")
 
@@ -590,6 +591,14 @@ model AddOn {
 model KitchenWorker {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
+  /// The staff member this worker is, when they are one.
+  ///
+  /// Nullable because a kitchen worker need not have a login - a casual hand
+  /// hired for one Sunday gets a name and nothing else, which is what this
+  /// table was originally for. Rows with a userId are kept in step with the
+  /// staff list automatically, so anyone given the Kitchen Staff role is
+  /// assignable without being added here by hand.
+  userId         String?  @map("user_id") @db.Uuid
   name           String
   color          String?
   isActive       Boolean  @default(true) @map("is_active")
@@ -597,8 +606,10 @@ model KitchenWorker {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                 User?               @relation("KitchenWorkerUser", fields: [userId], references: [id], onDelete: Cascade)
   assignedKitchenItems KitchenItemStatus[]
 
+  @@unique([organizationId, userId])
   @@index([organizationId, isActive])
   @@index([isActive])
   @@map("kitchen_workers")

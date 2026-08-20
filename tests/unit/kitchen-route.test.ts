@@ -16,7 +16,14 @@ vi.mock("@/lib/prisma", () => ({
     eventMenu: { findMany: vi.fn() },
     // The menus a kitchen event can be raised against.
     eventPackage: { findMany: vi.fn() },
-    kitchenWorker: { findMany: vi.fn() },
+    // findMany twice, plus the writes: the board now reconciles Kitchen Staff
+    // into the worker list on read.
+    kitchenWorker: {
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+      updateMany: vi.fn()
+    },
+    organizationMembership: { findMany: vi.fn() },
     menuItem: { findMany: vi.fn(), findFirst: vi.fn() },
     kitchenItemStatus: {
       findMany: vi.fn(),
@@ -150,6 +157,9 @@ describe("kitchen dashboard route", () => {
     vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
+  vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.kitchenWorker.updateMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([] as never);
   vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
     { id: "package-1", name: "Shabbos Lunch", includedMenuItemIds: ["a", "b"] }
   ] as never);

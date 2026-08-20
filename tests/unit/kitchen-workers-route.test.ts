@@ -1,261 +1,155 @@
-import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
   requirePermission: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    kitchenWorker: {
-      findMany: vi.fn(),
-      findFirst: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn()
-    }
+    kitchenWorker: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
+    organizationMembership: { findMany: vi.fn(), findFirst: vi.fn() }
   }
 }));
 
 import { GET, POST } from "@/app/api/kitchen/workers/route";
-import { DELETE, PATCH } from "@/app/api/kitchen/workers/[workerId]/route";
 import { requirePermission } from "@/lib/auth/server-auth";
 import { prisma } from "@/lib/prisma";
 
-/**
- * The roster behind the assignment control.
- *
- * `kitchen_workers` sat in the schema with a reader and no writer, so every
- * dish on the board offered exactly one option: "Unassigned". These tests hold
- * the two rules that make the list usable once it can be written - one worker
- * per name, and a retired worker keeps existing.
- */
-
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const workerId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const userId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
-  organizationId,
-  membership: { role: "OWNER" },
-  access: null
-};
-
-const params = Promise.resolve({ workerId });
-
-function request(body?: unknown, method = "POST") {
+function postRequest(body: unknown) {
   return new Request("http://localhost/api/kitchen/workers", {
-    method: body === undefined ? "GET" : method,
-    headers: { "Content-Type": "application/json" },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) })
+    method: "POST",
+    body: JSON.stringify(body)
   });
-}
-
-function worker(overrides: Record<string, unknown> = {}) {
-  return {
-    id: workerId,
-    name: "Mendy",
-    color: "#1f4d73",
-    isActive: true,
-    ...overrides
-  };
 }
 
 describe("kitchen workers route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
-    vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
-    vi.mocked(prisma.kitchenWorker.create).mockResolvedValue(worker() as never);
-    vi.mocked(prisma.kitchenWorker.update).mockResolvedValue(worker() as never);
+    vi.mocked(requirePermission).mockResolvedValue({
+      organizationId
+    } as never);
   });
 
   describe("listing", () => {
-    it("is gated on the permission that assigns work", async () => {
-      await GET(request());
+    it("offers Kitchen Staff who are not already workers", async () => {
+      vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([
+        { id: "w1", name: "Mendy", userId, isActive: true, color: null }
+      ] as never);
+      vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
+        // Already a worker - must not be offered twice.
+        { role: "Kitchen Staff", user: { id: userId, name: "Mendy", email: "m@x.test" } },
+        { role: "kitchen", user: { id: "user-2", name: "Shloimy", email: "s@x.test" } },
+        // Wrong role - not eligible at all.
+        { role: "Event Manager", user: { id: "user-3", name: "Rivky", email: "r@x.test" } }
+      ] as never);
 
-      expect(requirePermission).toHaveBeenCalledWith(
-        expect.anything(),
-        "canAssignWorkers"
-      );
+      const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
+
+      expect(body.availableStaff).toEqual([
+        { id: "user-2", name: "Shloimy" }
+      ]);
     });
 
-    it("includes retired workers, unlike the board's own read", async () => {
-      // This is the screen where someone puts a worker back, so it has to be
-      // able to show them.
-      await GET(request());
+    it("falls back to the email when a staff member has no name", async () => {
+      vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
+        { role: "kitchen", user: { id: "user-2", name: "  ", email: "chef@x.test" } }
+      ] as never);
 
-      const query = vi.mocked(prisma.kitchenWorker.findMany).mock.calls[0]?.[0];
+      const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
 
-      expect(query?.where).toEqual({ organizationId });
-      expect(query?.where).not.toHaveProperty("isActive");
-    });
-
-    it("scopes to the actor's organization", async () => {
-      await GET(request());
-
-      expect(
-        vi.mocked(prisma.kitchenWorker.findMany).mock.calls[0]?.[0]?.where
-      ).toMatchObject({ organizationId });
-    });
-  });
-
-  describe("creating", () => {
-    it("stores a trimmed name", async () => {
-      // The unique index compares lower(name), which would hold "Mendy" beside
-      // "Mendy " quite happily.
-      const response = await POST(request({ name: "  Mendy  " }));
-
-      expect(response.status).toBe(201);
-      expect(
-        vi.mocked(prisma.kitchenWorker.create).mock.calls[0]?.[0]?.data
-      ).toMatchObject({ name: "Mendy", organizationId });
-    });
-
-    it("refuses a name that already exists, whatever its case", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(
-        worker() as never
-      );
-
-      const response = await POST(request({ name: "mendy" }));
-
-      expect(response.status).toBe(409);
-      expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
-      expect(
-        vi.mocked(prisma.kitchenWorker.findFirst).mock.calls[0]?.[0]?.where
-      ).toMatchObject({ name: { equals: "mendy", mode: "insensitive" } });
-    });
-
-    it("points at the retired worker rather than inventing a second", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(
-        worker({ isActive: false }) as never
-      );
-
-      const response = await POST(request({ name: "Mendy" }));
-      const body = (await response.json()) as {
-        error: string;
-        workerId: string;
-      };
-
-      expect(response.status).toBe(409);
-      expect(body.error).toContain("retired");
-      expect(body.workerId).toBe(workerId);
-    });
-
-    it("survives losing the race to the unique index", async () => {
-      // Two people adding the same name at once: the pre-check passes for both
-      // and Postgres refuses the second.
-      vi.mocked(prisma.kitchenWorker.create).mockRejectedValue(
-        new Prisma.PrismaClientKnownRequestError("duplicate", {
-          code: "P2002",
-          clientVersion: "7.8.0"
-        })
-      );
-
-      const response = await POST(request({ name: "Mendy" }));
-
-      expect(response.status).toBe(409);
-    });
-
-    it("rejects a blank name and an unusable colour", async () => {
-      expect((await POST(request({ name: "   " }))).status).toBe(400);
-      expect(
-        (await POST(request({ name: "Mendy", color: "puce" }))).status
-      ).toBe(400);
+      expect(body.availableStaff).toEqual([
+        { id: "user-2", name: "chef@x.test" }
+      ]);
     });
   });
 
-  describe("updating", () => {
-    it("answers 404 for a worker in another organization", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(
-        null as never
-      );
-
-      const response = await PATCH(request({ name: "Shloimy" }, "PATCH"), {
-        params
-      });
-
-      expect(response.status).toBe(404);
-      expect(prisma.kitchenWorker.update).not.toHaveBeenCalled();
-    });
-
-    it("refuses a rename onto another worker's name", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst)
-        .mockResolvedValueOnce({ id: workerId } as never)
-        .mockResolvedValueOnce({ id: "other" } as never);
-
-      const response = await PATCH(request({ name: "Shloimy" }, "PATCH"), {
-        params
-      });
-
-      expect(response.status).toBe(409);
-      expect(prisma.kitchenWorker.update).not.toHaveBeenCalled();
-    });
-
-    it("lets a worker keep their own name", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst)
-        .mockResolvedValueOnce({ id: workerId } as never)
-        .mockResolvedValueOnce(null as never);
-
-      const response = await PATCH(request({ name: "Mendy" }, "PATCH"), {
-        params
-      });
-
-      expect(response.status).toBe(200);
-      // The clash query has to exclude the worker being renamed, or changing
-      // "Mendy" to "Mendy" collides with itself.
-      expect(
-        vi.mocked(prisma.kitchenWorker.findFirst).mock.calls[1]?.[0]?.where
-      ).toMatchObject({ id: { not: workerId } });
-    });
-
-    it("restores a retired worker", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue({
-        id: workerId
-      } as never);
-
-      await PATCH(request({ isActive: true }, "PATCH"), { params });
-
-      expect(
-        vi.mocked(prisma.kitchenWorker.update).mock.calls[0]?.[0]?.data
-      ).toMatchObject({ isActive: true });
-    });
-
-    it("rejects an empty body", async () => {
-      const response = await PATCH(request({}, "PATCH"), { params });
+  describe("adding", () => {
+    it("refuses a free-text name, which no longer identifies anyone", async () => {
+      const response = await POST(postRequest({ name: "Mendy", color: null }));
 
       expect(response.status).toBe(400);
+      expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
     });
-  });
 
-  describe("retiring", () => {
-    it("deactivates rather than deleting", async () => {
-      // KitchenItemStatus points at this row, so a delete either fails on the
-      // foreign key or takes the name off work already done.
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue({
-        id: workerId
+    it("refuses a staff member who does not hold the Kitchen Staff role", async () => {
+      // The dropdown only offers eligible staff, but the rule is enforced here
+      // rather than trusted from whatever the browser sent.
+      vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
+        role: "Event Manager",
+        user: { name: "Rivky", email: "r@x.test" }
       } as never);
 
-      const response = await DELETE(request(undefined, "DELETE"), { params });
+      const response = await POST(postRequest({ userId, color: null }));
 
-      expect(response.status).toBe(200);
-      expect(
-        vi.mocked(prisma.kitchenWorker.update).mock.calls[0]?.[0]?.data
-      ).toEqual({ isActive: false });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        error: expect.stringContaining("Kitchen Staff role")
+      });
+      expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
     });
 
-    it("answers 404 for a worker in another organization", async () => {
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(
+    it("refuses someone outside the organization", async () => {
+      vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue(
         null as never
       );
 
-      const response = await DELETE(request(undefined, "DELETE"), { params });
+      const response = await POST(postRequest({ userId, color: null }));
 
       expect(response.status).toBe(404);
-      expect(prisma.kitchenWorker.update).not.toHaveBeenCalled();
+      expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
+    });
+
+    it("takes the name from the staff record, not the caller", async () => {
+      vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
+        role: "Kitchen Staff",
+        user: { name: "Mendy", email: "m@x.test" }
+      } as never);
+      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
+      vi.mocked(prisma.kitchenWorker.create).mockResolvedValue({
+        id: "w1",
+        name: "Mendy",
+        color: null,
+        isActive: true
+      } as never);
+
+      const response = await POST(
+        postRequest({ userId, color: "#1f4d73", name: "Someone else" })
+      );
+
+      expect(response.status).toBe(201);
+      expect(prisma.kitchenWorker.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            organizationId,
+            userId,
+            name: "Mendy"
+          })
+        })
+      );
+    });
+
+    it("points at the retired row instead of creating a duplicate", async () => {
+      vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
+        role: "kitchen",
+        user: { name: "Mendy", email: "m@x.test" }
+      } as never);
+      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue({
+        id: "w1",
+        isActive: false,
+        name: "Mendy"
+      } as never);
+
+      const response = await POST(postRequest({ userId, color: null }));
+
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({
+        workerId: "w1",
+        error: expect.stringContaining("retired")
+      });
     });
   });
 });
