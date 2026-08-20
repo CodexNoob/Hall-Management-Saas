@@ -29,6 +29,7 @@ import {
 } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
+import { ManageWorkersDialog } from "@/features/kitchen/forms/manage-workers-dialog";
 import { TodayView } from "@/features/kitchen/components/kitchen-today-view";
 import { WeekView } from "@/features/kitchen/components/kitchen-week-view";
 import {
@@ -50,6 +51,7 @@ export function KitchenDashboardPage() {
   const [anchorDate, setAnchorDate] = useState(today);
   const [workersOnly, setWorkersOnly] = useState(false);
   const [isAddKitchenEventOpen, setIsAddKitchenEventOpen] = useState(false);
+  const [isManageWorkersOpen, setIsManageWorkersOpen] = useState(false);
   const [kitchenEventDateKey, setKitchenEventDateKey] = useState(() =>
     dateKey(today)
   );
@@ -139,6 +141,10 @@ export function KitchenDashboardPage() {
 
   const canAddKitchenEvent =
     kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
+  // The same permission that gates assigning a dish. Whoever decides who cooks
+  // what keeps the list of who there is to ask.
+  const canManageWorkers =
+    kitchenQuery.data?.permissions.canAssignWorkers ?? false;
 
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
@@ -218,7 +224,9 @@ export function KitchenDashboardPage() {
       <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         <KitchenToolbar
           canAddKitchenEvent={canAddKitchenEvent}
+          canManageWorkers={canManageWorkers}
           onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
+          onManageWorkers={() => setIsManageWorkersOpen(true)}
           onWorkersOnlyChange={setWorkersOnly}
           workersOnly={workersOnly}
         />
@@ -273,6 +281,12 @@ export function KitchenDashboardPage() {
       <TodayNotesDrawer
         onClose={() => setIsTodayNotesOpen(false)}
         open={isTodayNotesOpen}
+      />
+
+      <ManageWorkersDialog
+        canManage={canManageWorkers}
+        onClose={() => setIsManageWorkersOpen(false)}
+        open={isManageWorkersOpen}
       />
 
       <KitchenEventDetailsDialog

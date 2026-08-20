@@ -114,6 +114,10 @@ export const kitchenMenuSelect = {
 export const statusSelect = {
   menuItemId: true,
   status: true,
+  // The id as well as the name. Matching a worker by name was ambiguous the
+  // moment two of them could share one - which the roster screen now makes
+  // possible in spirit, even with the unique index holding it off in practice.
+  assignedWorkerId: true,
   assignedWorker: { select: { name: true } }
 } satisfies Prisma.KitchenItemStatusSelect;
 
@@ -243,6 +247,7 @@ export function presentKitchenLine(
         ? ("COMPLETE" as const)
         : ("PENDING" as const)
       : null,
+    assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
     assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
   };
 }

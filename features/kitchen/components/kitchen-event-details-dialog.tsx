@@ -186,10 +186,7 @@ function LineActions({
                 assignedWorkerId: changeEvent.target.value || null
               })
             }
-            value={
-              workers.find((worker) => worker.name === line.assignedWorkerName)
-                ?.id ?? ""
-            }
+            value={line.assignedWorkerId ?? ""}
           >
             <option value="">Unassigned</option>
             {workers.map((worker) => (

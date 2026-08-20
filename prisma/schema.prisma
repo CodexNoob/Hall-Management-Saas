@@ -573,6 +573,20 @@ model AddOn {
   @@map("add_ons")
 }
 
+/// Someone who cooks, as a name on a list.
+///
+/// Deliberately not a `User`: the people who cook at a hall do not have logins,
+/// and giving them one to be assignable would mean a seat, an invitation and a
+/// password for a name on a production sheet.
+///
+/// Retired rather than deleted - `is_active` is what the board filters on. A
+/// dish completed last month keeps the name of whoever cooked it, which a hard
+/// delete would either erase or refuse.
+///
+/// One constraint here lives in SQL and not in this file: a unique index on
+/// (organization_id, lower(name)), added by
+/// `20260820120000_add_kitchen_worker_name_unique`. `@@unique` cannot express
+/// `lower()`, so it is written as a functional index and recorded here instead.
 model KitchenWorker {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
