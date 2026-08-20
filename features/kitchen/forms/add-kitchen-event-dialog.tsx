@@ -1,12 +1,21 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
 
 export type AddKitchenEventFormValues = {
-  eventName: string;
+  /** The menu to cook. A kitchen event exists to produce one. */
+  menuId: string;
+  /** The menu's name, so the card can label itself without a lookup. */
+  menuName: string;
   portions: string;
   kitchenNote: string;
+};
+
+export type KitchenMenuOption = {
+  id: string;
+  name: string;
+  dishCount: number;
 };
 
 type AddKitchenEventDialogProps = {
@@ -14,11 +23,14 @@ type AddKitchenEventDialogProps = {
   date: string;
   open: boolean;
   onClose: () => void;
+  /** Menus this event can be raised against. */
+  menus: KitchenMenuOption[];
   onSave: (values: AddKitchenEventFormValues) => void;
 };
 
 const initialValues: AddKitchenEventFormValues = {
-  eventName: "",
+  menuId: "",
+  menuName: "",
   portions: "",
   kitchenNote: ""
 };
@@ -38,14 +50,15 @@ export function AddKitchenEventDialog({
   canSave,
   date,
   open,
+  menus,
   onClose,
   onSave
 }: AddKitchenEventDialogProps) {
   const titleId = useId();
-  const eventNameId = useId();
+  const menuId = useId();
   const portionsId = useId();
   const kitchenNoteId = useId();
-  const firstInputRef = useRef<HTMLInputElement>(null);
+  const firstInputRef = useRef<HTMLSelectElement>(null);
   const [values, setValues] = useState(initialValues);
   const [portionsError, setPortionsError] = useState("");
 
@@ -88,12 +101,13 @@ export function AddKitchenEventDialog({
     event.preventDefault();
 
     const normalizedValues = {
-      eventName: values.eventName.trim(),
+      menuId: values.menuId,
+      menuName: menus.find((menu) => menu.id === values.menuId)?.name ?? "",
       portions: values.portions.trim(),
       kitchenNote: values.kitchenNote.trim()
     };
 
-    if (!canSave || !normalizedValues.eventName) return;
+    if (!canSave || !normalizedValues.menuId) return;
 
     // The saved value is rendered straight back as "<portions> portions", so an
     // unparseable entry would show up on the kitchen board as "abc portions".
@@ -170,22 +184,35 @@ export function AddKitchenEventDialog({
             </p>
 
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
-              <label htmlFor={eventNameId}>
-                <FieldLabel>Event name</FieldLabel>
-                <input
+              {/* A menu, not a typed name. A kitchen event is a production
+                  job, and the kitchen needs to know what to cook - a label
+                  like "School Lunch" tells them nothing. */}
+              <div>
+                <label htmlFor={menuId}>
+                  <FieldLabel>Menu</FieldLabel>
+                </label>
+                <select
                   ref={firstInputRef}
-                  autoComplete="off"
+                  aria-label="Menu"
                   className={inputClass}
-                  id={eventNameId}
-                  name="eventName"
-                  onChange={(event) =>
-                    updateValue("eventName", event.target.value)
-                  }
-                  placeholder="e.g. School Lunch, Staff Meal"
+                  id={menuId}
+                  name="menuId"
+                  onChange={(event) => updateValue("menuId", event.target.value)}
                   required
-                  value={values.eventName}
-                />
-              </label>
+                  value={values.menuId}
+                >
+                  <option value="">
+                    {menus.length ? "Select a menu" : "No menus available"}
+                  </option>
+                  {menus.map((menu) => (
+                    <option key={menu.id} value={menu.id}>
+                      {menu.dishCount
+                        ? `${menu.name} (${menu.dishCount} dishes)`
+                        : menu.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Not a wrapping label like the field beside it: the error text
                   would be folded into the input's accessible name. */}

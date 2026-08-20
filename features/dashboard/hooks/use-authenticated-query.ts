@@ -236,6 +236,35 @@ export function invalidateAuthenticatedQuery(url: string) {
 }
 
 /**
+ * Ages and refetches every cached query whose url starts with `prefix`.
+ *
+ * The exact-match version above cannot serve realtime invalidation: a changed
+ * `events` row has to reach `/api/dashboard?startDate=...&endDate=...` and
+ * `/api/events/<id>` as well as the bare endpoints, and the caller knows only
+ * which table moved. Matching on the prefix covers the query strings and path
+ * parameters without the realtime layer having to know what they are.
+ */
+export function invalidateAuthenticatedQueryPrefix(prefix: string) {
+  const keys = new Set([...entries.keys(), ...subscribers.keys()]);
+
+  for (const key of keys) {
+    // The key is `${userId}:${organizationId}:${url}`, so the url starts after
+    // the second colon. Matching the raw key would let an organization id that
+    // happened to begin with "/api" collide.
+    const url = key.slice(key.indexOf(":", key.indexOf(":") + 1) + 1);
+    if (!url.startsWith(prefix)) continue;
+
+    if (entries.has(key)) {
+      writeRecord(key, { updatedAt: 0 });
+    }
+
+    if (subscribers.get(key)?.size) {
+      void runQuery(key, url);
+    }
+  }
+}
+
+/**
  * Writes a payload the caller already holds into the cache, as though a GET had
  * just returned it.
  *

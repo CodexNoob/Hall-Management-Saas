@@ -31,6 +31,13 @@ const envSchema = z.object({
   GMAIL_ALLOWED_SENDER_DOMAIN: z.string().optional(),
   GOOGLE_CALENDAR_ID: z.string().optional(),
   GOOGLE_CALENDAR_ENCRYPTED_REFRESH_TOKEN: z.string().optional(),
+  // Google Drive mirroring for uploaded documents. Off unless all three are
+  // set, in the same shape as the Gmail and Calendar integrations above: the
+  // refresh token is encrypted with ENCRYPTION_KEY, never stored in the clear.
+  // GOOGLE_DRIVE_FOLDER_ID is the parent everything is filed under, so the
+  // integration can never touch the rest of that Drive.
+  GOOGLE_DRIVE_ENCRYPTED_REFRESH_TOKEN: z.string().optional(),
+  GOOGLE_DRIVE_FOLDER_ID: z.string().optional(),
   ENCRYPTION_KEY: z.string().optional(),
   SESSION_SECRET: z.string().optional(),
   SUPPORT_EMAIL: z.string().email().optional(),

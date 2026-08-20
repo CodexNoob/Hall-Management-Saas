@@ -180,7 +180,9 @@ export function KitchenDashboardPage() {
         id: crypto.randomUUID(),
         dateKey: kitchenEventDateKey,
         category: "Kitchen",
-        title: values.eventName,
+        // The menu is the title: a kitchen event exists to cook one, so the
+        // card names what to make rather than a label someone typed.
+        title: values.menuName,
         statusType: "kitchen",
         startsAt: null,
         // The form's own validation guarantees a whole number of at least one.
@@ -280,6 +282,7 @@ export function KitchenDashboardPage() {
       <AddKitchenEventDialog
         canSave={canAddKitchenEvent}
         date={kitchenEventDateKey}
+        menus={kitchenQuery.data?.menus ?? []}
         onClose={() => setIsAddKitchenEventOpen(false)}
         onSave={addKitchenEvent}
         open={isAddKitchenEventOpen}

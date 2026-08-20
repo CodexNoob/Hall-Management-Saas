@@ -1,9 +1,16 @@
-import React from "react";
+﻿import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
 import { AddKitchenEventDialog } from "@/features/kitchen/forms/add-kitchen-event-dialog";
+
+// A kitchen event is raised against a menu, so every render needs something
+// to pick.
+const menuOptions = [
+  { id: "menu-1", name: "Shabbos Lunch", dishCount: 4 },
+  { id: "menu-2", name: "Staff Meal", dishCount: 2 }
+];
 
 describe("PlusButton", () => {
   it("is disabled when disabled is true", () => {
@@ -67,6 +74,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave={false}
         date="Jan 1"
+        menus={menuOptions}
         onClose={vi.fn()}
         onSave={vi.fn()}
         open
@@ -85,14 +93,15 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave={false}
         date="Jan 1"
+        menus={menuOptions}
         onClose={vi.fn()}
         onSave={onSave}
         open
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Event name"), {
-      target: { value: "Staff Lunch" }
+    fireEvent.change(screen.getByLabelText("Menu"), {
+      target: { value: "menu-1" }
     });
     fireEvent.change(screen.getByLabelText("Portions"), {
       target: { value: "40" }
@@ -110,6 +119,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave
         date="Jan 1"
+        menus={menuOptions}
         onClose={vi.fn()}
         onSave={onSave}
         open
@@ -120,8 +130,8 @@ describe("AddKitchenEventDialog", () => {
       screen.getByRole("button", { name: "Save event" })
     ).not.toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Event name"), {
-      target: { value: "Staff Lunch" }
+    fireEvent.change(screen.getByLabelText("Menu"), {
+      target: { value: "menu-1" }
     });
     fireEvent.change(screen.getByLabelText("Portions"), {
       target: { value: "40" }
@@ -129,10 +139,55 @@ describe("AddKitchenEventDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save event" }));
 
     expect(onSave).toHaveBeenCalledWith({
-      eventName: "Staff Lunch",
+      menuId: "menu-1",
+      menuName: "Shabbos Lunch",
       portions: "40",
       kitchenNote: ""
     });
+  });
+
+  it("asks only for a menu and a headcount, not booking details", () => {
+    render(
+      <AddKitchenEventDialog
+        canSave
+        date="Jan 1"
+        menus={menuOptions}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        open
+      />
+    );
+
+    // A kitchen event is production with no booking behind it, so none of the
+    // fields the New Booking form insists on belong here.
+    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Portions")).toBeInTheDocument();
+    for (const absent of [/client/i, /phone/i, /hall/i, /event type/i]) {
+      expect(screen.queryByLabelText(absent)).toBeNull();
+    }
+  });
+
+  it("will not save without a menu, because the kitchen would not know what to cook", () => {
+    const onSave = vi.fn();
+    render(
+      <AddKitchenEventDialog
+        canSave
+        date="Jan 1"
+        menus={menuOptions}
+        onClose={vi.fn()}
+        onSave={onSave}
+        open
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Portions"), {
+      target: { value: "40" }
+    });
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Save event" }).closest("form")!
+    );
+
+    expect(onSave).not.toHaveBeenCalled();
   });
 
   describe("portions validation", () => {
@@ -141,15 +196,16 @@ describe("AddKitchenEventDialog", () => {
         <AddKitchenEventDialog
           canSave
           date="Jan 1"
+        menus={menuOptions}
           onClose={vi.fn()}
           onSave={onSave}
           open
         />
       );
 
-      fireEvent.change(screen.getByLabelText("Event name"), {
-        target: { value: "Staff Lunch" }
-      });
+      fireEvent.change(screen.getByLabelText("Menu"), {
+      target: { value: "menu-1" }
+    });
 
       return onSave;
     }
@@ -207,7 +263,8 @@ describe("AddKitchenEventDialog", () => {
 
       expect(screen.queryByRole("alert")).toBeNull();
       expect(onSave).toHaveBeenCalledWith({
-        eventName: "Staff Lunch",
+        menuId: "menu-1",
+      menuName: "Shabbos Lunch",
         portions: "40",
         kitchenNote: ""
       });
