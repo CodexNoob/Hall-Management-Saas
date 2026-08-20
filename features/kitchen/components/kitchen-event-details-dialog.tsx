@@ -117,8 +117,8 @@ function StatTile({
 const DOUBLE_CLICK_GRACE_MS = 220;
 
 const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
-  COMPLETE: "border-[#1fa368] bg-[#effcf5]",
-  PENDING: "border-[#d88a00] bg-[#fff6e8]",
+  COMPLETE: "border-[#a5d5bd] bg-[#f2fbf6]",
+  PENDING: "border-[#e5c894] bg-[#fffaf1]",
   NONE: "border-[#d8dde5] bg-white"
 };
 
@@ -212,12 +212,16 @@ function DishCard({
   const body = (
     <>
       {line.assignedWorkerName ? (
-        <span className="mb-2 block truncate rounded-sm bg-[#0f5132] px-2 py-1 text-[10px] font-black text-white">
-          {line.assignedWorkerName}
+        <span className="mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#0f5132] px-2.5 py-1 text-[10px] font-black text-white">
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/70"
+          />
+          <span className="truncate">{line.assignedWorkerName}</span>
         </span>
       ) : null}
 
-      <span className="block text-sm font-black leading-tight text-[#07162d]">
+      <span className="block text-sm font-black leading-tight text-[#17202a]">
         {line.name}
       </span>
 
@@ -241,7 +245,7 @@ function DishCard({
       {canTick ? (
         <button
           aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to reset.`}
-          className={`flex min-h-34 flex-1 flex-col border p-3 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
+          className={`flex min-h-34 flex-1 flex-col rounded-xl border p-3 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
           disabled={isSaving}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -258,7 +262,9 @@ function DishCard({
           {body}
         </button>
       ) : (
-        <div className={`flex min-h-34 flex-1 flex-col border p-3 ${tone}`}>
+        <div
+          className={`flex min-h-34 flex-1 flex-col rounded-xl border p-3 ${tone}`}
+        >
           {body}
         </div>
       )}
@@ -267,7 +273,7 @@ function DishCard({
         <label className="mt-1 block">
           <span className="sr-only">Assign a worker to {line.name}</span>
           <select
-            className="h-9 w-full border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] disabled:opacity-50"
+            className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50"
             disabled={isSaving}
             onChange={(changeEvent) =>
               void onSaveItemAction({
@@ -335,7 +341,7 @@ function KitchenEventDetails({
               {event.category}
             </p>
             <h2
-              className="mt-1 truncate text-xl font-black text-[#07162d]"
+              className="mt-1 truncate text-xl font-black text-[#17202a]"
               id="kitchen-event-details-title"
             >
               {event.title}

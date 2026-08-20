@@ -149,6 +149,15 @@ export function KitchenDashboardPage() {
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
 
+  // Whether the board is already pointed at the range containing today, which
+  // is what decides whether the header offers a way back to it. Navigation
+  // always moves in whole steps from today, so comparing the range start is
+  // exact rather than approximate.
+  const isOnToday =
+    activeView === "today"
+      ? dateKey(anchorDate) === dateKey(today)
+      : dateKey(startOfWeek(anchorDate)) === dateKey(startOfWeek(today));
+
   function navigate(amount: number) {
     setAnchorDate((current) => addDays(current, amount * navigationStep));
   }
@@ -200,7 +209,7 @@ export function KitchenDashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#07162d]">
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       {/* No actionsSlot - see the note in dashboard-shell. The topbar's own
           Today notes button already collapses to an icon below xl, which is
           what keeps it on the same line as the title on a phone. */}
@@ -215,59 +224,57 @@ export function KitchenDashboardPage() {
         <KitchenHeader
           activeView={activeView}
           anchorDate={anchorDate}
+          isOnToday={isOnToday}
           onChangeView={changeView}
           onNext={() => navigate(1)}
           onPrevious={() => navigate(-1)}
+          onToday={goToCurrentRange}
+          today={today}
         />
       </div>
 
       <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
-        <KitchenToolbar
-          canAddKitchenEvent={canAddKitchenEvent}
-          canManageWorkers={canManageWorkers}
-          onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
-          onManageWorkers={() => setIsManageWorkersOpen(true)}
-          onWorkersOnlyChange={setWorkersOnly}
-          workersOnly={workersOnly}
-        />
+        <div className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-1 flex-col gap-3 sm:gap-4">
+          <KitchenToolbar
+            canAddKitchenEvent={canAddKitchenEvent}
+            canManageWorkers={canManageWorkers}
+            onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
+            onManageWorkers={() => setIsManageWorkersOpen(true)}
+            onWorkersOnlyChange={setWorkersOnly}
+            workersOnly={workersOnly}
+          />
 
-        {kitchenQuery.isLoading || kitchenQuery.error ? (
-          <div className="flex min-h-80 flex-1 items-center justify-center">
-            <AsyncState
-              error={kitchenQuery.error}
-              isLoading={kitchenQuery.isLoading}
-              onRetry={kitchenQuery.refetch}
+          {kitchenQuery.isLoading || kitchenQuery.error ? (
+            <div className="flex min-h-80 flex-1 items-center justify-center">
+              <AsyncState
+                error={kitchenQuery.error}
+                isLoading={kitchenQuery.isLoading}
+                onRetry={kitchenQuery.refetch}
+              />
+            </div>
+          ) : activeView === "today" ? (
+            <TodayView
+              canAddKitchenEvent={canAddKitchenEvent}
+              day={days.find((day) => day.selected) ?? days[0]}
+              onAddKitchenEvent={openAddKitchenEvent}
+              onSelectEvent={setSelectedKitchenEvent}
             />
-          </div>
-        ) : (
-          <div className="mt-4">
-            {activeView === "today" ? (
-              <TodayView
-                canAddKitchenEvent={canAddKitchenEvent}
-                day={days.find((day) => day.selected) ?? days[0]}
-                onAddKitchenEvent={openAddKitchenEvent}
-                onSelectEvent={setSelectedKitchenEvent}
-              />
-            ) : activeView === "week" ? (
-              <WeekView
-                canAddKitchenEvent={canAddKitchenEvent}
-                days={days.slice(0, 7)}
-                onAddKitchenEvent={openAddKitchenEvent}
-                onSelectEvent={setSelectedKitchenEvent}
-              />
-            ) : (
-              <FourWeeksView
-                canAddKitchenEvent={canAddKitchenEvent}
-                days={days}
-                onCurrent={goToCurrentRange}
-                onAddKitchenEvent={openAddKitchenEvent}
-                onSelectEvent={setSelectedKitchenEvent}
-                onNext={() => navigate(1)}
-                onPrevious={() => navigate(-1)}
-              />
-            )}
-          </div>
-        )}
+          ) : activeView === "week" ? (
+            <WeekView
+              canAddKitchenEvent={canAddKitchenEvent}
+              days={days.slice(0, 7)}
+              onAddKitchenEvent={openAddKitchenEvent}
+              onSelectEvent={setSelectedKitchenEvent}
+            />
+          ) : (
+            <FourWeeksView
+              canAddKitchenEvent={canAddKitchenEvent}
+              days={days}
+              onAddKitchenEvent={openAddKitchenEvent}
+              onSelectEvent={setSelectedKitchenEvent}
+            />
+          )}
+        </div>
       </main>
 
       <AddKitchenEventDialog

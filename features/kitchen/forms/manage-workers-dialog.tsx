@@ -46,7 +46,7 @@ const COLOR_CHOICES = [
 ];
 
 const inputClass =
-  "h-10 w-full border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+  "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
 function WorkerDot({ color }: { color: string | null }) {
   return (
@@ -166,7 +166,7 @@ export function ManageWorkersDialog({
 
   return (
     <div
-      className="fixed inset-0 z-110 flex items-center justify-center bg-[#17202a]/40 p-3 sm:p-5"
+      className="dashboard-drawer-backdrop fixed inset-0 z-110 flex items-center justify-center bg-[#17202a]/25 p-3 backdrop-blur-[1px] sm:p-6"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) onClose();
       }}
@@ -174,17 +174,22 @@ export function ManageWorkersDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="flex max-h-[calc(100dvh-24px)] w-full max-w-[560px] flex-col overflow-hidden border border-[#cbd5df] bg-white shadow-2xl shadow-[#17202a]/25"
+        className="flex max-h-[calc(100dvh-24px)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
-        <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-2">
-          <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
-            Kitchen workers
-          </h2>
+        <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
+              Kitchen workers
+            </h2>
+            <p className="mt-1 text-sm text-[#64748b]">
+              The people a dish can be assigned to on the board.
+            </p>
+          </div>
 
           <button
             aria-label="Close kitchen workers"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-3xl leading-none text-black hover:bg-[#f6f8fa]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
           >
@@ -204,7 +209,7 @@ export function ManageWorkersDialog({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {canManage ? (
             <form className="mb-4" onSubmit={addWorker}>
               <label htmlFor={nameId}>
@@ -224,7 +229,7 @@ export function ManageWorkersDialog({
                   value={name}
                 />
                 <button
-                  className="h-10 shrink-0 bg-[#07162d] px-4 text-sm font-black text-white hover:bg-[#142946] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="h-10 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
                   disabled={isSaving || !name.trim()}
                   type="submit"
                 >
@@ -249,7 +254,7 @@ export function ManageWorkersDialog({
                       value={choice}
                     />
                     <span
-                      className="block h-6 w-6 rounded-full border-2 border-transparent peer-checked:border-[#07162d] peer-focus-visible:border-[#07162d]"
+                      className="block h-7 w-7 rounded-full border-2 border-transparent ring-offset-2 peer-checked:border-white peer-checked:ring-2 peer-checked:ring-[#1f4d73] peer-focus-visible:ring-2 peer-focus-visible:ring-[#1f4d73]"
                       style={{ backgroundColor: choice }}
                     />
                     <span className="sr-only">{choice}</span>
@@ -258,7 +263,7 @@ export function ManageWorkersDialog({
               </fieldset>
             </form>
           ) : (
-            <p className="mb-4 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
+            <p className="mb-4 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
               You do not have permission to manage kitchen workers. Contact an
               administrator if you need access.
             </p>
@@ -266,7 +271,7 @@ export function ManageWorkersDialog({
 
           {error ? (
             <p
-              className="mb-3 border border-[#f0b9b4] bg-[#fff5f4] px-3 py-2 text-xs font-bold text-[#b42318]"
+              className="mb-3 rounded-lg border border-[#f0b9b4] bg-[#fff5f4] px-3 py-2 text-xs font-bold text-[#b42318]"
               role="alert"
             >
               {error}
@@ -287,7 +292,7 @@ export function ManageWorkersDialog({
             />
           ) : (
             <>
-              <ul className="divide-y divide-[#d8dde5] border border-[#d8dde5]">
+              <ul className="divide-y divide-[#d8dde5] overflow-hidden rounded-xl border border-[#d8dde5]">
                 {active.map((worker) => (
                   <li
                     className="flex flex-wrap items-center gap-2 px-3 py-2"
@@ -304,7 +309,7 @@ export function ManageWorkersDialog({
                           value={editingName}
                         />
                         <button
-                          className="h-9 bg-[#07162d] px-3 text-xs font-black text-white disabled:opacity-40"
+                          className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white disabled:opacity-45"
                           disabled={isSaving || !editingName.trim()}
                           onClick={() => void renameWorker(worker.id)}
                           type="button"
@@ -312,7 +317,7 @@ export function ManageWorkersDialog({
                           Save
                         </button>
                         <button
-                          className="h-9 border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a]"
+                          className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
                           onClick={() => setEditingId(null)}
                           type="button"
                         >
@@ -328,7 +333,7 @@ export function ManageWorkersDialog({
                         {canManage ? (
                           <>
                             <button
-                              className="h-9 border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-40"
+                              className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-40"
                               disabled={isSaving}
                               onClick={() => {
                                 setEditingId(worker.id);
@@ -339,7 +344,7 @@ export function ManageWorkersDialog({
                               Rename
                             </button>
                             <button
-                              className="h-9 border border-[#f0b9b4] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff5f4] disabled:opacity-40"
+                              className="h-9 rounded-lg border border-[#f0b9b4] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff5f4] disabled:opacity-40"
                               disabled={isSaving}
                               onClick={() =>
                                 void run(
@@ -366,7 +371,7 @@ export function ManageWorkersDialog({
                   </h3>
                   {/* Kept rather than deleted so finished work keeps the name
                       of whoever did it. */}
-                  <ul className="mt-2 divide-y divide-[#d8dde5] border border-[#d8dde5]">
+                  <ul className="mt-2 divide-y divide-[#d8dde5] overflow-hidden rounded-xl border border-[#d8dde5]">
                     {retired.map((worker) => (
                       <li
                         className="flex items-center gap-2 px-3 py-2"
@@ -378,7 +383,7 @@ export function ManageWorkersDialog({
                         </span>
                         {canManage ? (
                           <button
-                            className="h-9 border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-40"
+                            className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-40"
                             disabled={isSaving}
                             onClick={() =>
                               void run(`${WORKERS_URL}/${worker.id}`, "PATCH", {

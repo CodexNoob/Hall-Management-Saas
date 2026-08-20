@@ -1,8 +1,11 @@
 "use client";
 
+import { AsyncState } from "@/components/ui/async-state";
+import { Panel } from "@/components/ui/panel";
 import { KitchenEventCard } from "@/features/kitchen/components/kitchen-event-card";
 import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
 import {
+  eventCountLabel,
   type KitchenDay,
   type KitchenEvent
 } from "@/features/kitchen/components/kitchen-shared";
@@ -19,35 +22,49 @@ export function TodayView({
   onSelectEvent: (event: KitchenEvent) => void;
 }) {
   return (
-    <section className="min-h-120 border border-[#d8dde5] bg-white p-2">
-      <header className="flex items-center justify-between border-b border-[#d8dde5] px-2 pb-2">
-        <h2 className="text-lg font-black text-[#0077b7]">
-          {day.today ? "Today" : day.dayName}
-        </h2>
-
-        <div className="flex items-center gap-2">
-          <PlusButton
-            disabled={!canAddKitchenEvent}
-            label={`Add kitchen event on ${day.dateLabel}`}
-            onClick={() => onAddKitchenEvent(day.dateKey)}
-          />
-          <strong className="text-sm text-[#536780]">{day.dateLabel}</strong>
+    <Panel className="dashboard-panel-enter">
+      <header className="flex items-center justify-between gap-3 border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 sm:px-4">
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-black text-[#17202a]">
+            {day.today ? "Today" : day.dayName}
+          </h2>
+          <p className="mt-0.5 truncate text-xs text-[#6a7483]">
+            {day.dateLabel} · {eventCountLabel(day.events)}
+          </p>
         </div>
+
+        <PlusButton
+          disabled={!canAddKitchenEvent}
+          label={`Add kitchen event on ${day.dateLabel}`}
+          onClick={() => onAddKitchenEvent(day.dateKey)}
+        />
       </header>
 
-      <div className="mt-3">
+      {/* A busy day used to be one narrow column of cards down the left of a
+          very wide white box. The cards carry their own detail, so they tile. */}
+      <div className="p-3 sm:p-4">
         {day.events?.length ? (
-          day.events.map((event) => (
-            <KitchenEventCard
-              event={event}
-              key={event.id}
-              onSelect={onSelectEvent}
-            />
-          ))
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {day.events.map((event) => (
+              <KitchenEventCard
+                event={event}
+                key={event.id}
+                onSelect={onSelectEvent}
+              />
+            ))}
+          </div>
         ) : (
-          <p className="text-sm font-black text-[#536780]">No events</p>
+          <AsyncState
+            emptyMessage={
+              canAddKitchenEvent
+                ? "Confirmed bookings appear here on their date. Use Add kitchen event for production that has no booking behind it."
+                : "Confirmed bookings appear here on their date."
+            }
+            emptyTitle={`Nothing to cook on ${day.dateLabel}`}
+            isEmpty
+          />
         )}
       </div>
-    </section>
+    </Panel>
   );
 }

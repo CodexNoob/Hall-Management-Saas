@@ -24,7 +24,7 @@ const initialValues: AddKitchenEventFormValues = {
 };
 
 const inputClass =
-  "h-10 w-full border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+  "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -118,7 +118,7 @@ export function AddKitchenEventDialog({
 
   return (
     <div
-      className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/40 p-3 sm:p-5"
+      className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/25 p-3 backdrop-blur-[1px] sm:p-6"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) closeDialog();
       }}
@@ -126,17 +126,23 @@ export function AddKitchenEventDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-[650px] overflow-hidden border border-[#cbd5df] bg-white shadow-2xl shadow-[#17202a]/25"
+        className="w-full max-w-[650px] overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
-        <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-2">
-          <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
-            Add Kitchen Event
-          </h2>
+        <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
+          <div>
+            <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
+              Add kitchen event
+            </h2>
+            <p className="mt-1 text-sm text-[#64748b]">
+              Production with no booking behind it - a staff meal, a school
+              lunch.
+            </p>
+          </div>
 
           <button
             aria-label="Close add kitchen event"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-3xl leading-none text-black hover:bg-[#f6f8fa]"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={closeDialog}
             type="button"
           >
@@ -157,8 +163,11 @@ export function AddKitchenEventDialog({
         </header>
 
         <form onSubmit={handleSubmit}>
-          <div className="px-4 py-5">
-            <p className="mb-1 text-xs font-black text-[#53627a]">{date}</p>
+          <div className="px-5 py-5">
+            <p className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-2.5 py-1 text-xs font-black text-[#516071]">
+              <span className="sr-only">Date</span>
+              {date}
+            </p>
 
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
               <label htmlFor={eventNameId}>
@@ -216,7 +225,7 @@ export function AddKitchenEventDialog({
             <label className="mt-3 block" htmlFor={kitchenNoteId}>
               <FieldLabel>Kitchen note</FieldLabel>
               <textarea
-                className="h-19 w-full resize-y border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                className="h-19 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                 id={kitchenNoteId}
                 name="kitchenNote"
                 onChange={(event) =>
@@ -227,16 +236,16 @@ export function AddKitchenEventDialog({
             </label>
 
             {!canSave ? (
-              <p className="mt-3 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
+              <p className="mt-3 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
                 You do not have permission to add kitchen events. Contact an
                 administrator if you need access.
               </p>
             ) : null}
           </div>
 
-          <footer className="flex justify-end gap-3 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
+          <footer className="flex justify-end gap-3 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-3">
             <button
-              className="h-11 border border-[#d8dde5] bg-white px-5 text-sm font-black text-black hover:bg-[#eef4fa]"
+              className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
               onClick={closeDialog}
               type="button"
             >
@@ -244,11 +253,11 @@ export function AddKitchenEventDialog({
             </button>
 
             <button
-              className="h-11 bg-[#07162d] px-5 text-sm font-black text-white hover:bg-[#142946] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[#07162d]"
+              className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
               disabled={!canSave}
               type="submit"
             >
-              Save Event
+              Save event
             </button>
           </footer>
         </form>

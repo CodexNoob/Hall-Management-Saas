@@ -2,6 +2,13 @@
 
 import { type ReactNode } from "react";
 
+/**
+ * The card every dashboard page is built out of.
+ *
+ * It started in the Dining Manager and was copied by hand everywhere else,
+ * which is how the Kitchen board ended up with square corners and its own
+ * border colour while the rest of the product had neither.
+ */
 export function Panel({
   children,
   className = ""

@@ -40,7 +40,7 @@ describe("KitchenToolbar", () => {
       />
     );
     expect(
-      screen.getByRole("button", { name: "+ Add Kitchen Event" })
+      screen.getByRole("button", { name: /add kitchen event/i })
     ).toBeDisabled();
   });
 
@@ -56,7 +56,7 @@ describe("KitchenToolbar", () => {
       />
     );
     expect(
-      screen.getByRole("button", { name: "+ Add Kitchen Event" })
+      screen.getByRole("button", { name: /add kitchen event/i })
     ).not.toBeDisabled();
   });
 });
@@ -73,7 +73,7 @@ describe("AddKitchenEventDialog", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Save Event" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save event" })).toBeDisabled();
     expect(
       screen.getByText(/do not have permission to add kitchen events/i)
     ).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe("AddKitchenEventDialog", () => {
       target: { value: "40" }
     });
     fireEvent.submit(
-      screen.getByRole("button", { name: "Save Event" }).closest("form")!
+      screen.getByRole("button", { name: "Save event" }).closest("form")!
     );
 
     expect(onSave).not.toHaveBeenCalled();
@@ -117,7 +117,7 @@ describe("AddKitchenEventDialog", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Save Event" })
+      screen.getByRole("button", { name: "Save event" })
     ).not.toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Event name"), {
@@ -126,7 +126,7 @@ describe("AddKitchenEventDialog", () => {
     fireEvent.change(screen.getByLabelText("Portions"), {
       target: { value: "40" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save event" }));
 
     expect(onSave).toHaveBeenCalledWith({
       eventName: "Staff Lunch",
@@ -158,7 +158,7 @@ describe("AddKitchenEventDialog", () => {
       fireEvent.change(screen.getByLabelText("Portions"), {
         target: { value: portions }
       });
-      fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save event" }));
     }
 
     // The kitchen board renders this value straight back as "<portions>
