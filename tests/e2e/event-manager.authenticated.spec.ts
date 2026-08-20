@@ -182,7 +182,12 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await openFixtureEvent(page);
 
   await page.getByLabel("Client name").fill("Updated E2E Event");
-  await page.getByLabel("Notes").fill("Updated internal note.");
+  // Also role-scoped: getByLabel matches substrings, and the topbar's "Open
+  // today notes" button sits behind the dialog, so a bare getByLabel("Notes")
+  // matches it too.
+  await page
+    .getByRole("textbox", { exact: true, name: "Notes" })
+    .fill("Updated internal note.");
   // Scoped to the role: the timeline rows expose aria-labels such as
   // "Timeline time for Guests arrive and first course begins", so a bare
   // getByLabel("Guests") is ambiguous. This is a textbox rather than a
@@ -218,7 +223,9 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await expect(
     page.getByRole("textbox", { exact: true, name: "Guests" })
   ).toHaveValue("370");
-  await expect(page.getByLabel("Notes")).toHaveValue("Updated internal note.");
+  await expect(
+    page.getByRole("textbox", { exact: true, name: "Notes" })
+  ).toHaveValue("Updated internal note.");
 });
 
 test("Event details prevent invalid guest count values before saving", async ({
