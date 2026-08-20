@@ -1,0 +1,336 @@
+import type { Prisma } from "@prisma/client";
+import { z } from "zod";
+import {
+  calculateStyleQuantity,
+  totalGuests,
+  type EventHeadCounts
+} from "@/features/menu/lib/menu-quantity";
+import {
+  readServiceRules,
+  SERVICE_STYLES
+} from "@/features/menu/lib/service-style";
+import {
+  isDiningSeatingTable,
+  validTables
+} from "@/features/dining/components/dining-shared";
+
+/**
+ * What a kitchen has to cook for one event, and how far along it is.
+ *
+ * Extracted from `GET /api/events/[eventId]/kitchen`, which used to be its only
+ * caller. The board at `GET /api/kitchen` now runs the same computation over a
+ * four week window, and the one thing the two views must never do is disagree:
+ * an event's card saying "6 of 14 done" while its own kitchen tab says something
+ * else is worse than either number being absent. Sharing the code is what makes
+ * that impossible rather than merely unlikely.
+ *
+ * Pure, and deliberately no `server-only`: it takes rows and returns a sheet, so
+ * it can be tested without a database. Prisma appears only as types, which are
+ * erased - the caller does the querying.
+ */
+
+export const MEALS = [
+  "Main",
+  "FridayNight",
+  "ShabbosDay",
+  "SeudahShlishis"
+] as const;
+
+export const mealSchema = z.enum(MEALS).default("Main");
+
+/**
+ * The meal the kitchen board reads.
+ *
+ * A Shabbos booking is genuinely three or four cooking jobs, and the schema is
+ * keyed `(eventId, meal)` to hold them - but nothing in the UI selects a meal
+ * yet, so every menu written so far is a `Main`. Named rather than inlined so
+ * the board's eventual meal picker has one place to replace.
+ */
+export const DEFAULT_MEAL = "Main";
+
+export const eventSelect = {
+  id: true,
+  hallId: true,
+  couplesCount: true,
+  menCount: true,
+  ladiesCount: true,
+  boysCount: true,
+  girlsCount: true,
+  kidsCount: true,
+  waitersCount: true,
+  /// The only table data there is. `Event` has no table column, which is why a
+  /// per-table rule on an event with no plan is reported unresolved rather than
+  /// cooked as zero.
+  diningPlan: { select: { tables: true } }
+} satisfies Prisma.EventSelect;
+
+export const lineOrder = [
+  { sortOrder: "asc" },
+  { createdAt: "asc" }
+] satisfies Prisma.EventMenuLineOrderByWithRelationInput[];
+
+export const kitchenLineSelect = {
+  id: true,
+  menuItemId: true,
+  addOnId: true,
+  itemName: true,
+  serviceStyle: true,
+  notes: true,
+  sortOrder: true,
+  menuItem: {
+    select: {
+      name: true,
+      isActive: true,
+      // Signed by the caller and handed over as a URL. The bucket is never
+      // selected and the path never reaches the client, the same rule the menu
+      // route follows.
+      picturePath: true,
+      services: {
+        select: {
+          serviceStyle: true,
+          quantity: true,
+          unit: true,
+          per: true,
+          perBasis: true,
+          rounding: true,
+          minimumUnits: true
+        },
+        orderBy: { serviceStyle: "asc" }
+      }
+    }
+  },
+  // No price: a production sheet has no use for money.
+  addOn: { select: { name: true, isActive: true, picturePath: true } }
+} satisfies Prisma.EventMenuLineSelect;
+
+export const kitchenMenuSelect = {
+  meal: true,
+  status: true,
+  confirmedAt: true,
+  version: true,
+  lines: { select: kitchenLineSelect, orderBy: lineOrder }
+} satisfies Prisma.EventMenuSelect;
+
+export const statusSelect = {
+  menuItemId: true,
+  status: true,
+  assignedWorker: { select: { name: true } }
+} satisfies Prisma.KitchenItemStatusSelect;
+
+/**
+ * The board needs the same statuses keyed by event, so it selects `eventId` too.
+ * Kept as a separate constant rather than adding the column to `statusSelect`:
+ * the per-event route already knows which event it asked about, and a field it
+ * never reads would just be noise in its payload.
+ */
+export const boardStatusSelect = {
+  ...statusSelect,
+  eventId: true
+} satisfies Prisma.KitchenItemStatusSelect;
+
+export type KitchenEventRow = Prisma.EventGetPayload<{
+  select: typeof eventSelect;
+}>;
+
+export type KitchenMenuRow = Prisma.EventMenuGetPayload<{
+  select: typeof kitchenMenuSelect;
+}>;
+
+export type KitchenLineRow = Prisma.EventMenuLineGetPayload<{
+  select: typeof kitchenLineSelect;
+}>;
+
+export type StatusRow = Prisma.KitchenItemStatusGetPayload<{
+  select: typeof statusSelect;
+}>;
+
+/**
+ * `null` for tables, never 0: an event nobody has drawn a seating plan for
+ * genuinely cannot answer a per-table rule, and a sheet printing "0 dips"
+ * because of it is worse than one saying it cannot work the number out.
+ *
+ * A plan row that exists but holds no seating tables is the same "cannot
+ * answer", not an answer of zero - the dining page saves a plan as soon as
+ * anyone edits the counts beside it, long before a table is drawn, and the
+ * column defaults to `[]`.
+ */
+export function readHeadCounts(event: KitchenEventRow): EventHeadCounts {
+  const plan = event.diningPlan;
+  const seatingTables = plan
+    ? validTables(plan.tables).filter(isDiningSeatingTable).length
+    : 0;
+
+  return {
+    couples: event.couplesCount,
+    men: event.menCount,
+    ladies: event.ladiesCount,
+    boys: event.boysCount,
+    girls: event.girlsCount,
+    kids: event.kidsCount,
+    waiters: event.waitersCount,
+    tables: seatingTables > 0 ? seatingTables : null
+  };
+}
+
+/**
+ * One line of the sheet.
+ *
+ * The name follows the same rule as the menu tab: a confirmed line answers from
+ * its own snapshot, a draft answers from the library, so a rename reaches a menu
+ * nobody has signed off and never changes one the kitchen already read.
+ */
+export function presentKitchenLine(
+  line: KitchenLineRow,
+  pictureUrl: string | null,
+  counts: EventHeadCounts,
+  itemStatus: StatusRow | undefined
+) {
+  const isAddOn = line.addOnId !== null;
+  const services = line.menuItem?.services ?? [];
+  // `quantity` is a Prisma Decimal; the rule schema wants a number. Converting
+  // at the boundary is the same call GET /api/menu makes.
+  const rules = readServiceRules(
+    services.map((service) => ({
+      ...service,
+      quantity: Number(service.quantity)
+    }))
+  );
+  const availableStyles = [
+    ...new Set(services.map((service) => service.serviceStyle))
+  ];
+  const style =
+    SERVICE_STYLES.find((candidate) => candidate === line.serviceStyle) ?? null;
+  // `null` means "this dish is not served that way", which is different from a
+  // dish served that way whose arithmetic came out at zero.
+  const result = style ? calculateStyleQuantity(rules, style, counts) : null;
+
+  const countState = isAddOn
+    ? ("NotCounted" as const)
+    : result && result.quantities.length > 0
+      ? ("Counted" as const)
+      : result && result.unresolved.length > 0
+        ? ("Unresolved" as const)
+        : !style && availableStyles.length > 0
+          ? ("NeedsStyle" as const)
+          : ("NoRule" as const);
+
+  return {
+    id: line.id,
+    menuItemId: line.menuItemId,
+    addOnId: line.addOnId,
+    kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
+    name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
+    pictureUrl,
+    serviceStyle: line.serviceStyle,
+    availableStyles,
+    notes: line.notes,
+    sortOrder: line.sortOrder,
+    isRetired: isAddOn
+      ? line.addOn?.isActive === false
+      : line.menuItem?.isActive === false,
+    quantities: (result?.quantities ?? []).map((quantity) => ({
+      unit: quantity.unit,
+      units: quantity.units,
+      raw: quantity.raw
+    })),
+    unresolvedBases: result?.unresolved ?? [],
+    countState,
+    // The persisted vocabulary is PENDING and COMPLETE, guarded only by a zod
+    // enum on the board's PATCH - so anything else that reached the column is
+    // read as "started but not finished" rather than trusted through.
+    status: itemStatus
+      ? itemStatus.status === "COMPLETE"
+        ? ("COMPLETE" as const)
+        : ("PENDING" as const)
+      : null,
+    assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
+  };
+}
+
+export function summarize(lines: ReturnType<typeof presentKitchenLine>[]) {
+  const dishes = lines.filter((line) => line.kind === "Dish");
+
+  return {
+    dishes: dishes.length,
+    addOns: lines.length - dishes.length,
+    complete: dishes.filter((line) => line.status === "COMPLETE").length,
+    pending: dishes.filter((line) => line.status === "PENDING").length,
+    notStarted: dishes.filter((line) => line.status === null).length,
+    // Every dish the kitchen has no number to cook to. One count, because the
+    // three causes want the same action: someone has to go and say.
+    needsAttention: dishes.filter((line) =>
+      ["NeedsStyle", "NoRule", "Unresolved"].includes(line.countState)
+    ).length,
+    unresolvedBases: [...new Set(lines.flatMap((line) => line.unresolvedBases))]
+  };
+}
+
+/**
+ * The whole sheet for one event.
+ *
+ * `signedUrlsByPath` is optional because the board does not draw thumbnails: it
+ * shows a progress ratio per event, not a list of dishes, so making it sign
+ * every picture in a four week window would be a storage round-trip per event
+ * for URLs nobody renders. Absent, every line answers `pictureUrl: null`.
+ */
+export function buildKitchenSheet({
+  event,
+  meal,
+  menu,
+  statuses,
+  signedUrlsByPath
+}: {
+  event: KitchenEventRow;
+  meal: string;
+  menu: KitchenMenuRow | null;
+  statuses: StatusRow[];
+  signedUrlsByPath?: Map<string, string>;
+}) {
+  const counts = readHeadCounts(event);
+  // Keyed by menu item, because that is how KitchenItemStatus is uniquely
+  // keyed. An add-on line can therefore never carry a status.
+  const statusByMenuItemId = new Map(
+    statuses.map((itemStatus) => [itemStatus.menuItemId, itemStatus])
+  );
+
+  const lines = (menu?.lines ?? []).map((line) => {
+    const picturePath =
+      line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
+
+    return presentKitchenLine(
+      line,
+      picturePath ? (signedUrlsByPath?.get(picturePath) ?? null) : null,
+      counts,
+      line.menuItemId ? statusByMenuItemId.get(line.menuItemId) : undefined
+    );
+  });
+
+  return {
+    meal,
+    // No row until the first save, answered as an empty draft rather than a
+    // 404 - the same shape the menu route's emptyMenu returns.
+    menuStatus: menu?.status ?? "Draft",
+    confirmedAt: menu?.confirmedAt ?? null,
+    version: menu?.version ?? 0,
+    counts: { ...counts, totalGuests: totalGuests(counts) },
+    lines,
+    summary: summarize(lines)
+  };
+}
+
+/**
+ * Every picture path on a set of lines, deduplicated, for one signing request.
+ *
+ * Lives here rather than in the route so the board can reuse it the day it
+ * decides it wants thumbnails; the signing call itself stays with the caller,
+ * which is the piece that needs storage and an organization id.
+ */
+export function collectPicturePaths(lines: KitchenLineRow[]) {
+  return [
+    ...new Set(
+      lines
+        .map((line) => line.menuItem?.picturePath ?? line.addOn?.picturePath)
+        .filter((path): path is string => Boolean(path))
+    )
+  ];
+}

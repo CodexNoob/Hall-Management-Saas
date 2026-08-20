@@ -1,7 +1,17 @@
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  boardStatusSelect,
+  buildKitchenSheet,
+  DEFAULT_MEAL,
+  eventSelect,
+  kitchenMenuSelect,
+  type StatusRow
+} from "@/features/kitchen/server/kitchen-sheet";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import {
+  assertHallAccess,
   requireAnyPermission,
   requirePermission
 } from "@/lib/auth/server-auth";
@@ -17,6 +27,24 @@ import { prisma } from "@/lib/prisma";
  */
 const CONFIRMED_STATUS = "CONFIRMED";
 
+/**
+ * How far ahead the board plans, in days.
+ */
+const WINDOW_DAYS = 28;
+
+/**
+ * Progress, and nothing else.
+ *
+ * `replace-menu-item` and `remove-menu-item` used to live here. They wrote only
+ * `Event.menuItemIds` - the legacy mirror - so a dish swapped on the board never
+ * reached `EventMenuLine`, which is what the event's Menu tab, this board's own
+ * quantity arithmetic and the client portal all read. The two views of one menu
+ * silently diverged from the moment anyone used them.
+ *
+ * Menu content is now changed on the Menu tab, which owns those lines. The board
+ * reports what the kitchen has done, which is the only thing it knows that
+ * nothing upstream does.
+ */
 const kitchenMutationSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("status"),
@@ -34,19 +62,44 @@ const kitchenMutationSchema = z.discriminatedUnion("action", [
     eventId: z.string().uuid(),
     menuItemId: z.string().uuid(),
     assignedWorkerId: z.string().uuid().nullable()
-  }),
-  z.object({
-    action: z.literal("replace-menu-item"),
-    eventId: z.string().uuid(),
-    menuItemId: z.string().uuid(),
-    replacementMenuItemId: z.string().uuid()
-  }),
-  z.object({
-    action: z.literal("remove-menu-item"),
-    eventId: z.string().uuid(),
-    menuItemId: z.string().uuid()
   })
 ]);
+
+/**
+ * Everything the board draws for one event, on top of what the sheet needs.
+ *
+ * `startsAt` is here because a kitchen works against time to service, not
+ * against the date - and the board printed a live clock for months with nothing
+ * to compare it to.
+ */
+const boardEventSelect = {
+  ...eventSelect,
+  clientName: true,
+  eventDate: true,
+  eventType: true,
+  eventStatus: true,
+  startsAt: true,
+  packageName: true,
+  hall: { select: { name: true } }
+} satisfies Prisma.EventSelect;
+
+/**
+ * The halls this actor may see, as a `where` fragment.
+ *
+ * Same shape `/api/events` and `/api/dashboard` use. An empty list means the
+ * member is not hall-restricted at all, which is why it cannot be passed
+ * straight to `hallId: { in: [] }`.
+ */
+function hallFilter(actor: {
+  membership: { role: string };
+  access?: { allowedHallIds?: string[] } | null;
+}) {
+  const allowedHallIds = actor.access?.allowedHallIds ?? [];
+  const restrictHalls =
+    !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
+
+  return restrictHalls ? { hallId: { in: allowedHallIds } } : {};
+}
 
 export async function GET(request: Request) {
   try {
@@ -54,9 +107,9 @@ export async function GET(request: Request) {
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start);
-    end.setUTCDate(end.getUTCDate() + 28);
+    end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-    const [events, workers, menuItems] = await Promise.all([
+    const [events, workers] = await Promise.all([
       prisma.event.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -72,66 +125,87 @@ export async function GET(request: Request) {
           // accepts as "Confirmed" or "Hold" - so a caller sending it for a
           // cancelled event would relabel it and put it back on this board.
           bookingStatus: CONFIRMED_STATUS,
-          eventDate: { gte: start, lt: end }
+          eventDate: { gte: start, lt: end },
+          // A kitchen lead restricted to one hall was still served every hall's
+          // production, because this query only ever scoped by organization.
+          ...hallFilter(actor)
         },
-        include: {
-          hall: true,
-          package: true,
-          kitchenItemStatuses: {
-            include: { menuItem: true, assignedWorker: true }
-          }
-        },
+        select: boardEventSelect,
         orderBy: { eventDate: "asc" }
       }),
       prisma.kitchenWorker.findMany({
         where: { organizationId: actor.organizationId, isActive: true },
         orderBy: { name: "asc" }
-      }),
-      prisma.menuItem.findMany({
-        where: { organizationId: actor.organizationId, isActive: true },
-        orderBy: [{ category: "asc" }, { name: "asc" }]
       })
     ]);
 
-    const menuItemById = new Map(menuItems.map((item) => [item.id, item]));
-    const eventsWithMenuItems = events.map((event) => {
-      const statusByMenuItemId = new Map(
-        event.kitchenItemStatuses.map((itemStatus) => [
-          itemStatus.menuItemId,
-          itemStatus
-        ])
-      );
+    const eventIds = events.map((event) => event.id);
+    // Two queries for the whole window rather than two per event. The board
+    // spans four weeks, so the per-event route's shape - which is the right one
+    // for a single event - would be up to a hundred round-trips here.
+    const [menus, statuses] = await Promise.all([
+      prisma.eventMenu.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId,
+          meal: DEFAULT_MEAL
+        },
+        select: { ...kitchenMenuSelect, eventId: true }
+      }),
+      prisma.kitchenItemStatus.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId
+        },
+        select: boardStatusSelect
+      })
+    ]);
+
+    const menuByEventId = new Map(menus.map((menu) => [menu.eventId, menu]));
+    const statusesByEventId = new Map<string, StatusRow[]>();
+
+    for (const itemStatus of statuses) {
+      const current = statusesByEventId.get(itemStatus.eventId) ?? [];
+      current.push(itemStatus);
+      statusesByEventId.set(itemStatus.eventId, current);
+    }
+
+    const boardEvents = events.map((event) => {
+      // The same builder the event's own kitchen tab runs, so a card's progress
+      // ratio and that tab's can never disagree. No signed pictures: the board
+      // lists events, not dishes, and signing a four week window of thumbnails
+      // nobody renders is a storage round-trip per event.
+      const sheet = buildKitchenSheet({
+        event,
+        meal: DEFAULT_MEAL,
+        menu: menuByEventId.get(event.id) ?? null,
+        statuses: statusesByEventId.get(event.id) ?? []
+      });
 
       return {
-        ...event,
-        menuItems: event.menuItemIds
-          .map((menuItemId) => {
-            const item = menuItemById.get(menuItemId);
-            const itemStatus = statusByMenuItemId.get(menuItemId);
-
-            if (!item) return null;
-
-            return {
-              id: item.id,
-              name: item.name,
-              category: item.category,
-              status: itemStatus?.status ?? null,
-              assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
-              assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
-            };
-          })
-          .filter(Boolean)
+        id: event.id,
+        clientName: event.clientName,
+        eventDate: event.eventDate,
+        eventType: event.eventType,
+        eventStatus: event.eventStatus,
+        startsAt: event.startsAt,
+        packageName: event.packageName,
+        hall: { name: event.hall.name },
+        // Deliberately without `lines`. The card draws a ratio and a time; the
+        // dish list is fetched per event by the details dialog, from the route
+        // that already signs its pictures.
+        menuStatus: sheet.menuStatus,
+        counts: sheet.counts,
+        summary: sheet.summary
       };
     });
 
     const canManageEverything = isAdministrativeRole(actor.membership.role);
 
     return NextResponse.json({
-      events: eventsWithMenuItems,
+      events: boardEvents,
       workers,
-      menuItems,
       permissions: {
-        canEditMenu: canManageEverything || Boolean(actor.access?.canEditMenu),
         canAssignWorkers:
           canManageEverything || Boolean(actor.access?.canAssignWorkers),
         canUpdateKitchenStatus:
@@ -148,27 +222,14 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
-      "canEditMenu",
       "canAssignWorkers",
       "canUpdateKitchenStatus"
     ]);
     const input = kitchenMutationSchema.parse(await request.json());
     const isAdmin = isAdministrativeRole(actor.membership.role);
-    const canEditMenu = isAdmin || Boolean(actor.access?.canEditMenu);
     const canAssignWorkers = isAdmin || Boolean(actor.access?.canAssignWorkers);
     const canUpdateKitchenStatus =
       isAdmin || Boolean(actor.access?.canUpdateKitchenStatus);
-
-    if (
-      (input.action === "replace-menu-item" ||
-        input.action === "remove-menu-item") &&
-      !canEditMenu
-    ) {
-      return NextResponse.json(
-        { error: "You do not have permission to edit the kitchen menu." },
-        { status: 403 }
-      );
-    }
 
     if (input.action === "assign-worker" && !canAssignWorkers) {
       return NextResponse.json(
@@ -193,12 +254,12 @@ export async function PATCH(request: Request) {
         organizationId: actor.organizationId,
         deleted: false,
         // Matches the GET. A board left open when an event is cancelled would
-        // otherwise keep writing statuses, assignments and menu edits against a
-        // booking that is off - and those writes are what the kitchen reads
-        // back as work to do.
+        // otherwise keep writing statuses and assignments against a booking
+        // that is off - and those writes are what the kitchen reads back as
+        // work to do.
         bookingStatus: CONFIRMED_STATUS
       },
-      select: { id: true, eventDate: true, hallName: true, menuItemIds: true }
+      select: { id: true, hallId: true }
     });
     const menuItem = await prisma.menuItem.findFirst({
       where: { id: input.menuItemId, organizationId: actor.organizationId },
@@ -212,83 +273,9 @@ export async function PATCH(request: Request) {
       );
     }
 
-    if (input.action === "replace-menu-item") {
-      const replacement = await prisma.menuItem.findFirst({
-        where: {
-          id: input.replacementMenuItemId,
-          organizationId: actor.organizationId,
-          isActive: true
-        },
-        select: { id: true, name: true }
-      });
-
-      if (!replacement) {
-        return NextResponse.json(
-          { error: "Replacement menu item not found." },
-          { status: 404 }
-        );
-      }
-
-      const nextMenuItemIds = event.menuItemIds.map((itemId) =>
-        itemId === menuItem.id ? replacement.id : itemId
-      );
-
-      const updatedEvent = await prisma.event.update({
-        where: { id: event.id },
-        data: { menuItemIds: nextMenuItemIds, updatedById: actor.id },
-        select: { id: true, menuItemIds: true }
-      });
-
-      await prisma.kitchenItemStatus.deleteMany({
-        where: { eventId: event.id, menuItemId: menuItem.id }
-      });
-      await prisma.kitchenNotification.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId: event.id,
-          notificationType: "MENU_ITEM_REPLACED",
-          eventDate: event.eventDate,
-          hallOrRoom: event.hallName,
-          message: `${menuItem.name} was replaced with ${replacement.name}.`,
-          oldValue: { menuItemId: menuItem.id, name: menuItem.name },
-          newValue: { menuItemId: replacement.id, name: replacement.name },
-          changedById: actor.id
-        }
-      });
-
-      return NextResponse.json({ event: updatedEvent });
-    }
-
-    if (input.action === "remove-menu-item") {
-      const updatedEvent = await prisma.event.update({
-        where: { id: event.id },
-        data: {
-          menuItemIds: event.menuItemIds.filter(
-            (itemId) => itemId !== menuItem.id
-          ),
-          updatedById: actor.id
-        },
-        select: { id: true, menuItemIds: true }
-      });
-
-      await prisma.kitchenItemStatus.deleteMany({
-        where: { eventId: event.id, menuItemId: menuItem.id }
-      });
-      await prisma.kitchenNotification.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId: event.id,
-          notificationType: "MENU_ITEM_REMOVED",
-          eventDate: event.eventDate,
-          hallOrRoom: event.hallName,
-          message: `${menuItem.name} was removed from the kitchen menu.`,
-          oldValue: { menuItemId: menuItem.id, name: menuItem.name },
-          changedById: actor.id
-        }
-      });
-
-      return NextResponse.json({ event: updatedEvent });
-    }
+    // Scoping the GET alone would be half the fix: an event id is all it takes
+    // to write progress against a hall this member cannot see.
+    assertHallAccess(actor, event.hallId);
 
     if (input.action === "reset-status") {
       await prisma.kitchenItemStatus.deleteMany({
