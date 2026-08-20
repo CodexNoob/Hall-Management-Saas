@@ -9,7 +9,9 @@ import {
   REMEMBER_UNTIL_COOKIE,
   authCookieAttributes,
   authCookieMaxAge,
+  isRememberWindowExpired,
   isSupabaseAuthCookieName,
+  isSupabaseSessionCookieName,
   mergeAuthCookieOptions,
   nextRememberUntil,
   preferenceCookieMaxAge
@@ -162,6 +164,49 @@ export function clearAuthSessionCookies() {
 // 30-day ceiling on every navigation, before any component mounts, and the auth
 // cookie's own Max-Age expires it in the browser regardless. Keeping a second
 // client-side copy of the rule would only give it somewhere to drift.
+
+/**
+ * Whether this browser is carrying a session, decided from cookies alone.
+ *
+ * Deliberately NOT `getClaims()` and deliberately not a fetch. The one caller
+ * is the marketing navbar, and reaching for the Supabase client there would
+ * pull @supabase/ssr and supabase-js into the bundle of the highest-traffic
+ * page in the app - one that otherwise ships no auth code at all - to decide
+ * which of two links to render.
+ *
+ * Cookie presence is enough for that decision because both ways of being wrong
+ * self-correct on the very next navigation: a cookie that no longer verifies
+ * renders "Dashboard" and proxy.ts bounces the click to /login, and a session
+ * this misses renders "Login" and proxy.ts bounces that click back to the
+ * dashboard. Neither traps the user anywhere.
+ *
+ * The 30-day Remember me ceiling is applied here too, so the navbar never
+ * advertises a session that proxy.ts is about to expire out from under it.
+ */
+export function hasAuthSessionCookie() {
+  if (typeof document === "undefined") return false;
+
+  const cookies = readCookies();
+  const valueOf = (name: string) =>
+    cookies.find((cookie) => cookie.name === name)?.value;
+
+  if (
+    isRememberWindowExpired(
+      valueOf(REMEMBER_AUTH_COOKIE),
+      valueOf(REMEMBER_UNTIL_COOKIE)
+    )
+  ) {
+    return false;
+  }
+
+  // An empty value is a cookie mid-deletion, not a session. Sign-out writes
+  // `name=; Max-Age=0`, and the browser can still hand it back on the render
+  // that immediately follows.
+  return cookies.some(
+    (cookie) =>
+      isSupabaseSessionCookieName(cookie.name) && cookie.value.length > 0
+  );
+}
 
 function getSupabaseBrowserConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
