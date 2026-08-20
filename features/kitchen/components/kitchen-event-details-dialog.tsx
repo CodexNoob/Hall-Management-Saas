@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import {
@@ -112,15 +113,34 @@ function StatTile({
   );
 }
 
+/** How long to wait for a second click before treating the first as a single. */
+const DOUBLE_CLICK_GRACE_MS = 220;
+
+const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
+  COMPLETE: "border-[#1fa368] bg-[#effcf5]",
+  PENDING: "border-[#d88a00] bg-[#fff6e8]",
+  NONE: "border-[#d8dde5] bg-white"
+};
+
 /**
- * The controls on one dish row.
+ * One dish, as a card the kitchen taps.
  *
- * Inline rather than behind a second modal. The old dialog opened a sub-dialog
- * to choose between "assign", "status" and two menu edits, which meant three
- * clicks and a lost place in the list to tick off one dish - in a room where
- * the thing being held is usually a tray.
+ * The card *is* the control: a click moves the dish on - nothing, then pending,
+ * then complete - and a double-click puts it back to nothing. That is the
+ * interaction the kitchen was specified to have, and it is the right one for the
+ * room: the person using this is usually holding a tray, and asking them to find
+ * a named button on the correct row is asking for the wrong row.
+ *
+ * A double-click delivers two `click` events before its `dblclick`, so a single
+ * click is held for `DOUBLE_CLICK_GRACE_MS` and cancelled if the second arrives.
+ * Without that, a reset would first fire two status writes and land wherever the
+ * race left it.
+ *
+ * Assignment stays a `<select>`, beneath the card body rather than inside it: a
+ * control nested in a button is both invalid markup and a second meaning for the
+ * same click.
  */
-function LineActions({
+function DishCard({
   isSaving,
   line,
   onSaveItemAction,
@@ -133,51 +153,121 @@ function LineActions({
   permissions: KitchenPermissions;
   workers: KitchenResponse["workers"];
 }) {
+  const pendingClick = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (pendingClick.current) clearTimeout(pendingClick.current);
+    },
+    []
+  );
+
   // An add-on line has no menu item id, and `KitchenItemStatus` is keyed by
   // one, so there is nowhere to record its progress.
-  if (!line.menuItemId) return null;
-
   const menuItemId = line.menuItemId;
+  const canTick = permissions.canUpdateKitchenStatus && Boolean(menuItemId);
+  const tone =
+    line.status === "COMPLETE"
+      ? CARD_TONE.COMPLETE
+      : line.status === "PENDING"
+        ? CARD_TONE.PENDING
+        : CARD_TONE.NONE;
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {permissions.canUpdateKitchenStatus ? (
-        <>
-          <button
-            className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white transition hover:bg-[#17405f] disabled:opacity-50"
-            disabled={isSaving || line.status === "COMPLETE"}
-            onClick={() =>
-              void onSaveItemAction({
-                action: "status",
-                menuItemId,
-                status: nextStatus(line.status)
-              })
-            }
-            type="button"
-          >
-            Mark {statusLabel(nextStatus(line.status)).toLowerCase()}
-          </button>
+  function advance() {
+    if (!menuItemId || line.status === "COMPLETE") return;
 
-          {line.status ? (
-            <button
-              className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] transition hover:bg-[#eef4fa] disabled:opacity-50"
-              disabled={isSaving}
-              onClick={() =>
-                void onSaveItemAction({ action: "reset-status", menuItemId })
-              }
-              type="button"
-            >
-              Reset
-            </button>
-          ) : null}
-        </>
+    void onSaveItemAction({
+      action: "status",
+      menuItemId,
+      status: nextStatus(line.status)
+    });
+  }
+
+  function reset() {
+    if (!menuItemId || !line.status) return;
+
+    void onSaveItemAction({ action: "reset-status", menuItemId });
+  }
+
+  function handleClick() {
+    // Already waiting on the first click of this pair - the dblclick handler
+    // will clear it.
+    if (pendingClick.current) return;
+
+    pendingClick.current = setTimeout(() => {
+      pendingClick.current = null;
+      advance();
+    }, DOUBLE_CLICK_GRACE_MS);
+  }
+
+  function handleDoubleClick() {
+    if (pendingClick.current) {
+      clearTimeout(pendingClick.current);
+      pendingClick.current = null;
+    }
+
+    reset();
+  }
+
+  const body = (
+    <>
+      {line.assignedWorkerName ? (
+        <span className="mb-2 block truncate rounded-sm bg-[#0f5132] px-2 py-1 text-[10px] font-black text-white">
+          {line.assignedWorkerName}
+        </span>
       ) : null}
 
-      {permissions.canAssignWorkers ? (
-        <label className="flex items-center gap-1.5">
+      <span className="block text-sm font-black leading-tight text-[#07162d]">
+        {line.name}
+      </span>
+
+      <span className="mt-2 block">
+        <LineQuantity line={line} />
+      </span>
+
+      <span className="mt-auto block pt-3">
+        <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+          {line.serviceStyle ?? "No style"}
+        </span>
+        <span className="mt-1 block">
+          <LineStatus status={line.status} />
+        </span>
+      </span>
+    </>
+  );
+
+  return (
+    <article className="flex min-w-0 flex-col">
+      {canTick ? (
+        <button
+          aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to reset.`}
+          className={`flex min-h-34 flex-1 flex-col border p-3 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
+          disabled={isSaving}
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          // Double-click has no keyboard equivalent, and reset would otherwise
+          // be reachable by mouse only.
+          onKeyDown={(keyEvent) => {
+            if (keyEvent.key === "Delete" || keyEvent.key === "Backspace") {
+              keyEvent.preventDefault();
+              reset();
+            }
+          }}
+          type="button"
+        >
+          {body}
+        </button>
+      ) : (
+        <div className={`flex min-h-34 flex-1 flex-col border p-3 ${tone}`}>
+          {body}
+        </div>
+      )}
+
+      {permissions.canAssignWorkers && menuItemId ? (
+        <label className="mt-1 block">
           <span className="sr-only">Assign a worker to {line.name}</span>
           <select
-            className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] disabled:opacity-50"
+            className="h-9 w-full border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] disabled:opacity-50"
             disabled={isSaving}
             onChange={(changeEvent) =>
               void onSaveItemAction({
@@ -197,7 +287,7 @@ function LineActions({
           </select>
         </label>
       ) : null}
-    </div>
+    </article>
   );
 }
 
@@ -348,38 +438,18 @@ function KitchenEventDetails({
                 />
               </div>
             ) : (
-              <ul className="divide-y divide-[#d8dde5]">
+              <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
                 {dishes.map((line) => (
-                  <li
-                    className="flex flex-wrap items-start justify-between gap-3 p-3 sm:px-4"
+                  <DishCard
+                    isSaving={isSaving}
                     key={line.id}
-                  >
-                    <div className="min-w-50 flex-1">
-                      <LineName line={line} />
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                        <LineQuantity line={line} />
-                        <span className="text-xs text-[#6a7483]">
-                          {line.serviceStyle ?? "No style"}
-                        </span>
-                        <span className="text-xs text-[#6a7483]">
-                          {line.assignedWorkerName ?? "Unassigned"}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <LineStatus status={line.status} />
-                      <LineActions
-                        isSaving={isSaving}
-                        line={line}
-                        onSaveItemAction={saveForEvent}
-                        permissions={permissions}
-                        workers={workers}
-                      />
-                    </div>
-                  </li>
+                    line={line}
+                    onSaveItemAction={saveForEvent}
+                    permissions={permissions}
+                    workers={workers}
+                  />
                 ))}
-              </ul>
+              </div>
             )}
 
             {addOns.length > 0 ? (
@@ -403,8 +473,16 @@ function KitchenEventDetails({
             ) : null}
 
             <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
-              Dishes and quantities are set on the event&rsquo;s Menu tab. This
-              board records who is cooking what, and how far along it is.
+              {permissions.canUpdateKitchenStatus ? (
+                <p>
+                  Click a dish to move it on — not started, then pending, then
+                  complete. Double-click to put it back to not started.
+                </p>
+              ) : null}
+              <p className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}>
+                Dishes and quantities are set on the event&rsquo;s Menu tab.
+                This board records who is cooking what, and how far along it is.
+              </p>
             </footer>
           </div>
         </div>
