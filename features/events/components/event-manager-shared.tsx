@@ -286,6 +286,10 @@ export type EventKitchenLine = {
   /// PENDING | COMPLETE | null, where null is "not started": the absence of a
   /// KitchenItemStatus row, which is what the board's reset leaves behind.
   status: "PENDING" | "COMPLETE" | null;
+  /// Carried alongside the name so the board's assignment control can select
+  /// by id. Resolving the name back to a worker was ambiguous between two
+  /// people called the same thing.
+  assignedWorkerId: string | null;
   assignedWorkerName: string | null;
 };
 

@@ -1,0 +1,261 @@
+import React from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/http/authenticated-fetch", () => ({
+  authenticatedFetch: vi.fn()
+}));
+
+import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
+import type {
+  EventKitchenLine,
+  EventKitchenSheet
+} from "@/features/events/components/event-manager-shared";
+import { KitchenEventDetailsDialog } from "@/features/kitchen/components/kitchen-event-details-dialog";
+import type { KitchenEvent } from "@/features/kitchen/components/kitchen-shared";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { cacheTestSession } from "./auth-session-fixture";
+
+/**
+ * The dish card is the control.
+ *
+ * A click moves a dish on - not started, then pending, then complete - and a
+ * double-click puts it back. That is the interaction the kitchen was specified
+ * to have, and the reason it needs a test is the overlap between the two: a
+ * double-click delivers two `click` events of its own before its `dblclick`, so
+ * the obvious implementation resets the dish *and* advances it twice.
+ */
+
+function line(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
+  return {
+    id: "line-1",
+    menuItemId: "item-1",
+    addOnId: null,
+    kind: "Dish",
+    name: "Potato kugel",
+    pictureUrl: null,
+    serviceStyle: "Buffet",
+    availableStyles: ["Buffet"],
+    notes: null,
+    sortOrder: 0,
+    isRetired: false,
+    quantities: [{ unit: "tray", units: 7, raw: 6.233333 }],
+    unresolvedBases: [],
+    countState: "Counted",
+    status: null,
+    assignedWorkerId: null,
+    assignedWorkerName: null,
+    ...overrides
+  };
+}
+
+function sheet(lines: EventKitchenLine[]): EventKitchenSheet {
+  const dishes = lines.filter((entry) => entry.kind === "Dish");
+
+  return {
+    meal: "Main",
+    menuStatus: "Draft",
+    confirmedAt: null,
+    version: 1,
+    counts: {
+      totalGuests: 187,
+      couples: 40,
+      men: 50,
+      ladies: 45,
+      boys: 6,
+      girls: 4,
+      kids: 2,
+      waiters: 8,
+      tables: null
+    },
+    lines,
+    summary: {
+      dishes: dishes.length,
+      addOns: 0,
+      complete: dishes.filter((entry) => entry.status === "COMPLETE").length,
+      pending: dishes.filter((entry) => entry.status === "PENDING").length,
+      notStarted: dishes.filter((entry) => entry.status === null).length,
+      needsAttention: 0,
+      unresolvedBases: []
+    }
+  };
+}
+
+const boardEvent: KitchenEvent = {
+  id: "11111111-1111-4111-8111-111111111111",
+  category: "Main Hall",
+  title: "Gold Wedding",
+  status: "Confirmed",
+  startsAt: "2026-08-20T18:00:00.000Z",
+  totalGuests: 187,
+  menuStatus: "Draft",
+  summary: sheet([line()]).summary
+};
+
+const allPermissions = {
+  canAssignWorkers: true,
+  canUpdateKitchenStatus: true,
+  canAddKitchenEvents: true
+};
+
+async function renderDialog(
+  lines: EventKitchenLine[],
+  permissions = allPermissions
+) {
+  const onSaveItemAction = vi.fn().mockResolvedValue(undefined);
+
+  vi.mocked(authenticatedFetch).mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ kitchen: sheet(lines) })
+  } as unknown as Response);
+
+  render(
+    <KitchenEventDetailsDialog
+      event={boardEvent}
+      isSaving={false}
+      onClose={vi.fn()}
+      onSaveItemAction={onSaveItemAction}
+      permissions={permissions}
+      workers={[{ id: "worker-1", name: "Mendy" }]}
+    />
+  );
+
+  await waitFor(() =>
+    expect(screen.getByText("Potato kugel")).toBeInTheDocument()
+  );
+
+  return onSaveItemAction;
+}
+
+/** The single-click action is held briefly; this is that wait. */
+function settleClick() {
+  act(() => {
+    vi.advanceTimersByTime(400);
+  });
+}
+
+describe("kitchen dish card", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    clearAuthenticatedQueryCache();
+    cacheTestSession("manager");
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("moves a dish from not started to pending on a click", async () => {
+    const onSaveItemAction = await renderDialog([line()]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    settleClick();
+
+    expect(onSaveItemAction).toHaveBeenCalledTimes(1);
+    expect(onSaveItemAction).toHaveBeenCalledWith({
+      action: "status",
+      eventId: boardEvent.id,
+      menuItemId: "item-1",
+      status: "PENDING"
+    });
+  });
+
+  it("moves a pending dish to complete on a click", async () => {
+    const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    settleClick();
+
+    expect(onSaveItemAction).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "status", status: "COMPLETE" })
+    );
+  });
+
+  it("stops at complete rather than cycling back round", async () => {
+    // Reset is the way back, and it is the double-click. A click that wrapped
+    // complete to not started would undo finished work by mis-tap.
+    const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
+
+    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    settleClick();
+
+    expect(onSaveItemAction).not.toHaveBeenCalled();
+  });
+
+  it("resets on a double-click without also advancing", async () => {
+    // The regression this guards: a dblclick is preceded by two clicks, so an
+    // unguarded handler writes PENDING, then COMPLETE, then the reset - and the
+    // dish lands wherever the responses happen to arrive.
+    const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
+    const card = screen.getByRole("button", { name: /Potato kugel/ });
+
+    fireEvent.click(card);
+    fireEvent.click(card);
+    fireEvent.doubleClick(card);
+    settleClick();
+
+    expect(onSaveItemAction).toHaveBeenCalledTimes(1);
+    expect(onSaveItemAction).toHaveBeenCalledWith({
+      action: "reset-status",
+      eventId: boardEvent.id,
+      menuItemId: "item-1"
+    });
+  });
+
+  it("ignores a double-click on a dish that has not been started", async () => {
+    const onSaveItemAction = await renderDialog([line()]);
+    const card = screen.getByRole("button", { name: /Potato kugel/ });
+
+    fireEvent.click(card);
+    fireEvent.doubleClick(card);
+    settleClick();
+
+    expect(onSaveItemAction).not.toHaveBeenCalled();
+  });
+
+  it("offers reset from the keyboard, which has no double-click", async () => {
+    const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
+
+    fireEvent.keyDown(screen.getByRole("button", { name: /Potato kugel/ }), {
+      key: "Delete"
+    });
+
+    expect(onSaveItemAction).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "reset-status" })
+    );
+  });
+
+  it("assigns a worker without also ticking the dish", async () => {
+    // The select sits beneath the card body rather than inside it, so choosing
+    // a name is not also a click on the status control.
+    const onSaveItemAction = await renderDialog([line()]);
+
+    fireEvent.change(screen.getByLabelText(/Assign a worker/), {
+      target: { value: "worker-1" }
+    });
+    settleClick();
+
+    expect(onSaveItemAction).toHaveBeenCalledTimes(1);
+    expect(onSaveItemAction).toHaveBeenCalledWith({
+      action: "assign-worker",
+      eventId: boardEvent.id,
+      menuItemId: "item-1",
+      assignedWorkerId: "worker-1"
+    });
+  });
+
+  it("is not clickable without permission to update status", async () => {
+    await renderDialog([line()], {
+      ...allPermissions,
+      canUpdateKitchenStatus: false
+    });
+
+    expect(
+      screen.queryByRole("button", { name: /Potato kugel/ })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Potato kugel")).toBeInTheDocument();
+  });
+});

@@ -16,13 +16,20 @@ import {
   startOfWeek
 } from "@/lib/dates/calendar-date";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 import { FourWeeksView } from "@/features/kitchen/components/kitchen-four-week-view";
-import { KitchenEventDetailsDialog } from "@/features/kitchen/components/kitchen-event-details-dialog";
+import {
+  KitchenEventDetailsDialog,
+  type KitchenItemActionInput
+} from "@/features/kitchen/components/kitchen-event-details-dialog";
 import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
+import { ManageWorkersDialog } from "@/features/kitchen/forms/manage-workers-dialog";
 import { TodayView } from "@/features/kitchen/components/kitchen-today-view";
 import { WeekView } from "@/features/kitchen/components/kitchen-week-view";
 import {
@@ -36,34 +43,7 @@ export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
   const kitchenMutation = useAuthenticatedMutation<
-    | {
-        action: "status";
-        eventId: string;
-        menuItemId: string;
-        status: "PENDING" | "COMPLETE";
-      }
-    | {
-        action: "reset-status";
-        eventId: string;
-        menuItemId: string;
-      }
-    | {
-        action: "assign-worker";
-        eventId: string;
-        menuItemId: string;
-        assignedWorkerId: string | null;
-      }
-    | {
-        action: "replace-menu-item";
-        eventId: string;
-        menuItemId: string;
-        replacementMenuItemId: string;
-      }
-    | {
-        action: "remove-menu-item";
-        eventId: string;
-        menuItemId: string;
-      },
+    KitchenItemActionInput,
     unknown
   >("/api/kitchen", "PATCH");
   const [activeView, setActiveView] = useState<KitchenView>("today");
@@ -71,6 +51,7 @@ export function KitchenDashboardPage() {
   const [anchorDate, setAnchorDate] = useState(today);
   const [workersOnly, setWorkersOnly] = useState(false);
   const [isAddKitchenEventOpen, setIsAddKitchenEventOpen] = useState(false);
+  const [isManageWorkersOpen, setIsManageWorkersOpen] = useState(false);
   const [kitchenEventDateKey, setKitchenEventDateKey] = useState(() =>
     dateKey(today)
   );
@@ -85,33 +66,30 @@ export function KitchenDashboardPage() {
     const eventsByDate = new Map<string, KitchenEvent[]>();
     for (const event of kitchenQuery.data?.events ?? []) {
       const key = dateKeyFromIso(event.eventDate);
-      const portions =
-        event.couplesCount * 2 +
-        event.menCount +
-        event.ladiesCount +
-        event.boysCount +
-        event.girlsCount +
-        event.kidsCount;
       const current = eventsByDate.get(key) ?? [];
+      // `totalGuests` arrives worked out. The browser used to sum the head
+      // counts itself and leave waiters out of a number it labelled "portions",
+      // which is the same arithmetic the counting rules run - but only by
+      // coincidence, in a second place, with nothing keeping the two in step.
       const kitchenEvent: KitchenEvent = {
         id: event.id,
         category: event.hall.name,
         title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
-        portions: `${portions} portions`,
-        packageName: event.packageName ?? "No package assigned",
         status: event.eventStatus,
         statusType: event.eventStatus.toLowerCase().includes("hold")
           ? "hold"
           : undefined,
-        menuItems: event.menuItems
+        startsAt: event.startsAt,
+        totalGuests: event.counts.totalGuests,
+        menuStatus: event.menuStatus,
+        summary: event.summary
       };
       if (
         !normalizedSearch ||
         [
           kitchenEvent.title,
           kitchenEvent.category,
-          kitchenEvent.portions,
-          kitchenEvent.packageName,
+          event.packageName ?? "",
           kitchenEvent.status
         ]
           .join(" ")
@@ -161,7 +139,12 @@ export function KitchenDashboardPage() {
     today
   ]);
 
-  const canAddKitchenEvent = kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
+  const canAddKitchenEvent =
+    kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
+  // The same permission that gates assigning a dish. Whoever decides who cooks
+  // what keeps the list of who there is to ask.
+  const canManageWorkers =
+    kitchenQuery.data?.permissions.canAssignWorkers ?? false;
 
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
@@ -189,9 +172,14 @@ export function KitchenDashboardPage() {
         dateKey: kitchenEventDateKey,
         category: "Kitchen",
         title: values.eventName,
-        portions: `${values.portions} portions`,
-        packageName: values.kitchenNote || "Kitchen Event",
-        statusType: "kitchen"
+        statusType: "kitchen",
+        startsAt: null,
+        // The form's own validation guarantees a whole number of at least one.
+        totalGuests: Number(values.portions),
+        menuStatus: "Draft",
+        // No menu document behind a hand-added event, so no production to be
+        // part-way through. Still browser-only state, as it always was.
+        summary: null
       }
     ]);
   }
@@ -201,10 +189,13 @@ export function KitchenDashboardPage() {
     setIsAddKitchenEventOpen(true);
   }
 
-  async function saveKitchenItemAction(
-    input: Parameters<typeof kitchenMutation.mutate>[0]
-  ) {
+  async function saveKitchenItemAction(input: KitchenItemActionInput) {
     await kitchenMutation.mutate(input);
+    // Both views of the same write: the board's cards carry the progress ratio,
+    // and the open dialog - along with the event workspace's Kitchen tab - read
+    // the per-event sheet. Refetching only the board would leave the row the
+    // user just ticked showing its old status.
+    invalidateAuthenticatedQuery(`/api/events/${input.eventId}/kitchen`);
     await kitchenQuery.refetch();
   }
 
@@ -233,7 +224,9 @@ export function KitchenDashboardPage() {
       <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         <KitchenToolbar
           canAddKitchenEvent={canAddKitchenEvent}
+          canManageWorkers={canManageWorkers}
           onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
+          onManageWorkers={() => setIsManageWorkersOpen(true)}
           onWorkersOnlyChange={setWorkersOnly}
           workersOnly={workersOnly}
         />
@@ -290,17 +283,21 @@ export function KitchenDashboardPage() {
         open={isTodayNotesOpen}
       />
 
+      <ManageWorkersDialog
+        canManage={canManageWorkers}
+        onClose={() => setIsManageWorkersOpen(false)}
+        open={isManageWorkersOpen}
+      />
+
       <KitchenEventDetailsDialog
         event={selectedKitchenEvent}
         isSaving={kitchenMutation.isPending}
-        menuItems={kitchenQuery.data?.menuItems ?? []}
         onClose={() => setSelectedKitchenEvent(null)}
         onSaveItemAction={saveKitchenItemAction}
         permissions={
           kitchenQuery.data?.permissions ?? {
             canAddKitchenEvents: false,
             canAssignWorkers: false,
-            canEditMenu: false,
             canUpdateKitchenStatus: false
           }
         }

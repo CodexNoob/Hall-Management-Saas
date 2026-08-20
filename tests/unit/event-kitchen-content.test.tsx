@@ -92,6 +92,7 @@ function dishLine(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     unresolvedBases: [],
     countState: "Counted",
     status: null,
+    assignedWorkerId: null,
     assignedWorkerName: null,
     ...overrides
   };

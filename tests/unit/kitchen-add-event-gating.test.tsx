@@ -8,7 +8,11 @@ import { AddKitchenEventDialog } from "@/features/kitchen/forms/add-kitchen-even
 describe("PlusButton", () => {
   it("is disabled when disabled is true", () => {
     render(
-      <PlusButton disabled label="Add kitchen event on Jan 1" onClick={vi.fn()} />
+      <PlusButton
+        disabled
+        label="Add kitchen event on Jan 1"
+        onClick={vi.fn()}
+      />
     );
     expect(
       screen.getByRole("button", { name: "Add kitchen event on Jan 1" })
@@ -28,7 +32,9 @@ describe("KitchenToolbar", () => {
     render(
       <KitchenToolbar
         canAddKitchenEvent={false}
+        canManageWorkers
         onAddKitchenEvent={vi.fn()}
+        onManageWorkers={vi.fn()}
         onWorkersOnlyChange={vi.fn()}
         workersOnly={false}
       />
@@ -42,7 +48,9 @@ describe("KitchenToolbar", () => {
     render(
       <KitchenToolbar
         canAddKitchenEvent
+        canManageWorkers
         onAddKitchenEvent={vi.fn()}
+        onManageWorkers={vi.fn()}
         onWorkersOnlyChange={vi.fn()}
         workersOnly={false}
       />
