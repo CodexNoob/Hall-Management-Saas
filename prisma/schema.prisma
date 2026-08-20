@@ -604,12 +604,23 @@ model KitchenWorker {
   @@map("kitchen_workers")
 }
 
+/// What the kitchen has done to one dish on one event, and who is on it.
+///
+/// The two are independent, which is why `status` is nullable: a row can exist
+/// to say "Mendy is doing this" about a dish nobody has started. Before that,
+/// assigning a worker had to invent a status, and invented 'PENDING' - so
+/// planning tomorrow's work reported it as already underway.
+///
+/// Null means not started, and so does no row at all. The board's reset deletes
+/// the row; assigning and then unassigning leaves nothing behind either.
 model KitchenItemStatus {
   id               String   @id @default(uuid()) @db.Uuid
   organizationId   String   @map("organization_id") @db.Uuid
   eventId          String   @map("event_id") @db.Uuid
   menuItemId       String   @map("menu_item_id") @db.Uuid
-  status           String
+  /// PENDING or COMPLETE, or null for not started. Plain text with no CHECK
+  /// behind it, so readers treat an unrecognised value as started-not-finished.
+  status           String?
   assignedWorkerId String?  @map("assigned_worker_id") @db.Uuid
   updatedById      String?  @map("updated_by") @db.Uuid
   createdAt        DateTime @default(now()) @map("created_at")

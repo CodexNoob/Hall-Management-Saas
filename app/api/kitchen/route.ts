@@ -285,23 +285,57 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ itemStatus: null });
     }
 
+    const where = {
+      eventId_menuItemId: { eventId: event.id, menuItemId: menuItem.id }
+    };
+
+    if (input.action === "assign-worker") {
+      const current = await prisma.kitchenItemStatus.findUnique({
+        where,
+        select: { id: true, status: true }
+      });
+
+      // Unassigning the last thing this row was recording. Deleting rather than
+      // keeping a row that says nothing: an empty row and no row are the same
+      // "not started" to every reader, and only one of them is tidy.
+      if (!input.assignedWorkerId && current && current.status == null) {
+        await prisma.kitchenItemStatus.delete({ where: { id: current.id } });
+
+        return NextResponse.json({ itemStatus: null });
+      }
+
+      const itemStatus = await prisma.kitchenItemStatus.upsert({
+        where,
+        // Status is deliberately absent from both branches. Assigning someone
+        // to a dish says who is doing it, not that it has been started - and
+        // writing PENDING here used to demote a COMPLETE dish the moment anyone
+        // put a name against it.
+        update: {
+          assignedWorkerId: input.assignedWorkerId,
+          updatedById: actor.id
+        },
+        create: {
+          organizationId: actor.organizationId,
+          eventId: event.id,
+          menuItemId: menuItem.id,
+          status: null,
+          assignedWorkerId: input.assignedWorkerId,
+          updatedById: actor.id
+        }
+      });
+
+      return NextResponse.json({ itemStatus });
+    }
+
     const itemStatus = await prisma.kitchenItemStatus.upsert({
-      where: {
-        eventId_menuItemId: { eventId: event.id, menuItemId: menuItem.id }
-      },
-      update: {
-        status: input.action === "status" ? input.status : "PENDING",
-        assignedWorkerId:
-          input.action === "assign-worker" ? input.assignedWorkerId : undefined,
-        updatedById: actor.id
-      },
+      where,
+      update: { status: input.status, updatedById: actor.id },
       create: {
         organizationId: actor.organizationId,
         eventId: event.id,
         menuItemId: menuItem.id,
-        status: input.action === "status" ? input.status : "PENDING",
-        assignedWorkerId:
-          input.action === "assign-worker" ? input.assignedWorkerId : null,
+        status: input.status,
+        assignedWorkerId: null,
         updatedById: actor.id
       }
     });

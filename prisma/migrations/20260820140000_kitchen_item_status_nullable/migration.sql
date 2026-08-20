@@ -1,0 +1,16 @@
+-- AlterTable
+-- "Not started" becomes something a row can say.
+--
+-- Until now the only way to record it was for the row not to exist, which meant
+-- assigning a worker to an untouched dish had to invent a status to go with it -
+-- and it invented 'PENDING'. So a lead planning tomorrow's work handed the
+-- kitchen a board claiming the cooking had already begun, and the first leg of
+-- the specified card cycle - nothing, then pending, then complete - was
+-- unreachable for every dish anyone had assigned.
+--
+-- The sheet has always modelled this as `status: null`; the column now agrees.
+-- A row may hold an assignment, a status, or both.
+--
+-- Widening only: every existing row keeps its value, and nothing that reads
+-- 'PENDING' or 'COMPLETE' sees a different answer than it did before.
+ALTER TABLE "kitchen_item_statuses" ALTER COLUMN "status" DROP NOT NULL;

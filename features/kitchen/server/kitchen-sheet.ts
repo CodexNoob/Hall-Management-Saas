@@ -239,14 +239,20 @@ export function presentKitchenLine(
     })),
     unresolvedBases: result?.unresolved ?? [],
     countState,
-    // The persisted vocabulary is PENDING and COMPLETE, guarded only by a zod
-    // enum on the board's PATCH - so anything else that reached the column is
-    // read as "started but not finished" rather than trusted through.
-    status: itemStatus
-      ? itemStatus.status === "COMPLETE"
-        ? ("COMPLETE" as const)
-        : ("PENDING" as const)
-      : null,
+    // Null and "no row at all" are the same answer - not started - which is why
+    // this tests the value rather than the row's existence: a row that exists
+    // only to record who is on a dish must not read as work already begun.
+    //
+    // Beyond that, the persisted vocabulary is PENDING and COMPLETE, guarded
+    // only by a zod enum on the board's PATCH - so anything else that reached
+    // the column is read as "started but not finished" rather than trusted
+    // through.
+    status:
+      itemStatus?.status == null
+        ? null
+        : itemStatus.status === "COMPLETE"
+          ? ("COMPLETE" as const)
+          : ("PENDING" as const),
     assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
     assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
   };

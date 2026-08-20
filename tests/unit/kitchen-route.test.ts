@@ -18,7 +18,9 @@ vi.mock("@/lib/prisma", () => ({
     menuItem: { findMany: vi.fn(), findFirst: vi.fn() },
     kitchenItemStatus: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       upsert: vi.fn(),
+      delete: vi.fn(),
       deleteMany: vi.fn()
     }
   }
@@ -49,6 +51,7 @@ const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const hallId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const otherMenuItemId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const workerId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
 const actor = {
   id: "22222222-2222-4222-8222-222222222222",
@@ -347,6 +350,110 @@ describe("kitchen dashboard route", () => {
 
       expect(response.status).toBe(200);
       expect(prisma.kitchenItemStatus.upsert).toHaveBeenCalledTimes(1);
+    });
+
+    describe("assigning a worker", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.event.findFirst).mockResolvedValue({
+          id: eventId,
+          hallId
+        } as never);
+        vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
+          id: menuItemId,
+          name: "Potato kugel"
+        } as never);
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue(
+          null as never
+        );
+        vi.mocked(prisma.kitchenItemStatus.upsert).mockResolvedValue(
+          {} as never
+        );
+      });
+
+      it("never demotes a dish that is already complete", async () => {
+        // The bug this replaces: `update` wrote "PENDING" for every action that
+        // was not a status write, so putting a name against a finished dish
+        // marked it unfinished.
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue({
+          id: "status-1",
+          status: "COMPLETE"
+        } as never);
+
+        await PATCH(
+          request({
+            action: "assign-worker",
+            eventId,
+            menuItemId,
+            assignedWorkerId: workerId
+          })
+        );
+
+        const call = vi.mocked(prisma.kitchenItemStatus.upsert).mock
+          .calls[0]?.[0];
+
+        expect(call?.update).not.toHaveProperty("status");
+        expect(call?.update).toMatchObject({ assignedWorkerId: workerId });
+      });
+
+      it("leaves an untouched dish not started", async () => {
+        // "from nothing to pending to complete" is the card's cycle, and
+        // assigning someone must not spend its first step for them.
+        await PATCH(
+          request({
+            action: "assign-worker",
+            eventId,
+            menuItemId,
+            assignedWorkerId: workerId
+          })
+        );
+
+        expect(
+          vi.mocked(prisma.kitchenItemStatus.upsert).mock.calls[0]?.[0]?.create
+        ).toMatchObject({ status: null, assignedWorkerId: workerId });
+      });
+
+      it("removes a row that unassigning leaves saying nothing", async () => {
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue({
+          id: "status-1",
+          status: null
+        } as never);
+
+        const response = await PATCH(
+          request({
+            action: "assign-worker",
+            eventId,
+            menuItemId,
+            assignedWorkerId: null
+          })
+        );
+
+        expect(response.status).toBe(200);
+        expect(prisma.kitchenItemStatus.delete).toHaveBeenCalledWith({
+          where: { id: "status-1" }
+        });
+        expect(prisma.kitchenItemStatus.upsert).not.toHaveBeenCalled();
+      });
+
+      it("keeps a row whose status still means something", async () => {
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue({
+          id: "status-1",
+          status: "PENDING"
+        } as never);
+
+        await PATCH(
+          request({
+            action: "assign-worker",
+            eventId,
+            menuItemId,
+            assignedWorkerId: null
+          })
+        );
+
+        expect(prisma.kitchenItemStatus.delete).not.toHaveBeenCalled();
+        expect(
+          vi.mocked(prisma.kitchenItemStatus.upsert).mock.calls[0]?.[0]?.update
+        ).toMatchObject({ assignedWorkerId: null });
+      });
     });
 
     it("checks hall access before writing progress", async () => {

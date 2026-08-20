@@ -269,6 +269,21 @@ describe("kitchen sheet builder", () => {
       expect(sheet.lines[0].assignedWorkerName).toBe("Mendy");
     });
 
+    it("reads a row that only records a worker as not started", () => {
+      // Assigning someone says who is doing a dish, not that it has begun. The
+      // card's cycle starts at nothing, and a name against it must not spend
+      // that first step.
+      const sheet = build([line()], {
+        statuses: [
+          { menuItemId, status: null, assignedWorker: { name: "Mendy" } }
+        ]
+      });
+
+      expect(sheet.lines[0].status).toBeNull();
+      expect(sheet.lines[0].assignedWorkerName).toBe("Mendy");
+      expect(sheet.summary).toMatchObject({ notStarted: 1, pending: 0 });
+    });
+
     it("reads an unrecognised stored status as started but not finished", () => {
       // The column is plain text, guarded only by a zod enum on the board's
       // PATCH, so anything else that reached it must not be trusted through as
