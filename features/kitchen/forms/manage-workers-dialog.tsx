@@ -179,7 +179,7 @@ export function ManageWorkersDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="flex max-h-[calc(100dvh-24px)] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="flex max-h-[calc(100dvh-24px)] w-full max-w-140 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
         role="dialog"
       >
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
@@ -216,10 +216,11 @@ export function ManageWorkersDialog({
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {canManage ? (
+            availableStaff.length > 0 ? (
             <form className="mb-4" onSubmit={addWorker}>
               <label htmlFor={nameId}>
                 <span className="block text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
-                  Add a worker
+                  Add Kitchen Staff member
                 </span>
               </label>
               {/* Chosen from staff rather than typed. A typed name produced a
@@ -229,18 +230,15 @@ export function ManageWorkersDialog({
               <div className="mt-1 flex gap-2">
                 <select
                   ref={nameInputRef}
-                  aria-label="Add a worker"
+                  aria-label="Add Kitchen Staff member"
                   className={inputClass}
-                  disabled={!availableStaff.length}
                   id={nameId}
                   name="workerUserId"
                   onChange={(event) => setSelectedUserId(event.target.value)}
                   value={selectedUserId}
                 >
                   <option value="">
-                    {availableStaff.length
-                      ? "Select a staff member"
-                      : "Everyone with the Kitchen Staff role is already listed"}
+                    Select a staff member
                   </option>
                   {availableStaff.map((staff) => (
                     <option key={staff.id} value={staff.id}>
@@ -256,13 +254,6 @@ export function ManageWorkersDialog({
                   Add
                 </button>
               </div>
-
-              {!availableStaff.length ? (
-                <p className="mt-2 text-xs font-medium text-[#64748b]">
-                  Give someone the Kitchen Staff role on the Staff page to make
-                  them assignable here.
-                </p>
-              ) : null}
 
               <fieldset className="mt-2 flex items-center gap-2">
                 <legend className="sr-only">Colour</legend>
@@ -289,6 +280,17 @@ export function ManageWorkersDialog({
                 ))}
               </fieldset>
             </form>
+            ) : (
+              <div className="mb-4 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
+                <p className="text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
+                  Kitchen Staff are listed automatically
+                </p>
+                <p className="mt-1 text-sm font-medium text-[#64748b]">
+                  Everyone with the Kitchen Staff role is already available on
+                  this board. Add or change staff roles from the Staff page.
+                </p>
+              </div>
+            )
           ) : (
             <p className="mb-4 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
               You do not have permission to manage kitchen workers. Contact an
