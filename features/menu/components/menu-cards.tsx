@@ -293,50 +293,6 @@ export function MenuRuleCard({
   );
 }
 
-export type MenuRuleCardItem = {
-  id: string;
-  name: string;
-  badge: string;
-  rule: string;
-  pictureUrl: string | null;
-};
-
-export function MenuRuleSection({
-  title,
-  items
-}: {
-  title: string;
-  items: MenuRuleCardItem[];
-}) {
-  return (
-    <section className="min-h-21 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-      <header className="flex h-10 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
-        <h3 className="text-sm font-black text-[#17202a]">{title}</h3>
-        <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#1f4d73]">
-          {items.length} items
-        </span>
-      </header>
-      {items.length ? (
-        <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-col sm:gap-3">
-          {items.map((item) => (
-            <MenuRuleCard
-              key={item.id}
-              badge={item.badge}
-              name={item.name}
-              pictureUrl={item.pictureUrl}
-              rule={item.rule}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="px-3 py-4 text-xs text-[#516174]">
-          No items in this section yet.
-        </p>
-      )}
-    </section>
-  );
-}
-
 export function AddOnCard({
   name,
   description,

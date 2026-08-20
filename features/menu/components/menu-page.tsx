@@ -33,8 +33,7 @@ import {
   AddItemCard,
   AddOnCard,
   MenuItemCard,
-  MenuRuleCard,
-  MenuRuleSection
+  MenuRuleCard
 } from "@/features/menu/components/menu-cards";
 import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
 import {
@@ -242,19 +241,6 @@ export function MenuPage() {
     rule: formatServiceRule(findRuleForStyle(item.services, serviceStyle)),
     pictureUrl: item.pictureUrl
   });
-  // Plated keeps its courses - a plated meal is served in them - while buffet
-  // is one flat list. Empty courses are dropped rather than rendered as a row
-  // of placeholders, because these come from org-defined categories now.
-  const platedCourses = categoryNames
-    .filter((label) => label !== "All")
-    .map((label) => ({
-      title: label,
-      items: servedItems
-        .filter((item) => item.category === label)
-        .map(toRuleCard)
-    }))
-    .filter((course) => course.items.length > 0);
-
   // Read off once so the remove button below closes over an id rather than over
   // the item object, which the next refetch replaces.
   const editingItemId = libraryItemActions.editingItem?.id ?? null;
@@ -694,19 +680,11 @@ export function MenuPage() {
                     ? `No ${ruleMode} items match "${pageSearchQuery.trim()}".`
                     : `No items are served ${ruleMode} yet. Add one here, or open a library item and set its service style.`}
                 </p>
-              ) : isPlatedMenu ? (
-                <div className="grid items-start gap-3 p-3 md:grid-cols-2 2xl:grid-cols-4">
-                  {platedCourses.map((course) => (
-                    <MenuRuleSection
-                      key={`${activeTab}-${course.title}`}
-                      title={course.title}
-                      items={course.items}
-                    />
-                  ))}
-                </div>
               ) : (
-                // Ungrouped: the buffet has no courses, so the cards sit in one
-                // wrapping row rather than under section headers.
+                // Ungrouped, on both tabs: the cards sit in one wrapping row
+                // rather than under section headers. Plated used to group by
+                // category, which spent a full panel per course to hold one or
+                // two cards - the same list reads faster as a plain grid.
                 <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
                   {servedItems.map((item) => {
                     const card = toRuleCard(item);
