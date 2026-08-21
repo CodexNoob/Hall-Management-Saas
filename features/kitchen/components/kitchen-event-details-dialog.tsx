@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import {
@@ -12,6 +12,7 @@ import {
   LineQuantity,
   LineStatus
 } from "@/features/kitchen/components/kitchen-line-presentation";
+import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
 import {
   formatServeTime,
   type KitchenEvent,
@@ -28,10 +29,13 @@ import {
  * the same route the event workspace's Kitchen tab reads, so the quantities are
  * the ones the counting rules actually produce.
  *
- * Menu content is not editable here. Replacing or removing a dish wrote only
+ * One dish can be swapped for another here, and that is the only menu content
+ * this dialog writes. It used to offer replace and remove against
  * `Event.menuItemIds`, which the sheet does not read, so those edits changed
- * what the board showed and nothing else in the product. That belongs on the
- * event's Menu tab, which owns the lines.
+ * what the board showed and nothing else in the product; the swap now goes
+ * through `EventMenuLine`, the same rows the event's Menu tab owns. Removing a
+ * dish is still not offered: a dish nobody cooks is a promise to the client that
+ * somebody has to unmake, which is a conversation, not a button on a board.
  */
 
 export type KitchenItemActionInput =
@@ -51,6 +55,12 @@ export type KitchenItemActionInput =
       eventId: string;
       menuItemId: string;
       assignedWorkerId: string | null;
+    }
+  | {
+      action: "replace-menu-item";
+      eventId: string;
+      menuItemId: string;
+      replacementMenuItemId: string;
     };
 
 /**
@@ -65,6 +75,11 @@ type LineActionInput =
       action: "assign-worker";
       menuItemId: string;
       assignedWorkerId: string | null;
+    }
+  | {
+      action: "replace-menu-item";
+      menuItemId: string;
+      replacementMenuItemId: string;
     };
 
 type KitchenPermissions = KitchenResponse["permissions"];
@@ -143,12 +158,14 @@ const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
 function DishCard({
   isSaving,
   line,
+  onReplace,
   onSaveItemAction,
   permissions,
   workers
 }: {
   isSaving: boolean;
   line: EventKitchenLine;
+  onReplace: (line: EventKitchenLine) => void;
   onSaveItemAction: (input: LineActionInput) => Promise<void>;
   permissions: KitchenPermissions;
   workers: KitchenResponse["workers"];
@@ -269,29 +286,50 @@ function DishCard({
         </div>
       )}
 
-      {permissions.canAssignWorkers && menuItemId ? (
-        <label className="mt-1 block">
-          <span className="sr-only">Assign a worker to {line.name}</span>
-          <select
-            className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50"
-            disabled={isSaving}
-            onChange={(changeEvent) =>
-              void onSaveItemAction({
-                action: "assign-worker",
-                menuItemId,
-                assignedWorkerId: changeEvent.target.value || null
-              })
-            }
-            value={line.assignedWorkerId ?? ""}
-          >
-            <option value="">Unassigned</option>
-            {workers.map((worker) => (
-              <option key={worker.id} value={worker.id}>
-                {worker.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Both controls sit under the card rather than in it: the card body is
+          itself the status button, and a control nested in a button is both
+          invalid markup and a second meaning for the same click. Stacked rather
+          than side by side because these cards are two to a row on a phone. */}
+      {menuItemId &&
+      (permissions.canAssignWorkers || permissions.canUpdateKitchenStatus) ? (
+        <div className="mt-1 flex flex-col gap-1">
+          {permissions.canAssignWorkers ? (
+            <label className="block">
+              <span className="sr-only">Assign a worker to {line.name}</span>
+              <select
+                className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50"
+                disabled={isSaving}
+                onChange={(changeEvent) =>
+                  void onSaveItemAction({
+                    action: "assign-worker",
+                    menuItemId,
+                    assignedWorkerId: changeEvent.target.value || null
+                  })
+                }
+                value={line.assignedWorkerId ?? ""}
+              >
+                <option value="">Unassigned</option>
+                {workers.map((worker) => (
+                  <option key={worker.id} value={worker.id}>
+                    {worker.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {permissions.canUpdateKitchenStatus ? (
+            <button
+              aria-label={`Replace ${line.name}`}
+              className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isSaving}
+              onClick={() => onReplace(line)}
+              type="button"
+            >
+              Replace
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </article>
   );
@@ -316,6 +354,16 @@ function KitchenEventDetails({
   const hold = event.statusType === "hold";
   const dishes = sheet?.lines.filter((line) => line.kind === "Dish") ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
+  // The dish the replace drawer was opened from, held by id so the drawer keeps
+  // reading the refreshed sheet rather than the row as it was when it opened.
+  const [replaceLineId, setReplaceLineId] = useState<string | null>(null);
+  const replaceLine = dishes.find((line) => line.id === replaceLineId) ?? null;
+  // A dish appears once per menu, so the ones already here cannot go on again.
+  const usedMenuItemIds = new Set(
+    (sheet?.lines ?? [])
+      .map((line) => line.menuItemId)
+      .filter((value): value is string => Boolean(value))
+  );
   // The board already carries this event's summary, from the same builder the
   // sheet runs - so the tiles are right on the first frame. Reading them off
   // the sheet instead made an event with three dishes announce "No menu behind
@@ -327,173 +375,211 @@ function KitchenEventDetails({
     await onSaveItemAction({ ...input, eventId: event.id });
   }
 
+  /**
+   * Rejects rather than swallowing: the drawer prints the server's reason, and
+   * the reasons a swap is refused - the dish is already on this menu, somebody
+   * else has since saved it - are the ones the person needs to read.
+   */
+  async function replaceDish(replacementMenuItemId: string) {
+    const menuItemId = replaceLine?.menuItemId;
+
+    if (!menuItemId) return;
+
+    await saveForEvent({
+      action: "replace-menu-item",
+      menuItemId,
+      replacementMenuItemId
+    });
+  }
+
   return (
-    <div className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm">
-      <section
-        aria-labelledby="kitchen-event-details-title"
-        aria-modal="true"
-        className="max-h-[calc(100dvh-24px)] w-full max-w-5xl overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
-        role="dialog"
-      >
-        <header className="flex items-start gap-3 border-b border-[#d8dde5] px-5 py-4">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-black uppercase tracking-wide text-[#617086]">
-              {event.category}
-            </p>
-            <h2
-              className="mt-1 truncate text-xl font-black text-[#17202a]"
-              id="kitchen-event-details-title"
-            >
-              {event.title}
-            </h2>
-          </div>
-
-          <button
-            aria-label="Close kitchen event details"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
-        </header>
-
-        <div className="max-h-[calc(100dvh-104px)] overflow-y-auto bg-[#f5f6f8] p-4 sm:p-5">
-          <div
-            className={`mb-3 flex min-h-10 items-center justify-center rounded-lg px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
-              hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
-            }`}
-          >
-            {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
-            <div className="grid grid-cols-2 gap-2 border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:gap-3 sm:px-4 lg:grid-cols-4">
-              <StatTile
-                label="Serves"
-                note={event.startsAt ? "Event start time" : "No start time set"}
-                value={formatServeTime(event.startsAt)}
-              />
-              <StatTile
-                label="Portions"
-                note={
-                  sheet && sheet.counts.waiters > 0
-                    ? `${sheet.counts.waiters} waiters not counted`
-                    : "Guests, waiters excluded"
-                }
-                value={event.totalGuests}
-              />
-              <StatTile
-                label="Prepared"
-                note={
-                  summary
-                    ? `${summary.pending} pending · ${summary.notStarted} not started`
-                    : "No menu behind this event"
-                }
-                value={summary ? `${summary.complete}/${summary.dishes}` : "—"}
-              />
-              <StatTile
-                label="Needs attention"
-                note={
-                  !summary
-                    ? "Nothing to count"
-                    : summary.needsAttention === 0
-                      ? "Every dish has a quantity"
-                      : "Dishes with no quantity to cook to"
-                }
-                value={summary ? summary.needsAttention : "—"}
-              />
+    <>
+      <div className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm">
+        <section
+          aria-labelledby="kitchen-event-details-title"
+          aria-modal="true"
+          className="max-h-[calc(100dvh-24px)] w-full max-w-5xl overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
+          role="dialog"
+        >
+          <header className="flex items-start gap-3 border-b border-[#d8dde5] px-5 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-black uppercase tracking-wide text-[#617086]">
+                {event.category}
+              </p>
+              <h2
+                className="mt-1 truncate text-xl font-black text-[#17202a]"
+                id="kitchen-event-details-title"
+              >
+                {event.title}
+              </h2>
             </div>
 
-            {summary && summary.needsAttention > 0 ? (
-              <p
-                className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
-                role="status"
-              >
-                {summary.needsAttention} dish
-                {summary.needsAttention === 1 ? "" : "es"} cannot be counted
-                yet.
-                {summary.unresolvedBases.includes("Tables")
-                  ? " Draw the dining plan so per-table rules have a table count."
-                  : " Set a service style on the Menu tab, or a counting rule in the menu library."}
-              </p>
-            ) : null}
+            <button
+              aria-label="Close kitchen event details"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
+          </header>
 
-            {!hasSheet ? (
-              <div className="p-4">
-                <AsyncState
-                  emptyMessage="Kitchen events added by hand have no menu behind them, so there is nothing to count."
-                  emptyTitle="No production sheet"
-                  isEmpty
+          <div className="max-h-[calc(100dvh-104px)] overflow-y-auto bg-[#f5f6f8] p-4 sm:p-5">
+            <div
+              className={`mb-3 flex min-h-10 items-center justify-center rounded-lg px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+                hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
+              }`}
+            >
+              {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
+            </div>
+
+            <div className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+              <div className="grid grid-cols-2 gap-2 border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:gap-3 sm:px-4 lg:grid-cols-4">
+                <StatTile
+                  label="Serves"
+                  note={
+                    event.startsAt ? "Event start time" : "No start time set"
+                  }
+                  value={formatServeTime(event.startsAt)}
+                />
+                <StatTile
+                  label="Portions"
+                  note={
+                    sheet && sheet.counts.waiters > 0
+                      ? `${sheet.counts.waiters} waiters not counted`
+                      : "Guests, waiters excluded"
+                  }
+                  value={event.totalGuests}
+                />
+                <StatTile
+                  label="Prepared"
+                  note={
+                    summary
+                      ? `${summary.pending} pending · ${summary.notStarted} not started`
+                      : "No menu behind this event"
+                  }
+                  value={
+                    summary ? `${summary.complete}/${summary.dishes}` : "—"
+                  }
+                />
+                <StatTile
+                  label="Needs attention"
+                  note={
+                    !summary
+                      ? "Nothing to count"
+                      : summary.needsAttention === 0
+                        ? "Every dish has a quantity"
+                        : "Dishes with no quantity to cook to"
+                  }
+                  value={summary ? summary.needsAttention : "—"}
                 />
               </div>
-            ) : kitchenQuery.isLoading || kitchenQuery.error ? (
-              <div className="p-4">
-                <AsyncState
-                  error={kitchenQuery.error}
-                  isLoading={kitchenQuery.isLoading}
-                  onRetry={() => void kitchenQuery.refetch()}
-                />
-              </div>
-            ) : dishes.length === 0 ? (
-              <div className="p-4">
-                <AsyncState
-                  emptyMessage="Add dishes on the event's Menu tab and this sheet fills in with what to cook."
-                  emptyTitle="No dishes on this menu yet"
-                  isEmpty
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
-                {dishes.map((line) => (
-                  <DishCard
-                    isSaving={isSaving}
-                    key={line.id}
-                    line={line}
-                    onSaveItemAction={saveForEvent}
-                    permissions={permissions}
-                    workers={workers}
-                  />
-                ))}
-              </div>
-            )}
 
-            {addOns.length > 0 ? (
-              <section className="border-t border-[#d8dde5] px-3 py-3 sm:px-4">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                  Add-ons
-                </h3>
-                {/* Statusless on purpose: KitchenItemStatus is keyed by menu
-                    item, so an add-on line has nowhere to record one. */}
-                <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {addOns.map((line) => (
-                    <li
-                      className="flex min-w-0 items-center gap-2.5 rounded-lg border border-[#d8dde5] bg-white px-3 py-2"
-                      key={line.id}
-                    >
-                      <LineName line={line} />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
-
-            <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
-              {permissions.canUpdateKitchenStatus ? (
-                <p>
-                  Click a dish to move it on — not started, then pending, then
-                  complete. Double-click to put it back to not started.
+              {summary && summary.needsAttention > 0 ? (
+                <p
+                  className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                  role="status"
+                >
+                  {summary.needsAttention} dish
+                  {summary.needsAttention === 1 ? "" : "es"} cannot be counted
+                  yet.
+                  {summary.unresolvedBases.includes("Tables")
+                    ? " Draw the dining plan so per-table rules have a table count."
+                    : " Set a service style on the Menu tab, or a counting rule in the menu library."}
                 </p>
               ) : null}
-              <p className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}>
-                Dishes and quantities are set on the event&rsquo;s Menu tab.
-                This board records who is cooking what, and how far along it is.
-              </p>
-            </footer>
+
+              {!hasSheet ? (
+                <div className="p-4">
+                  <AsyncState
+                    emptyMessage="Kitchen events added by hand have no menu behind them, so there is nothing to count."
+                    emptyTitle="No production sheet"
+                    isEmpty
+                  />
+                </div>
+              ) : kitchenQuery.isLoading || kitchenQuery.error ? (
+                <div className="p-4">
+                  <AsyncState
+                    error={kitchenQuery.error}
+                    isLoading={kitchenQuery.isLoading}
+                    onRetry={() => void kitchenQuery.refetch()}
+                  />
+                </div>
+              ) : dishes.length === 0 ? (
+                <div className="p-4">
+                  <AsyncState
+                    emptyMessage="Add dishes on the event's Menu tab and this sheet fills in with what to cook."
+                    emptyTitle="No dishes on this menu yet"
+                    isEmpty
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
+                  {dishes.map((line) => (
+                    <DishCard
+                      isSaving={isSaving}
+                      key={line.id}
+                      line={line}
+                      onReplace={(replacing) => setReplaceLineId(replacing.id)}
+                      onSaveItemAction={saveForEvent}
+                      permissions={permissions}
+                      workers={workers}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {addOns.length > 0 ? (
+                <section className="border-t border-[#d8dde5] px-3 py-3 sm:px-4">
+                  <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                    Add-ons
+                  </h3>
+                  {/* Statusless on purpose: KitchenItemStatus is keyed by menu
+                    item, so an add-on line has nowhere to record one. */}
+                  <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {addOns.map((line) => (
+                      <li
+                        className="flex min-w-0 items-center gap-2.5 rounded-lg border border-[#d8dde5] bg-white px-3 py-2"
+                        key={line.id}
+                      >
+                        <LineName line={line} />
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
+
+              <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
+                {permissions.canUpdateKitchenStatus ? (
+                  <p>
+                    Click a dish to move it on — not started, then pending, then
+                    complete. Double-click to put it back to not started.
+                  </p>
+                ) : null}
+                <p className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}>
+                  Quantities come from the counting rules on the event&rsquo;s
+                  Menu tab.
+                  {permissions.canUpdateKitchenStatus
+                    ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
+                    : " That tab is also where dishes are added and removed."}
+                </p>
+              </footer>
+            </div>
           </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+
+      {replaceLine ? (
+        <KitchenReplaceDishDrawer
+          isSaving={isSaving}
+          line={replaceLine}
+          menuStatus={sheet?.menuStatus ?? event.menuStatus}
+          onClose={() => setReplaceLineId(null)}
+          onReplace={replaceDish}
+          usedMenuItemIds={usedMenuItemIds}
+        />
+      ) : null}
+    </>
   );
 }
 

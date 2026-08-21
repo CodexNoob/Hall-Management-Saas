@@ -1,4 +1,5 @@
 import type { EventKitchenSheet } from "@/features/events/components/event-manager-shared";
+import { SERVICE_STYLES } from "@/features/menu/lib/service-style";
 import { addDays, startOfWeek } from "@/lib/dates/calendar-date";
 
 export type KitchenView = "today" | "week" | "four-weeks";
@@ -73,6 +74,33 @@ export type KitchenResponse = {
     canAddKitchenEvents: boolean;
   };
 };
+
+/**
+ * Which way a replacement dish will be served.
+ *
+ * A swap should not quietly change how the food reaches the table, so the line
+ * keeps the style it already had whenever the dish going on has a rule for it.
+ * Failing that, a dish served exactly one way needs no decision - and a dish
+ * served both ways with no style to inherit is left unanswered rather than
+ * guessed, because the guess would decide the quantity the kitchen cooks.
+ *
+ * Shared with the server so the style the drawer promises is the one the swap
+ * actually writes.
+ */
+export function resolveReplacementStyle(
+  currentStyle: string | null,
+  replacementStyles: string[]
+) {
+  // Walked from the known styles rather than the incoming list, which both
+  // deduplicates it and drops anything that is not a style this product serves.
+  const styles = SERVICE_STYLES.filter((style) =>
+    replacementStyles.includes(style)
+  );
+
+  if (styles.some((style) => style === currentStyle)) return currentStyle;
+
+  return styles.length === 1 ? styles[0] : null;
+}
 
 export const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
 

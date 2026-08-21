@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
 import {
   boardStatusSelect,
   buildKitchenSheet,
@@ -34,17 +35,19 @@ const CONFIRMED_STATUS = "CONFIRMED";
 const WINDOW_DAYS = 28;
 
 /**
- * Progress, and nothing else.
+ * Progress, who is on a dish, and swapping one dish for another.
  *
- * `replace-menu-item` and `remove-menu-item` used to live here. They wrote only
- * `Event.menuItemIds` - the legacy mirror - so a dish swapped on the board never
- * reached `EventMenuLine`, which is what the event's Menu tab, this board's own
- * quantity arithmetic and the client portal all read. The two views of one menu
- * silently diverged from the moment anyone used them.
+ * `replace-menu-item` and `remove-menu-item` used to live here and were taken
+ * out: they wrote only `Event.menuItemIds` - the legacy mirror - so a dish
+ * swapped on the board never reached `EventMenuLine`, which is what the event's
+ * Menu tab, this board's own quantity arithmetic and the client portal all read.
+ * The two views of one menu silently diverged from the moment anyone used them.
  *
- * Menu content is now changed on the Menu tab, which owns those lines. The board
- * reports what the kitchen has done, which is the only thing it knows that
- * nothing upstream does.
+ * Replacing is back because the kitchen is where that problem is discovered - a
+ * delivery is short, a dish comes off the fire - but it now writes the line
+ * itself, through `replaceKitchenDish`. Removing is not back: a dish nobody is
+ * cooking is a promise to the client that somebody has to unmake, and that
+ * conversation belongs on the Menu tab.
  */
 const kitchenMutationSchema = z.discriminatedUnion("action", [
   z.object({
@@ -63,6 +66,15 @@ const kitchenMutationSchema = z.discriminatedUnion("action", [
     eventId: z.string().uuid(),
     menuItemId: z.string().uuid(),
     assignedWorkerId: z.string().uuid().nullable()
+  }),
+  z.object({
+    action: z.literal("replace-menu-item"),
+    eventId: z.string().uuid(),
+    /// The dish coming off, which is the line being rewritten.
+    menuItemId: z.string().uuid(),
+    /// The dish going on in its place. Dishes only: a line is either a dish or
+    /// an add-on, and an add-on carries neither a style nor a status.
+    replacementMenuItemId: z.string().uuid()
   })
 ]);
 
@@ -261,6 +273,19 @@ export async function PATCH(request: Request) {
       );
     }
 
+    // The same permission that lets someone say a dish is done lets them say it
+    // is a different dish. Whoever runs the board runs the production; asking
+    // for `canCreateBooking` here - what the Menu tab requires - would hand the
+    // swap to everyone except the kitchen it exists for.
+    if (input.action === "replace-menu-item" && !canUpdateKitchenStatus) {
+      return NextResponse.json(
+        {
+          error: "You do not have permission to change what the kitchen cooks."
+        },
+        { status: 403 }
+      );
+    }
+
     const event = await prisma.event.findFirst({
       where: {
         id: input.eventId,
@@ -289,6 +314,55 @@ export async function PATCH(request: Request) {
     // Scoping the GET alone would be half the fix: an event id is all it takes
     // to write progress against a hall this member cannot see.
     assertHallAccess(actor, event.hallId);
+
+    if (input.action === "replace-menu-item") {
+      const result = await replaceKitchenDish({
+        actorId: actor.id,
+        organizationId: actor.organizationId,
+        eventId: event.id,
+        menuItemId: menuItem.id,
+        replacementMenuItemId: input.replacementMenuItemId
+      });
+
+      if (result.outcome === "replaced") {
+        return NextResponse.json({
+          replaced: {
+            from: menuItem.name,
+            to: result.name,
+            serviceStyle: result.serviceStyle
+          }
+        });
+      }
+
+      // Said as the person in front of the board needs to hear it: each of
+      // these has a different next move, and "could not save" has none.
+      if (result.outcome === "already-on-menu") {
+        return NextResponse.json(
+          { error: `${result.name} is already on this menu.` },
+          { status: 409 }
+        );
+      }
+
+      if (result.outcome === "conflict") {
+        return NextResponse.json(
+          {
+            error:
+              "This menu changed somewhere else while you were looking at it. Reload the board and try again."
+          },
+          { status: 409 }
+        );
+      }
+
+      return NextResponse.json(
+        {
+          error:
+            result.outcome === "line-not-found"
+              ? `${menuItem.name} is not on this event's menu any more. Reload the board.`
+              : "That dish is no longer in the menu library."
+        },
+        { status: 404 }
+      );
+    }
 
     if (input.action === "reset-status") {
       await prisma.kitchenItemStatus.deleteMany({

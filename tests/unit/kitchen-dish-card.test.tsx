@@ -129,6 +129,17 @@ async function renderDialog(
   return onSaveItemAction;
 }
 
+/**
+ * The card body, which is the status control.
+ *
+ * Matched on the status half of its label rather than the dish name alone: the
+ * Replace button beside it carries the same name, and either would answer to
+ * `/Potato kugel/`.
+ */
+function dishCard() {
+  return screen.getByRole("button", { name: /Potato kugel — / });
+}
+
 /** The single-click action is held briefly; this is that wait. */
 function settleClick() {
   act(() => {
@@ -151,7 +162,7 @@ describe("kitchen dish card", () => {
   it("moves a dish from not started to pending on a click", async () => {
     const onSaveItemAction = await renderDialog([line()]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    fireEvent.click(dishCard());
     settleClick();
 
     expect(onSaveItemAction).toHaveBeenCalledTimes(1);
@@ -166,7 +177,7 @@ describe("kitchen dish card", () => {
   it("moves a pending dish to complete on a click", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    fireEvent.click(dishCard());
     settleClick();
 
     expect(onSaveItemAction).toHaveBeenCalledWith(
@@ -179,7 +190,7 @@ describe("kitchen dish card", () => {
     // complete to not started would undo finished work by mis-tap.
     const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    fireEvent.click(dishCard());
     settleClick();
 
     expect(onSaveItemAction).not.toHaveBeenCalled();
@@ -190,7 +201,7 @@ describe("kitchen dish card", () => {
     // unguarded handler writes PENDING, then COMPLETE, then the reset - and the
     // dish lands wherever the responses happen to arrive.
     const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
-    const card = screen.getByRole("button", { name: /Potato kugel/ });
+    const card = dishCard();
 
     fireEvent.click(card);
     fireEvent.click(card);
@@ -207,7 +218,7 @@ describe("kitchen dish card", () => {
 
   it("ignores a double-click on a dish that has not been started", async () => {
     const onSaveItemAction = await renderDialog([line()]);
-    const card = screen.getByRole("button", { name: /Potato kugel/ });
+    const card = dishCard();
 
     fireEvent.click(card);
     fireEvent.doubleClick(card);
@@ -219,7 +230,7 @@ describe("kitchen dish card", () => {
   it("offers reset from the keyboard, which has no double-click", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
 
-    fireEvent.keyDown(screen.getByRole("button", { name: /Potato kugel/ }), {
+    fireEvent.keyDown(dishCard(), {
       key: "Delete"
     });
 

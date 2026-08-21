@@ -10,6 +10,11 @@ vi.mock("@/lib/auth/server-auth", () => ({
   requireAnyPermission: vi.fn(),
   requirePermission: vi.fn()
 }));
+// The swap itself is tested against its own module; here the question is only
+// whether the route reaches it and what it answers with.
+vi.mock("@/features/kitchen/server/kitchen-dish-replacement", () => ({
+  replaceKitchenDish: vi.fn()
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
@@ -36,6 +41,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { GET, PATCH } from "@/app/api/kitchen/route";
+import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
 import {
   assertHallAccess,
   requireAnyPermission,
@@ -157,12 +163,22 @@ describe("kitchen dashboard route", () => {
     vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
-  vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({ count: 0 } as never);
-  vi.mocked(prisma.kitchenWorker.updateMany).mockResolvedValue({ count: 0 } as never);
-  vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([] as never);
-  vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
-    { id: "package-1", name: "Shabbos Lunch", includedMenuItemIds: ["a", "b"] }
-  ] as never);
+    vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({
+      count: 0
+    } as never);
+    vi.mocked(prisma.kitchenWorker.updateMany).mockResolvedValue({
+      count: 0
+    } as never);
+    vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
+      {
+        id: "package-1",
+        name: "Shabbos Lunch",
+        includedMenuItemIds: ["a", "b"]
+      }
+    ] as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
   });
 
@@ -509,22 +525,147 @@ describe("kitchen dashboard route", () => {
       expect(assertHallAccess).toHaveBeenCalledWith(expect.anything(), hallId);
     });
 
-    for (const action of ["replace-menu-item", "remove-menu-item"]) {
-      it(`refuses "${action}", which only ever wrote the mirror`, async () => {
-        // These wrote `Event.menuItemIds` and nothing else, so a dish swapped
-        // here changed what the board showed and nothing the kitchen cooks.
+    it('refuses "remove-menu-item", which only ever wrote the mirror', async () => {
+      // It wrote `Event.menuItemIds` and nothing else, so a dish taken off here
+      // changed what the board showed and nothing the kitchen cooks. Unlike a
+      // swap, it has not come back: a dish nobody cooks is a promise to the
+      // client that somebody has to unmake.
+      const response = await PATCH(
+        request({ action: "remove-menu-item", eventId, menuItemId })
+      );
+
+      expect(response.status).toBe(400);
+      expect(prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    describe("replacing a dish", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.event.findFirst).mockResolvedValue({
+          id: eventId,
+          hallId
+        } as never);
+        vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
+          id: menuItemId,
+          name: "Potato kugel"
+        } as never);
+      });
+
+      it("sends the swap to the line writer rather than the mirror", async () => {
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "replaced",
+          name: "Roast chicken",
+          serviceStyle: "Buffet"
+        });
+
         const response = await PATCH(
           request({
-            action,
+            action: "replace-menu-item",
             eventId,
             menuItemId,
             replacementMenuItemId: otherMenuItemId
           })
         );
 
-        expect(response.status).toBe(400);
-        expect(prisma.event.update).not.toHaveBeenCalled();
+        expect(response.status).toBe(200);
+        await expect(response.json()).resolves.toEqual({
+          replaced: {
+            from: "Potato kugel",
+            to: "Roast chicken",
+            serviceStyle: "Buffet"
+          }
+        });
+        expect(replaceKitchenDish).toHaveBeenCalledWith(
+          expect.objectContaining({
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId,
+            organizationId
+          })
+        );
       });
-    }
+
+      it("checks hall access before swapping anything", async () => {
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "replaced",
+          name: "Roast chicken",
+          serviceStyle: "Buffet"
+        });
+
+        await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(assertHallAccess).toHaveBeenCalledWith(
+          expect.anything(),
+          hallId
+        );
+      });
+
+      it("answers 409 when the dish is already on this menu", async () => {
+        // `(menu, dish)` is unique, so this is unstorable rather than merely
+        // unwanted - and the person needs to hear which of the two it was.
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "already-on-menu",
+          name: "Roast chicken"
+        });
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(409);
+        await expect(response.json()).resolves.toEqual({
+          error: "Roast chicken is already on this menu."
+        });
+      });
+
+      it("answers 409 when the menu moved on underneath the board", async () => {
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "conflict"
+        });
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(409);
+      });
+
+      it("refuses the swap without permission to update kitchen status", async () => {
+        // Assigning workers is a different job from deciding what is cooked.
+        vi.mocked(requireAnyPermission).mockResolvedValue({
+          ...actor,
+          membership: { role: "KITCHEN" },
+          access: { canAssignWorkers: true, canUpdateKitchenStatus: false }
+        } as never);
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(403);
+        expect(replaceKitchenDish).not.toHaveBeenCalled();
+      });
+    });
   });
 });
