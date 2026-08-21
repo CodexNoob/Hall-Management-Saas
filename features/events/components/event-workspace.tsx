@@ -9,9 +9,9 @@ import { ClientPortalContent } from "@/features/events/components/event-client-p
 import {
   ClientContact,
   EventInformation,
-  ReadinessPanel,
-  TimelineInstructions
+  ReadinessPanel
 } from "@/features/events/components/event-details-panel";
+import { TimelineInstructions } from "@/features/events/components/event-timeline-card";
 import { EventFilesContent } from "@/features/events/components/event-files-content";
 import { HallMapContent } from "@/features/events/components/event-hall-map-content";
 import { EventKitchenContent } from "@/features/events/components/event-kitchen-content";
@@ -175,14 +175,29 @@ export function EventWorkspace({
         {activeTab === "Event details" ? (
           <div className="min-w-0">
             <div className="grid min-w-0 gap-3 overflow-hidden xl:grid-cols-[minmax(0,1fr)_336px]">
-              <div className="space-y-3">
+              <div className="min-w-0 space-y-4">
                 <EventInformation
                   event={event}
                   eventTypes={eventTypes}
                   halls={halls}
                   onEventSaved={onEventSaved}
                 />
-                <TimelineInstructions event={event} />
+                {/* The booking record and the day-of schedule save and confirm
+                    separately. Left as two cards in one even stack their save
+                    rows read as one form with a stray second pair of buttons,
+                    so the column is ruled across between them. Decoration
+                    only - the timeline card names itself again below. */}
+                <div className="flex items-center gap-3 pt-1" aria-hidden>
+                  <span className="h-px flex-1 bg-[#d8dde5]" />
+                  <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                    Day-of schedule
+                  </span>
+                  <span className="h-px flex-1 bg-[#d8dde5]" />
+                </div>
+                <TimelineInstructions
+                  event={event}
+                  onEventSaved={onEventSaved}
+                />
               </div>
               <aside className="space-y-3">
                 <ClientContact event={event} />
