@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   createBookingFormValues,
-  timelineDisplayTimeToInputValue,
-  timelineInputValueToDisplayTime,
   toEventDetailsPayload
 } from "@/features/events/components/event-details-panel";
+import {
+  sortTimelineRows,
+  timelineDisplayTimeToInputValue,
+  timelineInputValueToDisplayTime
+} from "@/features/events/components/event-timeline-card";
 import { bookingFormSchema } from "@/features/bookings/validations/booking-form.schema";
 
 const event = {
@@ -44,6 +47,39 @@ describe("event timeline time conversion", () => {
     expect(timelineInputValueToDisplayTime("15:00")).toBe("03:00 PM");
     expect(timelineInputValueToDisplayTime("00:30")).toBe("12:30 AM");
     expect(timelineInputValueToDisplayTime("12:30")).toBe("12:30 PM");
+  });
+});
+
+describe("event timeline ordering", () => {
+  const row = (time: string) => ({
+    id: time,
+    time,
+    text: time,
+    type: "Event" as const
+  });
+
+  it("reads top to bottom in clock order", () => {
+    const sorted = sortTimelineRows([
+      row("10:45 PM"),
+      row("12:00 PM"),
+      row("03:00 PM"),
+      row("12:30 AM")
+    ]);
+
+    expect(sorted.map((item) => item.time)).toEqual([
+      "12:30 AM",
+      "12:00 PM",
+      "03:00 PM",
+      "10:45 PM"
+    ]);
+  });
+
+  it("leaves the rows it was given untouched", () => {
+    const rows = [row("10:45 PM"), row("03:00 PM")];
+
+    sortTimelineRows(rows);
+
+    expect(rows.map((item) => item.time)).toEqual(["10:45 PM", "03:00 PM"]);
   });
 });
 
