@@ -171,7 +171,7 @@ export function KitchenReplaceDishDrawer({
           </div>
 
           <button
-            aria-label="Close replace dish"
+            aria-label="Close replacement picker"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
