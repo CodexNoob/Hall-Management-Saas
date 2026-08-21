@@ -43,6 +43,17 @@ export function sectionLabel(section: MenuSection) {
  * A dish belongs to a service tab iff it has a rule for that style - the same
  * test the menu library's Buffet and Plated tabs use. A dish served both ways
  * appears under both without being stored twice.
+ *
+ * The exception is a dish with NO rule at all, which is offered everywhere.
+ * That state is legal and documented - "catalogued but not served" - but
+ * filtering on `includes` alone made it a dead end: the dish existed in the
+ * library and could not be put on any event, absent rather than refused. It is
+ * offered here and asks for its rule once it lands, which is the moment the
+ * answer actually matters.
+ *
+ * A dish that has a rule for the OTHER style is still filtered out. Potato
+ * kugel with a buffet rule has been given an answer already, and showing it on
+ * the plated tab would make both tabs the whole catalog.
  */
 export function itemsForSection(
   items: MenuSelectorItem[],
@@ -51,7 +62,9 @@ export function itemsForSection(
   return section === "AddOn"
     ? items.filter((item) => item.kind === "AddOn")
     : items.filter(
-        (item) => item.kind === "Dish" && item.styles.includes(section)
+        (item) =>
+          item.kind === "Dish" &&
+          (item.styles.length === 0 || item.styles.includes(section))
       );
 }
 
@@ -286,11 +299,17 @@ export function MenuItemSelectorDrawer({
                         : queuedIn && queuedIn !== activeSection
                           ? `Queued under ${sectionLabel(queuedIn)}`
                           : (price ??
-                            // A dish served both ways is being pinned to this
-                            // tab's style by the click, worth saying out loud.
-                            (item.styles.length > 1
-                              ? `Served ${item.styles.join(" and ").toLowerCase()}`
-                              : sectionLabel(activeSection)))}
+                            // Flagged before the click rather than after it: a
+                            // dish with no rule is offered on every tab, and
+                            // adding it puts a question on the menu.
+                            (item.styles.length === 0
+                              ? "Needs a counting rule"
+                              : // A dish served both ways is being pinned to
+                                // this tab's style by the click, worth saying
+                                // out loud.
+                                item.styles.length > 1
+                                ? `Served ${item.styles.join(" and ").toLowerCase()}`
+                                : sectionLabel(activeSection)))}
                     </span>
                   </span>
                   {isQueuedHere ? (

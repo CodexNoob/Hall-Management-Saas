@@ -174,7 +174,23 @@ export type EventMenuResponse = {
     id: string;
     name: string;
     isActive: boolean;
-    services: Array<{ serviceStyle: string }>;
+    /// Food or Drink. Only the drawer's style filter used to read this shape,
+    /// which needed no more than the style names - but the menu tab now offers
+    /// a rule for a dish that has none, and a drink has to open on bottles per
+    /// table rather than the trays a food would.
+    kind: string;
+    /// The whole rule, not just its style. Writing one back replaces the set,
+    /// so the rules that are already there have to be re-sent with it or the
+    /// answer for the other style is destroyed by the answer for this one.
+    services: Array<{
+      serviceStyle: string;
+      quantity: number;
+      unit: string;
+      per: number;
+      perBasis: string;
+      rounding: string;
+      minimumUnits: number | null;
+    }>;
     /// Signed by GET /api/menu; the raw bucket and path never reach the client.
     pictureUrl: string | null;
   }>;

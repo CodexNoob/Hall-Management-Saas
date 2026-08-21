@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useScrollLock } from "@/lib/ui/use-scroll-lock";
 import {
-  COUNT_BASES,
-  COUNT_BASIS_LABELS,
-  COUNTING_UNITS,
+  CountingUnitsDatalist,
+  ServiceRuleFields
+} from "@/features/menu/components/service-rule-fields";
+import {
   MENU_ITEM_KINDS,
-  ROUNDING_MODES,
   SERVICE_STYLES,
   serviceFormDefaults,
   serviceStyleLabel,
@@ -311,6 +311,14 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
               <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
                 Decides which service tabs list it, and how much to cook for each. Price stays on the package.
               </p>
+              {/* The escape hatch, said out loud. Leaving both off has always
+                  saved a catalogued-but-unserved dish, but the form read as if
+                  the rule were required - so operators answered a kitchen
+                  arithmetic question while they were still thinking about a
+                  dish. The event menu asks for it later, when it matters. */}
+              <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
+                Leave both off if you are not sure yet. You will be asked for the rule the first time this dish goes on an event, and the answer is saved back here.
+              </p>
               <div className="mt-2 grid gap-2">
                 {SERVICE_STYLES.map((style) => {
                   const entry = values.services[style];
@@ -326,46 +334,20 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
                         {label}
                       </label>
                       {entry.enabled ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-2">
-                          <input aria-label={`${label} quantity`} className={`${controlClass} w-20`} inputMode="decimal" onChange={(event) => updateService(style, { quantity: event.target.value })} required value={entry.quantity} />
-                          {/* Typed, not picked: the eight presets never covered
-                              every kitchen's vocabulary, and an operator who
-                              counts in pans had to file them under the nearest
-                              wrong word. The list is still offered, as
-                              suggestions the field does not enforce. */}
-                          <input aria-label={`${label} unit`} className={`${controlClass} w-28`} list={unitListId} maxLength={24} onChange={(event) => updateService(style, { unit: event.target.value })} required value={entry.unit} />
-                          <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
-                          {/* A whole-event rule - one cake, however many guests -
-                              divides nothing, so the count is not asked for. */}
-                          {entry.perBasis === "Event" ? null : (
-                            <input aria-label={`${label} per quantity`} className={`${controlClass} w-20`} inputMode="numeric" onChange={(event) => updateService(style, { per: event.target.value })} required value={entry.per} />
-                          )}
-                          <select aria-label={`${label} per basis`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { perBasis: event.target.value })} value={entry.perBasis}>
-                            {COUNT_BASES.map((basis) => (
-                              <option key={basis} value={basis}>
-                                {COUNT_BASIS_LABELS[basis]}
-                              </option>
-                            ))}
-                          </select>
-                          <select aria-label={`${label} rounding`} className={`${controlClass} w-32`} onChange={(event) => updateService(style, { rounding: event.target.value })} value={entry.rounding}>
-                            {ROUNDING_MODES.map((mode) => (
-                              <option key={mode} value={mode}>
-                                {mode === "Exact" ? "no rounding" : `round ${mode.toLowerCase()}`}
-                              </option>
-                            ))}
-                          </select>
-                          <input aria-label={`${label} minimum`} className={`${controlClass} w-28`} inputMode="numeric" onChange={(event) => updateService(style, { minimumUnits: event.target.value })} placeholder="min (opt)" value={entry.minimumUnits} />
+                        <div className="mt-2">
+                          <ServiceRuleFields
+                            label={label}
+                            onChange={(patch) => updateService(style, patch)}
+                            unitListId={unitListId}
+                            values={entry}
+                          />
                         </div>
                       ) : null}
                     </div>
                   );
                 })}
               </div>
-              <datalist id={unitListId}>
-                {COUNTING_UNITS.map((unit) => (
-                  <option key={unit} value={unit} />
-                ))}
-              </datalist>
+              <CountingUnitsDatalist id={unitListId} />
             </fieldset>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
               Description
