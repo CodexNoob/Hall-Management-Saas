@@ -65,6 +65,16 @@ export function EventCalendarPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const dailyEventLimit =
     eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
+  const dailyHallCapacity = useMemo(() => {
+    const halls = eventsQuery.data?.halls ?? [];
+
+    if (halls.length === 0) return dailyEventLimit;
+
+    return halls.reduce(
+      (total, hall) => total + (hall.dailyEventLimit ?? dailyEventLimit),
+      0
+    );
+  }, [dailyEventLimit, eventsQuery.data?.halls]);
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -76,6 +86,7 @@ export function EventCalendarPage() {
           dateKey: dateKeyFromIso(event.eventDate),
           title: event.clientName,
           hall: event.hall.name,
+          hallColor: event.hall.color,
           type: event.eventType ?? "Event",
           packageName: event.packageName ?? undefined,
           status: isSchoolEvent
@@ -129,14 +140,14 @@ export function EventCalendarPage() {
               weekday: "short"
             }).format(day),
             hebrewDate: formatHebrewDateWithoutYear(day),
-            roomsAvailable: Math.max(0, dailyEventLimit - dayBookings.length),
+            roomsAvailable: Math.max(0, dailyHallCapacity - dayBookings.length),
             status: dayBookings.some((booking) => booking.status === "hold")
               ? ("hold" as const)
               : ("available" as const)
           };
         })
         .filter((day) => !removedAvailabilityDays.includes(day.dateKey)),
-    [availabilityRangeDays, bookings, dailyEventLimit, removedAvailabilityDays]
+    [availabilityRangeDays, bookings, dailyHallCapacity, removedAvailabilityDays]
   );
 
   const filteredBookings = useMemo(() => {
@@ -161,11 +172,30 @@ export function EventCalendarPage() {
     });
   }, [bookings, hallFilter, searchQuery, statusFilter, typeFilter]);
 
-  const selectedBookings = bookings.filter(
-    (booking) => booking.dateKey === selectedDate
+  const selectedBookings = useMemo(
+    () => bookings.filter((booking) => booking.dateKey === selectedDate),
+    [bookings, selectedDate]
+  );
+  const hallAvailability = useMemo(
+    () =>
+      (eventsQuery.data?.halls ?? []).map((hall) => {
+        const limit = hall.dailyEventLimit ?? dailyEventLimit;
+        const used = selectedBookings.filter(
+          (booking) => booking.hall === hall.name
+        ).length;
+
+        return {
+          id: hall.id,
+          name: hall.name,
+          limit,
+          used,
+          isFull: used >= limit,
+          usesDefaultLimit: hall.dailyEventLimit === null
+        };
+      }),
+    [dailyEventLimit, eventsQuery.data?.halls, selectedBookings]
   );
 
-  const selectedHallNames = selectedBookings.map((booking) => booking.hall);
   const monthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
     year: "numeric"
@@ -210,7 +240,6 @@ export function EventCalendarPage() {
       <DashboardTopbar
         title="Calendar"
         subtitle="Review hall availability, bookings, holds, and fully booked dates."
-        onNewBooking={() => setIsNewBookingOpen(true)}
         onTodayNotes={() => setIsTodayNotesOpen(true)}
       />
 
@@ -284,6 +313,7 @@ export function EventCalendarPage() {
         ) : activeTab === "settings" ? (
           <CalendarSettingsView
             dailyEventLimit={dailyEventLimit}
+            hallAvailability={hallAvailability}
             isSavingDailyEventLimit={settingsMutation.isPending}
             onSaveDailyEventLimit={async (nextLimit) => {
               await settingsMutation.mutate({ dailyEventLimit: nextLimit });
@@ -420,8 +450,8 @@ export function EventCalendarPage() {
                       const isToday = calendarDay.dateKey === dateKey(today);
                       const fullyBooked =
                         calendarDay.currentMonth &&
-                        dailyEventLimit > 0 &&
-                        dayBookings.length >= dailyEventLimit;
+                        dailyHallCapacity > 0 &&
+                        dayBookings.length >= dailyHallCapacity;
                       const dateLabel = new Intl.DateTimeFormat("en-US", {
                         month: "long",
                         day: "numeric",
@@ -530,25 +560,54 @@ export function EventCalendarPage() {
                   </article>
                 ))}
 
-                {halls.map((hall) => {
-                  const booked = selectedHallNames.includes(hall);
-                  const booking = selectedBookings.find(
-                    (item) => item.hall === hall
-                  );
+                <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+                  <div className="border-b border-[#d8dde5] px-3 py-2">
+                    <h3 className="text-sm font-black">Hall availability</h3>
+                    <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
+                      {selectedDateLabel}. Limits come from each hall.
+                    </p>
+                  </div>
 
-                  return (
-                    <article
-                      className={`dashboard-hover-card rounded-xl border p-3 ${booked ? "border-[#ebc7bd] bg-[#fff7f4]" : "border-[#b9ddcf] bg-[#f5fbf8]"}`}
-                      key={hall}
-                    >
-                      <h3 className="text-sm font-black">{hall}</h3>
+                  <div className="divide-y divide-[#e5eaf0]">
+                    {hallAvailability.map((hall) => (
+                      <div
+                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2"
+                        key={hall.id}
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-black text-[#17202a]">
+                            {hall.name}
+                          </p>
+                          {hall.usesDefaultLimit ? (
+                            <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
+                              Uses Calendar default
+                            </p>
+                          ) : null}
+                        </div>
 
-                      <p className="mt-2 text-xs text-[#6a7483]">
-                        {booked ? "Booked by " + booking?.title : "Available"}
+                        <span
+                          className={`rounded-full px-2 py-1 text-[9px] font-black ${
+                            hall.isFull
+                              ? "bg-[#fff0ed] text-[#b42318]"
+                              : "bg-[#e9f8f0] text-[#087047]"
+                          }`}
+                        >
+                          {hall.isFull ? "Full" : "Available"}
+                        </span>
+
+                        <span className="text-xs font-black tabular-nums text-[#17202a]">
+                          {hall.used} / {hall.limit}
+                        </span>
+                      </div>
+                    ))}
+
+                    {hallAvailability.length === 0 ? (
+                      <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
+                        No bookable halls are saved yet. Add halls in Settings.
                       </p>
-                    </article>
-                  );
-                })}
+                    ) : null}
+                  </div>
+                </section>
               </div>
             </aside>
           </div>
@@ -559,6 +618,9 @@ export function EventCalendarPage() {
         eventTypes={eventsQuery.data?.eventTypes ?? []}
         halls={eventsQuery.data?.halls ?? []}
         onClose={() => setIsNewBookingOpen(false)}
+        onEventTypesChanged={async () => {
+          await eventsQuery.refetch();
+        }}
         onSaved={async () => {
           await eventsQuery.refetch();
         }}

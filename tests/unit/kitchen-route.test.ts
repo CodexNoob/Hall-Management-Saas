@@ -36,7 +36,21 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       delete: vi.fn(),
       deleteMany: vi.fn()
-    }
+    },
+    // Production with no booking behind it, and its own progress rows. These
+    // are read in the same `Promise.all` as the booking-backed ones, so
+    // leaving them off the mock did not fail where they are used - it left
+    // every later slot of the destructured array undefined and took the whole
+    // board's numbers down with it.
+    kitchenStandaloneEvent: { findMany: vi.fn(), findFirst: vi.fn() },
+    kitchenStandaloneItemStatus: {
+      findMany: vi.fn(),
+      findUnique: vi.fn(),
+      upsert: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn()
+    },
+    $transaction: vi.fn()
   }
 }));
 
@@ -204,6 +218,15 @@ describe("kitchen dashboard route", () => {
       }
     ] as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.kitchenStandaloneEvent.findMany).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(prisma.kitchenStandaloneItemStatus.findMany).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      run: (transaction: typeof prisma) => unknown
+    ) => run(prisma)) as never);
   });
 
   it("asks only for confirmed bookings", async () => {

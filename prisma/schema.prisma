@@ -34,6 +34,8 @@ model Organization {
   eventPackages           EventPackage[]
   addOns                  AddOn[]
   kitchenWorkers          KitchenWorker[]
+  kitchenStandaloneEvents KitchenStandaloneEvent[]
+  kitchenStandaloneItemStatuses KitchenStandaloneItemStatus[]
   kitchenItemStatuses     KitchenItemStatus[]
   kitchenNotifications    KitchenNotification[]
   schoolCycles            SchoolCycle[]
@@ -162,6 +164,8 @@ model User {
   updatedEvents                    Event[]                  @relation("EventUpdatedBy")
   createdSchoolCycles              SchoolCycle[]            @relation("SchoolCycleCreatedBy")
   updatedKitchenItemStatuses       KitchenItemStatus[]      @relation("KitchenItemStatusUpdatedBy")
+  updatedKitchenStandaloneItemStatuses KitchenStandaloneItemStatus[] @relation("KitchenStandaloneItemStatusUpdatedBy")
+  createdKitchenStandaloneEvents   KitchenStandaloneEvent[] @relation("KitchenStandaloneEventCreatedBy")
   confirmedEventMenus              EventMenu[]              @relation("EventMenuConfirmedBy")
   addedEventMenuLines              EventMenuLine[]          @relation("EventMenuLineAddedBy")
   changedKitchenNotifications      KitchenNotification[]    @relation("KitchenNotificationChangedBy")
@@ -284,6 +288,7 @@ model Hall {
   allowedMenuItemIds   String[] @default([]) @map("allowed_menu_item_ids")
   color                String?
   capacity             Int?
+  dailyEventLimit      Int?     @map("daily_event_limit")
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
@@ -475,6 +480,7 @@ model MenuItem {
   categoryRef         MenuCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   services            MenuItemService[]
   kitchenItemStatuses KitchenItemStatus[]
+  kitchenStandaloneItemStatuses KitchenStandaloneItemStatus[]
   eventMenuLines      EventMenuLine[]
 
   @@index([organizationId, isActive])
@@ -540,8 +546,9 @@ model EventPackage {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  events       Event[]
+  organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events                   Event[]
+  kitchenStandaloneEvents  KitchenStandaloneEvent[]
 
   @@index([organizationId, isActive])
   @@index([isActive])
@@ -608,11 +615,64 @@ model KitchenWorker {
   organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user                 User?               @relation("KitchenWorkerUser", fields: [userId], references: [id], onDelete: Cascade)
   assignedKitchenItems KitchenItemStatus[]
+  assignedStandaloneKitchenItems KitchenStandaloneItemStatus[]
 
   @@unique([organizationId, userId])
   @@index([organizationId, isActive])
   @@index([isActive])
   @@map("kitchen_workers")
+}
+
+/// A kitchen-only production job, created from the Kitchen Dashboard.
+///
+/// This deliberately does not become an Event/Booking: no client, hall
+/// reservation, payment, lifecycle confirmation or admin approval is implied.
+/// It exists so the kitchen can cook a selected menu for a portion count, and
+/// so that card survives refreshes.
+model KitchenStandaloneEvent {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  menuId         String   @map("menu_id") @db.Uuid
+  menuName       String   @map("menu_name")
+  eventDate      DateTime @map("event_date") @db.Date
+  portions       Int
+  kitchenNote    String?  @map("kitchen_note")
+  createdById    String?  @map("created_by_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menu         EventPackage @relation(fields: [menuId], references: [id], onDelete: Restrict)
+  createdBy    User?        @relation("KitchenStandaloneEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  itemStatuses KitchenStandaloneItemStatus[]
+
+  @@index([organizationId, eventDate])
+  @@index([organizationId, menuId])
+  @@map("kitchen_standalone_events")
+}
+
+/// Progress and assignment for one dish on a kitchen-only production job.
+model KitchenStandaloneItemStatus {
+  id                       String   @id @default(uuid()) @db.Uuid
+  organizationId           String   @map("organization_id") @db.Uuid
+  kitchenStandaloneEventId String   @map("kitchen_standalone_event_id") @db.Uuid
+  menuItemId               String   @map("menu_item_id") @db.Uuid
+  status                   String?
+  assignedWorkerId         String?  @map("assigned_worker_id") @db.Uuid
+  updatedById              String?  @map("updated_by") @db.Uuid
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  organization           Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kitchenStandaloneEvent KitchenStandaloneEvent @relation(fields: [kitchenStandaloneEventId], references: [id], onDelete: Cascade)
+  menuItem               MenuItem               @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  assignedWorker         KitchenWorker?         @relation(fields: [assignedWorkerId], references: [id])
+  updatedBy              User?                  @relation("KitchenStandaloneItemStatusUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([kitchenStandaloneEventId, menuItemId])
+  @@index([organizationId, status])
+  @@index([assignedWorkerId])
+  @@map("kitchen_standalone_item_statuses")
 }
 
 /// What the kitchen has done to one dish on one event, and who is on it.

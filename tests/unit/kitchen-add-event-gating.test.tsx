@@ -138,11 +138,17 @@ describe("AddKitchenEventDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save event" }));
 
+    // The whole payload, not a subset: the new-menu fields ride along empty
+    // when an existing menu is picked, and the caller decides which of the two
+    // shapes to send by looking at them.
     expect(onSave).toHaveBeenCalledWith({
       menuId: "menu-1",
       menuName: "Shabbos Lunch",
       portions: "40",
-      kitchenNote: ""
+      kitchenNote: "",
+      quickMenuName: "",
+      quickMenuDishes: "",
+      saveQuickMenuToLibrary: false
     });
   });
 
@@ -264,9 +270,12 @@ describe("AddKitchenEventDialog", () => {
       expect(screen.queryByRole("alert")).toBeNull();
       expect(onSave).toHaveBeenCalledWith({
         menuId: "menu-1",
-      menuName: "Shabbos Lunch",
+        menuName: "Shabbos Lunch",
         portions: "40",
-        kitchenNote: ""
+        kitchenNote: "",
+        quickMenuName: "",
+        quickMenuDishes: "",
+        saveQuickMenuToLibrary: false
       });
     });
   });

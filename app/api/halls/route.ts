@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { requirePermission } from "@/lib/auth/server-auth";
@@ -35,6 +36,13 @@ function withHallMapPresetCounts<
 const hallFieldsSchema = z.object({
   name: z.string().trim().min(1).max(100),
   capacity: countSchema({ min: 1, label: "Capacity" }).nullable().optional(),
+  dailyEventLimit: countSchema({
+    min: 1,
+    max: 50,
+    label: "Events allowed per day"
+  })
+    .nullable()
+    .optional(),
   basePrice: moneySchema({ label: "Base price" }).nullable().optional(),
   perCouplePrice: moneySchema({ label: "Per couple price" })
     .nullable()
@@ -60,13 +68,63 @@ const updateHallSchema = hallFieldsSchema
   .extend({ id: z.string().uuid() });
 const deleteHallSchema = z.object({ id: z.string().uuid() });
 
+function mergeCalendarDailyEventLimit(
+  integrations: unknown,
+  dailyEventLimit: number
+): Prisma.InputJsonValue {
+  const base =
+    integrations && typeof integrations === "object"
+      ? { ...(integrations as Record<string, unknown>) }
+      : {};
+  const calendar =
+    base.calendar && typeof base.calendar === "object"
+      ? { ...(base.calendar as Record<string, unknown>) }
+      : {};
+
+  return {
+    ...base,
+    calendar: {
+      ...calendar,
+      dailyEventLimit
+    }
+  };
+}
+
+function dailyEventLimitFromIntegrations(integrations: unknown) {
+  if (
+    integrations &&
+    typeof integrations === "object" &&
+    "calendar" in integrations
+  ) {
+    const calendar = (integrations as { calendar?: unknown }).calendar;
+    if (calendar && typeof calendar === "object") {
+      const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
+        .dailyEventLimit;
+      if (
+        typeof dailyEventLimit === "number" &&
+        Number.isFinite(dailyEventLimit)
+      ) {
+        return dailyEventLimit;
+      }
+    }
+  }
+
+  return 2;
+}
+
 export async function GET(request: Request) {
   try {
     const actor = await requirePermission(request, "canViewSettings");
-    const [organization, halls] = await Promise.all([
+    const [organization, settings, halls] = await Promise.all([
       prisma.organization.findUnique({
         where: { id: actor.organizationId },
         select: { subscriptionPlan: true, subscriptionStatus: true }
+      }),
+      prisma.organizationSetting.upsert({
+        where: { organizationId: actor.organizationId },
+        update: {},
+        create: { organizationId: actor.organizationId },
+        select: { integrations: true }
       }),
       prisma.hall.findMany({
         where: { organizationId: actor.organizationId },
@@ -75,6 +133,7 @@ export async function GET(request: Request) {
           id: true,
           name: true,
           capacity: true,
+          dailyEventLimit: true,
           basePrice: true,
           perCouplePrice: true,
           memberBasePrice: true,
@@ -104,9 +163,18 @@ export async function GET(request: Request) {
           GROUP BY hall_id
         `
       : [];
+    const calendarDefaultLimit = dailyEventLimitFromIntegrations(
+      settings.integrations
+    );
 
     return NextResponse.json({
-      halls: withHallMapPresetCounts(halls, hallMapPresetCounts),
+      halls: withHallMapPresetCounts(
+        halls.map((hall) => ({
+          ...hall,
+          dailyEventLimit: hall.dailyEventLimit ?? calendarDefaultLimit
+        })),
+        hallMapPresetCounts
+      ),
       limits: {
         activeHallLimit: hallLimit,
         subscriptionPlan: organization?.subscriptionPlan ?? null,
@@ -164,19 +232,41 @@ export async function POST(request: Request) {
       );
     }
 
-    const hall = await prisma.hall.create({
-      data: {
-        organizationId: actor.organizationId,
-        name: input.name,
-        capacity: input.capacity ?? null,
-        basePrice: input.basePrice ?? null,
-        perCouplePrice: input.perCouplePrice ?? null,
-        memberBasePrice: input.memberBasePrice ?? null,
-        memberPerCouplePrice: input.memberPerCouplePrice ?? null,
-        color: input.color ?? "#1f5f91",
-        isActive: input.isActive ?? true,
-        isBookable: input.isBookable ?? true
+    const hall = await prisma.$transaction(async (transaction) => {
+      const hall = await transaction.hall.create({
+        data: {
+          organizationId: actor.organizationId,
+          name: input.name,
+          capacity: input.capacity ?? null,
+          dailyEventLimit: input.dailyEventLimit ?? null,
+          basePrice: input.basePrice ?? null,
+          perCouplePrice: input.perCouplePrice ?? null,
+          memberBasePrice: input.memberBasePrice ?? null,
+          memberPerCouplePrice: input.memberPerCouplePrice ?? null,
+          color: input.color ?? "#1f5f91",
+          isActive: input.isActive ?? true,
+          isBookable: input.isBookable ?? true
+        }
+      });
+
+      if (input.dailyEventLimit !== undefined && input.dailyEventLimit !== null) {
+        const settings = await transaction.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: {},
+          create: { organizationId: actor.organizationId }
+        });
+        await transaction.organizationSetting.update({
+          where: { organizationId: actor.organizationId },
+          data: {
+            integrations: mergeCalendarDailyEventLimit(
+              settings.integrations,
+              input.dailyEventLimit
+            )
+          }
+        });
       }
+
+      return hall;
     });
     return NextResponse.json({ hall }, { status: 201 });
   } catch (error) {
@@ -243,27 +333,53 @@ export async function PATCH(request: Request) {
       }
     }
 
-    const hall = await prisma.hall.update({
-      where: { id: current.id },
-      data: {
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.capacity !== undefined ? { capacity: input.capacity } : {}),
-        ...(input.basePrice !== undefined ? { basePrice: input.basePrice } : {}),
-        ...(input.perCouplePrice !== undefined
-          ? { perCouplePrice: input.perCouplePrice }
-          : {}),
-        ...(input.memberBasePrice !== undefined
-          ? { memberBasePrice: input.memberBasePrice }
-          : {}),
-        ...(input.memberPerCouplePrice !== undefined
-          ? { memberPerCouplePrice: input.memberPerCouplePrice }
-          : {}),
-        ...(input.color !== undefined ? { color: input.color } : {}),
-        ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-        ...(input.isBookable !== undefined
-          ? { isBookable: input.isBookable }
-          : {})
+    const hall = await prisma.$transaction(async (transaction) => {
+      const hall = await transaction.hall.update({
+        where: { id: current.id },
+        data: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.capacity !== undefined ? { capacity: input.capacity } : {}),
+          ...(input.dailyEventLimit !== undefined
+            ? { dailyEventLimit: input.dailyEventLimit }
+            : {}),
+          ...(input.basePrice !== undefined
+            ? { basePrice: input.basePrice }
+            : {}),
+          ...(input.perCouplePrice !== undefined
+            ? { perCouplePrice: input.perCouplePrice }
+            : {}),
+          ...(input.memberBasePrice !== undefined
+            ? { memberBasePrice: input.memberBasePrice }
+            : {}),
+          ...(input.memberPerCouplePrice !== undefined
+            ? { memberPerCouplePrice: input.memberPerCouplePrice }
+            : {}),
+          ...(input.color !== undefined ? { color: input.color } : {}),
+          ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+          ...(input.isBookable !== undefined
+            ? { isBookable: input.isBookable }
+            : {})
+        }
+      });
+
+      if (input.dailyEventLimit !== undefined && input.dailyEventLimit !== null) {
+        const settings = await transaction.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: {},
+          create: { organizationId: actor.organizationId }
+        });
+        await transaction.organizationSetting.update({
+          where: { organizationId: actor.organizationId },
+          data: {
+            integrations: mergeCalendarDailyEventLimit(
+              settings.integrations,
+              input.dailyEventLimit
+            )
+          }
+        });
       }
+
+      return hall;
     });
     return NextResponse.json({ hall });
   } catch (error) {

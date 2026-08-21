@@ -501,21 +501,43 @@ export async function createBooking(
           update: {},
           create: { organizationId: actor.organizationId }
         });
-        const dailyEventLimit = dailyEventLimitFromIntegrations(
+        const defaultDailyEventLimit = dailyEventLimitFromIntegrations(
           settings.integrations
+        );
+        const limitedHalls = await transaction.hall.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            id: { in: reservedHallIds }
+          },
+          select: { name: true, dailyEventLimit: true }
+        });
+        const dailyEventLimit = Math.min(
+          ...limitedHalls.map(
+            (limitedHall) =>
+              limitedHall.dailyEventLimit ?? defaultDailyEventLimit
+          )
         );
         const activeBookingsOnDate = await transaction.event.count({
           where: {
             organizationId: actor.organizationId,
             deleted: false,
             eventDate,
+            hallId: { in: reservedHallIds },
             bookingStatus: { in: Array.from(activeStatuses) }
           }
         });
 
         if (activeBookingsOnDate >= dailyEventLimit) {
+          const limitNames = limitedHalls
+            .filter(
+              (limitedHall) =>
+                (limitedHall.dailyEventLimit ?? defaultDailyEventLimit) ===
+                dailyEventLimit
+            )
+            .map((limitedHall) => limitedHall.name)
+            .join(", ");
           throw new BookingError(
-            `This date already has ${activeBookingsOnDate} active bookings. The daily event limit is ${dailyEventLimit}.`,
+            `${limitNames || hall.name} already has ${activeBookingsOnDate} active bookings on this date. The daily event limit is ${dailyEventLimit}.`,
             409,
             "DAILY_EVENT_LIMIT_REACHED"
           );

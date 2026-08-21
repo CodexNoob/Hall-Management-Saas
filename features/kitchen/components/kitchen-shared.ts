@@ -18,6 +18,7 @@ export type KitchenView = "today" | "week" | "four-weeks";
  */
 export type KitchenEvent = {
   id: string;
+  source?: "booking" | "standalone";
   category: string;
   title: string;
   status?: string;
@@ -33,6 +34,8 @@ export type KitchenEvent = {
   /// on every hand-added kitchen event, which has no menu document at all.
   otherMeals: string[];
   summary: EventKitchenSheet["summary"] | null;
+  kitchenNote?: string | null;
+  sheet?: EventKitchenSheet;
 };
 
 export type KitchenDay = {
@@ -69,6 +72,7 @@ export type KitchenResponse = {
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
   }>;
+  kitchenEvents: Array<KitchenEvent & { dateKey: string }>;
   workers: Array<{ id: string; name: string; isStaff: boolean }>;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;
