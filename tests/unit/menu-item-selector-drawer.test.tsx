@@ -23,6 +23,9 @@ const items = [
   dish("d1", "Braised ribs", ["Buffet", "Plated"]),
   dish("d2", "Potato kugel", ["Buffet"]),
   dish("d3", "Chicken soup", ["Plated"]),
+  // Catalogued but never given a rule. Offered everywhere rather than hidden
+  // everywhere, which is what it used to be.
+  dish("d4", "Grilled salmon", []),
   addOn("a1", "Viennese table", 850)
 ];
 
@@ -138,8 +141,52 @@ describe("MenuItemSelectorDrawer", () => {
 
     expect(screen.getByRole("button", { name: /Braised ribs/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Chicken soup/ })).toBeInTheDocument();
-    // Buffet-only, so it has no business on the plated tab.
+    // Buffet-only, so it has no business on the plated tab. A dish that has
+    // been given an answer is filtered by it; only a dish with no answer at all
+    // is offered on both.
     expect(screen.queryByRole("button", { name: /Potato kugel/ })).toBeNull();
+  });
+
+  it("offers a dish with no rule at all under every style", () => {
+    renderDrawer();
+
+    // The dead end this closes: with no rule the dish matched neither tab, so
+    // it sat in the library unreachable by any event.
+    expect(
+      screen.getByRole("button", { name: /Grilled salmon/ })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Plated" }));
+
+    expect(
+      screen.getByRole("button", { name: /Grilled salmon/ })
+    ).toBeInTheDocument();
+  });
+
+  it("says a ruleless dish needs a rule before it is picked", () => {
+    renderDrawer();
+
+    // Named on the card rather than discovered after the add: clicking this one
+    // puts a question on the menu, not just a dish.
+    expect(
+      screen.getByRole("button", { name: /Grilled salmon/ })
+    ).toHaveTextContent("Needs a counting rule");
+    // A dish that does carry a rule still reads as the tab it is being pinned
+    // to, unchanged.
+    expect(
+      screen.getByRole("button", { name: /Potato kugel/ })
+    ).toHaveTextContent("Buffet");
+  });
+
+  it("adds a ruleless dish under the tab it was picked on", () => {
+    const { onAdd } = renderDrawer({ initialSection: "Plated" });
+
+    fireEvent.click(screen.getByRole("button", { name: /Grilled salmon/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add 1 item" }));
+
+    // The style is decided by the click even though the dish has no rule for
+    // it - that is what the band on the menu tab then asks about.
+    expect(queued(onAdd)).toEqual(["Grilled salmon:Plated"]);
   });
 
   it("clears the section it is showing, not another one", () => {

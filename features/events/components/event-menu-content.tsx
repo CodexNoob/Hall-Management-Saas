@@ -19,6 +19,10 @@ import {
 } from "@/features/events/components/package-selector-drawer";
 import { AsyncState } from "@/components/ui/async-state";
 import { EventMenuPackageBar } from "@/features/events/components/event-menu-package-bar";
+import {
+  EventMenuRuleBand,
+  rulelessLines
+} from "@/features/events/components/event-menu-rule-band";
 import { EventMenuSkeleton } from "@/features/events/components/event-menu-skeleton";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
@@ -326,6 +330,12 @@ export function EventMenuContent({
     [lines]
   );
 
+  // The other half of the same problem: the style is known, but the dish was
+  // catalogued without a rule for it, so there is still no number to cook to.
+  // Distinct from the band above because the question is different - not which
+  // way, but how much - and the answer belongs to the library, not the line.
+  const linesNeedingRule = useMemo(() => rulelessLines(lines), [lines]);
+
   /**
    * One write to this event's menu, whichever route it goes through.
    *
@@ -589,6 +599,21 @@ export function EventMenuContent({
     setIsSelectorOpen(true);
   };
 
+  /**
+   * A rule was written to the library, so three cached things are now stale.
+   *
+   * The menu document is the one that clears the band: `availableStyles` is
+   * computed server-side off the dish's rows, so nothing local can decide that
+   * a line has been answered. The library feeds the selector drawer and this
+   * band's own lookup, and the kitchen tab is where the new number shows up.
+   */
+  const refreshAfterRuleSaved = async () => {
+    invalidateAuthenticatedQuery(kitchenUrl);
+    invalidateAuthenticatedQuery(menuUrl);
+
+    await Promise.all([documentQuery.refetch(), libraryQuery.refetch()]);
+  };
+
   useEffect(() => {
     if (!isReviewOpen) return;
 
@@ -769,6 +794,13 @@ export function EventMenuContent({
                 </ul>
               </section>
             ) : null}
+
+            <EventMenuRuleBand
+              catalog={libraryQuery.data?.items ?? []}
+              disabled={isSaving || isConfirmed}
+              lines={linesNeedingRule}
+              onSaved={refreshAfterRuleSaved}
+            />
 
             {sections.map((section) => (
               <section
