@@ -10,11 +10,20 @@ import { countSchema } from "@/lib/validation/number";
 
 export function CalendarSettingsView({
   dailyEventLimit,
+  hallAvailability,
   isSavingDailyEventLimit,
   saveDailyEventLimitError,
   onSaveDailyEventLimit
 }: {
   dailyEventLimit: number;
+  hallAvailability: Array<{
+    id: string;
+    name: string;
+    limit: number;
+    used: number;
+    isFull: boolean;
+    usesDefaultLimit: boolean;
+  }>;
   isSavingDailyEventLimit: boolean;
   saveDailyEventLimitError: string | null;
   onSaveDailyEventLimit: (limit: number) => Promise<void>;
@@ -124,6 +133,45 @@ export function CalendarSettingsView({
               {saveDailyEventLimitError}
             </p>
           ) : null}
+        </div>
+
+        <div className="mb-3 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+          <div className="border-b border-[#d8dde5] px-3 py-2">
+            <h2 className="text-sm font-black">Hall daily limits</h2>
+            <p className="mt-1 text-xs text-[#6a7483]">
+              Each saved hall uses this daily booking limit.
+            </p>
+          </div>
+
+          <div className="divide-y divide-[#e5eaf0]">
+            {hallAvailability.map((hall) => (
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2"
+                key={hall.id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-black text-[#17202a]">
+                    {hall.name}
+                  </p>
+                  {hall.usesDefaultLimit ? (
+                    <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
+                      Uses Calendar default
+                    </p>
+                  ) : null}
+                </div>
+
+                <span className="text-xs font-black tabular-nums text-[#17202a]">
+                  {hall.limit} per day
+                </span>
+              </div>
+            ))}
+
+            {hallAvailability.length === 0 ? (
+              <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
+                No bookable halls are saved yet. Add halls in Settings.
+              </p>
+            ) : null}
+          </div>
         </div>
 
         <div className="overflow-visible rounded-xl border border-[#d8dde5]">

@@ -22,8 +22,11 @@ export function WeekDayColumn({
 }) {
   const tone = kitchenDayTone(day);
 
+  // The tall column is what makes seven of them read as a week side by side.
+  // Stacked on a phone it only made the day's own content harder to reach -
+  // seven 400px boxes is most of a screen each, and mostly empty.
   return (
-    <Panel className={`flex min-h-100 flex-col ${tone.outline}`}>
+    <Panel className={`flex min-h-32 flex-col lg:min-h-100 ${tone.outline}`}>
       <header
         className={`shrink-0 border-b px-2.5 py-2 ${tone.header} md:px-2 xl:px-2.5`}
       >

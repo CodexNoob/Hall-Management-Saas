@@ -5,7 +5,14 @@ const mocks = vi.hoisted(() => ({
     hall: {
       findFirst: vi.fn(),
       update: vi.fn()
-    }
+    },
+    // Written alongside the hall when a daily event limit is set, so the two
+    // cannot disagree about the cap.
+    organizationSetting: {
+      upsert: vi.fn(),
+      update: vi.fn()
+    },
+    $transaction: vi.fn()
   },
   requirePermission: vi.fn()
 }));
@@ -47,6 +54,16 @@ describe("PATCH /api/halls numeric validation", () => {
         id: hallId,
         ...data
       })
+    );
+    mocks.prisma.organizationSetting.upsert.mockResolvedValue({
+      integrations: null
+    });
+    // Runs the callback against the same delegates, so the assertions below
+    // still see the writes the route makes inside the transaction. Resolving
+    // to a fixed value instead would pass whatever the route did unchecked.
+    mocks.prisma.$transaction.mockImplementation(
+      async (run: (transaction: typeof mocks.prisma) => unknown) =>
+        run(mocks.prisma)
     );
   });
 

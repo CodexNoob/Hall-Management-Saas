@@ -10,6 +10,17 @@ import {
   kitchenMenuSelect,
   type StatusRow
 } from "@/features/kitchen/server/kitchen-sheet";
+import type { EventKitchenLine } from "@/features/events/components/event-manager-shared";
+import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
+import {
+  calculateStyleQuantity,
+  totalGuests,
+  type EventHeadCounts
+} from "@/features/menu/lib/menu-quantity";
+import {
+  readServiceRules,
+  SERVICE_STYLES
+} from "@/features/menu/lib/service-style";
 import { isAdministrativeRole } from "@/lib/auth/roles";
 import {
   assertHallAccess,
@@ -78,6 +89,187 @@ const kitchenMutationSchema = z.discriminatedUnion("action", [
   })
 ]);
 
+const standaloneKitchenMutationSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("standalone-status"),
+    kitchenEventId: z.string().uuid(),
+    menuItemId: z.string().uuid(),
+    status: z.enum(["PENDING", "COMPLETE"])
+  }),
+  z.object({
+    action: z.literal("standalone-reset-status"),
+    kitchenEventId: z.string().uuid(),
+    menuItemId: z.string().uuid()
+  }),
+  z.object({
+    action: z.literal("standalone-assign-worker"),
+    kitchenEventId: z.string().uuid(),
+    menuItemId: z.string().uuid(),
+    assignedWorkerId: z.string().uuid().nullable()
+  })
+]);
+
+const kitchenActionSchema = z.union([
+  kitchenMutationSchema,
+  standaloneKitchenMutationSchema
+]);
+
+const kitchenStandaloneEventSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date."),
+  menuId: z.string().uuid().optional(),
+  quickMenu: z
+    .object({
+      name: z.string().trim().min(1).max(200),
+      dishNames: z
+        .array(z.string().trim().min(1).max(200))
+        .min(1, "Add at least one dish."),
+      saveToLibrary: z.boolean().default(false)
+    })
+    .optional(),
+  portions: z.coerce
+    .number()
+    .int("Portions must be a whole number.")
+    .min(1, "Portions must be at least 1."),
+  kitchenNote: z.string().trim().max(2000).optional()
+}).refine((input) => Boolean(input.menuId) !== Boolean(input.quickMenu), {
+  message: "Choose an existing menu or create a new one.",
+  path: ["menuId"]
+});
+
+type StandaloneStatusRow = {
+  menuItemId: string;
+  status: string | null;
+  assignedWorkerId: string | null;
+  assignedWorker: { name: string } | null;
+};
+
+type StandaloneMenuItemRow = Prisma.MenuItemGetPayload<{
+  select: {
+    id: true;
+    name: true;
+    isActive: true;
+    services: {
+      select: {
+        serviceStyle: true;
+        quantity: true;
+        unit: true;
+        per: true;
+        perBasis: true;
+        rounding: true;
+        minimumUnits: true;
+      };
+      orderBy: { serviceStyle: "asc" };
+    };
+  };
+}>;
+
+function buildStandaloneKitchenSheet({
+  menuItemIds,
+  menuItemsById,
+  portions,
+  statuses
+}: {
+  menuItemIds: string[];
+  menuItemsById: Map<string, StandaloneMenuItemRow>;
+  portions: number;
+  statuses: StandaloneStatusRow[];
+}) {
+  const counts: EventHeadCounts = {
+    couples: 0,
+    men: portions,
+    ladies: 0,
+    boys: 0,
+    girls: 0,
+    kids: 0,
+    waiters: 0,
+    tables: null
+  };
+  const statusByMenuItemId = new Map(
+    statuses.map((itemStatus) => [itemStatus.menuItemId, itemStatus])
+  );
+
+  const lines: EventKitchenLine[] = menuItemIds.flatMap((menuItemId, index) => {
+    const menuItem = menuItemsById.get(menuItemId);
+    if (!menuItem) return [];
+
+    const services = menuItem.services;
+    const rules = readServiceRules(
+      services.map((service) => ({
+        ...service,
+        quantity: Number(service.quantity)
+      }))
+    );
+    const availableStyles = [
+      ...new Set(services.map((service) => service.serviceStyle))
+    ];
+    const style = SERVICE_STYLES.find((candidate) =>
+      availableStyles.includes(candidate)
+    ) ?? null;
+    const result = style ? calculateStyleQuantity(rules, style, counts) : null;
+    const itemStatus = statusByMenuItemId.get(menuItem.id);
+
+    return [
+      {
+        id: `${menuItem.id}:${index}`,
+        menuItemId: menuItem.id,
+        addOnId: null,
+        kind: "Dish" as const,
+        name: menuItem.name,
+        pictureUrl: null,
+        serviceStyle: style,
+        availableStyles,
+        notes: null,
+        sortOrder: index,
+        isRetired: !menuItem.isActive,
+        quantities: (result?.quantities ?? []).map((quantity) => ({
+          unit: quantity.unit,
+          units: quantity.units,
+          raw: quantity.raw
+        })),
+        unresolvedBases: result?.unresolved ?? [],
+        countState:
+          result && result.quantities.length > 0
+            ? ("Counted" as const)
+            : result && result.unresolved.length > 0
+              ? ("Unresolved" as const)
+              : !style && availableStyles.length > 0
+                ? ("NeedsStyle" as const)
+                : ("NoRule" as const),
+        status:
+          itemStatus?.status == null
+            ? null
+            : itemStatus.status === "COMPLETE"
+              ? ("COMPLETE" as const)
+              : ("PENDING" as const),
+        assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
+        assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
+      }
+    ];
+  });
+
+  return {
+    meal: DEFAULT_MEAL,
+    menuStatus: "Draft" as const,
+    confirmedAt: null,
+    version: 0,
+    counts: { ...counts, totalGuests: totalGuests(counts) },
+    lines,
+    summary: {
+      dishes: lines.length,
+      addOns: 0,
+      complete: lines.filter((line) => line.status === "COMPLETE").length,
+      pending: lines.filter((line) => line.status === "PENDING").length,
+      notStarted: lines.filter((line) => line.status === null).length,
+      needsAttention: lines.filter((line) =>
+        ["NeedsStyle", "NoRule", "Unresolved"].includes(line.countState)
+      ).length,
+      unresolvedBases: [
+        ...new Set(lines.flatMap((line) => line.unresolvedBases))
+      ]
+    }
+  };
+}
+
 /**
  * Everything the board draws for one event, on top of what the sheet needs.
  *
@@ -122,7 +314,7 @@ export async function GET(request: Request) {
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-    const [events, workers] = await Promise.all([
+    const [events, standaloneEvents, workers] = await Promise.all([
       prisma.event.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -146,14 +338,43 @@ export async function GET(request: Request) {
         select: boardEventSelect,
         orderBy: { eventDate: "asc" }
       }),
+      prisma.kitchenStandaloneEvent.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          eventDate: { gte: start, lt: end }
+        },
+        select: {
+          id: true,
+          menuId: true,
+          menuName: true,
+          eventDate: true,
+          portions: true,
+          kitchenNote: true,
+          menu: { select: { includedMenuItemIds: true } }
+        },
+        orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
+      }),
       syncKitchenStaffWorkers(actor.organizationId)
     ]);
 
     const eventIds = events.map((event) => event.id);
+    const standaloneEventIds = standaloneEvents.map((event) => event.id);
+    const standaloneMenuItemIds = [
+      ...new Set(
+        standaloneEvents.flatMap((event) => event.menu.includedMenuItemIds)
+      )
+    ];
     // Two queries for the whole window rather than two per event. The board
     // spans four weeks, so the per-event route's shape - which is the right one
     // for a single event - would be up to a hundred round-trips here.
-    const [menus, otherMeals, statuses] = await Promise.all([
+    const [
+      menus,
+      otherMeals,
+      statuses,
+      standaloneMenuItems,
+      standaloneStatuses
+    ] =
+      await Promise.all([
       prisma.eventMenu.findMany({
         where: {
           eventId: { in: eventIds },
@@ -179,6 +400,42 @@ export async function GET(request: Request) {
           organizationId: actor.organizationId
         },
         select: boardStatusSelect
+      }),
+      prisma.menuItem.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          id: { in: standaloneMenuItemIds }
+        },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          services: {
+            select: {
+              serviceStyle: true,
+              quantity: true,
+              unit: true,
+              per: true,
+              perBasis: true,
+              rounding: true,
+              minimumUnits: true
+            },
+            orderBy: { serviceStyle: "asc" }
+          }
+        }
+      }),
+      prisma.kitchenStandaloneItemStatus.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          kitchenStandaloneEventId: { in: standaloneEventIds }
+        },
+        select: {
+          kitchenStandaloneEventId: true,
+          menuItemId: true,
+          status: true,
+          assignedWorkerId: true,
+          assignedWorker: { select: { name: true } }
+        }
       })
     ]);
 
@@ -190,6 +447,21 @@ export async function GET(request: Request) {
       const current = statusesByEventId.get(itemStatus.eventId) ?? [];
       current.push(itemStatus);
       statusesByEventId.set(itemStatus.eventId, current);
+    }
+    const standaloneMenuItemsById = new Map(
+      standaloneMenuItems.map((menuItem) => [menuItem.id, menuItem])
+    );
+    const standaloneStatusesByEventId = new Map<string, StandaloneStatusRow[]>();
+
+    for (const itemStatus of standaloneStatuses) {
+      const current =
+        standaloneStatusesByEventId.get(itemStatus.kitchenStandaloneEventId) ??
+        [];
+      current.push(itemStatus);
+      standaloneStatusesByEventId.set(
+        itemStatus.kitchenStandaloneEventId,
+        current
+      );
     }
 
     for (const menu of otherMeals) {
@@ -244,6 +516,31 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       events: boardEvents,
+      kitchenEvents: standaloneEvents.map((event) => {
+        const sheet = buildStandaloneKitchenSheet({
+          menuItemIds: event.menu.includedMenuItemIds,
+          menuItemsById: standaloneMenuItemsById,
+          portions: event.portions,
+          statuses: standaloneStatusesByEventId.get(event.id) ?? []
+        });
+
+        return {
+          id: event.id,
+          source: "standalone",
+          dateKey: event.eventDate.toISOString().slice(0, 10),
+          category: "Kitchen-only",
+          title: event.menuName,
+          status: "Kitchen",
+          statusType: "kitchen",
+          startsAt: null,
+          totalGuests: event.portions,
+          menuStatus: sheet.menuStatus,
+          otherMeals: [],
+          summary: sheet.summary,
+          kitchenNote: event.kitchenNote,
+          sheet
+        };
+      }),
       workers,
       menus: menuOptions.map((menu) => ({
         id: menu.id,
@@ -264,17 +561,266 @@ export async function GET(request: Request) {
   }
 }
 
+export async function POST(request: Request) {
+  try {
+    const actor = await requirePermission(request, "canAddKitchenEvents");
+    const input = kitchenStandaloneEventSchema.parse(await request.json());
+
+    const eventDate = new Date(`${input.date}T00:00:00.000Z`);
+
+    const kitchenEvent = await prisma.$transaction(async (transaction) => {
+      let menu: { id: string; name: string };
+
+      if (input.quickMenu) {
+        const uniqueDishNames = [...new Set(input.quickMenu.dishNames)];
+        const categoryId = await resolveMenuCategoryId(
+          actor.organizationId,
+          "Kitchen"
+        );
+        const createdItems = await Promise.all(
+          uniqueDishNames.map((name) =>
+            transaction.menuItem.create({
+              data: {
+                organizationId: actor.organizationId,
+                name,
+                category: "Kitchen",
+                categoryId,
+                usageType: "Both",
+                kind: "Food",
+                services: {
+                  create: {
+                    organizationId: actor.organizationId,
+                    serviceStyle: "Buffet",
+                    quantity: 1,
+                    unit: "portion",
+                    per: 1,
+                    perBasis: "TotalGuests",
+                    rounding: "Exact",
+                    minimumUnits: null
+                  }
+                }
+              },
+              select: { id: true }
+            })
+          )
+        );
+
+        menu = await transaction.eventPackage.create({
+          data: {
+            organizationId: actor.organizationId,
+            name: input.quickMenu.name,
+            includedMenuItemIds: createdItems.map((item) => item.id),
+            isActive: input.quickMenu.saveToLibrary,
+            notes: input.quickMenu.saveToLibrary
+              ? "Created from the Kitchen Dashboard."
+              : "One-time kitchen-only quick menu."
+          },
+          select: { id: true, name: true }
+        });
+      } else {
+        const existingMenu = await transaction.eventPackage.findFirst({
+          where: {
+            id: input.menuId,
+            organizationId: actor.organizationId,
+            isActive: true
+          },
+          select: { id: true, name: true }
+        });
+
+        if (!existingMenu) {
+          throw new Error("Choose an active menu for this kitchen event.");
+        }
+
+        menu = existingMenu;
+      }
+
+      return transaction.kitchenStandaloneEvent.create({
+        data: {
+          organizationId: actor.organizationId,
+          menuId: menu.id,
+          menuName: menu.name,
+          eventDate,
+          portions: input.portions,
+          kitchenNote: input.kitchenNote || null,
+          createdById: actor.id
+        },
+        select: {
+          id: true,
+          menuName: true,
+          eventDate: true,
+          portions: true,
+          kitchenNote: true
+        }
+      });
+    });
+
+    return NextResponse.json({
+      kitchenEvent: {
+        id: kitchenEvent.id,
+        dateKey: kitchenEvent.eventDate.toISOString().slice(0, 10),
+        category: "Kitchen",
+        title: kitchenEvent.menuName,
+        statusType: "kitchen",
+        startsAt: null,
+        totalGuests: kitchenEvent.portions,
+        menuStatus: "Draft",
+        otherMeals: [],
+        summary: null,
+        kitchenNote: kitchenEvent.kitchenNote
+      }
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const actor = await requireAnyPermission(request, [
       "canAssignWorkers",
       "canUpdateKitchenStatus"
     ]);
-    const input = kitchenMutationSchema.parse(await request.json());
+    const input = kitchenActionSchema.parse(await request.json());
     const isAdmin = isAdministrativeRole(actor.membership.role);
     const canAssignWorkers = isAdmin || Boolean(actor.access?.canAssignWorkers);
     const canUpdateKitchenStatus =
       isAdmin || Boolean(actor.access?.canUpdateKitchenStatus);
+
+    if (
+      input.action === "standalone-assign-worker" ||
+      input.action === "standalone-status" ||
+      input.action === "standalone-reset-status"
+    ) {
+      if (input.action === "standalone-assign-worker" && !canAssignWorkers) {
+        return NextResponse.json(
+          { error: "You do not have permission to assign kitchen workers." },
+          { status: 403 }
+        );
+      }
+
+      if (
+        (input.action === "standalone-status" ||
+          input.action === "standalone-reset-status") &&
+        !canUpdateKitchenStatus
+      ) {
+        return NextResponse.json(
+          { error: "You do not have permission to update kitchen status." },
+          { status: 403 }
+        );
+      }
+
+      const [kitchenEvent, menuItem] = await Promise.all([
+        prisma.kitchenStandaloneEvent.findFirst({
+          where: {
+            id: input.kitchenEventId,
+            organizationId: actor.organizationId
+          },
+          select: {
+            id: true,
+            menu: { select: { includedMenuItemIds: true } }
+          }
+        }),
+        prisma.menuItem.findFirst({
+          where: { id: input.menuItemId, organizationId: actor.organizationId },
+          select: { id: true, name: true }
+        })
+      ]);
+
+      if (
+        !kitchenEvent ||
+        !menuItem ||
+        !kitchenEvent.menu.includedMenuItemIds.includes(menuItem.id)
+      ) {
+        return NextResponse.json(
+          { error: "Kitchen event or menu item not found." },
+          { status: 404 }
+        );
+      }
+
+      const where = {
+        kitchenStandaloneEventId_menuItemId: {
+          kitchenStandaloneEventId: kitchenEvent.id,
+          menuItemId: menuItem.id
+        }
+      };
+
+      if (input.action === "standalone-reset-status") {
+        await prisma.kitchenStandaloneItemStatus.deleteMany({
+          where: {
+            kitchenStandaloneEventId: kitchenEvent.id,
+            menuItemId: menuItem.id
+          }
+        });
+
+        return NextResponse.json({ itemStatus: null });
+      }
+
+      if (input.action === "standalone-assign-worker") {
+        if (input.assignedWorkerId) {
+          const worker = await prisma.kitchenWorker.findFirst({
+            where: {
+              id: input.assignedWorkerId,
+              organizationId: actor.organizationId,
+              isActive: true
+            },
+            select: { id: true }
+          });
+
+          if (!worker) {
+            return NextResponse.json(
+              { error: "Kitchen worker not found." },
+              { status: 404 }
+            );
+          }
+        }
+
+        const current = await prisma.kitchenStandaloneItemStatus.findUnique({
+          where,
+          select: { id: true, status: true }
+        });
+
+        if (!input.assignedWorkerId && current && current.status == null) {
+          await prisma.kitchenStandaloneItemStatus.delete({
+            where: { id: current.id }
+          });
+
+          return NextResponse.json({ itemStatus: null });
+        }
+
+        const itemStatus = await prisma.kitchenStandaloneItemStatus.upsert({
+          where,
+          update: {
+            assignedWorkerId: input.assignedWorkerId,
+            updatedById: actor.id
+          },
+          create: {
+            organizationId: actor.organizationId,
+            kitchenStandaloneEventId: kitchenEvent.id,
+            menuItemId: menuItem.id,
+            status: null,
+            assignedWorkerId: input.assignedWorkerId,
+            updatedById: actor.id
+          }
+        });
+
+        return NextResponse.json({ itemStatus });
+      }
+
+      const itemStatus = await prisma.kitchenStandaloneItemStatus.upsert({
+        where,
+        update: { status: input.status, updatedById: actor.id },
+        create: {
+          organizationId: actor.organizationId,
+          kitchenStandaloneEventId: kitchenEvent.id,
+          menuItemId: menuItem.id,
+          status: input.status,
+          assignedWorkerId: null,
+          updatedById: actor.id
+        }
+      });
+
+      return NextResponse.json({ itemStatus });
+    }
 
     if (input.action === "assign-worker" && !canAssignWorkers) {
       return NextResponse.json(

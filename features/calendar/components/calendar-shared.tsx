@@ -7,6 +7,7 @@ export type CalendarBooking = {
   dateKey: string;
   title: string;
   hall: string;
+  hallColor: string | null;
   type: string;
   packageName?: string;
   status: CalendarStatus;
@@ -20,9 +21,14 @@ export type EventsResponse = {
     eventStatus: string;
     eventType: string | null;
     packageName: string | null;
-    hall: { id: string; name: string };
+    hall: { id: string; name: string; color: string | null };
   }>;
-  halls: Array<{ id: string; name: string }>;
+  halls: Array<{
+    id: string;
+    name: string;
+    color?: string | null;
+    dailyEventLimit?: number | null;
+  }>;
   eventTypes: Array<{ id: string; name: string }>;
   packages: Array<{ id: string; name: string }>;
   calendarSettings?: {

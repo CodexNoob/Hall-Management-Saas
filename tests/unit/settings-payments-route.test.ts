@@ -13,6 +13,9 @@ vi.mock("@/lib/prisma", () => ({
     organization: { findUniqueOrThrow: vi.fn() },
     organizationSetting: { upsert: vi.fn() },
     notificationPreference: { upsert: vi.fn() },
+    // Every hall gets the organization-wide daily event limit written to it in
+    // the same transaction.
+    hall: { updateMany: vi.fn() },
     paymentSetting: { findUnique: vi.fn(), upsert: vi.fn() },
     $transaction: vi.fn()
   }
@@ -57,10 +60,14 @@ describe("organization payment link settings", () => {
     vi.mocked(prisma.paymentSetting.upsert).mockResolvedValue({
       paymentLink: "https://secure.example.com/venue-a"
     } as never);
-    vi.mocked(prisma.$transaction).mockResolvedValue([
-      { integrations: null },
-      {}
-    ] as never);
+    // The route takes the interactive form and destructures a named object
+    // from it. Resolving to a two-element array left `settings` undefined and
+    // the handler crashed reading `.integrations` off it - a 500 the test
+    // reported only as "expected 500 to be 200". Running the callback against
+    // the same delegates keeps the assertions below pointed at real writes.
+    vi.mocked(prisma.$transaction).mockImplementation((async (
+      run: (transaction: typeof prisma) => unknown
+    ) => run(prisma)) as never);
   });
 
   it("returns the calling organization's payment link", async () => {

@@ -199,28 +199,42 @@ export async function PATCH(request: Request) {
       systemAnnouncements: input.systemAnnouncements
     };
 
-    const [settings, notifications] = await prisma.$transaction([
-      prisma.organizationSetting.upsert({
-        where: { organizationId: actor.organizationId },
-        update: organizationChanges,
-        create: { organizationId: actor.organizationId, ...organizationChanges }
-      }),
-      prisma.notificationPreference.upsert({
-        where: {
-          organizationId_userId: {
+    const { settings, notifications } = await prisma.$transaction(
+      async (transaction) => {
+        const settings = await transaction.organizationSetting.upsert({
+          where: { organizationId: actor.organizationId },
+          update: organizationChanges,
+          create: {
             organizationId: actor.organizationId,
-            userId: actor.id
+            ...organizationChanges
           }
-        },
-        update: notificationChanges,
-        create: {
-          organizationId: actor.organizationId,
-          userId: actor.id,
-          ...notificationChanges
-        }
-      })
-    ]);
+        });
 
+        if (input.dailyEventLimit !== undefined) {
+          await transaction.hall.updateMany({
+            where: { organizationId: actor.organizationId },
+            data: { dailyEventLimit: input.dailyEventLimit }
+          });
+        }
+
+        const notifications = await transaction.notificationPreference.upsert({
+          where: {
+            organizationId_userId: {
+              organizationId: actor.organizationId,
+              userId: actor.id
+            }
+          },
+          update: notificationChanges,
+          create: {
+            organizationId: actor.organizationId,
+            userId: actor.id,
+            ...notificationChanges
+          }
+        });
+
+        return { settings, notifications };
+      }
+    );
     const payments =
       input.payments !== undefined
         ? await prisma.paymentSetting.upsert({

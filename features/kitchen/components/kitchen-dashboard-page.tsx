@@ -46,6 +46,20 @@ export function KitchenDashboardPage() {
     KitchenItemActionInput,
     unknown
   >("/api/kitchen", "PATCH");
+  const addKitchenEventMutation = useAuthenticatedMutation<
+    {
+      date: string;
+      menuId?: string;
+      quickMenu?: {
+        name: string;
+        dishNames: string[];
+        saveToLibrary: boolean;
+      };
+      portions: number;
+      kitchenNote?: string;
+    },
+    { kitchenEvent: KitchenEvent & { dateKey: string } }
+  >("/api/kitchen", "POST");
   const [activeView, setActiveView] = useState<KitchenView>("today");
   const today = useMemo(() => startOfDay(new Date()), []);
   const [anchorDate, setAnchorDate] = useState(today);
@@ -55,9 +69,6 @@ export function KitchenDashboardPage() {
   const [kitchenEventDateKey, setKitchenEventDateKey] = useState(() =>
     dateKey(today)
   );
-  const [createdKitchenEvents, setCreatedKitchenEvents] = useState<
-    Array<KitchenEvent & { dateKey: string }>
-  >([]);
   const [selectedKitchenEvent, setSelectedKitchenEvent] =
     useState<KitchenEvent | null>(null);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
@@ -73,6 +84,7 @@ export function KitchenDashboardPage() {
       // coincidence, in a second place, with nothing keeping the two in step.
       const kitchenEvent: KitchenEvent = {
         id: event.id,
+        source: "booking",
         category: event.hall.name,
         title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
         status: event.eventStatus,
@@ -102,7 +114,7 @@ export function KitchenDashboardPage() {
       eventsByDate.set(key, current);
     }
 
-    for (const event of createdKitchenEvents) {
+    for (const event of kitchenQuery.data?.kitchenEvents ?? []) {
       const current = eventsByDate.get(event.dateKey) ?? [];
       current.push(event);
       eventsByDate.set(event.dateKey, current);
@@ -134,7 +146,6 @@ export function KitchenDashboardPage() {
   }, [
     activeView,
     anchorDate,
-    createdKitchenEvents,
     kitchenQuery.data,
     pageSearchQuery,
     today
@@ -172,30 +183,29 @@ export function KitchenDashboardPage() {
     setAnchorDate(today);
   }
 
-  function addKitchenEvent(values: AddKitchenEventFormValues) {
+  async function addKitchenEvent(values: AddKitchenEventFormValues) {
     if (!canAddKitchenEvent) return;
 
-    setCreatedKitchenEvents((current) => [
-      ...current,
-      {
-        id: crypto.randomUUID(),
-        dateKey: kitchenEventDateKey,
-        category: "Kitchen",
-        // The menu is the title: a kitchen event exists to cook one, so the
-        // card names what to make rather than a label someone typed.
-        title: values.menuName,
-        statusType: "kitchen",
-        startsAt: null,
-        // The form's own validation guarantees a whole number of at least one.
-        totalGuests: Number(values.portions),
-        menuStatus: "Draft",
-        // No menu document behind a hand-added event, so no production to be
-        // part-way through and no other meals to be missing. Still browser-only
-        // state, as it always was.
-        otherMeals: [],
-        summary: null
-      }
-    ]);
+    const isQuickMenu = Boolean(values.quickMenuName && values.quickMenuDishes);
+
+    await addKitchenEventMutation.mutate({
+      date: kitchenEventDateKey,
+      ...(isQuickMenu
+        ? {
+            quickMenu: {
+              name: values.quickMenuName,
+              dishNames: values.quickMenuDishes
+                .split(/\r?\n/)
+                .map((dish) => dish.trim())
+                .filter(Boolean),
+              saveToLibrary: values.saveQuickMenuToLibrary
+            }
+          }
+        : { menuId: values.menuId }),
+      portions: Number(values.portions),
+      kitchenNote: values.kitchenNote || undefined
+    });
+    await kitchenQuery.refetch();
   }
 
   function openAddKitchenEvent(targetDateKey: string) {
@@ -205,6 +215,15 @@ export function KitchenDashboardPage() {
 
   async function saveKitchenItemAction(input: KitchenItemActionInput) {
     await kitchenMutation.mutate(input);
+    if (
+      input.action === "standalone-status" ||
+      input.action === "standalone-reset-status" ||
+      input.action === "standalone-assign-worker"
+    ) {
+      await kitchenQuery.refetch();
+      return;
+    }
+
     // Both views of the same write: the board's cards carry the progress ratio,
     // and the open dialog - along with the event workspace's Kitchen tab - read
     // the per-event sheet. Refetching only the board would leave the row the

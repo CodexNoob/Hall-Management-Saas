@@ -134,9 +134,15 @@ export function KitchenHeader({
             {now ? formatClock(now) : "--:--"}
           </p>
 
+          {/* Allowed to shrink, unlike the clock beside it. Both were
+              `shrink-0`, so on a phone their combined natural width was wider
+              than the row and the strip ran off the right edge - which the
+              page's `overflow-x-hidden` then cut off mid-tab rather than
+              revealed. Equal thirds of whatever is left fits "4 Weeks" down to
+              a 320px screen. */}
           <nav
             aria-label="Kitchen board range"
-            className="grid shrink-0 grid-cols-3 gap-1 rounded-xl border border-[#b9c2cf] bg-[#fbfcfd] p-1"
+            className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-[#b9c2cf] bg-[#fbfcfd] p-1 xl:flex-initial"
           >
             {tabs.map((tab) => {
               const active = activeView === tab.value;
@@ -144,7 +150,7 @@ export function KitchenHeader({
               return (
                 <button
                   aria-current={active ? "page" : undefined}
-                  className={`h-9 min-w-0 whitespace-nowrap rounded-lg px-3 text-xs font-black transition sm:min-w-20 sm:text-sm ${
+                  className={`h-9 min-w-0 truncate rounded-lg px-2 text-xs font-black transition sm:min-w-20 sm:px-3 sm:text-sm ${
                     active
                       ? "bg-[#1f4d73] text-white shadow-sm"
                       : "text-[#516071] hover:bg-[#eef4fa] hover:text-[#17202a]"
