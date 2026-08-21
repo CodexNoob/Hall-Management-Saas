@@ -207,6 +207,15 @@ export function KitchenDashboardPage() {
     // the per-event sheet. Refetching only the board would leave the row the
     // user just ticked showing its old status.
     invalidateAuthenticatedQuery(`/api/events/${input.eventId}/kitchen`);
+
+    // A swap is the one action here that rewrites the menu itself, which the
+    // event workspace's Menu tab reads through a route of its own - and answers
+    // from cache for two minutes, so without this it would go on offering the
+    // dish the kitchen has just taken off.
+    if (input.action === "replace-menu-item") {
+      invalidateAuthenticatedQuery(`/api/events/${input.eventId}/menu`);
+    }
+
     await kitchenQuery.refetch();
   }
 
