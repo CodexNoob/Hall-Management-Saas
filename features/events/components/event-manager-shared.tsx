@@ -260,6 +260,24 @@ export type EventMenuDocumentResponse = {
   menu: EventMenuDocument;
 };
 
+/**
+ * One edit the user has made and the tab has not had answered yet.
+ *
+ * Tagged with the urls it belongs to because the menu tab is not remounted when
+ * the sidebar selects another event - untagged, an edit made on one event would
+ * be drawn over the next one's menu and saved against the wrong url.
+ */
+export type PendingMenuWrite = {
+  url: string;
+  kitchenUrl: string;
+  /// The menu as the user now wants it. Every further edit builds on this
+  /// rather than on the cache, so a burst of clicks composes.
+  menu: EventMenuDocument;
+  /// Bumped on every edit. How the sync loop tells whether the menu it has
+  /// just saved is still the menu the user is looking at.
+  seq: number;
+};
+
 /// One event's kitchen sheet, read from /api/events/[eventId]/kitchen.
 ///
 /// The quantities arrive already worked out, because the counts they divide are

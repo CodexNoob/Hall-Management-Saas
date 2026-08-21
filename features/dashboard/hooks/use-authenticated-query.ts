@@ -31,6 +31,12 @@ type QueryRecord<T> = {
   /** 0 until a response has landed, which is what "never loaded" means here. */
   updatedAt: number;
   isFetching: boolean;
+  /**
+   * Bumped every time `data` is replaced, by a read or by a mutation writing
+   * its answer in. A read that started before the number moved is answering
+   * about a version of the row that has since been superseded; see runQuery.
+   */
+  dataVersion: number;
 };
 
 // Dashboard data remains immediately reusable while navigating between modules.
@@ -48,7 +54,8 @@ const EMPTY_RECORD: QueryRecord<unknown> = {
   data: null,
   error: null,
   updatedAt: 0,
-  isFetching: false
+  isFetching: false,
+  dataVersion: 0
 };
 
 const entries = new Map<string, QueryRecord<unknown>>();
@@ -125,8 +132,17 @@ function evictOverflow() {
   }
 }
 
+// Monotonic across every entry, so a record's dataVersion can be captured and
+// compared without holding on to the record itself.
+let dataWrites = 0;
+
 function writeRecord(key: string, patch: Partial<QueryRecord<unknown>>) {
   const next = { ...readRecord(key), ...patch };
+
+  if ("data" in patch) {
+    dataWrites += 1;
+    next.dataVersion = dataWrites;
+  }
 
   // Deleted before it is set so the map's insertion order is write order,
   // which is the recency order evictOverflow walks.
@@ -161,20 +177,32 @@ function runQuery<T>(key: string, url: string): Promise<T | null> {
   if (existing) return existing;
 
   const requestGeneration = cacheGeneration;
+  // What this read is answering about. A mutation that lands while it is in the
+  // air moves this on, and its answer is the newer truth: writing this response
+  // over it would put the row the user has just changed back on screen until
+  // something else happened to refetch. That is how a menu item removed while a
+  // background refresh was in flight came back a moment later.
+  const readingVersion = readRecord(key).dataVersion;
 
   writeRecord(key, { isFetching: true });
 
   const request = authenticatedFetch(url)
     .then(readJson<T>)
     .then((data) => {
-      if (requestGeneration === cacheGeneration) {
-        writeRecord(key, {
-          data,
-          error: null,
-          updatedAt: Date.now(),
-          isFetching: false
-        });
+      if (requestGeneration !== cacheGeneration) return data;
+
+      if (readRecord(key).dataVersion !== readingVersion) {
+        writeRecord(key, { isFetching: false });
+
+        return data;
       }
+
+      writeRecord(key, {
+        data,
+        error: null,
+        updatedAt: Date.now(),
+        isFetching: false
+      });
 
       return data;
     })

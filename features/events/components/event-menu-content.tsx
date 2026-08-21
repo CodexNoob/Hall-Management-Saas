@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MENU_SECTIONS,
   MenuItemSelectorDrawer,
@@ -32,7 +32,8 @@ import {
   type EventMenuDocument,
   type EventMenuDocumentResponse,
   type EventMenuLine,
-  type EventMenuResponse
+  type EventMenuResponse,
+  type PendingMenuWrite
 } from "@/features/events/components/event-manager-shared";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -168,24 +169,44 @@ export function EventMenuContent({
   const [isPackageSelectorOpen, setIsPackageSelectorOpen] = useState(false);
   const [selectorSection, setSelectorSection] = useState<MenuSection>("Buffet");
   const [message, setMessage] = useState("");
+  const [isFailure, setIsFailure] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  // What the user has just done, shown while the write is in the air. Tagged
-  // with the url it belongs to because this component is not remounted when the
-  // sidebar selects another event - untagged, an optimistic menu would stay on
-  // screen over the next event's, which is how this tab used to show the
-  // previous event's dishes for as long as the new ones took to arrive.
-  const [pendingMenu, setPendingMenu] = useState<{
+  // Two kinds of write, because they interrupt the user differently. A dish
+  // added or removed syncs in the background and never blocks the next click;
+  // a package swap or a confirmation rewrites the whole line set at once, so
+  // everything else is held until it answers rather than being built on a menu
+  // that is about to be replaced.
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isCommitting, setIsCommitting] = useState(false);
+  const isSaving = isSyncing || isCommitting;
+
+  // What the user has just done, shown while the write is in the air.
+  const [pendingWrite, setPendingWrite] = useState<PendingMenuWrite | null>(
+    null
+  );
+  // The same value, readable without waiting for a render. Two clicks land in
+  // two separate events but the second one's handler still closes over the
+  // render before it, so building the next edit off state would let a fast
+  // second click undo the first.
+  const pendingRef = useRef<PendingMenuWrite | null>(null);
+  const editSeq = useRef(0);
+  const isFlushing = useRef(false);
+
+  // The action that was just taken and the lines it replaced. Removing a dish
+  // is one small click on a grid of them, so it is worth being able to take
+  // back without hunting the library for what was there.
+  const [undoOffer, setUndoOffer] = useState<{
     url: string;
-    menu: EventMenuDocument;
+    label: string;
+    lines: EventMenuLine[];
   } | null>(null);
 
   // The cache is the source of truth; the overlay only wins while it belongs to
   // the event on screen. Nothing is mirrored into state, so a cache hit renders
   // the menu on the first paint rather than a frame later.
   const menu =
-    pendingMenu?.url === menuUrl
-      ? pendingMenu.menu
+    pendingWrite?.url === menuUrl
+      ? pendingWrite.menu
       : (documentQuery.data?.menu ?? null);
 
   const isConfirmed = menu?.status === "Confirmed";
@@ -336,6 +357,26 @@ export function EventMenuContent({
   // way, but how much - and the answer belongs to the library, not the line.
   const linesNeedingRule = useMemo(() => rulelessLines(lines), [lines]);
 
+  const say = (text: string, failed = false) => {
+    setMessage(text);
+    setIsFailure(failed);
+  };
+
+  const setPending = (next: PendingMenuWrite | null) => {
+    pendingRef.current = next;
+    setPendingWrite(next);
+  };
+
+  /**
+   * The menu the next edit builds on: what is on screen right now, including
+   * edits the server has not answered yet. Read through the ref rather than
+   * `menu` so a second click in the same frame sees the first one.
+   */
+  const workingMenu = () =>
+    pendingRef.current?.url === menuUrl
+      ? pendingRef.current.menu
+      : (documentQuery.data?.menu ?? null);
+
   /**
    * One write to this event's menu, whichever route it goes through.
    *
@@ -345,6 +386,9 @@ export function EventMenuContent({
    * user should see while the request is in the air; dropping the overlay is
    * the whole rollback, because the cache still holds what the server last
    * confirmed.
+   *
+   * This is the blocking half - a package on or off, a confirmation. Dish edits
+   * go through the sync loop below instead, which does not make the user wait.
    */
   const commitMenu = async (
     optimistic: EventMenuDocument | null,
@@ -352,10 +396,19 @@ export function EventMenuContent({
     fallbackMessage: string,
     { refreshEvent = false }: { refreshEvent?: boolean } = {}
   ) => {
-    if (optimistic) setPendingMenu({ url: menuUrl, menu: optimistic });
+    if (optimistic) {
+      editSeq.current += 1;
+      setPending({
+        url: menuUrl,
+        kitchenUrl,
+        menu: optimistic,
+        seq: editSeq.current
+      });
+    }
 
-    setIsSaving(true);
-    setMessage("");
+    setIsCommitting(true);
+    setUndoOffer(null);
+    say("");
 
     try {
       const response = await send();
@@ -365,8 +418,8 @@ export function EventMenuContent({
       } | null;
 
       if (!response.ok || !payload?.menu) {
-        setPendingMenu(null);
-        setMessage(payload?.error ?? fallbackMessage);
+        setPending(null);
+        say(payload?.error ?? fallbackMessage, true);
 
         // A conflict means somebody else's version is the real one, so pull it
         // rather than leaving the stale one on screen.
@@ -384,7 +437,7 @@ export function EventMenuContent({
       /// The kitchen tab reads these same lines through its own route, so a
       /// write here has to age that entry too.
       invalidateAuthenticatedQuery(kitchenUrl);
-      setPendingMenu(null);
+      setPending(null);
 
       // Only for writes that touch the event row itself - the package name and
       // the confirmation flag are read all over the manager, and re-reading the
@@ -393,52 +446,179 @@ export function EventMenuContent({
 
       return payload.menu;
     } catch {
-      setPendingMenu(null);
-      setMessage(fallbackMessage);
+      setPending(null);
+      say(fallbackMessage, true);
 
       return null;
     } finally {
-      setIsSaving(false);
+      setIsCommitting(false);
+    }
+  };
+
+  /** Puts the server's menu back on screen. The cache still holds it, so
+      dropping the overlay is the whole rollback. */
+  const rollback = (write: PendingMenuWrite, text: string) => {
+    if (pendingRef.current?.url === write.url) setPending(null);
+
+    setUndoOffer(null);
+    say(text, true);
+  };
+
+  /**
+   * Sends one queued edit and writes the answer into the cache.
+   *
+   * False means the save was refused, which is the signal for the loop below to
+   * stop: anything queued behind this was built on a menu the server never
+   * accepted, and sending it would only compound the disagreement.
+   */
+  const sendPendingWrite = async (write: PendingMenuWrite) => {
+    try {
+      const response = await authenticatedFetch(write.url, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          meal: write.menu.meal,
+          version: write.menu.version,
+          lines: write.menu.lines.map((line) =>
+            line.kind === "AddOn"
+              ? {
+                  addOnId: line.addOnId,
+                  notes: line.notes,
+                  source: line.source
+                }
+              : {
+                  menuItemId: line.menuItemId,
+                  serviceStyle: line.serviceStyle,
+                  notes: line.notes,
+                  // Sent back as it was read, so a dish the package put here
+                  // is still the package's after an unrelated edit.
+                  source: line.source
+                }
+          )
+        })
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        menu?: EventMenuDocument;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload?.menu) {
+        rollback(write, payload?.error ?? "Could not save the menu.");
+
+        // Somebody else's version is the real one, so pull it rather than
+        // leaving the stale one on screen.
+        if (response.status === 409) invalidateAuthenticatedQuery(write.url);
+
+        return false;
+      }
+
+      setAuthenticatedQueryData<EventMenuDocumentResponse>(write.url, {
+        menu: payload.menu
+      });
+      /// The kitchen tab reads these same lines through its own route.
+      invalidateAuthenticatedQuery(write.kitchenUrl);
+
+      const queued = pendingRef.current;
+
+      // Another click landed while this was in the air. Its lines are what the
+      // user wants, but its version is one the server has already moved past -
+      // carry the new one across or the follow-up write is answered 409 and the
+      // dish the user removed comes back.
+      if (queued && queued.url === write.url && queued.seq !== write.seq) {
+        setPending({
+          ...queued,
+          menu: {
+            ...queued.menu,
+            id: payload.menu.id,
+            status: payload.menu.status,
+            version: payload.menu.version
+          }
+        });
+      }
+
+      return true;
+    } catch {
+      rollback(write, "Could not save the menu.");
+
+      return false;
     }
   };
 
   /**
-   * Sends the menu the user now wants. Every add and remove goes through here,
-   * which is the whole point of the rewrite: the previous version only ever
-   * saved as part of confirming, so a menu built and left unconfirmed was gone
-   * on the next reload.
+   * Sends what the user wants, one request at a time, until the screen and the
+   * server agree.
+   *
+   * The PUT replaces the whole line set, so a burst of clicks does not need a
+   * request each - only the state the user ends on is worth sending, and the
+   * ones in between collapse into it. That is also what keeps two writes from
+   * carrying the same version, which is how removing two dishes quickly used to
+   * end with the second one back on screen: the first save answered, the
+   * overlay came off, and the second was refused as a conflict.
    */
-  const saveLines = async (nextLines: EventMenuLine[]) => {
-    if (!menu) return;
+  const flushPending = async () => {
+    if (isFlushing.current) return;
 
-    await commitMenu(
-      { ...menu, lines: nextLines },
-      () =>
-        authenticatedFetch(menuUrl, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            meal: menu.meal,
-            version: menu.version,
-            lines: nextLines.map((line) =>
-              line.kind === "AddOn"
-                ? {
-                    addOnId: line.addOnId,
-                    notes: line.notes,
-                    source: line.source
-                  }
-                : {
-                    menuItemId: line.menuItemId,
-                    serviceStyle: line.serviceStyle,
-                    notes: line.notes,
-                    // Sent back as it was read, so a dish the package put here
-                    // is still the package's after an unrelated edit.
-                    source: line.source
-                  }
-            )
-          })
-        }),
-      "Could not save the menu."
+    isFlushing.current = true;
+    setIsSyncing(true);
+
+    try {
+      while (pendingRef.current) {
+        const write = pendingRef.current;
+
+        if (!(await sendPendingWrite(write))) return;
+
+        // Nothing new arrived while that was saving, so what the server just
+        // confirmed is what is on screen and the overlay has nothing left to
+        // say. Otherwise go round again with the newer edit.
+        if (pendingRef.current?.seq === write.seq) {
+          setPending(null);
+
+          return;
+        }
+      }
+    } finally {
+      isFlushing.current = false;
+      setIsSyncing(false);
+    }
+  };
+
+  /** Puts the menu the user now wants on screen and starts the sync loop. */
+  const queueEdit = (
+    next: EventMenuDocument,
+    undo: { label: string; lines: EventMenuLine[] } | null = null
+  ) => {
+    editSeq.current += 1;
+    setPending({
+      url: menuUrl,
+      kitchenUrl,
+      menu: next,
+      seq: editSeq.current
+    });
+    setUndoOffer(undo ? { url: menuUrl, ...undo } : null);
+    say("");
+
+    void flushPending();
+  };
+
+  /**
+   * Every add and remove goes through here, which is the whole point of the
+   * rewrite: the previous version only ever saved as part of confirming, so a
+   * menu built and left unconfirmed was gone on the next reload.
+   *
+   * The next lines are computed from the working copy rather than passed in, so
+   * a click that lands before the last one has rendered still builds on it.
+   */
+  const editLines = (
+    nextLines: (current: EventMenuDocument) => EventMenuLine[],
+    undoLabel?: string
+  ) => {
+    const current = workingMenu();
+
+    if (!current) return;
+
+    queueEdit(
+      { ...current, lines: nextLines(current) },
+      undoLabel ? { label: undoLabel, lines: current.lines } : null
     );
   };
 
@@ -507,7 +687,7 @@ export function EventMenuContent({
         (line) => line.source === "Package"
       ).length;
 
-      setMessage(
+      say(
         `${option.name} added - ${added} dish${added === 1 ? "" : "es"} on this menu.`
       );
     }
@@ -532,7 +712,7 @@ export function EventMenuContent({
       { refreshEvent: true }
     );
 
-    if (saved) setMessage("Package removed.");
+    if (saved) say("Package removed.");
   };
 
   /**
@@ -543,10 +723,13 @@ export function EventMenuContent({
   const addSelections = (selections: MenuSelection[]) => {
     setIsSelectorOpen(false);
 
-    if (!menu) return;
+    const current = workingMenu();
 
+    if (!current) return;
+
+    const taken = new Set(current.lines.map(targetId));
     const fresh = selections
-      .filter(({ item }) => !selectedIds.has(item.id))
+      .filter(({ item }) => !taken.has(item.id))
       .map(({ item, section }, index) => ({
         // Provisional until the server answers with the real rows.
         id: `pending-${item.id}`,
@@ -562,36 +745,58 @@ export function EventMenuContent({
         availableStyles: item.styles,
         price: item.price,
         notes: null,
-        sortOrder: lines.length + index,
+        sortOrder: current.lines.length + index,
         source: "Manual",
         isRetired: false
       }));
 
     if (fresh.length === 0) return;
 
-    void saveLines([...lines, ...fresh]);
+    queueEdit(
+      { ...current, lines: [...current.lines, ...fresh] },
+      {
+        label: `${fresh.length} item${fresh.length === 1 ? "" : "s"} added.`,
+        lines: current.lines
+      }
+    );
   };
 
   const removeLine = (line: EventMenuLine) => {
-    void saveLines(lines.filter((candidate) => candidate.id !== line.id));
+    editLines(
+      (current) => current.lines.filter((candidate) => candidate.id !== line.id),
+      `${line.name} removed.`
+    );
   };
 
   const clearSection = (section: MenuSection) => {
-    void saveLines(
-      lines.filter((line) =>
-        section === "AddOn"
-          ? line.kind !== "AddOn"
-          : !(line.kind === "Dish" && line.serviceStyle === section)
-      )
+    editLines(
+      (current) =>
+        current.lines.filter((line) =>
+          section === "AddOn"
+            ? line.kind !== "AddOn"
+            : !(line.kind === "Dish" && line.serviceStyle === section)
+        ),
+      `${section === "AddOn" ? "Add-ons" : `${section} dishes`} cleared.`
     );
   };
 
   const assignStyle = (line: EventMenuLine, serviceStyle: string) => {
-    void saveLines(
-      lines.map((candidate) =>
+    editLines((current) =>
+      current.lines.map((candidate) =>
         candidate.id === line.id ? { ...candidate, serviceStyle } : candidate
       )
     );
+  };
+
+  /** Puts back the line set the last edit replaced. */
+  const undoLastEdit = () => {
+    const offer = undoOffer;
+    const current = workingMenu();
+
+    if (!offer || offer.url !== menuUrl || !current) return;
+
+    queueEdit({ ...current, lines: offer.lines });
+    say("Change undone.");
   };
 
   const openSelector = (section: MenuSection) => {
@@ -613,6 +818,34 @@ export function EventMenuContent({
 
     await Promise.all([documentQuery.refetch(), libraryQuery.refetch()]);
   };
+
+  // A moment's grace after a click, not a history. Left up, the offer would sit
+  // there long after the user had moved on and read as though the menu were
+  // still unsettled.
+  useEffect(() => {
+    if (!undoOffer) return;
+
+    const timer = window.setTimeout(() => setUndoOffer(null), 8000);
+
+    return () => window.clearTimeout(timer);
+  }, [undoOffer]);
+
+  // "Saving..." only once a save is slow enough to be worth saying. A dish
+  // removal usually answers in well under this, and a label that blinks on and
+  // off with every click is noise that reads as instability.
+  const [showSaving, setShowSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isSaving) {
+      setShowSaving(false);
+
+      return;
+    }
+
+    const timer = window.setTimeout(() => setShowSaving(true), 400);
+
+    return () => window.clearTimeout(timer);
+  }, [isSaving]);
 
   useEffect(() => {
     if (!isReviewOpen) return;
@@ -659,7 +892,7 @@ export function EventMenuContent({
     if (!saved) return;
 
     setIsReviewOpen(false);
-    setMessage(confirming ? "Menu confirmed." : "Menu reopened.");
+    say(confirming ? "Menu confirmed." : "Menu reopened.");
   };
 
   return (
@@ -695,10 +928,10 @@ export function EventMenuContent({
                 type="button"
                 onClick={() => {
                   if (lines.length === 0) {
-                    setMessage("Add at least one menu item before confirming.");
+                    say("Add at least one menu item before confirming.", true);
                     return;
                   }
-                  setMessage("");
+                  say("");
                   setIsReviewOpen(true);
                 }}
               >
@@ -707,16 +940,38 @@ export function EventMenuContent({
               </button>
             )}
           </div>
-          {message ? (
-            <span className="text-xs text-[#516174]" role="status">
-              {message}
-            </span>
-          ) : null}
-          {!message && isSaving ? (
-            <span className="text-xs text-[#516174]" role="status">
-              Saving...
-            </span>
-          ) : null}
+          {/* Its own row, always drawn. Slotted between the heading and the
+              buttons it would shove them sideways every time a save started,
+              and these fire on every click. */}
+          <div
+            aria-live="polite"
+            className="flex min-h-4 w-full items-center gap-2"
+            role="status"
+          >
+            {message ? (
+              <span
+                className={`text-xs ${isFailure ? "font-black text-[#c3291b]" : "text-[#516174]"}`}
+              >
+                {message}
+              </span>
+            ) : undoOffer?.url === menuUrl ? (
+              <>
+                <span className="text-xs text-[#516174]">
+                  {undoOffer.label}
+                </span>
+                <button
+                  className="text-xs font-black text-[#1f4d73] underline underline-offset-2 hover:text-[#15344f] disabled:opacity-50"
+                  disabled={isConfirmed || isCommitting}
+                  onClick={undoLastEdit}
+                  type="button"
+                >
+                  Undo
+                </button>
+              </>
+            ) : showSaving ? (
+              <span className="text-xs text-[#516174]">Saving...</span>
+            ) : null}
+          </div>
         </header>
 
         {documentQuery.isLoading ? (
@@ -771,7 +1026,7 @@ export function EventMenuContent({
                         ).map((style) => (
                           <button
                             className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
-                            disabled={isSaving || isConfirmed}
+                            disabled={isCommitting || isConfirmed}
                             key={style}
                             onClick={() => assignStyle(line, style)}
                             type="button"
@@ -782,7 +1037,7 @@ export function EventMenuContent({
                         <button
                           aria-label={`Remove ${line.name}`}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
-                          disabled={isSaving || isConfirmed}
+                          disabled={isCommitting || isConfirmed}
                           onClick={() => removeLine(line)}
                           type="button"
                         >
@@ -826,7 +1081,7 @@ export function EventMenuContent({
                           : priceFormatter.format(line.price)
                       }
                       onRemove={() => removeLine(line)}
-                      disabled={isConfirmed}
+                      disabled={isConfirmed || isCommitting}
                     />
                   ))}
                   <AddMenuCard
@@ -836,7 +1091,7 @@ export function EventMenuContent({
                         : `Add ${section.label.toLowerCase()} item`
                     }
                     onClick={() => openSelector(section.id)}
-                    disabled={isConfirmed}
+                    disabled={isConfirmed || isCommitting}
                   />
                 </div>
               </section>
