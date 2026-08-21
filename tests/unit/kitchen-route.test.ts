@@ -145,6 +145,30 @@ function dishLine(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/**
+ * The board makes two `eventMenu.findMany` calls and they want different
+ * answers: the `Main` menu it draws, and the meals it cannot draw.
+ *
+ * Discriminated on the `where` - `meal: "Main"` against `meal: { not: "Main" }`
+ * - rather than on call order, so a test setting one up does not silently
+ * answer the other, which is exactly how a spurious "meals not shown" would get
+ * into a test about something else.
+ */
+function mockMenus({
+  main = [],
+  other = []
+}: {
+  main?: Array<Record<string, unknown>>;
+  other?: Array<Record<string, unknown>>;
+} = {}) {
+  vi.mocked(prisma.eventMenu.findMany).mockImplementation((({
+    where
+  }: {
+    where: { meal?: unknown };
+  }) =>
+    Promise.resolve(typeof where.meal === "object" ? other : main)) as never);
+}
+
 async function readBoard(response: Response) {
   return (await response.json()) as {
     events: Array<Record<string, unknown>>;
@@ -160,7 +184,7 @@ describe("kitchen dashboard route", () => {
     vi.mocked(requirePermission).mockResolvedValue(actor as never);
     vi.mocked(requireAnyPermission).mockResolvedValue(actor as never);
     vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
+    mockMenus();
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({
@@ -261,31 +285,33 @@ describe("kitchen dashboard route", () => {
     });
 
     it("summarises progress from the event's real menu lines", async () => {
-      vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([
-        {
-          eventId,
-          meal: "Main",
-          status: "Confirmed",
-          confirmedAt: null,
-          version: 2,
-          lines: [
-            dishLine(),
-            // No style and no rule: nothing to cook to, so it needs someone to
-            // go and say rather than being cooked as zero.
-            dishLine({
-              id: "line-2",
-              menuItemId: otherMenuItemId,
-              serviceStyle: null,
-              menuItem: {
-                name: "Israeli salad",
-                isActive: true,
-                picturePath: null,
-                services: []
-              }
-            })
-          ]
-        }
-      ] as never);
+      mockMenus({
+        main: [
+          {
+            eventId,
+            meal: "Main",
+            status: "Confirmed",
+            confirmedAt: null,
+            version: 2,
+            lines: [
+              dishLine(),
+              // No style and no rule: nothing to cook to, so it needs someone
+              // to go and say rather than being cooked as zero.
+              dishLine({
+                id: "line-2",
+                menuItemId: otherMenuItemId,
+                serviceStyle: null,
+                menuItem: {
+                  name: "Israeli salad",
+                  isActive: true,
+                  picturePath: null,
+                  services: []
+                }
+              })
+            ]
+          }
+        ]
+      });
       vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([
         {
           eventId,
@@ -327,10 +353,37 @@ describe("kitchen dashboard route", () => {
 
       await GET(request());
 
-      // Two queries for the window, not two per event: the board spans four
-      // weeks, so per-event reads would be up to a hundred round-trips.
-      expect(prisma.eventMenu.findMany).toHaveBeenCalledTimes(1);
+      // Three queries for the window, not three per event: the board spans four
+      // weeks, so per-event reads would be up to a hundred round-trips. The
+      // menu count is two of them - the Main menu it draws, and the meals it
+      // cannot - and neither grows with the number of events.
+      expect(prisma.eventMenu.findMany).toHaveBeenCalledTimes(2);
       expect(prisma.kitchenItemStatus.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it("names the meals the board is not showing", async () => {
+      // The board draws `Main` and nothing else. An event serving three meals
+      // would otherwise report its Main menu as the whole job - "8/8 done" over
+      // a quarter of the cooking, with no error and no empty state.
+      mockMenus({
+        other: [
+          { eventId, meal: "ShabbosDay" },
+          { eventId, meal: "FridayNight" }
+        ]
+      });
+
+      const board = await readBoard(await GET(request()));
+
+      expect(board.events[0].otherMeals).toEqual(["ShabbosDay", "FridayNight"]);
+      expect(
+        vi.mocked(prisma.eventMenu.findMany).mock.calls[1]?.[0]?.where
+      ).toMatchObject({ meal: { not: "Main" }, organizationId });
+    });
+
+    it("reports no other meals for an event serving only Main", async () => {
+      const board = await readBoard(await GET(request()));
+
+      expect(board.events[0].otherMeals).toEqual([]);
     });
 
     it("no longer offers the menu library to the board", async () => {

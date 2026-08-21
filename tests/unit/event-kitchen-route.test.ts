@@ -14,7 +14,9 @@ vi.mock("@/lib/auth/server-auth", () => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: { findFirst: vi.fn() },
-    eventMenu: { findUnique: vi.fn() },
+    // `findMany` is the meals this sheet is not showing, asked for alongside
+    // the one it is.
+    eventMenu: { findUnique: vi.fn(), findMany: vi.fn() },
     kitchenItemStatus: { findMany: vi.fn() }
   }
 }));
@@ -138,6 +140,7 @@ describe("event kitchen route", () => {
     );
     vi.mocked(prisma.event.findFirst).mockResolvedValue(eventRow() as never);
     vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
   });
 
@@ -499,5 +502,35 @@ describe("event kitchen route", () => {
         where: { eventId_meal: { eventId, meal: "ShabbosDay" } }
       })
     );
+  });
+
+  it("names the meals this sheet is not showing", async () => {
+    vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([
+      { meal: "FridayNight" },
+      { meal: "ShabbosDay" }
+    ] as never);
+
+    const sheet = await readSheet(await GET(request(), { params }));
+
+    expect(sheet.otherMeals).toEqual(["FridayNight", "ShabbosDay"]);
+  });
+
+  it("counts the other meals against the meal that was asked for", async () => {
+    // Not against `Main`. This route already takes `?meal=`, so keying the
+    // exclusion off the request is what stops the notice going stale the day
+    // something calls it with a meal picker behind it.
+    await GET(request("?meal=ShabbosDay"), { params });
+
+    expect(prisma.eventMenu.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ meal: { not: "ShabbosDay" } })
+      })
+    );
+  });
+
+  it("reports no other meals for an event serving only Main", async () => {
+    const sheet = await readSheet(await GET(request(), { params }));
+
+    expect(sheet.otherMeals).toEqual([]);
   });
 });

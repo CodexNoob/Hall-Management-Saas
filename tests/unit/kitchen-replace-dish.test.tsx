@@ -65,6 +65,7 @@ function sheet(
   return {
     meal: "Main",
     menuStatus,
+    otherMeals: [],
     confirmedAt: null,
     version: 1,
     counts: {
@@ -135,6 +136,7 @@ const boardEvent: KitchenEvent = {
   startsAt: "2026-08-20T18:00:00.000Z",
   totalGuests: 187,
   menuStatus: "Draft",
+  otherMeals: [],
   summary: sheet([line()]).summary
 };
 

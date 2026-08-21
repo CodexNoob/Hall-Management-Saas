@@ -2,6 +2,7 @@
 
 import { Badge } from "@/features/events/components/event-manager-shared";
 import {
+  formatMealsNotShown,
   formatProgress,
   formatServeTime,
   progressFraction,
@@ -33,6 +34,10 @@ export function KitchenEventCard({
   const progress = formatProgress(event.summary);
   const fraction = progressFraction(event.summary);
   const needsAttention = event.summary?.needsAttention ?? 0;
+  // Everything above this line describes one meal. This says how many more
+  // there are, because the ratio and the bar are otherwise read as the whole
+  // job when they are a fraction of it.
+  const mealsNotShown = formatMealsNotShown(event.otherMeals);
 
   if (compact) {
     return (
@@ -43,7 +48,7 @@ export function KitchenEventCard({
             : "border-[#c9d2de] bg-white text-[#17202a] hover:border-[#1f4d73] hover:bg-[#eef4fa]"
         }`}
         onClick={() => onSelect(event)}
-        title={`${serveTime} · ${event.title}${progress ? ` · ${progress}` : ""}`}
+        title={`${serveTime} · ${event.title}${progress ? ` · ${progress}` : ""}${mealsNotShown ? ` · ${mealsNotShown}` : ""}`}
         type="button"
       >
         <span
@@ -138,6 +143,12 @@ export function KitchenEventCard({
             {needsAttention} need{needsAttention === 1 ? "s" : ""} a quantity
           </Badge>
         ) : null}
+
+        {/* The other reason this card can be complete and wrong at the same
+            time: the board draws one meal, and a Shabbos event is three or
+            four. Red rather than gold - like the quantity badge above, this is
+            food that will not get cooked unless somebody acts. */}
+        {mealsNotShown ? <Badge tone="red">{mealsNotShown}</Badge> : null}
 
         <span className="ml-auto text-[11px] font-black tabular-nums text-[#6a7483]">
           {event.totalGuests} portions

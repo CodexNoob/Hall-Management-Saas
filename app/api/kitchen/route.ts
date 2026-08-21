@@ -153,7 +153,7 @@ export async function GET(request: Request) {
     // Two queries for the whole window rather than two per event. The board
     // spans four weeks, so the per-event route's shape - which is the right one
     // for a single event - would be up to a hundred round-trips here.
-    const [menus, statuses] = await Promise.all([
+    const [menus, otherMeals, statuses] = await Promise.all([
       prisma.eventMenu.findMany({
         where: {
           eventId: { in: eventIds },
@@ -161,6 +161,17 @@ export async function GET(request: Request) {
           meal: DEFAULT_MEAL
         },
         select: { ...kitchenMenuSelect, eventId: true }
+      }),
+      // The meals this board cannot draw. Ids and names only - the lines behind
+      // them are not rendered anywhere yet, and four weeks of a second menu's
+      // dishes is a large response for a badge saying they exist.
+      prisma.eventMenu.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId,
+          meal: { not: DEFAULT_MEAL }
+        },
+        select: { eventId: true, meal: true }
       }),
       prisma.kitchenItemStatus.findMany({
         where: {
@@ -173,11 +184,18 @@ export async function GET(request: Request) {
 
     const menuByEventId = new Map(menus.map((menu) => [menu.eventId, menu]));
     const statusesByEventId = new Map<string, StatusRow[]>();
+    const otherMealsByEventId = new Map<string, string[]>();
 
     for (const itemStatus of statuses) {
       const current = statusesByEventId.get(itemStatus.eventId) ?? [];
       current.push(itemStatus);
       statusesByEventId.set(itemStatus.eventId, current);
+    }
+
+    for (const menu of otherMeals) {
+      const current = otherMealsByEventId.get(menu.eventId) ?? [];
+      current.push(menu.meal);
+      otherMealsByEventId.set(menu.eventId, current);
     }
 
     const boardEvents = events.map((event) => {
@@ -189,6 +207,7 @@ export async function GET(request: Request) {
         event,
         meal: DEFAULT_MEAL,
         menu: menuByEventId.get(event.id) ?? null,
+        otherMeals: otherMealsByEventId.get(event.id) ?? [],
         statuses: statusesByEventId.get(event.id) ?? []
       });
 
@@ -205,6 +224,7 @@ export async function GET(request: Request) {
         // dish list is fetched per event by the details dialog, from the route
         // that already signs its pictures.
         menuStatus: sheet.menuStatus,
+        otherMeals: sheet.otherMeals,
         counts: sheet.counts,
         summary: sheet.summary
       };

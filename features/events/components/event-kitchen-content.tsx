@@ -18,6 +18,10 @@ import {
   LineQuantity,
   LineStatus
 } from "@/features/kitchen/components/kitchen-line-presentation";
+import {
+  formatOtherMeals,
+  mealLabel
+} from "@/features/kitchen/components/kitchen-shared";
 
 /**
  * What this event's kitchen has to cook, and how far along it is.
@@ -212,6 +216,10 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
   );
   const canOpenKitchenBoard = useDashboardPermission("canViewKitchenDashboard");
   const sheet = kitchenQuery.data?.kitchen ?? null;
+  // This tab asks for no meal, so the route answers `Main`. Until it offers a
+  // picker, saying which meals it is not showing is the difference between an
+  // incomplete sheet and one that looks finished.
+  const otherMeals = sheet?.otherMeals ?? [];
 
   return (
     <section className="dashboard-panel-enter min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
@@ -249,6 +257,21 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
         </div>
       </header>
 
+      {/* Above the sheet rather than inside it, because the case this exists
+          for is an event whose only menu is a non-Main one - where the sheet
+          itself renders as "no menu yet" and the notice is the only thing on
+          screen telling the truth. */}
+      {otherMeals.length > 0 ? (
+        <p
+          className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+          role="status"
+        >
+          {formatOtherMeals(otherMeals)}{" "}
+          {otherMeals.length === 1 ? "is" : "are"} not shown here. This sheet is
+          the {mealLabel(sheet?.meal ?? "Main")} meal only.
+        </p>
+      ) : null}
+
       {kitchenQuery.isLoading ? (
         <EventKitchenSkeleton />
       ) : kitchenQuery.error ? (
@@ -261,8 +284,16 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       ) : !sheet || sheet.lines.length === 0 ? (
         <div className="p-4">
           <AsyncState
-            emptyMessage="Add dishes on the Menu tab and this sheet fills in with what to cook."
-            emptyTitle="No menu for this event yet"
+            emptyMessage={
+              otherMeals.length > 0
+                ? "This event's dishes are on another meal, which this sheet cannot show yet."
+                : "Add dishes on the Menu tab and this sheet fills in with what to cook."
+            }
+            emptyTitle={
+              otherMeals.length > 0
+                ? `Nothing on the ${mealLabel(sheet?.meal ?? "Main")} meal`
+                : "No menu for this event yet"
+            }
             isEmpty
           />
         </div>
