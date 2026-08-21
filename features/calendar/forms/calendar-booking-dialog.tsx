@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useMemo,
   useState,
   type FormEvent
 } from "react";
@@ -23,6 +24,8 @@ import {
 } from "@/features/bookings/validations/booking-form.schema";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { DEFAULT_PHONE_COUNTRY } from "@/lib/validation/phone";
+
+const OTHER_EVENT_TYPE_ID = "calendar-other-event-type";
 
 type BookingPayload = {
   clientName: string;
@@ -48,6 +51,7 @@ type CalendarBookingDialogProps = {
   halls: BookingLookupOption[];
   eventTypes: BookingLookupOption[];
   onClose: () => void;
+  onEventTypesChanged: () => void | Promise<void>;
   onSaved: () => void | Promise<void>;
 };
 
@@ -73,6 +77,7 @@ export function CalendarBookingDialog({
   halls,
   eventTypes,
   onClose,
+  onEventTypesChanged,
   onSaved
 }: CalendarBookingDialogProps) {
   const titleId = useId();
@@ -81,14 +86,31 @@ export function CalendarBookingDialog({
     BookingPayload,
     { event: { id: string } }
   >("/api/events");
+  const eventTypeMutation = useAuthenticatedMutation<
+    { name: string; isActive: boolean; validDays: number[] },
+    { eventType: BookingLookupOption }
+  >("/api/event-types");
   const { resetError } = bookingMutation;
 
   const [values, setValues] = useState<BookingFormValues>(
     emptyBookingFormValues
   );
   const [errors, setErrors] = useState<BookingFormErrors>({});
+  const [createdEventTypes, setCreatedEventTypes] = useState<
+    BookingLookupOption[]
+  >([]);
+  const [otherEventTypeName, setOtherEventTypeName] = useState("");
   const [phoneCountry, setPhoneCountry] =
     useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
+  const availableEventTypes = useMemo(() => {
+    const byId = new Map<string, BookingLookupOption>();
+    for (const eventType of [...eventTypes, ...createdEventTypes]) {
+      byId.set(eventType.id, eventType);
+    }
+    return Array.from(byId.values()).sort((left, right) =>
+      left.name.localeCompare(right.name)
+    );
+  }, [createdEventTypes, eventTypes]);
 
   useEffect(() => {
     if (!open) return;
@@ -97,10 +119,12 @@ export function CalendarBookingDialog({
       ...emptyBookingFormValues,
       eventDate: selectedDate,
       hallId: halls[0]?.id ?? "",
-      eventTypeId: eventTypes[0]?.id ?? ""
+      eventTypeId: availableEventTypes[0]?.id ?? ""
     });
 
     setErrors({});
+    setOtherEventTypeName("");
+    eventTypeMutation.resetError();
     resetError();
 
     const previousOverflow = document.body.style.overflow;
@@ -136,19 +160,20 @@ export function CalendarBookingDialog({
   // Event types load on the same request as the halls, and the field is
   // required, so it needs the same late-arrival fill.
   useEffect(() => {
-    if (!open || !eventTypes.length) return;
+    if (!open || !availableEventTypes.length) return;
 
     setValues((current) =>
       current.eventTypeId
         ? current
-        : { ...current, eventTypeId: eventTypes[0].id }
+        : { ...current, eventTypeId: availableEventTypes[0].id }
     );
-  }, [eventTypes, open]);
+  }, [availableEventTypes, open]);
 
   if (!open) return null;
 
   const updateValue = (field: keyof BookingFormValues, value: string) => {
     resetError();
+    eventTypeMutation.resetError();
     setErrors((current) => ({
       ...current,
       [field]: undefined,
@@ -164,17 +189,51 @@ export function CalendarBookingDialog({
       ...current,
       [field]: value
     }));
+
+    if (field === "eventTypeId" && value !== OTHER_EVENT_TYPE_ID) {
+      setOtherEventTypeName("");
+    }
   };
 
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>
   ) => {
     event.preventDefault();
+    let eventTypeId = values.eventTypeId;
+
+    if (eventTypeId === OTHER_EVENT_TYPE_ID) {
+      const name = otherEventTypeName.trim();
+      if (!name) {
+        setErrors((current) => ({
+          ...current,
+          eventTypeId: "Enter the new event type name."
+        }));
+        return;
+      }
+
+      try {
+        const result = await eventTypeMutation.mutate({
+          name,
+          isActive: true,
+          validDays: []
+        });
+        eventTypeId = result.eventType.id;
+        setCreatedEventTypes((current) => [...current, result.eventType]);
+        setValues((current) => ({
+          ...current,
+          eventTypeId: result.eventType.id
+        }));
+        setOtherEventTypeName("");
+        await onEventTypesChanged();
+      } catch {
+        return;
+      }
+    }
 
     // One schema for the whole form, sharing the phone and count vocabulary the
     // route handler validates with, so the two layers cannot disagree.
     const parsed = bookingFormSchema({ country: phoneCountry }).safeParse(
-      values
+      { ...values, eventTypeId }
     );
 
     if (!parsed.success) {
@@ -190,7 +249,7 @@ export function CalendarBookingDialog({
         phone: parsed.data.phone,
         eventDate: parsed.data.eventDate,
         hallId: parsed.data.hallId,
-        eventTypeId: parsed.data.eventTypeId,
+        eventTypeId,
         // The status picker is gone: a booking made from the calendar is always
         // a hold, which is what the picker defaulted to.
         bookingStatus: "TENTATIVE_HOLD",
@@ -266,12 +325,50 @@ export function CalendarBookingDialog({
             <BookingFormFields
               autoFocus
               errors={errors}
-              eventTypes={eventTypes}
+              eventTypes={availableEventTypes}
+              extraEventTypeOption={{
+                id: OTHER_EVENT_TYPE_ID,
+                name: "Other"
+              }}
               halls={halls}
               idPrefix="calendar"
               onChange={updateValue}
               onPhoneCountryChange={setPhoneCountry}
               phoneCountry={phoneCountry}
+              renderEventTypeExtra={() =>
+                values.eventTypeId === OTHER_EVENT_TYPE_ID ? (
+                  <div className="mt-2">
+                    <input
+                      aria-label="Other event type"
+                      className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                      maxLength={100}
+                      onChange={(event) => {
+                        eventTypeMutation.resetError();
+                        setErrors((current) => ({
+                          ...current,
+                          eventTypeId: undefined
+                        }));
+                        setOtherEventTypeName(event.target.value);
+                      }}
+                      placeholder="Type new event type"
+                      value={otherEventTypeName}
+                    />
+                    {eventTypeMutation.error ? (
+                      <p
+                        className="mt-1 text-[10px] font-bold text-[#b42318]"
+                        role="alert"
+                      >
+                        {eventTypeMutation.error}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
+                        This type will be saved to Event Type Settings when the
+                        booking is saved.
+                      </p>
+                    )}
+                  </div>
+                ) : null
+              }
               values={values}
             />
 
@@ -296,10 +393,10 @@ export function CalendarBookingDialog({
 
             <button
               className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={bookingMutation.isPending}
+              disabled={bookingMutation.isPending || eventTypeMutation.isPending}
               type="submit"
             >
-              {bookingMutation.isPending
+              {bookingMutation.isPending || eventTypeMutation.isPending
                 ? "Saving..."
                 : "Save booking"}
             </button>

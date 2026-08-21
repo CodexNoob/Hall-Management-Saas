@@ -283,6 +283,7 @@ export function MenuItemSelectorDrawer({
                       ? "border-[#1f4d73] bg-[#eef4fa] ring-1 ring-[#1f4d73]"
                       : "border-[#d8dde5] bg-white hover:bg-[#fbfcfd] disabled:hover:bg-white"
                   }`}
+                  data-testid={`menu-selector-item-${item.id}`}
                   disabled={isAdded}
                   key={item.id}
                   onClick={() => toggle(item)}

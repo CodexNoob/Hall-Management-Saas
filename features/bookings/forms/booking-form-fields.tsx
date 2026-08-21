@@ -1,6 +1,7 @@
 "use client";
 
 import type { CountryCode } from "libphonenumber-js";
+import type { ReactNode } from "react";
 
 import { PhoneField } from "@/components/ui/phone-field";
 import type {
@@ -34,11 +35,13 @@ type BookingFormFieldsProps = {
   columns?: 2 | 3;
   errors: BookingFormErrors;
   eventTypes: BookingLookupOption[];
+  extraEventTypeOption?: BookingLookupOption;
   halls: BookingLookupOption[];
   /** Keeps ids unique when more than one booking form is on a page. */
   idPrefix: string;
   onChange: (field: keyof BookingFormValues, value: string) => void;
   onPhoneCountryChange: (country: CountryCode) => void;
+  renderEventTypeExtra?: () => ReactNode;
   phoneCountry: CountryCode;
   values: BookingFormValues;
 };
@@ -77,10 +80,12 @@ export function BookingFormFields({
   columns = 2,
   errors,
   eventTypes,
+  extraEventTypeOption,
   halls,
   idPrefix,
   onChange,
   onPhoneCountryChange,
+  renderEventTypeExtra,
   phoneCountry,
   values
 }: BookingFormFieldsProps) {
@@ -202,12 +207,18 @@ export function BookingFormFields({
               {eventType.name}
             </option>
           ))}
+          {extraEventTypeOption ? (
+            <option value={extraEventTypeOption.id}>
+              {extraEventTypeOption.name}
+            </option>
+          ) : null}
         </select>
         {errors.eventTypeId ? (
           <FieldError id={errorId("event-type")}>
             {errors.eventTypeId}
           </FieldError>
         ) : null}
+        {renderEventTypeExtra ? renderEventTypeExtra() : null}
       </div>
 
       <div>

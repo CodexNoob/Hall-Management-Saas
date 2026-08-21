@@ -14,6 +14,7 @@ type Hall = {
   id: string;
   name: string;
   capacity: number | null;
+  dailyEventLimit: number | null;
   basePrice: string | number | null;
   perCouplePrice: string | number | null;
   memberBasePrice: string | number | null;
@@ -40,6 +41,7 @@ type HallInput = {
   id?: string;
   name: string;
   capacity: number | null;
+  dailyEventLimit: number | null;
   basePrice: number | null;
   perCouplePrice: number | null;
   memberBasePrice: number | null;
@@ -58,6 +60,7 @@ type HallFormState = {
   id?: string;
   name: string;
   capacity: string;
+  dailyEventLimit: string;
   basePrice: string;
   perCouplePrice: string;
   memberBasePrice: string;
@@ -69,6 +72,7 @@ type HallFormState = {
 
 type HallNumericField =
   | "capacity"
+  | "dailyEventLimit"
   | "basePrice"
   | "perCouplePrice"
   | "memberBasePrice"
@@ -77,6 +81,7 @@ type HallNumericField =
 const emptyHall: HallFormState = {
   name: "",
   capacity: "",
+  dailyEventLimit: "",
   basePrice: "",
   perCouplePrice: "",
   memberBasePrice: "",
@@ -213,6 +218,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
     invalidateAuthenticatedQuery("/api/events");
     invalidateAuthenticatedQuery("/api/hall-maps");
     invalidateAuthenticatedQuery("/api/calendar");
+    invalidateAuthenticatedQuery("/api/settings");
   }
 
   function openCreate() {
@@ -233,6 +239,8 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       id: hall.id,
       name: hall.name,
       capacity: hall.capacity === null ? "" : String(hall.capacity),
+      dailyEventLimit:
+        hall.dailyEventLimit === null ? "" : String(hall.dailyEventLimit),
       basePrice: moneyText(hall.basePrice),
       perCouplePrice: moneyText(hall.perCouplePrice),
       memberBasePrice: moneyText(hall.memberBasePrice),
@@ -264,6 +272,15 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       capacity: {
         raw: form.capacity,
         schema: countSchema({ min: 1, label: "Capacity" }),
+        allowEmpty: true
+      },
+      dailyEventLimit: {
+        raw: form.dailyEventLimit,
+        schema: countSchema({
+          min: 1,
+          max: 50,
+          label: "Events allowed per day"
+        }),
         allowEmpty: true
       },
       basePrice: {
@@ -299,6 +316,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
     const payload: HallInput = {
       name,
       capacity: numbers.values.capacity,
+      dailyEventLimit: numbers.values.dailyEventLimit,
       basePrice: numbers.values.basePrice,
       perCouplePrice: numbers.values.perCouplePrice,
       memberBasePrice: numbers.values.memberBasePrice,
@@ -332,6 +350,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
         id: hall.id,
         name: hall.name,
         capacity: hall.capacity,
+        dailyEventLimit: hall.dailyEventLimit,
         basePrice: normalizeMoneyValue(hall.basePrice),
         perCouplePrice: normalizeMoneyValue(hall.perCouplePrice),
         memberBasePrice: normalizeMoneyValue(hall.memberBasePrice),
@@ -593,6 +612,42 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                       {fieldErrors.capacity}
                     </p>
                   ) : null}
+                </label>
+                <label className="block text-xs font-black">
+                  Events allowed per day
+                  <input
+                    aria-describedby={
+                      fieldErrors.dailyEventLimit
+                        ? "hall-daily-event-limit-error"
+                        : undefined
+                    }
+                    aria-invalid={
+                      fieldErrors.dailyEventLimit ? true : undefined
+                    }
+                    className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
+                    id="hall-daily-event-limit"
+                    inputMode="decimal"
+                    name="hallDailyEventLimit"
+                    onChange={(event) =>
+                      updateField("dailyEventLimit", event.target.value)
+                    }
+                    placeholder="Calendar default"
+                    type="text"
+                    value={form.dailyEventLimit}
+                  />
+                  {fieldErrors.dailyEventLimit ? (
+                    <p
+                      className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                      id="hall-daily-event-limit-error"
+                      role="alert"
+                    >
+                      {fieldErrors.dailyEventLimit}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[10px] font-medium text-[#617086]">
+                      Leave blank to use the Calendar default.
+                    </p>
+                  )}
                 </label>
                 <label className="block text-xs font-black">
                   Calendar color

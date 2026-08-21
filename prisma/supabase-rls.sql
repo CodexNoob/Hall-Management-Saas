@@ -74,6 +74,8 @@ BEGIN
     'add_ons',
     'kitchen_workers',
     'kitchen_item_statuses',
+    'kitchen_standalone_events',
+    'kitchen_standalone_item_statuses',
     'kitchen_notifications',
     'school_cycles',
     'member_shuls',

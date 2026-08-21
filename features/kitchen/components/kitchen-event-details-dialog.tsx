@@ -63,6 +63,23 @@ export type KitchenItemActionInput =
       eventId: string;
       menuItemId: string;
       replacementMenuItemId: string;
+    }
+  | {
+      action: "standalone-status";
+      kitchenEventId: string;
+      menuItemId: string;
+      status: "PENDING" | "COMPLETE";
+    }
+  | {
+      action: "standalone-reset-status";
+      kitchenEventId: string;
+      menuItemId: string;
+    }
+  | {
+      action: "standalone-assign-worker";
+      kitchenEventId: string;
+      menuItemId: string;
+      assignedWorkerId: string | null;
     };
 
 /**
@@ -163,6 +180,7 @@ function DishCard({
   onReplace,
   onSaveItemAction,
   permissions,
+  canReplace = true,
   workers
 }: {
   isSaving: boolean;
@@ -170,6 +188,7 @@ function DishCard({
   onReplace: (line: EventKitchenLine) => void;
   onSaveItemAction: (input: LineActionInput) => Promise<void>;
   permissions: KitchenPermissions;
+  canReplace?: boolean;
   workers: KitchenResponse["workers"];
 }) {
   const pendingClick = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -320,7 +339,7 @@ function DishCard({
             </label>
           ) : null}
 
-          {permissions.canUpdateKitchenStatus ? (
+          {permissions.canUpdateKitchenStatus && canReplace ? (
             <button
               aria-label={`Replace ${line.name}`}
               className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
@@ -345,14 +364,13 @@ function KitchenEventDetails({
   permissions,
   workers
 }: DetailsProps) {
-  // A hand-added kitchen event has no booking behind it, so there is no sheet
-  // to ask for. Fetching would 404 on an id that exists only in this browser.
-  const hasSheet = event.summary !== null;
+  const isStandalone = event.source === "standalone";
+  const hasSheet = isStandalone ? Boolean(event.sheet) : event.summary !== null;
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`,
-    hasSheet
+    hasSheet && !isStandalone
   );
-  const sheet = kitchenQuery.data?.kitchen ?? null;
+  const sheet = isStandalone ? (event.sheet ?? null) : (kitchenQuery.data?.kitchen ?? null);
   const hold = event.statusType === "hold";
   const dishes = sheet?.lines.filter((line) => line.kind === "Dish") ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
@@ -377,6 +395,38 @@ function KitchenEventDetails({
 
   /** The board's PATCH wants the event id on every action; the rows do not. */
   async function saveForEvent(input: LineActionInput) {
+    if (isStandalone) {
+      if (input.action === "status") {
+        await onSaveItemAction({
+          action: "standalone-status",
+          kitchenEventId: event.id,
+          menuItemId: input.menuItemId,
+          status: input.status
+        });
+        return;
+      }
+
+      if (input.action === "reset-status") {
+        await onSaveItemAction({
+          action: "standalone-reset-status",
+          kitchenEventId: event.id,
+          menuItemId: input.menuItemId
+        });
+        return;
+      }
+
+      if (input.action === "assign-worker") {
+        await onSaveItemAction({
+          action: "standalone-assign-worker",
+          kitchenEventId: event.id,
+          menuItemId: input.menuItemId,
+          assignedWorkerId: input.assignedWorkerId
+        });
+      }
+
+      return;
+    }
+
     await onSaveItemAction({ ...input, eventId: event.id });
   }
 
@@ -511,7 +561,7 @@ function KitchenEventDetails({
               {!hasSheet ? (
                 <div className="p-4">
                   <AsyncState
-                    emptyMessage="Kitchen events added by hand have no menu behind them, so there is nothing to count."
+                    emptyMessage="This kitchen event does not have any dishes to track yet."
                     emptyTitle="No production sheet"
                     isEmpty
                   />
@@ -536,6 +586,7 @@ function KitchenEventDetails({
                 <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
                   {dishes.map((line) => (
                     <DishCard
+                      canReplace={!isStandalone}
                       isSaving={isSaving}
                       key={line.id}
                       line={line}

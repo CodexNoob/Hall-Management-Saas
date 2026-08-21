@@ -23,7 +23,7 @@ export function KitchenToolbar({
           full-width dashed placeholder box - the shape this product uses for
           "nothing here yet", which is the opposite of what it does. */}
       <button
-        className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+        className="inline-flex h-11 grow items-center justify-center gap-2 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white shadow-sm transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 sm:grow-0 sm:justify-start"
         disabled={!canAddKitchenEvent}
         onClick={onAddKitchenEvent}
         type="button"
@@ -37,7 +37,7 @@ export function KitchenToolbar({
           control that consumes them is one click away inside an event. */}
       {canManageWorkers ? (
         <button
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+          className="inline-flex h-11 grow items-center justify-center gap-2 rounded-xl border border-[#b9c2cf] bg-white px-4 text-sm font-bold text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] sm:grow-0 sm:justify-start"
           onClick={onManageWorkers}
           type="button"
         >

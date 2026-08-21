@@ -18,6 +18,7 @@ export type KitchenView = "today" | "week" | "four-weeks";
  */
 export type KitchenEvent = {
   id: string;
+  source?: "booking" | "standalone";
   category: string;
   title: string;
   status?: string;
@@ -33,6 +34,8 @@ export type KitchenEvent = {
   /// on every hand-added kitchen event, which has no menu document at all.
   otherMeals: string[];
   summary: EventKitchenSheet["summary"] | null;
+  kitchenNote?: string | null;
+  sheet?: EventKitchenSheet;
 };
 
 export type KitchenDay = {
@@ -69,6 +72,7 @@ export type KitchenResponse = {
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
   }>;
+  kitchenEvents: Array<KitchenEvent & { dateKey: string }>;
   workers: Array<{ id: string; name: string; isStaff: boolean }>;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;
@@ -217,10 +221,13 @@ export function formatOtherMeals(meals: string[]) {
  * addition to what the card is already reporting, which is the whole point -
  * the ratio above it is measuring a fraction of the work.
  */
-export function formatMealsNotShown(meals: string[]) {
-  if (meals.length === 0) return null;
+export function formatMealsNotShown(meals: string[] | null | undefined) {
+  const visibleMeals = meals ?? [];
+  if (visibleMeals.length === 0) return null;
 
-  return `+${meals.length} meal${meals.length === 1 ? "" : "s"} not shown`;
+  return `+${visibleMeals.length} meal${
+    visibleMeals.length === 1 ? "" : "s"
+  } not shown`;
 }
 
 /**
