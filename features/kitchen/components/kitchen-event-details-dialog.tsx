@@ -14,7 +14,9 @@ import {
 } from "@/features/kitchen/components/kitchen-line-presentation";
 import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
 import {
+  formatOtherMeals,
   formatServeTime,
+  mealLabel,
   type KitchenEvent,
   type KitchenResponse
 } from "@/features/kitchen/components/kitchen-shared";
@@ -369,6 +371,9 @@ function KitchenEventDetails({
   // the sheet instead made an event with three dishes announce "No menu behind
   // this event" for as long as its own request was in flight.
   const summary = event.summary;
+  // Same reason as `summary`: the board's payload already answers this, so the
+  // notice is on the first frame rather than appearing once the sheet lands.
+  const otherMeals = sheet?.otherMeals ?? event.otherMeals;
 
   /** The board's PATCH wants the event id on every action; the rows do not. */
   async function saveForEvent(input: LineActionInput) {
@@ -474,6 +479,20 @@ function KitchenEventDetails({
                   value={summary ? summary.needsAttention : "—"}
                 />
               </div>
+
+              {/* Before the counting problems, because this one is about work
+                  that is not on this sheet at all: every number above is the
+                  Main meal, and the tiles give no hint that there is more. */}
+              {otherMeals.length > 0 ? (
+                <p
+                  className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                  role="status"
+                >
+                  {formatOtherMeals(otherMeals)}{" "}
+                  {otherMeals.length === 1 ? "is" : "are"} not shown here. This
+                  sheet is the {mealLabel(sheet?.meal ?? "Main")} meal only.
+                </p>
+              ) : null}
 
               {summary && summary.needsAttention > 0 ? (
                 <p

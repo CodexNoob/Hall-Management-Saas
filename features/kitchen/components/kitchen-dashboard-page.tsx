@@ -82,6 +82,7 @@ export function KitchenDashboardPage() {
         startsAt: event.startsAt,
         totalGuests: event.counts.totalGuests,
         menuStatus: event.menuStatus,
+        otherMeals: event.otherMeals,
         summary: event.summary
       };
       if (
@@ -189,7 +190,9 @@ export function KitchenDashboardPage() {
         totalGuests: Number(values.portions),
         menuStatus: "Draft",
         // No menu document behind a hand-added event, so no production to be
-        // part-way through. Still browser-only state, as it always was.
+        // part-way through and no other meals to be missing. Still browser-only
+        // state, as it always was.
+        otherMeals: [],
         summary: null
       }
     ]);

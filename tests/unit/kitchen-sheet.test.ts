@@ -401,4 +401,25 @@ describe("kitchen sheet builder", () => {
     expect(sheet.lines).toEqual([]);
     expect(sheet.summary).toMatchObject({ dishes: 0, needsAttention: 0 });
   });
+
+  describe("the meals it is not showing", () => {
+    it("carries the ones it was given", () => {
+      const sheet = buildKitchenSheet({
+        event: event(),
+        meal: "Main",
+        menu: null,
+        otherMeals: ["FridayNight", "ShabbosDay"],
+        statuses: []
+      });
+
+      expect(sheet.otherMeals).toEqual(["FridayNight", "ShabbosDay"]);
+    });
+
+    it("answers none when the caller asked for none", () => {
+      // The builder takes rows and returns a sheet - only the caller can query,
+      // so an omitted list is "nobody looked", answered as the empty list every
+      // event has today rather than as undefined a surface has to guard.
+      expect(build([line()]).otherMeals).toEqual([]);
+    });
+  });
 });

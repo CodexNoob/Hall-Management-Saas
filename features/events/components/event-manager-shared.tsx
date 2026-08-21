@@ -333,6 +333,11 @@ export type EventKitchenSheet = {
   /// numbers can still move. `Draft` before the first save, matching the menu
   /// route's answer for an event with no menu row yet.
   menuStatus: "Draft" | "ClientSubmitted" | "Confirmed";
+  /// The event's other `EventMenu` rows - the meals this sheet is not showing.
+  /// A Shabbos booking is genuinely three or four cooking jobs and nothing here
+  /// can draw them yet, so the sheet names them rather than letting a quarter of
+  /// the production go missing without a word.
+  otherMeals: string[];
   confirmedAt: string | null;
   version: number;
   counts: {

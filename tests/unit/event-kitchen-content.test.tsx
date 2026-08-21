@@ -104,6 +104,7 @@ function sheet(lines: EventKitchenLine[]): EventKitchenSheet {
   return {
     meal: "Main",
     menuStatus: "Draft",
+    otherMeals: [],
     confirmedAt: null,
     version: 1,
     counts: {

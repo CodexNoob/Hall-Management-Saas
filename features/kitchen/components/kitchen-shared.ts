@@ -29,6 +29,9 @@ export type KitchenEvent = {
   /// the arithmetic while implying they were in it.
   totalGuests: number;
   menuStatus: string;
+  /// The event's other `EventMenu` rows. Empty on almost every event today, and
+  /// on every hand-added kitchen event, which has no menu document at all.
+  otherMeals: string[];
   summary: EventKitchenSheet["summary"] | null;
 };
 
@@ -62,6 +65,7 @@ export type KitchenResponse = {
     packageName: string | null;
     hall: { name: string };
     menuStatus: string;
+    otherMeals: string[];
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
   }>;
@@ -163,6 +167,60 @@ export function formatServeTime(startsAt: string | null) {
   const parsed = new Date(startsAt);
 
   return Number.isNaN(parsed.getTime()) ? "—" : timeFormat.format(parsed);
+}
+
+/**
+ * The four meals, as a person says them.
+ *
+ * `EventMenu.meal` is a plain string column with no enum and no CHECK behind
+ * it, so `mealLabel` falls back to whatever it was given rather than rendering
+ * blank - the same posture every reader of `KitchenItemStatus.status` takes.
+ *
+ * The key order is the order the meals are eaten in, and `formatOtherMeals`
+ * sorts by it so the sentence does not reorder itself between requests.
+ */
+export const MEAL_LABELS: Record<string, string> = {
+  Main: "Main",
+  FridayNight: "Friday Night",
+  ShabbosDay: "Shabbos Day",
+  SeudahShlishis: "Seudah Shlishis"
+};
+
+const mealOrder = Object.keys(MEAL_LABELS);
+
+export function mealLabel(meal: string) {
+  return MEAL_LABELS[meal] ?? meal;
+}
+
+/**
+ * The meals a sheet is not showing, named.
+ *
+ * Named rather than counted because a chef reading "2 other meals" has to go
+ * and look, and what they need to know - that Friday night is not on this
+ * board - fits on the badge.
+ */
+export function formatOtherMeals(meals: string[]) {
+  const labels = [...meals]
+    .sort((left, right) => mealOrder.indexOf(left) - mealOrder.indexOf(right))
+    .map(mealLabel);
+
+  if (labels.length === 0) return "";
+  if (labels.length === 1) return labels[0];
+
+  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+}
+
+/**
+ * The card's version of the same thing, where there is no room to name them.
+ *
+ * "+2 meals not shown" rather than "2 other meals": the plus says these are in
+ * addition to what the card is already reporting, which is the whole point -
+ * the ratio above it is measuring a fraction of the work.
+ */
+export function formatMealsNotShown(meals: string[]) {
+  if (meals.length === 0) return null;
+
+  return `+${meals.length} meal${meals.length === 1 ? "" : "s"} not shown`;
 }
 
 /**

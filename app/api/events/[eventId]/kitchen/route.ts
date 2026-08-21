@@ -99,10 +99,21 @@ export async function GET(
 
     assertHallAccess(actor, event.hallId);
 
-    const [menu, statuses] = await Promise.all([
+    const [menu, otherMeals, statuses] = await Promise.all([
       prisma.eventMenu.findUnique({
         where: { eventId_meal: { eventId: id, meal } },
         select: kitchenMenuSelect
+      }),
+      // Keyed off the meal that was asked for rather than `Main`, so the day
+      // this route is called with `?meal=ShabbosDay` the answer is still the
+      // meals that sheet is not showing.
+      prisma.eventMenu.findMany({
+        where: {
+          eventId: id,
+          organizationId: actor.organizationId,
+          meal: { not: meal }
+        },
+        select: { meal: true }
       }),
       prisma.kitchenItemStatus.findMany({
         where: { eventId: id, organizationId: actor.organizationId },
@@ -120,6 +131,7 @@ export async function GET(
         event,
         meal,
         menu,
+        otherMeals: otherMeals.map((row) => row.meal),
         statuses,
         signedUrlsByPath
       })

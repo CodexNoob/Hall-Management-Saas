@@ -288,12 +288,17 @@ export function buildKitchenSheet({
   event,
   meal,
   menu,
+  otherMeals = [],
   statuses,
   signedUrlsByPath
 }: {
   event: KitchenEventRow;
   meal: string;
   menu: KitchenMenuRow | null;
+  /// The event's other `EventMenu` rows - the meals this sheet is not showing.
+  /// Passed in rather than derived: the sheet takes rows and returns a sheet,
+  /// and only the caller can query.
+  otherMeals?: string[];
   statuses: StatusRow[];
   signedUrlsByPath?: Map<string, string>;
 }) {
@@ -318,6 +323,12 @@ export function buildKitchenSheet({
 
   return {
     meal,
+    // Every read path in the kitchen shows one meal, and until a meal picker
+    // exists that meal is always `Main`. Carrying the ones it is not showing is
+    // what stops three quarters of a Shabbos event's cooking going missing with
+    // no error and no empty state: the surfaces cannot draw those meals yet,
+    // but they can say they exist.
+    otherMeals,
     // No row until the first save, answered as an empty draft rather than a
     // 404 - the same shape the menu route's emptyMenu returns.
     menuStatus: menu?.status ?? "Draft",
