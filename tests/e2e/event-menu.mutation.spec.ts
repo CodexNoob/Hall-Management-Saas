@@ -174,17 +174,21 @@ async function provisionCatalog(page: Page) {
  * outlives the test, and a package left holding something else would have a
  * later run apply a list it never asked for.
  */
-async function provisionPackage(page: Page, includedMenuItemIds: string[]) {
+async function provisionPackage(
+  page: Page,
+  includedMenuItemIds: string[],
+  packageName = PACKAGE_NAME
+) {
   const library = await readMenuLibrary(page);
   const existing = library.packages.find(
-    (entry) => entry.name === PACKAGE_NAME
+    (entry) => entry.name === packageName
   );
 
   if (!existing) {
     const created = await page.request.post("/api/menu", {
       data: {
         resource: "package",
-        name: PACKAGE_NAME,
+        name: packageName,
         regularPrice: 125,
         includedMenuItemIds
       }
@@ -192,10 +196,10 @@ async function provisionPackage(page: Page, includedMenuItemIds: string[]) {
 
     const { package: saved } = await readJson<{ package: { id: string } }>(
       created,
-      `POST /api/menu (${PACKAGE_NAME})`
+      `POST /api/menu (${packageName})`
     );
 
-    return { id: saved.id, name: PACKAGE_NAME };
+    return { id: saved.id, name: packageName };
   }
 
   const wanted = [...includedMenuItemIds].sort();
@@ -209,12 +213,20 @@ async function provisionPackage(page: Page, includedMenuItemIds: string[]) {
 
     if (!reset.ok()) {
       throw new Error(
-        `Could not reset ${PACKAGE_NAME}: ${reset.status()} ${await reset.text()}`
+        `Could not reset ${packageName}: ${reset.status()} ${await reset.text()}`
       );
     }
   }
 
-  return { id: existing.id, name: PACKAGE_NAME };
+  return { id: existing.id, name: packageName };
+}
+
+function selectorItem(page: Page, id: string) {
+  return drawer(page).getByTestId(`menu-selector-item-${id}`);
+}
+
+function removeLineButton(page: Page, id: string) {
+  return page.getByTestId(`event-menu-remove-${id}`);
 }
 
 /**
@@ -438,20 +450,20 @@ test.describe("event menu", () => {
     const eventId = await createInquiryEvent(page, `E2E Menu Bulk ${Date.now()}`);
 
     try {
-      await provisionCatalog(page);
+      const catalog = await provisionCatalog(page);
       const writes = recordMenuWrites(page, eventId);
       await openMenuTab(page, eventId);
 
       await page.getByRole("button", { name: "Add buffet item" }).click();
       await expect(drawer(page)).toBeVisible();
 
-      await drawer(page).getByRole("button", { name: BUFFET_A }).click();
-      await drawer(page).getByRole("button", { name: BUFFET_B }).click();
+      await selectorItem(page, catalog.buffetA.id).click();
+      await selectorItem(page, catalog.buffetB.id).click();
 
       // A pick made on one tab has to survive switching to another, or a mixed
       // batch is impossible.
       await drawer(page).getByRole("button", { name: "Add-ons", exact: true }).click();
-      await drawer(page).getByRole("button", { name: ADD_ON_A }).click();
+      await selectorItem(page, catalog.addOnA.id).click();
 
       const addButton = drawer(page).getByRole("button", { name: "Add 3 items" });
       await expect(addButton).toBeEnabled();
@@ -512,9 +524,7 @@ test.describe("event menu", () => {
       const stored = events.find((candidate) => candidate.id === eventId);
 
       expect(stored?.menuItemIds).toHaveLength(2);
-      expect(stored?.addOnIds).toEqual([
-        (await provisionCatalog(page)).addOnA.id
-      ]);
+      expect(stored?.addOnIds).toEqual([catalog.addOnA.id]);
     } finally {
       await cleanUp(page, eventId);
     }
@@ -532,10 +542,11 @@ test.describe("event menu", () => {
 
     try {
       const catalog = await provisionCatalog(page);
+      const packageName = `${PACKAGE_NAME} ${Date.now()}`;
       const eventPackage = await provisionPackage(page, [
         catalog.buffetA.id,
         catalog.platedA.id
-      ]);
+      ], packageName);
 
       // A dish put on by hand before the package arrives. It is what proves the
       // two are told apart: removing the package must not take this with it.
@@ -561,7 +572,7 @@ test.describe("event menu", () => {
       // Scoped to this package's card: the E2E organization accumulates
       // packages from other suites, so an unscoped count would match theirs.
       const card = packageDrawer(page).getByRole("button", {
-        name: PACKAGE_NAME
+        name: packageName
       });
 
       // What the package will do, said before it is done.
@@ -579,9 +590,14 @@ test.describe("event menu", () => {
         { timeout: 30_000 }
       );
       await packageDrawer(page)
-        .getByRole("button", { name: `Add ${PACKAGE_NAME}` })
+        .getByRole("button", { name: `Add ${packageName}` })
         .click();
-      expect((await applied).status()).toBe(200);
+      // The body is the message, not decoration: every refusal this route can
+      // give - stale version, confirmed menu, package not available, event not
+      // found - arrives as a status with a sentence explaining it, and a bare
+      // "expected 200, received 404" says none of them.
+      const appliedResponse = await applied;
+      expect(appliedResponse.status(), await appliedResponse.text()).toBe(200);
       await expect(packageDrawer(page)).toBeHidden();
 
       // Both dishes are on the menu, each filed by its own service rule, and
@@ -612,7 +628,7 @@ test.describe("event menu", () => {
       // The column the calendar, the kitchen board and the dining manager name
       // the package from.
       expect((await readStoredEvent(page, eventId))?.packageName).toBe(
-        PACKAGE_NAME
+        packageName
       );
 
       // --- and again from a cold page --------------------------------------
@@ -627,7 +643,7 @@ test.describe("event menu", () => {
       await page.getByRole("button", { name: "Remove", exact: true }).click();
 
       const confirmation = page.getByRole("dialog", {
-        name: `Remove ${PACKAGE_NAME}?`
+        name: `Remove ${packageName}?`
       });
       await expect(confirmation).toBeVisible();
 
@@ -641,7 +657,8 @@ test.describe("event menu", () => {
       await confirmation
         .getByRole("button", { name: "Remove package", exact: true })
         .click();
-      expect((await removed).status()).toBe(200);
+      const removedResponse = await removed;
+      expect(removedResponse.status(), await removedResponse.text()).toBe(200);
 
       await expect(page.getByText("No package on this event")).toBeVisible({
         timeout: 20_000
@@ -653,7 +670,7 @@ test.describe("event menu", () => {
       }
       // The whole point of the source tag: the dish staff added by hand stays.
       await expect(
-        page.getByRole("button", { name: `Remove ${BUFFET_B}` })
+        removeLineButton(page, catalog.buffetB.id)
       ).toBeVisible();
 
       const withoutPackage = await getMenu(page, eventId);
@@ -726,15 +743,15 @@ test.describe("event menu", () => {
           new URL(response.url()).pathname === `/api/events/${eventId}/menu`,
         { timeout: 30_000 }
       );
-      await page.getByRole("button", { name: `Remove ${BUFFET_A}` }).click();
+      await removeLineButton(page, catalog.buffetA.id).click();
       expect((await saved).status()).toBe(200);
 
       await expect(
-        page.getByRole("button", { name: `Remove ${BUFFET_A}` })
+        removeLineButton(page, catalog.buffetA.id)
       ).toBeHidden({ timeout: 20_000 });
       // The other one is untouched - a remove is not a clear.
       await expect(
-        page.getByRole("button", { name: `Remove ${BUFFET_B}` })
+        removeLineButton(page, catalog.buffetB.id)
       ).toBeVisible();
 
       await expect

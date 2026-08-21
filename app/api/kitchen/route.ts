@@ -535,6 +535,7 @@ export async function GET(request: Request) {
           startsAt: null,
           totalGuests: event.portions,
           menuStatus: sheet.menuStatus,
+          otherMeals: [],
           summary: sheet.summary,
           kitchenNote: event.kitchenNote,
           sheet
@@ -663,6 +664,7 @@ export async function POST(request: Request) {
         startsAt: null,
         totalGuests: kitchenEvent.portions,
         menuStatus: "Draft",
+        otherMeals: [],
         summary: null,
         kitchenNote: kitchenEvent.kitchenNote
       }

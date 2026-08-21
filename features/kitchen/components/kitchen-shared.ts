@@ -221,10 +221,13 @@ export function formatOtherMeals(meals: string[]) {
  * addition to what the card is already reporting, which is the whole point -
  * the ratio above it is measuring a fraction of the work.
  */
-export function formatMealsNotShown(meals: string[]) {
-  if (meals.length === 0) return null;
+export function formatMealsNotShown(meals: string[] | null | undefined) {
+  const visibleMeals = meals ?? [];
+  if (visibleMeals.length === 0) return null;
 
-  return `+${meals.length} meal${meals.length === 1 ? "" : "s"} not shown`;
+  return `+${visibleMeals.length} meal${
+    visibleMeals.length === 1 ? "" : "s"
+  } not shown`;
 }
 
 /**

@@ -131,9 +131,9 @@ async function provisionCatalog(page: Page) {
 /**
  * A confirmed booking the board will actually list.
  *
- * Dated between two and fourteen days out: the window the board reads is 28
- * days from today, and its four-week grid starts on this week's Sunday, so
- * anything inside a fortnight is on screen whichever weekday the run lands on.
+ * Dated inside the four-week board range. Older test databases can have enough
+ * active bookings in the first fortnight to fill every candidate date, so this
+ * walks almost the full visible board instead of only the first two weeks.
  *
  * The date is chosen the way the booking suite chooses one - first free day,
  * with its neighbours excluded - because a confirmed booking writes a hall
@@ -188,13 +188,13 @@ async function createConfirmedEvent(page: Page, clientName: string) {
         )
       )
   );
-  const candidates = Array.from({ length: 13 }, (_, index) =>
+  const candidates = Array.from({ length: 26 }, (_, index) =>
     format(addDays(new Date(), index + 2), "yyyy-MM-dd")
   ).filter((candidate) => !unavailable.has(candidate));
 
   if (candidates.length === 0) {
     throw new Error(
-      "Every date in the next fortnight already has an active booking in the E2E organization."
+      "Every date in the visible Kitchen board range already has an active booking in the E2E organization."
     );
   }
 

@@ -50,6 +50,7 @@ function targetId(line: EventMenuLine) {
 function MenuDishCard({
   badge,
   name,
+  targetId,
   detail,
   pictureUrl,
   onRemove,
@@ -57,6 +58,7 @@ function MenuDishCard({
 }: {
   badge: string;
   name: string;
+  targetId: string;
   detail?: string | null;
   pictureUrl: string | null;
   onRemove: () => void;
@@ -68,6 +70,7 @@ function MenuDishCard({
         <button
           aria-label={`Remove ${name}`}
           className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
+          data-testid={`event-menu-remove-${targetId}`}
           onClick={onRemove}
           type="button"
         >
@@ -1074,6 +1077,7 @@ export function EventMenuContent({
                       key={line.id}
                       badge={section.id === "AddOn" ? "ADD-ON" : section.label}
                       name={line.name}
+                      targetId={targetId(line)}
                       pictureUrl={line.pictureUrl}
                       detail={
                         line.price === null
