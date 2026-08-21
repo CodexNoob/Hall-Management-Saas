@@ -8,7 +8,11 @@ const mocks = vi.hoisted(() => ({
     },
     menuItem: {
       count: vi.fn()
-    }
+    },
+    activityLog: {
+      create: vi.fn()
+    },
+    $transaction: vi.fn()
   },
   requirePermission: vi.fn()
 }));
@@ -47,18 +51,39 @@ function storedEvent(overrides: Record<string, unknown> = {}) {
     boysCount: 0,
     girlsCount: 0,
     kidsCount: 0,
+    waitersCount: 0,
+    clientId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+    clientName: "Charles Duot",
     hall: { name: "Grand Ballroom", capacity: 100 },
     ...overrides
   };
 }
 
+/** The single `activityLog.create` argument, or a failure naming the count. */
+function loggedEntry() {
+  expect(mocks.prisma.activityLog.create).toHaveBeenCalledOnce();
+  return mocks.prisma.activityLog.create.mock.calls[0][0].data;
+}
+
 describe("PATCH /api/events/[eventId] guest counts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requirePermission.mockResolvedValue({ id: "user-1", organizationId });
+    mocks.requirePermission.mockResolvedValue({
+      id: "user-1",
+      name: "Sarah Klein",
+      organizationId
+    });
     mocks.prisma.event.findFirst.mockResolvedValue(storedEvent());
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
     mocks.prisma.menuItem.count.mockResolvedValue(0);
+    // Interactive transactions run the callback against the same doubles, so
+    // asserting on `event.update` covers the transactional path too.
+    mocks.prisma.$transaction.mockImplementation((callback) =>
+      callback({
+        event: { update: mocks.prisma.event.update },
+        activityLog: { create: mocks.prisma.activityLog.create }
+      })
+    );
   });
 
   it("rejects a count larger than the 32-bit column instead of 500ing", async () => {
@@ -170,5 +195,98 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
 
     expect(response.status).toBe(400);
     expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  describe("activity log", () => {
+    it("records who moved a count, and both values", async () => {
+      const response = await patch({ couplesCount: 25 });
+
+      expect(response.status).toBe(200);
+      expect(loggedEntry()).toMatchObject({
+        organizationId,
+        eventId,
+        userId: "user-1",
+        userName: "Sarah Klein",
+        actionType: "Guest Counts Changed",
+        message: "Changed guest counts for Charles Duot: couples 10 to 25.",
+        oldValue: { couplesCount: 10 },
+        newValue: { couplesCount: 25 }
+      });
+    });
+
+    it("writes one entry naming every count that moved", async () => {
+      await patch({ couplesCount: 25, kidsCount: 4, menCount: 3 });
+
+      const entry = loggedEntry();
+
+      expect(entry.message).toBe(
+        "Changed guest counts for Charles Duot: couples 10 to 25, men 0 to 3, kids 0 to 4."
+      );
+      expect(entry.oldValue).toEqual({
+        couplesCount: 10,
+        menCount: 0,
+        kidsCount: 0
+      });
+      expect(entry.newValue).toEqual({
+        couplesCount: 25,
+        menCount: 3,
+        kidsCount: 4
+      });
+    });
+
+    it("carries the client so the entry reaches the Clients page", async () => {
+      await patch({ kidsCount: 6 });
+
+      expect(loggedEntry().clientId).toBe(
+        "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+      );
+    });
+
+    it("logs waiters, which the capacity check ignores", async () => {
+      // Waiters are staff rather than attendees, so they are outside the
+      // capacity check - but the kitchen sheet reads them like every other
+      // count, so moving them moves production quantities.
+      await patch({ waitersCount: 4 });
+
+      expect(loggedEntry().message).toBe(
+        "Changed guest counts for Charles Duot: waiters 0 to 4."
+      );
+    });
+
+    it("stays quiet when the counts are resent unchanged", async () => {
+      // The details panel submits every count on every save, so a note-only
+      // edit arrives carrying all six. Logging on "was it supplied" would
+      // record a change that never happened.
+      const response = await patch({
+        couplesCount: 10,
+        menCount: 0,
+        ladiesCount: 0,
+        boysCount: 0,
+        girlsCount: 0,
+        kidsCount: 0,
+        notes: "Call the florist."
+      });
+
+      expect(response.status).toBe(200);
+      expect(mocks.prisma.event.update).toHaveBeenCalled();
+      expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+    });
+
+    it("stays quiet for a save that touches no count at all", async () => {
+      await patch({ clientName: "Jane Doe" });
+
+      expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+    });
+
+    it("writes nothing when the update itself fails", async () => {
+      // The point of the shared transaction: a count must not move with
+      // nothing saying so, and a log must not claim a move that rolled back.
+      mocks.prisma.event.update.mockRejectedValue(new Error("write conflict"));
+
+      const response = await patch({ couplesCount: 25 });
+
+      expect(response.status).toBe(500);
+      expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+    });
   });
 });

@@ -149,6 +149,57 @@ export function ReadinessPanel({ event }: { event: EventFile }) {
   );
 }
 
+const activityTimestamp = (value: string) =>
+  new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  }).format(new Date(value));
+
+/**
+ * What has been done to this event, most recent first.
+ *
+ * The eight most recent entries rather than the full history - that is what
+ * /api/events returns - so this answers "what just changed" rather than serving
+ * as an audit trail. Named accordingly.
+ */
+export function ActivityPanel({ event }: { event: EventFile }) {
+  return (
+    <section className="rounded-lg border border-[#d8dde5] bg-white">
+      <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
+        <LineIcon name="clock" />
+        <h2 className="text-sm font-black text-[#17202a]">Recent activity</h2>
+      </header>
+      <div className="space-y-3 p-3">
+        {event.activityLogs.map((entry) => (
+          <div
+            key={entry.id}
+            className="border-l-2 border-[#bfd2e2] pl-3 text-[#17202a]"
+          >
+            <strong className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+              {entry.actionType}
+            </strong>
+            <p className="mt-1 text-xs font-semibold leading-4">
+              {entry.message}
+            </p>
+            <span className="mt-1 block text-[10px] font-semibold text-[#8290a2]">
+              {entry.userName ? `${entry.userName} - ` : ""}
+              {activityTimestamp(entry.createdAt)}
+            </span>
+          </div>
+        ))}
+        {event.activityLogs.length === 0 ? (
+          <p className="text-xs font-semibold text-[#6a7483]">
+            No activity recorded yet. Changes to this event will appear here.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function countText(value: unknown) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? String(parsed) : "0";

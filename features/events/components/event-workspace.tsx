@@ -7,6 +7,7 @@ import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { EventBillingContent } from "@/features/events/components/event-billing-content";
 import { ClientPortalContent } from "@/features/events/components/event-client-portal-content";
 import {
+  ActivityPanel,
   ClientContact,
   EventInformation,
   ReadinessPanel
@@ -202,6 +203,7 @@ export function EventWorkspace({
               <aside className="space-y-3">
                 <ClientContact event={event} />
                 <ReadinessPanel event={event} />
+                <ActivityPanel event={event} />
               </aside>
             </div>
           </div>

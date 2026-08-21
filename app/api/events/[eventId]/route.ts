@@ -24,6 +24,28 @@ const countFields = [
   "girlsCount"
 ] as const;
 
+/**
+ * The counts the kitchen cooks from, and what to call each one in a log entry.
+ *
+ * Deliberately wider than `countFields`: that list drives the hall capacity
+ * check, and waiters are staff rather than attendees, so they do not belong in
+ * it - but `readHeadCounts` reads all seven, so all seven move production
+ * quantities and all seven are worth recording.
+ */
+const countLabels = {
+  couplesCount: "couples",
+  menCount: "men",
+  ladiesCount: "ladies",
+  boysCount: "boys",
+  girlsCount: "girls",
+  kidsCount: "kids",
+  waitersCount: "waiters"
+} as const;
+
+type CountField = keyof typeof countLabels;
+
+const loggedCountFields = Object.keys(countLabels) as CountField[];
+
 const updateEventSchema = z
   .object({
     clientName: z.string().trim().min(1).max(200).optional(),
@@ -134,6 +156,13 @@ export async function PATCH(
         boysCount: true,
         girlsCount: true,
         kidsCount: true,
+        // Read for the activity entry rather than the capacity check.
+        // `waitersCount` because the kitchen reads it like the rest; the client
+        // columns because the Clients page lists activity by client, and an
+        // entry with no `clientId` never reaches it.
+        waitersCount: true,
+        clientId: true,
+        clientName: true,
         hall: { select: { name: true, capacity: true } }
       }
     });
@@ -211,21 +240,63 @@ export async function PATCH(
           } as Prisma.InputJsonObject)
         : undefined;
 
-    const event = await prisma.event.update({
-      where: { id, organizationId: actor.organizationId },
-      data: {
-        ...eventChanges,
-        ...(eventType ? { eventType: eventType.name } : {}),
-        ...(sideBoxes !== undefined
-          ? { sideBoxes: sideBoxes ?? Prisma.JsonNull }
-          : {}),
-        ...(shabbosSetup !== undefined
-          ? { shabbosSetup: shabbosSetup ?? Prisma.JsonNull }
-          : {}),
-        ...(workspaceData ? { workspaceData } : {}),
-        updatedById: actor.id,
-        version: { increment: 1 }
+    // Compared against what is stored rather than merely "was it supplied":
+    // the details panel sends every count on every save, so a notes-only edit
+    // arrives carrying all six and would otherwise log a change that never
+    // happened.
+    const movedCounts = loggedCountFields.filter(
+      (field) => input[field] !== undefined && input[field] !== current[field]
+    );
+
+    const event = await prisma.$transaction(async (transaction) => {
+      const updated = await transaction.event.update({
+        where: { id, organizationId: actor.organizationId },
+        data: {
+          ...eventChanges,
+          ...(eventType ? { eventType: eventType.name } : {}),
+          ...(sideBoxes !== undefined
+            ? { sideBoxes: sideBoxes ?? Prisma.JsonNull }
+            : {}),
+          ...(shabbosSetup !== undefined
+            ? { shabbosSetup: shabbosSetup ?? Prisma.JsonNull }
+            : {}),
+          ...(workspaceData ? { workspaceData } : {}),
+          updatedById: actor.id,
+          version: { increment: 1 }
+        }
+      });
+
+      // Head counts are what the kitchen sheet cuts every quantity from, so a
+      // count that moves after the food is planned is the change most worth
+      // being able to trace back to a person. In the same transaction as the
+      // update: a lost log entry would leave the numbers changed with nothing
+      // saying so, which is the state this exists to end.
+      if (movedCounts.length > 0) {
+        await transaction.activityLog.create({
+          data: {
+            organizationId: actor.organizationId,
+            eventId: id,
+            clientId: current.clientId,
+            userId: actor.id,
+            userName: actor.name,
+            actionType: "Guest Counts Changed",
+            message: `Changed guest counts for ${current.clientName}: ${movedCounts
+              .map(
+                (field) =>
+                  `${countLabels[field]} ${current[field]} to ${input[field]}`
+              )
+              .join(", ")}.`,
+            oldValue: Object.fromEntries(
+              movedCounts.map((field) => [field, current[field]])
+            ),
+            newValue: Object.fromEntries(
+              movedCounts.map((field) => [field, input[field]])
+            )
+          }
+        });
       }
+
+      return updated;
     });
 
     return NextResponse.json({ event });

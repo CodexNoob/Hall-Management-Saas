@@ -6,7 +6,11 @@ const mocks = vi.hoisted(() => ({
     event: {
       findFirst: vi.fn(),
       update: vi.fn()
-    }
+    },
+    activityLog: {
+      create: vi.fn()
+    },
+    $transaction: vi.fn()
   }
 }));
 
@@ -43,6 +47,14 @@ describe("event timeline route", () => {
       }
     });
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
+    // The update runs inside an interactive transaction, so the callback gets
+    // the same doubles these tests already assert on.
+    mocks.prisma.$transaction.mockImplementation((callback) =>
+      callback({
+        event: { update: mocks.prisma.event.update },
+        activityLog: { create: mocks.prisma.activityLog.create }
+      })
+    );
   });
 
   it("saves timeline rows without confirming the timeline", async () => {
