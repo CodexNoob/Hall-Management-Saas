@@ -176,6 +176,9 @@ export function DiningManagerPage() {
     });
     const storedTables = validTables(plan?.tables);
     const nextTables = storedTables.length ? storedTables : defaultTables();
+    const hasPositionedTables = nextTables.some(
+      (table) => typeof table.x === "number" && typeof table.y === "number"
+    );
     setTables(nextTables);
     setSeatsPerTable(deriveSeatsPerTable(nextTables));
     setSelectedPresetId(plan?.hallMapPresetId ?? "");
@@ -183,6 +186,19 @@ export function DiningManagerPage() {
     setSelectedTableIds([]);
     setCheckMessage("");
     resetError();
+    if (hasPositionedTables) {
+      // Fit the exact layout that was just loaded for this event. A separate
+      // effect can see the previous event's tables for one render and carry its
+      // scroll position into the next event.
+      window.requestAnimationFrame(() => {
+        if (!mapViewportRef.current) return;
+        fitDiningMapTables(nextTables);
+      });
+    }
+    // Deliberately not depending on fitDiningMapTables: this effect is the
+    // event-load path only. Re-running it on every render would fight the user
+    // while they drag or pan the dining layout.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetError, selectedEvent]);
 
   const seatTotals = tables.reduce(
@@ -221,24 +237,6 @@ export function DiningManagerPage() {
   useEffect(() => {
     mapScaleRef.current = mapScale;
   }, [mapScale]);
-
-  useEffect(() => {
-    if (!hasPresetCoordinates) return;
-
-    // Fit the saved tables rather than parking on the world origin at 100%.
-    // The origin is the middle of an empty 20,000-unit canvas: a layout saved
-    // anywhere other than dead centre opened off screen, so reopening the
-    // Dining Manager appeared to lose the map. fitDiningMapTables already
-    // measures the tables, picks a scale that fits them and converts to scaled
-    // scroll coordinates, which the old inline maths did not do.
-    window.requestAnimationFrame(() => {
-      if (!mapViewportRef.current) return;
-      fitDiningMapTables();
-    });
-    // Deliberately not depending on the tables themselves: re-fitting on every
-    // change would fight the user while they drag one.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasPresetCoordinates, selectedEventId]);
 
   function updateForm<K extends keyof DiningForm>(
     field: K,
