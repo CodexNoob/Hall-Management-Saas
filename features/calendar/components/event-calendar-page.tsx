@@ -224,6 +224,11 @@ export function EventCalendarPage() {
     setVisibleMonth(startOfMonth(date));
   }
 
+  function openBookingForDate(date: Date) {
+    selectDate(date);
+    setIsNewBookingOpen(true);
+  }
+
   function moveMonth(amount: number) {
     const nextMonth = addMonths(visibleMonth, amount);
     setVisibleMonth(nextMonth);
@@ -470,17 +475,29 @@ export function EventCalendarPage() {
                             type="button"
                           />
 
-                          <div className="pointer-events-none relative z-1 flex items-start justify-between gap-2">
+                          <div className="pointer-events-none relative z-1 grid grid-cols-[1fr_auto_1fr] items-start gap-2">
                             <strong className="text-sm">
                               {calendarDay.day}
                             </strong>
                             <span
-                              className="text-[9px] font-semibold"
+                              className="justify-self-center text-center text-[9px] font-semibold"
                               dir="rtl"
                             >
                               {formatHebrewDateWithoutYear(calendarDay.date)}
                             </span>
                           </div>
+
+                          {calendarDay.currentMonth && !fullyBooked ? (
+                            <button
+                              aria-label={`Book ${dateLabel}`}
+                              className="absolute right-2 top-2 z-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#b9c2cf] bg-white text-sm font-black leading-none text-[#1f4d73] shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus:outline-none focus:ring-2 focus:ring-[#a8ccec]"
+                              onClick={() => openBookingForDate(calendarDay.date)}
+                              title={`Book ${dateLabel}`}
+                              type="button"
+                            >
+                              +
+                            </button>
+                          ) : null}
 
                           <div className="relative z-1 mt-2 space-y-1">
                             {dayBookings.map((booking) => (

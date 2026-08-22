@@ -49,7 +49,7 @@ function createEvent(overrides: Partial<EventFile> = {}): EventFile {
     },
     phone: "Not provided",
     email: "",
-    workspaceData: { timelineConfirmed: true },
+    workspaceData: { menuConfirmed: true, timelineConfirmed: true },
     ...overrides
   };
 }
@@ -82,7 +82,7 @@ describe("event readiness", () => {
       packageName: "Not assigned",
       paymentStatus: "No invoice",
       diningHallMapPreset: null,
-      workspaceData: { timelineConfirmed: false }
+      workspaceData: { menuConfirmed: false, timelineConfirmed: false }
     });
 
     const printItems = getScopedEventReadinessItems(event, "print");
@@ -99,6 +99,36 @@ describe("event readiness", () => {
     expect(printItems.find((item) => item.id === "billing")?.done).toBe(false);
     expect(getEventReadinessSummary(event, "print")).toMatchObject({
       ready: false
+    });
+  });
+
+  it("marks the menu ready only after the event menu is confirmed", () => {
+    const menuItems = getScopedEventReadinessItems(
+      createEvent({
+        packageName: "Standard",
+        workspaceData: { menuConfirmed: false, timelineConfirmed: true }
+      }),
+      "event"
+    );
+
+    expect(menuItems.find((item) => item.id === "menu")).toMatchObject({
+      done: false,
+      helper: "Review and confirm the event menu."
+    });
+
+    const confirmedMenuItems = getScopedEventReadinessItems(
+      createEvent({
+        packageName: "Not assigned",
+        workspaceData: { menuConfirmed: true, timelineConfirmed: true }
+      }),
+      "event"
+    );
+
+    expect(
+      confirmedMenuItems.find((item) => item.id === "menu")
+    ).toMatchObject({
+      done: true,
+      helper: "Menu has been reviewed and confirmed."
     });
   });
 });

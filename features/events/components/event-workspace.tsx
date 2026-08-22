@@ -216,7 +216,9 @@ export function EventWorkspace({
           <ClientPortalContent event={event} />
         ) : null}
         {activeTab === "Billing" ? <EventBillingContent /> : null}
-        {activeTab === "Hall map" ? <HallMapContent event={event} /> : null}
+        {activeTab === "Hall map" ? (
+          <HallMapContent key={event.id} event={event} />
+        ) : null}
         {activeTab === "Kitchen" ? <EventKitchenContent event={event} /> : null}
         {activeTab === "Vendors" ? <EventVendorsContent /> : null}
         {activeTab === "Files" ? (

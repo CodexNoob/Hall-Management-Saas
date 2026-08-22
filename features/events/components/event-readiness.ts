@@ -40,6 +40,10 @@ function isTimelineConfirmed(event: EventFile) {
   return event.workspaceData.timelineConfirmed === true;
 }
 
+function isMenuConfirmed(event: EventFile) {
+  return event.workspaceData.menuConfirmed === true;
+}
+
 export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
   const eventDetailsDone =
     hasValue(event.clientName) &&
@@ -47,6 +51,7 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
     hasValue(event.timeInput) &&
     hasValue(event.hallId);
   const timelineDone = isTimelineConfirmed(event);
+  const menuDone = isMenuConfirmed(event);
 
   return [
     {
@@ -79,11 +84,10 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
     {
       id: "menu",
       label: "Menu ready",
-      done: event.packageName !== "Not assigned",
-      helper:
-        event.packageName !== "Not assigned"
-          ? `${event.packageName} package is selected.`
-          : "Select a menu package.",
+      done: menuDone,
+      helper: menuDone
+        ? "Menu has been reviewed and confirmed."
+        : "Review and confirm the event menu.",
       scopes: ["event", "print"]
     },
     {
