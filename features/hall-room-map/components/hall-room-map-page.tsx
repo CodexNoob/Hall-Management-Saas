@@ -366,9 +366,9 @@ export function HallRoomMapPage() {
     setMapZoom(1);
   }
 
-  function fitAllShapes() {
+  function fitObjectsToViewport(targetObjects: MapObject[]) {
     const viewport = mapViewportRef.current;
-    const bounds = getMapObjectBounds(latestObjectsRef.current);
+    const bounds = getMapObjectBounds(targetObjects);
 
     if (!viewport || !bounds) {
       setMapZoom(1, { x: MAP_WORLD_ORIGIN, y: MAP_WORLD_ORIGIN });
@@ -388,6 +388,10 @@ export function HallRoomMapPage() {
       x: MAP_WORLD_ORIGIN + (bounds.minX + bounds.maxX) / 2,
       y: MAP_WORLD_ORIGIN + (bounds.minY + bounds.maxY) / 2
     });
+  }
+
+  function fitAllShapes() {
+    fitObjectsToViewport(latestObjectsRef.current);
   }
 
   const selectedObject =
@@ -1347,8 +1351,22 @@ export function HallRoomMapPage() {
     const nextObjects = selectedMap.objects.map((object) => ({ ...object }));
     setObjects(nextObjects);
     clearObjectSelection();
-    centerMapViewport(nextObjects);
+    window.requestAnimationFrame(() => fitObjectsToViewport(nextObjects));
     showFeedback(`${selectedMap.name} loaded.`);
+  }
+
+  function selectMapAndFit(nextMap: SavedHallMap | null) {
+    const nextObjects = nextMap?.objects.map((object) => ({ ...object })) ?? [];
+
+    setSelectedMapId(nextMap?.id ?? "");
+    setObjects(nextObjects);
+    clearObjectSelection();
+
+    if (nextObjects.length > 0) {
+      window.requestAnimationFrame(() => fitObjectsToViewport(nextObjects));
+    } else {
+      centerMapViewport(nextObjects);
+    }
   }
 
   async function saveCurrentMap() {
@@ -1550,16 +1568,10 @@ export function HallRoomMapPage() {
               const nextMap =
                 hallMaps.find((map) => map.hallId === hallId) ?? null;
               setSelectedHallId(hallId);
-              setSelectedMapId(nextMap?.id ?? "");
-              setObjects(
-                nextMap?.objects.map((object) => ({ ...object })) ?? []
-              );
-              clearObjectSelection();
+              selectMapAndFit(nextMap);
             }}
             onSelectMap={(nextMap) => {
-              setSelectedMapId(nextMap.id);
-              setObjects(nextMap.objects.map((object) => ({ ...object })));
-              clearObjectSelection();
+              selectMapAndFit(nextMap);
             }}
             selectedHallId={selectedHallId}
             selectedHallMaps={selectedHallMaps}
