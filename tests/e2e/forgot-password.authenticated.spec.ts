@@ -36,9 +36,20 @@ test("a signed-in visitor keeps their return path off the reset form", async ({
 }) => {
   // The `?next=` shape proxy.ts itself hands out. It is run through
   // getSafeDashboardReturnPath, so this doubles as the open-redirect guard.
-  await page.goto("/forgot-password?next=%2Fdashboard%2Fbilling");
-  await expect(page).toHaveURL(/\/dashboard\/billing/);
+  await page.goto("/forgot-password?next=%2Fdashboard%2Fmenu");
+  await expect(page).toHaveURL(/\/dashboard\/menu/);
 
   await page.goto("/forgot-password?next=https%3A%2F%2Fevil.example.com");
-  await expect(page).toHaveURL(/127\.0\.0\.1:3000\/dashboard$/);
+  await expect(page).toHaveURL(/127\.0\.0\.1:3000\/dashboard\/events$/);
+});
+
+test("a return path into a hidden module collapses to the landing page", async ({
+  page
+}) => {
+  // getSafeDashboardReturnPath answers a `next` naming one of the MVP's hidden
+  // modules with the landing route (lib/ui/mvp-features), rather than handing
+  // out a destination the dashboard layout would bounce straight back out of.
+  // A stale bookmark is the realistic way to get here.
+  await page.goto("/forgot-password?next=%2Fdashboard%2Fbilling");
+  await expect(page).toHaveURL(/127\.0\.0\.1:3000\/dashboard\/events$/);
 });

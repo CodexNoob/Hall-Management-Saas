@@ -620,3 +620,20 @@ test("the movable dining grid pans and allows dragging past its old bottom edge"
   await page.getByRole("button", { name: "Save dining plan" }).click();
   await expect.poll(() => savedTables[0]?.y ?? 0).toBeGreaterThan(520);
 });
+
+// Dropped from the smoke sweep in dashboard.authenticated.spec.ts when this
+// page stopped rendering; restored here so it is still swept when the module
+// ships.
+test("the dining manager page renders without a fatal error", async ({ page }) => {
+  await page.goto("/dashboard/dining-manager");
+
+  await expect(page).toHaveURL(/\/dashboard\/dining-manager/);
+  await expect(page.locator("body")).not.toContainText("Application error");
+  await expect(page.locator("body")).not.toContainText("Internal Server Error");
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+});

@@ -736,3 +736,21 @@ test("planner tools: overlap warning, bulk rows, and the print sheet", async ({
     page.getByRole("heading", { name: "Print preview" })
   ).toHaveCount(0);
 });
+
+// Dropped from the smoke sweep in dashboard.authenticated.spec.ts when this
+// page stopped rendering; restored here so it is still swept when the module
+// ships.
+// Desktop only, per the mobile skip in beforeEach.
+test("the hall room map page renders without a fatal error", async ({ page }) => {
+  await page.goto("/dashboard/hall-room-map");
+
+  await expect(page).toHaveURL(/\/dashboard\/hall-room-map/);
+  await expect(page.locator("body")).not.toContainText("Application error");
+  await expect(page.locator("body")).not.toContainText("Internal Server Error");
+
+  const dimensions = await page.evaluate(() => ({
+    viewport: document.documentElement.clientWidth,
+    content: document.documentElement.scrollWidth
+  }));
+  expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+});
