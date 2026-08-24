@@ -10,7 +10,13 @@ import { assertHallCapacity } from "@/features/bookings/services/booking.service
 
 const timelineItemSchema = z.object({
   id: z.string().min(1).max(100),
-  time: z.string().trim().min(1).max(20),
+  // No longer required: a cue row is placed by what happens before it rather
+  // than by the clock, and sends this blank.
+  time: z.string().trim().max(20).optional(),
+  // Sent only by a cue row, and sent even when still empty - its presence is
+  // what marks the row as sequence-driven, so a cue the manager has not typed
+  // yet has to come back as a cue row rather than as a midnight time row.
+  cue: z.string().trim().max(200).optional(),
   text: z.string().trim().min(1).max(500),
   type: z.enum(["Event", "Kitchen", "Staff"])
 });
