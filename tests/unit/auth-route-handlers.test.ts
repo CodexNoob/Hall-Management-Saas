@@ -7,6 +7,8 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
+
 const verifyOtp = vi.fn();
 const exchangeCodeForSession = vi.fn();
 
@@ -82,7 +84,7 @@ describe("email links (token_hash)", () => {
       await confirm("?token_hash=hash-1&type=magiclink")
     );
 
-    expect(url.pathname).toBe("/dashboard");
+    expect(url.pathname).toBe(MVP_LANDING_ROUTE);
   });
 
   it("never carries the token hash onto the redirect", async () => {
@@ -101,7 +103,7 @@ describe("email links (token_hash)", () => {
       )
     );
     expect(offsite.origin).toBe(origin);
-    expect(offsite.pathname).toBe("/dashboard");
+    expect(offsite.pathname).toBe(MVP_LANDING_ROUTE);
 
     const onsite = await locationOf(
       await confirm(
@@ -171,7 +173,7 @@ describe("PKCE returns (code)", () => {
     // No type to go on, so the dashboard gate decides: it redirects an
     // un-onboarded owner to /dashboard/new and a password-less account to
     // /set-password by itself.
-    expect(url.pathname).toBe("/dashboard");
+    expect(url.pathname).toBe(MVP_LANDING_ROUTE);
   });
 
   it("still honours a type when the link carries one", async () => {
@@ -199,7 +201,7 @@ describe("PKCE returns (code)", () => {
     );
 
     expect(url.origin).toBe(origin);
-    expect(url.pathname).toBe("/dashboard");
+    expect(url.pathname).toBe(MVP_LANDING_ROUTE);
   });
 
   it("passes an exchange failure through with its code", async () => {

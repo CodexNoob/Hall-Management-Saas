@@ -2,6 +2,8 @@
 
 import { type ReactNode } from "react";
 
+import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
+
 export type SidebarIconName =
   | "dashboard"
   | "kitchen"
@@ -31,7 +33,14 @@ export type SidebarSection = {
   items: SidebarItem[];
 };
 
-export const sidebarSections: SidebarSection[] = [
+/**
+ * Every section the sidebar can offer, before the MVP gate.
+ *
+ * Kept whole rather than edited down so the shape of the finished navigation
+ * stays readable, and so re-listing a module is one line in lib/ui/mvp-features
+ * rather than a re-derivation of which section it belonged to.
+ */
+const allSidebarSections: SidebarSection[] = [
   {
     title: "Workspace",
     icon: "dashboard",
@@ -93,6 +102,22 @@ export const sidebarSections: SidebarSection[] = [
     ]
   }
 ];
+
+/**
+ * What the sidebar actually draws.
+ *
+ * A section whose every item is hidden is dropped rather than left as a heading
+ * over nothing - Operations is entirely Dining Manager, Hall Room Map and Files,
+ * so for the MVP it disappears and Office is left holding Staff alone. The
+ * per-role filter in dashboard-sidebar.tsx runs over this and drops empty
+ * sections again, for the same reason.
+ */
+export const sidebarSections: SidebarSection[] = allSidebarSections
+  .map((section) => ({
+    ...section,
+    items: section.items.filter((item) => !isHiddenDashboardRoute(item.route))
+  }))
+  .filter((section) => section.items.length > 0);
 
 // How a page asks for the room the sidebar is taking up. DashboardSidebar owns
 // the collapsed state - it answers this event, then writes the dataset flag,

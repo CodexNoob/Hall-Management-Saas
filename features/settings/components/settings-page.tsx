@@ -14,6 +14,7 @@ import { EventTypesSettingsPanel } from "@/features/settings/components/event-ty
 import { MfaSecurityPanel } from "@/features/settings/components/mfa-security-panel";
 import { SettingsSidebar } from "@/features/settings/components/settings-sidebar";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
+import { showBillingReadouts } from "@/lib/ui/mvp-features";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 
 import {
@@ -384,32 +385,43 @@ export function SettingsPage({
                             void savePreference("systemAnnouncements", value);
                           }
                         }
-                      ].map((notification) => (
-                        <div
-                          className="flex items-start gap-3"
-                          key={notification.title}
-                        >
-                          <Icon
-                            name={notification.icon}
-                            className="mt-0.5 h-4 w-4 shrink-0"
-                          />
+                      ]
+                        // The invoice toggle governs mail about the hidden
+                        // Billing module (lib/ui/mvp-features); the rest are
+                        // account-wide and unaffected. Filtered rather than
+                        // removed, so the saved preference is untouched and
+                        // comes back with the module.
+                        .filter(
+                          (notification) =>
+                            showBillingReadouts ||
+                            notification.title !== "Invoice & billing alerts"
+                        )
+                        .map((notification) => (
+                          <div
+                            className="flex items-start gap-3"
+                            key={notification.title}
+                          >
+                            <Icon
+                              name={notification.icon}
+                              className="mt-0.5 h-4 w-4 shrink-0"
+                            />
 
-                          <div className="min-w-0 flex-1">
-                            <h3 className="text-[11px] font-black">
-                              {notification.title}
-                            </h3>
-                            <p className="mt-1 text-[9px] leading-4 text-[#6a7483]">
-                              {notification.description}
-                            </p>
+                            <div className="min-w-0 flex-1">
+                              <h3 className="text-[11px] font-black">
+                                {notification.title}
+                              </h3>
+                              <p className="mt-1 text-[9px] leading-4 text-[#6a7483]">
+                                {notification.description}
+                              </p>
+                            </div>
+
+                            <Toggle
+                              checked={notification.value}
+                              label={`Toggle ${notification.title}`}
+                              onChange={notification.action}
+                            />
                           </div>
-
-                          <Toggle
-                            checked={notification.value}
-                            label={`Toggle ${notification.title}`}
-                            onChange={notification.action}
-                          />
-                        </div>
-                      ))}
+                        ))}
                     </div>
                   </section>
                 ) : null}

@@ -2,6 +2,8 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
+
 const replace = vi.fn();
 const refresh = vi.fn();
 const getSession = vi.fn();
@@ -157,7 +159,9 @@ describe("CreateOrganizationPage", () => {
         force: true
       })
     );
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
   });
 
   describe("phone validation", () => {

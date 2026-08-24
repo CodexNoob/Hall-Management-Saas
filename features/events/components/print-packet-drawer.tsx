@@ -122,7 +122,7 @@ export function PrintPacketDrawer({
               Included
             </p>
             <h3 className="mt-1 text-lg font-black leading-6 text-[#17202a] sm:text-xl">
-              Details, menu, billing, hall map, vendors
+              Details, menu, kitchen, vendors
             </h3>
             <p className="mt-1 text-xs text-[#64748b]">
               Master packet generated from selected event

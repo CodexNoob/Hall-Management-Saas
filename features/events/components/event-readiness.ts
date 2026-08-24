@@ -1,4 +1,8 @@
 import { type EventFile } from "@/features/events/components/event-manager-shared";
+import {
+  showBillingReadouts,
+  showOperationsReadiness
+} from "@/lib/ui/mvp-features";
 
 export type EventReadinessScope = "event" | "print";
 
@@ -29,7 +33,9 @@ function hasPositiveCount(value: string) {
 }
 
 function isConfirmed(event: EventFile) {
-  return event.bookingStatus === "CONFIRMED" || event.bookingStatus === "COMPLETED";
+  return (
+    event.bookingStatus === "CONFIRMED" || event.bookingStatus === "COMPLETED"
+  );
 }
 
 function isBillingReviewed(event: EventFile) {
@@ -44,6 +50,20 @@ function isMenuConfirmed(event: EventFile) {
   return event.workspaceData.menuConfirmed === true;
 }
 
+/**
+ * Which checks apply at all, before the per-event answers.
+ *
+ * Hall map, dining plan and billing are each satisfied from a module the MVP
+ * hides (lib/ui/mvp-features), so leaving them listed would show three items no
+ * user can tick - and, because Print packet is disabled until every print-scoped
+ * item is done, would put printing out of reach entirely.
+ */
+function isReadinessItemAvailable(id: EventReadinessItem["id"]) {
+  if (id === "billing") return showBillingReadouts;
+  if (id === "hall-map" || id === "dining-plan") return showOperationsReadiness;
+  return true;
+}
+
 export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
   const eventDetailsDone =
     hasValue(event.clientName) &&
@@ -53,7 +73,7 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
   const timelineDone = isTimelineConfirmed(event);
   const menuDone = isMenuConfirmed(event);
 
-  return [
+  const items: EventReadinessItem[] = [
     {
       id: "event-details",
       label: "Event details completed",
@@ -144,6 +164,8 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
       scopes: ["event", "print"]
     }
   ];
+
+  return items.filter((item) => isReadinessItemAvailable(item.id));
 }
 
 export function getScopedEventReadinessItems(

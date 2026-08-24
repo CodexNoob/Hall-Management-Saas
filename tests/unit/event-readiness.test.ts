@@ -66,13 +66,31 @@ describe("event readiness", () => {
     });
   });
 
-  it("uses one readiness source with different event and print scopes", () => {
-    const eventItems = getScopedEventReadinessItems(createEvent(), "event");
-    const printItems = getScopedEventReadinessItems(createEvent(), "print");
+  // Hall map, dining plan and billing are each satisfied from a module the MVP
+  // hides (lib/ui/mvp-features), so the checklist must not ask for them - three
+  // items nobody can tick would leave Print packet permanently disabled.
+  it("leaves out the checks the hidden modules would answer", () => {
+    for (const scope of ["event", "print"] as const) {
+      const ids = getScopedEventReadinessItems(createEvent(), scope).map(
+        (item) => item.id
+      );
 
-    expect(eventItems.map((item) => item.id)).toContain("dining-plan");
-    expect(printItems.map((item) => item.id)).not.toContain("dining-plan");
-    expect(printItems.length).toBeLessThan(eventItems.length);
+      expect(ids).not.toContain("hall-map");
+      expect(ids).not.toContain("dining-plan");
+      expect(ids).not.toContain("billing");
+    }
+  });
+
+  it("still marks an event with none of that data ready to print", () => {
+    const event = createEvent({
+      paymentStatus: "No invoice",
+      diningHallMapPreset: null,
+      diningManagerNotes: null
+    });
+
+    expect(getEventReadinessSummary(event, "print")).toMatchObject({
+      ready: true
+    });
   });
 
   it("shows real missing data as incomplete", () => {
@@ -94,9 +112,7 @@ describe("event readiness", () => {
       false
     );
     expect(printItems.find((item) => item.id === "menu")?.done).toBe(false);
-    expect(printItems.find((item) => item.id === "hall-map")?.done).toBe(false);
     expect(printItems.find((item) => item.id === "timeline")?.done).toBe(false);
-    expect(printItems.find((item) => item.id === "billing")?.done).toBe(false);
     expect(getEventReadinessSummary(event, "print")).toMatchObject({
       ready: false
     });

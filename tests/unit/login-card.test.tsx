@@ -2,6 +2,8 @@ import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
+
 const replace = vi.fn();
 const refresh = vi.fn();
 const signInWithPassword = vi.fn();
@@ -269,7 +271,9 @@ describe("LoginCard success path", () => {
         force: true
       })
     );
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
     expect(refresh).toHaveBeenCalled();
   });
 
@@ -279,7 +283,9 @@ describe("LoginCard success path", () => {
     fill("owner@example.com", "Secret123");
     submitForm();
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
   });
 
   it("only persists the session when Remember me is ticked", async () => {

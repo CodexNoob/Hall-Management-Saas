@@ -21,18 +21,26 @@ function renderPanels() {
 }
 
 // Route shortcuts follow canAccessRoute, the same any-of check the sidebar uses,
-// so the panel offers a destination exactly when the sidebar would.
+// plus the MVP gate the sidebar now applies first - so the panel offers a
+// destination exactly when the sidebar would. Billing and Dining Manager are
+// hidden for the MVP (lib/ui/mvp-features), which leaves Kitchen board as the
+// only shortcut any role can be offered.
 describe("DashboardSidePanels quick actions", () => {
   beforeEach(() => {
     window.localStorage.clear();
   });
 
-  it("offers every shortcut to an Event Manager", () => {
+  it("offers every surviving shortcut to an Event Manager", () => {
     cacheTestSessionForRole("manager");
     renderPanels();
 
-    for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Kitchen board" })
+    ).toBeInTheDocument();
+    for (const label of ["Open billing", "Dining sheets"]) {
+      expect(
+        screen.queryByRole("button", { name: label })
+      ).not.toBeInTheDocument();
     }
   });
 
@@ -40,13 +48,10 @@ describe("DashboardSidePanels quick actions", () => {
     cacheTestSessionForRole("viewer");
     renderPanels();
 
-    // canViewKitchenDashboard and canViewEventManager make both routes
-    // reachable, which is why the sidebar lists them too.
+    // canViewKitchenDashboard makes this one reachable, which is why the
+    // sidebar lists it too.
     expect(
       screen.getByRole("button", { name: "Kitchen board" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Dining sheets" })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Book event" })
@@ -72,20 +77,17 @@ describe("DashboardSidePanels quick actions", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("hides the kitchen shortcut for Billing Staff but keeps the reachable ones", () => {
+  // Billing Staff has neither the kitchen permission nor a module the MVP still
+  // ships, so the shortcut list empties out for that role entirely.
+  it("leaves Billing Staff with no shortcut at all", () => {
     cacheTestSessionForRole("billing");
     renderPanels();
 
-    expect(
-      screen.getByRole("button", { name: "Open billing" })
-    ).toBeInTheDocument();
-    // /dashboard/dining-manager accepts canViewEventManager, which Billing has.
-    expect(
-      screen.getByRole("button", { name: "Dining sheets" })
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Kitchen board" })
-    ).not.toBeInTheDocument();
+    for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
+      expect(
+        screen.queryByRole("button", { name: label })
+      ).not.toBeInTheDocument();
+    }
   });
 
   it("drops the panel entirely when no shortcut survives", () => {

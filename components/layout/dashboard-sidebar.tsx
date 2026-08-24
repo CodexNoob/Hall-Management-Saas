@@ -53,7 +53,10 @@ export function DashboardSidebar({
   user,
   roleLabel,
   profileSubtitle,
-  activeLabel = "Dashboard"
+  // Only a fallback - app/dashboard/layout.tsx always passes one. "Events"
+  // rather than "Dashboard" because the overview is hidden for the MVP, and a
+  // default naming no section would highlight nothing.
+  activeLabel = "Events"
 }: DashboardSidebarProps) {
   const router = useRouter();
   const collapsedNavigationRef = useRef<HTMLDivElement>(null);

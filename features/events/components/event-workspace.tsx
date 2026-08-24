@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClientPortalPreviewDrawer } from "@/features/events/components/client-portal-preview-drawer";
 import { PrintPacketDrawer } from "@/features/events/components/print-packet-drawer";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
+import { showBillingReadouts } from "@/lib/ui/mvp-features";
 import { EventBillingContent } from "@/features/events/components/event-billing-content";
 import { ClientPortalContent } from "@/features/events/components/event-client-portal-content";
 import {
@@ -100,7 +101,9 @@ export function EventWorkspace({
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge tone={lifecycleTone}>{lifecycleLabel}</Badge>
-              <Badge tone="gold">Open balance {event.balance}</Badge>
+              {showBillingReadouts ? (
+                <Badge tone="gold">Open balance {event.balance}</Badge>
+              ) : null}
               <Badge tone="gold">Today notes unread</Badge>
               <Badge tone="gold">Needs review</Badge>
             </div>

@@ -2,6 +2,8 @@
 
 import { type ReactNode } from "react";
 
+import { hiddenEventWorkspaceTabs } from "@/lib/ui/mvp-features";
+
 export type BadgeTone = "green" | "gold" | "red";
 export type IconName =
   | "box"
@@ -147,7 +149,12 @@ export type EventsResponse = {
   eventTypes: EventTypeOption[];
 };
 
-export const tabs = [
+/// Every tab the workspace can render, including the ones the MVP withdraws.
+/// The type below is derived from this rather than from the filtered list, so a
+/// hidden tab is still a nameable tab and `event-workspace.tsx` keeps compiling
+/// its branch for it - which is what makes re-listing the label the whole cost
+/// of turning the tab back on.
+const allTabs = [
   { label: "Event details", icon: "calendar" },
   { label: "Menu", icon: "document" },
   { label: "Client portal", icon: "files" },
@@ -158,7 +165,12 @@ export const tabs = [
   { label: "Files", icon: "files" }
 ] satisfies Array<{ label: string; icon: IconName }>;
 
-export type EventWorkspaceTab = (typeof tabs)[number]["label"];
+/// Billing, Hall map and Files are out of the MVP - see lib/ui/mvp-features.
+export const tabs = allTabs.filter(
+  (tab) => !hiddenEventWorkspaceTabs.includes(tab.label)
+);
+
+export type EventWorkspaceTab = (typeof allTabs)[number]["label"];
 
 export const timelineRows = [
   ["03:00 PM", "Dining room setup begins", "Event"],

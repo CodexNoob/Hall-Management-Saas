@@ -32,7 +32,7 @@ const sectionHeadings = {
 const tileDescriptions = {
   Kitchen: "Menu production, quantities, workers, and completion status.",
   Calendar: "Month view with room availability and closed-date rules.",
-  Events: "Full event file: client, menu, dining, staff, vendors, files.",
+  Events: "Full event file: client, menu, kitchen, staff, and vendors.",
   Billing: "Retainers, invoices, payment links, and balances due."
 } as const;
 
@@ -88,6 +88,11 @@ function visibleModuleTiles() {
     .map(([title]) => title);
 }
 
+// Billing and Dining Manager are hidden for the MVP (lib/ui/mvp-features), so
+// "Kitchen board" is the only quick action and the Billing tile never appears -
+// for any role, including admin. The permission map is unchanged; this is the
+// product gate sitting in front of it.
+//
 // useDashboardAccess is useMemo(..., []) and reads localStorage once per mount,
 // so each role needs its own render.
 const cases: Array<{
@@ -107,8 +112,8 @@ const cases: Array<{
       "attentionNeeded",
       "quickActions"
     ],
-    actions: ["Kitchen board", "Open billing", "Dining sheets"],
-    tiles: ["Kitchen", "Calendar", "Events", "Billing"]
+    actions: ["Kitchen board"],
+    tiles: ["Kitchen", "Calendar", "Events"]
   },
   {
     // canViewMenu/canViewKitchenDashboard but no canViewPaymentInfo, and
@@ -121,12 +126,13 @@ const cases: Array<{
       "eventsTimeline",
       "quickActions"
     ],
-    actions: ["Kitchen board", "Dining sheets"],
+    actions: ["Kitchen board"],
     tiles: ["Kitchen", "Calendar", "Events"]
   },
   {
-    // canViewEventManager makes /dashboard/dining-manager reachable even though
-    // Billing Staff has no kitchen permissions of its own.
+    // Billing Staff has no kitchen permission of its own, and the two shortcuts
+    // it could otherwise reach are the hidden ones - so it gets none, and the
+    // Quick actions panel drops its heading rather than showing an empty list.
     role: "billing",
     sections: [
       "totalEvents",
@@ -134,11 +140,10 @@ const cases: Array<{
       "incomeTimeline",
       "operatingSchedule",
       "eventsTimeline",
-      "attentionNeeded",
-      "quickActions"
+      "attentionNeeded"
     ],
-    actions: ["Open billing", "Dining sheets"],
-    tiles: ["Calendar", "Events", "Billing"]
+    actions: [],
+    tiles: ["Calendar", "Events"]
   },
   {
     // Read-only across the board: sees the operational surfaces it can open,
@@ -151,7 +156,7 @@ const cases: Array<{
       "eventsTimeline",
       "quickActions"
     ],
-    actions: ["Kitchen board", "Dining sheets"],
+    actions: ["Kitchen board"],
     tiles: ["Kitchen", "Calendar", "Events"]
   }
 ];
@@ -179,11 +184,11 @@ describe("DashboardOverview role gating", () => {
     expect(visibleSections().sort()).toEqual(
       Object.keys(sectionHeadings).sort()
     );
-    expect(visibleQuickActions().sort()).toEqual(
-      ["Dining sheets", "Kitchen board", "Open billing"].sort()
-    );
+    expect(visibleQuickActions()).toEqual(["Kitchen board"]);
     expect(visibleModuleTiles().sort()).toEqual(
-      Object.keys(tileDescriptions).sort()
+      Object.keys(tileDescriptions)
+        .filter((title) => title !== "Billing")
+        .sort()
     );
   });
 
@@ -247,14 +252,13 @@ describe("DashboardOverview role gating", () => {
       canViewCalendar: false,
       canViewEventManager: false,
       canViewPaymentInfo: false
-      // canViewKitchenDashboard stays true, which keeps /dashboard/kitchen and
-      // /dashboard/dining-manager reachable (the latter accepts either it or
-      // canViewEventManager).
+      // canViewKitchenDashboard stays true, which keeps /dashboard/kitchen
+      // reachable.
     });
     renderOverview();
 
     expect(visibleSections()).toEqual(["quickActions"]);
-    expect(visibleQuickActions()).toEqual(["Kitchen board", "Dining sheets"]);
+    expect(visibleQuickActions()).toEqual(["Kitchen board"]);
     expect(visibleModuleTiles()).toEqual(["Kitchen"]);
   });
 

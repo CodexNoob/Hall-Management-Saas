@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
 
 const moduleLinks = [
   {
@@ -22,7 +23,7 @@ const moduleLinks = [
   {
     eyebrow: "Manage",
     title: "Events",
-    description: "Full event file: client, menu, dining, staff, vendors, files.",
+    description: "Full event file: client, menu, kitchen, staff, and vendors.",
     actionLabel: "Open event files",
     route: "/dashboard/events"
   },
@@ -39,8 +40,11 @@ export function DashboardModuleLinks() {
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Same filter as dashboard-sidebar.tsx's nav items, so a tile is offered
-  // exactly when the sidebar would offer the same destination.
-  const visibleLinks = moduleLinks.filter((item) => canAccessRoute(item.route));
+  // exactly when the sidebar would offer the same destination - which now means
+  // the MVP gate as well as the permission one. See lib/ui/mvp-features.
+  const visibleLinks = moduleLinks.filter(
+    (item) => !isHiddenDashboardRoute(item.route) && canAccessRoute(item.route)
+  );
 
   if (visibleLinks.length === 0) return null;
 

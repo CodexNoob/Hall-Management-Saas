@@ -6,6 +6,7 @@ import {
   LineIcon,
   type EventFile
 } from "@/features/events/components/event-manager-shared";
+import { showBillingReadouts } from "@/lib/ui/mvp-features";
 
 // Long enough that sweeping the pointer down a list of a hundred events asks
 // for nothing, short enough that the pause before a click covers most of the
@@ -92,9 +93,11 @@ export function EventListCard({
               <br />
               {event.packageName} - {event.guests} guests - {event.coordinator}
             </p>
-            <span className="shrink-0 text-right text-[#17202a]">
-              {event.balance}
-            </span>
+            {showBillingReadouts ? (
+              <span className="shrink-0 text-right text-[#17202a]">
+                {event.balance}
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {event.notes.map((note) => (

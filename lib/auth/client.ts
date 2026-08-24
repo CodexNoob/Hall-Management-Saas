@@ -7,6 +7,7 @@ import {
   setActiveOrganizationCookie
 } from "@/lib/supabase/browser";
 import { isAuthSessionResponse } from "@/lib/auth/session-context";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 // The response shape is owned by lib/auth/session-context.ts, which is also what
 // the route serializes through. Re-exported rather than restated so the two
@@ -238,7 +239,7 @@ export async function markPasswordSet(accessToken: string) {
 
 export async function signInWithOAuthProvider(
   provider: Extract<Provider, "google" | "azure">,
-  returnPath = "/dashboard"
+  returnPath: string = MVP_LANDING_ROUTE
 ) {
   const supabase = createSupabaseBrowserClient();
   const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnPath)}`;

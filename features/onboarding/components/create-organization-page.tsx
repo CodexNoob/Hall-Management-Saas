@@ -6,10 +6,7 @@ import { Building2, Loader2 } from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useToast } from "@/components/ui/toast";
-import {
-  DEFAULT_PHONE_COUNTRY,
-  parsePhoneInput
-} from "@/lib/validation/phone";
+import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
 import {
   clearCachedAuthSession,
   signOutCurrentSession,
@@ -17,6 +14,7 @@ import {
   fetchAuthSession
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { freeTrialPlan, subscriptionPlans } from "@/lib/subscription/plans";
 import { TRIAL_DAYS } from "@/lib/subscription/trial";
@@ -144,7 +142,7 @@ export function CreateOrganizationPage() {
       toast.success(`${organizationName} is ready.`, {
         title: "Organization created"
       });
-      router.replace("/dashboard");
+      router.replace(MVP_LANDING_ROUTE);
       router.refresh();
     } catch (mutationError) {
       fail(
@@ -240,7 +238,9 @@ export function CreateOrganizationPage() {
                   id={`${fieldId}-full-name`}
                   maxLength={120}
                   name="fullName"
-                  onChange={(event) => updateField("fullName", event.target.value)}
+                  onChange={(event) =>
+                    updateField("fullName", event.target.value)
+                  }
                   placeholder="Jordan Rivera"
                   value={form.fullName}
                 />

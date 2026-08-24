@@ -4,6 +4,7 @@ import {
   getPasswordSetupPath,
   getSafeDashboardReturnPath
 } from "@/lib/auth/redirect";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 describe("dashboard authentication redirects", () => {
   it("preserves a valid dashboard destination", () => {
@@ -17,12 +18,31 @@ describe("dashboard authentication redirects", () => {
 
   it("rejects external and non-dashboard destinations", () => {
     expect(getSafeDashboardReturnPath("https://evil.example/dashboard")).toBe(
-      "/dashboard"
+      MVP_LANDING_ROUTE
     );
     expect(getSafeDashboardReturnPath("//evil.example/dashboard")).toBe(
-      "/dashboard"
+      MVP_LANDING_ROUTE
     );
-    expect(getSafeDashboardReturnPath("/login")).toBe("/dashboard");
+    expect(getSafeDashboardReturnPath("/login")).toBe(MVP_LANDING_ROUTE);
+  });
+
+  // The overview and the four hidden modules would redirect straight back out
+  // (see lib/ui/mvp-features), so a `next` naming one is answered here instead
+  // of being handed out and bounced a moment later.
+  it("collapses a destination the MVP hides", () => {
+    expect(getSafeDashboardReturnPath("/dashboard")).toBe(MVP_LANDING_ROUTE);
+    expect(getSafeDashboardReturnPath("/dashboard/billing")).toBe(
+      MVP_LANDING_ROUTE
+    );
+    expect(getSafeDashboardReturnPath("/dashboard/files?folder=3")).toBe(
+      MVP_LANDING_ROUTE
+    );
+    expect(getSafeDashboardReturnPath("/dashboard/hall-room-map")).toBe(
+      MVP_LANDING_ROUTE
+    );
+    expect(getSafeDashboardReturnPath("/dashboard/dining-manager")).toBe(
+      MVP_LANDING_ROUTE
+    );
   });
 
   it("builds a password setup path that preserves the destination", () => {
@@ -32,11 +52,13 @@ describe("dashboard authentication redirects", () => {
   });
 
   it("collapses a hostile destination in the password setup path", () => {
+    const landing = encodeURIComponent(MVP_LANDING_ROUTE);
+
     expect(getPasswordSetupPath("https://evil.example/dashboard")).toBe(
-      "/set-password?flow=required&next=%2Fdashboard"
+      `/set-password?flow=required&next=${landing}`
     );
     expect(getPasswordSetupPath("//evil.example/dashboard")).toBe(
-      "/set-password?flow=required&next=%2Fdashboard"
+      `/set-password?flow=required&next=${landing}`
     );
   });
 });

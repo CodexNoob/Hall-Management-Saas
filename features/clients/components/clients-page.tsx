@@ -10,6 +10,7 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { NewClientDialog } from "@/features/clients/components/new-client-dialog";
+import { showBillingReadouts, showFileReadouts } from "@/lib/ui/mvp-features";
 import {
   Metric,
   StatusBadge,
@@ -66,7 +67,7 @@ export function ClientsPage() {
     <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Clients"
-        subtitle="Manage client contacts, event history, balances, files, and internal notes."
+        subtitle="Manage client contacts, event history, and internal notes."
         actionsSlot={
           <button
             className="h-10 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
@@ -90,7 +91,11 @@ export function ClientsPage() {
           </div>
         ) : (
           <div className="mx-auto max-w-450 space-y-4">
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <section
+              className={`grid gap-3 sm:grid-cols-2 ${
+                showBillingReadouts ? "xl:grid-cols-4" : "xl:grid-cols-3"
+              }`}
+            >
               <Metric
                 label="Total clients"
                 value={String(clients.length)}
@@ -108,11 +113,13 @@ export function ClientsPage() {
                 value={String(upcomingEvents)}
                 note="Scheduled client events"
               />
-              <Metric
-                label="Outstanding"
-                value={money(outstanding)}
-                note="Across open invoices"
-              />
+              {showBillingReadouts ? (
+                <Metric
+                  label="Outstanding"
+                  value={money(outstanding)}
+                  note="Across open invoices"
+                />
+              ) : null}
             </section>
             {clients.length === 0 ? (
               <AsyncState
@@ -170,9 +177,11 @@ export function ClientsPage() {
                         </div>
                         <div className="mt-3 flex justify-between text-[10px] font-bold text-[#6a7483]">
                           <span>{client.events.length} events</span>
-                          <span>
-                            {money(client.outstandingCents)} outstanding
-                          </span>
+                          {showBillingReadouts ? (
+                            <span>
+                              {money(client.outstandingCents)} outstanding
+                            </span>
+                          ) : null}
                         </div>
                       </button>
                     ))}
@@ -243,28 +252,39 @@ export function ClientsPage() {
                           </button>
                         </div>
                       </div>
-                      <div className="mt-4 grid gap-2 sm:grid-cols-4">
-                        <Metric
-                          label="Billed"
-                          value={money(selected.totalBilledCents)}
-                          note="All invoices"
-                        />
-                        <Metric
-                          label="Paid"
-                          value={money(selected.totalPaidCents)}
-                          note="Paid transactions"
-                        />
-                        <Metric
-                          label="Outstanding"
-                          value={money(selected.outstandingCents)}
-                          note="Open balances"
-                        />
-                        <Metric
-                          label="Files"
-                          value={String(selected.fileCount)}
-                          note="Linked documents"
-                        />
-                      </div>
+                      {/* Every tile here is answered by a hidden module, so for
+                          the MVP the row collapses rather than leaving four
+                          numbers with nowhere to act on them. */}
+                      {showBillingReadouts || showFileReadouts ? (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-4">
+                          {showBillingReadouts ? (
+                            <>
+                              <Metric
+                                label="Billed"
+                                value={money(selected.totalBilledCents)}
+                                note="All invoices"
+                              />
+                              <Metric
+                                label="Paid"
+                                value={money(selected.totalPaidCents)}
+                                note="Paid transactions"
+                              />
+                              <Metric
+                                label="Outstanding"
+                                value={money(selected.outstandingCents)}
+                                note="Open balances"
+                              />
+                            </>
+                          ) : null}
+                          {showFileReadouts ? (
+                            <Metric
+                              label="Files"
+                              value={String(selected.fileCount)}
+                              note="Linked documents"
+                            />
+                          ) : null}
+                        </div>
+                      ) : null}
                       {selected.notes ? (
                         <div className="mt-4 rounded-lg bg-[#f8fafc] p-3 text-sm">
                           <strong>Internal notes</strong>

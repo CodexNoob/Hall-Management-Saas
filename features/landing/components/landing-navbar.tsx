@@ -8,6 +8,7 @@ import {
   preparePublicPageNavigation,
   restorePublicPageScroll
 } from "@/features/landing/navigation/public-page-scroll";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 function LandingLogo() {
   return (
@@ -160,7 +161,7 @@ export function LandingNavbar() {
             className={`navbar-login-button shrink-0 border border-[#E5E0D6] bg-white px-4 py-2.5 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:border-[#1f4d73]/45 hover:shadow-md sm:hidden ${
               presence === "pending" ? "invisible" : ""
             }`}
-            href={isSignedIn ? "/dashboard" : "/login"}
+            href={isSignedIn ? MVP_LANDING_ROUTE : "/login"}
           >
             {isSignedIn ? "Dashboard" : "Login"}
           </Link>
@@ -169,7 +170,7 @@ export function LandingNavbar() {
           {isSignedIn ? (
             <Link
               className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
-              href="/dashboard"
+              href={MVP_LANDING_ROUTE}
             >
               Go to Dashboard
             </Link>
@@ -247,7 +248,7 @@ export function LandingNavbar() {
           */}
           <Link
             className="mt-2 rounded-xl bg-[#1f4d73] px-4 py-3 text-center font-black text-white! sm:hidden"
-            href={isSignedIn ? "/dashboard" : "/signup"}
+            href={isSignedIn ? MVP_LANDING_ROUTE : "/signup"}
             onClick={() => setIsMobileMenuOpen(false)}
           >
             {isSignedIn ? "Go to Dashboard" : "Get Started Free"}

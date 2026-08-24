@@ -18,6 +18,10 @@ import { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar";
 import { DashboardTrialProvider } from "@/components/layout/dashboard-trial-pill";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
+import {
+  MVP_LANDING_ROUTE,
+  isHiddenDashboardRoute
+} from "@/lib/ui/mvp-features";
 import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
 import {
@@ -34,23 +38,22 @@ function formatRole(role: string) {
     .join(" ");
 }
 
+// Names the sidebar's highlighted item and titles the access-restricted state.
+// The hidden modules are left out and "Events" is the fallback rather than
+// "Dashboard", because the overview is one of them - a path that matches nothing
+// here is on its way to MVP_LANDING_ROUTE anyway.
 function getDashboardActiveLabel(pathname: string | null): string {
   if (!pathname) {
-    return "Dashboard";
+    return "Events";
   }
 
   const path = pathname.replace(/\/$/, "");
 
-  if (path === "/dashboard") return "Dashboard";
   if (
     path.startsWith("/dashboard/clients") ||
     path.startsWith("/dashboard/client-portal")
   )
     return "Clients";
-  if (path.startsWith("/dashboard/dining-manager")) return "Dining Manager";
-  if (path.startsWith("/dashboard/hall-room-map")) return "Hall Room Map";
-  if (path.startsWith("/dashboard/files")) return "Files";
-  if (path.startsWith("/dashboard/billing")) return "Billing";
   if (path.startsWith("/dashboard/menu")) return "Menu";
   if (path.startsWith("/dashboard/kitchen")) return "Kitchen";
   if (path.startsWith("/dashboard/calendar")) return "Calendar";
@@ -62,7 +65,7 @@ function getDashboardActiveLabel(pathname: string | null): string {
   if (path.startsWith("/dashboard/staff")) return "Staff";
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
 
-  return "Dashboard";
+  return "Events";
 }
 
 function getSidebarProfileSubtitle(authSession: AuthSessionResponse) {
@@ -114,12 +117,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   // gate is `mustCompleteOnboarding` below plus the owner check in
   // POST /api/onboarding/organization.
   const isOnboardingRoute = pathname === "/dashboard/new";
+  // The overview, Billing, Dining Manager, Hall Room Map and Files are out of
+  // the MVP (see lib/ui/mvp-features). Withdrawing their sidebar and search
+  // entries is not enough on its own - a bookmark, an old prefetch or a typed
+  // url still reaches them - so the route itself answers with the landing page.
+  const isHiddenRoute = isHiddenDashboardRoute(pathname);
   const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(
     null
   );
   const [status, setStatus] = useState("Preparing your dashboard...");
   const [startupError, setStartupError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+
+  useEffect(() => {
+    if (!isHiddenRoute) return;
+    router.replace(MVP_LANDING_ROUTE);
+  }, [isHiddenRoute, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -176,18 +189,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
         // ...and once it is set up, the form is a dead end.
         if (!nextSession.mustCompleteOnboarding && isOnboardingRoute) {
-          router.replace("/dashboard");
+          router.replace(MVP_LANDING_ROUTE);
           return;
         }
 
         if (isMounted) {
           setAuthSession(nextSession);
-        // Only once the session is committed: before this point the
-        // organization is not settled, and subscribing to the wrong one
-        // would refetch against an organization the user is about to leave.
-        if (nextSession.activeOrganizationId) {
-          startRealtimeSync(nextSession.activeOrganizationId);
-        }
+          // Only once the session is committed: before this point the
+          // organization is not settled, and subscribing to the wrong one
+          // would refetch against an organization the user is about to leave.
+          if (nextSession.activeOrganizationId) {
+            startRealtimeSync(nextSession.activeOrganizationId);
+          }
         }
       } catch (error) {
         if (isMounted) {
@@ -208,6 +221,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // `isOnboardingRoute` is a boolean, so this only re-runs when the setup form
     // is entered or left - not on every dashboard navigation.
   }, [isOnboardingRoute, retryKey, router]);
+
+  // Held blank rather than rendering the page under the redirect: these modules
+  // fetch on mount, and a frame of Billing's chrome on the way to Events reads
+  // as a page that exists and then thought better of it.
+  if (isHiddenRoute) {
+    return (
+      <main
+        aria-busy="true"
+        aria-label="Opening events"
+        className="dashboard-font min-h-dvh bg-[#f5f6f8]"
+      />
+    );
+  }
 
   return (
     <>
