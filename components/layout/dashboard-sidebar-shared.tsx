@@ -94,6 +94,32 @@ export const sidebarSections: SidebarSection[] = [
   }
 ];
 
+// How a page asks for the room the sidebar is taking up. DashboardSidebar owns
+// the collapsed state - it answers this event, then writes the dataset flag,
+// localStorage and the `dashboard-sidebar-change` echo the topbar reads - so
+// dispatching keeps that state with one writer instead of two.
+//
+// Only above lg: the collapsed width is applied inside the min-width: 1024px
+// block in globals.css, so below it there is nothing to gain and collapsing
+// would just persist a preference the user never expressed. matchMedia is
+// missing under jsdom, and a viewport we cannot measure is not one we should
+// collapse.
+export function requestDashboardSidebarCollapse() {
+  if (
+    typeof window === "undefined" ||
+    typeof window.matchMedia !== "function" ||
+    !window.matchMedia("(min-width: 1024px)").matches
+  ) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent("dashboard-sidebar-toggle", {
+      detail: { collapsed: true }
+    })
+  );
+}
+
 export function getInitials(name: string) {
   return (
     name
