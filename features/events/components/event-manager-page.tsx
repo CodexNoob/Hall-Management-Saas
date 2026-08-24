@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { requestDashboardSidebarCollapse } from "@/components/layout/dashboard-sidebar-shared";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import {
   prefetchAuthenticatedQuery,
@@ -367,6 +368,11 @@ export function EventManagerPage() {
                   onClick={() => {
                     setSelectedEventId(event.id);
                     setIsEventListExpanded(false);
+                    // The workspace that just opened is the widest thing on the
+                    // page, so give it the sidebar's width the way the list
+                    // gives it its own above. Deep links are left alone: nobody
+                    // expects a page to close the nav on them as it loads.
+                    requestDashboardSidebarCollapse();
                   }}
                   // Only what the open tab would actually ask for. Warming
                   // every tab of every hovered row would trade one wait for a

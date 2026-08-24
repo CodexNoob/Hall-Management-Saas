@@ -111,6 +111,32 @@ function workspace() {
   return screen.queryByRole("navigation", { name: "Event workspace" });
 }
 
+// jsdom ships no matchMedia, and the sidebar only has a collapsed width above
+// lg, so the viewport has to be stated for the request to be made at all.
+function setViewport(width: number) {
+  window.matchMedia = ((query: string) => ({
+    matches: query.includes("min-width: 1024px")
+      ? width >= 1024
+      : width <= 1023,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {}
+  })) as unknown as typeof window.matchMedia;
+}
+
+// The sidebar itself is not mounted here, so its event is what there is to
+// watch: it is the one thing this page says, and everything else - the dataset
+// flag, localStorage, the topbar - follows from the sidebar answering it.
+function collapseRequests() {
+  const requests: boolean[] = [];
+  window.addEventListener("dashboard-sidebar-toggle", (event) => {
+    requests.push(
+      Boolean((event as CustomEvent<{ collapsed?: boolean }>).detail?.collapsed)
+    );
+  });
+  return requests;
+}
+
 describe("Event Manager selection", () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -118,6 +144,7 @@ describe("Event Manager selection", () => {
     cacheTestSession("manager");
     vi.mocked(authenticatedFetch).mockReset();
     clearAuthenticatedQueryCache();
+    Reflect.deleteProperty(window, "matchMedia");
   });
 
   it("opens nothing on arrival, and says so", async () => {
@@ -188,6 +215,56 @@ describe("Event Manager selection", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Client event-2 Wedding" })
     ).toBeInTheDocument();
+  });
+
+  // Opening an event hands the widest pane on the page the sidebar's width.
+  it("asks the sidebar to collapse when an event is opened", async () => {
+    setViewport(1440);
+    respondWith(eventsResponse([eventRow("event-1")]));
+    const requests = collapseRequests();
+
+    await mount();
+
+    expect(requests).toEqual([]);
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /Client event-1 Wedding/ })
+      );
+    });
+
+    expect(requests).toEqual([true]);
+  });
+
+  // Below lg the sidebar has no collapsed width to give, so asking would only
+  // save a preference the user never expressed.
+  it("leaves the sidebar alone on a narrow viewport", async () => {
+    setViewport(768);
+    respondWith(eventsResponse([eventRow("event-1")]));
+    const requests = collapseRequests();
+
+    await mount();
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: /Client event-1 Wedding/ })
+      );
+    });
+
+    expect(workspace()).toBeInTheDocument();
+    expect(requests).toEqual([]);
+  });
+
+  it("does not collapse the sidebar for a deep link", async () => {
+    setViewport(1440);
+    window.history.replaceState({}, "", "/dashboard/events?eventId=event-1");
+    respondWith(eventsResponse([eventRow("event-1")]));
+    const requests = collapseRequests();
+
+    await mount();
+
+    expect(workspace()).toBeInTheDocument();
+    expect(requests).toEqual([]);
   });
 
   it("goes back to the empty pane when the filters are cleared", async () => {
