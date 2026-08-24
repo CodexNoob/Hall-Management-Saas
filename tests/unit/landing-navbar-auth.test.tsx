@@ -60,8 +60,9 @@ describe("the landing navbar CTA", () => {
     const targets = ctaTargets();
 
     expect(targets).toContain(MVP_LANDING_ROUTE);
-    expect(targets).not.toContain("/login");
+    expect(targets).toContain("/login");
     expect(targets).not.toContain("/signup");
+    expect(screen.getAllByRole("link", { name: "Login" })).not.toHaveLength(0);
     expect(
       screen.getAllByRole("link", { name: "Go to Dashboard" })
     ).not.toHaveLength(0);

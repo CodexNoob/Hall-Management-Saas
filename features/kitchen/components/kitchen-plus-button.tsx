@@ -20,13 +20,13 @@ export function PlusButton({
   return (
     <button
       aria-label={label}
-      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#c9d2de] bg-white text-[#1f4d73] transition enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex h-5 w-5 shrink-0 items-center justify-center border border-[#c9d2de] bg-[#f8fafc] text-[#1f4d73] transition enabled:hover:border-[#1f4d73] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
       disabled={disabled}
       onClick={onClick}
       title={label}
       type="button"
     >
-      <LineIcon className="h-4 w-4" name="plus" />
+      <LineIcon className="h-3 w-3" name="plus" />
     </button>
   );
 }

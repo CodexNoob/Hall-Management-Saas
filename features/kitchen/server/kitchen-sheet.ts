@@ -258,7 +258,10 @@ export function presentKitchenLine(
   };
 }
 
-export function summarize(lines: ReturnType<typeof presentKitchenLine>[]) {
+export function summarize(
+  lines: ReturnType<typeof presentKitchenLine>[],
+  currentWorkerId?: string | null
+) {
   const dishes = lines.filter((line) => line.kind === "Dish");
 
   return {
@@ -267,6 +270,11 @@ export function summarize(lines: ReturnType<typeof presentKitchenLine>[]) {
     complete: dishes.filter((line) => line.status === "COMPLETE").length,
     pending: dishes.filter((line) => line.status === "PENDING").length,
     notStarted: dishes.filter((line) => line.status === null).length,
+    assigned: dishes.filter((line) => Boolean(line.assignedWorkerId)).length,
+    assignedToCurrentWorker: currentWorkerId
+      ? dishes.filter((line) => line.assignedWorkerId === currentWorkerId)
+          .length
+      : 0,
     // Every dish the kitchen has no number to cook to. One count, because the
     // three causes want the same action: someone has to go and say.
     needsAttention: dishes.filter((line) =>
@@ -290,6 +298,7 @@ export function buildKitchenSheet({
   menu,
   otherMeals = [],
   statuses,
+  currentWorkerId,
   signedUrlsByPath
 }: {
   event: KitchenEventRow;
@@ -300,6 +309,7 @@ export function buildKitchenSheet({
   /// and only the caller can query.
   otherMeals?: string[];
   statuses: StatusRow[];
+  currentWorkerId?: string | null;
   signedUrlsByPath?: Map<string, string>;
 }) {
   const counts = readHeadCounts(event);
@@ -336,7 +346,7 @@ export function buildKitchenSheet({
     version: menu?.version ?? 0,
     counts: { ...counts, totalGuests: totalGuests(counts) },
     lines,
-    summary: summarize(lines)
+    summary: summarize(lines, currentWorkerId)
   };
 }
 

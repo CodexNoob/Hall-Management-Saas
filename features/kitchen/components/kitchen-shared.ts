@@ -74,8 +74,33 @@ export type KitchenResponse = {
   }>;
   kitchenEvents: Array<KitchenEvent & { dateKey: string }>;
   workers: Array<{ id: string; name: string; isStaff: boolean }>;
+  /** The logged-in user's KitchenWorker row, when their account is kitchen staff. */
+  currentWorkerId: string | null;
+  notifications: Array<{
+    id: string;
+    title: string;
+    description: string;
+    event: string;
+    hall: string;
+    date: string;
+    oldValue: string;
+    newValue: string;
+    by: string;
+    when: string;
+    acknowledged: boolean;
+    acknowledgedBy?: string;
+    acknowledgedAt?: string;
+    emailSent?: string;
+  }>;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;
+  /** Individual saved menu items that can be used for a one-off kitchen event. */
+  menuItems: Array<{
+    id: string;
+    name: string;
+    category: string | null;
+    kind: string;
+  }>;
   permissions: {
     canAssignWorkers: boolean;
     canUpdateKitchenStatus: boolean;

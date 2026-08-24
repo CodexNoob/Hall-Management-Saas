@@ -9,6 +9,7 @@ import {
   createBooking,
   expireOrganizationHolds
 } from "@/features/bookings/services/booking.service";
+import { createShortNoticeKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -284,6 +285,17 @@ export async function POST(request: Request) {
         ? []
         : (actor.access?.allowedHallIds ?? [])
     });
+
+    if (!result.replayed && result.event.bookingStatus === "CONFIRMED") {
+      await createShortNoticeKitchenNotification({
+        organizationId: actor.organizationId,
+        eventId: result.event.id,
+        eventType: result.event.eventType ?? result.event.clientName,
+        eventDate: result.event.eventDate,
+        hallOrRoom: result.event.hall?.name ?? result.event.hallName,
+        changedById: actor.id
+      });
+    }
 
     return NextResponse.json(result, {
       status: result.replayed ? 200 : 201,

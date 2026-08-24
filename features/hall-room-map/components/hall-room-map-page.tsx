@@ -366,7 +366,10 @@ export function HallRoomMapPage() {
     setMapZoom(1);
   }
 
-  function fitObjectsToViewport(targetObjects: MapObject[]) {
+  function fitObjectsToViewport(
+    targetObjects: MapObject[],
+    options: { allowZoomIn?: boolean } = {}
+  ) {
     const viewport = mapViewportRef.current;
     const bounds = getMapObjectBounds(targetObjects);
 
@@ -379,10 +382,11 @@ export function HallRoomMapPage() {
     const verticalPadding = 64;
     const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
     const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
-    const scale = Math.min(
+    const fitScale = Math.min(
       (viewport.clientWidth - horizontalPadding) / boundsWidth,
       (viewport.clientHeight - verticalPadding) / boundsHeight
     );
+    const scale = options.allowZoomIn ? fitScale : Math.min(1, fitScale);
 
     setMapZoom(scale, {
       x: MAP_WORLD_ORIGIN + (bounds.minX + bounds.maxX) / 2,
@@ -391,7 +395,7 @@ export function HallRoomMapPage() {
   }
 
   function fitAllShapes() {
-    fitObjectsToViewport(latestObjectsRef.current);
+    fitObjectsToViewport(latestObjectsRef.current, { allowZoomIn: true });
   }
 
   const selectedObject =

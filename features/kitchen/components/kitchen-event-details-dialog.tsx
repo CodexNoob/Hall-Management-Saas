@@ -109,6 +109,8 @@ type DetailsProps = {
   onClose: () => void;
   onSaveItemAction: (input: KitchenItemActionInput) => Promise<void>;
   permissions: KitchenPermissions;
+  currentWorkerId?: string | null;
+  workersOnly?: boolean;
   workers: KitchenResponse["workers"];
 };
 
@@ -135,14 +137,14 @@ function StatTile({
   value: string | number;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-[#d8dde5] bg-white p-3">
-      <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+    <div className="min-w-0 border border-[#d8dde5] bg-white p-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
         {label}
       </p>
-      <p className="mt-2 truncate text-base font-black text-[#17202a] sm:text-xl">
+      <p className="mt-3 truncate text-xl font-black text-[#111827] sm:text-2xl">
         {value}
       </p>
-      <p className="mt-2 text-xs leading-4 text-[#6a7483]">{note}</p>
+      <p className="mt-3 text-xs leading-4 text-[#64748b]">{note}</p>
     </div>
   );
 }
@@ -362,6 +364,8 @@ function KitchenEventDetails({
   onClose,
   onSaveItemAction,
   permissions,
+  currentWorkerId,
+  workersOnly,
   workers
 }: DetailsProps) {
   const isStandalone = event.source === "standalone";
@@ -372,7 +376,15 @@ function KitchenEventDetails({
   );
   const sheet = isStandalone ? (event.sheet ?? null) : (kitchenQuery.data?.kitchen ?? null);
   const hold = event.statusType === "hold";
-  const dishes = sheet?.lines.filter((line) => line.kind === "Dish") ?? [];
+  const dishes =
+    sheet?.lines.filter((line) => {
+      if (line.kind !== "Dish") return false;
+      if (!workersOnly) return true;
+
+      return currentWorkerId
+        ? line.assignedWorkerId === currentWorkerId
+        : Boolean(line.assignedWorkerId);
+    }) ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
   // The dish the replace drawer was opened from, held by id so the drawer keeps
   // reading the refreshed sheet rather than the row as it was when it opened.
@@ -453,16 +465,16 @@ function KitchenEventDetails({
         <section
           aria-labelledby="kitchen-event-details-title"
           aria-modal="true"
-          className="max-h-[calc(100dvh-24px)] w-full max-w-5xl overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
+          className="flex max-h-[calc(100dvh-48px)] w-full max-w-256 flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
           role="dialog"
         >
-          <header className="flex items-start gap-3 border-b border-[#d8dde5] px-5 py-4">
+          <header className="flex shrink-0 items-start gap-3 border-b border-[#d8dde5] bg-white px-5 py-5">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-black uppercase tracking-wide text-[#617086]">
                 {event.category}
               </p>
               <h2
-                className="mt-1 truncate text-xl font-black text-[#17202a]"
+                className="mt-1 truncate text-xl font-black text-[#111827]"
                 id="kitchen-event-details-title"
               >
                 {event.title}
@@ -471,7 +483,7 @@ function KitchenEventDetails({
 
             <button
               aria-label="Close kitchen event details"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-2xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center text-3xl leading-none text-[#111827] transition hover:bg-[#eef4fa]"
               onClick={onClose}
               type="button"
             >
@@ -479,17 +491,17 @@ function KitchenEventDetails({
             </button>
           </header>
 
-          <div className="max-h-[calc(100dvh-104px)] overflow-y-auto bg-[#f5f6f8] p-4 sm:p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef2f6] p-5">
             <div
-              className={`mb-3 flex min-h-10 items-center justify-center rounded-lg px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+              className={`mb-3 flex min-h-10 items-center justify-center px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
                 hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
               }`}
             >
               {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
             </div>
 
-            <div className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
-              <div className="grid grid-cols-2 gap-2 border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:gap-3 sm:px-4 lg:grid-cols-4">
+            <div className="overflow-hidden border border-[#d8dde5] bg-white">
+              <div className="grid grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatTile
                   label="Serves"
                   note={
@@ -576,11 +588,18 @@ function KitchenEventDetails({
                 </div>
               ) : dishes.length === 0 ? (
                 <div className="p-4">
-                  <AsyncState
-                    emptyMessage="Add dishes on the event's Menu tab and this sheet fills in with what to cook."
-                    emptyTitle="No dishes on this menu yet"
-                    isEmpty
-                  />
+                  <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
+                    <p className="text-sm font-black text-[#111827]">
+                      {workersOnly
+                        ? "No assigned dishes on this menu yet"
+                        : "No dishes on this menu yet"}
+                    </p>
+                    <p className="mt-3 text-xs text-[#64748b]">
+                      {workersOnly
+                        ? "Assign a worker to a dish to make it appear in this filtered view."
+                        : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
@@ -619,7 +638,7 @@ function KitchenEventDetails({
                 </section>
               ) : null}
 
-              <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
+              <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
                 {permissions.canUpdateKitchenStatus ? (
                   <p>
                     Click a dish to move it on — not started, then pending, then

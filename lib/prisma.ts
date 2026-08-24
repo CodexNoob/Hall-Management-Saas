@@ -17,9 +17,15 @@ function getDatabaseUrl() {
   return url.toString();
 }
 
+function getPoolMax() {
+  const configured = Number(process.env.PRISMA_POOL_MAX);
+
+  return Number.isInteger(configured) && configured > 0 ? configured : 10;
+}
+
 const adapter = new PrismaPg({
   connectionString: getDatabaseUrl(),
-  max: 3,
+  max: getPoolMax(),
   connectionTimeoutMillis: 10_000,
   idleTimeoutMillis: 10_000
 });

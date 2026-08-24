@@ -9,6 +9,8 @@ const KITCHEN_ROLE = "kitchen";
 export type KitchenWorkerOption = {
   id: string;
   name: string;
+  /** Present only server-side so the board can identify the current worker. */
+  userId: string | null;
   /** True when the worker is a staff member rather than a typed-in name. */
   isStaff: boolean;
 };
@@ -113,6 +115,7 @@ export async function syncKitchenStaffWorkers(
   return assignable.map((worker) => ({
     id: worker.id,
     name: worker.name,
+    userId: worker.userId,
     isStaff: Boolean(worker.userId)
   }));
 }

@@ -25,6 +25,7 @@ vi.mock("@/lib/prisma", () => ({
       createMany: vi.fn(),
       updateMany: vi.fn()
     },
+    kitchenNotification: { create: vi.fn() },
     $executeRaw: vi.fn(),
     $transaction: vi.fn()
   }
@@ -126,8 +127,14 @@ describe("event menu route", () => {
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       id: eventId,
       hallId,
-      workspaceData: null
+      workspaceData: null,
+      packageId: null,
+      eventDate: new Date("2026-08-20T00:00:00.000Z"),
+      eventType: "Wedding",
+      clientName: "Gold",
+      hall: { name: "Main Hall" }
     } as never);
+    vi.mocked(prisma.kitchenNotification.create).mockResolvedValue({} as never);
     vi.mocked(prisma.event.update).mockResolvedValue({ id: eventId } as never);
     vi.mocked(createSignedFileUrls).mockResolvedValue(
       new Map([[dishPicturePath, signedUrl]])
@@ -565,7 +572,12 @@ describe("event menu route", () => {
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       id: eventId,
       hallId,
-      workspaceData: { timeline: [{ id: "t1" }], timelineConfirmed: true }
+      workspaceData: { timeline: [{ id: "t1" }], timelineConfirmed: true },
+      packageId: null,
+      eventDate: new Date("2026-08-20T00:00:00.000Z"),
+      eventType: "Wedding",
+      clientName: "Gold",
+      hall: { name: "Main Hall" }
     } as never);
     vi.mocked(prisma.eventMenu.findUnique)
       .mockResolvedValueOnce({

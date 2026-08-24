@@ -302,6 +302,9 @@ describe("event menu package route", () => {
     vi.mocked(prisma.eventMenu.findUnique)
       .mockResolvedValueOnce(menuHeader() as never)
       .mockResolvedValueOnce(storedMenu() as never);
+    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValueOnce([
+      { menuItemId: buffetDishId, addOnId: null }
+    ] as never);
 
     const response = await DELETE(
       request("DELETE", undefined, "?meal=Main&version=2"),
@@ -316,6 +319,14 @@ describe("event menu package route", () => {
     expect(prisma.event.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ packageId: null, packageName: null })
+      })
+    );
+    expect(prisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          menuItemIds: [buffetDishId],
+          addOnIds: []
+        })
       })
     );
     expect(payload.menu.packageId).toBeNull();

@@ -50,6 +50,9 @@ vi.mock("@/lib/prisma", () => ({
       delete: vi.fn(),
       deleteMany: vi.fn()
     },
+    kitchenNotification: {
+      findMany: vi.fn()
+    },
     $transaction: vi.fn()
   }
 }));
@@ -187,7 +190,14 @@ async function readBoard(response: Response) {
   return (await response.json()) as {
     events: Array<Record<string, unknown>>;
     workers: unknown;
+    currentWorkerId: string | null;
     menus: Array<{ id: string; name: string; dishCount: number }>;
+    menuItems: Array<{
+      id: string;
+      name: string;
+      category: string | null;
+      kind: string;
+    }>;
     permissions: Record<string, boolean>;
   };
 }
@@ -222,6 +232,9 @@ describe("kitchen dashboard route", () => {
       [] as never
     );
     vi.mocked(prisma.kitchenStandaloneItemStatus.findMany).mockResolvedValue(
+      [] as never
+    );
+    vi.mocked(prisma.kitchenNotification.findMany).mockResolvedValue(
       [] as never
     );
     vi.mocked(prisma.$transaction).mockImplementation((async (
@@ -356,6 +369,82 @@ describe("kitchen dashboard route", () => {
       expect(board.events[0].menuStatus).toBe("Confirmed");
     });
 
+    it("marks the current worker's assigned dish count", async () => {
+      mockMenus({
+        main: [
+          {
+            eventId,
+            meal: "Main",
+            status: "Draft",
+            confirmedAt: null,
+            version: 1,
+            lines: [
+              dishLine(),
+              dishLine({
+                id: "line-2",
+                menuItemId: otherMenuItemId,
+                menuItem: {
+                  name: "Israeli salad",
+                  isActive: true,
+                  picturePath: null,
+                  services: []
+                }
+              })
+            ]
+          }
+        ]
+      });
+      vi.mocked(prisma.kitchenWorker.findMany)
+        .mockResolvedValueOnce([
+          {
+            id: workerId,
+            userId: actor.id,
+            name: "Test Actor",
+            isActive: true
+          }
+        ] as never)
+        .mockResolvedValueOnce([
+          {
+            id: workerId,
+            userId: actor.id,
+            name: "Test Actor"
+          }
+        ] as never);
+      vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
+        {
+          role: "Kitchen Staff",
+          user: { id: actor.id, name: "Test Actor", email: "test@example.com" }
+        }
+      ] as never);
+      vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([
+        {
+          eventId,
+          menuItemId,
+          status: null,
+          assignedWorkerId: workerId,
+          assignedWorker: { name: "Test Actor" }
+        },
+        {
+          eventId,
+          menuItemId: otherMenuItemId,
+          status: null,
+          assignedWorkerId: "99999999-9999-4999-8999-999999999999",
+          assignedWorker: { name: "Someone Else" }
+        }
+      ] as never);
+
+      const board = await readBoard(await GET(request()));
+
+      expect(board.currentWorkerId).toBe(workerId);
+      expect(board.workers).toEqual([
+        { id: workerId, name: "Test Actor", isStaff: true }
+      ]);
+      expect(board.events[0].summary).toMatchObject({
+        assigned: 2,
+        assignedToCurrentWorker: 1
+      });
+    });
+
     it("reads Main, and does not send dish lists or picture paths", async () => {
       const board = await readBoard(await GET(request()));
 
@@ -409,20 +498,43 @@ describe("kitchen dashboard route", () => {
       expect(board.events[0].otherMeals).toEqual([]);
     });
 
-    it("no longer offers the menu library to the board", async () => {
-      // It existed to fill the replacement dropdown, which is gone along with
-      // the board's menu edits.
+    it("offers active menu library items for kitchen-only events", async () => {
+      vi.mocked(prisma.menuItem.findMany).mockImplementation((async ({
+        select
+      }: {
+        select?: Record<string, unknown>;
+      }) => {
+        if (select?.categoryRef) {
+          return [
+            {
+              id: menuItemId,
+              name: "Potato kugel",
+              category: "Sides",
+              kind: "Food",
+              categoryRef: null
+            }
+          ];
+        }
+
+        return [];
+      }) as never);
+
       const board = await readBoard(await GET(request()));
 
-      expect(board).not.toHaveProperty("menuItems");
+      expect(board.menuItems).toEqual([
+        {
+          id: menuItemId,
+          name: "Potato kugel",
+          category: "Sides",
+          kind: "Food"
+        }
+      ]);
       expect(board.permissions).not.toHaveProperty("canEditMenu");
     });
 
     it("does offer the menu list a kitchen event is raised against", async () => {
-      // Not a reversal of the assertion above: `menuItems` was the dish
-      // library behind the removed replace-a-dish dropdown. This is the list
-      // of menus, which is the one thing a kitchen event needs - it exists to
-      // cook one, and a typed name would not tell the kitchen what to make.
+      // Menu templates are still package-backed shortcuts. Individual
+      // `menuItems` are now exposed separately for one-off kitchen events.
       const board = await readBoard(await GET(request()));
 
       expect(board.menus).toEqual([

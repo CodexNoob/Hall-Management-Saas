@@ -168,12 +168,20 @@ export function LandingNavbar() {
         </div>
         <div className="hidden items-center gap-3 sm:flex">
           {isSignedIn ? (
-            <Link
-              className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
-              href={MVP_LANDING_ROUTE}
-            >
-              Go to Dashboard
-            </Link>
+            <>
+              <Link
+                className="navbar-login-button border border-[#E5E0D6] bg-white px-6 py-3 text-sm font-bold text-[#0f172a] shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#1f4d73]/45 hover:shadow-md"
+                href="/login"
+              >
+                Login
+              </Link>
+              <Link
+                className="saas-hover-lift rounded-xl bg-[#1f4d73] px-6 py-3 text-sm font-bold text-white! shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
+                href={MVP_LANDING_ROUTE}
+              >
+                Go to Dashboard
+              </Link>
+            </>
           ) : (
             <div
               aria-hidden={presence === "pending"}

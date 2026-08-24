@@ -77,6 +77,7 @@ function sheet(lines: EventKitchenLine[]): EventKitchenSheet {
       complete: dishes.filter((entry) => entry.status === "COMPLETE").length,
       pending: dishes.filter((entry) => entry.status === "PENDING").length,
       notStarted: dishes.filter((entry) => entry.status === null).length,
+      assigned: dishes.filter((entry) => entry.assignedWorkerId).length,
       needsAttention: 0,
       unresolvedBases: []
     }
@@ -103,7 +104,9 @@ const allPermissions = {
 
 async function renderDialog(
   lines: EventKitchenLine[],
-  permissions = allPermissions
+  permissions = allPermissions,
+  workersOnly = false,
+  currentWorkerId: string | null = null
 ) {
   const onSaveItemAction = vi.fn().mockResolvedValue(undefined);
 
@@ -120,6 +123,8 @@ async function renderDialog(
       onClose={vi.fn()}
       onSaveItemAction={onSaveItemAction}
       permissions={permissions}
+      currentWorkerId={currentWorkerId}
+      workersOnly={workersOnly}
       workers={[{ id: "worker-1", name: "Mendy", isStaff: false }]}
     />
   );
@@ -159,6 +164,57 @@ describe("kitchen dish card", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("hides unassigned dishes when workers-only filtering is on", async () => {
+    await renderDialog(
+      [
+        line({
+          assignedWorkerId: "worker-1",
+          assignedWorkerName: "Mendy"
+        }),
+        line({
+          id: "line-2",
+          menuItemId: "item-2",
+          name: "Unassigned salad"
+        })
+      ],
+      allPermissions,
+      true
+    );
+
+    expect(screen.getByText("Potato kugel")).toBeInTheDocument();
+    expect(screen.queryByText("Unassigned salad")).toBeNull();
+  });
+
+  it("shows only dishes assigned to the current worker when known", async () => {
+    await renderDialog(
+      [
+        line({
+          assignedWorkerId: "worker-1",
+          assignedWorkerName: "Mendy"
+        }),
+        line({
+          id: "line-2",
+          menuItemId: "item-2",
+          name: "Someone else's kugel",
+          assignedWorkerId: "worker-2",
+          assignedWorkerName: "Sarah"
+        }),
+        line({
+          id: "line-3",
+          menuItemId: "item-3",
+          name: "Unassigned salad"
+        })
+      ],
+      allPermissions,
+      true,
+      "worker-1"
+    );
+
+    expect(screen.getByText("Potato kugel")).toBeInTheDocument();
+    expect(screen.queryByText("Someone else's kugel")).toBeNull();
+    expect(screen.queryByText("Unassigned salad")).toBeNull();
   });
 
   it("moves a dish from not started to pending on a click", async () => {

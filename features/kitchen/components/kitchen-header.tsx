@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
@@ -8,17 +9,9 @@ import {
   type KitchenView
 } from "@/features/kitchen/components/kitchen-shared";
 
-/**
- * Where the board is pointed, and how far it is looking.
- *
- * One responsive tree rather than the two it used to draw - a phone copy and a
- * desktop copy, each with its own arrows, heading and tab strip. Every change to
- * the header had to be made twice, and the two had already drifted apart.
- */
-
 const tabs: Array<{ label: string; value: KitchenView }> = [
-  { label: "Day", value: "today" },
-  { label: "Week", value: "week" },
+  { label: "Today", value: "today" },
+  { label: "This Week", value: "week" },
   { label: "4 Weeks", value: "four-weeks" }
 ];
 
@@ -34,7 +27,7 @@ function NavButton({
   return (
     <button
       aria-label={label}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white text-[#1f4d73] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
+      className="flex h-10 w-10 shrink-0 items-center justify-center border border-[#e4e4e4] bg-white text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:w-11"
       onClick={onClick}
       title={label}
       type="button"
@@ -55,6 +48,8 @@ export function KitchenHeader({
   onNext,
   onPrevious,
   onToday,
+  onTodayNotes,
+  notificationCount,
   today
 }: {
   activeView: KitchenView;
@@ -64,85 +59,98 @@ export function KitchenHeader({
   onNext: () => void;
   onPrevious: () => void;
   onToday: () => void;
+  onTodayNotes: () => void;
+  notificationCount: number;
   today: Date;
 }) {
   const information = kitchenViewInformation(activeView, anchorDate, today);
-  // Null until mounted: the clock is the one thing on this page whose value
-  // differs between the server render and the first client render, and a
-  // hydration mismatch on it would be reported against the whole header.
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
     setNow(new Date());
-    // Every half minute rather than every second: the board prints hours and
-    // minutes, so a per-second tick would re-render the header sixty times to
-    // change nothing.
     const timer = setInterval(() => setNow(new Date()), 30_000);
 
     return () => clearInterval(timer);
   }, []);
 
   return (
-    <header className="border-b border-[#d8dde5] bg-white px-3 py-3 sm:px-5">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
-          <NavButton
-            direction="previous"
-            label="Show previous dates"
-            onClick={onPrevious}
-          />
-          <NavButton
-            direction="next"
-            label="Show next dates"
-            onClick={onNext}
-          />
-
-          <div className="min-w-0 flex-1 px-1">
-            <h1
-              className="truncate text-base font-black text-[#17202a] sm:text-lg 2xl:text-xl"
-              title={information.heading}
+    <header className="border-b border-[#8f8f8f] bg-[#a8a8a6] px-3 py-3 text-[#061126] sm:px-4">
+      <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center lg:min-w-150">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              className="inline-flex h-10 min-w-0 shrink items-center justify-center border border-[#e4e4e4] bg-white px-3 text-sm font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:shrink-0 sm:px-4"
+              href="/dashboard/events"
             >
-              {information.heading}
-            </h1>
-            {information.rangeLabel ? (
-              <p className="mt-0.5 truncate text-xs font-bold text-[#6a7483]">
-                {information.rangeLabel}
-              </p>
-            ) : null}
-          </div>
+              <span aria-hidden="true">←</span>
+              <span className="ml-1 truncate">Main Menu</span>
+            </Link>
 
-          {/* Hidden rather than disabled when the board is already on today:
-              a control that does nothing is still a control to read past. */}
-          {isOnToday ? null : (
             <button
-              className="h-10 shrink-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#1f4d73] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
-              onClick={onToday}
+              aria-label="Open kitchen notifications"
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center border-2 border-[#ff5a36] bg-white text-[#061126] transition hover:bg-[#fff5f2] sm:h-11 sm:w-11"
+              onClick={onTodayNotes}
               type="button"
             >
-              Today
+              <svg
+                aria-hidden="true"
+                className="h-5 w-5"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+                <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+              </svg>
+              {notificationCount > 0 ? (
+                <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center bg-[#ff3b30] px-1 text-[10px] font-black leading-none text-white">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              ) : null}
             </button>
-          )}
+          </div>
+
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+            <NavButton
+              direction="previous"
+              label="Show previous dates"
+              onClick={onPrevious}
+            />
+
+            <div className="min-w-0 px-1 text-center">
+              <h1
+                className="truncate text-lg font-black text-[#061126] sm:text-2xl"
+                title={information.heading}
+              >
+                {information.heading}
+              </h1>
+              {information.rangeLabel ? (
+                <p className="mt-0.5 truncate text-center text-xs font-bold text-[#6a7483]">
+                  {information.rangeLabel}
+                </p>
+              ) : null}
+            </div>
+
+            <NavButton
+              direction="next"
+              label="Show next dates"
+              onClick={onNext}
+            />
+          </div>
         </div>
 
-        <div className="flex min-w-0 items-center justify-between gap-3 xl:justify-end">
-          <p className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#d8dde5] bg-[#fbfcfd] px-2.5 py-1.5 text-xs font-black tabular-nums text-[#516071]">
-            <span
-              aria-hidden="true"
-              className="h-1.5 w-1.5 rounded-full bg-[#178151]"
-            />
+        <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center lg:grid-cols-[auto_auto] lg:justify-end">
+          <p className="inline-flex h-10 shrink-0 items-center justify-center text-2xl font-black tabular-nums text-[#ffcc55] sm:h-11 sm:px-4 sm:text-3xl">
             <span className="sr-only">Current time</span>
             {now ? formatClock(now) : "--:--"}
           </p>
 
-          {/* Allowed to shrink, unlike the clock beside it. Both were
-              `shrink-0`, so on a phone their combined natural width was wider
-              than the row and the strip ran off the right edge - which the
-              page's `overflow-x-hidden` then cut off mid-tab rather than
-              revealed. Equal thirds of whatever is left fits "4 Weeks" down to
-              a 320px screen. */}
           <nav
             aria-label="Kitchen board range"
-            className="grid min-w-0 flex-1 grid-cols-3 gap-1 rounded-xl border border-[#b9c2cf] bg-[#fbfcfd] p-1 xl:flex-initial"
+            className="grid min-w-0 grid-cols-3 gap-1"
           >
             {tabs.map((tab) => {
               const active = activeView === tab.value;
@@ -150,13 +158,16 @@ export function KitchenHeader({
               return (
                 <button
                   aria-current={active ? "page" : undefined}
-                  className={`h-9 min-w-0 truncate rounded-lg px-2 text-xs font-black transition sm:min-w-20 sm:px-3 sm:text-sm ${
+                  className={`h-10 min-w-0 truncate border border-[#e4e4e4] px-2 text-sm font-black transition sm:h-11 sm:min-w-30 sm:px-3 sm:text-base ${
                     active
-                      ? "bg-[#1f4d73] text-white shadow-sm"
-                      : "text-[#516071] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                      ? "bg-[#ffcc55] text-[#061126]"
+                      : "bg-white text-[#061126] hover:bg-[#f7f7f7]"
                   }`}
                   key={tab.value}
-                  onClick={() => onChangeView(tab.value)}
+                  onClick={() => {
+                    onChangeView(tab.value);
+                    if (tab.value === "today" && !isOnToday) onToday();
+                  }}
                   type="button"
                 >
                   {tab.label}

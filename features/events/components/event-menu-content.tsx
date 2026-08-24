@@ -213,6 +213,7 @@ export function EventMenuContent({
       : (documentQuery.data?.menu ?? null);
 
   const isConfirmed = menu?.status === "Confirmed";
+  const canEditMenu = Boolean(menu) && !isConfirmed && !isCommitting;
   const lines = useMemo(() => menu?.lines ?? [], [menu]);
 
   const libraryItems = useMemo<MenuSelectorItem[]>(() => {
@@ -724,11 +725,14 @@ export function EventMenuContent({
    * would come back as a conflict.
    */
   const addSelections = (selections: MenuSelection[]) => {
-    setIsSelectorOpen(false);
-
     const current = workingMenu();
 
-    if (!current) return;
+    if (!current) {
+      say("Menu is still loading. Try again in a moment.", true);
+      return;
+    }
+
+    setIsSelectorOpen(false);
 
     const taken = new Set(current.lines.map(targetId));
     const fresh = selections
@@ -964,7 +968,7 @@ export function EventMenuContent({
                 </span>
                 <button
                   className="text-xs font-black text-[#1f4d73] underline underline-offset-2 hover:text-[#15344f] disabled:opacity-50"
-                  disabled={isConfirmed || isCommitting}
+                  disabled={!canEditMenu}
                   onClick={undoLastEdit}
                   type="button"
                 >
@@ -992,7 +996,7 @@ export function EventMenuContent({
               appliedPackage={appliedPackage}
               hasPackages={offeredPackages.length > 0}
               isConfirmed={isConfirmed}
-              isSaving={isSaving}
+              isSaving={isSaving || !menu}
               onOpenSelector={() => setIsPackageSelectorOpen(true)}
               onRemove={() => void removePackage()}
               packageLineCount={packageLineCount}
@@ -1029,7 +1033,7 @@ export function EventMenuContent({
                         ).map((style) => (
                           <button
                             className="h-7 rounded-lg border border-[#b9c2cf] bg-white px-2.5 text-[11px] font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
-                            disabled={isCommitting || isConfirmed}
+                            disabled={!canEditMenu}
                             key={style}
                             onClick={() => assignStyle(line, style)}
                             type="button"
@@ -1040,7 +1044,8 @@ export function EventMenuContent({
                         <button
                           aria-label={`Remove ${line.name}`}
                           className="flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b] disabled:opacity-50"
-                          disabled={isCommitting || isConfirmed}
+                          data-testid={`event-menu-remove-${targetId(line)}`}
+                          disabled={!canEditMenu}
                           onClick={() => removeLine(line)}
                           type="button"
                         >
@@ -1085,7 +1090,7 @@ export function EventMenuContent({
                           : priceFormatter.format(line.price)
                       }
                       onRemove={() => removeLine(line)}
-                      disabled={isConfirmed || isCommitting}
+                      disabled={!canEditMenu}
                     />
                   ))}
                   <AddMenuCard
@@ -1095,7 +1100,7 @@ export function EventMenuContent({
                         : `Add ${section.label.toLowerCase()} item`
                     }
                     onClick={() => openSelector(section.id)}
-                    disabled={isConfirmed || isCommitting}
+                    disabled={!canEditMenu}
                   />
                 </div>
               </section>

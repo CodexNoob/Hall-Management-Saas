@@ -1,13 +1,12 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AddKitchenEventDialog,
   type AddKitchenEventFormValues
 } from "@/features/kitchen/forms/add-kitchen-event-dialog";
-import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { AsyncState } from "@/components/ui/async-state";
+import { requestDashboardSidebarCollapse } from "@/components/layout/dashboard-sidebar-shared";
 import {
   addDays,
   dateKey,
@@ -21,6 +20,7 @@ import {
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 
 import { FourWeeksView } from "@/features/kitchen/components/kitchen-four-week-view";
 import {
@@ -28,6 +28,7 @@ import {
   type KitchenItemActionInput
 } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
+import { KitchenNotificationsDrawer } from "@/features/kitchen/components/kitchen-notifications-drawer";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
 import { ManageWorkersDialog } from "@/features/kitchen/forms/manage-workers-dialog";
 import { TodayView } from "@/features/kitchen/components/kitchen-today-view";
@@ -53,6 +54,7 @@ export function KitchenDashboardPage() {
       quickMenu?: {
         name: string;
         dishNames: string[];
+        menuItemIds: string[];
         saveToLibrary: boolean;
       };
       portions: number;
@@ -72,10 +74,30 @@ export function KitchenDashboardPage() {
   const [selectedKitchenEvent, setSelectedKitchenEvent] =
     useState<KitchenEvent | null>(null);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  const [acknowledgingNotificationId, setAcknowledgingNotificationId] =
+    useState<string | null>(null);
+
+  useEffect(() => {
+    // The Kitchen page is a live operations board. On desktop, collapse the
+    // dashboard sidebar as soon as the board opens so the schedule and dish
+    // cards get the extra working space. The helper no-ops below lg.
+    requestDashboardSidebarCollapse();
+  }, []);
+
   const days = useMemo<KitchenDay[]>(() => {
     const normalizedSearch = pageSearchQuery.trim().toLowerCase();
     const eventsByDate = new Map<string, KitchenEvent[]>();
+    const currentWorkerId = kitchenQuery.data?.currentWorkerId ?? null;
+    const visibleAssignedCount = (
+      summary: KitchenEvent["summary"] | undefined | null
+    ) =>
+      currentWorkerId
+        ? (summary?.assignedToCurrentWorker ?? 0)
+        : (summary?.assigned ?? 0);
+
     for (const event of kitchenQuery.data?.events ?? []) {
+      if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
+
       const key = dateKeyFromIso(event.eventDate);
       const current = eventsByDate.get(key) ?? [];
       // `totalGuests` arrives worked out. The browser used to sum the head
@@ -115,6 +137,8 @@ export function KitchenDashboardPage() {
     }
 
     for (const event of kitchenQuery.data?.kitchenEvents ?? []) {
+      if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
+
       const current = eventsByDate.get(event.dateKey) ?? [];
       current.push(event);
       eventsByDate.set(event.dateKey, current);
@@ -148,7 +172,8 @@ export function KitchenDashboardPage() {
     anchorDate,
     kitchenQuery.data,
     pageSearchQuery,
-    today
+    today,
+    workersOnly
   ]);
 
   const canAddKitchenEvent =
@@ -186,7 +211,10 @@ export function KitchenDashboardPage() {
   async function addKitchenEvent(values: AddKitchenEventFormValues) {
     if (!canAddKitchenEvent) return;
 
-    const isQuickMenu = Boolean(values.quickMenuName && values.quickMenuDishes);
+    const isQuickMenu = Boolean(
+      values.quickMenuName &&
+        (values.quickMenuDishes || values.quickMenuItemIds.length > 0)
+    );
 
     await addKitchenEventMutation.mutate({
       date: kitchenEventDateKey,
@@ -198,6 +226,7 @@ export function KitchenDashboardPage() {
                 .split(/\r?\n/)
                 .map((dish) => dish.trim())
                 .filter(Boolean),
+              menuItemIds: values.quickMenuItemIds,
               saveToLibrary: values.saveQuickMenuToLibrary
             }
           }
@@ -211,6 +240,27 @@ export function KitchenDashboardPage() {
   function openAddKitchenEvent(targetDateKey: string) {
     setKitchenEventDateKey(targetDateKey);
     setIsAddKitchenEventOpen(true);
+  }
+
+  async function acknowledgeKitchenNotification(notificationId: string) {
+    setAcknowledgingNotificationId(notificationId);
+    try {
+      const response = await authenticatedFetch(
+        `/api/kitchen/notifications/${notificationId}`,
+        { method: "PATCH" }
+      );
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(payload?.error ?? "Could not acknowledge notification.");
+      }
+
+      await kitchenQuery.refetch();
+    } finally {
+      setAcknowledgingNotificationId(null);
+    }
   }
 
   async function saveKitchenItemAction(input: KitchenItemActionInput) {
@@ -242,17 +292,7 @@ export function KitchenDashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
-      {/* No actionsSlot - see the note in dashboard-shell. The topbar's own
-          Today notes button already collapses to an icon below xl, which is
-          what keeps it on the same line as the title on a phone. */}
-      <DashboardTopbar
-        title="Kitchen Dashboard"
-        subtitle="Review kitchen events, production schedules, and assigned work."
-        onTodayNotes={() => setIsTodayNotesOpen(true)}
-        showNewBookingAction={false}
-      />
-
+    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#a8a8a6] text-[#061126]">
       <div className="shrink-0 overflow-x-hidden">
         <KitchenHeader
           activeView={activeView}
@@ -262,12 +302,18 @@ export function KitchenDashboardPage() {
           onNext={() => navigate(1)}
           onPrevious={() => navigate(-1)}
           onToday={goToCurrentRange}
+          onTodayNotes={() => setIsTodayNotesOpen(true)}
+          notificationCount={
+            kitchenQuery.data?.notifications.filter(
+              (notification) => !notification.acknowledged
+            ).length ?? 0
+          }
           today={today}
         />
       </div>
 
-      <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto p-2 sm:p-4">
-        <div className="mx-auto flex w-full min-w-0 max-w-[1800px] flex-1 flex-col gap-3 sm:gap-4">
+      <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4">
+        <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
           <KitchenToolbar
             canAddKitchenEvent={canAddKitchenEvent}
             canManageWorkers={canManageWorkers}
@@ -287,9 +333,7 @@ export function KitchenDashboardPage() {
             </div>
           ) : activeView === "today" ? (
             <TodayView
-              canAddKitchenEvent={canAddKitchenEvent}
               day={days.find((day) => day.selected) ?? days[0]}
-              onAddKitchenEvent={openAddKitchenEvent}
               onSelectEvent={setSelectedKitchenEvent}
             />
           ) : activeView === "week" ? (
@@ -313,13 +357,17 @@ export function KitchenDashboardPage() {
       <AddKitchenEventDialog
         canSave={canAddKitchenEvent}
         date={kitchenEventDateKey}
+        menuItems={kitchenQuery.data?.menuItems ?? []}
         menus={kitchenQuery.data?.menus ?? []}
         onClose={() => setIsAddKitchenEventOpen(false)}
         onSave={addKitchenEvent}
         open={isAddKitchenEventOpen}
       />
 
-      <TodayNotesDrawer
+      <KitchenNotificationsDrawer
+        acknowledgingId={acknowledgingNotificationId}
+        notifications={kitchenQuery.data?.notifications ?? []}
+        onAcknowledge={acknowledgeKitchenNotification}
         onClose={() => setIsTodayNotesOpen(false)}
         open={isTodayNotesOpen}
       />
@@ -342,6 +390,8 @@ export function KitchenDashboardPage() {
             canUpdateKitchenStatus: false
           }
         }
+        workersOnly={workersOnly}
+        currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
         workers={kitchenQuery.data?.workers ?? []}
       />
     </div>

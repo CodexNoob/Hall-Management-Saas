@@ -11,6 +11,17 @@ const menuOptions = [
   { id: "menu-1", name: "Shabbos Lunch", dishCount: 4 },
   { id: "menu-2", name: "Staff Meal", dishCount: 2 }
 ];
+const menuItemOptions = [
+  { id: "item-1", name: "Soup CHK", category: "Food", kind: "Food" },
+  { id: "item-2", name: "Apple juice", category: "Drinks", kind: "Drink" }
+];
+
+function chooseMenuTemplate() {
+  fireEvent.change(screen.getByLabelText("Event name *"), {
+    target: { value: "Staff lunch" }
+  });
+  fireEvent.click(screen.getByLabelText("Shabbos Lunch"));
+}
 
 describe("PlusButton", () => {
   it("is disabled when disabled is true", () => {
@@ -74,6 +85,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave={false}
         date="Jan 1"
+        menuItems={menuItemOptions}
         menus={menuOptions}
         onClose={vi.fn()}
         onSave={vi.fn()}
@@ -81,7 +93,7 @@ describe("AddKitchenEventDialog", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Save event" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Event" })).toBeDisabled();
     expect(
       screen.getByText(/do not have permission to add kitchen events/i)
     ).toBeInTheDocument();
@@ -93,6 +105,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave={false}
         date="Jan 1"
+        menuItems={menuItemOptions}
         menus={menuOptions}
         onClose={vi.fn()}
         onSave={onSave}
@@ -100,14 +113,12 @@ describe("AddKitchenEventDialog", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Menu"), {
-      target: { value: "menu-1" }
-    });
+    chooseMenuTemplate();
     fireEvent.change(screen.getByLabelText("Portions"), {
       target: { value: "40" }
     });
     fireEvent.submit(
-      screen.getByRole("button", { name: "Save event" }).closest("form")!
+      screen.getByRole("button", { name: "Save Event" }).closest("form")!
     );
 
     expect(onSave).not.toHaveBeenCalled();
@@ -119,6 +130,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave
         date="Jan 1"
+        menuItems={menuItemOptions}
         menus={menuOptions}
         onClose={vi.fn()}
         onSave={onSave}
@@ -127,16 +139,14 @@ describe("AddKitchenEventDialog", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Save event" })
+      screen.getByRole("button", { name: "Save Event" })
     ).not.toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText("Menu"), {
-      target: { value: "menu-1" }
-    });
+    chooseMenuTemplate();
     fireEvent.change(screen.getByLabelText("Portions"), {
       target: { value: "40" }
     });
-    fireEvent.click(screen.getByRole("button", { name: "Save event" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
 
     // The whole payload, not a subset: the new-menu fields ride along empty
     // when an existing menu is picked, and the caller decides which of the two
@@ -148,6 +158,7 @@ describe("AddKitchenEventDialog", () => {
       kitchenNote: "",
       quickMenuName: "",
       quickMenuDishes: "",
+      quickMenuItemIds: [],
       saveQuickMenuToLibrary: false
     });
   });
@@ -157,6 +168,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave
         date="Jan 1"
+        menuItems={menuItemOptions}
         menus={menuOptions}
         onClose={vi.fn()}
         onSave={vi.fn()}
@@ -166,7 +178,8 @@ describe("AddKitchenEventDialog", () => {
 
     // A kitchen event is production with no booking behind it, so none of the
     // fields the New Booking form insists on belong here.
-    expect(screen.getByLabelText("Menu")).toBeInTheDocument();
+    expect(screen.getByLabelText("Event name *")).toBeInTheDocument();
+    expect(screen.getByLabelText("Shabbos Lunch")).toBeInTheDocument();
     expect(screen.getByLabelText("Portions")).toBeInTheDocument();
     for (const absent of [/client/i, /phone/i, /hall/i, /event type/i]) {
       expect(screen.queryByLabelText(absent)).toBeNull();
@@ -179,6 +192,7 @@ describe("AddKitchenEventDialog", () => {
       <AddKitchenEventDialog
         canSave
         date="Jan 1"
+        menuItems={menuItemOptions}
         menus={menuOptions}
         onClose={vi.fn()}
         onSave={onSave}
@@ -190,7 +204,7 @@ describe("AddKitchenEventDialog", () => {
       target: { value: "40" }
     });
     fireEvent.submit(
-      screen.getByRole("button", { name: "Save event" }).closest("form")!
+      screen.getByRole("button", { name: "Save Event" }).closest("form")!
     );
 
     expect(onSave).not.toHaveBeenCalled();
@@ -202,16 +216,15 @@ describe("AddKitchenEventDialog", () => {
         <AddKitchenEventDialog
           canSave
           date="Jan 1"
-        menus={menuOptions}
+          menuItems={menuItemOptions}
+          menus={menuOptions}
           onClose={vi.fn()}
           onSave={onSave}
           open
         />
       );
 
-      fireEvent.change(screen.getByLabelText("Menu"), {
-      target: { value: "menu-1" }
-    });
+      chooseMenuTemplate();
 
       return onSave;
     }
@@ -220,7 +233,7 @@ describe("AddKitchenEventDialog", () => {
       fireEvent.change(screen.getByLabelText("Portions"), {
         target: { value: portions }
       });
-      fireEvent.click(screen.getByRole("button", { name: "Save event" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
     }
 
     // The kitchen board renders this value straight back as "<portions>
@@ -275,6 +288,7 @@ describe("AddKitchenEventDialog", () => {
         kitchenNote: "",
         quickMenuName: "",
         quickMenuDishes: "",
+        quickMenuItemIds: [],
         saveQuickMenuToLibrary: false
       });
     });

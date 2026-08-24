@@ -373,6 +373,8 @@ export type EventKitchenSheet = {
     complete: number;
     pending: number;
     notStarted: number;
+    assigned?: number;
+    assignedToCurrentWorker?: number;
     /// Dishes with no quantity to cook to, for any of the three reasons.
     needsAttention: number;
     unresolvedBases: string[];

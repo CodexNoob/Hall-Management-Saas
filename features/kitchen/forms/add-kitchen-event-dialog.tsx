@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
 
 export type AddKitchenEventFormValues = {
-  /** The menu to cook. A kitchen event exists to produce one. */
   menuId: string;
-  /** The menu's name, so the card can label itself without a lookup. */
   menuName: string;
   quickMenuName: string;
   quickMenuDishes: string;
+  quickMenuItemIds: string[];
   saveQuickMenuToLibrary: boolean;
   portions: string;
   kitchenNote: string;
@@ -21,13 +20,20 @@ export type KitchenMenuOption = {
   dishCount: number;
 };
 
+export type KitchenMenuItemOption = {
+  id: string;
+  name: string;
+  category: string | null;
+  kind: string;
+};
+
 type AddKitchenEventDialogProps = {
   canSave: boolean;
   date: string;
   open: boolean;
   onClose: () => void;
-  /** Menus this event can be raised against. */
   menus: KitchenMenuOption[];
+  menuItems: KitchenMenuItemOption[];
   onSave: (values: AddKitchenEventFormValues) => void | Promise<void>;
 };
 
@@ -36,42 +42,33 @@ const initialValues: AddKitchenEventFormValues = {
   menuName: "",
   quickMenuName: "",
   quickMenuDishes: "",
+  quickMenuItemIds: [],
   saveQuickMenuToLibrary: false,
   portions: "",
   kitchenNote: ""
 };
 
 const inputClass =
-  "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+  "h-11 w-full border border-[#b9c2cf] bg-white px-3 text-sm font-semibold text-[#111827] outline-none placeholder:text-[#9ca3af] focus:border-[#1f4d73] focus:ring-1 focus:ring-[#1f4d73]";
 
 function FieldLabel({ children }: { children: string }) {
   return (
-    <span className="block text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
+    <span className="block text-xs font-black uppercase tracking-[0.06em] text-[#4b5565]">
       {children}
     </span>
   );
 }
 
-/**
- * The board hands over a `YYYY-MM-DD` key, which is unreadable in a form beside
- * fields a person is typing into.
- *
- * Parsed field by field rather than through `new Date(key)`: that reads the
- * string as UTC midnight and prints the day before in every timezone west of
- * Greenwich, so the dialog would name a different day than the column the
- * person clicked.
- */
 function formatDateLabel(dateKey: string) {
   const [year, month, day] = dateKey.split("-").map(Number);
-
   if (!year || !month || !day) return dateKey;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(new Date(year, month - 1, day));
+function toggleInList(list: string[], item: string) {
+  return list.includes(item)
+    ? list.filter((current) => current !== item)
+    : [...list, item];
 }
 
 export function AddKitchenEventDialog({
@@ -79,23 +76,45 @@ export function AddKitchenEventDialog({
   date,
   open,
   menus,
+  menuItems,
   onClose,
   onSave
 }: AddKitchenEventDialogProps) {
   const titleId = useId();
-  const menuId = useId();
-  const quickMenuNameId = useId();
-  const quickMenuDishesId = useId();
+  const eventNameId = useId();
   const portionsId = useId();
   const kitchenNoteId = useId();
-  const firstInputRef = useRef<HTMLSelectElement>(null);
-  const newMenuNameRef = useRef<HTMLInputElement>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
+  const [selectedMenuItemIds, setSelectedMenuItemIds] = useState<string[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [portionsError, setPortionsError] = useState("");
   const [menuError, setMenuError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isQuickMenu, setIsQuickMenu] = useState(false);
+
+  const selectedQuickItems = useMemo(
+    () => menuItems.filter((item) => selectedMenuItemIds.includes(item.id)),
+    [menuItems, selectedMenuItemIds]
+  );
+  const drinkOptions = useMemo(
+    () =>
+      menuItems.filter((item) => {
+        const text = `${item.kind} ${item.category ?? ""} ${item.name}`.toLowerCase();
+        return (
+          item.kind.toLowerCase() === "drink" ||
+          text.includes("drink") ||
+          text.includes("juice") ||
+          text.includes("water") ||
+          text.includes("coffee")
+        );
+      }),
+    [menuItems]
+  );
+  const foodOptions = useMemo(
+    () => menuItems.filter((item) => !drinkOptions.some((drink) => drink.id === item.id)),
+    [drinkOptions, menuItems]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -105,7 +124,7 @@ export function AddKitchenEventDialog({
     firstInputRef.current?.focus();
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeDialog();
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -114,105 +133,64 @@ export function AddKitchenEventDialog({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
-
-  // Focus follows the switch. Turning the new-menu panel on replaces the
-  // control that was just used, so without this a keyboard user is left on a
-  // button that no longer exists and has to tab back in from the top.
-  useEffect(() => {
-    if (isQuickMenu) newMenuNameRef.current?.focus();
-  }, [isQuickMenu]);
+    // closeDialog intentionally resets form state, so keeping this effect tied
+    // to `open` avoids re-registering on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (!open) return null;
 
-  function closeDialog() {
+  function resetForm() {
     setValues(initialValues);
+    setSelectedMenuItemIds([]);
+    setSelectedTemplateId("");
     setPortionsError("");
     setMenuError("");
     setSubmitError("");
     setIsSubmitting(false);
-    setIsQuickMenu(false);
+  }
+
+  function closeDialog() {
+    resetForm();
     onClose();
   }
 
   function updateValue(
-    field: keyof AddKitchenEventFormValues,
+    field: keyof Pick<AddKitchenEventFormValues, "quickMenuName" | "portions" | "kitchenNote">,
     value: string
   ) {
     if (field === "portions") setPortionsError("");
-    if (field === "menuId" || field === "quickMenuName" || field === "quickMenuDishes") {
-      setMenuError("");
-    }
+    if (field === "quickMenuName") setMenuError("");
     setSubmitError("");
     setValues((current) => ({ ...current, [field]: value }));
   }
 
-  function updateChecked(
-    field: keyof Pick<AddKitchenEventFormValues, "saveQuickMenuToLibrary">,
-    checked: boolean
-  ) {
-    setSubmitError("");
-    setValues((current) => ({ ...current, [field]: checked }));
-  }
-
-  function enableQuickMenu() {
-    setMenuError("");
-    setSubmitError("");
-    setIsQuickMenu(true);
-    setValues((current) => ({ ...current, menuId: "", menuName: "" }));
-  }
-
-  function useExistingMenu() {
-    setMenuError("");
-    setSubmitError("");
-    setIsQuickMenu(false);
-    setValues((current) => ({
-      ...current,
-      quickMenuName: "",
-      quickMenuDishes: "",
-      saveQuickMenuToLibrary: false
-    }));
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canSave) return;
 
-    const normalizedValues = {
-      menuId: values.menuId,
-      menuName: menus.find((menu) => menu.id === values.menuId)?.name ?? "",
-      quickMenuName: values.quickMenuName.trim(),
-      quickMenuDishes: values.quickMenuDishes.trim(),
-      saveQuickMenuToLibrary: values.saveQuickMenuToLibrary,
+    const eventName = values.quickMenuName.trim();
+    const normalizedValues: AddKitchenEventFormValues = {
+      menuId: selectedTemplateId,
+      menuName: menus.find((menu) => menu.id === selectedTemplateId)?.name ?? "",
+      quickMenuName: selectedQuickItems.length > 0 ? eventName : "",
+      quickMenuDishes: "",
+      quickMenuItemIds: selectedQuickItems.map((item) => item.id),
+      saveQuickMenuToLibrary: false,
       portions: values.portions.trim(),
       kitchenNote: values.kitchenNote.trim()
     };
 
-    if (!canSave) return;
-
-    if (!isQuickMenu && !normalizedValues.menuId) {
-      setMenuError("Choose a menu or create a new one.");
+    if (!eventName) {
+      setMenuError("Enter an event name.");
       return;
     }
 
-    if (isQuickMenu) {
-      const dishNames = normalizedValues.quickMenuDishes
-        .split(/\r?\n/)
-        .map((dish) => dish.trim())
-        .filter(Boolean);
-
-      if (!normalizedValues.quickMenuName) {
-        setMenuError("Enter a menu name.");
-        return;
-      }
-
-      if (dishNames.length === 0) {
-        setMenuError("Add at least one dish, one per line.");
-        return;
-      }
+    if (!selectedTemplateId && selectedQuickItems.length === 0) {
+      setMenuError("Choose food items, drinks, or a menu template.");
+      return;
     }
 
-    // The saved value is rendered straight back as "<portions> portions", so an
-    // unparseable entry would show up on the kitchen board as "abc portions".
     const parsedPortions = parseNumericInput(
       normalizedValues.portions,
       countSchema({ min: 1, label: "Portions" })
@@ -228,6 +206,7 @@ export function AddKitchenEventDialog({
     }
 
     setPortionsError("");
+    setMenuError("");
     setSubmitError("");
     setIsSubmitting(true);
 
@@ -247,73 +226,60 @@ export function AddKitchenEventDialog({
 
   return (
     <div
-      className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/25 p-3 backdrop-blur-[1px] sm:p-6"
+      className="fixed inset-0 z-100 flex items-center justify-center overflow-hidden bg-black/65 px-4 py-6 text-[#111827]"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target) closeDialog();
       }}
     >
-      {/* Capped and column-laid out, the way the manage-workers and event
-          details dialogs already are. Without it the form grew past a phone
-          screen, and `overflow-hidden` clipped the title off the top with no
-          way to scroll back to it - the new-menu panel made that reachable on
-          any handset. */}
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="flex max-h-[calc(100dvh-24px)] w-full max-w-162.5 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20 sm:max-h-[calc(100dvh-48px)]"
+        className="flex max-h-[calc(100dvh-48px)] w-full max-w-145 flex-col overflow-hidden border border-[#c7ced8] bg-white shadow-2xl shadow-black/35"
         role="dialog"
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-3.5 sm:px-5 sm:py-4">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-4">
           <div>
-            <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
-              Add kitchen event
+            <h2 className="text-base font-black leading-none text-[#061126]" id={titleId}>
+              Add Kitchen Event
             </h2>
-            <p className="mt-1 text-sm text-[#64748b]">
-              Production with no booking behind it - a staff meal, a school
-              lunch.
+            <p className="mt-2 text-sm font-bold text-[#1f4d73]">
+              {formatDateLabel(date)}
             </p>
           </div>
 
           <button
             aria-label="Close add kitchen event"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full leading-none text-[#17202a] hover:bg-[#eef4fa]"
+            className="flex h-8 w-8 items-center justify-center border border-[#b9c2cf] bg-white text-xl leading-none text-[#061126] hover:bg-[#eef4fa]"
             onClick={closeDialog}
             type="button"
           >
-            <svg
-              aria-hidden="true"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M5 5 19 19M19 5 5 19"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2.25"
-              />
-            </svg>
+            ×
           </button>
         </header>
 
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit}>
-          {/* `content-start`: the body is a flex child that grows to fill the
-              dialog, and a stretched grid would spread its rows to match
-              instead of leaving them their own height. */}
-          <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
-            {/* Day and quantity first: both are single short facts, and pairing
-                them puts the count next to the day it is for. The date is not
-                editable here - it comes from the column that was clicked. */}
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5">
+            <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
               <div>
-                <FieldLabel>Date</FieldLabel>
-                <p className="mt-1 flex h-10 items-center rounded-lg border border-[#d8dde5] bg-[#f4f7fa] px-3 text-sm font-bold text-[#17202a]">
-                  {formatDateLabel(date)}
-                </p>
+                <label htmlFor={eventNameId}>
+                  <FieldLabel>Event name *</FieldLabel>
+                </label>
+                <input
+                  ref={firstInputRef}
+                  aria-describedby={menuError ? `${eventNameId}-error` : undefined}
+                  aria-invalid={menuError ? true : undefined}
+                  className={`${inputClass} mt-2`}
+                  id={eventNameId}
+                  name="quickMenuName"
+                  onChange={(event) =>
+                    updateValue("quickMenuName", event.target.value)
+                  }
+                  placeholder="e.g. School Lunch, Staff Meal..."
+                  type="text"
+                  value={values.quickMenuName}
+                />
               </div>
 
-              {/* Not a wrapping label: the error text below would be folded
-                  into the input's accessible name. */}
               <div>
                 <label htmlFor={portionsId}>
                   <FieldLabel>Portions</FieldLabel>
@@ -323,7 +289,7 @@ export function AddKitchenEventDialog({
                     portionsError ? `${portionsId}-error` : undefined
                   }
                   aria-invalid={portionsError ? true : undefined}
-                  className={`${inputClass} mt-1`}
+                  className={`${inputClass} mt-2`}
                   id={portionsId}
                   inputMode="decimal"
                   name="portions"
@@ -335,164 +301,107 @@ export function AddKitchenEventDialog({
                   type="text"
                   value={values.portions}
                 />
-                {portionsError ? (
-                  <p
-                    className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                    id={`${portionsId}-error`}
-                    role="alert"
-                  >
-                    {portionsError}
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            {/* A menu, not a typed name. A kitchen event is a production job,
-                and the kitchen needs to know what to cook - a label like
-                "School Lunch" tells them nothing.
+            {menuError ? (
+              <p
+                className="mt-2 text-[11px] font-black text-[#c2410c]"
+                id={`${eventNameId}-error`}
+                role="alert"
+              >
+                {menuError}
+              </p>
+            ) : null}
+            {portionsError ? (
+              <p
+                className="mt-2 text-[11px] font-black text-[#c2410c]"
+                id={`${portionsId}-error`}
+                role="alert"
+              >
+                {portionsError}
+              </p>
+            ) : null}
 
-                Full width, on its own row: menu names are long, and the button
-                beside the picker used to squeeze both into half the dialog. */}
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <label htmlFor={menuId}>
-                  <FieldLabel>Menu</FieldLabel>
-                </label>
-                {/* One control for the two states rather than a toggle plus a
-                    separate "creating" button that did the same thing. */}
-                <button
-                  className="shrink-0 text-xs font-black text-[#1f4d73] underline-offset-2 hover:underline"
-                  onClick={isQuickMenu ? useExistingMenu : enableQuickMenu}
-                  type="button"
-                >
-                  {isQuickMenu ? "Use an existing menu" : "+ New menu"}
-                </button>
-              </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <CheckboxList
+                items={foodOptions}
+                label="Food items"
+                maxHeightClass="max-h-52"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedMenuItemIds((current) => toggleInList(current, item));
+                }}
+                selectedItems={selectedMenuItemIds}
+              />
 
-              {isQuickMenu ? (
-                <div className="grid gap-3 rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
-                  <div>
-                    <label htmlFor={quickMenuNameId}>
-                      <FieldLabel>Menu name</FieldLabel>
-                    </label>
-                    <input
-                      ref={newMenuNameRef}
-                      aria-describedby={
-                        menuError ? `${menuId}-error` : undefined
-                      }
-                      className={`${inputClass} mt-1`}
-                      id={quickMenuNameId}
-                      name="quickMenuName"
-                      onChange={(event) =>
-                        updateValue("quickMenuName", event.target.value)
-                      }
-                      placeholder="e.g. School lunch"
-                      type="text"
-                      value={values.quickMenuName}
-                    />
-                  </div>
+              <CheckboxList
+                items={drinkOptions}
+                label="Drinks"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedMenuItemIds((current) => toggleInList(current, item));
+                }}
+                selectedItems={selectedMenuItemIds}
+              />
 
-                  <div>
-                    <label htmlFor={quickMenuDishesId}>
-                      <FieldLabel>Dishes</FieldLabel>
-                    </label>
-                    <textarea
-                      className="mt-1 h-24 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
-                      id={quickMenuDishesId}
-                      name="quickMenuDishes"
-                      onChange={(event) =>
-                        updateValue("quickMenuDishes", event.target.value)
-                      }
-                      placeholder={"Pasta\nSalad\nJuice"}
-                      value={values.quickMenuDishes}
-                    />
-                    <p className="mt-1 text-[10px] font-bold text-[#6a7483]">
-                      One dish per line. Each dish starts at one portion per
-                      guest.
+              <div>
+                <FieldLabel>Menu templates</FieldLabel>
+                <div className="mt-2 grid max-h-52 gap-2 overflow-y-auto pr-1 text-sm font-bold text-[#111827]">
+                  {menus.length ? (
+                    menus.map((menu) => (
+                      <label key={menu.id} className="flex items-start gap-2">
+                        <input
+                          checked={selectedTemplateId === menu.id}
+                          className="mt-0.5 h-3.5 w-3.5 border-[#9aa4b2]"
+                          onChange={() => {
+                            setMenuError("");
+                            setSubmitError("");
+                            setSelectedTemplateId((current) =>
+                              current === menu.id ? "" : menu.id
+                            );
+                          }}
+                          type="checkbox"
+                        />
+                        <span>{menu.name}</span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="text-xs font-bold text-[#6b7280]">
+                      No menu templates yet.
                     </p>
-                  </div>
-
-                  <label className="flex items-start gap-2 text-xs font-bold text-[#53627a]">
-                    <input
-                      checked={values.saveQuickMenuToLibrary}
-                      className="mt-0.5 h-4 w-4 rounded border-[#b9c2cf]"
-                      onChange={(event) =>
-                        updateChecked(
-                          "saveQuickMenuToLibrary",
-                          event.target.checked
-                        )
-                      }
-                      type="checkbox"
-                    />
-                    <span>
-                      Save this menu to the menu library for next time.
-                    </span>
-                  </label>
+                  )}
                 </div>
-              ) : (
-                <select
-                  ref={firstInputRef}
-                  aria-describedby={menuError ? `${menuId}-error` : undefined}
-                  aria-invalid={menuError ? true : undefined}
-                  aria-label="Menu"
-                  className={inputClass}
-                  id={menuId}
-                  name="menuId"
-                  onChange={(event) =>
-                    updateValue("menuId", event.target.value)
-                  }
-                  required={!isQuickMenu}
-                  value={values.menuId}
-                >
-                  <option value="">
-                    {menus.length ? "Select a menu" : "No menus available"}
-                  </option>
-                  {menus.map((menu) => (
-                    <option key={menu.id} value={menu.id}>
-                      {menu.dishCount
-                        ? `${menu.name} (${menu.dishCount} dishes)`
-                        : menu.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {menuError ? (
-                <p
-                  className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                  id={`${menuId}-error`}
-                  role="alert"
-                >
-                  {menuError}
-                </p>
-              ) : null}
+              </div>
             </div>
 
-            <div>
+            <div className="mt-4">
               <label htmlFor={kitchenNoteId}>
-                <FieldLabel>Kitchen note</FieldLabel>
+                <FieldLabel>Note (optional)</FieldLabel>
               </label>
               <textarea
-                className="mt-1 h-19 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none placeholder:text-[#737373] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                className="mt-2 h-18 w-full resize-y border border-[#b9c2cf] bg-white px-3 py-3 text-sm font-semibold text-[#111827] outline-none placeholder:text-[#9ca3af] focus:border-[#1f4d73] focus:ring-1 focus:ring-[#1f4d73]"
                 id={kitchenNoteId}
                 name="kitchenNote"
                 onChange={(event) =>
                   updateValue("kitchenNote", event.target.value)
                 }
-                placeholder="Anything the kitchen needs to know - allergies, drop-off time"
+                placeholder="Any kitchen notes..."
                 value={values.kitchenNote}
               />
             </div>
 
             {!canSave ? (
-              <p className="rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
+              <p className="mt-4 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
                 You do not have permission to add kitchen events. Contact an
                 administrator if you need access.
               </p>
             ) : null}
             {submitError ? (
               <p
-                className="rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]"
+                className="mt-4 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]"
                 role="alert"
               >
                 {submitError}
@@ -500,25 +409,63 @@ export function AddKitchenEventDialog({
             ) : null}
           </div>
 
-          <footer className="flex shrink-0 justify-end gap-3 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 sm:px-5">
+          <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-[#f8fafc] px-4 py-3">
             <button
-              className="h-10 flex-1 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:flex-initial"
+              className="h-11 border border-[#b9c2cf] bg-white px-6 text-sm font-black text-[#061126] hover:bg-[#eef4fa]"
               onClick={closeDialog}
               type="button"
             >
               Cancel
             </button>
-
             <button
-              className="h-10 flex-1 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 sm:flex-initial"
+              className="h-11 bg-[#061126] px-6 text-sm font-black text-white enabled:hover:bg-[#10203d] disabled:cursor-not-allowed disabled:opacity-45"
               disabled={!canSave || isSubmitting}
               type="submit"
             >
-              {isSubmitting ? "Saving..." : "Save event"}
+              {isSubmitting ? "Saving..." : "Save Event"}
             </button>
           </footer>
         </form>
       </section>
+    </div>
+  );
+}
+
+function CheckboxList({
+  items,
+  label,
+  maxHeightClass = "",
+  selectedItems,
+  onToggle
+}: {
+  items: KitchenMenuItemOption[];
+  label: string;
+  maxHeightClass?: string;
+  selectedItems: string[];
+  onToggle: (itemId: string) => void;
+}) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div
+        className={`mt-2 grid gap-2 overflow-y-auto pr-1 text-sm font-bold text-[#111827] ${maxHeightClass}`}
+      >
+        {items.length ? items.map((item) => (
+          <label key={item.id} className="flex items-start gap-2">
+            <input
+              checked={selectedItems.includes(item.id)}
+              className="mt-0.5 h-3.5 w-3.5 border-[#9aa4b2]"
+              onChange={() => onToggle(item.id)}
+              type="checkbox"
+            />
+            <span>{item.name}</span>
+          </label>
+        )) : (
+          <p className="text-xs font-bold text-[#6b7280]">
+            No saved {label.toLowerCase()} yet.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

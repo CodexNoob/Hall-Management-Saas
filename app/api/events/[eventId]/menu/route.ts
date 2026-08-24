@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth/server-auth";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { createMenuChangedKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
 
 /**
  * The menu for one event: what it is serving buffet, what it is serving plated,
@@ -216,12 +217,14 @@ export async function PUT(
         select: { id: true, status: true, version: true }
       });
 
+      let savedMenu: { id: string; version: number };
+
       if (!existing) {
         // First save. `version` may be absent, but if it was sent it has to be
         // the 0 of a menu that does not exist yet.
         if (input.version !== undefined && input.version !== 0) return null;
 
-        return transaction.eventMenu.create({
+        savedMenu = await transaction.eventMenu.create({
           data: {
             organizationId: actor.organizationId,
             eventId: id,
@@ -232,59 +235,65 @@ export async function PUT(
           },
           select: { id: true, version: true }
         });
-      }
-
-      if (input.version !== undefined && input.version !== existing.version) {
-        return null;
-      }
-
-      // A confirmed menu is what the kitchen has already been handed. Reopen it
-      // first. The client portal refuses writes on the same grounds.
-      if (existing.status === "Confirmed") return "confirmed" as const;
-
-      const bumped = await transaction.eventMenu.updateMany({
-        where: { id: existing.id, version: existing.version },
-        data: {
-          serviceStyle:
-            input.serviceStyle === undefined ? undefined : input.serviceStyle,
-          version: { increment: 1 }
+      } else {
+        if (input.version !== undefined && input.version !== existing.version) {
+          return null;
         }
+
+        // A confirmed menu is what the kitchen has already been handed. Reopen
+        // it first. The client portal refuses writes on the same grounds.
+        if (existing.status === "Confirmed") return "confirmed" as const;
+
+        const bumped = await transaction.eventMenu.updateMany({
+          where: { id: existing.id, version: existing.version },
+          data: {
+            serviceStyle:
+              input.serviceStyle === undefined ? undefined : input.serviceStyle,
+            version: { increment: 1 }
+          }
+        });
+
+        // Someone else committed between the read above and this write.
+        if (bumped.count === 0) return null;
+
+        savedMenu = { id: existing.id, version: existing.version + 1 };
+      }
+
+      await transaction.eventMenuLine.deleteMany({
+        where: { eventMenuId: savedMenu.id }
       });
 
-      // Someone else committed between the read above and this write.
-      if (bumped.count === 0) return null;
+      if (lines.length > 0) {
+        await transaction.eventMenuLine.createMany({
+          data: lines.map((line, index) => ({
+            organizationId: actor.organizationId,
+            eventMenuId: savedMenu.id,
+            menuItemId: line.menuItemId ?? null,
+            addOnId: line.addOnId ?? null,
+            serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
+            notes: line.notes ?? null,
+            sortOrder: index,
+            // Kept as it arrived, so a line a package put here still reads as
+            // one after an unrelated edit rewrites the set around it.
+            source: line.source ?? "Manual",
+            addedById: actor.id
+          }))
+        });
+      }
 
-      return { id: existing.id, version: existing.version + 1 };
+      // The mirrors. Dropped once the kitchen dashboard, the PDF and the client
+      // portal read lines instead.
+      await transaction.event.update({
+        where: { id, organizationId: actor.organizationId },
+        data: { menuItemIds, addOnIds, updatedById: actor.id }
+      });
+
+      return savedMenu;
     });
 
     if (saved === "confirmed") return confirmedMenu();
 
     if (!saved) return conflict();
-
-    await prisma.$transaction([
-      prisma.eventMenuLine.deleteMany({ where: { eventMenuId: saved.id } }),
-      prisma.eventMenuLine.createMany({
-        data: lines.map((line, index) => ({
-          organizationId: actor.organizationId,
-          eventMenuId: saved.id,
-          menuItemId: line.menuItemId ?? null,
-          addOnId: line.addOnId ?? null,
-          serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
-          notes: line.notes ?? null,
-          sortOrder: index,
-          // Kept as it arrived, so a line a package put here still reads as one
-          // after an unrelated edit rewrites the set around it.
-          source: line.source ?? "Manual",
-          addedById: actor.id
-        }))
-      }),
-      // The mirrors. Dropped once the kitchen dashboard, the PDF and the client
-      // portal read lines instead.
-      prisma.event.update({
-        where: { id, organizationId: actor.organizationId },
-        data: { menuItemIds, addOnIds, updatedById: actor.id }
-      })
-    ]);
 
     return NextResponse.json({
       menu: await readPresentedMenu(saved.id, {
@@ -400,6 +409,17 @@ export async function POST(
     }
 
     if (!result) return conflict();
+
+    await createMenuChangedKitchenNotification({
+      organizationId: actor.organizationId,
+      eventId: event.id,
+      eventType: event.eventType ?? event.clientName,
+      eventDate: event.eventDate,
+      hallOrRoom: event.hall.name,
+      changedById: actor.id,
+      oldValue: confirming ? "Draft" : "Confirmed",
+      newValue: confirming ? "Confirmed" : "Draft"
+    });
 
     return NextResponse.json({
       menu: await readPresentedMenu(result.id, {

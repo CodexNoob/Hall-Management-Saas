@@ -222,6 +222,15 @@ export function loadEventForMenu(
     },
     // `packageId` travels with the menu document; `workspaceData` is merged into
     // on confirm, and merging needs what is already there.
-    select: { id: true, hallId: true, workspaceData: true, packageId: true }
+    select: {
+      id: true,
+      hallId: true,
+      workspaceData: true,
+      packageId: true,
+      eventDate: true,
+      eventType: true,
+      clientName: true,
+      hall: { select: { name: true } }
+    }
   });
 }
