@@ -107,7 +107,12 @@ async function openFixtureEvent(page: Page) {
   ).toBeVisible({ timeout: 45_000 });
 }
 
-test("Hall map tab shows the Dining Manager saved preset layout", async ({
+// The Hall map tab is withdrawn from the event workspace for the MVP
+// (lib/ui/mvp-features), so there is no tab left to click. Skipped rather than
+// listed in playwright.config.ts's `mvpHiddenSpecs`, because that lever works on
+// whole files and the other three tests here cover event details, which ships.
+// Deleting `.skip` is what brings it back, alongside the tab.
+test.skip("Hall map tab shows the Dining Manager saved preset layout", async ({
   page
 }) => {
   await page.route("**/api/events", async (route) => {
