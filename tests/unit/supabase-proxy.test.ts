@@ -13,6 +13,7 @@ import {
   REMEMBER_AUTH_COOKIE,
   REMEMBER_UNTIL_COOKIE
 } from "@/lib/supabase/cookie-policy";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 type SetAllFn = (
   cookies: { name: string; value: string; options: Record<string, unknown> }[],
@@ -153,7 +154,7 @@ describe("the anonymous-only gate", () => {
       const response = await run(requestFor(path));
       const location = new URL(response.headers.get("location") as string);
 
-      expect(location.pathname, path).toBe("/dashboard");
+      expect(location.pathname, path).toBe(MVP_LANDING_ROUTE);
     }
   });
 
@@ -178,7 +179,7 @@ describe("the anonymous-only gate", () => {
     const location = new URL(response.headers.get("location") as string);
 
     expect(location.origin).toBe("https://app.example.com");
-    expect(location.pathname).toBe("/dashboard");
+    expect(location.pathname).toBe(MVP_LANDING_ROUTE);
   });
 
   /**

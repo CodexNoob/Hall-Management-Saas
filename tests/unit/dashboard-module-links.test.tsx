@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
 import { DashboardModuleLinks } from "@/features/dashboard/components/dashboard-module-links";
 import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
 import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
+import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
 import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
 
 // Matched on description text, not on the <h3> title or the actionLabel: a tile
@@ -25,7 +26,7 @@ const tiles = {
     route: "/dashboard/calendar"
   },
   Events: {
-    description: "Full event file: client, menu, dining, staff, vendors, files.",
+    description: "Full event file: client, menu, kitchen, staff, and vendors.",
     route: "/dashboard/events"
   },
   Billing: {
@@ -40,13 +41,16 @@ function visibleTiles() {
     .map(([title]) => title);
 }
 
+// Billing is absent from every row because the MVP hides it outright
+// (lib/ui/mvp-features) - the permission map still grants it, which is exactly
+// what the reachability test below has to account for.
 const cases: Array<{ role: StaffRoleValue; expected: string[] }> = [
-  { role: "admin", expected: ["Kitchen", "Calendar", "Events", "Billing"] },
-  { role: "manager", expected: ["Kitchen", "Calendar", "Events", "Billing"] },
+  { role: "admin", expected: ["Kitchen", "Calendar", "Events"] },
+  { role: "manager", expected: ["Kitchen", "Calendar", "Events"] },
   // canViewCalendar makes /dashboard/events reachable even without
   // canViewEventManager, which is why Events survives for Kitchen Staff.
   { role: "kitchen", expected: ["Kitchen", "Calendar", "Events"] },
-  { role: "billing", expected: ["Calendar", "Events", "Billing"] },
+  { role: "billing", expected: ["Calendar", "Events"] },
   { role: "viewer", expected: ["Kitchen", "Calendar", "Events"] }
 ];
 
@@ -64,9 +68,9 @@ describe("DashboardModuleLinks role gating", () => {
     });
   }
 
-  // The tiles must agree with the sidebar and the layout guard, which both use
-  // canAccessDashboardRoute. This is the assertion that catches a mis-mapped
-  // tile route.
+  // The tiles must agree with the sidebar and the layout guard, which use
+  // canAccessDashboardRoute and the MVP gate together. This is the assertion
+  // that catches a mis-mapped tile route.
   it("offers a tile exactly when its route is reachable", () => {
     for (const { role } of cases) {
       window.localStorage.clear();
@@ -77,8 +81,11 @@ describe("DashboardModuleLinks role gating", () => {
       for (const [title, tile] of Object.entries(tiles)) {
         expect(
           shown.includes(title),
-          `${role}: tile ${title} visibility must match canAccessDashboardRoute("${tile.route}")`
-        ).toBe(canAccessDashboardRoute(tile.route, accessForRole(role), role));
+          `${role}: tile ${title} visibility must match canAccessDashboardRoute("${tile.route}") and the MVP gate`
+        ).toBe(
+          !isHiddenDashboardRoute(tile.route) &&
+            canAccessDashboardRoute(tile.route, accessForRole(role), role)
+        );
       }
 
       unmount();

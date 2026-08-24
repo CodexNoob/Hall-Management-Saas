@@ -7,6 +7,7 @@ import {
   REMEMBER_AUTH_COOKIE,
   REMEMBER_UNTIL_COOKIE
 } from "@/lib/supabase/cookie-policy";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 const SESSION_COOKIE = "sb-testproject-auth-token";
 
@@ -34,7 +35,8 @@ function ctaTargets() {
     .getAllByRole("link")
     .map((link) => link.getAttribute("href"))
     .filter(
-      (href) => href === "/login" || href === "/signup" || href === "/dashboard"
+      (href) =>
+        href === "/login" || href === "/signup" || href === MVP_LANDING_ROUTE
     );
 }
 
@@ -46,7 +48,7 @@ describe("the landing navbar CTA", () => {
 
     expect(targets).toContain("/login");
     expect(targets).toContain("/signup");
-    expect(targets).not.toContain("/dashboard");
+    expect(targets).not.toContain(MVP_LANDING_ROUTE);
     expect(screen.getAllByRole("link", { name: "Login" })).not.toHaveLength(0);
   });
 
@@ -57,7 +59,7 @@ describe("the landing navbar CTA", () => {
 
     const targets = ctaTargets();
 
-    expect(targets).toContain("/dashboard");
+    expect(targets).toContain(MVP_LANDING_ROUTE);
     expect(targets).not.toContain("/login");
     expect(targets).not.toContain("/signup");
     expect(
@@ -75,7 +77,7 @@ describe("the landing navbar CTA", () => {
 
     render(<LandingNavbar />);
 
-    expect(ctaTargets()).not.toContain("/dashboard");
+    expect(ctaTargets()).not.toContain(MVP_LANDING_ROUTE);
     expect(ctaTargets()).toContain("/login");
   });
 
@@ -90,7 +92,7 @@ describe("the landing navbar CTA", () => {
 
     render(<LandingNavbar />);
 
-    expect(ctaTargets()).not.toContain("/dashboard");
+    expect(ctaTargets()).not.toContain(MVP_LANDING_ROUTE);
   });
 
   /**
@@ -103,7 +105,7 @@ describe("the landing navbar CTA", () => {
 
     render(<LandingNavbar />);
 
-    expect(ctaTargets()).not.toContain("/dashboard");
+    expect(ctaTargets()).not.toContain(MVP_LANDING_ROUTE);
     expect(ctaTargets()).toContain("/login");
   });
 });

@@ -9,6 +9,7 @@ import {
   type TimelineGroup
 } from "@/components/layout/dashboard-shell-shared";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
 
 type DashboardSidePanelsProps = {
   isLoading: boolean;
@@ -47,12 +48,21 @@ export function DashboardSidePanels({
   // The panel's hardcoded sample items include an open-balance notice, so it
   // follows payment visibility rather than general event visibility.
   const showAttentionNeeded = hasPermission("canViewPaymentInfo");
-  const visibleActions = quickActions.filter((action) =>
-    canAccessRoute(action.route)
+  // The MVP check comes first for the same reason the permission one is here at
+  // all: this panel must never offer a destination the sidebar does not. The
+  // overview it sits on is itself hidden today, so nothing here renders - but
+  // bringing the overview back should not bring Billing and Dining back with it.
+  const visibleActions = quickActions.filter(
+    (action) =>
+      !isHiddenDashboardRoute(action.route) && canAccessRoute(action.route)
   );
 
   // Collapses the grid's side column instead of leaving an empty 320px track.
-  if (!showEventsTimeline && !showAttentionNeeded && visibleActions.length === 0) {
+  if (
+    !showEventsTimeline &&
+    !showAttentionNeeded &&
+    visibleActions.length === 0
+  ) {
     return null;
   }
 
@@ -87,9 +97,7 @@ function EventsTimelinePanel({
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
       <div className="border-b border-[#d8dde5] p-5">
-        <h2 className="text-base font-black text-[#17202a]">
-          Events timeline
-        </h2>
+        <h2 className="text-base font-black text-[#17202a]">Events timeline</h2>
         <p className="mt-1 text-xs font-medium text-[#6a7483]">
           {totalEvents} events from {rangeLabel}.
         </p>
@@ -108,7 +116,9 @@ function EventsTimelinePanel({
               group={group}
               key={group.date}
               onOpenEvent={
-                canOpenEvents ? () => router.push("/dashboard/events") : undefined
+                canOpenEvents
+                  ? () => router.push("/dashboard/events")
+                  : undefined
               }
             />
           ))
@@ -207,11 +217,7 @@ function AttentionNeededPanel() {
   );
 }
 
-function QuickActionsPanel({
-  actions
-}: {
-  actions: QuickAction[];
-}) {
+function QuickActionsPanel({ actions }: { actions: QuickAction[] }) {
   const router = useRouter();
 
   if (actions.length === 0) return null;

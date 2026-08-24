@@ -22,8 +22,8 @@ export function EventWorkspaceEmpty() {
         No event selected
       </h2>
       <p className="mt-2 max-w-sm text-xs text-[#6a7483]">
-        Choose an event from the list to open its details, menu, billing and
-        hall map in one workspace.
+        Choose an event from the list to open its details, menu and kitchen
+        sheet in one workspace.
       </p>
     </section>
   );
