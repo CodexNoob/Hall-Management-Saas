@@ -57,6 +57,13 @@ describe("event timeline ordering", () => {
     text: time,
     type: "Event" as const
   });
+  const cue = (id: string, waitsOn: string) => ({
+    id,
+    time: "",
+    cue: waitsOn,
+    text: id,
+    type: "Kitchen" as const
+  });
 
   it("reads top to bottom in clock order", () => {
     const sorted = sortTimelineRows([
@@ -80,6 +87,61 @@ describe("event timeline ordering", () => {
     sortTimelineRows(rows);
 
     expect(rows.map((item) => item.time)).toEqual(["10:45 PM", "03:00 PM"]);
+  });
+
+  it("keeps a cue directly under the course it waits on", () => {
+    const sorted = sortTimelineRows([
+      row("10:45 PM"),
+      row("06:30 PM"),
+      cue("beer", "After the soup"),
+      row("03:00 PM")
+    ]);
+
+    expect(sorted.map((item) => item.id)).toEqual([
+      "03:00 PM",
+      "06:30 PM",
+      "beer",
+      "10:45 PM"
+    ]);
+  });
+
+  // The whole point of a cue: the soup runs an hour late, and the beer that
+  // waits on it goes late too rather than staying at the time it was typed.
+  it("carries a cue along when the course it waits on moves", () => {
+    const sorted = sortTimelineRows([
+      row("11:00 PM"),
+      cue("beer", "After the soup"),
+      row("10:45 PM")
+    ]);
+
+    expect(sorted.map((item) => item.id)).toEqual([
+      "10:45 PM",
+      "11:00 PM",
+      "beer"
+    ]);
+  });
+
+  it("keeps two cues on one course in the order they were typed", () => {
+    const sorted = sortTimelineRows([
+      row("06:30 PM"),
+      cue("beer", "After the soup"),
+      cue("cake", "After the beer")
+    ]);
+
+    expect(sorted.map((item) => item.id)).toEqual([
+      "06:30 PM",
+      "beer",
+      "cake"
+    ]);
+  });
+
+  it("leaves a cue written above every time at the top", () => {
+    const sorted = sortTimelineRows([
+      cue("doors", "When the hall opens"),
+      row("03:00 PM")
+    ]);
+
+    expect(sorted.map((item) => item.id)).toEqual(["doors", "03:00 PM"]);
   });
 });
 

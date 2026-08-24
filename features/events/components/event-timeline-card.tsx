@@ -11,12 +11,31 @@ import {
 type TimelineItem = {
   id: string;
   time: string;
+  /**
+   * What the row waits on instead of a clock - "after the soup is served".
+   *
+   * Events run late, and the instructions that matter most are the ones that
+   * have to happen in sequence regardless of the hour: the beer goes out after
+   * the soup whether the soup landed at 9:30 or at 10:40.
+   *
+   * Its presence rather than its content is what makes a row cue-driven, so a
+   * cue nobody has typed yet is still a cue row. An empty string therefore has
+   * to survive the round trip, or a half-filled row would read back as a
+   * midnight time row and jump to the top of the sheet.
+   */
+  cue?: string;
   text: string;
   type: "Event" | "Kitchen" | "Staff";
 };
 
-export function timelineDisplayTimeToInputValue(time: string) {
-  const trimmed = time.trim();
+export function isCueRow(
+  row: TimelineItem
+): row is TimelineItem & { cue: string } {
+  return typeof row.cue === "string";
+}
+
+export function timelineDisplayTimeToInputValue(time: string | undefined) {
+  const trimmed = (time ?? "").trim();
   const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(trimmed);
 
   if (!match) {
@@ -50,19 +69,62 @@ export function timelineInputValueToDisplayTime(value: string) {
 }
 
 /**
- * The rows in clock order.
+ * The clock time each row hangs from: its own if it has one, and otherwise the
+ * one belonging to the nearest timed row above it.
+ *
+ * A cue row owns no time, but it still has to land somewhere, and the row it
+ * was written under is the only honest answer - "after the soup is served"
+ * means nothing parked at the far end of the sheet, away from the course it
+ * waits on.
+ */
+function timelineAnchors(rows: TimelineItem[]) {
+  const anchors = new Map<string, string>();
+  // Midnight, so a cue written above every timed row stays above them rather
+  // than sinking to wherever the default happened to fall.
+  let anchor = "00:00";
+
+  rows.forEach((row) => {
+    if (!isCueRow(row)) anchor = timelineDisplayTimeToInputValue(row.time);
+    anchors.set(row.id, anchor);
+  });
+
+  return anchors;
+}
+
+/**
+ * The rows in running order.
  *
  * A run sheet that does not read top to bottom is not a run sheet, and rows are
  * appended as they are added rather than in the order they happen. Sorting on
  * the 24-hour form keeps the afternoon after the morning, which sorting the
  * displayed "03:00 PM" text would not.
+ *
+ * Sorting on the anchor rather than on the row's own time is what keeps a cue
+ * pinned under the course it follows, including when that course moves: push
+ * the soup an hour later and the beer goes with it.
  */
 export function sortTimelineRows(rows: TimelineItem[]) {
+  const anchors = timelineAnchors(rows);
+
+  // Stable, so a timed row and the cues waiting on it keep the order they were
+  // typed in instead of trading places every time the sheet is re-sorted.
   return [...rows].sort((left, right) =>
-    timelineDisplayTimeToInputValue(left.time).localeCompare(
-      timelineDisplayTimeToInputValue(right.time)
-    )
+    (anchors.get(left.id) ?? "").localeCompare(anchors.get(right.id) ?? "")
   );
+}
+
+/**
+ * The row's other kind of "when".
+ *
+ * Switching a cue back to the clock needs a time to switch back to, and the
+ * anchor it was already sitting on is the one that leaves it where the manager
+ * last saw it. Falling back to a fixed noon instead would fling the row into
+ * the middle of the sheet the moment the mode changed.
+ */
+function toggleWhen(row: TimelineItem, anchor: string): Partial<TimelineItem> {
+  return isCueRow(row)
+    ? { cue: undefined, time: timelineInputValueToDisplayTime(anchor) }
+    : { cue: "", time: "" };
 }
 
 function initialTimeline(event: EventFile): TimelineItem[] {
@@ -114,6 +176,9 @@ export function TimelineInstructions({
   useEffect(() => setMessage(""), [event.id]);
 
   const isConfirmed = event.workspaceData.timelineConfirmed === true;
+  // Read here rather than inside the toggle so flipping a cue back to the clock
+  // can hand it the time it is already sitting under.
+  const anchors = timelineAnchors(rows);
 
   function updateRow(id: string, patch: Partial<TimelineItem>) {
     setRows((current) =>
@@ -189,58 +254,129 @@ export function TimelineInstructions({
             {isConfirmed ? "Confirmed" : "Draft"}
           </span>
         </div>
-        <button
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
-          type="button"
-          onClick={() =>
-            setRows((current) => [
-              ...current,
-              {
-                id: crypto.randomUUID(),
-                // Added after the last thing that happens, so the new row lands
-                // at the bottom without the sort moving it out from under the
-                // cursor. A fixed noon default would drop it mid-list.
-                time: current.at(-1)?.time ?? "12:00 PM",
-                text: "New timeline instruction",
-                type: "Event"
-              }
-            ])
-          }
-        >
-          <LineIcon name="plus" className="h-5 w-5" />
-          Add time
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
+            type="button"
+            onClick={() =>
+              setRows((current) => [
+                ...current,
+                {
+                  id: crypto.randomUUID(),
+                  // Added after the last thing that happens, so the new row
+                  // lands at the bottom without the sort moving it out from
+                  // under the cursor. A fixed noon default would drop it
+                  // mid-list.
+                  //
+                  // The last *timed* row, not simply the last one: a cue row
+                  // carries no time to copy, so ending the sheet on one would
+                  // hand this row a blank and send it back up to midnight.
+                  time:
+                    current.findLast((item) => !isCueRow(item))?.time ??
+                    "12:00 PM",
+                  text: "New timeline instruction",
+                  type: "Event"
+                }
+              ])
+            }
+          >
+            <LineIcon name="plus" className="h-5 w-5" />
+            Add time
+          </button>
+          <button
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
+            type="button"
+            title="Add an instruction that waits on something else, such as after the soup is served."
+            onClick={() =>
+              setRows((current) => [
+                ...current,
+                {
+                  id: crypto.randomUUID(),
+                  // Blank, and it stays blank: the cue carries the "when", and
+                  // the anchor sort keeps this row under whatever it was added
+                  // beneath.
+                  time: "",
+                  cue: "",
+                  text: "New timeline instruction",
+                  type: "Event"
+                }
+              ])
+            }
+          >
+            <LineIcon name="plus" className="h-5 w-5" />
+            Add cue
+          </button>
+        </div>
       </header>
 
       <div className="space-y-3 p-3 @lg:p-4">
         {rows.map((row) => (
           <div
             key={row.id}
-            className="grid min-w-0 grid-cols-[142px_minmax(0,1fr)_40px] gap-2 @lg:grid-cols-[112px_minmax(0,1fr)_120px_40px]"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_112px_40px] gap-2 @lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_120px_40px]"
           >
-            <label
-              className="flex h-11 min-w-0 cursor-text items-center justify-between rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm focus-within:border-[#1f4d73] focus-within:ring-2 focus-within:ring-[#1f4d73]/15 @lg:px-3"
-              htmlFor={`timeline-${row.id}-time`}
-            >
-              <input
-                aria-label={`Timeline time for ${row.text}`}
-                className="min-w-24 flex-1 bg-transparent outline-none"
-                id={`timeline-${row.id}-time`}
-                name={`timeline-${row.id}-time`}
-                type="time"
-                value={timelineDisplayTimeToInputValue(row.time)}
-                onChange={(changeEvent) =>
-                  updateRow(row.id, {
-                    time: timelineInputValueToDisplayTime(
-                      changeEvent.target.value
-                    )
-                  })
+            {/* One cell for the "when", whichever kind it is. Kept on a single
+                shared column template rather than a wider one for cues, so the
+                sheet still reads as aligned columns down the page. */}
+            <div className="flex h-11 min-w-0 items-center gap-1 rounded-lg border border-[#b9c2cf] bg-white px-1 text-sm focus-within:border-[#1f4d73] focus-within:ring-2 focus-within:ring-[#1f4d73]/15">
+              <button
+                aria-label={
+                  isCueRow(row)
+                    ? `Give ${row.text} a clock time instead of a cue`
+                    : `Give ${row.text} a cue instead of a clock time`
                 }
-                // Reordered once the field is done rather than per keystroke,
-                // which would pull the row away mid-edit.
-                onBlur={() => setRows(sortTimelineRows)}
-              />
-            </label>
+                className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-[#64748b] hover:bg-[#eef4fa] hover:text-[#17202a]"
+                title={
+                  isCueRow(row)
+                    ? "Waits on something else. Switch to a clock time."
+                    : "Runs at a clock time. Switch to a cue."
+                }
+                type="button"
+                onClick={() =>
+                  updateRow(
+                    row.id,
+                    toggleWhen(row, anchors.get(row.id) ?? "00:00")
+                  )
+                }
+              >
+                <LineIcon
+                  name={isCueRow(row) ? "chevron" : "clock"}
+                  className="h-4 w-4"
+                />
+              </button>
+              {isCueRow(row) ? (
+                <input
+                  aria-label={`Timeline cue for ${row.text}`}
+                  className="min-w-0 flex-1 bg-transparent outline-none"
+                  id={`timeline-${row.id}-cue`}
+                  name={`timeline-${row.id}-cue`}
+                  placeholder="After the soup"
+                  value={row.cue}
+                  onChange={(changeEvent) =>
+                    updateRow(row.id, { cue: changeEvent.target.value })
+                  }
+                />
+              ) : (
+                <input
+                  aria-label={`Timeline time for ${row.text}`}
+                  className="min-w-0 flex-1 bg-transparent outline-none"
+                  id={`timeline-${row.id}-time`}
+                  name={`timeline-${row.id}-time`}
+                  type="time"
+                  value={timelineDisplayTimeToInputValue(row.time)}
+                  onChange={(changeEvent) =>
+                    updateRow(row.id, {
+                      time: timelineInputValueToDisplayTime(
+                        changeEvent.target.value
+                      )
+                    })
+                  }
+                  // Reordered once the field is done rather than per keystroke,
+                  // which would pull the row away mid-edit.
+                  onBlur={() => setRows(sortTimelineRows)}
+                />
+              )}
+            </div>
             <input
               className="order-last col-span-3 h-11 w-full min-w-0 rounded-lg border border-[#b9c2cf] px-3 text-sm @lg:order-0 @lg:col-span-1"
               value={row.text}
@@ -257,7 +393,7 @@ export function TimelineInstructions({
                   type: changeEvent.target.value as TimelineItem["type"]
                 })
               }
-              aria-label={`${row.time} timeline type`}
+              aria-label={`${row.text} timeline type`}
               name={`timeline-${row.id}-type`}
             >
               <option>Event</option>
@@ -267,7 +403,9 @@ export function TimelineInstructions({
             <button
               className="flex h-11 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
               type="button"
-              aria-label={`Remove ${row.time}`}
+              // Named for the instruction rather than the time: a cue row has
+              // no time to be named after.
+              aria-label={`Remove ${row.text}`}
               onClick={() =>
                 setRows((current) =>
                   current.filter((item) => item.id !== row.id)
