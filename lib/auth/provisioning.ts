@@ -50,6 +50,20 @@ type MembershipWithOrganization = OrganizationMembership & {
   organization: Organization;
 };
 
+/**
+ * Room for a remote database, rather than Prisma's five-second default.
+ *
+ * Provisioning an owner writes an organization, a user, a principal, a
+ * membership, the five starter roles with their grants, the founding assignment
+ * and a sign-in log - and every one of those is a round trip to a Supabase
+ * instance that is not in the same building. The work was batched down to about
+ * ten statements in lib/authz/provision.ts, which is comfortably inside five
+ * seconds on a good connection and not on a bad one. Timing out here rolls back
+ * a whole tenant, so the ceiling is set where a slow network costs latency
+ * instead of an account that can never finish being created.
+ */
+const PROVISIONING_TRANSACTION = { maxWait: 10_000, timeout: 20_000 } as const;
+
 export type ProvisionedContext = {
   user: User;
   /** Active memberships in active organizations, oldest first. */
@@ -270,7 +284,7 @@ async function reconcile(
       user,
       memberships: await loadActiveMemberships(transaction, user.id)
     };
-  });
+  }, PROVISIONING_TRANSACTION);
 }
 
 /**
@@ -344,7 +358,7 @@ async function provisionOwner(
       user,
       memberships: await loadActiveMemberships(transaction, user.id)
     };
-  });
+  }, PROVISIONING_TRANSACTION);
 }
 
 function loadActiveMemberships(

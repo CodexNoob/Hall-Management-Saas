@@ -53,8 +53,6 @@ export async function ensureStarterRoles(
   organizationId: string,
   permissionIds?: Map<PermissionKey, string>
 ): Promise<StarterRoleIds> {
-  const catalog = permissionIds ?? (await permissionIdsByKey(client));
-
   const existing = await client.role.findMany({
     where: {
       organizationId,
@@ -66,31 +64,57 @@ export async function ensureStarterRoles(
   const ids: StarterRoleIds = new Map(
     existing.map((role) => [role.key, role.id] as const)
   );
+  const missing = starterRoles.filter((starter) => !ids.has(starter.key));
 
-  for (const starter of starterRoles) {
-    if (ids.has(starter.key)) continue;
+  // The overwhelmingly common call - an organization that already has its
+  // starter set - costs one query and no writes. Resolving the catalog is left
+  // until it is known to be needed, for the same reason.
+  if (missing.length === 0) {
+    return ids;
+  }
 
-    const created = await client.role.create({
-      data: {
-        organizationId,
-        key: starter.key,
-        name: starter.name,
-        description: starter.description,
-        rank: starter.rank,
-        isSystem: true
-      },
-      select: { id: true }
-    });
+  const catalog = permissionIds ?? (await permissionIdsByKey(client));
 
+  // FOUR ROUND TRIPS, NOT TWELVE. This runs inside the sign-up transaction, and
+  // a role-at-a-time loop made a new organization eleven sequential statements
+  // against a remote database - about four seconds, against Prisma's five-second
+  // interactive-transaction ceiling. Owner sign-up is not a place to leave that
+  // little headroom: the failure is a rolled-back tenant and an account that can
+  // never finish creating one.
+  const created = await client.role.createManyAndReturn({
+    data: missing.map((starter) => ({
+      organizationId,
+      key: starter.key,
+      name: starter.name,
+      description: starter.description,
+      rank: starter.rank,
+      isSystem: true
+    })),
+    select: { id: true, key: true }
+  });
+
+  for (const role of created) {
+    ids.set(role.key, role.id);
+  }
+
+  const grants = missing.flatMap((starter) => {
+    const roleId = ids.get(starter.key);
+    if (!roleId) return [];
+
+    return starter.permissions
+      .map((key) => catalog.get(key))
+      .filter((permissionId): permissionId is string => Boolean(permissionId))
+      .map((permissionId) => ({ roleId, permissionId }));
+  });
+
+  // Guarded rather than assumed non-empty: a database whose catalog has not been
+  // seeded yet resolves nothing, and that has to leave the roles in place for
+  // the seed to fill rather than fail the sign-up that created them.
+  if (grants.length > 0) {
     await client.rolePermission.createMany({
-      data: starter.permissions
-        .map((key) => catalog.get(key))
-        .filter((permissionId): permissionId is string => Boolean(permissionId))
-        .map((permissionId) => ({ roleId: created.id, permissionId })),
+      data: grants,
       skipDuplicates: true
     });
-
-    ids.set(starter.key, created.id);
   }
 
   return ids;
