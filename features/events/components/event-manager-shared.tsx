@@ -381,7 +381,27 @@ export type EventKitchenSheet = {
   };
 };
 
-export type EventKitchenResponse = { kitchen: EventKitchenSheet };
+export type EventKitchenNotification = {
+  id: string;
+  title: string;
+  description: string;
+  event: string;
+  hall: string;
+  date: string;
+  oldValue: string;
+  newValue: string;
+  by: string;
+  when: string;
+  acknowledged: boolean;
+  acknowledgedBy?: string;
+  acknowledgedAt?: string;
+  emailSent?: string;
+};
+
+export type EventKitchenResponse = {
+  kitchen: EventKitchenSheet;
+  notifications: EventKitchenNotification[];
+};
 
 /**
  * A dish or add-on picture at list size, with a placeholder when there is none.

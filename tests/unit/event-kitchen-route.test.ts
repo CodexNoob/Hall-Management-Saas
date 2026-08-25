@@ -17,7 +17,8 @@ vi.mock("@/lib/prisma", () => ({
     // `findMany` is the meals this sheet is not showing, asked for alongside
     // the one it is.
     eventMenu: { findUnique: vi.fn(), findMany: vi.fn() },
-    kitchenItemStatus: { findMany: vi.fn() }
+    kitchenItemStatus: { findMany: vi.fn() },
+    kitchenNotification: { findMany: vi.fn() }
   }
 }));
 
@@ -142,6 +143,7 @@ describe("event kitchen route", () => {
     vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(null as never);
     vi.mocked(prisma.eventMenu.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.kitchenNotification.findMany).mockResolvedValue([] as never);
   });
 
   it("answers 404 for an event belonging to another organization", async () => {

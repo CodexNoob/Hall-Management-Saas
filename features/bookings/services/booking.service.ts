@@ -407,37 +407,36 @@ export async function createBooking(
         return { event: replay, replayed: true };
       }
 
-      const [hall, eventType, eventPackage, selectedClient] = await Promise.all(
-        [
-          transaction.hall.findFirst({
-            where: { id: input.hallId, organizationId: actor.organizationId }
-          }),
-          input.eventTypeId
-            ? transaction.eventType.findFirst({
-                where: {
-                  id: input.eventTypeId,
-                  organizationId: actor.organizationId
-                }
-              })
-            : null,
-          input.packageId
-            ? transaction.eventPackage.findFirst({
-                where: {
-                  id: input.packageId,
-                  organizationId: actor.organizationId
-                }
-              })
-            : null,
-          input.clientId
-            ? transaction.client.findFirst({
-                where: {
-                  id: input.clientId,
-                  organizationId: actor.organizationId
-                }
-              })
-            : null
-        ]
-      );
+      // A Prisma transaction uses one pg client. Starting these reads together
+      // makes pg warn that the same client is already executing a query, and in
+      // pg@9 that becomes an error. Keep transaction work sequential.
+      const hall = await transaction.hall.findFirst({
+        where: { id: input.hallId, organizationId: actor.organizationId }
+      });
+      const eventType = input.eventTypeId
+        ? await transaction.eventType.findFirst({
+            where: {
+              id: input.eventTypeId,
+              organizationId: actor.organizationId
+            }
+          })
+        : null;
+      const eventPackage = input.packageId
+        ? await transaction.eventPackage.findFirst({
+            where: {
+              id: input.packageId,
+              organizationId: actor.organizationId
+            }
+          })
+        : null;
+      const selectedClient = input.clientId
+        ? await transaction.client.findFirst({
+            where: {
+              id: input.clientId,
+              organizationId: actor.organizationId
+            }
+          })
+        : null;
 
       if (!hall || !hall.isActive || !hall.isBookable) {
         throw new BookingError("The selected hall is unavailable.");

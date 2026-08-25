@@ -106,6 +106,26 @@ export default defineConfig({
       dependencies: ["setup"],
       testMatch: /\.mutation\.spec\.ts/,
       testIgnore: mvpHiddenSpecs,
+      /*
+       * One worker, against the three the rest of the suite runs on.
+       *
+       * Every spec here signs in as the same mutation account and writes to that
+       * one organization's data, and the dashboard subscribes to realtime updates
+       * for the organization it is looking at. So a write by one worker
+       * invalidates the queries behind another worker's open drawer, the list
+       * re-renders, and the row the second worker was about to click is detached
+       * mid-click - `event-menu.mutation.spec.ts` retried that click for its full
+       * two-minute timeout. The specs are correct in isolation; they simply
+       * cannot share an organization concurrently.
+       *
+       * This is not free: a full `npm run e2e` goes from about 5 minutes to
+       * about 12, nearly all of it event-menu.mutation.spec.ts running its
+       * twelve cases end to end. A green suite is worth that here, but if the
+       * wait becomes the problem the fix is to give each mutation spec its own
+       * organization rather than to raise this number - the races come from
+       * sharing one, not from the count of workers.
+       */
+      workers: 1,
       use: {
         ...devices["Desktop Chrome"],
         storageState: "playwright/.auth/mutation.json"

@@ -14,6 +14,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
+import { listKitchenNotificationsForEvent } from "@/features/kitchen/server/kitchen-notifications";
 
 /**
  * What the kitchen has to cook for one event, and how far along it is.
@@ -99,7 +100,7 @@ export async function GET(
 
     assertHallAccess(actor, event.hallId);
 
-    const [menu, otherMeals, statuses] = await Promise.all([
+    const [menu, otherMeals, statuses, notifications] = await Promise.all([
       prisma.eventMenu.findUnique({
         where: { eventId_meal: { eventId: id, meal } },
         select: kitchenMenuSelect
@@ -118,6 +119,10 @@ export async function GET(
       prisma.kitchenItemStatus.findMany({
         where: { eventId: id, organizationId: actor.organizationId },
         select: statusSelect
+      }),
+      listKitchenNotificationsForEvent({
+        eventId: id,
+        organizationId: actor.organizationId
       })
     ]);
 
@@ -134,7 +139,8 @@ export async function GET(
         otherMeals: otherMeals.map((row) => row.meal),
         statuses,
         signedUrlsByPath
-      })
+      }),
+      notifications
     });
   } catch (error) {
     return createApiErrorResponse(error);

@@ -135,6 +135,23 @@ export async function listKitchenNotifications(organizationId: string) {
   return rows.map(presentKitchenNotification);
 }
 
+export async function listKitchenNotificationsForEvent({
+  eventId,
+  organizationId
+}: {
+  eventId: string;
+  organizationId: string;
+}) {
+  const rows = await prisma.kitchenNotification.findMany({
+    where: { eventId, organizationId },
+    orderBy: { createdAt: "desc" },
+    select: kitchenNotificationSelect,
+    take: 20
+  });
+
+  return rows.map(presentKitchenNotification);
+}
+
 export async function createMenuChangedKitchenNotification({
   organizationId,
   eventId,

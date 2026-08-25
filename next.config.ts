@@ -39,6 +39,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  /*
+   * `next dev` serves its chunks only to the host it was started on, and 403s
+   * every other one. Started plainly it answers to `localhost`, but the e2e
+   * suite drives `http://127.0.0.1:3000` (playwright.config.ts `baseURL`) - so
+   * a dev server already open in an editor gets reused by `reuseExistingServer`
+   * and then refuses the suite's chunk requests. No JavaScript reaches the page,
+   * nothing hydrates, and every spec that waits for hydration times out.
+   *
+   * Naming the loopback literal here makes the two agree however the server was
+   * started. Development only; the option has no effect on a production build.
+   */
+  allowedDevOrigins: ["127.0.0.1"],
   images: {
     qualities: [100]
   },

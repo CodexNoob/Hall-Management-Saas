@@ -10,6 +10,7 @@ import {
   Badge,
   LineIcon,
   type EventFile,
+  type EventKitchenNotification,
   type EventKitchenResponse,
   type EventKitchenSheet
 } from "@/features/events/components/event-manager-shared";
@@ -209,6 +210,111 @@ function KitchenSheet({
   );
 }
 
+function KitchenAcknowledgments({
+  notifications
+}: {
+  notifications: EventKitchenNotification[];
+}) {
+  if (notifications.length === 0) {
+    return (
+      <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+          Kitchen acknowledgments
+        </h3>
+        <p className="mt-2 text-xs leading-5 text-[#6a7483]">
+          No kitchen notifications have been sent for this event yet.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+          Kitchen acknowledgments
+        </h3>
+        <span className="text-xs font-bold text-[#6a7483]">
+          {notifications.filter((item) => item.acknowledged).length}/
+          {notifications.length} acknowledged
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2">
+        {notifications.map((notification) => (
+          <article
+            className="rounded-lg border border-[#d8dde5] bg-white p-3"
+            key={notification.id}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-black text-[#17202a]">
+                  {notification.title}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-[#526173]">
+                  {notification.description}
+                </p>
+              </div>
+              <Badge tone={notification.acknowledged ? "green" : "gold"}>
+                {notification.acknowledged ? "Acknowledged" : "Waiting"}
+              </Badge>
+            </div>
+
+            <dl className="mt-3 grid gap-2 text-xs text-[#6a7483] sm:grid-cols-2">
+              <div>
+                <dt className="font-black uppercase tracking-[0.06em]">
+                  Changed by
+                </dt>
+                <dd className="mt-0.5 font-semibold text-[#17202a]">
+                  {notification.by}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-black uppercase tracking-[0.06em]">
+                  Sent
+                </dt>
+                <dd className="mt-0.5 font-semibold text-[#17202a]">
+                  {notification.when}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-black uppercase tracking-[0.06em]">
+                  Old
+                </dt>
+                <dd className="mt-0.5 font-semibold text-[#17202a]">
+                  {notification.oldValue}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-black uppercase tracking-[0.06em]">
+                  New
+                </dt>
+                <dd className="mt-0.5 font-semibold text-[#17202a]">
+                  {notification.newValue}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="font-black uppercase tracking-[0.06em]">
+                  Kitchen response
+                </dt>
+                <dd className="mt-0.5 font-semibold text-[#17202a]">
+                  {notification.acknowledgedBy
+                    ? `${notification.acknowledgedBy}${
+                        notification.acknowledgedAt
+                          ? ` — ${notification.acknowledgedAt}`
+                          : ""
+                      }`
+                    : "Not acknowledged yet"}
+                </dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function EventKitchenContent({ event }: { event: EventFile }) {
   const router = useRouter();
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
@@ -216,6 +322,7 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
   );
   const canOpenKitchenBoard = useDashboardPermission("canViewKitchenDashboard");
   const sheet = kitchenQuery.data?.kitchen ?? null;
+  const notifications = kitchenQuery.data?.notifications ?? [];
   // This tab asks for no meal, so the route answers `Main`. Until it offers a
   // picker, saying which meals it is not showing is the difference between an
   // incomplete sheet and one that looks finished.
@@ -300,6 +407,10 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       ) : (
         <KitchenSheet event={event} sheet={sheet} />
       )}
+
+      {!kitchenQuery.isLoading && !kitchenQuery.error ? (
+        <KitchenAcknowledgments notifications={notifications} />
+      ) : null}
 
       <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
         Read-only. Statuses and worker assignments are set on the kitchen board.

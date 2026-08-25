@@ -182,6 +182,13 @@ test("the landing hero routes to the sign-up page", async ({ page }) => {
     page.getByRole("heading", { name: "Get started free" })
   ).toBeVisible();
 
+  // The hydration wait above was for the landing page's form; this is a second
+  // document. Without waiting again the Create account click can land on markup
+  // React has not claimed yet, which submits the form natively - the run that
+  // caught this ended up on /signup?email=&newPassword=Testing12345 with no
+  // inline error, because the component's onSubmit never ran.
+  await waitForHydration(page);
+
   await page.getByLabel("Password", { exact: true }).fill("Testing12345");
   await page.getByRole("button", { name: "Create account", exact: true }).click();
 

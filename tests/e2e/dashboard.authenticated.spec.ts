@@ -26,10 +26,16 @@ test("authenticated state opens the workspace without logging in again", async (
   ).toBeVisible({ timeout: 45_000 });
 });
 
-for (const [label, route] of [
-  ["Events", "/dashboard/events"],
-  ["Kitchen", "/dashboard/kitchen"]
-] as Array<[string, string]>) {
+// Every route here renders `DashboardTopbar`, which is what the assertion below
+// measures. Kitchen was in this list until it stopped using that topbar: it now
+// draws its own full-width `KitchenHeader` - a Main Menu link, a notifications
+// button and the date as its h1 - and offers neither the Search nor the Today
+// notes button the wrap regression is about. There is nothing left there to
+// wrap, so the route is out rather than skipped, and the smoke list at the foot
+// of this file still opens /dashboard/kitchen and checks it fits the viewport.
+for (const [label, route] of [["Events", "/dashboard/events"]] as Array<
+  [string, string]
+>) {
   test(`${label} keeps the topbar actions on the title line on a phone`, async ({
     page
   }) => {
@@ -41,7 +47,7 @@ for (const [label, route] of [
     await page.setViewportSize({ width: 360, height: 727 });
     await page.goto(route);
 
-    // Scoped to the topbar: the Kitchen page has a second h1 of its own.
+    // Scoped to the topbar: a page may carry a second h1 of its own.
     const topbar = page.locator(".dashboard-topbar-content");
     const title = topbar.getByRole("heading", { level: 1 });
     const search = topbar.getByRole("button", { name: "Search", exact: true });
