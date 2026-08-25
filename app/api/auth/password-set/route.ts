@@ -5,6 +5,16 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
+/**
+ * Records that the caller now owns a password of their own.
+ *
+ * PRECONDITION: the caller has already synced through POST /api/auth/session.
+ * `authorizeMember` resolves a person by `supabase_auth_id`, and an invited
+ * account does not carry one until `ensureProvisionedUser` claims its row by
+ * email - so calling this as the first authenticated request of an invitation
+ * answers 403 "User account is not provisioned." The browser satisfies this in
+ * `SetPasswordCard.submit`, which syncs before it calls here.
+ */
 export async function POST(request: NextRequest) {
   try {
     const limited = await enforceRateLimit(request, {

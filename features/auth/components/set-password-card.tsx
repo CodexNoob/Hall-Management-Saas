@@ -198,7 +198,26 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
         );
       }
 
+      // THE CLAIM, BEFORE THE CALL THAT DEPENDS ON IT.
+      //
+      // An invited account's user row is written by the invitation with no
+      // `supabase_auth_id` - the Supabase auth user is created separately, and
+      // nothing links the two at that point. POST /api/auth/session is the only
+      // thing that ever does, matching on email. Every other endpoint,
+      // /api/auth/password-set included, resolves its caller by
+      // `supabase_auth_id` alone, so an invitee whose first authenticated call
+      // is the one below is told "User account is not provisioned."
+      //
+      // Deliberately not forced: a fresh cached session for this same subject is
+      // itself proof the row is claimed, since that response could only have
+      // come from the endpoint that claims it. So this costs one round trip on
+      // the invite flow and nothing on the others.
+      await fetchAuthSession(token);
+
       await markPasswordSet(token);
+      // Forced this time, because the point is the write that just happened -
+      // `mustSetPassword` is derived from `passwordSetAt`, and a stale cache
+      // sends the user straight back here from the dashboard gate.
       clearCachedAuthSession();
       await fetchAuthSession(token, { force: true });
 
