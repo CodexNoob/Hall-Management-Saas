@@ -51,7 +51,7 @@ describe("kitchen staff workers", () => {
       })
     );
     expect(workers).toEqual([
-      { id: "worker-1", name: "Mendy", isStaff: true }
+      { id: "worker-1", name: "Mendy", userId: "user-1", isStaff: true }
     ]);
   });
 
@@ -153,7 +153,7 @@ describe("kitchen staff workers", () => {
 
     expect(prisma.kitchenWorker.updateMany).not.toHaveBeenCalled();
     expect(workers).toEqual([
-      { id: "worker-1", name: "Sunday help", isStaff: false }
+      { id: "worker-1", name: "Sunday help", userId: null, isStaff: false }
     ]);
   });
 
