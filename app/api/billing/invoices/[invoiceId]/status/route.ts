@@ -4,7 +4,7 @@ import {
   invoiceStatuses,
   transitionInvoiceStatus
 } from "@/features/billing/services/invoice-lifecycle.service";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 const schema = z.object({
@@ -17,12 +17,12 @@ export async function PATCH(
   { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "invoice.update");
     const { invoiceId } = await params;
     const id = z.string().uuid().parse(invoiceId);
     const input = schema.parse(await request.json());
     const invoice = await transitionInvoiceStatus(
-      actor,
+      { id: requireUserActor(actor), name: actor.actorName, organizationId: actor.organizationId },
       id,
       input.status,
       input.reason

@@ -1,25 +1,42 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatStaffRole, initialsForName } from "@/features/administration/components/staff-dialog";
-import type { StaffMember, StaffResponse, StaffStatus } from "@/features/administration/components/staff-shared";
+import { initialsForName } from "@/features/administration/components/staff-dialog";
+import type {
+  StaffMember,
+  StaffStatus
+} from "@/features/administration/components/staff-shared";
+import type { StaffResponse } from "@/features/access/components/access-shared";
 
 const ROWS_PER_PAGE = 10;
 
-export function useStaffDirectory(data: StaffResponse | null | undefined, searchQuery: string) {
+/**
+ * The directory's filtering and paging.
+ *
+ * The search term matches names, emails, departments AND the names of the roles
+ * somebody holds - which now come from the assignments the server sent rather
+ * than from a `role` string, so a tenant's own "Front Desk" is searchable the
+ * moment it exists.
+ */
+export function useStaffDirectory(
+  data: StaffResponse | null | undefined,
+  searchQuery: string
+) {
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState<"All" | StaffStatus>("All");
-  const [selectedStaffId, setSelectedStaffId] = useState("");
+  const [selectedPrincipalId, setSelectedPrincipalId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
   const staffMembers = useMemo<StaffMember[]>(
     () =>
       (data?.staff ?? []).map((staff, index) => ({
-        id: staff.id,
+        userId: staff.userId,
+        principalId: staff.principalId,
         initials: initialsForName(staff.name),
         name: staff.name,
         email: staff.email,
         department: staff.department,
-        role: formatStaffRole(staff.role),
+        title: staff.title,
         status: staff.status,
         lastLogin: staff.lastLoginAt
           ? new Intl.DateTimeFormat("en-US", {
@@ -28,27 +45,53 @@ export function useStaffDirectory(data: StaffResponse | null | undefined, search
             }).format(new Date(staff.lastLoginAt))
           : "Never",
         phone: staff.phone ?? "Not provided",
-        color: ["bg-[#397fc2]", "bg-[#4eb18c]", "bg-[#e4a332]", "bg-[#7665d5]"][index % 4],
-        access: staff.access ?? null
+        color: ["bg-[#397fc2]", "bg-[#4eb18c]", "bg-[#e4a332]", "bg-[#7665d5]"][
+          index % 4
+        ],
+        assignments: staff.assignments
       })),
     [data?.staff]
   );
+
   const departments = useMemo(
-    () => ["All", ...Array.from(new Set(staffMembers.map((staff) => staff.department)))],
+    () => [
+      "All",
+      ...Array.from(new Set(staffMembers.map((staff) => staff.department)))
+    ],
     [staffMembers]
   );
+
   const filteredStaff = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return staffMembers.filter((staff) =>
-      (!query || `${staff.name} ${staff.email} ${staff.role} ${staff.department}`.toLowerCase().includes(query)) &&
-      (departmentFilter === "All" || staff.department === departmentFilter) &&
-      (statusFilter === "All" || staff.status === statusFilter)
-    );
+
+    return staffMembers.filter((staff) => {
+      const roleNames = staff.assignments
+        .map((assignment) => assignment.roleName)
+        .join(" ");
+      const haystack =
+        `${staff.name} ${staff.email} ${staff.department} ${roleNames}`.toLowerCase();
+
+      return (
+        (!query || haystack.includes(query)) &&
+        (departmentFilter === "All" || staff.department === departmentFilter) &&
+        (statusFilter === "All" || staff.status === statusFilter)
+      );
+    });
   }, [departmentFilter, searchQuery, staffMembers, statusFilter]);
-  const totalPages = Math.max(1, Math.ceil(filteredStaff.length / ROWS_PER_PAGE));
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredStaff.length / ROWS_PER_PAGE)
+  );
   const safePage = Math.min(currentPage, totalPages);
-  const paginatedStaff = filteredStaff.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
-  const selectedStaff = staffMembers.find((staff) => staff.id === selectedStaffId) ?? staffMembers[0] ?? null;
+  const paginatedStaff = filteredStaff.slice(
+    (safePage - 1) * ROWS_PER_PAGE,
+    safePage * ROWS_PER_PAGE
+  );
+  const selectedStaff =
+    staffMembers.find((staff) => staff.principalId === selectedPrincipalId) ??
+    staffMembers[0] ??
+    null;
 
   return {
     currentPage: safePage,
@@ -58,10 +101,10 @@ export function useStaffDirectory(data: StaffResponse | null | undefined, search
     paginatedStaff,
     rowsPerPage: ROWS_PER_PAGE,
     selectedStaff,
-    selectedStaffId,
+    selectedPrincipalId,
     setCurrentPage,
     setDepartmentFilter,
-    setSelectedStaffId,
+    setSelectedPrincipalId,
     setStatusFilter,
     staffMembers,
     statusFilter,

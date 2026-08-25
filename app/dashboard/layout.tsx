@@ -30,12 +30,17 @@ import {
 } from "@/lib/auth/redirect";
 import type { ReactNode } from "react";
 
-function formatRole(role: string) {
-  return role
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(" ");
+/**
+ * What the sidebar puts under somebody's name.
+ *
+ * A JOB TITLE, NOT A ROLE. The old label read the membership role string, which
+ * no longer exists - and reading a role NAME here would put one back on the
+ * client for the next person to branch on. `users.title` is the field that
+ * always wanted to be here: it describes the person, and nothing decides
+ * anything from it.
+ */
+function getProfileTitle(authSession: AuthSessionResponse) {
+  return authSession.user.title?.trim() || "Team member";
 }
 
 // Names the sidebar's highlighted item and titles the access-restricted state.
@@ -68,39 +73,26 @@ function getDashboardActiveLabel(pathname: string | null): string {
   return "Events";
 }
 
-/**
- * The active membership's role, never `authSession.user.role`.
- *
- * That global column now has one writer (owner sign-up) and no readers on the
- * authorization path, so it freezes at its sign-up value - a sidebar reading it
- * would quietly start describing people by a role nothing maintains. The field
- * stays on the wire because removing it invalidates every cached browser
- * session; that is P5's problem, not this one's.
- */
-function getActiveOrganizationRole(authSession: AuthSessionResponse) {
-  const activeOrganization =
-    authSession.organizations.find(
-      (organization) => organization.id === authSession.activeOrganizationId
-    ) ?? authSession.organizations[0];
-
-  return activeOrganization?.role ?? "";
-}
-
 function getSidebarProfileSubtitle(authSession: AuthSessionResponse) {
-  const roleLabel = formatRole(getActiveOrganizationRole(authSession));
+  const title = getProfileTitle(authSession);
   const activeOrganization =
     authSession.organizations.find(
       (organization) => organization.id === authSession.activeOrganizationId
     ) ?? authSession.organizations[0];
 
   if (!activeOrganization) {
-    return roleLabel;
+    return title;
   }
 
-  const isOrganizationOwner = activeOrganization.role === "owner";
+  // The upgrade prompt goes to whoever can actually act on it - the person who
+  // may change the organization's settings and plan - rather than to whoever
+  // holds a role called "owner" (INV-1). A tenant that invented a Founder role
+  // gets the prompt with no code change here.
+  const canManageSubscription =
+    authSession.permissions.includes("settings.update");
 
-  if (!isOrganizationOwner) {
-    return roleLabel;
+  if (!canManageSubscription) {
+    return title;
   }
 
   const isTrialing =
@@ -123,7 +115,7 @@ function getSidebarProfileSubtitle(authSession: AuthSessionResponse) {
     return subscribedPlan.name;
   }
 
-  return roleLabel;
+  return title;
 }
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -293,25 +285,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <DashboardTopbarBrand />
           <DashboardSidebar
             user={authSession.user}
-            roleLabel={formatRole(getActiveOrganizationRole(authSession))}
+            roleLabel={getProfileTitle(authSession)}
             profileSubtitle={getSidebarProfileSubtitle(authSession)}
             activeLabel={getDashboardActiveLabel(pathname)}
           />
 
           <section className="dashboard-shell-main min-h-dvh lg:pl-64">
             <DashboardTrialProvider authSession={authSession}>
-              {canAccessDashboardRoute(
-                pathname,
-                authSession.access,
-                authSession.organizations.find(
-                  (organization) =>
-                    organization.id === authSession.activeOrganizationId
-                )?.role
-              ) ? (
+              {canAccessDashboardRoute(pathname, authSession.permissions) ? (
                 children
               ) : (
                 <DashboardPageState
-                  emptyMessage="Your role doesn't include access to this page. Contact an administrator if you need it."
+                  emptyMessage="You do not have the permission this page needs. Ask whoever manages access in your organization."
                   emptyTitle="Access restricted"
                   isEmpty
                   showSearch={false}

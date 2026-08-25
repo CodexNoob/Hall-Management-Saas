@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -15,7 +13,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { PATCH } from "@/app/api/menu/packages/[packageId]/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -44,7 +42,7 @@ function patchRequest(body: Record<string, unknown>) {
 describe("package item membership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(prisma.eventPackage.update).mockResolvedValue({
       id: packageId
     } as never);
@@ -55,7 +53,7 @@ describe("package item membership", () => {
 
     await PATCH(patchRequest({ includedMenuItemIds: [itemId] }), { params });
 
-    expect(requirePermission).toHaveBeenCalledWith(
+    expect(authorize).toHaveBeenCalledWith(
       expect.anything(),
       "canEditMenu"
     );

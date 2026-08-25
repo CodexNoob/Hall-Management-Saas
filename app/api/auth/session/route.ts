@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBearerToken, resolveSupabaseUser } from "@/lib/auth/identity";
 import { parseSupabaseProfile } from "@/lib/auth/supabase-profile";
 import { ensureProvisionedUser } from "@/lib/auth/provisioning";
-import { serializeAuthSession } from "@/lib/auth/session-context";
+import {
+  serializeAuthSession,
+  widestScope
+} from "@/lib/auth/session-context";
+import { effectiveAccessByPrincipal } from "@/lib/authz/decide";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { AuthorizationError } from "@/lib/auth/errors";
+import type { PermissionKey } from "@/lib/authz/catalog";
 
 /**
  * Just-in-time provisioning for a signed-in Supabase account.
@@ -43,9 +48,32 @@ export async function POST(request: NextRequest) {
     const profile = parseSupabaseProfile(await resolveSupabaseUser(token));
     const context = await ensureProvisionedUser(profile);
 
+    // The organization this response tells the client to START in - the user's
+    // primary one, not whatever a stale cookie last hinted at. `memberships` is
+    // guaranteed non-empty: `ensureProvisionedUser` throws when it is not.
+    const active =
+      context.memberships.find(
+        (membership) =>
+          membership.organizationId === context.user.organizationId
+      ) ?? context.memberships[0];
+
+    // The same resolver, the same rows, the same fold the server enforces with.
+    // What the browser is told and what a route decides cannot disagree, because
+    // there is only one place either could come from (INV-2).
+    const access = await effectiveAccessByPrincipal(
+      active.principalId,
+      active.organizationId,
+      active.organization.permissionsEpoch
+    );
+
     return NextResponse.json(
       serializeAuthSession({
         ...context,
+        // Sorted so a re-fetch that changed nothing produces a byte-identical
+        // cache entry, and the browser's own comparison stays trivial.
+        permissions: [...access.permissions.keys()].sort() as PermissionKey[],
+        scope: widestScope(access.permissions.values()),
+        epoch: Number(active.organization.permissionsEpoch),
         usesEmailPassword: profile.usesEmailPassword
       })
     );

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdministrativeRole } from "@/lib/auth/roles";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize, requireUserActor } from "@/lib/authz/authorize";
 import { transitionBookingSchema } from "@/features/bookings/validations/booking.schema";
 import { transitionBooking } from "@/features/bookings/services/booking.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -10,7 +9,7 @@ export async function PATCH(
   context: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "event.status.update");
     const { eventId } = await context.params;
     const input = transitionBookingSchema.parse(await request.json());
     const event = await transitionBooking(
@@ -19,12 +18,10 @@ export async function PATCH(
       input.expectedVersion,
       input.holdDurationMinutes,
       {
-        id: actor.id,
-        name: actor.name,
+        id: requireUserActor(actor),
+        name: actor.actorName,
         organizationId: actor.organizationId,
-        allowedHallIds: isAdministrativeRole(actor.membership.role)
-          ? []
-          : (actor.access?.allowedHallIds ?? [])
+        hallScope: actor.scope.hallIds
       }
     );
     return NextResponse.json({ event });

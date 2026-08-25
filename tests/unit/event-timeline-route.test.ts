@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
-  requirePermission: vi.fn(),
+  authorize: vi.fn(),
   prisma: {
     event: {
       findFirst: vi.fn(),
@@ -15,8 +16,9 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  requirePermission: mocks.requirePermission
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: mocks.authorize
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
 
@@ -37,10 +39,10 @@ describe("event timeline route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requirePermission.mockResolvedValue({
-      id: actorId,
+    mocks.authorize.mockResolvedValue(authzContext({
+      userId: actorId,
       organizationId
-    });
+    }));
     mocks.prisma.event.findFirst.mockResolvedValue({
       workspaceData: {
         menuConfirmed: true

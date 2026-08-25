@@ -6,7 +6,7 @@ import {
   readPicturePathError
 } from "@/features/menu/server/menu-picture";
 import { menuItemUpdateSchema } from "@/features/menu/validations/menu-item.schema";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
@@ -27,7 +27,7 @@ export async function PATCH(
   { params }: { params: Promise<{ itemId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canEditMenu");
+    const actor = await authorize(request, "menu.update");
     const { itemId } = await params;
     const id = z.string().uuid().parse(itemId);
     const input = menuItemUpdateSchema.parse(await request.json());
@@ -120,7 +120,7 @@ export async function DELETE(
   { params }: { params: Promise<{ itemId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canEditMenu");
+    const actor = await authorize(request, "menu.delete");
     const { itemId } = await params;
     const id = z.string().uuid().parse(itemId);
 

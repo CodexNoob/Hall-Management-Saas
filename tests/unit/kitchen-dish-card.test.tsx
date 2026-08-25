@@ -15,7 +15,7 @@ import type {
 import { KitchenEventDetailsDialog } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import type { KitchenEvent } from "@/features/kitchen/components/kitchen-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * The dish card is the control.
@@ -158,7 +158,7 @@ describe("kitchen dish card", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearAuthenticatedQueryCache();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     vi.useFakeTimers({ shouldAdvanceTime: true });
   });
 

@@ -14,7 +14,7 @@ import {
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 type Payload = { label: string };
 
@@ -88,7 +88,7 @@ function deferResponse() {
 describe("authenticated query cache", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     vi.mocked(authenticatedFetch).mockReset();
     clearAuthenticatedQueryCache();
   });

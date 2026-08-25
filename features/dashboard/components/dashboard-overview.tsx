@@ -85,16 +85,16 @@ export function DashboardOverview({
   // rights, so a view-only role reads as "-" there even though it can open the
   // page - mirroring them would hide surfaces the sidebar and the layout guard
   // both allow. See lib/auth/dashboard-routes.ts for the same any-of semantics.
-  if (!hasPermission("canViewHome")) return null;
+  if (!hasPermission("calendar.read")) return null;
 
-  // Mirrors requireAnyPermission(["canViewCalendar", "canViewEventManager"]) in
+  // Mirrors requireAnyPermission(["calendar.read", "event.read"]) in
   // app/api/dashboard/route.ts - the events, counts and schedule all come from
   // that one endpoint.
   const showEventOverview = hasPermission([
-    "canViewCalendar",
-    "canViewEventManager"
+    "calendar.read",
+    "event.read"
   ]);
-  const showIncomeTimeline = hasPermission("canViewPaymentInfo");
+  const showIncomeTimeline = hasPermission("invoice.read");
 
   return (
     <div className="mx-auto w-full max-w-[1800px] px-3 py-4 sm:px-6 sm:py-6 lg:px-8">

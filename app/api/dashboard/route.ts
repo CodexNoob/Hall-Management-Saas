@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
-import { isAdministrativeRole } from "@/lib/auth/roles";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import {
+  authorize,
+  hasPermission,
+  scoped,
+  tenant
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -49,10 +53,7 @@ function buildDailySeries(
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewCalendar",
-      "canViewEventManager"
-    ]);
+    const actor = await authorize(request, "calendar.read");
     const url = new URL(request.url);
     const today = new Date();
     const defaultStart = new Date(
@@ -65,24 +66,24 @@ export async function GET(request: Request) {
     );
     const end = requestedEnd < start ? start : requestedEnd;
     const exclusiveEnd = addUtcDays(end, 1);
-    const allowedHallIds = actor.access?.allowedHallIds ?? [];
-    const restrictHalls =
-      !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
-    const canViewPaymentInfo =
-      isAdministrativeRole(actor.membership.role) ||
-      Boolean(actor.access?.canViewPaymentInfo);
+    // The revenue tiles are a second, narrower question than the calendar this
+    // route is gated on, so they are asked separately rather than inferred from
+    // whoever got past the first guard. A dashboard that quietly shows money to
+    // anyone who can read a calendar is the same defect class as a view flag
+    // gating a write.
+    const canReadInvoices = await hasPermission(actor, "invoice.read");
 
     const [events, upcomingBookedEvents, paymentTransactions, paymentRefunds] =
       await Promise.all([
         prisma.event.findMany({
           where: {
-            organizationId: actor.organizationId,
+            ...tenant(actor),
             deleted: false,
             eventDate: {
               gte: start,
               lt: exclusiveEnd
             },
-            ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+            ...scoped(actor, "hall")
           },
           orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
           select: {
@@ -111,18 +112,18 @@ export async function GET(request: Request) {
         }),
         prisma.event.findMany({
           where: {
-            organizationId: actor.organizationId,
+            ...tenant(actor),
             deleted: false,
             eventDate: { gte: defaultStart },
             bookingStatus: { in: ["CONFIRMED", "HOLD", "TENTATIVE_HOLD"] },
-            ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+            ...scoped(actor, "hall")
           },
           select: { id: true, bookingStatus: true }
         }),
-        canViewPaymentInfo
+        canReadInvoices
           ? prisma.paymentTransaction.findMany({
               where: {
-                organizationId: actor.organizationId,
+                ...tenant(actor),
                 status: "paid",
                 processedAt: {
                   gte: start,
@@ -136,10 +137,10 @@ export async function GET(request: Request) {
               }
             })
           : Promise.resolve([]),
-        canViewPaymentInfo
+        canReadInvoices
           ? prisma.paymentRefund.findMany({
               where: {
-                organizationId: actor.organizationId,
+                ...tenant(actor),
                 status: { in: ["PROCESSED", "processed", "paid"] },
                 processedAt: {
                   gte: start,
@@ -196,7 +197,7 @@ export async function GET(request: Request) {
           total: bookedEvents.confirmed + bookedEvents.onHold
         },
         financial: {
-          canView: canViewPaymentInfo,
+          canView: canReadInvoices,
           incomeCents: [...incomeByDate.values()].reduce(
             (sum, value) => sum + value,
             0

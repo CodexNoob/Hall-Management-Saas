@@ -14,11 +14,7 @@ import {
   readPresentedMenu,
   serviceStyleSchema
 } from "@/features/events/server/event-menu-document";
-import {
-  assertHallAccess,
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+import { assertInScope, authorize, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { createMenuChangedKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
@@ -100,10 +96,7 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewEventManager",
-      "canViewCalendar"
-    ]);
+    const actor = await authorize(request, "eventmenu.read");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     const meal = mealSchema.parse(
@@ -116,7 +109,7 @@ export async function GET(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const menu = await prisma.eventMenu.findUnique({
       where: { eventId_meal: { eventId: id, meal } },
@@ -149,7 +142,7 @@ export async function PUT(
   try {
     // The same permission the menu save has always required, back when it went
     // through PATCH /api/events/[eventId].
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "eventmenu.update");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     const input = replaceMenuSchema.parse(await request.json());
@@ -160,7 +153,7 @@ export async function PUT(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     // Last one wins rather than rejecting: the unique on (menu, dish) makes a
     // repeated target unstorable, and the client has no way to have meant two.
@@ -276,7 +269,7 @@ export async function PUT(
             // Kept as it arrived, so a line a package put here still reads as
             // one after an unrelated edit rewrites the set around it.
             source: line.source ?? "Manual",
-            addedById: actor.id
+            addedById: actor.userId
           }))
         });
       }
@@ -285,7 +278,7 @@ export async function PUT(
       // portal read lines instead.
       await transaction.event.update({
         where: { id, organizationId: actor.organizationId },
-        data: { menuItemIds, addOnIds, updatedById: actor.id }
+        data: { menuItemIds, addOnIds, updatedById: actor.userId }
       });
 
       return savedMenu;
@@ -324,7 +317,7 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "eventmenu.confirm");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     const input = lifecycleSchema.parse(await request.json());
@@ -335,7 +328,7 @@ export async function POST(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const confirming = input.action === "confirm";
 
@@ -359,7 +352,7 @@ export async function POST(
         data: {
           status: confirming ? "Confirmed" : "Draft",
           confirmedAt: confirming ? new Date() : null,
-          confirmedById: confirming ? actor.id : null,
+          confirmedById: confirming ? actor.userId : null,
           version: { increment: 1 }
         }
       });
@@ -394,7 +387,7 @@ export async function POST(
         where: { id, organizationId: actor.organizationId },
         data: {
           workspaceData: mergeWorkspace(event.workspaceData, confirming),
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
 
@@ -426,7 +419,7 @@ export async function POST(
       eventType: event.eventType ?? event.clientName,
       eventDate: event.eventDate,
       hallOrRoom: event.hall.name,
-      changedById: actor.id,
+      changedById: requireUserActor(actor),
       oldValue: confirming
         ? { status: "Draft", meal: presentedMenu?.meal ?? input.meal }
         : {

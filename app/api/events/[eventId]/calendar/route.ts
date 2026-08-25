@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { assertHallAccess, requireAnyPermission } from "@/lib/auth/server-auth";
+import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { upsertGoogleCalendarEvent } from "@/lib/google/calendar";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -10,10 +10,7 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canCreateBooking",
-      "canViewEventManager"
-    ]);
+    const actor = await authorize(request, "event.update");
     const { eventId: rawEventId } = await params;
     const eventId = z.string().uuid().parse(rawEventId);
     const event = await prisma.event.findFirst({
@@ -29,7 +26,7 @@ export async function POST(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const result = await upsertGoogleCalendarEvent({
       title: `${event.clientName} ${event.eventType ?? "Event"}`,
@@ -52,7 +49,7 @@ export async function POST(
           googleSyncStatus: "Synced",
           googleLastSyncedAt: new Date(),
           googleSyncError: null,
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
     }

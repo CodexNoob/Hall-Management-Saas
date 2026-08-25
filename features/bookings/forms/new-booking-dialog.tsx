@@ -103,7 +103,7 @@ export function NewBookingDialog({
   const firstInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const { hasPermission } = useDashboardAccess();
-  const canCreateBooking = hasPermission("canCreateBooking");
+  const canCreateBooking = hasPermission("booking.create");
   const [values, setValues] = useState(initialValues);
   const [guestCountError, setGuestCountError] = useState("");
   const [phoneError, setPhoneError] = useState("");

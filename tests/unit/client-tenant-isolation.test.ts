@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  requireAnyPermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: { client: { findMany: vi.fn() } }
 }));
 
 import { GET } from "@/app/api/clients/route";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 
 describe("client tenant isolation", () => {
@@ -17,7 +18,7 @@ describe("client tenant isolation", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requireAnyPermission).mockResolvedValue({
+    vi.mocked(authorize).mockResolvedValue({
       id: "22222222-2222-4222-8222-222222222222",
       organizationId
     } as never);

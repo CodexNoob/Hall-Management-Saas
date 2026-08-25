@@ -27,7 +27,7 @@ import {
 } from "@/features/vendors/components/vendors-shared";
 export function VendorsPage() {
   const router = useRouter();
-  const canEdit = useDashboardPermission("canEditVendors");
+  const canEdit = useDashboardPermission("vendor.manage");
   const vendorsQuery = useAuthenticatedQuery<VendorsResponse>("/api/vendors");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useDashboardPageSearch("Vendors");

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
@@ -18,7 +18,7 @@ type PlaidTransactionPayload = {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "bank.connect");
     const config = getPlaidRuntimeConfig();
 
     if (!config.enabled) {
@@ -94,8 +94,8 @@ export async function POST(request: Request) {
 
       await createActivityLog(tx, {
         organizationId: actor.organizationId,
-        userId: actor.id,
-        userName: actor.name,
+        userId: actor.userId,
+        userName: actor.actorName,
         actionType: "plaid.sync.completed",
         message: `Synced ${addedTransactions.length} Plaid transaction(s).`,
         oldValue: { count: 0 },

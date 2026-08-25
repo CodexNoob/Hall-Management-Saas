@@ -2,13 +2,10 @@ import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
-  assertHallAccess: vi.fn(),
-  requireAnyPermission: vi.fn(),
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  assertInScope: vi.fn(),
+  authorize: vi.fn()
 }));
 // The swap itself is tested against its own module; here the question is only
 // whether the route reaches it and what it answers with.
@@ -59,11 +56,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET, PATCH } from "@/app/api/kitchen/route";
 import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
-import {
-  assertHallAccess,
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -205,8 +198,8 @@ async function readBoard(response: Response) {
 describe("kitchen dashboard route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
-    vi.mocked(requireAnyPermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
     mockMenus();
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
@@ -279,7 +272,7 @@ describe("kitchen dashboard route", () => {
 
   describe("hall scoping", () => {
     it("restricts a hall-limited member to their halls", async () => {
-      vi.mocked(requirePermission).mockResolvedValue({
+      vi.mocked(authorize).mockResolvedValue({
         ...actor,
         membership: { role: "MEMBER" },
         access: { allowedHallIds: [hallId] }
@@ -293,7 +286,7 @@ describe("kitchen dashboard route", () => {
     it("leaves an unrestricted member seeing every hall", async () => {
       // An empty list means "not hall-restricted", so it must not become
       // `hallId: { in: [] }` - which would match nothing at all.
-      vi.mocked(requirePermission).mockResolvedValue({
+      vi.mocked(authorize).mockResolvedValue({
         ...actor,
         membership: { role: "MEMBER" },
         access: { allowedHallIds: [] }
@@ -710,7 +703,7 @@ describe("kitchen dashboard route", () => {
         request({ action: "status", eventId, menuItemId, status: "COMPLETE" })
       );
 
-      expect(assertHallAccess).toHaveBeenCalledWith(expect.anything(), hallId);
+      expect(assertInScope).toHaveBeenCalledWith(expect.anything(), hallId);
     });
 
     it('refuses "remove-menu-item", which only ever wrote the mirror', async () => {
@@ -788,7 +781,7 @@ describe("kitchen dashboard route", () => {
           })
         );
 
-        expect(assertHallAccess).toHaveBeenCalledWith(
+        expect(assertInScope).toHaveBeenCalledWith(
           expect.anything(),
           hallId
         );
@@ -836,7 +829,7 @@ describe("kitchen dashboard route", () => {
 
       it("refuses the swap without permission to update kitchen status", async () => {
         // Assigning workers is a different job from deciding what is cooked.
-        vi.mocked(requireAnyPermission).mockResolvedValue({
+        vi.mocked(authorize).mockResolvedValue({
           ...actor,
           membership: { role: "KITCHEN" },
           access: { canAssignWorkers: true, canUpdateKitchenStatus: false }

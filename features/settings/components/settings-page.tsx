@@ -43,12 +43,12 @@ export function SettingsPage({
   const isModal = displayMode === "modal";
   const { canAccessRoute, hasPermission } = useDashboardAccess();
   const canViewSettings = canAccessRoute("/dashboard/settings");
-  const canEditSettings = hasPermission("canEditSettings");
+  const canEditSettings = hasPermission("settings.update");
   const settingsQuery = useAuthenticatedQuery<SettingsResponse>(
     "/api/settings",
     canViewSettings
   );
-  const canManagePayments = hasPermission("canManagePayments");
+  const canManagePayments = hasPermission("payment.record");
   const settingsMutation = useAuthenticatedMutation<
     Partial<
       SettingsResponse["notifications"] & {

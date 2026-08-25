@@ -5,7 +5,10 @@ vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {}
 }));
-vi.mock("@/lib/auth/server-auth", () => ({ requirePermission: vi.fn() }));
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
+}));
 vi.mock("@/features/billing/services/invoice-lifecycle.service", () => ({
   invoiceStatuses: [
     "Draft",
@@ -20,13 +23,13 @@ vi.mock("@/features/billing/services/invoice-lifecycle.service", () => ({
 
 import { PATCH } from "@/app/api/billing/invoices/[invoiceId]/status/route";
 import { transitionInvoiceStatus } from "@/features/billing/services/invoice-lifecycle.service";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 
 describe("invoice status route", () => {
   const invoiceId = "11111111-1111-4111-8111-111111111111";
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue({
+    vi.mocked(authorize).mockResolvedValue({
       id: "user",
       organizationId: "org"
     } as never);
@@ -45,7 +48,7 @@ describe("invoice status route", () => {
       params: Promise.resolve({ invoiceId })
     });
     expect(response.status).toBe(200);
-    expect(requirePermission).toHaveBeenCalledWith(
+    expect(authorize).toHaveBeenCalledWith(
       request,
       "canManagePayments"
     );

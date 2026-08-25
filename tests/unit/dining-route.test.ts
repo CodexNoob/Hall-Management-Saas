@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -9,14 +10,14 @@ const mocks = vi.hoisted(() => ({
     $queryRaw: vi.fn(),
     $transaction: vi.fn()
   },
-  requireAnyPermission: vi.fn()
+  authorize: vi.fn()
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {},
-  requireAnyPermission: mocks.requireAnyPermission
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: mocks.authorize
 }));
 
 import { PATCH } from "@/app/api/dining/route";
@@ -31,10 +32,10 @@ describe("dining route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(crypto, "randomUUID").mockReturnValue(planId);
-    mocks.requireAnyPermission.mockResolvedValue({
-      id: "user-1",
+    mocks.authorize.mockResolvedValue(authzContext({
+      userId: "user-1",
       organizationId
-    });
+    }));
     mocks.prisma.event.findFirst.mockResolvedValue({ id: eventId, hallId });
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
     mocks.prisma.$transaction.mockImplementation((callback) =>

@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { BillingError } from "@/features/billing/services/billing-error";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { centsSchema, quantitySchema } from "@/lib/validation/number";
@@ -26,7 +26,7 @@ export async function PATCH(
   { params }: { params: Promise<{ invoiceId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "invoice.update");
     const { invoiceId: rawInvoiceId } = await params;
     const invoiceId = z.string().uuid().parse(rawInvoiceId);
     const input = updateInvoiceSchema.parse(await request.json());
@@ -147,8 +147,8 @@ export async function PATCH(
             organizationId: actor.organizationId,
             eventId: current.eventId,
             clientId: current.clientId,
-            userId: actor.id,
-            userName: actor.name,
+            userId: actor.userId,
+            userName: actor.actorName,
             actionType: "Invoice Updated",
             message: `Updated invoice ${current.invoiceNumber}.`,
             oldValue: {

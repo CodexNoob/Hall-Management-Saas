@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { recordRefundWithAudit } from "@/features/billing/services/record-refund.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
@@ -17,7 +17,7 @@ const refundSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "payment.refund");
     let input = refundSchema.parse(await request.json());
     const payment = await prisma.paymentTransaction.findFirst({
       where: {

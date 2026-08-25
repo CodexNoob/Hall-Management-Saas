@@ -2,8 +2,7 @@ import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAuthenticatedUser } from "@/lib/auth/server-auth";
-import { isAdministrativeRole } from "@/lib/auth/roles";
+import { authorizeMember, hasPermission, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createActivityLog } from "@/lib/audit/activity-log";
@@ -59,12 +58,15 @@ const ticketSelect = {
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAuthenticatedUser(request);
-    const canViewOrganizationTickets = isAdministrativeRole(actor.membership.role);
+    const actor = await authorizeMember(request);
+    // Reading a colleague's ticket is a people-management read, so it asks for
+    // the catalog's people-management key rather than for "is an administrator".
+    // Everyone else sees the tickets they raised.
+    const canViewOrganizationTickets = await hasPermission(actor, "staff.read");
     const tickets = await prisma.supportTicket.findMany({
       where: {
         organizationId: actor.organizationId,
-        ...(canViewOrganizationTickets ? {} : { createdById: actor.id })
+        ...(canViewOrganizationTickets ? {} : { createdById: requireUserActor(actor) })
       },
       select: ticketSelect,
       orderBy: { updatedAt: "desc" },
@@ -84,13 +86,13 @@ export async function POST(request: Request) {
       windowMs: 10 * 60 * 1000
     });
     if (limited) return limited;
-    const actor = await requireAuthenticatedUser(request);
+    const actor = await authorizeMember(request);
     const input = createTicketSchema.parse(await request.json());
     const ticket = await prisma.$transaction(async (transaction) => {
       const created = await transaction.supportTicket.create({
         data: {
           organizationId: actor.organizationId,
-          createdById: actor.id,
+          createdById: requireUserActor(actor),
           reference: createReference(),
           ...input
         },
@@ -98,8 +100,8 @@ export async function POST(request: Request) {
       });
       await createActivityLog(transaction, {
         organizationId: actor.organizationId,
-        userId: actor.id,
-        userName: actor.name,
+        userId: actor.userId,
+        userName: actor.actorName,
         actionType: "Support Ticket Created",
         message: `Created support ticket ${created.reference}.`,
         newValue: {
@@ -117,8 +119,8 @@ export async function POST(request: Request) {
       priority: ticket.priority,
       category: ticket.category,
       organizationName: actor.organization.name,
-      reporterName: actor.name,
-      reporterEmail: actor.email
+      reporterName: actor.actorName,
+      reporterEmail: actor.userEmail ?? ""
     });
     return NextResponse.json({ ticket }, { status: 201 });
   } catch (error) {

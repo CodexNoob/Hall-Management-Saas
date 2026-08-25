@@ -43,7 +43,7 @@ import {
   type Folder
 } from "@/features/files/components/file-shared";
 export function FilePage() {
-  const canEdit = useDashboardPermission("canEditFiles");
+  const canEdit = useDashboardPermission("file.create");
   const filesQuery = useAuthenticatedQuery<FilesResponse>("/api/files");
   // Reports whether this deployment actually has Drive credentials, so the
   // badge describes reality rather than asserting a capability.

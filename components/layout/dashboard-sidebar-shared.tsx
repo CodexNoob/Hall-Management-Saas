@@ -98,7 +98,13 @@ const allSidebarSections: SidebarSection[] = [
         label: "Billing",
         route: "/dashboard/billing"
       },
-      { icon: "staff", label: "Staff", route: "/dashboard/staff" }
+      { icon: "staff", label: "Staff", route: "/dashboard/staff" },
+      // Roles, assignments and the audit trail. Separate from Staff on purpose:
+      // the two are different resources behind different permissions, and one
+      // entry covering both is how "edit a phone number" came to mean "hand out
+      // privileges". The per-permission filter in dashboard-sidebar.tsx drops
+      // this for anyone without `role.read`.
+      { icon: "staff", label: "Access", route: "/dashboard/access" }
     ]
   }
 ];

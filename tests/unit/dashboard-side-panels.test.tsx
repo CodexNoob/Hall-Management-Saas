@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardSidePanels } from "@/features/dashboard/components/dashboard-side-panels";
-import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
+import { cacheTestSession, cacheTestSessionForStarterRole, starterPermissionsExcept } from "./auth-session-fixture";
 
 function renderPanels() {
   return render(
@@ -31,7 +31,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("offers every surviving shortcut to an Event Manager", () => {
-    cacheTestSessionForRole("manager");
+    cacheTestSessionForStarterRole("event-manager");
     renderPanels();
 
     expect(
@@ -45,7 +45,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("gives a Viewer the pages it can open, but not billing", () => {
-    cacheTestSessionForRole("viewer");
+    cacheTestSessionForStarterRole("viewer");
     renderPanels();
 
     // canViewKitchenDashboard makes this one reachable, which is why the
@@ -62,7 +62,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("does not show Book event even when canCreateBooking is granted", () => {
-    cacheTestSession("viewer", { canCreateBooking: false });
+    cacheTestSession(starterPermissionsExcept("viewer", ["booking.create"], []));
     const first = renderPanels();
     expect(
       screen.queryByRole("button", { name: "Book event" })
@@ -70,7 +70,7 @@ describe("DashboardSidePanels quick actions", () => {
     first.unmount();
 
     window.localStorage.clear();
-    cacheTestSession("viewer", { canCreateBooking: true });
+    cacheTestSession(["booking.create"]);
     renderPanels();
     expect(
       screen.queryByRole("button", { name: "Book event" })
@@ -80,7 +80,7 @@ describe("DashboardSidePanels quick actions", () => {
   // Billing Staff has neither the kitchen permission nor a module the MVP still
   // ships, so the shortcut list empties out for that role entirely.
   it("leaves Billing Staff with no shortcut at all", () => {
-    cacheTestSessionForRole("billing");
+    cacheTestSessionForStarterRole("viewer");
     renderPanels();
 
     for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
@@ -91,12 +91,7 @@ describe("DashboardSidePanels quick actions", () => {
   });
 
   it("drops the panel entirely when no shortcut survives", () => {
-    cacheTestSession("viewer", {
-      canCreateBooking: false,
-      canViewKitchenDashboard: false,
-      canViewEventManager: false,
-      canViewPaymentInfo: false
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["booking.create", "kitchen.read", "event.read", "invoice.read"], []));
     renderPanels();
 
     expect(
@@ -114,7 +109,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
   // follows payment visibility.
   for (const role of ["manager", "billing"] as const) {
     it(`is shown for ${role}, which can view payment info`, () => {
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       renderPanels();
 
       expect(
@@ -125,7 +120,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
 
   for (const role of ["kitchen", "viewer"] as const) {
     it(`is hidden for ${role}, keeping the open-balance notice out of view`, () => {
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       renderPanels();
 
       expect(
@@ -144,7 +139,7 @@ describe("DashboardSidePanels events timeline", () => {
   it("is shown for every shipped role", () => {
     for (const role of ["manager", "kitchen", "billing", "viewer"] as const) {
       window.localStorage.clear();
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       const { unmount } = renderPanels();
       expect(
         screen.getByRole("heading", { name: "Events timeline" })
@@ -154,10 +149,7 @@ describe("DashboardSidePanels events timeline", () => {
   });
 
   it("is hidden without either event view permission", () => {
-    cacheTestSession("viewer", {
-      canViewCalendar: false,
-      canViewEventManager: false
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read"], []));
     renderPanels();
 
     expect(
@@ -166,13 +158,7 @@ describe("DashboardSidePanels events timeline", () => {
   });
 
   it("returns nothing at all when no panel in the column survives", () => {
-    cacheTestSession("viewer", {
-      canViewCalendar: false,
-      canViewEventManager: false,
-      canViewKitchenDashboard: false,
-      canCreateBooking: false,
-      canViewPaymentInfo: false
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read", "kitchen.read", "booking.create", "invoice.read"], []));
     const { container } = renderPanels();
 
     expect(container).toBeEmptyDOMElement();

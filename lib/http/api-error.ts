@@ -17,8 +17,15 @@ export function createApiErrorResponse(error: unknown) {
     );
   }
   if (error instanceof AuthorizationError) {
+    // `code` and `details` are omitted rather than sent as null when absent, so
+    // the ~40 pre-`lib/authz` throws keep their existing wire shape byte for
+    // byte and no client has to learn a new nullable field.
     return NextResponse.json(
-      { error: error.message },
+      {
+        error: error.message,
+        ...(error.code ? { code: error.code } : {}),
+        ...(error.details ? { details: error.details } : {})
+      },
       { status: error.status }
     );
   }

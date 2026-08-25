@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getDriveStatus } from "@/lib/google/drive";
 
@@ -14,7 +14,7 @@ import { getDriveStatus } from "@/lib/google/drive";
  */
 export async function GET(request: Request) {
   try {
-    await requirePermission(request, "canViewEventManager");
+    await authorize(request, "file.read");
     const status = getDriveStatus();
 
     return NextResponse.json({

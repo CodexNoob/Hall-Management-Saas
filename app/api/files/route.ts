@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -55,7 +55,7 @@ const PERMANENT_FOLDER_NAME = "Event Core Files";
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewEventManager");
+    const actor = await authorize(request, "file.read");
 
     // ?fileId= asks for a short-lived link to one file. The bucket is private,
     // so this is the only way the browser can open a document, and the signing
@@ -147,7 +147,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canEditFiles");
+    const actor = await authorize(request, "file.create");
     const input = fileMutationSchema.parse(await request.json());
 
     if (input.resource === "folder") {
@@ -252,7 +252,7 @@ export async function POST(request: Request) {
       data: {
         organizationId: actor.organizationId,
         clientId: input.clientId ?? event?.clientId,
-        uploadedById: actor.id,
+        uploadedById: actor.userId,
         folderId: input.folderId,
         eventId: input.eventId,
         bucket: input.bucket,
@@ -270,7 +270,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditFiles");
+    const actor = await authorize(request, "file.create");
     const input = folderUpdateSchema.parse(await request.json());
     const protectedFolder = await prisma.fileFolder.findFirst({
       where: {
@@ -301,7 +301,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditFiles");
+    const actor = await authorize(request, "file.delete");
     const input = folderDeleteSchema.parse(await request.json());
     const protectedFolder = await prisma.fileFolder.findFirst({
       where: {

@@ -14,7 +14,6 @@ import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 // cannot drift - they did, three ways, before that module existed.
 export type {
   SessionUser,
-  SessionUserAccess,
   SessionOrganization,
   AuthSessionResponse
 } from "@/lib/auth/session-context";

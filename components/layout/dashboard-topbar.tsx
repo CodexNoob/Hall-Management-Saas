@@ -184,7 +184,7 @@ export function DashboardTopbar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
   const { canAccessRoute, hasPermission } = useDashboardAccess();
-  const canCreateBooking = hasPermission("canCreateBooking");
+  const canCreateBooking = hasPermission("booking.create");
   const visibleSearchTargets = useMemo(
     () => searchTargets.filter((target) => canAccessRoute(target.route)),
     [canAccessRoute]

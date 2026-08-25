@@ -46,7 +46,7 @@ GRANT EXECUTE ON FUNCTION public.is_organization_member(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_organization_member_path(TEXT) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- THE FIVE PRIVILEGE TABLES (P0-B).
+-- THE FOUR IDENTITY TABLES (P0-B).
 --
 -- These are FOR SELECT, never FOR ALL, and they are written out one by one
 -- rather than driven through the loop below - both so the narrowing is visible
@@ -58,17 +58,23 @@ GRANT EXECUTE ON FUNCTION public.is_organization_member_path(TEXT) TO authentica
 -- public, so none of this executes today. It is insurance against one future
 -- event - somebody running a blanket GRANT across the schema. Postgres ACLs
 -- have no DENY, so a REVOKE cannot prevent that; the POLICY is the only
--- statement here that survives it. Narrowing these five means such a grant
+-- statement here that survives it. Narrowing these four means such a grant
 -- degrades to read exposure rather than "any member may rewrite any
--- colleague's privileges".
+-- colleague's identity".
 --
 -- organizations and organization_settings are in the list for entitlement
 -- reasons: subscription and trial fields on the first, and the `integrations`
--- JSON on the second, which holds roleAccessOverrides, two_factor_required and
+-- JSON on the second, which holds two_factor_required and
 -- session_timeout_minutes.
 --
+-- WAS FIVE. `user_access` was the fifth and is gone - the RBAC migration
+-- replaced its 23 boolean columns with `principal_roles` /
+-- `principal_permissions`, which are handled far more strictly below: RLS on,
+-- everything revoked, and NO POLICY AT ALL. A privilege table gets no policy,
+-- not a narrow one.
+--
 -- Mirrored by prisma/migrations/20260826091000_p0b_narrow_privilege_table_policies.
--- tests/unit/privilege-table-policies.test.ts fails the build if any of the five
+-- tests/unit/privilege-table-policies.test.ts fails the build if any of these
 -- ever reappears in a FOR ALL policy anywhere under prisma/.
 -- ---------------------------------------------------------------------------
 
@@ -102,16 +108,6 @@ FOR SELECT
 TO authenticated
 USING (public.is_organization_member(organization_id));
 
-ALTER TABLE public.user_access ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE public.user_access FROM anon;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.user_access FROM authenticated;
-DROP POLICY IF EXISTS tenant_member_access ON public.user_access;
-CREATE POLICY tenant_member_access
-ON public.user_access
-FOR SELECT
-TO authenticated
-USING (public.is_organization_member(organization_id));
-
 ALTER TABLE public.organization_settings ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.organization_settings FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.organization_settings FROM authenticated;
@@ -128,14 +124,28 @@ USING (public.is_organization_member(organization_id));
 -- policy would buy nothing while breaking the mental model that this loop
 -- applies one uniform rule.
 --
--- The five privilege tables above were deliberately REMOVED from this array.
--- Do not add them back. Do not add the authorization tables either
--- (roles, permissions, role_permissions, role_templates,
--- role_template_permissions, membership_roles, membership_permissions,
--- authorization_audit): membership_permissions in particular is a table whose
--- every row means "this member holds this permission", and this policy's
--- WITH CHECK asks only whether the writer is a member of the organization -
--- which they are. Any member could grant themselves anything in it.
+-- The four identity tables above were deliberately REMOVED from this array.
+-- Do not add them back.
+--
+-- DO NOT ADD THE AUTHORIZATION TABLES EITHER, in any form - not FOR ALL, and not
+-- the narrowed FOR SELECT the four above carry:
+--
+--   principals, service_accounts, roles, permissions, role_permissions,
+--   principal_roles, principal_permissions, authorization_audit
+--
+-- All but two of them have an organization_id column, so they pass the
+-- mechanical "does it have a tenant column?" test that this array otherwise
+-- encodes. The column is there for the composite foreign keys, NOT to opt in.
+--
+-- principal_permissions is the one to read the policy against. Its every row
+-- means "this principal holds this permission", and the WITH CHECK asks only
+-- whether the writer belongs to the organization - which they do. Any member
+-- could INSERT a row granting themselves anything. FOR SELECT is not sufficient
+-- either: it exposes every colleague's grant map, which is the input to a
+-- targeted attack rather than a leak of operational data.
+--
+-- They are handled in the RBAC migration instead: RLS enabled, all privileges
+-- revoked from anon and authenticated, and no policy at all.
 -- ---------------------------------------------------------------------------
 
 DO $$

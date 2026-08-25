@@ -3,13 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/storage/files", () => ({ createSignedFileUrls: vi.fn() }));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
-  assertHallAccess: vi.fn(),
-  requireAnyPermission: vi.fn(),
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  assertInScope: vi.fn(),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -24,7 +21,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET } from "@/app/api/events/[eventId]/kitchen/route";
 import type { EventKitchenResponse } from "@/features/events/components/event-manager-shared";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createSignedFileUrls } from "@/lib/storage/files";
 
@@ -135,7 +132,7 @@ async function readSheet(response: Response) {
 describe("event kitchen route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requireAnyPermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(createSignedFileUrls).mockResolvedValue(
       new Map<string, string>() as never
     );

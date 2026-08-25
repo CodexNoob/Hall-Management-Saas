@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -14,16 +15,16 @@ const mocks = vi.hoisted(() => ({
     },
     $transaction: vi.fn()
   },
-  requirePermission: vi.fn()
+  authorize: vi.fn()
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
 // The real AuthorizationError and BookingError classes are needed:
 // createApiErrorResponse checks both with `instanceof`.
-vi.mock("@/lib/auth/server-auth", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/auth/server-auth")>()),
-  requirePermission: mocks.requirePermission
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: mocks.authorize
 }));
 
 import { PATCH } from "@/app/api/events/[eventId]/route";
@@ -68,11 +69,11 @@ function loggedEntry() {
 describe("PATCH /api/events/[eventId] guest counts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requirePermission.mockResolvedValue({
-      id: "user-1",
-      name: "Sarah Klein",
+    mocks.authorize.mockResolvedValue(authzContext({
+      userId: "user-1",
+      actorName: "Sarah Klein",
       organizationId
-    });
+    }));
     mocks.prisma.event.findFirst.mockResolvedValue(storedEvent());
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
     mocks.prisma.menuItem.count.mockResolvedValue(0);

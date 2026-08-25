@@ -14,7 +14,7 @@ import type {
   EventMenuDocument,
   EventMenuLine
 } from "@/features/events/components/event-manager-shared";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * Putting a package on an event's menu from the manager.
@@ -196,7 +196,7 @@ function callsTo(url: string, method: string) {
 describe("event menu packages", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     clearAuthenticatedQueryCache();
     currentMenu = menuDocument([]);
 

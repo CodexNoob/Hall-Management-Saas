@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { assertHallAccess, requireAnyPermission } from "@/lib/auth/server-auth";
+import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { generateKitchenSheetPdf } from "@/lib/pdf/kitchen-sheet";
@@ -10,10 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewEventManager",
-      "canViewKitchenDashboard"
-    ]);
+    const actor = await authorize(request, "event.document.generate");
     const { eventId: rawEventId } = await params;
     const eventId = z.string().uuid().parse(rawEventId);
     const event = await prisma.event.findFirst({
@@ -29,7 +26,7 @@ export async function GET(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const menuItems = event.menuItemIds.length
       ? await prisma.menuItem.findMany({

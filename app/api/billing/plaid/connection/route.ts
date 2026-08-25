@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewPaymentInfo");
+    const actor = await authorize(request, "bank.connect");
     const connection = await prisma.bankConnection.findFirst({
       where: { organizationId: actor.organizationId, status: "CONNECTED" },
       orderBy: { createdAt: "desc" },

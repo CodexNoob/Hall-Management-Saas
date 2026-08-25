@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema, dimensionSchema } from "@/lib/validation/number";
@@ -45,11 +45,6 @@ const saveDiningPlanSchema = z.object({
   specialNotes: z.string().trim().max(10000).optional(),
   tables: z.array(tableSchema).max(500)
 });
-
-const diningPermissions = [
-  "canViewEventManager",
-  "canViewKitchenDashboard"
-] as const;
 
 type HallMapPresetRow = {
   id: string;
@@ -162,7 +157,7 @@ async function findHallPreset(
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [...diningPermissions]);
+    const actor = await authorize(request, "dining.read");
     const events = await prisma.event.findMany({
       where: {
         organizationId: actor.organizationId,
@@ -218,7 +213,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [...diningPermissions]);
+    const actor = await authorize(request, "dining.update");
     const input = saveDiningPlanSchema.parse(await request.json());
     const event = await prisma.event.findFirst({
       where: {
@@ -323,7 +318,7 @@ export async function PATCH(request: Request) {
           tableclothName: input.tablecloth || null,
           waitersCount: input.menWaiters + input.womenWaiters,
           washingTime: input.washingTime || null,
-          updatedById: actor.id,
+          updatedById: actor.userId,
           version: { increment: 1 }
         }
       });

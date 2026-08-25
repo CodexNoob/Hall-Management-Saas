@@ -144,7 +144,7 @@ export function MenuPage() {
     allPackages.find((item) => item.id === selectedPackageId) ??
     allPackages[0] ??
     null;
-  const canEditMenu = useDashboardPermission("canEditMenu");
+  const canEditMenu = useDashboardPermission("menu.update");
   const libraryItemActions = useMenuItemActions({
     items: allMenuItems,
     onCategorySaved: setSelectedCategory,

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/security/rate-limit", () => ({
   enforceRateLimit: vi.fn().mockResolvedValue(null)
@@ -32,7 +33,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { POST } from "@/app/api/events/route";
 import { PATCH } from "@/app/api/events/[eventId]/status/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import {
   BookingError,
   createBooking,
@@ -51,7 +52,7 @@ const eventId = "44444444-4444-4444-8444-444444444444";
 describe("event creation and status editing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
   });
 
   it("creates an event using only the verified actor organization", async () => {

@@ -4,9 +4,9 @@ vi.mock("server-only", () => ({}));
 // Re-export the real AuthorizationError: createApiErrorResponse maps it to a
 // 403 with `instanceof`, so a look-alike class defined here would fall through
 // to a 500 and the permission assertion below would pass for the wrong reason.
-vi.mock("@/lib/auth/server-auth", async () => ({
-  ...(await import("@/lib/auth/errors")),
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -23,7 +23,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET, PATCH } from "@/app/api/settings/route";
 import { AuthorizationError } from "@/lib/auth/errors";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -42,7 +42,7 @@ function patch(body: unknown) {
 describe("organization payment link settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue({
+    vi.mocked(authorize).mockResolvedValue({
       id: actorId,
       organizationId
     } as never);
@@ -95,7 +95,7 @@ describe("organization payment link settings", () => {
   });
 
   it("requires the payments permission to change the link", async () => {
-    vi.mocked(requirePermission).mockImplementation((async (
+    vi.mocked(authorize).mockImplementation((async (
       _request: unknown,
       permission: string
     ) => {
@@ -119,7 +119,7 @@ describe("organization payment link settings", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(requirePermission).toHaveBeenCalledWith(
+    expect(authorize).toHaveBeenCalledWith(
       expect.anything(),
       "canManagePayments"
     );
@@ -155,7 +155,7 @@ describe("organization payment link settings", () => {
 
     expect(response.status).toBe(200);
     expect(prisma.paymentSetting.upsert).not.toHaveBeenCalled();
-    expect(requirePermission).not.toHaveBeenCalledWith(
+    expect(authorize).not.toHaveBeenCalledWith(
       expect.anything(),
       "canManagePayments"
     );

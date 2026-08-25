@@ -3,22 +3,20 @@
 import { useEffect } from "react";
 import {
   LineIcon,
-  RoleBadge,
   StatusBadge,
   type StaffMember
 } from "@/features/administration/components/staff-shared";
+import { RoleBadge } from "@/features/access/components/role-editor";
+import { describeScope } from "@/features/access/components/access-shared";
 
 export function StaffProfileDialog({
   onClose,
-  open,
-  permissionLabels,
   staff
 }: {
   onClose: () => void;
-  open: boolean;
-  permissionLabels: string[];
   staff: StaffMember;
 }) {
+  const open = true;
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
@@ -39,6 +37,7 @@ export function StaffProfileDialog({
     ["Email", staff.email],
     ["Phone", staff.phone],
     ["Department", staff.department],
+    ["Job title", staff.title ?? ""],
     ["Last login", staff.lastLogin]
   ];
 
@@ -70,7 +69,9 @@ export function StaffProfileDialog({
                 {staff.name}
               </h2>
               <div className="mt-1 flex flex-wrap items-center gap-2">
-                <RoleBadge role={staff.role} />
+                {staff.assignments.map((assignment) => (
+                  <RoleBadge key={assignment.id} name={assignment.roleName} />
+                ))}
                 <StatusBadge status={staff.status} />
               </div>
             </div>
@@ -104,24 +105,36 @@ export function StaffProfileDialog({
 
           <section className="rounded-lg border border-[#d8dde5] p-3">
             <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
-              Permissions
+              Access
             </h3>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {permissionLabels.length ? (
-                permissionLabels.map((permission) => (
-                  <span
-                    className="rounded-full border border-[#c7d0dc] bg-[#eef4fa] px-2.5 py-1 text-xs font-bold text-[#1f4d73]"
-                    key={permission}
+            {/* What they HOLD, not what that resolves to. The full key-by-key
+                answer is one screen away in Access, and duplicating a summary of
+                it here is how the two come to disagree. */}
+            <div className="mt-3 space-y-1.5">
+              {staff.assignments.length ? (
+                staff.assignments.map((assignment) => (
+                  <div
+                    className="flex flex-wrap items-center gap-2"
+                    key={assignment.id}
                   >
-                    {permission}
-                  </span>
+                    <RoleBadge name={assignment.roleName} />
+                    <span className="text-xs text-[#536172]">
+                      {describeScope(assignment)}
+                    </span>
+                  </div>
                 ))
               ) : (
                 <span className="text-sm text-[#6a7483]">
-                  No permissions assigned.
+                  No role yet, so nothing is permitted.
                 </span>
               )}
             </div>
+            <a
+              className="mt-3 inline-block text-xs font-black text-[#1769aa]"
+              href="/dashboard/access"
+            >
+              See exactly what this resolves to
+            </a>
           </section>
         </div>
       </section>

@@ -7,8 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardOverview } from "@/features/dashboard/components/dashboard-overview";
-import type { StaffRoleValue } from "@/lib/auth/permissions";
-import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
+import { cacheTestSession, cacheTestSessionForStarterRole, starterPermissionsExcept } from "./auth-session-fixture";
 
 // Gating follows the VIEW permissions and the route map, not the Staff page's
 // role-matrix columns. Those columns are all-of checks over groups mixing view
@@ -96,7 +95,7 @@ function visibleModuleTiles() {
 // useDashboardAccess is useMemo(..., []) and reads localStorage once per mount,
 // so each role needs its own render.
 const cases: Array<{
-  role: StaffRoleValue;
+  role: string;
   sections: string[];
   actions: string[];
   tiles: string[];
@@ -168,7 +167,7 @@ describe("DashboardOverview role gating", () => {
 
   for (const { role, sections, actions, tiles } of cases) {
     it(`renders exactly the ${role} section set`, () => {
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       renderOverview();
 
       expect(visibleSections().sort()).toEqual([...sections].sort());
@@ -178,7 +177,7 @@ describe("DashboardOverview role gating", () => {
   }
 
   it("renders every section for an administrative role", () => {
-    cacheTestSessionForRole("admin");
+    cacheTestSessionForStarterRole("administrator");
     renderOverview();
 
     expect(visibleSections().sort()).toEqual(
@@ -193,12 +192,7 @@ describe("DashboardOverview role gating", () => {
   });
 
   it("lets an administrative role through even with an all-false access row", () => {
-    cacheTestSession("admin", {
-      canViewHome: false,
-      canViewCalendar: false,
-      canViewEventManager: false,
-      canViewPaymentInfo: false
-    });
+    cacheTestSession(starterPermissionsExcept("administrator", ["calendar.read", "event.read", "invoice.read"], []));
     renderOverview();
 
     expect(visibleSections().sort()).toEqual(
@@ -207,14 +201,14 @@ describe("DashboardOverview role gating", () => {
   });
 
   it("hides the whole page without canViewHome", () => {
-    cacheTestSession("viewer", { canViewHome: false });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read"], []));
     const { container } = renderOverview();
 
     expect(container).toBeEmptyDOMElement();
   });
 
   it("hides the income timeline and attention panel without canViewPaymentInfo", () => {
-    cacheTestSession("viewer", { canViewPaymentInfo: false });
+    cacheTestSession(starterPermissionsExcept("viewer", ["invoice.read"], []));
     renderOverview();
 
     expect(
@@ -231,11 +225,7 @@ describe("DashboardOverview role gating", () => {
     // The Staff page's Billing column also needs canManagePayments and
     // canSendPaymentEmail, so it reads "-" here - the timeline is still correct
     // to show, because the API returns real figures for canViewPaymentInfo.
-    cacheTestSession("manager", {
-      canViewPaymentInfo: true,
-      canManagePayments: false,
-      canSendPaymentEmail: false
-    });
+    cacheTestSession(starterPermissionsExcept("event-manager", ["payment.record", "payment.notify"], ["invoice.read"]));
     renderOverview();
 
     expect(
@@ -247,14 +237,7 @@ describe("DashboardOverview role gating", () => {
   // visibility removes the event-derived sections but keeps a shortcut to a page
   // the user can still open.
   it("drops the event overview when neither calendar nor event-manager view is granted", () => {
-    cacheTestSession("viewer", {
-      canViewHome: true,
-      canViewCalendar: false,
-      canViewEventManager: false,
-      canViewPaymentInfo: false
-      // canViewKitchenDashboard stays true, which keeps /dashboard/kitchen
-      // reachable.
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read", "invoice.read"], ["calendar.read"]));
     renderOverview();
 
     expect(visibleSections()).toEqual(["quickActions"]);
@@ -263,14 +246,7 @@ describe("DashboardOverview role gating", () => {
   });
 
   it("drops every section when no permission at all is granted", () => {
-    cacheTestSession("viewer", {
-      canViewHome: true,
-      canViewCalendar: false,
-      canViewEventManager: false,
-      canViewPaymentInfo: false,
-      canViewKitchenDashboard: false,
-      canCreateBooking: false
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read", "invoice.read", "kitchen.read", "booking.create"], ["calendar.read"]));
     renderOverview();
 
     expect(visibleSections()).toEqual([]);
@@ -281,7 +257,7 @@ describe("DashboardOverview role gating", () => {
   it("keeps the /dashboard/events affordances clickable for every shipped role", () => {
     for (const role of ["manager", "kitchen", "billing", "viewer"] as const) {
       window.localStorage.clear();
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       const { unmount } = renderOverview();
 
       expect(

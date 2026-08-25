@@ -1,18 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    constructor(
-      public readonly status: 401 | 403,
-      message: string
-    ) {
-      super(message);
-    }
-  },
-  assertHallAccess: vi.fn(),
-  requireAnyPermission: vi.fn(),
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  assertInScope: vi.fn(),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -32,7 +24,7 @@ vi.mock("@/features/bookings/services/booking.service", () => ({
 }));
 
 import { GET } from "@/app/api/events/route";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 
 describe("event tenant isolation", () => {
@@ -40,7 +32,7 @@ describe("event tenant isolation", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requireAnyPermission).mockResolvedValue({
+    vi.mocked(authorize).mockResolvedValue({
       id: "22222222-2222-4222-8222-222222222222",
       organizationId,
       membership: { role: "member" },

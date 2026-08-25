@@ -21,12 +21,13 @@ import {
   readServiceRules,
   SERVICE_STYLES
 } from "@/features/menu/lib/service-style";
-import { isAdministrativeRole } from "@/lib/auth/roles";
 import {
-  assertHallAccess,
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+  assertInScope,
+  authorize,
+  hasPermission,
+  requireUserActor,
+  scoped
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { listKitchenNotifications } from "@/features/kitchen/server/kitchen-notifications";
@@ -302,27 +303,10 @@ const boardEventSelect = {
   hall: { select: { name: true } }
 } satisfies Prisma.EventSelect;
 
-/**
- * The halls this actor may see, as a `where` fragment.
- *
- * Same shape `/api/events` and `/api/dashboard` use. An empty list means the
- * member is not hall-restricted at all, which is why it cannot be passed
- * straight to `hallId: { in: [] }`.
- */
-function hallFilter(actor: {
-  membership: { role: string };
-  access?: { allowedHallIds?: string[] } | null;
-}) {
-  const allowedHallIds = actor.access?.allowedHallIds ?? [];
-  const restrictHalls =
-    !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
-
-  return restrictHalls ? { hallId: { in: allowedHallIds } } : {};
-}
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewKitchenDashboard");
+    const actor = await authorize(request, "kitchen.read");
     const start = new Date();
     start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start);
@@ -347,7 +331,7 @@ export async function GET(request: Request) {
           eventDate: { gte: start, lt: end },
           // A kitchen lead restricted to one hall was still served every hall's
           // production, because this query only ever scoped by organization.
-          ...hallFilter(actor)
+          ...scoped(actor, "hall")
         },
         select: boardEventSelect,
         orderBy: { eventDate: "asc" }
@@ -372,7 +356,7 @@ export async function GET(request: Request) {
       listKitchenNotifications(actor.organizationId)
     ]);
     const currentWorkerId =
-      workers.find((worker) => worker.userId === actor.id)?.id ?? null;
+      workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
 
     const eventIds = events.map((event) => event.id);
     const standaloneEventIds = standaloneEvents.map((event) => event.id);
@@ -520,7 +504,17 @@ export async function GET(request: Request) {
       };
     });
 
-    const canManageEverything = isAdministrativeRole(actor.membership.role);
+    // The board is gated on `kitchen.read`; what the board lets you DO is three
+    // further questions, each asked of the resolver rather than inferred from
+    // one "is this an administrator" flag. The client renders buttons from these
+    // - and the PATCH handler below re-asks every one of them, because a hidden
+    // button is a courtesy and the 403 is the control.
+    const [canAssignWorkers, canUpdateKitchenStatus, canAddKitchenEvents] =
+      await Promise.all([
+        hasPermission(actor, "kitchen.worker.assign"),
+        hasPermission(actor, "kitchen.status.update"),
+        hasPermission(actor, "kitchen.event.create")
+      ]);
 
     // The menus a kitchen event can be raised against. A kitchen event is a
     // production job rather than a booking - "cook this menu for this many
@@ -592,12 +586,9 @@ export async function GET(request: Request) {
         kind: item.kind
       })),
       permissions: {
-        canAssignWorkers:
-          canManageEverything || Boolean(actor.access?.canAssignWorkers),
-        canUpdateKitchenStatus:
-          canManageEverything || Boolean(actor.access?.canUpdateKitchenStatus),
-        canAddKitchenEvents:
-          canManageEverything || Boolean(actor.access?.canAddKitchenEvents)
+        canAssignWorkers,
+        canUpdateKitchenStatus,
+        canAddKitchenEvents
       }
     });
   } catch (error) {
@@ -607,7 +598,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canAddKitchenEvents");
+    const actor = await authorize(request, "kitchen.event.create");
     const input = kitchenStandaloneEventSchema.parse(await request.json());
 
     const eventDate = new Date(`${input.date}T00:00:00.000Z`);
@@ -707,7 +698,7 @@ export async function POST(request: Request) {
           eventDate,
           portions: input.portions,
           kitchenNote: input.kitchenNote || null,
-          createdById: actor.id
+          createdById: actor.userId
         },
         select: {
           id: true,
@@ -741,15 +732,24 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canAssignWorkers",
-      "canUpdateKitchenStatus"
-    ]);
+    // `kitchen.read` is the DOOR, not the permission for what happens inside.
+    // This one endpoint carries actions at two different trust levels -
+    // assigning a worker and advancing production status - and an Event Manager
+    // holds the first without the second. Gating the door on either specific key
+    // would lock out the half of the callers who legitimately hold the other, so
+    // the door asks for the thing every caller has and each branch below asks
+    // for its own key.
+    const actor = await authorize(request, "kitchen.read");
     const input = kitchenActionSchema.parse(await request.json());
-    const isAdmin = isAdministrativeRole(actor.membership.role);
-    const canAssignWorkers = isAdmin || Boolean(actor.access?.canAssignWorkers);
-    const canUpdateKitchenStatus =
-      isAdmin || Boolean(actor.access?.canUpdateKitchenStatus);
+    // This handler is one endpoint carrying several actions with different trust
+    // levels, so `authorize()` above gates the narrowest of them and each branch
+    // asks for its own key. Splitting the route would be cleaner and is a larger
+    // change than this one; what matters is that no branch is reachable on the
+    // strength of another branch's permission.
+    const [canAssignWorkers, canUpdateKitchenStatus] = await Promise.all([
+      hasPermission(actor, "kitchen.worker.assign"),
+      hasPermission(actor, "kitchen.status.update")
+    ]);
 
     if (
       input.action === "standalone-assign-worker" ||
@@ -856,7 +856,7 @@ export async function PATCH(request: Request) {
           where,
           update: {
             assignedWorkerId: input.assignedWorkerId,
-            updatedById: actor.id
+            updatedById: actor.userId
           },
           create: {
             organizationId: actor.organizationId,
@@ -864,7 +864,7 @@ export async function PATCH(request: Request) {
             menuItemId: menuItem.id,
             status: null,
             assignedWorkerId: input.assignedWorkerId,
-            updatedById: actor.id
+            updatedById: actor.userId
           }
         });
 
@@ -873,14 +873,14 @@ export async function PATCH(request: Request) {
 
       const itemStatus = await prisma.kitchenStandaloneItemStatus.upsert({
         where,
-        update: { status: input.status, updatedById: actor.id },
+        update: { status: input.status, updatedById: actor.userId },
         create: {
           organizationId: actor.organizationId,
           kitchenStandaloneEventId: kitchenEvent.id,
           menuItemId: menuItem.id,
           status: input.status,
           assignedWorkerId: null,
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
 
@@ -944,11 +944,11 @@ export async function PATCH(request: Request) {
 
     // Scoping the GET alone would be half the fix: an event id is all it takes
     // to write progress against a hall this member cannot see.
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     if (input.action === "replace-menu-item") {
       const result = await replaceKitchenDish({
-        actorId: actor.id,
+        actorId: requireUserActor(actor),
         organizationId: actor.organizationId,
         eventId: event.id,
         menuItemId: menuItem.id,
@@ -1030,7 +1030,7 @@ export async function PATCH(request: Request) {
         // put a name against it.
         update: {
           assignedWorkerId: input.assignedWorkerId,
-          updatedById: actor.id
+          updatedById: actor.userId
         },
         create: {
           organizationId: actor.organizationId,
@@ -1038,7 +1038,7 @@ export async function PATCH(request: Request) {
           menuItemId: menuItem.id,
           status: null,
           assignedWorkerId: input.assignedWorkerId,
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
 
@@ -1047,14 +1047,14 @@ export async function PATCH(request: Request) {
 
     const itemStatus = await prisma.kitchenItemStatus.upsert({
       where,
-      update: { status: input.status, updatedById: actor.id },
+      update: { status: input.status, updatedById: actor.userId },
       create: {
         organizationId: actor.organizationId,
         eventId: event.id,
         menuItemId: menuItem.id,
         status: input.status,
         assignedWorkerId: null,
-        updatedById: actor.id
+        updatedById: actor.userId
       }
     });
 

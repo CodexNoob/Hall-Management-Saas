@@ -5,7 +5,7 @@ import { readPackageItemIdsError } from "@/features/menu/server/menu-package-ite
 import { readPicturePathError } from "@/features/menu/server/menu-picture";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
 import { menuPackageFieldsSchema } from "@/features/menu/validations/menu-package.schema";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
@@ -30,7 +30,7 @@ const menuMutationSchema = z.discriminatedUnion("resource", [
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewMenu");
+    const actor = await authorize(request, "menu.read");
     const [items, packages, addOns, categories] = await Promise.all([
       prisma.menuItem.findMany({
         where: { organizationId: actor.organizationId },
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditMenu");
+    const actor = await authorize(request, "menu.create");
     const input = menuMutationSchema.parse(await request.json());
 
     // Checked once for every resource that stores a picture rather than inside

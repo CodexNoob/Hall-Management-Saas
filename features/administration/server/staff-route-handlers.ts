@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
-import {
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+import { z } from "zod";
+import { authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
-import { formatZodErrorMessage } from "@/lib/http/zod-error-message";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
-import { isAdministrativeRole } from "@/lib/auth/roles";
-import { AuthorizationError } from "@/lib/auth/errors";
-import {
-  assertAssignableRole,
-  assertCanManageMember,
-  assertNotSelfRoleChange
-} from "@/lib/auth/guards";
 import { getEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -22,80 +12,79 @@ import {
   staffInviteRedirectTo
 } from "@/features/administration/server/staff-invitations";
 import {
-  accessPermissionKeys,
-  accessForRole,
-  normalizeStaffRole,
-  permissionColumns,
-  roleAccess,
-  roleTemplates,
-  staffRoleValues,
-  type RoleAccessMatrix,
-  type StaffRoleValue
-} from "@/lib/auth/permissions";
+  createAssignment,
+  listAssignments,
+  type AssignmentSummary
+} from "@/lib/authz/admin/assignments";
+import { createUserPrincipal, ensureStarterRoles } from "@/lib/authz/provision";
+import { readEpoch } from "@/lib/authz/admin/roles";
+import { loadActorFacts, rankOfPrincipal } from "@/lib/authz/admin/context";
+import { writeAudit } from "@/lib/authz/admin/audit";
+import { assertRankCeiling, notFound } from "@/lib/authz/guards";
 
-function cleanText(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
+/**
+ * PEOPLE, NOT PRIVILEGE.
+ *
+ * The single most productive change in this design is that `/api/staff` is now
+ * two APIs. Before, one endpoint edited a phone number AND assigned a role -
+ * which is the API-shaped version of the same conflation `canEditStaff` encoded:
+ * the account that can fix a typo in somebody's number was the account that
+ * could mint an owner.
+ *
+ * NOTHING IN THIS FILE CHANGES WHAT ANYONE CAN DO, with exactly one exception:
+ * `POST` accepts an optional list of roles for the person being invited, and it
+ * DELEGATES them to `createAssignment` - the identical path `/api/access` uses,
+ * with the same guards, the same audit rows and the same 403s. One writer per
+ * privilege change, no exceptions. There is no branch here that reaches a
+ * privilege table on its own.
+ *
+ * Privileges live under `/api/access/*`.
+ */
 
 /** Staff numbers are optional; when given they must be real, stored as E.164. */
 const staffPhoneSchema = phoneSchema({ label: "Phone number" });
 
-function canCustomizeStaffPermissions(
-  actor: Awaited<ReturnType<typeof requireAnyPermission>>
-) {
-  return isAdministrativeRole(actor.membership.role);
-}
+const inviteSchema = z
+  .object({
+    email: z.string().trim().toLowerCase().email().optional(),
+    emails: z.array(z.string().trim().toLowerCase()).optional(),
+    department: z.string().trim().max(120).optional(),
+    phone: z.string().trim().optional(),
+    /**
+     * Optional, and never required to invite somebody. An invitee with no role
+     * is a person who exists and can do nothing yet, which is a perfectly
+     * ordinary state and a much better default than guessing.
+     */
+    roleIds: z.array(z.string().uuid()).optional()
+  })
+  .transform((input) => ({
+    ...input,
+    inviteEmails: (
+      input.emails?.length ? input.emails : input.email ? [input.email] : []
+    ).filter((value) => value.includes("@"))
+  }));
 
-function cleanAccessPayload(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+const updateProfileSchema = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  phone: z.string().trim().nullish(),
+  department: z.string().trim().max(120).optional(),
+  title: z.string().trim().max(120).nullish()
+});
 
-  const input = value as Record<string, unknown>;
-  return accessPermissionKeys.reduce(
-    (access, key) => ({
-      ...access,
-      [key]: input[key] === true
-    }),
-    {} as RoleAccessMatrix
-  );
-}
-
-function cleanRoleAccessOverrides(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-
-  const input = value as Record<string, unknown>;
-  return staffRoleValues.reduce(
-    (roles, role) => {
-      const access = cleanAccessPayload(input[role]);
-      roles[role] = access ?? roleAccess[role];
-      return roles;
-    },
-    {} as Record<StaffRoleValue, RoleAccessMatrix>
-  );
-}
-
-function getRoleAccessOverrides(value: unknown) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
-  }
-
-  const integrations = value as Record<string, unknown>;
-  return cleanRoleAccessOverrides(integrations.roleAccessOverrides);
-}
-
-function mergeIntegrationsWithRoleAccess(
-  current: unknown,
-  roleAccessOverrides: Record<StaffRoleValue, RoleAccessMatrix>
-) {
-  const base =
-    current && typeof current === "object" && !Array.isArray(current)
-      ? (current as Record<string, unknown>)
-      : {};
-
-  return {
-    ...base,
-    roleAccessOverrides
-  };
-}
+export type StaffDirectoryEntry = {
+  userId: string;
+  principalId: string;
+  membershipId: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  department: string;
+  title: string | null;
+  status: "Active" | "Inactive";
+  assignments: AssignmentSummary[];
+  lastLoginAt: string | null;
+  createdAt: string;
+};
 
 function inviteStaff(inviteEmails: string[]) {
   const env = getEnv();
@@ -110,66 +99,65 @@ function inviteStaff(inviteEmails: string[]) {
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canEditStaff",
-      "canViewSettings",
-      "canEditSettings"
-    ]);
-    const [memberships, organizationSettings] = await Promise.all([
-      prisma.organizationMembership.findMany({
-        where: { organizationId: actor.organizationId },
-        include: {
-          user: {
-            include: {
-              access: { where: { organizationId: actor.organizationId } },
-              activityLogs: {
-                where: {
-                  organizationId: actor.organizationId,
-                  actionType: "auth.login.success"
-                },
-                orderBy: { createdAt: "desc" },
-                select: { createdAt: true },
-                take: 1
-              }
+    const actor = await authorize(request, "staff.read");
+
+    const memberships = await prisma.organizationMembership.findMany({
+      where: tenant(actor),
+      select: {
+        id: true,
+        principalId: true,
+        isActive: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            venueName: true,
+            title: true,
+            activityLogs: {
+              where: {
+                organizationId: actor.organizationId,
+                actionType: "auth.login.success"
+              },
+              orderBy: { createdAt: "desc" },
+              select: { createdAt: true },
+              take: 1
             }
           }
-        },
-        orderBy: { user: { name: "asc" } }
-      }),
-      prisma.organizationSetting.findUnique({
-        where: { organizationId: actor.organizationId },
-        select: { integrations: true }
-      })
-    ]);
-
-    const roleAccessOverrides =
-      getRoleAccessOverrides(organizationSettings?.integrations) ?? roleAccess;
-
-    return NextResponse.json({
-      staff: memberships.map((membership) => ({
-        id: membership.user.id,
-        membershipId: membership.id,
-        name: membership.user.name,
-        email: membership.user.email,
-        phone: membership.user.phone,
-        department: membership.user.venueName ?? "General",
-        role: membership.role,
-        // Membership only. `users.is_active` is a global column no tenant may
-        // write any more, so folding it in here would let one organization's
-        // removal show this organization's member as Inactive forever.
-        status: membership.isActive ? "Active" : "Inactive",
-        access: membership.user.access[0] ?? null,
-        lastLoginAt:
-          membership.user.activityLogs[0]?.createdAt.toISOString() ?? null,
-        createdAt: membership.createdAt
-      })),
-      matrix: {
-        roles: roleTemplates,
-        columns: permissionColumns,
-        access: roleAccessOverrides
+        }
       },
-      canCustomizePermissions: canCustomizeStaffPermissions(actor)
+      orderBy: { user: { name: "asc" } }
     });
+
+    // Assignments come along for DISPLAY. The directory shows what people hold;
+    // changing it happens under /api/access.
+    const assignments = await listAssignments(
+      actor.organizationId,
+      memberships.map((membership) => membership.principalId)
+    );
+
+    const staff: StaffDirectoryEntry[] = memberships.map((membership) => ({
+      userId: membership.user.id,
+      principalId: membership.principalId,
+      membershipId: membership.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      phone: membership.user.phone,
+      department: membership.user.venueName ?? "General",
+      title: membership.user.title,
+      // Membership only. There is no global flag any tenant may write, so one
+      // organization's removal can never show this organization's member as
+      // Inactive.
+      status: membership.isActive ? "Active" : "Inactive",
+      assignments: assignments.get(membership.principalId) ?? [],
+      lastLoginAt:
+        membership.user.activityLogs[0]?.createdAt.toISOString() ?? null,
+      createdAt: membership.createdAt.toISOString()
+    }));
+
+    return NextResponse.json({ staff, epoch: actor.epoch });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -184,87 +172,47 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canEditStaff");
-    const input = (await request.json().catch(() => null)) as Record<
-      string,
-      unknown
-    > | null;
-    const email = cleanText(input?.email).toLowerCase();
-    const emails = Array.isArray(input?.emails)
-      ? input.emails
-          .map((value) => cleanText(value).toLowerCase())
-          .filter((value) => value && value.includes("@"))
-      : [];
-    const inviteEmails = emails.length ? emails : email ? [email] : [];
-    const department = cleanText(input?.department) || "General";
-    const role = normalizeStaffRole(input?.role);
+    const actor = await authorize(request, "staff.invite");
+    const input = inviteSchema.parse(await request.json().catch(() => ({})));
 
-    if (!inviteEmails.length) {
+    if (!input.inviteEmails.length) {
       return NextResponse.json(
-        { error: "Enter a valid staff Gmail or email address." },
+        { error: "Enter a valid staff email address." },
         { status: 400 }
       );
     }
 
-    // This handler predates Zod and still parses its body by hand, so the
-    // shared schema is applied to the one field that needs it.
-    const parsedPhone = staffPhoneSchema.safeParse(cleanText(input?.phone));
+    const phone = staffPhoneSchema.parse(input.phone ?? "") ?? null;
+    const department = input.department || "General";
 
-    if (!parsedPhone.success) {
-      return NextResponse.json(
-        { error: formatZodErrorMessage(parsedPhone.error.flatten()) },
-        { status: 400 }
-      );
-    }
+    const created = await prisma.$transaction(async (transaction) => {
+      // Materialized here so an organization that predates the RBAC migration
+      // and has never been seeded still has something to assign.
+      await ensureStarterRoles(transaction, actor.organizationId);
 
-    const phone = parsedPhone.data ?? null;
-
-    assertAssignableRole(actor.membership.role, role);
-
-    const createdStaff = await prisma.$transaction(async (transaction) => {
       const results: Array<{
-        id: string;
+        userId: string;
+        principalId: string;
+        membershipId: string;
         email: string;
         name: string;
         phone: string | null;
         department: string;
-        role: string;
         status: "Active" | "Inactive";
-        membershipId: string;
         createdAt: Date;
-        access: Awaited<ReturnType<typeof transaction.userAccess.upsert>>;
       }> = [];
 
-      for (const inviteEmail of inviteEmails) {
+      for (const inviteEmail of input.inviteEmails) {
         const existingUser = await transaction.user.findUnique({
-          where: { email: inviteEmail }
+          where: { email: inviteEmail },
+          select: { id: true, name: true, phone: true, venueName: true }
         });
 
-        // Re-inviting somebody who is already here is an EDIT, not an invite -
-        // the upsert below carries `update: { role, isActive: true }`. Without
-        // this check invite is a demotion primitive: POST the owner's address
-        // at "viewer" and it walks straight through the invite path.
-        const existingMembership = existingUser
-          ? await transaction.organizationMembership.findUnique({
-              where: {
-                organizationId_userId: {
-                  organizationId: actor.organizationId,
-                  userId: existingUser.id
-                }
-              }
-            })
-          : null;
-
-        if (existingMembership) {
-          assertCanManageMember(actor.membership.role, existingMembership.role);
-        }
-
-        // `role` is written on create only, as a NOT NULL placeholder the column
-        // demands - never as an authority. The update that used to follow this
-        // rewrote `name`, `venueName` and `role` on a row shared by every
-        // organization the person belongs to, forced `isActive: true` so any
-        // tenant could reinstate someone another tenant had removed, and - since
-        // the invite dialog collects no phone number - silently wiped `phone`.
+        // The user row is created but never UPDATED from here. It is shared by
+        // every organization this person belongs to, so rewriting `name` or
+        // `venueName` on an invite let one tenant edit another tenant's view of
+        // somebody - and since the invite dialog collects no phone number, it
+        // silently wiped theirs.
         const user =
           existingUser ??
           (await transaction.user.create({
@@ -273,379 +221,233 @@ export async function POST(request: Request) {
               email: inviteEmail,
               name: inviteEmail.split("@")[0],
               phone,
-              venueName: department,
-              role: "member",
-              isActive: true
-            }
+              venueName: department
+            },
+            select: { id: true, name: true, phone: true, venueName: true }
           }));
 
-        const membership = await transaction.organizationMembership.upsert({
-          where: {
-            organizationId_userId: {
-              organizationId: actor.organizationId,
-              userId: user.id
-            }
-          },
-          update: { role, isActive: true },
-          create: {
-            organizationId: actor.organizationId,
-            userId: user.id,
-            role,
-            isActive: true
-          }
-        });
+        const existingMembership =
+          await transaction.organizationMembership.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: actor.organizationId,
+                userId: user.id
+              }
+            },
+            select: { id: true, principalId: true, isActive: true, createdAt: true }
+          });
 
-        const access = await transaction.userAccess.upsert({
-          where: {
-            organizationId_userId: {
-              organizationId: actor.organizationId,
-              userId: user.id
-            }
-          },
-          update: accessForRole(role),
-          create: {
-            organizationId: actor.organizationId,
-            userId: user.id,
-            ...accessForRole(role)
-          }
-        });
+        // Re-inviting somebody who is already here used to be an EDIT wearing an
+        // invite's clothes - the old upsert carried `update: { role, isActive:
+        // true }`, so POSTing the owner's address at "viewer" walked a demotion
+        // straight through the invite path. There is no role in this request any
+        // more, and an existing membership is left exactly as it is: reactivating
+        // somebody is `staff.deactivate`, and changing what they hold is
+        // /api/access.
+        const membership =
+          existingMembership ??
+          (await (async () => {
+            const principalId = await createUserPrincipal(
+              transaction,
+              actor.organizationId
+            );
+
+            return transaction.organizationMembership.create({
+              data: {
+                organizationId: actor.organizationId,
+                userId: user.id,
+                principalId
+              },
+              select: {
+                id: true,
+                principalId: true,
+                isActive: true,
+                createdAt: true
+              }
+            });
+          })());
 
         results.push({
-          id: user.id,
+          userId: user.id,
+          principalId: membership.principalId,
+          membershipId: membership.id,
           email: inviteEmail,
           name: user.name || inviteEmail.split("@")[0],
           phone: user.phone,
           department: user.venueName ?? department,
-          role: membership.role,
           status: membership.isActive ? "Active" : "Inactive",
-          membershipId: membership.id,
-          createdAt: membership.createdAt,
-          access
+          createdAt: membership.createdAt
+        });
+      }
+
+      const facts = await loadActorFacts(transaction, actor);
+
+      for (const result of results) {
+        await writeAudit(transaction, facts, {
+          action: "staff.invited",
+          subjectPrincipalId: result.principalId,
+          subjectName: result.name,
+          detail: { email: result.email }
         });
       }
 
       return results;
     });
-    const invitations = await inviteStaff(inviteEmails);
+
+    // Assignments go through the ORDINARY path, outside the invite transaction
+    // and after it - same guards, same audit rows, same 403s. If the actor turns
+    // out not to be allowed to hand out one of these roles, the invite still
+    // stands and the assignment does not, which is the correct half to keep.
+    const assignmentErrors: string[] = [];
+
+    if (input.roleIds?.length) {
+      for (const result of created) {
+        for (const roleId of input.roleIds) {
+          try {
+            await createAssignment(actor, {
+              principalId: result.principalId,
+              roleId,
+              scope: { type: "org" },
+              expectedEpoch: null
+            });
+          } catch (error) {
+            assignmentErrors.push(
+              error instanceof Error ? error.message : "Assignment failed."
+            );
+          }
+        }
+      }
+    }
+
+    const invitations = await inviteStaff(input.inviteEmails);
 
     return NextResponse.json({
       invites: invitations,
-      staff: createdStaff.map((item) => ({
-        id: item.id,
-        membershipId: item.membershipId,
-        name: item.name,
-        email: item.email,
-        phone: item.phone,
-        department: item.department,
-        role: item.role,
-        status: item.status,
-        access: item.access,
-        createdAt: item.createdAt
-      }))
+      staff: created.map((entry) => ({
+        ...entry,
+        createdAt: entry.createdAt.toISOString()
+      })),
+      ...(assignmentErrors.length
+        ? { assignmentErrors: [...new Set(assignmentErrors)] }
+        : {}),
+      epoch: await readEpoch(actor.organizationId)
     });
   } catch (error) {
     return createApiErrorResponse(error);
   }
 }
 
-export async function PATCH(request: Request) {
-  try {
-    const actor = await requirePermission(request, "canEditStaff");
-    const input = (await request.json().catch(() => null)) as Record<
-      string,
-      unknown
-    > | null;
-    const id = cleanText(input?.id);
-    const roleAccessOverrides = cleanRoleAccessOverrides(
-      input?.roleAccessOverrides
+/**
+ * Name, phone, department, title.
+ *
+ * THIS HANDLER HAS NO BRANCH THAT CAN REACH A PRIVILEGE TABLE. That is the point
+ * of the split, and it is what makes `staff.update` safe to hand to whoever
+ * keeps the directory tidy.
+ */
+export async function updateStaffProfile(
+  request: Request,
+  principalId: string
+) {
+  const actor = await authorize(request, "staff.update");
+  const input = updateProfileSchema.parse(await request.json());
+
+  const membership = await prisma.organizationMembership.findFirst({
+    where: { principalId, organizationId: actor.organizationId },
+    select: { id: true, userId: true }
+  });
+
+  if (!membership) throw notFound("That staff member");
+
+  const phone =
+    input.phone === undefined
+      ? undefined
+      : (staffPhoneSchema.parse(input.phone ?? "") ?? null);
+
+  const user = await prisma.user.update({
+    where: { id: membership.userId },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(phone !== undefined ? { phone } : {}),
+      ...(input.department !== undefined
+        ? { venueName: input.department }
+        : {}),
+      ...(input.title !== undefined ? { title: input.title || null } : {})
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      venueName: true,
+      title: true
+    }
+  });
+
+  return NextResponse.json({
+    staff: {
+      userId: user.id,
+      principalId,
+      membershipId: membership.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      department: user.venueName ?? "General",
+      title: user.title
+    }
+  });
+}
+
+/**
+ * Revoke, or restore, one person's access to THIS organization.
+ *
+ * Flips the membership and nothing else. The global `users.is_active` write this
+ * replaced was a platform-wide lockout wearing a tenant-scoped button: a person
+ * in organizations A and B removed from A was locked out of B too, with no
+ * surface in B able to undo it.
+ */
+export async function setStaffActive(
+  request: Request,
+  principalId: string,
+  isActive: boolean
+) {
+  const actor = await authorize(request, "staff.deactivate");
+
+  if (principalId === actor.principalId) {
+    return NextResponse.json(
+      { error: "You cannot change your own access." },
+      { status: 400 }
+    );
+  }
+
+  return prisma.$transaction(async (transaction) => {
+    const membership = await transaction.organizationMembership.findFirst({
+      where: { principalId, organizationId: actor.organizationId },
+      select: { id: true, user: { select: { name: true } } }
+    });
+
+    if (!membership) throw notFound("That staff member");
+
+    const facts = await loadActorFacts(transaction, actor);
+
+    // Suspending somebody is an exercise of authority over them, so the same
+    // ceiling that governs assigning them a role governs switching them off.
+    assertRankCeiling(
+      facts.rank,
+      await rankOfPrincipal(transaction, principalId, actor.organizationId),
+      "act"
     );
 
-    if (roleAccessOverrides) {
-      if (!canCustomizeStaffPermissions(actor)) {
-        return NextResponse.json(
-          {
-            error:
-              "Only an admin or organization owner can customize staff permissions."
-          },
-          { status: 403 }
-        );
-      }
-
-      await prisma.$transaction(async (transaction) => {
-        const currentSettings =
-          await transaction.organizationSetting.findUnique({
-            where: { organizationId: actor.organizationId },
-            select: { integrations: true }
-          });
-
-        await transaction.organizationSetting.upsert({
-          where: { organizationId: actor.organizationId },
-          update: {
-            integrations: mergeIntegrationsWithRoleAccess(
-              currentSettings?.integrations,
-              roleAccessOverrides
-            )
-          },
-          create: {
-            organizationId: actor.organizationId,
-            integrations: mergeIntegrationsWithRoleAccess(
-              null,
-              roleAccessOverrides
-            )
-          }
-        });
-
-        const memberships = await transaction.organizationMembership.findMany({
-          where: { organizationId: actor.organizationId },
-          select: { userId: true, role: true }
-        });
-
-        for (const membership of memberships) {
-          const normalizedRole = normalizeStaffRole(membership.role);
-          const accessData = roleAccessOverrides[normalizedRole];
-
-          await transaction.userAccess.upsert({
-            where: {
-              organizationId_userId: {
-                organizationId: actor.organizationId,
-                userId: membership.userId
-              }
-            },
-            update: accessData,
-            create: {
-              organizationId: actor.organizationId,
-              userId: membership.userId,
-              ...accessData
-            }
-          });
-        }
-      });
-
-      return NextResponse.json({
-        matrix: {
-          roles: roleTemplates,
-          columns: permissionColumns,
-          access: roleAccessOverrides
-        }
-      });
-    }
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Staff member is required." },
-        { status: 400 }
-      );
-    }
-
-    const role = input?.role ? normalizeStaffRole(input.role) : null;
-    const customAccess = cleanAccessPayload(input?.access);
-    const status = cleanText(input?.status);
-
-    if (id === actor.id && status === "Inactive") {
-      return NextResponse.json(
-        { error: "You cannot deactivate your own staff access." },
-        { status: 400 }
-      );
-    }
-
-    if (customAccess && !canCustomizeStaffPermissions(actor)) {
-      return NextResponse.json(
-        {
-          error:
-            "Only an admin or organization owner can customize staff permissions."
-        },
-        { status: 403 }
-      );
-    }
-
-    if (id === actor.id && customAccess?.canEditStaff === false) {
-      return NextResponse.json(
-        { error: "You cannot remove your own staff management permission." },
-        { status: 400 }
-      );
-    }
-
-    const userUpdates: {
-      name?: string;
-      phone?: string | null;
-      venueName?: string;
-    } = {};
-
-    const name = cleanText(input?.name);
-    const department = cleanText(input?.department);
-
-    // Only validated when the request actually carries a phone. Checking it
-    // unconditionally would block someone editing a colleague's department on
-    // a record whose number was saved loosely before this rule existed.
-    const parsedPhone =
-      input && "phone" in input
-        ? staffPhoneSchema.safeParse(cleanText(input.phone))
-        : null;
-
-    if (parsedPhone && !parsedPhone.success) {
-      return NextResponse.json(
-        { error: formatZodErrorMessage(parsedPhone.error.flatten()) },
-        { status: 400 }
-      );
-    }
-
-    if (name) userUpdates.name = name;
-    if (parsedPhone) userUpdates.phone = parsedPhone.data ?? null;
-    if (department) userUpdates.venueName = department;
-
-    const staff = await prisma.$transaction(async (transaction) => {
-      // `include: { user: true }` is load-bearing. The Assign-role submission
-      // posts `{ id, role }` only, so `userUpdates` is empty and the response
-      // falls back to this row - without it the dialog receives
-      // `staff.user.id === undefined` and breaks on a 200.
-      const membership = await transaction.organizationMembership.findFirst({
-        where: { organizationId: actor.organizationId, userId: id },
-        include: { user: true }
-      });
-
-      if (!membership) {
-        throw new AuthorizationError(
-          404,
-          "Staff member was not found in this organization."
-        );
-      }
-
-      // The edit dialog posts `role` on EVERY save, including one that only
-      // touched a phone number. "Carried a role" is not "changed the role", and
-      // guarding on the former would 403 half of legitimate traffic.
-      const roleChanged =
-        role !== null && role !== normalizeStaffRole(membership.role);
-      const statusChanged = status === "Active" || status === "Inactive";
-
-      // Suspending or restoring somebody is an exercise of authority over them,
-      // so the target check applies to status transitions too.
-      if (roleChanged || statusChanged) {
-        assertCanManageMember(actor.membership.role, membership.role);
-      }
-
-      if (roleChanged) {
-        assertNotSelfRoleChange(actor.id, id);
-        assertAssignableRole(actor.membership.role, role);
-      }
-
-      const updatedMembership = await transaction.organizationMembership.update(
-        {
-          where: { id: membership.id },
-          data: {
-            ...(roleChanged && role ? { role } : {}),
-            ...(status === "Active" ? { isActive: true } : {}),
-            ...(status === "Inactive" ? { isActive: false } : {})
-          }
-        }
-      );
-
-      // `role` and `isActive` are deliberately absent from `userUpdates`: both
-      // are global columns on a row shared across every organization this person
-      // belongs to. Membership carries the per-tenant answer for each.
-      const updatedUser =
-        Object.keys(userUpdates).length > 0
-          ? await transaction.user.update({ where: { id }, data: userUpdates })
-          : membership.user;
-
-      const accessData =
-        customAccess ?? (roleChanged && role ? accessForRole(role) : null);
-      const access = accessData
-        ? await transaction.userAccess.upsert({
-            where: {
-              organizationId_userId: {
-                organizationId: actor.organizationId,
-                userId: id
-              }
-            },
-            update: accessData,
-            create: {
-              organizationId: actor.organizationId,
-              userId: id,
-              ...accessData
-            }
-          })
-        : await transaction.userAccess.findUnique({
-            where: {
-              organizationId_userId: {
-                organizationId: actor.organizationId,
-                userId: id
-              }
-            }
-          });
-
-      return { user: updatedUser, membership: updatedMembership, access };
-    });
-
-    return NextResponse.json({
-      staff: {
-        id: staff.user.id,
-        membershipId: staff.membership.id,
-        name: staff.user.name,
-        email: staff.user.email,
-        phone: staff.user.phone,
-        department: staff.user.venueName ?? "General",
-        role: staff.membership.role,
-        status: staff.membership.isActive ? "Active" : "Inactive",
-        access: staff.access,
-        createdAt: staff.membership.createdAt
-      }
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const actor = await requirePermission(request, "canEditStaff");
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id) {
-      return NextResponse.json(
-        { error: "Staff member is required." },
-        { status: 400 }
-      );
-    }
-
-    if (id === actor.id) {
-      return NextResponse.json(
-        { error: "You cannot remove your own staff access." },
-        { status: 400 }
-      );
-    }
-
-    // Read first, so removing somebody who is not in this organization is a 404
-    // rather than a silent `updateMany` no-op followed by a global write. The
-    // old pair let any `canEditStaff` holder in any tenant disable any account
-    // platform-wide just by supplying its UUID.
-    const membership = await prisma.organizationMembership.findFirst({
-      where: { organizationId: actor.organizationId, userId: id }
-    });
-
-    if (!membership) {
-      throw new AuthorizationError(
-        404,
-        "Staff member was not found in this organization."
-      );
-    }
-
-    assertCanManageMember(actor.membership.role, membership.role);
-
-    // The global `users.is_active` write is dropped rather than scoped.
-    // Scoping would remove "any user in the database" but keep "global effect":
-    // `requireAuthenticatedUser` and `ensureProvisionedUser` both reject on
-    // `user.isActive` BEFORE consulting any membership, so a person in orgs A
-    // and B removed from A was locked out of B too, with no surface in B able
-    // to undo it. Deactivating the membership is already a complete lockout,
-    // and it is what the UI promises.
-    await prisma.organizationMembership.update({
+    await transaction.organizationMembership.update({
       where: { id: membership.id },
-      data: { isActive: false }
+      data: { isActive }
+    });
+
+    await writeAudit(transaction, facts, {
+      action: isActive ? "staff.restored" : "staff.deactivated",
+      subjectPrincipalId: principalId,
+      subjectName: membership.user.name
     });
 
     return NextResponse.json({ ok: true });
-  } catch (error) {
-    return createApiErrorResponse(error);
-  }
+  });
 }

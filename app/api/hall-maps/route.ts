@@ -2,8 +2,12 @@ import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { isAdministrativeRole } from "@/lib/auth/roles";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import {
+  authorize,
+  scoped,
+  tenant,
+  type AuthzContext
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { HALL_FLOOR_PLAN_BUCKET } from "@/lib/storage/buckets";
@@ -31,8 +35,6 @@ const updatePresetSchema = createPresetSchema
 
 const deletePresetSchema = z.object({ id: z.string().uuid() });
 
-const hallMapPermissions = ["canViewEventManager", "canViewCalendar"] as const;
-
 type HallMapPresetRow = {
   id: string;
   organizationId: string;
@@ -44,12 +46,16 @@ type HallMapPresetRow = {
   hall: { id: string; name: string };
 };
 
-async function getActorAndHallScope(request: Request) {
-  const actor = await requireAnyPermission(request, [...hallMapPermissions]);
-  const allowedHallIds = actor.access?.allowedHallIds ?? [];
-  const restrictHalls =
-    !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
-  return { actor, allowedHallIds, restrictHalls };
+/**
+ * One guard, two keys: reading a floor plan and drawing one are different acts,
+ * and the four handlers below say which they are rather than sharing a single
+ * "can touch hall maps" flag - which is how a POST comes to be gated by a read.
+ */
+async function getActor(
+  request: Request,
+  permission: "hallmap.read" | "hallmap.update"
+) {
+  return authorize(request, permission);
 }
 
 /**
@@ -84,15 +90,11 @@ function formatPreset(row: HallMapPresetRow) {
   };
 }
 
-async function listHallMapPresets(
-  organizationId: string,
-  restrictHalls: boolean,
-  allowedHallIds: string[]
-) {
+async function listHallMapPresets(actor: AuthzContext) {
   const rows = await prisma.hallMapPreset.findMany({
     where: {
-      organizationId,
-      ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+      ...tenant(actor),
+      ...scoped(actor, "hall")
     },
     orderBy: [{ hall: { name: "asc" } }, { name: "asc" }],
     include: { hall: { select: { id: true, name: true } } }
@@ -121,17 +123,12 @@ async function listShapeLibrary(organizationId: string) {
   }));
 }
 
-async function findPresetIdentity(
-  id: string,
-  organizationId: string,
-  restrictHalls: boolean,
-  allowedHallIds: string[]
-) {
+async function findPresetIdentity(id: string, actor: AuthzContext) {
   return prisma.hallMapPreset.findFirst({
     where: {
       id,
-      organizationId,
-      ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+      ...tenant(actor),
+      ...scoped(actor, "hall")
     },
     select: { id: true, hallId: true, backgroundPath: true }
   });
@@ -197,19 +194,18 @@ async function readPreset(id: string, organizationId: string) {
 
 export async function GET(request: Request) {
   try {
-    const { actor, allowedHallIds, restrictHalls } =
-      await getActorAndHallScope(request);
+    const actor = await getActor(request, "hallmap.read");
     const [halls, presets, shapeLibrary] = await Promise.all([
       prisma.hall.findMany({
         where: {
           organizationId: actor.organizationId,
           isActive: true,
-          ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
+          ...scoped(actor, "hall", { field: "id" })
         },
         orderBy: { name: "asc" },
         select: { id: true, name: true, capacity: true }
       }),
-      listHallMapPresets(actor.organizationId, restrictHalls, allowedHallIds),
+      listHallMapPresets(actor),
       listShapeLibrary(actor.organizationId)
     ]);
 
@@ -221,15 +217,14 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { actor, allowedHallIds, restrictHalls } =
-      await getActorAndHallScope(request);
+    const actor = await getActor(request, "hallmap.update");
     const input = createPresetSchema.parse(await request.json());
     const hall = await prisma.hall.findFirst({
       where: {
         id: input.hallId,
         organizationId: actor.organizationId,
         isActive: true,
-        ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
+        ...scoped(actor, "hall", { field: "id" })
       },
       select: { id: true }
     });
@@ -268,15 +263,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { actor, allowedHallIds, restrictHalls } =
-      await getActorAndHallScope(request);
+    const actor = await getActor(request, "hallmap.update");
     const input = updatePresetSchema.parse(await request.json());
-    const current = await findPresetIdentity(
-      input.id,
-      actor.organizationId,
-      restrictHalls,
-      allowedHallIds
-    );
+    const current = await findPresetIdentity(input.id, actor);
     if (!current) {
       return NextResponse.json(
         { error: "Hall map preset not found." },
@@ -290,7 +279,7 @@ export async function PATCH(request: Request) {
           id: input.hallId,
           organizationId: actor.organizationId,
           isActive: true,
-          ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
+          ...scoped(actor, "hall", { field: "id" })
         },
         select: { id: true }
       });
@@ -342,15 +331,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { actor, allowedHallIds, restrictHalls } =
-      await getActorAndHallScope(request);
+    const actor = await getActor(request, "hallmap.update");
     const input = deletePresetSchema.parse(await request.json());
-    const preset = await findPresetIdentity(
-      input.id,
-      actor.organizationId,
-      restrictHalls,
-      allowedHallIds
-    );
+    const preset = await findPresetIdentity(input.id, actor);
     if (!preset) {
       return NextResponse.json(
         { error: "Hall map preset not found." },

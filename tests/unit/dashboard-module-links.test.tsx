@@ -8,9 +8,13 @@ vi.mock("next/navigation", () => ({
 
 import { DashboardModuleLinks } from "@/features/dashboard/components/dashboard-module-links";
 import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
-import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
 import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
-import { cacheTestSession, cacheTestSessionForRole } from "./auth-session-fixture";
+import {
+  cacheTestSession,
+  cacheTestSessionForStarterRole,
+  starterPermissions,
+  starterPermissionsExcept
+} from "./auth-session-fixture";
 
 // Matched on description text, not on the <h3> title or the actionLabel: a tile
 // button's accessible name is its whole concatenated card text, so "Billing" and
@@ -44,13 +48,12 @@ function visibleTiles() {
 // Billing is absent from every row because the MVP hides it outright
 // (lib/ui/mvp-features) - the permission map still grants it, which is exactly
 // what the reachability test below has to account for.
-const cases: Array<{ role: StaffRoleValue; expected: string[] }> = [
-  { role: "admin", expected: ["Kitchen", "Calendar", "Events"] },
-  { role: "manager", expected: ["Kitchen", "Calendar", "Events"] },
-  // canViewCalendar makes /dashboard/events reachable even without
-  // canViewEventManager, which is why Events survives for Kitchen Staff.
-  { role: "kitchen", expected: ["Kitchen", "Calendar", "Events"] },
-  { role: "billing", expected: ["Calendar", "Events"] },
+const cases: Array<{ role: string; expected: string[] }> = [
+  { role: "administrator", expected: ["Kitchen", "Calendar", "Events"] },
+  { role: "event-manager", expected: ["Kitchen", "Calendar", "Events"] },
+  // calendar.read makes /dashboard/events reachable on its own, which is why
+  // Events survives for Kitchen Staff.
+  { role: "kitchen-staff", expected: ["Kitchen", "Calendar", "Events"] },
   { role: "viewer", expected: ["Kitchen", "Calendar", "Events"] }
 ];
 
@@ -61,7 +64,7 @@ describe("DashboardModuleLinks role gating", () => {
 
   for (const { role, expected } of cases) {
     it(`shows exactly ${expected.join(", ")} for ${role}`, () => {
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       render(<DashboardModuleLinks />);
 
       expect(visibleTiles().sort()).toEqual([...expected].sort());
@@ -74,7 +77,7 @@ describe("DashboardModuleLinks role gating", () => {
   it("offers a tile exactly when its route is reachable", () => {
     for (const { role } of cases) {
       window.localStorage.clear();
-      cacheTestSessionForRole(role);
+      cacheTestSessionForStarterRole(role);
       const { unmount } = render(<DashboardModuleLinks />);
       const shown = visibleTiles();
 
@@ -84,7 +87,7 @@ describe("DashboardModuleLinks role gating", () => {
           `${role}: tile ${title} visibility must match canAccessDashboardRoute("${tile.route}") and the MVP gate`
         ).toBe(
           !isHiddenDashboardRoute(tile.route) &&
-            canAccessDashboardRoute(tile.route, accessForRole(role), role)
+            canAccessDashboardRoute(tile.route, starterPermissions(role))
         );
       }
 
@@ -93,7 +96,7 @@ describe("DashboardModuleLinks role gating", () => {
   });
 
   it("exposes the tile row as a labelled region", () => {
-    cacheTestSessionForRole("viewer");
+    cacheTestSessionForStarterRole("viewer");
     render(<DashboardModuleLinks />);
 
     expect(
@@ -102,12 +105,7 @@ describe("DashboardModuleLinks role gating", () => {
   });
 
   it("renders nothing when no tile is reachable", () => {
-    cacheTestSession("viewer", {
-      canViewCalendar: false,
-      canViewEventManager: false,
-      canViewKitchenDashboard: false,
-      canViewPaymentInfo: false
-    });
+    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read", "kitchen.read", "invoice.read"], []));
     const { container } = render(<DashboardModuleLinks />);
 
     expect(container).toBeEmptyDOMElement();

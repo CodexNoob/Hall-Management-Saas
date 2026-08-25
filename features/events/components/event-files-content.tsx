@@ -44,7 +44,7 @@ export function EventFilesContent({
   clientName: string;
   eventType: string;
 }) {
-  const canEdit = useDashboardPermission("canEditFiles");
+  const canEdit = useDashboardPermission("file.create");
   const filesQuery = useAuthenticatedQuery<FilesResponse>("/api/files");
   const folderMutation = useAuthenticatedMutation<
     Record<string, unknown>,

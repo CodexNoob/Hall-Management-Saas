@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({ requirePermission: vi.fn() }));
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
+}));
 vi.mock("@/lib/security/rate-limit", () => ({ enforceRateLimit: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -15,7 +18,7 @@ vi.mock("@/lib/prisma", () => ({
 import { POST } from "@/app/api/menu/import/route";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
 import { AuthorizationError } from "@/lib/auth/errors";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -59,7 +62,7 @@ describe("POST /api/menu/import", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(enforceRateLimit).mockResolvedValue(null);
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(prisma.menuItem.create).mockImplementation((() =>
       Promise.resolve({ id: "created" })) as never);
     // Imported rows are filed under a real course, creating it the first time
@@ -185,7 +188,7 @@ describe("POST /api/menu/import", () => {
 
   describe("refusals", () => {
     it("refuses a caller without canEditMenu", async () => {
-      vi.mocked(requirePermission).mockRejectedValue(
+      vi.mocked(authorize).mockRejectedValue(
         new AuthorizationError(403, "You do not have permission.")
       );
 
@@ -198,7 +201,7 @@ describe("POST /api/menu/import", () => {
     it("checks the permission it needs", async () => {
       await POST(importRequest({ items: [item()] }));
 
-      expect(requirePermission).toHaveBeenCalledWith(
+      expect(authorize).toHaveBeenCalledWith(
         expect.anything(),
         "canEditMenu"
       );
@@ -212,7 +215,7 @@ describe("POST /api/menu/import", () => {
       const response = await POST(importRequest({ items: [item()] }));
 
       expect(response.status).toBe(429);
-      expect(requirePermission).not.toHaveBeenCalled();
+      expect(authorize).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 

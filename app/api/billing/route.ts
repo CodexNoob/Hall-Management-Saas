@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { refreshOverdueInvoices } from "@/features/billing/services/invoice-lifecycle.service";
@@ -81,7 +81,7 @@ const invoiceSchema = z
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewPaymentInfo");
+    const actor = await authorize(request, "invoice.read");
     await refreshOverdueInvoices(actor.organizationId);
     const [transactions, invoices, events, invoiceHistory] = await Promise.all([
       prisma.paymentTransaction.findMany({
@@ -170,7 +170,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "invoice.create");
     const input = invoiceSchema.parse(await request.json());
 
     const event = input.eventId
@@ -300,8 +300,8 @@ export async function POST(request: Request) {
           organizationId: actor.organizationId,
           eventId: event?.id,
           clientId: event?.clientId,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: "Invoice Created",
           message: `Created invoice ${created.invoiceNumber}.`,
           newValue: {

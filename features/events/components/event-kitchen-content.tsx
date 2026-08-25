@@ -351,7 +351,7 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`
   );
-  const canOpenKitchenBoard = useDashboardPermission("canViewKitchenDashboard");
+  const canOpenKitchenBoard = useDashboardPermission("kitchen.read");
   const sheet = kitchenQuery.data?.kitchen ?? null;
   const notifications = kitchenQuery.data?.notifications ?? [];
   // This tab asks for no meal, so the route answers `Main`. Until it offers a

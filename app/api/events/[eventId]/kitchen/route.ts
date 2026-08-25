@@ -9,7 +9,7 @@ import {
   statusSelect,
   type KitchenLineRow
 } from "@/features/kitchen/server/kitchen-sheet";
-import { assertHallAccess, requireAnyPermission } from "@/lib/auth/server-auth";
+import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
@@ -74,11 +74,7 @@ export async function GET(
     // dishes one tab across must not be 403'd here, and neither must a kitchen
     // member, whose board opens this route for the dish list behind an event
     // card. All three are reads of the same sheet.
-    const actor = await requireAnyPermission(request, [
-      "canViewEventManager",
-      "canViewCalendar",
-      "canViewKitchenDashboard"
-    ]);
+    const actor = await authorize(request, "kitchen.read");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     const meal = mealSchema.parse(
@@ -98,7 +94,7 @@ export async function GET(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const [menu, otherMeals, statuses, notifications] = await Promise.all([
       prisma.eventMenu.findUnique({

@@ -1,390 +1,249 @@
 "use client";
 
-import { type FormEvent } from "react";
-import {
-  LineIcon,
-  roleTemplates,
-  secondaryButtonClass,
-  type RoleName,
-  type StaffMember
-} from "@/features/administration/components/staff-shared";
-import {
-  accessPermissionKeys,
-  accessForRole,
-  activePermissionLabelsForRole,
-  formatStaffRoleName,
-  staffRoleValueByName,
-  type RoleAccessMatrix
-} from "@/lib/auth/permissions";
+import { useEffect, useState, type FormEvent } from "react";
+import { normalizeInviteEmails } from "@/features/administration/components/staff-invite-utils";
+import type { StaffMember } from "@/features/administration/components/staff-shared";
 
-import type { CountryCode } from "libphonenumber-js";
+/**
+ * Invite somebody, or edit their profile. TWO DIALOGS, NEITHER OF WHICH TOUCHES
+ * A PERMISSION.
+ *
+ * The role picker and the permission matrix that used to live here are gone -
+ * not moved into a tab, gone. They are `/dashboard/access`, behind their own
+ * keys, because the account that fixes a typo in a phone number should not be
+ * the account that can mint an owner.
+ */
 
-import { PhoneField } from "@/components/ui/phone-field";
-import {
-  DEFAULT_PHONE_COUNTRY,
-  countryFromE164,
-  nationalFromE164
-} from "@/lib/validation/phone";
-
-export type StaffDialogMode = "add" | "edit" | "role" | null;
+export type StaffDialogMode = "add" | "edit" | null;
 
 export type StaffFormState = {
   name: string;
   email: string;
   phone: string;
-  /** ISO code, not a dialling code - it decides which numbers are valid. */
-  phoneCountry: CountryCode;
   department: string;
-  role: RoleName;
+  title: string;
 };
 
 export function initialsForName(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
+  const parts = name.trim().split(/\s+/).filter(Boolean);
 
-export function formatStaffRole(role: string): RoleName {
-  return formatStaffRoleName(role);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
 export function emptyForm(): StaffFormState {
-  return {
-    name: "",
-    email: "",
-    phone: "",
-    phoneCountry: DEFAULT_PHONE_COUNTRY,
-    department: "General",
-    role: "Viewer"
-  };
+  return { name: "", email: "", phone: "", department: "", title: "" };
 }
 
 export function staffToForm(staff: StaffMember): StaffFormState {
-  const stored = staff.phone === "Not provided" ? "" : staff.phone;
-
   return {
     name: staff.name,
     email: staff.email,
-    // Stored numbers are E.164, so split them back into the picker and the
-    // national box rather than showing "+639171234567" in the input.
-    phone: nationalFromE164(stored) || stored,
-    phoneCountry: countryFromE164(stored) ?? DEFAULT_PHONE_COUNTRY,
+    phone: staff.phone === "Not provided" ? "" : staff.phone,
     department: staff.department,
-    role: staff.role
+    title: staff.title ?? ""
   };
-}
-
-export function accessFromStaff(staff: StaffMember): RoleAccessMatrix {
-  const fallback = accessForRole(staffRoleValueByName[staff.role]);
-  const savedAccess = staff.access ?? {};
-
-  return accessPermissionKeys.reduce(
-    (access, key) => ({
-      ...access,
-      [key]:
-        typeof savedAccess[key] === "boolean"
-          ? savedAccess[key] === true
-          : fallback[key]
-    }),
-    {} as RoleAccessMatrix
-  );
 }
 
 export type StaffInvitation = {
   email: string;
-  emailSent: boolean;
-  inviteLink: string | null;
-  error: string | null;
+  status: "sent" | "failed";
+  actionLink?: string | null;
+  error?: string | null;
 };
 
 export async function readMutationResponse(response: Response) {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
+    code?: string;
     invites?: StaffInvitation[];
+    assignmentErrors?: string[];
   } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.error ?? "Unable to update staff.");
+    throw new Error(payload?.error ?? "The change could not be saved.");
   }
 
   return payload;
 }
 
-function Field({
-  label,
-  children
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <label className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#687588]">
-      {label}
-      {children}
-    </label>
-  );
-}
-
-export function StaffDialog({
-  canEdit,
-  form,
-  mode,
-  mutationError,
-  isSaving,
-  selectedStaff,
-  setForm,
-  inviteInput,
-  inviteEmails,
-  onInviteInputChange,
-  onAddInviteEmail,
-  onRemoveInviteEmail,
-  onClose,
-  onSubmit
-}: {
-  canEdit: boolean;
-  form: StaffFormState;
+type StaffDialogProps = {
   mode: StaffDialogMode;
-  mutationError: string;
-  isSaving: boolean;
-  selectedStaff: StaffMember | null;
-  setForm: (form: StaffFormState) => void;
+  form: StaffFormState;
   inviteInput: string;
   inviteEmails: string[];
-  onInviteInputChange: (value: string) => void;
-  onAddInviteEmail: () => void;
-  onRemoveInviteEmail: (email: string) => void;
+  error: string;
+  isSaving: boolean;
+  canInvite: boolean;
+  onChangeForm: (form: StaffFormState) => void;
+  onChangeInviteInput: (value: string) => void;
+  onChangeInviteEmails: (emails: string[]) => void;
+  onSubmit: (event: FormEvent) => void;
   onClose: () => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-}) {
+};
+
+export function StaffDialog({
+  mode,
+  form,
+  inviteInput,
+  inviteEmails,
+  error,
+  isSaving,
+  canInvite,
+  onChangeForm,
+  onChangeInviteInput,
+  onChangeInviteEmails,
+  onSubmit,
+  onClose
+}: StaffDialogProps) {
+  const [localInvite, setLocalInvite] = useState(inviteInput);
+
+  useEffect(() => {
+    setLocalInvite(inviteInput);
+  }, [inviteInput]);
+
   if (!mode) return null;
 
-  const title =
-    mode === "add"
-      ? "Invite staff"
-      : mode === "role"
-        ? "Assign role"
-        : "Edit staff";
-  const subtitle =
-    mode === "add"
-      ? "Add one or more staff emails. Each address will be invited to this organization."
-      : selectedStaff
-        ? `Update ${selectedStaff.name}'s access inside this organization.`
-        : "Update staff access.";
+  const commitInvites = (value: string) => {
+    const emails = normalizeInviteEmails(value);
+    onChangeInviteInput(value);
+    onChangeInviteEmails(emails);
+  };
 
   return (
-    <div className="fixed inset-0 z-100 flex items-center justify-center bg-[#061126]/55 p-3 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">
       <form
-        aria-modal="true"
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
         onSubmit={onSubmit}
-        role="dialog"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1f4d73]">
-              Staff access
+        <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
+          <div className="min-w-0">
+            <h2 className="text-sm font-black">
+              {mode === "add" ? "Invite staff" : `Edit ${form.name}`}
+            </h2>
+            <p className="mt-0.5 text-[10px] text-[#6a7483]">
+              {mode === "add"
+                ? "They arrive with no permissions. Give them a role from Access when they are ready."
+                : "Profile only. What this person can do lives in Access."}
             </p>
-            <h2 className="mt-1 text-xl font-black text-[#17202a]">{title}</h2>
-            <p className="mt-1 max-w-lg text-sm text-[#64748b]">{subtitle}</p>
           </div>
           <button
-            aria-label="Close staff dialog"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#233144] transition hover:bg-[#eef4fa]"
+            className="rounded-lg border border-[#c7d0dc] px-3 py-1.5 text-xs font-black"
             onClick={onClose}
             type="button"
           >
-            <svg
-              aria-hidden="true"
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M5 5 19 19M19 5 5 19"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeWidth="2.25"
-              />
-            </svg>
+            Close
           </button>
         </header>
 
-        <div
-          className={`grid gap-4 p-5 ${mode === "add" ? "" : "sm:grid-cols-2"}`}
-        >
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           {mode === "add" ? (
-            <Field label="Staff Gmail / email">
-              <div className="flex items-center gap-2 rounded-lg border border-[#c7d0dc] px-2 py-1.5 focus-within:border-[#1f4d73]">
-                <input
-                  className="h-9 flex-1 border-0 bg-transparent px-1 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none"
-                  id="staff-invite-email"
-                  name="staffInviteEmail"
-                  onChange={(event) => onInviteInputChange(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      onAddInviteEmail();
-                    }
-                  }}
-                  placeholder="staff@gmail.com"
-                  type="email"
-                  value={inviteInput}
-                />
-                <button
-                  className="inline-flex h-8 items-center justify-center rounded-md bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!inviteInput.trim()}
-                  onClick={onAddInviteEmail}
-                  type="button"
-                >
-                  Add
-                </button>
-              </div>
-              {inviteEmails.length ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {inviteEmails.map((email) => (
-                    <button
-                      className="inline-flex items-center gap-1 rounded-full border border-[#d8dde5] bg-[#f7f9fb] px-2.5 py-1 text-[11px] font-black text-[#17202a]"
-                      key={email}
-                      onClick={() => onRemoveInviteEmail(email)}
-                      type="button"
-                    >
-                      {email}
-                      <span className="text-[#64748b]">&times;</span>
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </Field>
-          ) : mode !== "role" ? (
             <>
-              <Field label="Full name">
-                <input
-                  className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  id="staff-full-name"
-                  name="staffName"
-                  onChange={(event) =>
-                    setForm({ ...form, name: event.target.value })
-                  }
-                  placeholder="Example: Sarah Cohen"
-                  required
-                  value={form.name}
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Email addresses
+                <textarea
+                  className="mt-1 min-h-20 w-full rounded-lg border border-[#c7d0dc] px-3 py-2 text-xs"
+                  onBlur={(event) => commitInvites(event.target.value)}
+                  onChange={(event) => setLocalInvite(event.target.value)}
+                  placeholder="one@example.com, two@example.com"
+                  value={localInvite}
                 />
-              </Field>
-              <Field label="Gmail / email invite">
+              </label>
+              {inviteEmails.length > 0 ? (
+                <p className="text-[10px] text-[#6a7483]">
+                  {inviteEmails.length} invitation
+                  {inviteEmails.length === 1 ? "" : "s"} will be sent.
+                </p>
+              ) : null}
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Department
                 <input
-                  className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  id="staff-email"
-                  name="staffEmail"
+                  className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   onChange={(event) =>
-                    setForm({ ...form, email: event.target.value })
+                    onChangeForm({ ...form, department: event.target.value })
                   }
-                  placeholder="staff@gmail.com"
-                  required
-                  type="email"
-                  value={form.email}
-                />
-              </Field>
-              {/* Not wrapped in <Field>, which is a <label>: the country
-                  select and the error text would join the input's name. */}
-              <div className="grid gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] text-[#687588]">
-                <label htmlFor="staff-phone">Phone</label>
-                <PhoneField
-                  country={form.phoneCountry}
-                  id="staff-phone"
-                  inputClassName="h-11 min-w-0 flex-1 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  name="staffPhone"
-                  onChange={(value) => setForm({ ...form, phone: value })}
-                  onCountryChange={(phoneCountry) =>
-                    setForm({ ...form, phoneCountry })
-                  }
-                  rowClassName="flex gap-2"
-                  selectClassName="h-11 max-w-[8.5rem] rounded-lg border border-[#c7d0dc] px-2 text-sm font-semibold normal-case tracking-normal outline-none focus:border-[#1f4d73]"
-                  value={form.phone}
-                />
-              </div>
-              <Field label="Department">
-                <input
-                  className="h-11 rounded-lg border border-[#c7d0dc] px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  id="staff-department"
-                  name="staffDepartment"
-                  onChange={(event) =>
-                    setForm({ ...form, department: event.target.value })
-                  }
-                  placeholder="Kitchen, Billing, Events..."
                   value={form.department}
                 />
-              </Field>
+              </label>
             </>
-          ) : null}
-          {mode !== "add" ? (
+          ) : (
             <>
-              <Field label="Role">
-                <select
-                  className="h-11 rounded-lg border border-[#c7d0dc] bg-white px-3 text-sm font-semibold normal-case tracking-normal text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  id="staff-role"
-                  name="staffRole"
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Name
+                <input
+                  className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   onChange={(event) =>
-                    setForm({ ...form, role: event.target.value as RoleName })
+                    onChangeForm({ ...form, name: event.target.value })
                   }
-                  value={form.role}
-                >
-                  {/* Escape hatch for a role the invite form may not hand out.
-                      `roleTemplates` is deliberately Owner-free, and a <select>
-                      whose value matches no <option> silently displays the
-                      first one - so opening Edit on an owner would show
-                      "Administrator" and submit that on save. The guards now
-                      403 it, but the form should not be proposing it. */}
-                  {!roleTemplates.some(
-                    (template) => template.role === form.role
-                  ) ? (
-                    <option value={form.role}>{form.role}</option>
-                  ) : null}
-                  {roleTemplates.map((template) => (
-                    <option key={template.role} value={template.role}>
-                      {template.role}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3 text-xs text-[#425166] sm:col-span-2">
-                <strong className="text-[#17202a]">Role preview:</strong>{" "}
-                {activePermissionLabelsForRole(
-                  staffRoleValueByName[form.role]
-                ).join(", ")}
-              </div>
+                  value={form.name}
+                />
+              </label>
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Phone
+                <input
+                  className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  onChange={(event) =>
+                    onChangeForm({ ...form, phone: event.target.value })
+                  }
+                  value={form.phone}
+                />
+              </label>
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Department
+                <input
+                  className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  onChange={(event) =>
+                    onChangeForm({ ...form, department: event.target.value })
+                  }
+                  value={form.department}
+                />
+              </label>
+              <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
+                Job title
+                <input
+                  className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  onChange={(event) =>
+                    onChangeForm({ ...form, title: event.target.value })
+                  }
+                  placeholder="Shown in the sidebar. Not a permission."
+                  value={form.title}
+                />
+              </label>
             </>
-          ) : null}
-          {mutationError ? (
-            <p className="rounded-lg border border-[#f2b7ba] bg-[#fff2f2] px-3 py-2 text-xs font-bold text-[#c2262f] sm:col-span-2">
-              {mutationError}
-            </p>
-          ) : null}
+          )}
         </div>
 
-        <footer className="flex flex-col-reverse gap-2 border-t border-[#d8dde5] px-5 py-4 sm:flex-row sm:justify-end">
-          <button
-            className={secondaryButtonClass}
-            onClick={onClose}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!canEdit || isSaving}
-            type="submit"
-          >
-            <LineIcon name={mode === "add" ? "mail" : "check"} />
-            {isSaving
-              ? "Saving..."
-              : mode === "add"
-                ? "Invite staff"
-                : "Save changes"}
-          </button>
+        <footer className="flex flex-col gap-2 border-t border-[#d8dde5] px-4 py-3">
+          {error ? (
+            <p className="rounded-lg border border-[#f2b7ba] bg-[#fff2f2] px-3 py-2 text-[11px] font-semibold text-[#a52a3d]">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <button
+              className="h-9 rounded-lg border border-[#c7d0dc] px-4 text-xs font-black"
+              onClick={onClose}
+              type="button"
+            >
+              Cancel
+            </button>
+            <button
+              className="h-9 rounded-lg bg-[#17202a] px-4 text-xs font-black text-white disabled:opacity-50"
+              disabled={
+                isSaving ||
+                (mode === "add" && (!canInvite || inviteEmails.length === 0))
+              }
+              type="submit"
+            >
+              {isSaving
+                ? "Saving..."
+                : mode === "add"
+                  ? "Send invitations"
+                  : "Save"}
+            </button>
+          </div>
         </footer>
       </form>
     </div>

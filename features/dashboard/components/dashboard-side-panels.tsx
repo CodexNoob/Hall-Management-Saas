@@ -42,12 +42,12 @@ export function DashboardSidePanels({
 }: DashboardSidePanelsProps) {
   const { canAccessRoute, hasPermission } = useDashboardAccess();
   const showEventsTimeline = hasPermission([
-    "canViewCalendar",
-    "canViewEventManager"
+    "calendar.read",
+    "event.read"
   ]);
   // The panel's hardcoded sample items include an open-balance notice, so it
   // follows payment visibility rather than general event visibility.
-  const showAttentionNeeded = hasPermission("canViewPaymentInfo");
+  const showAttentionNeeded = hasPermission("invoice.read");
   // The MVP check comes first for the same reason the permission one is here at
   // all: this panel must never offer a destination the sidebar does not. The
   // overview it sits on is itself hidden today, so nothing here renders - but

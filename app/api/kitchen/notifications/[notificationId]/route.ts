@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -11,11 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ notificationId: string }> }
 ) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewKitchenDashboard",
-      "canUpdateKitchenStatus",
-      "canAssignWorkers"
-    ]);
+    const actor = await authorize(request, "kitchen.status.update");
     const { notificationId } = await params;
     const id = notificationIdSchema.parse(notificationId);
 
@@ -26,7 +22,7 @@ export async function PATCH(
         acknowledgedAt: null
       },
       data: {
-        acknowledgedById: actor.id,
+        acknowledgedById: actor.userId,
         acknowledgedAt: new Date()
       }
     });

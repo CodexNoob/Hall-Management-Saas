@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { dimensionSchema } from "@/lib/validation/number";
@@ -23,10 +20,7 @@ const vendorSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewEventManager",
-      "canViewSettings"
-    ]);
+    const actor = await authorize(request, "vendor.read");
     const vendors = await prisma.vendor.findMany({
       where: { organizationId: actor.organizationId },
       orderBy: { name: "asc" }
@@ -39,7 +33,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditVendors");
+    const actor = await authorize(request, "vendor.manage");
     const input = vendorSchema.parse(await request.json());
     const vendor = await prisma.vendor.create({
       data: { organizationId: actor.organizationId, ...input }

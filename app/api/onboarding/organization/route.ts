@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import { createOrganizationSlug } from "@/lib/auth/organization-slug";
-import { normalizeStaffRole } from "@/lib/auth/permissions";
-import {
-  AuthorizationError,
-  requireAuthenticatedUser
-} from "@/lib/auth/server-auth";
+import { authorize, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -20,19 +16,22 @@ export async function POST(request: NextRequest) {
     });
     if (limited) return limited;
 
-    const actor = await requireAuthenticatedUser(request);
-
-    if (normalizeStaffRole(actor.membership.role) !== "owner") {
-      throw new AuthorizationError(
-        403,
-        "Only an organization owner can complete this setup."
-      );
-    }
+    // `settings.update` rather than a role check. Naming the organization and
+    // choosing its plan is the same act as any other settings edit, and asking
+    // for the permission means a tenant who invents a "Founder" role and gives
+    // it that key gets this form with no code change (INV-1).
+    const actor = await authorize(request, "settings.update");
+    const userId = requireUserActor(actor);
 
     // The placeholder organization is provisioned on first sign-in, so this
     // endpoint renames an existing row. Refusing once it is stamped keeps it from
     // being replayed to rename an established organization.
-    if (actor.organization.onboardingCompletedAt) {
+    const organizationRow = await prisma.organization.findUniqueOrThrow({
+      where: { id: actor.organizationId },
+      select: { onboardingCompletedAt: true }
+    });
+
+    if (organizationRow.onboardingCompletedAt) {
       return NextResponse.json(
         { error: "This organization has already been set up." },
         { status: 409 }
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
           name: input.organizationName,
           slug: createOrganizationSlug(
             input.organizationName,
-            actor.supabaseAuthId ?? actor.id
+            userId
           ),
           // Records which plan the owner intends to buy. Billing is activated
           // separately by the Stripe webhook, and getSubscriptionLimits keeps
@@ -61,7 +60,7 @@ export async function POST(request: NextRequest) {
       });
 
       await transaction.user.update({
-        where: { id: actor.id },
+        where: { id: userId },
         data: {
           name: input.fullName,
           phone,
@@ -71,7 +70,7 @@ export async function POST(request: NextRequest) {
 
       await createActivityLog(transaction, {
         organizationId: actor.organizationId,
-        userId: actor.id,
+        userId,
         userName: input.fullName,
         actionType: "organization.onboarding.completed",
         message: `Organization setup completed as ${updatedOrganization.name}.`,

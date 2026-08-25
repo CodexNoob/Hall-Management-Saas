@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
-import { normalizeStaffRole } from "@/lib/auth/permissions";
+import { authorize } from "@/lib/authz/authorize";
+import { principalIdsHolding } from "@/lib/authz/decide";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import {
@@ -18,19 +18,26 @@ import {
  * the board's GET - and no writer anywhere, so the assignment dropdown on every
  * dish could only ever say "Unassigned". This is the missing half.
  *
- * Gated on `canAssignWorkers` rather than a new permission: whoever decides who
- * cooks what is the same person who keeps the list of who there is to ask, and
- * a fifth kitchen permission would have to be answered for on every role.
+ * Gated on `kitchen.worker.read` to look and `kitchen.worker.assign` to change:
+ * whoever decides who cooks what is the same person who keeps the list of who
+ * there is to ask.
  */
 
 /**
- * A worker is a staff member with the Kitchen Staff role.
+ * A worker is a staff member who may advance production status.
+ *
+ * ELIGIBILITY IS A PERMISSION, NOT A ROLE (INV-1). "Who can be assigned a dish"
+ * is "who may mark it done", which stays correct for a tenant that invents a
+ * Head Chef role and never mentions a role name in this file.
  *
  * `name` is no longer accepted from the caller. Typing a name produced a row
  * with no connection to any account, so the same person could exist twice -
  * once typed here and once created from their role - and neither knew about
  * the other. The name now comes from the staff record.
  */
+/** The key that makes someone assignable to a dish. */
+const WORKER_ELIGIBILITY_PERMISSION = "kitchen.status.update" as const;
+
 const createWorkerSchema = z.object({
   userId: z.string().uuid(),
   color: workerColorSchema
@@ -38,7 +45,7 @@ const createWorkerSchema = z.object({
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canAssignWorkers");
+    const actor = await authorize(request, "kitchen.worker.read");
     // Retired ones too, unlike the board's own read: this is the screen where
     // someone puts a worker back, so it has to be able to show them.
     const [workers, memberships] = await Promise.all([
@@ -54,22 +61,25 @@ export async function GET(request: Request) {
           user: { isActive: true }
         },
         select: {
-          role: true,
+          principalId: true,
           user: { select: { id: true, name: true, email: true } }
         }
       })
     ]);
 
-    // Who can still be added: Kitchen Staff who are not already on the list.
-    // The role is normalized because the column holds free text - "Kitchen
-    // Staff", "kitchen" and "kitchenstaff" have all been written to it.
+    // Who can still be added: everyone who may advance production status and is
+    // not already on the list.
+    const eligiblePrincipalIds = await principalIdsHolding(
+      actor.organizationId,
+      WORKER_ELIGIBILITY_PERMISSION
+    );
     const existingUserIds = new Set(
       workers.map((worker) => worker.userId).filter(Boolean)
     );
     const availableStaff = memberships
       .filter(
         (membership) =>
-          normalizeStaffRole(membership.role) === "kitchen" &&
+          eligiblePrincipalIds.has(membership.principalId) &&
           !existingUserIds.has(membership.user.id)
       )
       .map((membership) => ({
@@ -86,7 +96,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canAssignWorkers");
+    const actor = await authorize(request, "kitchen.worker.assign");
     const input = createWorkerSchema.parse(await request.json());
 
     // The role is the eligibility rule, so it is checked server-side rather
@@ -98,7 +108,10 @@ export async function POST(request: Request) {
         isActive: true,
         user: { isActive: true }
       },
-      select: { role: true, user: { select: { name: true, email: true } } }
+      select: {
+        principalId: true,
+        user: { select: { name: true, email: true } }
+      }
     });
 
     if (!membership) {
@@ -108,11 +121,18 @@ export async function POST(request: Request) {
       );
     }
 
-    if (normalizeStaffRole(membership.role) !== "kitchen") {
+    // The eligibility rule is enforced server-side rather than trusted from
+    // whatever the dropdown happened to offer.
+    const eligiblePrincipalIds = await principalIdsHolding(
+      actor.organizationId,
+      WORKER_ELIGIBILITY_PERMISSION
+    );
+
+    if (!eligiblePrincipalIds.has(membership.principalId)) {
       return NextResponse.json(
         {
           error:
-            "Only staff with the Kitchen Staff role can be added as kitchen workers."
+            "Only staff who can update kitchen production status can be added as kitchen workers."
         },
         { status: 409 }
       );

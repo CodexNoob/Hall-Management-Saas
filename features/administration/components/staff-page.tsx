@@ -1,17 +1,18 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
-import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
+import { useState, type FormEvent } from "react";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
+import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
-import { invalidateAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   StaffDialog,
-  accessFromStaff,
   emptyForm,
   readMutationResponse,
   staffToForm,
@@ -19,1075 +20,485 @@ import {
   type StaffFormState,
   type StaffInvitation
 } from "@/features/administration/components/staff-dialog";
-
 import {
   LineIcon,
-  RoleBadge,
   SectionHeader,
   StatusBadge,
-  permissionColumns,
-  roleColors,
-  roleTemplates,
-  secondaryButtonClass,
-  type StaffMember,
-  type StaffResponse,
-  type StaffStatus
+  secondaryButtonClass
 } from "@/features/administration/components/staff-shared";
-import { parsePhoneInput } from "@/lib/validation/phone";
-import { normalizeInviteEmails } from "@/features/administration/components/staff-invite-utils";
 import { StaffProfileDialog } from "@/features/administration/components/staff-profile-dialog";
 import { useStaffDirectory } from "@/features/administration/hooks/use-staff-directory";
-import {
-  accessForRole,
-  activePermissionLabelsForRole,
-  hasPermissionGroup,
-  roleAccess,
-  staffRoleValueByName,
-  type RoleAccessMatrix,
-  type StaffRoleValue
-} from "@/lib/auth/permissions";
+import { AssignmentDialog } from "@/features/access/components/assignment-dialog";
+import { RoleBadge } from "@/features/access/components/role-editor";
+import type {
+  RolesResponse,
+  StaffResponse
+} from "@/features/access/components/access-shared";
 
-const apiUrl = "/api/staff";
+/**
+ * The staff directory: WHO WORKS HERE.
+ *
+ * The permission matrix that used to occupy the bottom half of this page has
+ * moved to /dashboard/access. That is the same split the API makes, and for the
+ * same reason: editing a phone number and handing out privileges were one screen
+ * and one permission, which is exactly the conflation this design exists to
+ * undo. What is left here changes nothing about what anyone can do.
+ *
+ * The one bridge is the "Access" button on each row, which opens the assignment
+ * dialog - and that dialog posts to /api/access/assignments like everything
+ * else. One writer per privilege change.
+ */
+
+const STAFF_URL = "/api/staff";
+
 export function StaffPage() {
+  const access = useDashboardAccess();
+  const canViewStaff = access.hasPermission("staff.read");
+  const canInvite = access.hasPermission("staff.invite");
+  const canEditProfiles = access.hasPermission("staff.update");
+  const canDeactivate = access.hasPermission("staff.deactivate");
+  const canAssign = access.hasPermission("role.assign");
+
+  const staffQuery = useAuthenticatedQuery<StaffResponse>(
+    STAFF_URL,
+    canViewStaff
+  );
+  const rolesQuery = useAuthenticatedQuery<RolesResponse>(
+    "/api/access/roles",
+    canAssign
+  );
+
+  const [searchQuery] = useDashboardPageSearch("Staff");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const { canAccessRoute, hasPermission } = useDashboardAccess();
-  const canViewStaff = canAccessRoute("/dashboard/staff");
-  const canEdit = hasPermission("canEditStaff");
-  const staffQuery = useAuthenticatedQuery<StaffResponse>(apiUrl, canViewStaff);
-  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Staff");
   const [dialogMode, setDialogMode] = useState<StaffDialogMode>(null);
   const [form, setForm] = useState<StaffFormState>(emptyForm());
+  const [editingPrincipalId, setEditingPrincipalId] = useState("");
   const [inviteInput, setInviteInput] = useState("");
   const [inviteEmails, setInviteEmails] = useState<string[]>([]);
   const [mutationError, setMutationError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [notice, setNotice] = useState("");
-  // Kept outside `notice` because it must not auto-dismiss: an unsent invitation
-  // link is the only copy of that token the inviter will ever see.
-  const [undeliveredInvites, setUndeliveredInvites] = useState<StaffInvitation[]>(
-    []
-  );
+  // Kept out of `notice` because it must not auto-dismiss: an undelivered
+  // invitation link is the only copy of that token the inviter will ever see.
+  const [undeliveredInvites, setUndeliveredInvites] = useState<
+    StaffInvitation[]
+  >([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [selectedAccess, setSelectedAccess] = useState<RoleAccessMatrix | null>(
-    null
-  );
-  const [roleMatrixAccess, setRoleMatrixAccess] =
-    useState<Record<StaffRoleValue, RoleAccessMatrix>>(roleAccess);
+  const [assigningPrincipalId, setAssigningPrincipalId] = useState("");
 
   const {
-    currentPage, departmentFilter, departments, filteredStaff, paginatedStaff,
-    selectedStaff, rowsPerPage, setCurrentPage, setDepartmentFilter,
-    setSelectedStaffId, setStatusFilter, staffMembers, statusFilter, totalPages
+    currentPage,
+    departmentFilter,
+    departments,
+    filteredStaff,
+    paginatedStaff,
+    rowsPerPage,
+    selectedStaff,
+    setCurrentPage,
+    setDepartmentFilter,
+    setSelectedPrincipalId,
+    setStatusFilter,
+    staffMembers,
+    statusFilter,
+    totalPages
   } = useStaffDirectory(staffQuery.data, searchQuery);
-  const matrixRoles = staffQuery.data?.matrix?.roles ?? roleTemplates;
-  const matrixColumns = staffQuery.data?.matrix?.columns ?? permissionColumns;
-  const canCustomizePermissions =
-    canEdit && staffQuery.data?.canCustomizePermissions === true;
 
-  useEffect(() => {
-    setSelectedAccess(selectedStaff ? accessFromStaff(selectedStaff) : null);
-  }, [selectedStaff]);
-
-  useEffect(() => {
-    const matrixAccess = staffQuery.data?.matrix?.access;
-    if (!matrixAccess) {
-      setRoleMatrixAccess(roleAccess);
-      return;
-    }
-
-    setRoleMatrixAccess(
-      Object.fromEntries(
-        Object.entries(roleAccess).map(([role, defaults]) => [
-          role,
-          {
-            ...defaults,
-            ...(matrixAccess[role] ?? {})
-          }
-        ])
-      ) as Record<StaffRoleValue, RoleAccessMatrix>
-    );
-  }, [staffQuery.data?.matrix?.access]);
+  const assigningStaff = staffQuery.data?.staff.find(
+    (entry) => entry.principalId === assigningPrincipalId
+  );
 
   function showNotice(message: string) {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2800);
   }
 
-  async function copyInviteLink(link: string | null) {
+  function refresh() {
+    invalidateAuthenticatedQuery(STAFF_URL);
+    staffQuery.refetch();
+  }
+
+  async function copyInviteLink(link: string | null | undefined) {
     if (!link) return;
 
     try {
       await navigator.clipboard.writeText(link);
-      showNotice("Invite link copied.");
+      showNotice("Invitation link copied.");
     } catch {
-      // Clipboard access is denied outside a secure context, so point at the
-      // visible field rather than claiming the link was copied.
-      showNotice("Could not copy automatically. Select the link and copy it.");
+      showNotice("Copy failed - select the link and copy it by hand.");
     }
   }
 
-  function openAddDialog() {
-    setMutationError("");
-    setForm(emptyForm());
-    setInviteInput("");
-    setInviteEmails([]);
-    setDialogMode("add");
-  }
-
-  function openEditDialog(staff: StaffMember | null = selectedStaff) {
-    if (!staff) return;
-    setSelectedStaffId(staff.id);
-    setMutationError("");
-    setForm(staffToForm(staff));
-    setDialogMode("edit");
-  }
-
-  function openRoleDialog(staff: StaffMember | null = selectedStaff) {
-    if (!staff) return;
-    setSelectedStaffId(staff.id);
-    setMutationError("");
-    setForm(staffToForm(staff));
-    setDialogMode("role");
-  }
-
-  async function refreshStaff(message: string) {
-    invalidateAuthenticatedQuery(apiUrl);
-    await staffQuery.refetch();
-    showNotice(message);
-  }
-
-  async function submitStaff(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
+    setIsSaving(true);
     setMutationError("");
-    setIsSaving(true);
+    setUndeliveredInvites([]);
 
     try {
-      const role = staffRoleValueByName[form.role];
-
-      // Same parser the route handler runs. Only the edit branch sends a
-      // phone, so an invalid one is caught before the request goes out.
-      const parsedPhone = parsePhoneInput(form.phone, {
-        country: form.phoneCountry,
-        label: "Phone number"
-      });
-
-      if (dialogMode === "edit" && parsedPhone.status === "invalid") {
-        setMutationError(parsedPhone.message);
-        return;
-      }
-
-      const body =
-        dialogMode === "role"
-          ? { id: selectedStaff?.id, role }
-          : dialogMode === "add"
-            ? {
-                emails: inviteEmails.length
-                  ? inviteEmails
-                  : normalizeInviteEmails(inviteInput),
-                role
-              }
-            : {
-                id: selectedStaff?.id,
-                name: form.name,
-                email: form.email,
-                // Normalized, so the stored value matches every other surface.
-                phone:
-                  parsedPhone.status === "valid" ? parsedPhone.value : "",
-                department: form.department,
-                role
-              };
-
       if (dialogMode === "add") {
-        const emailList = Array.isArray(body.emails)
-          ? body.emails.filter(Boolean)
-          : [];
-        if (!emailList.length) {
-          setMutationError("Add at least one valid email address.");
-          return;
+        const response = await authenticatedFetch(STAFF_URL, {
+          method: "POST",
+          body: JSON.stringify({
+            emails: inviteEmails,
+            department: form.department || undefined
+          })
+        });
+        const payload = await readMutationResponse(response);
+
+        setUndeliveredInvites(
+          (payload?.invites ?? []).filter((invite) => invite.status === "failed")
+        );
+
+        if (payload?.assignmentErrors?.length) {
+          setMutationError(payload.assignmentErrors.join(" "));
+        } else {
+          showNotice("Invitations sent.");
+          setDialogMode(null);
         }
+      } else if (dialogMode === "edit" && editingPrincipalId) {
+        const response = await authenticatedFetch(
+          `/api/staff/${editingPrincipalId}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              name: form.name,
+              phone: form.phone,
+              department: form.department,
+              title: form.title
+            })
+          }
+        );
+        await readMutationResponse(response);
+        showNotice("Profile saved.");
+        setDialogMode(null);
       }
 
-      const response = await authenticatedFetch(apiUrl, {
-        method: dialogMode === "add" ? "POST" : "PATCH",
-        body: JSON.stringify(body)
-      });
-      const payload = await readMutationResponse(response);
-      setDialogMode(null);
-      setInviteInput("");
-      setInviteEmails([]);
-
-      if (dialogMode !== "add") {
-        await refreshStaff("Staff member updated.");
-        return;
-      }
-
-      const undelivered = (payload?.invites ?? []).filter(
-        (invite) => !invite.emailSent
-      );
-      setUndeliveredInvites(undelivered);
-      await refreshStaff(
-        undelivered.length
-          ? `Staff access created, but ${undelivered.length} invitation email${undelivered.length > 1 ? "s" : ""} could not be sent.`
-          : "Staff invitation email sent. They can use the invite link to join."
-      );
-    } catch (error) {
+      refresh();
+    } catch (caught) {
       setMutationError(
-        error instanceof Error ? error.message : "Unable to save staff."
+        caught instanceof Error ? caught.message : "The change failed."
       );
     } finally {
       setIsSaving(false);
     }
   }
 
-  async function updateStaffStatus(staff: StaffMember, status: StaffStatus) {
-    if (!canEdit) return;
-    setIsSaving(true);
+  async function setActive(principalId: string, isActive: boolean) {
+    setMutationError("");
 
-    try {
-      const response = await authenticatedFetch(apiUrl, {
-        method: "PATCH",
-        body: JSON.stringify({ id: staff.id, status })
-      });
-      await readMutationResponse(response);
-      await refreshStaff(
-        status === "Active" ? "Staff member activated." : "Staff deactivated."
-      );
-    } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Unable to update.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  async function removeStaff(staff: StaffMember) {
-    if (!canEdit) return;
-
-    const confirmed = window.confirm(
-      `Deactivate ${staff.name}? They will no longer have access to this organization.`
-    );
-    if (!confirmed) return;
-
-    setIsSaving(true);
     try {
       const response = await authenticatedFetch(
-        `${apiUrl}?id=${encodeURIComponent(staff.id)}`,
-        { method: "DELETE" }
+        `/api/staff/${principalId}/deactivate`,
+        { method: "POST", body: JSON.stringify({ isActive }) }
       );
       await readMutationResponse(response);
-      await refreshStaff("Staff member deactivated.");
-    } catch (error) {
-      showNotice(error instanceof Error ? error.message : "Unable to remove.");
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function togglePermissionGroup(
-    permissions: Array<keyof RoleAccessMatrix>,
-    checked: boolean
-  ) {
-    if (!canCustomizePermissions || !selectedAccess) return;
-
-    setSelectedAccess((current) => {
-      if (!current) return current;
-      return permissions.reduce(
-        (nextAccess, permission) => ({
-          ...nextAccess,
-          [permission]: checked
-        }),
-        { ...current }
+      showNotice(isActive ? "Access restored." : "Access revoked.");
+      refresh();
+    } catch (caught) {
+      setMutationError(
+        caught instanceof Error ? caught.message : "The change failed."
       );
-    });
-  }
-
-  function toggleRolePermissionGroup(
-    role: StaffRoleValue,
-    permissions: Array<keyof RoleAccessMatrix>,
-    checked: boolean
-  ) {
-    if (!canCustomizePermissions) return;
-
-    setRoleMatrixAccess((current) => ({
-      ...current,
-      [role]: permissions.reduce(
-        (nextAccess, permission) => ({
-          ...nextAccess,
-          [permission]: checked
-        }),
-        { ...current[role] }
-      )
-    }));
-
-    if (selectedStaff && staffRoleValueByName[selectedStaff.role] === role) {
-      setSelectedAccess((current) => {
-        const base = current ?? roleMatrixAccess[role] ?? roleAccess[role];
-        return permissions.reduce(
-          (nextAccess, permission) => ({
-            ...nextAccess,
-            [permission]: checked
-          }),
-          { ...base }
-        );
-      });
     }
   }
 
-  async function saveRoleMatrixPermissions() {
-    if (!canCustomizePermissions) return;
-
-    setIsSaving(true);
-    try {
-      const response = await authenticatedFetch(apiUrl, {
-        method: "PATCH",
-        body: JSON.stringify({
-          roleAccessOverrides: roleMatrixAccess
-        })
-      });
-      await readMutationResponse(response);
-      await refreshStaff("Permission matrix updated.");
-    } catch (error) {
-      showNotice(
-        error instanceof Error
-          ? error.message
-          : "Unable to save permission matrix."
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  if (!canViewStaff || staffQuery.isLoading || staffQuery.error || !selectedStaff) {
+  if (!canViewStaff) {
     return (
       <DashboardPageState
-        emptyMessage={
-          canViewStaff
-            ? undefined
-            : "You do not have permission to view staff members. Contact an administrator if you need access."
-        }
-        emptyTitle={canViewStaff ? "No staff members yet" : "Access restricted"}
-        error={canViewStaff ? staffQuery.error : null}
-        isEmpty={
-          !canViewStaff ||
-          (!staffQuery.isLoading &&
-            !staffQuery.error &&
-            staffMembers.length === 0)
-        }
-        isLoading={canViewStaff && staffQuery.isLoading}
-        onRetry={canViewStaff ? staffQuery.refetch : undefined}
-        subtitle="Manage staff members, roles, departments, and permissions."
+        emptyMessage="Seeing the staff directory needs the staff.read permission."
+        emptyTitle="Access restricted"
+        isEmpty
+        showNewBookingAction={false}
+        subtitle=""
         title="Staff"
       />
     );
   }
 
   return (
-    <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         compactMobileActions
+        onTodayNotes={() => setIsTodayNotesOpen(true)}
+        showNewBookingAction={false}
+        subtitle={`${staffMembers.length} people`}
         title="Staff"
-        subtitle="Manage staff members, roles, departments, and permissions."
-        actionsSlot={
-          <>
-            <button
-              aria-label="Open today notes"
-              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] lg:h-9 lg:w-auto lg:gap-2 lg:rounded-lg lg:border lg:border-[#c7d0dc] lg:bg-white lg:px-3 lg:text-xs lg:font-black lg:shadow-sm lg:hover:bg-[#eef4fa]"
-              onClick={() => setIsTodayNotesOpen(true)}
-              type="button"
-            >
-              <LineIcon name="mail" className="h-6 w-6 lg:h-4 lg:w-4" />
-              <span className="hidden lg:inline">Today notes</span>
-            </button>
-            <button
-              aria-label="Add staff"
-              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#1f4d73] hover:text-white disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto lg:gap-2 lg:whitespace-nowrap lg:rounded-lg lg:bg-[#1f4d73] lg:px-3 lg:text-xs lg:font-black lg:text-white lg:shadow-sm lg:hover:bg-[#15344f] lg:hover:text-white"
-              disabled={!canEdit}
-              onClick={openAddDialog}
-              type="button"
-            >
-              <LineIcon name="plus" className="h-6 w-6 lg:h-4 lg:w-4" />
-              <span className="hidden lg:inline">Add staff</span>
-            </button>
-            <button
-              className="hidden h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 lg:inline-flex"
-              disabled={!canEdit}
-              onClick={() => openRoleDialog()}
-              type="button"
-            >
-              <LineIcon name="users" />
-              Assign role
-            </button>
-          </>
-        }
-      />
-
-      <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4">
-        <div className="mx-auto grid w-full max-w-450 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_290px]">
-          <div className="min-w-0 space-y-4">
-            {notice ? (
-              <div className="rounded-xl border border-[#a9dfc9] bg-[#effaf5] px-4 py-3 text-xs font-black text-[#147653] shadow-sm">
-                {notice}
-              </div>
-            ) : null}
-
-            {undeliveredInvites.length ? (
-              <div className="rounded-xl border border-[#e8c982] bg-[#fdf8ec] px-4 py-3 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-xs font-black text-[#8a6412]">
-                    Staff access is active, but these invitation emails were not
-                    delivered. Share each link directly instead - every link works
-                    once and expires.
-                  </p>
-                  <button
-                    className="shrink-0 text-[10px] font-black uppercase tracking-[0.08em] text-[#8a6412] underline"
-                    onClick={() => setUndeliveredInvites([])}
-                    type="button"
-                  >
-                    Dismiss
-                  </button>
-                </div>
-
-                <ul className="mt-3 space-y-2">
-                  {undeliveredInvites.map((invite) => (
-                    <li
-                      className="rounded-lg border border-[#efe0bd] bg-white px-3 py-2"
-                      key={invite.email}
-                    >
-                      <p className="text-xs font-black text-[#0f172a]">
-                        {invite.email}
-                      </p>
-                      {invite.error ? (
-                        <p className="mt-0.5 text-[11px] font-semibold text-[#8a6412]">
-                          {invite.error}
-                        </p>
-                      ) : null}
-                      {invite.inviteLink ? (
-                        <div className="mt-2 flex items-center gap-2">
-                          <input
-                            className="min-w-0 flex-1 rounded-md border border-[#d8dde5] bg-[#f8fafc] px-2 py-1.5 text-[11px] text-[#334155]"
-                            onFocus={(event) => event.currentTarget.select()}
-                            readOnly
-                            value={invite.inviteLink}
-                          />
-                          <button
-                            className={secondaryButtonClass}
-                            onClick={() => copyInviteLink(invite.inviteLink)}
-                            type="button"
-                          >
-                            Copy
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-[11px] font-semibold text-[#b3261e]">
-                          No invite link could be generated. Reopen Add staff for
-                          this address to try again.
-                        </p>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <SectionHeader
-                title="Role templates"
-                subtitle="Click a role to assign it to the selected staff member."
-                action={
-                  <button
-                    className={secondaryButtonClass}
-                    disabled={!canEdit}
-                    onClick={() => openRoleDialog()}
-                    type="button"
-                  >
-                    Manage roles
-                  </button>
-                }
-              />
-              <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
-                {roleTemplates.map((template) => (
-                  <button
-                    className={`rounded-lg border px-4 py-3 text-left transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 ${roleColors[template.role]}`}
-                    disabled={!canEdit}
-                    key={template.role}
-                    onClick={() => {
-                      setForm({
-                        ...(selectedStaff
-                          ? staffToForm(selectedStaff)
-                          : emptyForm()),
-                        role: template.role
-                      });
-                      setDialogMode("role");
-                    }}
-                    type="button"
-                  >
-                    <strong className="block text-xs">{template.role}</strong>
-                    <span className="mt-1 block text-[10px] opacity-80">
-                      {template.description}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <SectionHeader
-                title="Staff directory"
-                subtitle={`${staffMembers.length} records`}
-                action={
-                  <div className="grid w-full gap-2 sm:flex sm:w-auto sm:items-center">
-                    <label
-                      className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-lg border border-[#c7d0dc] px-3 text-[#6a7483] sm:w-72"
-                      htmlFor="staff-search"
-                    >
-                      <LineIcon name="search" />
-                      <input
-                        id="staff-search"
-                        name="staffSearch"
-                        className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[#17202a] outline-none"
-                        onChange={(event) => {
-                          setSearchQuery(event.target.value);
-                          setCurrentPage(1);
-                        }}
-                        placeholder="Search staff by name, role, or department"
-                        type="search"
-                        value={searchQuery}
-                      />
-                    </label>
-                    <select
-                      aria-label="Filter by department"
-                      className="h-9 rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold"
-                      name="staffDepartmentFilter"
-                      onChange={(event) => {
-                        setDepartmentFilter(event.target.value);
-                        setCurrentPage(1);
-                      }}
-                      value={departmentFilter}
-                    >
-                      {departments.map((department) => (
-                        <option key={department} value={department}>
-                          {department === "All"
-                            ? "All departments"
-                            : department}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      aria-label="Filter by status"
-                      className="h-9 rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold"
-                      name="staffStatusFilter"
-                      onChange={(event) => {
-                        setStatusFilter(
-                          event.target.value as "All" | StaffStatus
-                        );
-                        setCurrentPage(1);
-                      }}
-                      value={statusFilter}
-                    >
-                      <option value="All">All status</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                    </select>
-                  </div>
-                }
-              />
-
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-185 border-collapse text-left">
-                  <thead className="bg-[#fbfcfd] text-[9px] font-black uppercase tracking-[0.08em] text-[#687588]">
-                    <tr>
-                      <th className="px-4 py-3">Name</th>
-                      <th className="px-3 py-3">Department</th>
-                      <th className="px-3 py-3">Role</th>
-                      <th className="px-3 py-3">Status</th>
-                      <th className="px-3 py-3">Invite / login</th>
-                      <th className="px-3 py-3 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedStaff.map((staff) => (
-                      <tr
-                        className={`cursor-pointer border-t border-[#e2e6ec] transition hover:bg-[#f7fafc] ${selectedStaff.id === staff.id ? "bg-[#f8fbfe]" : ""}`}
-                        key={staff.id}
-                        onClick={() => setSelectedStaffId(staff.id)}
-                      >
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-3">
-                            <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white ${staff.color}`}
-                            >
-                              {staff.initials}
-                            </span>
-                            <span>
-                              <strong className="block text-[11px]">
-                                {staff.name}
-                              </strong>
-                              <span className="mt-0.5 block text-[9px] text-[#6a7483]">
-                                {staff.email}
-                              </span>
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2.5 text-[10px]">
-                          {staff.department}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <RoleBadge role={staff.role} />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <StatusBadge status={staff.status} />
-                        </td>
-                        <td className="px-3 py-2.5 text-[10px]">
-                          {staff.lastLogin}
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <div className="flex justify-center gap-1">
-                            <button
-                              aria-label={`Edit ${staff.name}`}
-                              disabled={!canEdit}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-[#eef4fa] disabled:opacity-40"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openEditDialog(staff);
-                              }}
-                              type="button"
-                            >
-                              <LineIcon name="edit" />
-                            </button>
-                            <button
-                              aria-label={`Change role for ${staff.name}`}
-                              disabled={!canEdit}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-[#eef4fa] disabled:opacity-40"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openRoleDialog(staff);
-                              }}
-                              type="button"
-                            >
-                              <LineIcon name="users" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-[#d8dde5] px-4 py-3 text-[10px] text-[#6a7483]">
-                <span className="block w-full text-center sm:w-auto sm:text-left">
-                  Showing{" "}
-                  {filteredStaff.length === 0
-                    ? 0
-                    : (Math.min(currentPage, totalPages) - 1) * rowsPerPage +
-                      1}{" "}
-                  to{" "}
-                  {Math.min(
-                    Math.min(currentPage, totalPages) * rowsPerPage,
-                    filteredStaff.length
-                  )}{" "}
-                  of {filteredStaff.length} results
-                </span>
-                <div className="flex w-full max-w-full justify-center gap-1 overflow-x-auto pb-1 sm:w-auto sm:justify-start sm:gap-2">
-                  <button
-                    className="h-7 w-8 rounded border border-[#d3dae3] disabled:opacity-40"
-                    disabled={currentPage <= 1}
-                    onClick={() =>
-                      setCurrentPage((page) => Math.max(1, page - 1))
-                    }
-                    type="button"
-                  >
-                    &lsaquo;
-                  </button>
-                  {Array.from(
-                    { length: totalPages },
-                    (_, index) => index + 1
-                  ).map((page) => (
-                    <button
-                      className={`h-7 w-8 rounded border text-[10px] font-black ${page === currentPage ? "border-[#1f4d73] bg-[#1f4d73] text-white" : "border-[#d3dae3]"}`}
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      type="button"
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  <button
-                    className="h-7 w-8 rounded border border-[#d3dae3] disabled:opacity-40"
-                    disabled={currentPage >= totalPages}
-                    onClick={() =>
-                      setCurrentPage((page) => Math.min(totalPages, page + 1))
-                    }
-                    type="button"
-                  >
-                    &rsaquo;
-                  </button>
-                </div>
-              </footer>
-            </section>
-
-            <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-              <SectionHeader
-                title="Permission matrix"
-                subtitle="Overview of role permissions across key modules."
-              />
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#eef1f5] px-4 py-3 text-[10px] text-[#6a7483]">
-                <span>
-                  Admins and organization owners can click any checkmark to
-                  customize each role.
-                </span>
-                <button
-                  className="rounded-lg border border-[#b9c2cf] px-3 py-1.5 text-[10px] font-black text-[#1f4d73] transition hover:bg-[#edf3f8] disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={!canCustomizePermissions || isSaving}
-                  onClick={saveRoleMatrixPermissions}
-                  type="button"
-                >
-                  Save matrix
-                </button>
-              </div>
-              {!canCustomizePermissions ? (
-                <p className="mx-4 mb-3 rounded-lg border border-[#f1d49a] bg-[#fff8e8] px-3 py-2 text-[10px] font-bold leading-snug text-[#9a6400]">
-                  Only an admin or organization owner can edit staff
-                  permissions.
-                </p>
-              ) : null}
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-185 text-left">
-                  <thead className="bg-[#fbfcfd] text-[9px] font-black uppercase text-[#687588]">
-                    <tr>
-                      <th className="px-4 py-3">Role</th>
-                      {matrixColumns.map((column) => (
-                        <th
-                          className="px-3 py-3 text-center"
-                          key={column.label}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matrixRoles.map((template) => {
-                      const roleValue = staffRoleValueByName[template.role];
-                      const rowAccess =
-                        roleMatrixAccess[roleValue] ?? accessForRole(roleValue);
-
-                      return (
-                        <tr
-                          className="border-t border-[#e2e6ec]"
-                          key={template.role}
-                        >
-                          <td className="px-4 py-3">
-                            <RoleBadge role={template.role} />
-                          </td>
-                          {matrixColumns.map((column) => {
-                            const isChecked = hasPermissionGroup(
-                              rowAccess,
-                              column.permissions
-                            );
-
-                            return (
-                              <td
-                                className={`px-3 py-3 text-center ${
-                                  canCustomizePermissions
-                                    ? "cursor-pointer hover:bg-[#edf3f8]"
-                                    : ""
-                                }`}
-                                key={column.label}
-                                onClick={() =>
-                                  toggleRolePermissionGroup(
-                                    roleValue,
-                                    column.permissions,
-                                    !isChecked
-                                  )
-                                }
-                                title={
-                                  canCustomizePermissions
-                                    ? `Toggle ${column.label} for ${template.role}`
-                                    : column.description
-                                }
-                              >
-                                {isChecked ? (
-                                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#70c9a5] text-[#078a58]">
-                                    <LineIcon
-                                      name="check"
-                                      className="h-3 w-3"
-                                    />
-                                  </span>
-                                ) : (
-                                  <span className="text-[#c1c8d0]">
-                                    &mdash;
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </div>
-
-          <aside className="h-fit overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm xl:sticky xl:top-4">
-            <SectionHeader title="Selected staff" />
-            <div className="p-4">
-              <div className="flex items-center gap-3">
-                <span
-                  className={`flex h-13 w-13 shrink-0 items-center justify-center rounded-full text-base font-black text-white ${selectedStaff.color}`}
-                >
-                  {selectedStaff.initials}
-                </span>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="truncate text-sm font-black">
-                      {selectedStaff.name}
-                    </h2>
-                    <StatusBadge status={selectedStaff.status} />
-                  </div>
-                  <p className="mt-1 truncate text-[10px] text-[#6a7483]">
-                    {selectedStaff.email}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 space-y-3 text-[11px] text-[#425166]">
-                <p className="flex items-center gap-3">
-                  <LineIcon name="phone" />
-                  {selectedStaff.phone}
-                </p>
-                <p className="flex items-center gap-3">
-                  <LineIcon name="folder" />
-                  {selectedStaff.department}
-                </p>
-                <p className="flex items-center gap-3">
-                  <LineIcon name="users" />
-                  {selectedStaff.role}
-                </p>
-                <p className="flex items-center gap-3">
-                  <LineIcon name="shield" />
-                  {
-                    activePermissionLabelsForRole(
-                      staffRoleValueByName[selectedStaff.role]
-                    ).length
-                  }{" "}
-                  permission groups
-                </p>
-              </div>
-            </div>
-
-            <section className="mx-3 rounded-xl border border-[#d8dde5] p-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-xs font-black">Permission summary</h3>
-                  <p className="mt-1 text-[9px] leading-snug text-[#6a7483]">
-                    Current access for the selected staff member.
-                  </p>
-                </div>
-              </div>
-              <label className="mt-3 block">
-                <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-[#687588]">
-                  Permission group
-                </span>
-                <select
-                  className="h-10 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold text-[#17202a] outline-none focus:border-[#1f4d73]"
-                  id={`staff-permission-summary-${selectedStaff.id}`}
-                  name="staffPermissionSummary"
-                >
-                  {matrixColumns.map((permission) => {
-                    const hasAccess = hasPermissionGroup(
-                      selectedAccess ??
-                        selectedStaff.access ??
-                        accessForRole(staffRoleValueByName[selectedStaff.role]),
-                      permission.permissions
-                    );
-
-                    return (
-                      <option key={permission.label} value={permission.label}>
-                        {permission.label} -{" "}
-                        {hasAccess ? "Allowed" : "No access"}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-              <p className="mt-2 text-[9px] leading-snug text-[#6a7483]">
-                Edit access by clicking the checkmarks in the Permission matrix.
-              </p>
-              <ul className="hidden">
-                {matrixColumns.map((permission) => (
-                  <li
-                    className="flex items-start justify-between gap-3 rounded-lg border border-[#edf0f4] p-2 transition hover:bg-[#f8fafc]"
-                    key={permission.label}
-                  >
-                    <label className="flex min-w-0 flex-1 cursor-default items-start gap-2">
-                      <input
-                        checked={hasPermissionGroup(
-                          selectedAccess ??
-                            selectedStaff.access ??
-                            accessForRole(
-                              staffRoleValueByName[selectedStaff.role]
-                            ),
-                          permission.permissions
-                        )}
-                        className="hidden"
-                        disabled
-                        id={`staff-permission-${selectedStaff.id}-${permission.label
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, "-")}`}
-                        name={`staffPermission${permission.label.replace(
-                          /[^a-zA-Z0-9]+/g,
-                          ""
-                        )}`}
-                        onChange={(event) =>
-                          togglePermissionGroup(
-                            permission.permissions,
-                            event.target.checked
-                          )
-                        }
-                        type="checkbox"
-                      />
-                      <span className="flex min-w-0 items-start gap-2">
-                        <LineIcon name="shield" />
-                        <span>
-                          <span className="block font-black">
-                            {permission.label}
-                          </span>
-                          <span className="mt-0.5 block text-[9px] leading-snug text-[#6a7483]">
-                            {permission.description}
-                          </span>
-                        </span>
-                      </span>
-                    </label>
-                    {hasPermissionGroup(
-                      selectedAccess ??
-                        selectedStaff.access ??
-                        accessForRole(staffRoleValueByName[selectedStaff.role]),
-                      permission.permissions
-                    ) ? (
-                      <LineIcon
-                        name="check"
-                        className="h-4 w-4 text-[#078a58]"
-                      />
-                    ) : (
-                      <span className="text-[#c1c8d0]">&mdash;</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="m-3 mt-4 rounded-xl border border-[#d8dde5] p-3">
-              <h3 className="text-xs font-black">Quick actions</h3>
-              <div className="mt-3 grid grid-cols-1 gap-2">
-                <button
-                  className={`${secondaryButtonClass} w-full min-w-0 justify-start overflow-hidden px-4`}
-                  disabled={!canEdit}
-                  onClick={() => openEditDialog()}
-                  type="button"
-                >
-                  <LineIcon name="edit" />
-                  <span className="min-w-0 truncate">Edit staff</span>
-                </button>
-                <button
-                  className={`${secondaryButtonClass} w-full min-w-0 justify-start overflow-hidden px-4`}
-                  disabled={!canEdit}
-                  onClick={() => openRoleDialog()}
-                  type="button"
-                >
-                  <LineIcon name="users" />
-                  <span className="min-w-0 truncate">Change role</span>
-                </button>
-                <button
-                  className={`${secondaryButtonClass} w-full min-w-0 justify-start overflow-hidden px-4`}
-                  onClick={() => setIsProfileOpen(true)}
-                  type="button"
-                >
-                  <LineIcon name="eye" />
-                  <span className="min-w-0 truncate">View profile</span>
-                </button>
-                {selectedStaff.status === "Active" ? (
-                  <button
-                    className="inline-flex h-9 items-center justify-start gap-2 whitespace-nowrap rounded-lg border border-[#efb7bb] bg-white px-3 text-xs font-black text-[#d63740] hover:bg-[#fff4f4] disabled:opacity-40"
-                    disabled={!canEdit || isSaving}
-                    onClick={() => updateStaffStatus(selectedStaff, "Inactive")}
-                    type="button"
-                  >
-                    <LineIcon name="trash" />
-                    Deactivate
-                  </button>
-                ) : (
-                  <button
-                    className={`${secondaryButtonClass} justify-start`}
-                    disabled={!canEdit || isSaving}
-                    onClick={() => updateStaffStatus(selectedStaff, "Active")}
-                    type="button"
-                  >
-                    <LineIcon name="check" />
-                    Activate
-                  </button>
-                )}
-                <button
-                  className="inline-flex h-9 items-center justify-start gap-2 whitespace-nowrap rounded-lg border border-[#efb7bb] bg-white px-3 text-xs font-black text-[#d63740] hover:bg-[#fff4f4] disabled:opacity-40 sm:col-span-2 xl:col-span-1 2xl:col-span-2"
-                  disabled={!canEdit || isSaving}
-                  onClick={() => removeStaff(selectedStaff)}
-                  type="button"
-                >
-                  <LineIcon name="trash" />
-                  Remove access
-                </button>
-              </div>
-            </section>
-          </aside>
-        </div>
-      </main>
-
-      <StaffDialog
-        canEdit={canEdit}
-        form={form}
-        mode={dialogMode}
-        mutationError={mutationError}
-        isSaving={isSaving}
-        selectedStaff={selectedStaff}
-        setForm={setForm}
-        inviteInput={inviteInput}
-        inviteEmails={inviteEmails}
-        onInviteInputChange={setInviteInput}
-        onAddInviteEmail={() => {
-          const normalized = normalizeInviteEmails(inviteInput).filter(
-            (email) => email.includes("@")
-          );
-          if (!normalized.length) return;
-          setInviteEmails((current) => {
-            const seen = new Set(current);
-            const next = [...current];
-            normalized.forEach((email) => {
-              if (!seen.has(email)) {
-                next.push(email);
-                seen.add(email);
-              }
-            });
-            return next;
-          });
-          setInviteInput("");
-        }}
-        onRemoveInviteEmail={(email) =>
-          setInviteEmails((current) => current.filter((item) => item !== email))
-        }
-        onClose={() => setDialogMode(null)}
-        onSubmit={submitStaff}
-      />
-      <StaffProfileDialog
-        onClose={() => setIsProfileOpen(false)}
-        open={isProfileOpen}
-        permissionLabels={activePermissionLabelsForRole(
-          staffRoleValueByName[selectedStaff.role]
-        )}
-        staff={selectedStaff}
       />
       <TodayNotesDrawer
         onClose={() => setIsTodayNotesOpen(false)}
         open={isTodayNotesOpen}
       />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
+        {notice ? (
+          <p className="mb-3 rounded-lg border border-[#a9dfc9] bg-[#effaf5] px-3 py-2 text-[11px] font-semibold text-[#147653]">
+            {notice}
+          </p>
+        ) : null}
+        {mutationError ? (
+          <p className="mb-3 rounded-lg border border-[#f2b7ba] bg-[#fff2f2] px-3 py-2 text-[11px] font-semibold text-[#a52a3d]">
+            {mutationError}
+          </p>
+        ) : null}
+        {undeliveredInvites.length > 0 ? (
+          <div className="mb-3 rounded-lg border border-[#efd39d] bg-[#fff7e8] px-3 py-2">
+            <p className="text-[11px] font-black text-[#a45f00]">
+              Some invitations could not be emailed. Send these links yourself -
+              this is the only time they are shown.
+            </p>
+            <ul className="mt-1.5 space-y-1">
+              {undeliveredInvites.map((invite) => (
+                <li
+                  className="flex flex-wrap items-center gap-2 text-[10px]"
+                  key={invite.email}
+                >
+                  <span className="font-black">{invite.email}</span>
+                  {invite.actionLink ? (
+                    <button
+                      className="rounded border border-[#c7d0dc] px-1.5 py-0.5 font-black"
+                      onClick={() => copyInviteLink(invite.actionLink)}
+                      type="button"
+                    >
+                      Copy link
+                    </button>
+                  ) : (
+                    <span className="text-[#a52a3d]">{invite.error}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <section className="rounded-xl border border-[#d8dde5] bg-white">
+          <SectionHeader
+            action={
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
+                  onChange={(event) => setDepartmentFilter(event.target.value)}
+                  value={departmentFilter}
+                >
+                  {departments.map((department) => (
+                    <option key={department} value={department}>
+                      {department}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
+                  onChange={(event) =>
+                    setStatusFilter(
+                      event.target.value as "All" | "Active" | "Inactive"
+                    )
+                  }
+                  value={statusFilter}
+                >
+                  <option value="All">All statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+                <a className={secondaryButtonClass} href="/dashboard/access">
+                  <LineIcon name="shield" />
+                  Manage access
+                </a>
+                <button
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#17202a] px-3 text-xs font-black text-white disabled:opacity-50"
+                  disabled={!canInvite}
+                  onClick={() => {
+                    setForm(emptyForm());
+                    setInviteInput("");
+                    setInviteEmails([]);
+                    setMutationError("");
+                    setDialogMode("add");
+                  }}
+                  type="button"
+                >
+                  <LineIcon name="plus" />
+                  Invite
+                </button>
+              </div>
+            }
+            subtitle="Profiles here, privileges in Access."
+            title="Directory"
+          />
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead>
+                <tr className="border-b border-[#eef1f5] text-[10px] uppercase tracking-wide text-[#6a7483]">
+                  <th className="px-4 py-2 font-black">Person</th>
+                  <th className="px-4 py-2 font-black">Holds</th>
+                  <th className="px-4 py-2 font-black">Department</th>
+                  <th className="px-4 py-2 font-black">Status</th>
+                  <th className="px-4 py-2 font-black">Last sign-in</th>
+                  <th className="px-4 py-2" />
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedStaff.map((staff) => (
+                  <tr
+                    className="border-b border-[#f4f6f8] last:border-b-0"
+                    key={staff.principalId}
+                  >
+                    <td className="px-4 py-2.5">
+                      <button
+                        className="flex items-center gap-2 text-left"
+                        onClick={() => {
+                          setSelectedPrincipalId(staff.principalId);
+                          setIsProfileOpen(true);
+                        }}
+                        type="button"
+                      >
+                        <span
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black text-white ${staff.color}`}
+                        >
+                          {staff.initials}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-xs font-black">
+                            {staff.name}
+                          </span>
+                          <span className="block truncate text-[10px] text-[#6a7483]">
+                            {staff.email}
+                          </span>
+                        </span>
+                      </button>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="flex flex-wrap gap-1">
+                        {staff.assignments.length === 0 ? (
+                          <span className="text-[10px] text-[#6a7483]">
+                            No role
+                          </span>
+                        ) : (
+                          staff.assignments.map((assignment) => (
+                            <RoleBadge
+                              key={assignment.id}
+                              name={assignment.roleName}
+                            />
+                          ))
+                        )}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-[11px]">
+                      {staff.department}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <StatusBadge status={staff.status} />
+                    </td>
+                    <td className="px-4 py-2.5 text-[10px] text-[#6a7483]">
+                      {staff.lastLogin}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <span className="flex justify-end gap-1.5">
+                        <button
+                          className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
+                          disabled={!canEditProfiles}
+                          onClick={() => {
+                            setForm(staffToForm(staff));
+                            setEditingPrincipalId(staff.principalId);
+                            setMutationError("");
+                            setDialogMode("edit");
+                          }}
+                          type="button"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
+                          disabled={!canAssign}
+                          onClick={() =>
+                            setAssigningPrincipalId(staff.principalId)
+                          }
+                          type="button"
+                        >
+                          Access
+                        </button>
+                        <button
+                          className="rounded-lg border border-[#f2b7ba] px-2 py-1 text-[10px] font-black text-[#d63740] disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
+                          disabled={!canDeactivate}
+                          onClick={() =>
+                            setActive(
+                              staff.principalId,
+                              staff.status !== "Active"
+                            )
+                          }
+                          type="button"
+                        >
+                          {staff.status === "Active" ? "Revoke" : "Restore"}
+                        </button>
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef1f5] px-4 py-2.5">
+            <p className="text-[10px] text-[#6a7483]">
+              {filteredStaff.length} of {staffMembers.length} shown
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:text-[#9aa5b4]"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage(currentPage - 1)}
+                type="button"
+              >
+                Previous
+              </button>
+              <span className="text-[10px] text-[#6a7483]">
+                {currentPage} / {totalPages} ({rowsPerPage} per page)
+              </span>
+              <button
+                className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:text-[#9aa5b4]"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(currentPage + 1)}
+                type="button"
+              >
+                Next
+              </button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <StaffDialog
+        canInvite={canInvite}
+        error={mutationError}
+        form={form}
+        inviteEmails={inviteEmails}
+        inviteInput={inviteInput}
+        isSaving={isSaving}
+        mode={dialogMode}
+        onChangeForm={setForm}
+        onChangeInviteEmails={setInviteEmails}
+        onChangeInviteInput={setInviteInput}
+        onClose={() => setDialogMode(null)}
+        onSubmit={submit}
+      />
+
+      {isProfileOpen && selectedStaff ? (
+        <StaffProfileDialog
+          onClose={() => setIsProfileOpen(false)}
+          staff={selectedStaff}
+        />
+      ) : null}
+
+      {assigningStaff ? (
+        <AssignmentDialog
+          canAssign={canAssign}
+          epoch={rolesQuery.data?.epoch ?? access.epoch}
+          onClose={() => setAssigningPrincipalId("")}
+          onSaved={() => {
+            refresh();
+            rolesQuery.refetch();
+          }}
+          roles={rolesQuery.data?.roles ?? []}
+          staff={assigningStaff}
+        />
+      ) : null}
     </div>
   );
 }

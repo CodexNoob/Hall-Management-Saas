@@ -2,9 +2,9 @@ import "server-only";
 
 import { Prisma } from "@prisma/client";
 import {
-  assertHallAccess,
-  type requirePermission
-} from "@/lib/auth/server-auth";
+  assertInScope,
+  type AuthzContext
+} from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
 
@@ -22,7 +22,7 @@ export type RecordPaymentInput = {
   note?: string;
 };
 
-type PaymentActor = Awaited<ReturnType<typeof requirePermission>>;
+type PaymentActor = AuthzContext;
 
 function centsToDecimal(cents: number) {
   return new Prisma.Decimal(cents).dividedBy(100);
@@ -54,7 +54,7 @@ export async function recordPaymentWithAudit(
         }
       });
 
-      assertHallAccess(actor, currentEvent.hallId);
+      assertInScope(actor, "hall", currentEvent.hallId);
 
       const invoice = input.invoiceId
         ? await transaction.invoice.findFirstOrThrow({
@@ -94,7 +94,7 @@ export async function recordPaymentWithAudit(
           clientId: currentEvent.clientId,
           invoiceId: invoice?.id,
           paymentScheduleId: paymentSchedule?.id,
-          confirmedById: actor.id,
+          confirmedById: actor.userId,
           amountCents: input.amountCents,
           currency: input.currency ?? invoice?.currency ?? "USD",
           status: input.result,
@@ -189,7 +189,7 @@ export async function recordPaymentWithAudit(
             input.result === "paid" && eventBalanceAfterCents !== null
               ? centsToDecimal(eventBalanceAfterCents)
               : undefined,
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
 
@@ -200,7 +200,7 @@ export async function recordPaymentWithAudit(
                 organizationId: actor.organizationId,
                 invoiceId: invoice?.id,
                 paymentTransactionId: payment.id,
-                issuedById: actor.id,
+                issuedById: actor.userId,
                 receiptNumber: `RCT-${payment.id.toUpperCase()}`,
                 receiptData: {
                   amountCents: input.amountCents,
@@ -218,8 +218,8 @@ export async function recordPaymentWithAudit(
           organizationId: actor.organizationId,
           eventId: input.eventId,
           clientId: currentEvent.clientId,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: "Payment Confirmation",
           message: `Payment marked ${input.result}.`,
           oldValue: {
