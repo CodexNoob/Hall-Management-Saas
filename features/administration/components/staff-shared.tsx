@@ -63,6 +63,10 @@ export type StaffResponse = {
 export { permissionColumns, roleTemplates };
 
 export const roleColors: Record<RoleName, string> = {
+  // Owner is a distinct hue from Administrator on purpose - the two roles used
+  // to share the "Administrator" label, and a shared colour would keep them
+  // indistinguishable in the directory after the names were split apart.
+  Owner: "border-[#f0b2b8] bg-[#fdeef0] text-[#a52a3d]",
   Administrator: "border-[#9bc8f2] bg-[#edf6ff] text-[#1769aa]",
   "Event Manager": "border-[#a9dfc9] bg-[#effaf5] text-[#147653]",
   "Kitchen Staff": "border-[#efd39d] bg-[#fff7e8] text-[#a45f00]",

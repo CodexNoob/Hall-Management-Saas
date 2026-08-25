@@ -68,8 +68,26 @@ function getDashboardActiveLabel(pathname: string | null): string {
   return "Events";
 }
 
+/**
+ * The active membership's role, never `authSession.user.role`.
+ *
+ * That global column now has one writer (owner sign-up) and no readers on the
+ * authorization path, so it freezes at its sign-up value - a sidebar reading it
+ * would quietly start describing people by a role nothing maintains. The field
+ * stays on the wire because removing it invalidates every cached browser
+ * session; that is P5's problem, not this one's.
+ */
+function getActiveOrganizationRole(authSession: AuthSessionResponse) {
+  const activeOrganization =
+    authSession.organizations.find(
+      (organization) => organization.id === authSession.activeOrganizationId
+    ) ?? authSession.organizations[0];
+
+  return activeOrganization?.role ?? "";
+}
+
 function getSidebarProfileSubtitle(authSession: AuthSessionResponse) {
-  const roleLabel = formatRole(authSession.user.role);
+  const roleLabel = formatRole(getActiveOrganizationRole(authSession));
   const activeOrganization =
     authSession.organizations.find(
       (organization) => organization.id === authSession.activeOrganizationId
@@ -275,7 +293,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <DashboardTopbarBrand />
           <DashboardSidebar
             user={authSession.user}
-            roleLabel={formatRole(authSession.user.role)}
+            roleLabel={formatRole(getActiveOrganizationRole(authSession))}
             profileSubtitle={getSidebarProfileSubtitle(authSession)}
             activeLabel={getDashboardActiveLabel(pathname)}
           />

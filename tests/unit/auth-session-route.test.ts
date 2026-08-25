@@ -535,4 +535,58 @@ describe("POST /api/auth/session", () => {
       })
     );
   });
+
+  /**
+   * C2 regression. Provisioning used to repair an active membership's role from
+   * the global `users.role` column whenever the two disagreed - and
+   * POST /api/staff let any organization write that column for any email. So
+   * inviting your own address at "owner" from a throwaway tenant promoted you
+   * inside somebody else's tenant at your next sign-in.
+   *
+   * These must FAIL against pre-change provisioning.
+   */
+  describe("users.role never decides a membership role (C2)", () => {
+    it("leaves a viewer membership alone when the global column says owner", async () => {
+      const viewerMembership = { ...membership, role: "viewer" };
+
+      findManyUsers.mockResolvedValue([
+        {
+          ...storedUser,
+          role: "owner",
+          access: [access],
+          memberships: [viewerMembership]
+        }
+      ]);
+      findMembership.mockResolvedValue(viewerMembership);
+      findManyMemberships.mockResolvedValue([viewerMembership]);
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(updateMembership).not.toHaveBeenCalled();
+      expect(body.organizations[0].role).toBe("viewer");
+    });
+
+    it("creates an invented membership at the lowest privilege, not at users.role", async () => {
+      findManyUsers.mockResolvedValue([
+        {
+          ...storedUser,
+          role: "owner",
+          access: [access],
+          memberships: []
+        }
+      ]);
+      findMembership.mockResolvedValue(null);
+      findManyMemberships.mockResolvedValue([{ ...membership, role: "viewer" }]);
+
+      await POST(syncRequest());
+
+      expect(createMembership).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ role: "viewer" })
+        })
+      );
+    });
+  });
 });

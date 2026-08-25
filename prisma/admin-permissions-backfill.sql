@@ -1,3 +1,18 @@
+-- SUPERSEDED - DO NOT RUN.
+--
+-- The first statement below sets a membership's role FROM `users.role`, which is
+-- the cross-tenant privilege leak (C2) expressed as SQL: `users.role` is a single
+-- global column that any organization could write through POST /api/staff, so
+-- promoting memberships from it re-opens the hole this backfill predates.
+--
+-- Its npm script (`db:admin-permissions-backfill`) has been removed rather than
+-- merely commented, because a comment does not stop `npm run` - and this runs
+-- against the one Supabase database every branch shares.
+--
+-- Kept in the tree for provenance only. If an organization genuinely needs its
+-- administrators repaired, do it from the staff screen, or write a one-off that
+-- reads `organization_memberships` and never `users`.
+
 BEGIN;
 
 UPDATE public.organization_memberships AS membership
