@@ -77,9 +77,9 @@ function delegateIsGuarded(source: string): boolean {
     if (called.length === 0) continue;
 
     const target = path.join(ROOT, `${specifier.slice(2)}.ts`);
-    let module: string;
+    let delegate: string;
     try {
-      module = readFileSync(target, "utf8");
+      delegate = readFileSync(target, "utf8");
     } catch {
       continue;
     }
@@ -87,12 +87,12 @@ function delegateIsGuarded(source: string): boolean {
     for (const name of called) {
       // The function's own body: from its declaration to the next top-level
       // export, so a guard on the neighbouring export does not count.
-      const start = module.search(
+      const start = delegate.search(
         new RegExp(`export\\s+(?:async\\s+)?function\\s+${name}\\b`)
       );
       if (start === -1) continue;
 
-      const rest = module.slice(start);
+      const rest = delegate.slice(start);
       const next = rest.slice(1).search(/\nexport\s/);
       const body = next === -1 ? rest : rest.slice(0, next + 1);
 
