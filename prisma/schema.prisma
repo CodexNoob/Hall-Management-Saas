@@ -303,31 +303,68 @@ model UserAccess {
 // nothing in `app/`, `features/` or `lib/` reads or writes any of them - that
 // is the phase's defining property and its exit test.
 //
-// Three things here are invisible to Prisma and MUST NOT be lost to a
-// `migrate diff`: the NULLS NOT DISTINCT clause on roles(organization_id, key),
-// the BEFORE trigger enforcing that a membership's role belongs to the same
-// tenant, and the CHECK constraint on membership_permissions.effect. They are
-// written by hand in the P1 migration and documented on the models they cover.
+// One thing here is invisible to Prisma and MUST NOT be lost to a
+// `migrate diff`: the CHECK constraint on membership_permissions.effect. It is
+// written by hand in the migrations and documented on the model it covers.
+//
+// P1B removed the other two. The system templates moved to their own table, so
+// roles.organization_id became NOT NULL - which let the tenant-match trigger on
+// membership_roles become a plain composite foreign key, and let the roles
+// unique index drop its NULLS NOT DISTINCT clause. See the P1B migration.
 // ---------------------------------------------------------------------------
 //
 
-/// A named bundle of permissions. `organizationId IS NULL` marks one of the six
-/// system templates; every other row is owned by a tenant.
+/// The six system role templates. Seed data, not tenant data: no membership
+/// ever points here.
 ///
-/// INVISIBLE TO PRISMA: the unique index on (organization_id, key) is created
-/// with NULLS NOT DISTINCT, which Prisma cannot express. Without it two system
-/// templates could both be keyed "owner", because standard SQL treats every
-/// NULL as distinct. The database is deliberately stricter than this file says.
+/// P1 kept these in `roles` with `organization_id IS NULL`, and that one
+/// nullable discriminator cost three separate workarounds - a NULLS NOT
+/// DISTINCT index Prisma cannot express, a BEFORE trigger standing in for a
+/// composite foreign key that MATCH SIMPLE satisfied vacuously, and an upsert
+/// footgun where Prisma compiled `organizationId: null` into `= NULL`. Splitting
+/// the templates out removed all three at once. P2 clones from here into
+/// `roles` per tenant (copy-on-create).
+model RoleTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// One of `staffRoleValues`. Globally unique - no nullable tenant dimension
+  /// to reason about, so a plain unique index is sufficient.
+  key         String   @unique
+  name        String
+  description String?
+  /// Mirrors `roleRank` in lib/auth/guards.ts. Sparse (0/10/20/30/30/40).
+  rank        Int
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  templatePermissions RoleTemplatePermission[]
+
+  @@map("role_templates")
+}
+
+/// Which permissions a system template grants. 86 rows, derived by the seed
+/// from the compile-time matrix rather than restated as SQL literals.
+model RoleTemplatePermission {
+  id             String   @id @default(uuid()) @db.Uuid
+  roleTemplateId String   @map("role_template_id") @db.Uuid
+  permissionId   String   @map("permission_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  roleTemplate RoleTemplate @relation(fields: [roleTemplateId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleTemplateId, permissionId])
+  @@index([roleTemplateId])
+  @@map("role_template_permissions")
+}
+
+/// A named bundle of permissions, always owned by exactly one tenant.
 ///
-/// Consequence worth knowing before writing any upsert: Prisma compiles
-/// `where: { organizationId_key: { organizationId: null, key } }` into
-/// `organization_id = NULL`, which matches nothing - so an upsert through the
-/// compound unique silently tries to INSERT and is then rejected by the index
-/// with a confusing unique violation. Look system templates up with `findFirst`.
+/// `organizationId` is NOT NULL. System templates live in `RoleTemplate`, and
+/// P2 clones them in per tenant, so there is no such thing as a role without an
+/// organization. That is what makes the composite key on `MembershipRole` work.
 model Role {
   id             String   @id @default(uuid()) @db.Uuid
-  /// NULL for the six system templates. P2 clones them per tenant.
-  organizationId String?  @map("organization_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
   key            String
   name           String
   description    String?
@@ -341,11 +378,15 @@ model Role {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   rolePermissions RolePermission[]
   membershipRoles MembershipRole[]
 
   @@unique([organizationId, key])
+  /// The composite FK target for `MembershipRole`. `id` is already the primary
+  /// key, so this adds no uniqueness anyone needed - it exists so a membership
+  /// row cannot name a role belonging to a different tenant.
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@map("roles")
 }
@@ -370,6 +411,7 @@ model Permission {
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   rolePermissions       RolePermission[]
+  templatePermissions   RoleTemplatePermission[]
   membershipPermissions MembershipPermission[]
 
   @@index([sortOrder])
@@ -400,14 +442,15 @@ model RolePermission {
 /// never the tenant `FOR ALL` policy the other tables in the array carry.
 /// It has an `organization_id` column, so it passes the mechanical "does it
 /// have organization_id?" test the next maintainer will apply to the loop in
-/// prisma/supabase-rls.sql. The column is there for the composite foreign key,
+/// prisma/supabase-rls.sql. The column is there for the composite foreign keys,
 /// NOT to opt in. See MembershipPermission for what the tenant policy would do.
 ///
-/// INVISIBLE TO PRISMA: a BEFORE INSERT/UPDATE trigger asserts the role belongs
-/// to this tenant (or is a system template). A composite FK onto
-/// roles(id, organization_id) cannot express it, because roles.organization_id
-/// is nullable and MATCH SIMPLE satisfies any FK with a NULL component
-/// vacuously - silently skipping exactly the rows it most needs to cover.
+/// BOTH foreign keys here are composite, and that is the whole tenant
+/// guarantee: a row cannot name a membership in one organization and a role in
+/// another, because each key carries `organization_id` through. P1 could only
+/// express the role half as a BEFORE trigger, because roles.organization_id was
+/// nullable and MATCH SIMPLE satisfies any FK with a NULL component vacuously.
+/// P1B made that column NOT NULL, so the trigger became a real key.
 model MembershipRole {
   id             String   @id @default(uuid()) @db.Uuid
   membershipId   String   @map("membership_id") @db.Uuid
@@ -417,7 +460,9 @@ model MembershipRole {
 
   membership   OrganizationMembership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
   organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  role         Role                   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  /// RESTRICT, not CASCADE: deleting a role people still hold must fail loudly.
+  /// P4 returns 409 and asks the owner to reassign first.
+  role         Role                   @relation(fields: [roleId, organizationId], references: [id, organizationId], onDelete: Restrict)
 
   @@unique([membershipId, roleId])
   @@index([organizationId])
