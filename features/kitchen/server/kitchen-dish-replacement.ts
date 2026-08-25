@@ -68,27 +68,33 @@ export async function replaceKitchenDish({
       where: { eventId_meal: { eventId, meal: DEFAULT_MEAL } },
       select: {
         id: true,
-        version: true,
-        // Both ends of the swap in one read: the line coming off, and whether
-        // the dish going on is already here - `(menu, dish)` is unique, so a
-        // repeated target is unstorable rather than merely undesirable.
-        lines: {
-          where: { menuItemId: { in: [menuItemId, replacementMenuItemId] } },
-          select: {
-            id: true,
-            menuItemId: true,
-            serviceStyle: true,
-            itemName: true
-          }
-        }
+        version: true
       }
     });
 
-    const line = menu?.lines.find((entry) => entry.menuItemId === menuItemId);
+    if (!menu) return { outcome: "line-not-found" as const };
 
-    if (!menu || !line) return { outcome: "line-not-found" as const };
+    // A Prisma transaction uses one pg client. Keep relation reads as explicit
+    // awaited queries rather than nested selects that Prisma may fan out while
+    // the same transaction client is already busy.
+    const swapLines = await transaction.eventMenuLine.findMany({
+      where: {
+        eventMenuId: menu.id,
+        menuItemId: { in: [menuItemId, replacementMenuItemId] }
+      },
+      select: {
+        id: true,
+        menuItemId: true,
+        serviceStyle: true,
+        itemName: true
+      }
+    });
 
-    if (menu.lines.some((entry) => entry.menuItemId === replacement.id)) {
+    const line = swapLines.find((entry) => entry.menuItemId === menuItemId);
+
+    if (!line) return { outcome: "line-not-found" as const };
+
+    if (swapLines.some((entry) => entry.menuItemId === replacement.id)) {
       return { outcome: "already-on-menu" as const, name: replacement.name };
     }
 

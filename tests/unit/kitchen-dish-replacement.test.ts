@@ -87,8 +87,11 @@ function lineWrite() {
 }
 
 describe("replacing a dish on the kitchen board", () => {
+  let currentMenu: ReturnType<typeof menu>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    currentMenu = menu();
     // The callback form, run against the same mocked delegates.
     vi.mocked(prisma.$transaction).mockImplementation(((
       run: (client: typeof prisma) => unknown
@@ -96,17 +99,29 @@ describe("replacing a dish on the kitchen board", () => {
     vi.mocked(prisma.menuItem.findFirst).mockResolvedValue(
       replacement(["Buffet"]) as never
     );
-    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(menu() as never);
+    vi.mocked(prisma.eventMenu.findUnique).mockImplementation((() =>
+      Promise.resolve({
+        id: currentMenu.id,
+        version: currentMenu.version
+      })) as never);
     vi.mocked(prisma.eventMenu.updateMany).mockResolvedValue({
       count: 1
     } as never);
     vi.mocked(prisma.eventMenuLine.update).mockResolvedValue({} as never);
-    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
-      { menuItemId: replacementMenuItemId },
-      { menuItemId: "other-dish" },
-      // An add-on line, which carries no dish.
-      { menuItemId: null }
-    ] as never);
+    vi.mocked(prisma.eventMenuLine.findMany).mockImplementation(((args: {
+      where?: object;
+    }) => {
+      if ("menuItemId" in ((args as { where?: object }).where ?? {})) {
+        return Promise.resolve(currentMenu.lines as never);
+      }
+
+      return Promise.resolve([
+        { menuItemId: replacementMenuItemId },
+        { menuItemId: "other-dish" },
+        // An add-on line, which carries no dish.
+        { menuItemId: null }
+      ] as never);
+    }) as never);
     vi.mocked(prisma.event.update).mockResolvedValue({} as never);
     vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue(
       null as never
@@ -137,9 +152,7 @@ describe("replacing a dish on the kitchen board", () => {
     vi.mocked(prisma.menuItem.findFirst).mockResolvedValue(
       replacement(["Buffet", "Plated"]) as never
     );
-    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
-      menu({ serviceStyle: "Plated" }) as never
-    );
+    currentMenu = menu({ serviceStyle: "Plated" });
 
     await swap();
 
@@ -162,9 +175,7 @@ describe("replacing a dish on the kitchen board", () => {
     vi.mocked(prisma.menuItem.findFirst).mockResolvedValue(
       replacement(["Buffet", "Plated"]) as never
     );
-    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
-      menu({ serviceStyle: null }) as never
-    );
+    currentMenu = menu({ serviceStyle: null });
 
     const result = await swap();
 
@@ -175,9 +186,7 @@ describe("replacing a dish on the kitchen board", () => {
   it("moves the frozen name with the dish on a confirmed menu", async () => {
     // A confirmed line answers from its own snapshot, so leaving the old name
     // there would print the dish that came off against the one that went on.
-    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
-      menu({ itemName: "Potato kugel" }) as never
-    );
+    currentMenu = menu({ itemName: "Potato kugel" });
 
     await swap();
 
@@ -236,9 +245,7 @@ describe("replacing a dish on the kitchen board", () => {
   it("refuses a dish this menu already carries", async () => {
     // `(menu, dish)` is unique, so the write would fail anyway - this is the
     // difference between a sentence the kitchen can act on and a 500.
-    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
-      menu({ alsoCarriesReplacement: true }) as never
-    );
+    currentMenu = menu({ alsoCarriesReplacement: true });
 
     const result = await swap();
 

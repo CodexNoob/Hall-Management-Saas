@@ -1,7 +1,8 @@
 /**
  * What the MVP does not ship yet.
  *
- * The Dashboard overview, Hall Room Map, Billing, Dining Manager and Files
+ * The Dashboard overview, Hall Room Map, Billing, Dining Manager, Files,
+ * Vendors and the standalone Settings page
  * modules are finished enough to run but are out of scope for the first
  * release, which is Events, Menu and Kitchen. Their routes, components, API
  * handlers and tables are all left in place - only the ways a user could reach
@@ -31,7 +32,9 @@ const hiddenDashboardRoutes = [
   "/dashboard/billing",
   "/dashboard/dining-manager",
   "/dashboard/hall-room-map",
-  "/dashboard/files"
+  "/dashboard/files",
+  "/dashboard/vendors",
+  "/dashboard/settings"
 ] as const;
 
 export function isHiddenDashboardRoute(route: string | null | undefined) {
@@ -54,7 +57,8 @@ export function isHiddenDashboardRoute(route: string | null | undefined) {
 export const hiddenEventWorkspaceTabs: readonly string[] = [
   "Billing",
   "Hall map",
-  "Files"
+  "Files",
+  "Vendors"
 ];
 
 /**

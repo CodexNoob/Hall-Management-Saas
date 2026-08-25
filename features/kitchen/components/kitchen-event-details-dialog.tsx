@@ -102,6 +102,7 @@ type LineActionInput =
     };
 
 type KitchenPermissions = KitchenResponse["permissions"];
+type AssignmentFilter = "all" | "mine" | "unassigned";
 
 type DetailsProps = {
   event: KitchenEvent;
@@ -177,6 +178,7 @@ const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
  * same click.
  */
 function DishCard({
+  currentWorkerId,
   isSaving,
   line,
   onReplace,
@@ -185,6 +187,7 @@ function DishCard({
   canReplace = true,
   workers
 }: {
+  currentWorkerId?: string | null;
   isSaving: boolean;
   line: EventKitchenLine;
   onReplace: (line: EventKitchenLine) => void;
@@ -205,6 +208,8 @@ function DishCard({
   // An add-on line has no menu item id, and `KitchenItemStatus` is keyed by
   // one, so there is nowhere to record its progress.
   const menuItemId = line.menuItemId;
+  const assignedToCurrentWorker =
+    Boolean(currentWorkerId) && line.assignedWorkerId === currentWorkerId;
   const canTick = permissions.canUpdateKitchenStatus && Boolean(menuItemId);
   const tone =
     line.status === "COMPLETE"
@@ -252,14 +257,32 @@ function DishCard({
   const body = (
     <>
       {line.assignedWorkerName ? (
-        <span className="mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#0f5132] px-2.5 py-1 text-[10px] font-black text-white">
+        <span
+          className={`mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-2.5 py-1 text-[10px] font-black ${
+            assignedToCurrentWorker
+              ? "bg-[#1f4d73] text-white"
+              : "bg-[#0f5132] text-white"
+          }`}
+        >
           <span
             aria-hidden="true"
             className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/70"
           />
-          <span className="truncate">{line.assignedWorkerName}</span>
+          <span className="truncate">
+            {assignedToCurrentWorker
+              ? `Assigned to me · ${line.assignedWorkerName}`
+              : `Assigned · ${line.assignedWorkerName}`}
+          </span>
         </span>
-      ) : null}
+      ) : (
+        <span className="mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#fff7ed] px-2.5 py-1 text-[10px] font-black text-[#c2410c]">
+          <span
+            aria-hidden="true"
+            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#fb923c]"
+          />
+          <span className="truncate">Unassigned</span>
+        </span>
+      )}
 
       <span className="block text-sm font-black leading-tight text-[#17202a]">
         {line.name}
@@ -386,10 +409,32 @@ function KitchenEventDetails({
         : Boolean(line.assignedWorkerId);
     }) ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
+  const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(
+    workersOnly ? "mine" : "all"
+  );
+  const allDishes = sheet?.lines.filter((line) => line.kind === "Dish") ?? [];
+  const assignedToMeCount = currentWorkerId
+    ? allDishes.filter((line) => line.assignedWorkerId === currentWorkerId)
+        .length
+    : 0;
+  const unassignedCount = allDishes.filter(
+    (line) => !line.assignedWorkerId
+  ).length;
+  const visibleDishes = allDishes.filter((line) => {
+    if (assignmentFilter === "mine") {
+      return currentWorkerId
+        ? line.assignedWorkerId === currentWorkerId
+        : Boolean(line.assignedWorkerId);
+    }
+    if (assignmentFilter === "unassigned") return !line.assignedWorkerId;
+
+    return true;
+  });
   // The dish the replace drawer was opened from, held by id so the drawer keeps
   // reading the refreshed sheet rather than the row as it was when it opened.
   const [replaceLineId, setReplaceLineId] = useState<string | null>(null);
-  const replaceLine = dishes.find((line) => line.id === replaceLineId) ?? null;
+  const replaceLine =
+    allDishes.find((line) => line.id === replaceLineId) ?? null;
   // A dish appears once per menu, so the ones already here cannot go on again.
   const usedMenuItemIds = new Set(
     (sheet?.lines ?? [])
@@ -586,7 +631,7 @@ function KitchenEventDetails({
                     onRetry={() => void kitchenQuery.refetch()}
                   />
                 </div>
-              ) : dishes.length === 0 ? (
+              ) : allDishes.length === 0 ? (
                 <div className="p-4">
                   <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
                     <p className="text-sm font-black text-[#111827]">
@@ -602,20 +647,81 @@ function KitchenEventDetails({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
-                  {dishes.map((line) => (
-                    <DishCard
-                      canReplace={!isStandalone}
-                      isSaving={isSaving}
-                      key={line.id}
-                      line={line}
-                      onReplace={(replacing) => setReplaceLineId(replacing.id)}
-                      onSaveItemAction={saveForEvent}
-                      permissions={permissions}
-                      workers={workers}
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                          Worker ownership
+                        </h3>
+                        <p className="mt-1 text-xs text-[#64748b]">
+                          {assignedToMeCount} assigned to me ·{" "}
+                          {unassignedCount} unassigned · {allDishes.length}{" "}
+                          total dishes
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          { id: "all", label: "All dishes" },
+                          {
+                            id: "mine",
+                            label: currentWorkerId
+                              ? "My assigned"
+                              : "Assigned dishes"
+                          },
+                          { id: "unassigned", label: "Unassigned" }
+                        ].map((item) => (
+                          <button
+                            className={`h-8 border px-3 text-xs font-black transition ${
+                              assignmentFilter === item.id
+                                ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                                : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                            }`}
+                            key={item.id}
+                            onClick={() =>
+                              setAssignmentFilter(item.id as AssignmentFilter)
+                            }
+                            type="button"
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {visibleDishes.length === 0 ? (
+                    <div className="p-4">
+                      <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
+                        <p className="text-sm font-black text-[#111827]">
+                          No dishes in this filter
+                        </p>
+                        <p className="mt-3 text-xs text-[#64748b]">
+                          Choose another ownership filter or assign workers to
+                          the dish cards below.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
+                      {visibleDishes.map((line) => (
+                        <DishCard
+                          canReplace={!isStandalone}
+                          currentWorkerId={currentWorkerId}
+                          isSaving={isSaving}
+                          key={line.id}
+                          line={line}
+                          onReplace={(replacing) =>
+                            setReplaceLineId(replacing.id)
+                          }
+                          onSaveItemAction={saveForEvent}
+                          permissions={permissions}
+                          workers={workers}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
 
               {addOns.length > 0 ? (

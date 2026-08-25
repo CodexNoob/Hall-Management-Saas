@@ -215,29 +215,60 @@ function KitchenAcknowledgments({
 }: {
   notifications: EventKitchenNotification[];
 }) {
+  const acknowledgedNotifications = notifications.filter(
+    (item) => item.acknowledged
+  );
+  const latestAcknowledgment = [...acknowledgedNotifications]
+    .reverse()
+    .find((item) => item.acknowledgedBy);
+
   if (notifications.length === 0) {
     return (
-      <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-          Kitchen acknowledgments
-        </h3>
-        <p className="mt-2 text-xs leading-5 text-[#6a7483]">
-          No kitchen notifications have been sent for this event yet.
-        </p>
+      <section className="border-b border-[#d8dde5] bg-[#f8fbff] px-3 py-3 sm:px-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
+              Kitchen acknowledgments
+            </h3>
+            <p className="mt-1 text-xs leading-5 text-[#526173]">
+              Kitchen has not received a change notification for this event yet.
+            </p>
+          </div>
+          <Badge tone="gold">No notifications</Badge>
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+    <section className="border-b border-[#d8dde5] bg-[#f8fbff] px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-          Kitchen acknowledgments
-        </h3>
-        <span className="text-xs font-bold text-[#6a7483]">
-          {notifications.filter((item) => item.acknowledged).length}/
-          {notifications.length} acknowledged
-        </span>
+        <div>
+          <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
+            Kitchen acknowledgments
+          </h3>
+          <p className="mt-1 text-xs leading-5 text-[#526173]">
+            {notifications.length} notification
+            {notifications.length === 1 ? "" : "s"} sent ·{" "}
+            {acknowledgedNotifications.length} acknowledged
+            {latestAcknowledgment?.acknowledgedBy
+              ? ` · Last by ${latestAcknowledgment.acknowledgedBy}${
+                  latestAcknowledgment.acknowledgedAt
+                    ? ` at ${latestAcknowledgment.acknowledgedAt}`
+                    : ""
+                }`
+              : ""}
+          </p>
+        </div>
+        <Badge
+          tone={
+            acknowledgedNotifications.length === notifications.length
+              ? "green"
+              : "gold"
+          }
+        >
+          {acknowledgedNotifications.length}/{notifications.length} acknowledged
+        </Badge>
       </div>
 
       <div className="mt-3 grid gap-2">
@@ -379,6 +410,10 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
         </p>
       ) : null}
 
+      {!kitchenQuery.isLoading && !kitchenQuery.error ? (
+        <KitchenAcknowledgments notifications={notifications} />
+      ) : null}
+
       {kitchenQuery.isLoading ? (
         <EventKitchenSkeleton />
       ) : kitchenQuery.error ? (
@@ -407,10 +442,6 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       ) : (
         <KitchenSheet event={event} sheet={sheet} />
       )}
-
-      {!kitchenQuery.isLoading && !kitchenQuery.error ? (
-        <KitchenAcknowledgments notifications={notifications} />
-      ) : null}
 
       <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
         Read-only. Statuses and worker assignments are set on the kitchen board.

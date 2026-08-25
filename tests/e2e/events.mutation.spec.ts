@@ -1,4 +1,4 @@
-import { addDays, format, isSameMonth, parseISO } from "date-fns";
+import { addDays, addMonths, format, isSameMonth, parseISO } from "date-fns";
 import { expect, test, type Page } from "@playwright/test";
 
 const E2E_HALL_NAME = "E2E Hall";
@@ -182,57 +182,104 @@ test("creates an isolated event from the Calendar Book date form", async ({
         )
       )
     );
-    const bookingDate = Array.from({ length: 30 }, (_, offset) =>
+    const bookingCandidates = Array.from({ length: 30 }, (_, offset) =>
       addDays(today, offset + 2)
-    ).find(
+    ).filter(
       (candidate) => !unavailableDates.has(format(candidate, "yyyy-MM-dd"))
     );
 
-    if (!bookingDate) {
+    if (bookingCandidates.length === 0) {
       throw new Error(
         "Every date in the next month already has an active booking in the E2E organization."
       );
     }
 
-    const bookingDateLabel = format(bookingDate, "MMMM d, yyyy");
-    const bookingDateValue = format(bookingDate, "yyyy-MM-dd");
+    let visibleMonth = today;
+    let booked = false;
 
-    // The grid opens on the current month; a free date can spill into the next.
-    if (!isSameMonth(bookingDate, today)) {
-      await page.getByRole("button", { name: "Show next month" }).click();
+    for (const bookingDate of bookingCandidates) {
+      const bookingDateLabel = format(bookingDate, "MMMM d, yyyy");
+      const bookingDateValue = format(bookingDate, "yyyy-MM-dd");
+
+      // The grid opens on the current month; a free date can spill into the
+      // next. Keep the visible month in step with the candidate being tried.
+      while (!isSameMonth(bookingDate, visibleMonth)) {
+        await page.getByRole("button", { name: "Show next month" }).click();
+        visibleMonth = addMonths(visibleMonth, 1);
+      }
+
+      // Near the top-left corner, not the middle. The select button is a
+      // full-cell backdrop at z-0; the day-number header above it is
+      // `pointer-events-none` and falls through, but the list of event pills is
+      // deliberately clickable - each one opens its booking - so it covers the
+      // centre of any day that already shows an event. Clicking the middle works
+      // only on a day nothing has ever been booked on, which is not a property
+      // this test can rely on.
+      await page
+        .getByRole("button", { name: `Select ${bookingDateLabel}` })
+        .click({ position: { x: 10, y: 6 } });
+      await page.getByRole("button", { name: "Book date" }).click();
+
+      const dialog = page.getByRole("dialog", { name: "New booking" });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByLabel("Date")).toHaveValue(bookingDateValue);
+      await dialog.getByLabel("Client name").fill(clientName);
+      // A real number, not "555-0199": the field now checks the value against
+      // the selected country's numbering plan, and a bare exchange is not
+      // dialable.
+      await dialog.getByLabel("Phone", { exact: true }).fill("212 555 0199");
+      await dialog
+        .getByLabel("Hall / room")
+        .selectOption({ label: hallNames[0] });
+      // Event type is required now, and types can restrict which weekdays they
+      // are bookable on. `prepareOrganization` hands back only the unrestricted
+      // ones, so this stays independent of the org's event-type configuration.
+      await dialog
+        .getByLabel("Event type")
+        .selectOption({ label: eventTypeNames[0] });
+      const savedRequest = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          new URL(response.url()).pathname === "/api/events"
+      );
+      const calendarRefreshed = page.waitForResponse(
+        (response) =>
+          response.request().method() === "GET" &&
+          new URL(response.url()).pathname === "/api/events" &&
+          response.ok()
+      ).catch(() => null);
+      await dialog.getByRole("button", { name: "Save booking" }).click();
+      const savedResponse = await savedRequest;
+
+      const conflict = dialog.getByRole("alert").filter({
+        hasText: /already reserved during this setup-to-cleanup window/i
+      });
+      const outcome = await Promise.race([
+        dialog.waitFor({ state: "hidden", timeout: 20_000 }).then(
+          () => "booked" as const
+        ),
+        conflict.waitFor({ state: "visible", timeout: 20_000 }).then(
+          () => "conflict" as const
+        )
+      ]);
+
+      if (outcome === "booked") {
+        expect(savedResponse.ok()).toBe(true);
+        await calendarRefreshed;
+        booked = true;
+        break;
+      }
+
+      await dialog.getByRole("button", { name: "Cancel" }).click();
+      await expect(dialog).toBeHidden();
     }
 
-    // Near the top-left corner, not the middle. The select button is a
-    // full-cell backdrop at z-0; the day-number header above it is
-    // `pointer-events-none` and falls through, but the list of event pills is
-    // deliberately clickable - each one opens its booking - so it covers the
-    // centre of any day that already shows an event. Clicking the middle works
-    // only on a day nothing has ever been booked on, which is not a property
-    // this test can rely on.
-    await page
-      .getByRole("button", { name: `Select ${bookingDateLabel}` })
-      .click({ position: { x: 10, y: 6 } });
-    await page.getByRole("button", { name: "Book date" }).click();
+    if (!booked) {
+      throw new Error(
+        "Every candidate date in the next month was reserved by the time the booking form submitted."
+      );
+    }
 
-    const dialog = page.getByRole("dialog", { name: "New booking" });
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByLabel("Date")).toHaveValue(bookingDateValue);
-    await dialog.getByLabel("Client name").fill(clientName);
-    // A real number, not "555-0199": the field now checks the value against the
-    // selected country's numbering plan, and a bare exchange is not dialable.
-    await dialog.getByLabel("Phone", { exact: true }).fill("212 555 0199");
-    await dialog
-      .getByLabel("Hall / room")
-      .selectOption({ label: hallNames[0] });
-    // Event type is required now, and types can restrict which weekdays they
-    // are bookable on. `prepareOrganization` hands back only the unrestricted
-    // ones, so this stays independent of the org's event-type configuration.
-    await dialog
-      .getByLabel("Event type")
-      .selectOption({ label: eventTypeNames[0] });
-    await dialog.getByRole("button", { name: "Save booking" }).click();
-
-    await expect(dialog).toBeHidden({ timeout: 20_000 });
     await expect(
       page.getByText(clientName, { exact: true }).first()
     ).toBeVisible();

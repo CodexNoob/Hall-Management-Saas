@@ -20,8 +20,7 @@ describe("event workspace tabs", () => {
       "Event details",
       "Menu",
       "Client portal",
-      "Kitchen",
-      "Vendors"
+      "Kitchen"
     ]);
   });
 

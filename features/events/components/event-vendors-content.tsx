@@ -1,14 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import {
   Badge,
   LineIcon
 } from "@/features/events/components/event-manager-shared";
 
 export function EventVendorsContent() {
-  const router = useRouter();
   const vendorRows = [
     {
       vendor: "Royal Linen",
@@ -33,14 +30,6 @@ export function EventVendorsContent() {
             Vendors for this event
           </h2>
         </div>
-        <button
-          className="inline-flex h-8 shrink-0 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm shadow-[#1f4d73]/20 hover:bg-[#15344f]"
-          type="button"
-          onClick={() => router.push("/dashboard/vendors")}
-        >
-          <LineIcon name="plus" className="h-3.5 w-3.5" />
-          Add vendor order
-        </button>
       </header>
 
       <div className="overflow-x-auto p-3">

@@ -91,6 +91,16 @@ export type KitchenResponse = {
     acknowledgedBy?: string;
     acknowledgedAt?: string;
     emailSent?: string;
+    changeSummary?: {
+      beforeStatus?: string;
+      afterStatus?: string;
+      meal?: string;
+      items: Array<{
+        name: string;
+        type: string;
+        serviceStyle: string | null;
+      }>;
+    };
   }>;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;

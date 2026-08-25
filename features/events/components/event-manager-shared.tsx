@@ -396,6 +396,16 @@ export type EventKitchenNotification = {
   acknowledgedBy?: string;
   acknowledgedAt?: string;
   emailSent?: string;
+  changeSummary?: {
+    beforeStatus?: string;
+    afterStatus?: string;
+    meal?: string;
+    items: Array<{
+      name: string;
+      type: string;
+      serviceStyle: string | null;
+    }>;
+  };
 };
 
 export type EventKitchenResponse = {

@@ -24,7 +24,9 @@ const hiddenRoutes = [
   "/dashboard/billing",
   "/dashboard/dining-manager",
   "/dashboard/hall-room-map",
-  "/dashboard/files"
+  "/dashboard/files",
+  "/dashboard/vendors",
+  "/dashboard/settings"
 ];
 
 // Guards against this list and lib/ui/mvp-features drifting apart: shipping a
