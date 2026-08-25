@@ -45,23 +45,104 @@ REVOKE ALL ON FUNCTION public.is_organization_member_path(TEXT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.is_organization_member(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_organization_member_path(TEXT) TO authenticated;
 
+-- ---------------------------------------------------------------------------
+-- THE FIVE PRIVILEGE TABLES (P0-B).
+--
+-- These are FOR SELECT, never FOR ALL, and they are written out one by one
+-- rather than driven through the loop below - both so the narrowing is visible
+-- to a reader, and so tests/unit/rls-coverage.test.ts can see the table names
+-- as literal ALTER TABLE statements.
+--
+-- Why they are singled out: a policy only filters access a grant already
+-- permits, and `authenticated` currently holds no privilege on any table in
+-- public, so none of this executes today. It is insurance against one future
+-- event - somebody running a blanket GRANT across the schema. Postgres ACLs
+-- have no DENY, so a REVOKE cannot prevent that; the POLICY is the only
+-- statement here that survives it. Narrowing these five means such a grant
+-- degrades to read exposure rather than "any member may rewrite any
+-- colleague's privileges".
+--
+-- organizations and organization_settings are in the list for entitlement
+-- reasons: subscription and trial fields on the first, and the `integrations`
+-- JSON on the second, which holds roleAccessOverrides, two_factor_required and
+-- session_timeout_minutes.
+--
+-- Mirrored by prisma/migrations/20260826091000_p0b_narrow_privilege_table_policies.
+-- tests/unit/privilege-table-policies.test.ts fails the build if any of the five
+-- ever reappears in a FOR ALL policy anywhere under prisma/.
+-- ---------------------------------------------------------------------------
+
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.organizations FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.organizations FROM authenticated;
 DROP POLICY IF EXISTS organization_member_access ON public.organizations;
 CREATE POLICY organization_member_access
 ON public.organizations
-FOR ALL
+FOR SELECT
 TO authenticated
-USING (public.is_organization_member(id))
-WITH CHECK (public.is_organization_member(id));
+USING (public.is_organization_member(id));
+
+ALTER TABLE public.organization_memberships ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.organization_memberships FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.organization_memberships FROM authenticated;
+DROP POLICY IF EXISTS tenant_member_access ON public.organization_memberships;
+CREATE POLICY tenant_member_access
+ON public.organization_memberships
+FOR SELECT
+TO authenticated
+USING (public.is_organization_member(organization_id));
+
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.users FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.users FROM authenticated;
+DROP POLICY IF EXISTS tenant_member_access ON public.users;
+CREATE POLICY tenant_member_access
+ON public.users
+FOR SELECT
+TO authenticated
+USING (public.is_organization_member(organization_id));
+
+ALTER TABLE public.user_access ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.user_access FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.user_access FROM authenticated;
+DROP POLICY IF EXISTS tenant_member_access ON public.user_access;
+CREATE POLICY tenant_member_access
+ON public.user_access
+FOR SELECT
+TO authenticated
+USING (public.is_organization_member(organization_id));
+
+ALTER TABLE public.organization_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.organization_settings FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.organization_settings FROM authenticated;
+DROP POLICY IF EXISTS tenant_member_access ON public.organization_settings;
+CREATE POLICY tenant_member_access
+ON public.organization_settings
+FOR SELECT
+TO authenticated
+USING (public.is_organization_member(organization_id));
+
+-- ---------------------------------------------------------------------------
+-- Everything else stays FOR ALL. These are operational tables - a member who
+-- can read them can already act on them through the application, so a narrower
+-- policy would buy nothing while breaking the mental model that this loop
+-- applies one uniform rule.
+--
+-- The five privilege tables above were deliberately REMOVED from this array.
+-- Do not add them back. Do not add the authorization tables either
+-- (roles, permissions, role_permissions, role_templates,
+-- role_template_permissions, membership_roles, membership_permissions,
+-- authorization_audit): membership_permissions in particular is a table whose
+-- every row means "this member holds this permission", and this policy's
+-- WITH CHECK asks only whether the writer is a member of the organization -
+-- which they are. Any member could grant themselves anything in it.
+-- ---------------------------------------------------------------------------
 
 DO $$
 DECLARE
   tenant_table TEXT;
 BEGIN
   FOREACH tenant_table IN ARRAY ARRAY[
-    'organization_memberships',
-    'users',
-    'user_access',
     'halls',
     'event_types',
     'events',
@@ -101,7 +182,6 @@ BEGIN
     'invoice_payment_schedules',
     'invoice_balances',
     'file_folders',
-    'organization_settings',
     'notification_preferences',
     'clients',
     'today_notes',

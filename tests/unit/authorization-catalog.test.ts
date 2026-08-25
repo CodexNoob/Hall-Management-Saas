@@ -34,21 +34,46 @@ import {
 
 const projectRoot = process.cwd();
 
-/** Tables that must carry RLS with NO policy of any kind. */
-const LOCKED_TABLES = [
-  "permissions",
-  "roles",
-  "role_permissions",
-  "membership_roles",
-  "membership_permissions",
-  "authorization_audit"
-] as const;
+/**
+ * Tables that must carry RLS with NO policy of any kind, mapped to the
+ * migration that locks each one down. `role_templates` and
+ * `role_template_permissions` arrived in P1B, the rest in P1.
+ */
+const LOCKED_TABLES = {
+  permissions: "20260825140000_p1_authorization_tables",
+  roles: "20260825140000_p1_authorization_tables",
+  role_permissions: "20260825140000_p1_authorization_tables",
+  membership_roles: "20260825140000_p1_authorization_tables",
+  membership_permissions: "20260825140000_p1_authorization_tables",
+  authorization_audit: "20260825140000_p1_authorization_tables",
+  role_templates: "20260826090000_p1b_role_templates_split",
+  role_template_permissions: "20260826090000_p1b_role_templates_split"
+} as const;
+
+const LOCKED_TABLE_NAMES = Object.keys(LOCKED_TABLES) as Array<
+  keyof typeof LOCKED_TABLES
+>;
+
+function migrationSql(name: string) {
+  return readFileSync(
+    join(projectRoot, "prisma", "migrations", name, "migration.sql"),
+    "utf8"
+  );
+}
 
 const P1_MIGRATION = join(
   projectRoot,
   "prisma",
   "migrations",
   "20260825140000_p1_authorization_tables",
+  "migration.sql"
+);
+
+const P1B_MIGRATION = join(
+  projectRoot,
+  "prisma",
+  "migrations",
+  "20260826090000_p1b_role_templates_split",
   "migration.sql"
 );
 
@@ -230,7 +255,7 @@ describe("authorization table lockdown", () => {
       for (const match of sql.matchAll(
         /CREATE\s+POLICY\s+[^\s]+\s+ON\s+(?:public\.)?"?([a-z0-9_]+)"?/gi
       )) {
-        if ((LOCKED_TABLES as readonly string[]).includes(match[1])) {
+        if ((LOCKED_TABLE_NAMES as readonly string[]).includes(match[1])) {
           offenders.push(`${name}: policy on ${match[1]}`);
         }
       }
@@ -255,24 +280,24 @@ describe("authorization table lockdown", () => {
       (match) => match[1]
     );
 
-    for (const table of LOCKED_TABLES) {
+    for (const table of LOCKED_TABLE_NAMES) {
       expect(looped, `${table} must not be in the tenant loop`).not.toContain(
         table
       );
     }
   });
 
-  it("enables RLS and revokes from anon and authenticated on all six", () => {
-    const sql = readFileSync(P1_MIGRATION, "utf8");
+  it("enables RLS and revokes from anon and authenticated on all eight", () => {
+    for (const table of LOCKED_TABLE_NAMES) {
+      const sql = migrationSql(LOCKED_TABLES[table]);
 
-    for (const table of LOCKED_TABLES) {
-      expect(sql).toMatch(
+      expect(sql, `${table}: ENABLE ROW LEVEL SECURITY`).toMatch(
         new RegExp(
           `ALTER\\s+TABLE\\s+"?${table}"?\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`,
           "i"
         )
       );
-      expect(sql).toMatch(
+      expect(sql, `${table}: REVOKE ALL`).toMatch(
         new RegExp(
           `REVOKE\\s+ALL\\s+ON\\s+TABLE\\s+public\\.${table}\\s+FROM\\s+anon,\\s*authenticated`,
           "i"
@@ -283,38 +308,102 @@ describe("authorization table lockdown", () => {
 });
 
 describe("objects invisible to Prisma", () => {
-  // Triggers, CHECK constraints and NULLS NOT DISTINCT do not appear in
-  // schema.prisma, so a diff-based tool would propose dropping them. These
-  // assertions are what makes that a failing build rather than a silent
-  // regression.
-  const sql = () => readFileSync(P1_MIGRATION, "utf8");
-
-  it("creates the roles unique index with NULLS NOT DISTINCT", () => {
-    // Without it two system templates could both be keyed 'owner', because
-    // standard SQL treats every NULL as distinct.
-    expect(sql()).toMatch(
-      /CREATE\s+UNIQUE\s+INDEX\s+"roles_organization_id_key_key"[\s\S]*?NULLS\s+NOT\s+DISTINCT/i
-    );
-  });
-
-  it("creates the membership_roles tenant-match trigger", () => {
-    // A composite FK onto roles(id, organization_id) cannot express this:
-    // roles.organization_id is nullable and MATCH SIMPLE satisfies any FK with
-    // a NULL component vacuously, skipping exactly the rows it must cover.
-    expect(sql()).toMatch(/CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.assert_membership_role_tenant/i);
-    expect(sql()).toMatch(
-      /CREATE\s+TRIGGER\s+"membership_roles_assert_tenant"[\s\S]*?BEFORE\s+INSERT\s+OR\s+UPDATE\s+ON\s+"membership_roles"/i
-    );
-  });
+  // CHECK constraints do not appear in schema.prisma, so a diff-based tool
+  // would propose dropping them. This assertion is what makes that a failing
+  // build rather than a silent regression.
+  //
+  // P1 had two more of these - a NULLS NOT DISTINCT index and a BEFORE trigger.
+  // P1B removed both by making roles.organization_id NOT NULL; see the
+  // describe block below.
+  const p1 = () => readFileSync(P1_MIGRATION, "utf8");
 
   it("constrains membership_permissions.effect", () => {
-    expect(sql()).toMatch(/CHECK\s*\(\s*"effect"\s+IN\s*\(\s*'GRANT',\s*'DENY'\s*\)\s*\)/i);
+    expect(p1()).toMatch(/CHECK\s*\(\s*"effect"\s+IN\s*\(\s*'GRANT',\s*'DENY'\s*\)\s*\)/i);
   });
 
   it("adds the composite FK target on organization_memberships", () => {
-    expect(sql()).toMatch(
+    expect(p1()).toMatch(
       /ADD\s+CONSTRAINT\s+"organization_memberships_id_organization_id_key"\s+UNIQUE\s*\(\s*"id",\s*"organization_id"\s*\)/i
     );
+  });
+});
+
+describe("P1B: templates split out of roles", () => {
+  /**
+   * The point of P1B: one nullable discriminator (roles.organization_id) had
+   * forced three separate workarounds. These assertions pin the fact that all
+   * three are gone and cannot creep back, because each was individually
+   * reasonable and would be re-introduced by anyone re-solving the same problem.
+   */
+  const p1b = () => readFileSync(P1B_MIGRATION, "utf8");
+
+  /**
+   * Statements only. These migrations explain themselves at length, and the
+   * prose necessarily names the very clauses the negative assertions below are
+   * checking are gone - so matching against the raw file would fail on its own
+   * documentation.
+   */
+  const p1bStatements = () => p1b().replace(/--[^\n]*/g, "");
+
+  it("makes roles.organization_id NOT NULL", () => {
+    expect(p1b()).toMatch(
+      /ALTER\s+TABLE\s+"roles"\s+ALTER\s+COLUMN\s+"organization_id"\s+SET\s+NOT\s+NULL/i
+    );
+  });
+
+  it("replaces the NULLS NOT DISTINCT index with a plain unique", () => {
+    const sql = p1b();
+
+    expect(sql).toMatch(/DROP\s+INDEX\s+"roles_organization_id_key_key"/i);
+    expect(sql).toMatch(
+      /CREATE\s+UNIQUE\s+INDEX\s+"roles_organization_id_key_key"\s+ON\s+"roles"\s*\(\s*"organization_id",\s*"key"\s*\)\s*;/i
+    );
+    // The clause has nothing left to do once the column is NOT NULL, and
+    // keeping it would leave the database stricter than schema.prisma says for
+    // no reason at all. `[^;]*` keeps the match inside one statement.
+    expect(p1bStatements()).not.toMatch(
+      /CREATE\s+UNIQUE\s+INDEX[^;]*NULLS\s+NOT\s+DISTINCT/i
+    );
+  });
+
+  it("replaces the tenant-match trigger with a real composite foreign key", () => {
+    const sql = p1b();
+
+    expect(sql).toMatch(
+      /DROP\s+TRIGGER\s+"membership_roles_assert_tenant"\s+ON\s+"membership_roles"/i
+    );
+    expect(sql).toMatch(
+      /DROP\s+FUNCTION\s+public\.assert_membership_role_tenant/i
+    );
+    expect(sql).toMatch(
+      /ADD\s+CONSTRAINT\s+"membership_roles_role_id_organization_id_fkey"[\s\S]*?FOREIGN\s+KEY\s*\(\s*"role_id",\s*"organization_id"\s*\)[\s\S]*?REFERENCES\s+"roles"\s*\(\s*"id",\s*"organization_id"\s*\)/i
+    );
+    expect(sql).toMatch(
+      /ADD\s+CONSTRAINT\s+"roles_id_organization_id_key"\s+UNIQUE\s*\(\s*"id",\s*"organization_id"\s*\)/i
+    );
+  });
+
+  it("carries the six templates and their 86 rows across rather than dropping them", () => {
+    const sql = p1b();
+
+    // Self-sufficient on purpose: the database must be correct the moment the
+    // migration applies, whether or not anyone remembers to re-run the seed.
+    expect(sql).toMatch(/INSERT\s+INTO\s+"role_templates"[\s\S]*?SELECT[\s\S]*?FROM\s+"roles"/i);
+    expect(sql).toMatch(
+      /INSERT\s+INTO\s+"role_template_permissions"[\s\S]*?SELECT[\s\S]*?FROM\s+"role_permissions"/i
+    );
+    expect(sql).toMatch(/DELETE\s+FROM\s+"roles"\s+WHERE\s+"organization_id"\s+IS\s+NULL/i);
+  });
+
+  it("declares roles.organizationId as required in the Prisma schema", () => {
+    const schema = readFileSync(join(projectRoot, "prisma", "schema.prisma"), "utf8");
+    const roleModel = schema.match(/\nmodel Role \{([\s\S]*?)\n\}/);
+
+    expect(roleModel).not.toBeNull();
+    // `String?` here would put the nullable discriminator straight back.
+    expect(roleModel![1]).toMatch(/organizationId\s+String\s+@map\("organization_id"\)/);
+    expect(roleModel![1]).not.toMatch(/organizationId\s+String\?/);
+    expect(roleModel![1]).toMatch(/@@unique\(\[id, organizationId\]\)/);
   });
 });
 
@@ -324,6 +413,10 @@ describe("P1 stays inert", () => {
     // data, not a consumer: it names no Prisma model.
     const roots = ["app", "features", "lib"];
     const models = [
+      "role",
+      "roleTemplate",
+      "roleTemplatePermission",
+      "permission",
       "membershipRole",
       "membershipPermission",
       "rolePermission",

@@ -61,9 +61,16 @@ function protectedTables() {
 
     // The db:rls script drives its list through a FOREACH over a table array,
     // so the names only ever appear as quoted literals inside that array.
-    const arrayBlock = sql.match(/FOREACH[\s\S]*?ARRAY\s*\[([\s\S]*?)\]/i);
-
-    if (arrayBlock) {
+    //
+    // matchAll, not match: a single-match regex reads only the FIRST array in a
+    // file and silently ignores every later one, so any table moved into a
+    // second loop would read as having no RLS at all. P0-B nearly created that
+    // situation by splitting the privilege tables out - they ended up written
+    // as explicit ALTER TABLE statements instead, which the regex above sees,
+    // but the latent bug is fixed here rather than left for the next split.
+    for (const arrayBlock of sql.matchAll(
+      /FOREACH[\s\S]*?ARRAY\s*\[([\s\S]*?)\]/gi
+    )) {
       for (const match of arrayBlock[1].matchAll(/'([a-z0-9_]+)'/g)) {
         covered.add(match[1]);
       }

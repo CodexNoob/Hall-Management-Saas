@@ -18,8 +18,8 @@
  * tests/unit/authorization-catalog.test.ts asserts the derivation still agrees
  * with the matrix, per role and by exact count.
  *
- * This script creates ZERO org-scoped rows. Only the six templates, with
- * organization_id IS NULL. Per-tenant clones are P2's job - see the
+ * This script creates ZERO org-scoped rows. Only the six templates, in
+ * `role_templates`. Per-tenant clones land in `roles` and are P2's job - see the
  * copy-on-create decision - and no membership is wired to anything here.
  */
 import { PrismaClient } from "@prisma/client";
@@ -98,45 +98,32 @@ async function seedPermissions() {
 
 async function seedRoleTemplates() {
   for (const template of roleTemplateCatalog) {
-    // findFirst, NOT upsert through the compound unique. Prisma compiles
+    // A plain upsert on a plain unique. P1 could not do this: templates lived in
+    // `roles` behind a nullable organization_id, and Prisma compiles
     // `where: { organizationId_key: { organizationId: null, key } }` into
-    // `organization_id = NULL`, which matches nothing - so the upsert would
-    // silently attempt an INSERT every run and the NULLS NOT DISTINCT index
-    // would reject it with a confusing unique violation.
-    const existing = await prisma.role.findFirst({
-      where: { organizationId: null, key: template.key },
-      select: { id: true }
-    });
-
-    if (existing) {
-      await prisma.role.update({
-        where: { id: existing.id },
-        data: {
-          name: template.name,
-          description: template.description,
-          rank: template.rank,
-          isBuiltIn: true
-        }
-      });
-      continue;
-    }
-
-    await prisma.role.create({
-      data: {
-        organizationId: null,
+    // `organization_id = NULL`, which matches nothing - so the upsert silently
+    // attempted an INSERT every run. P1B moved templates to their own table and
+    // the workaround went with it.
+    await prisma.roleTemplate.upsert({
+      where: { key: template.key },
+      create: {
         key: template.key,
         name: template.name,
         description: template.description,
-        rank: template.rank,
-        isBuiltIn: true
+        rank: template.rank
+      },
+      update: {
+        name: template.name,
+        description: template.description,
+        rank: template.rank
       }
     });
   }
 
-  return prisma.role.count({ where: { organizationId: null } });
+  return prisma.roleTemplate.count();
 }
 
-async function seedRolePermissions() {
+async function seedRoleTemplatePermissions() {
   const permissionIdByKey = new Map(
     (await prisma.permission.findMany({ select: { id: true, key: true } })).map(
       (permission) => [permission.key, permission.id]
@@ -146,12 +133,12 @@ async function seedRolePermissions() {
   let written = 0;
 
   for (const template of roleTemplateCatalog) {
-    const role = await prisma.role.findFirst({
-      where: { organizationId: null, key: template.key },
+    const roleTemplate = await prisma.roleTemplate.findUnique({
+      where: { key: template.key },
       select: { id: true }
     });
 
-    if (!role) {
+    if (!roleTemplate) {
       throw new Error(`System role template "${template.key}" is missing.`);
     }
 
@@ -168,13 +155,16 @@ async function seedRolePermissions() {
     // Converge rather than append: drop anything the matrix no longer grants,
     // then add what is missing. Re-running after a matrix edit is the intended
     // way to correct these rows.
-    await prisma.rolePermission.deleteMany({
-      where: { roleId: role.id, permissionId: { notIn: desiredIds } }
+    await prisma.roleTemplatePermission.deleteMany({
+      where: {
+        roleTemplateId: roleTemplate.id,
+        permissionId: { notIn: desiredIds }
+      }
     });
 
-    await prisma.rolePermission.createMany({
+    await prisma.roleTemplatePermission.createMany({
       data: desiredIds.map((permissionId) => ({
-        roleId: role.id,
+        roleTemplateId: roleTemplate.id,
         permissionId
       })),
       skipDuplicates: true
@@ -188,41 +178,50 @@ async function seedRolePermissions() {
 
 async function main() {
   const permissions = await seedPermissions();
-  const roles = await seedRoleTemplates();
-  const rolePermissions = await seedRolePermissions();
+  const roleTemplates = await seedRoleTemplates();
+  const templatePermissions = await seedRoleTemplatePermissions();
 
-  const actualRolePermissions = await prisma.rolePermission.count();
+  const actualTemplatePermissions = await prisma.roleTemplatePermission.count();
 
   console.log(
-    `Authorization seed complete: ${permissions} permissions, ${roles} system role templates, ${rolePermissions} role permissions (${actualRolePermissions} rows total).`
+    `Authorization seed complete: ${permissions} permissions, ${roleTemplates} system role templates, ${templatePermissions} template permissions (${actualTemplatePermissions} rows total).`
   );
 
   if (permissions !== 23) {
     throw new Error(`Expected 23 permissions, found ${permissions}.`);
   }
 
-  if (roles !== 6) {
-    throw new Error(`Expected 6 system role templates, found ${roles}.`);
+  if (roleTemplates !== 6) {
+    throw new Error(`Expected 6 system role templates, found ${roleTemplates}.`);
   }
 
-  if (rolePermissions !== 86) {
+  if (templatePermissions !== 86) {
     throw new Error(
-      `Expected 86 derived role permissions, found ${rolePermissions}.`
+      `Expected 86 derived template permissions, found ${templatePermissions}.`
     );
   }
 
-  // P1's defining property, asserted rather than assumed. If any of these is
-  // non-zero, something already wired a membership to the new tables and the
-  // phase is no longer inert.
-  const [membershipRoles, membershipPermissions, audits] = await Promise.all([
-    prisma.membershipRole.count(),
-    prisma.membershipPermission.count(),
-    prisma.authorizationAudit.count()
-  ]);
+  // P1's defining property, asserted rather than assumed. `roles` is included
+  // now that it holds only tenant data: the first row in it means P2 has begun
+  // cloning, and the phase is no longer inert.
+  const [tenantRoles, rolePermissions, membershipRoles, membershipPermissions, audits] =
+    await Promise.all([
+      prisma.role.count(),
+      prisma.rolePermission.count(),
+      prisma.membershipRole.count(),
+      prisma.membershipPermission.count(),
+      prisma.authorizationAudit.count()
+    ]);
 
-  if (membershipRoles || membershipPermissions || audits) {
+  if (
+    tenantRoles ||
+    rolePermissions ||
+    membershipRoles ||
+    membershipPermissions ||
+    audits
+  ) {
     throw new Error(
-      `P1 must leave the membership tables empty, found ${membershipRoles} membership roles, ${membershipPermissions} membership permissions, ${audits} audit rows.`
+      `P1 must leave the tenant tables empty, found ${tenantRoles} roles, ${rolePermissions} role permissions, ${membershipRoles} membership roles, ${membershipPermissions} membership permissions, ${audits} audit rows.`
     );
   }
 }
