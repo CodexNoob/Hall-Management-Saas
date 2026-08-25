@@ -332,6 +332,17 @@ export function StaffDialog({
                   }
                   value={form.role}
                 >
+                  {/* Escape hatch for a role the invite form may not hand out.
+                      `roleTemplates` is deliberately Owner-free, and a <select>
+                      whose value matches no <option> silently displays the
+                      first one - so opening Edit on an owner would show
+                      "Administrator" and submit that on save. The guards now
+                      403 it, but the form should not be proposing it. */}
+                  {!roleTemplates.some(
+                    (template) => template.role === form.role
+                  ) ? (
+                    <option value={form.role}>{form.role}</option>
+                  ) : null}
                   {roleTemplates.map((template) => (
                     <option key={template.role} value={template.role}>
                       {template.role}

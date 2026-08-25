@@ -8,6 +8,12 @@ import { formatZodErrorMessage } from "@/lib/http/zod-error-message";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
 import { isAdministrativeRole } from "@/lib/auth/roles";
+import { AuthorizationError } from "@/lib/auth/errors";
+import {
+  assertAssignableRole,
+  assertCanManageMember,
+  assertNotSelfRoleChange
+} from "@/lib/auth/guards";
 import { getEnv } from "@/lib/env";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
@@ -148,10 +154,10 @@ export async function GET(request: Request) {
         phone: membership.user.phone,
         department: membership.user.venueName ?? "General",
         role: membership.role,
-        status:
-          membership.user.isActive && membership.isActive
-            ? "Active"
-            : "Inactive",
+        // Membership only. `users.is_active` is a global column no tenant may
+        // write any more, so folding it in here would let one organization's
+        // removal show this organization's member as Inactive forever.
+        status: membership.isActive ? "Active" : "Inactive",
         access: membership.user.access[0] ?? null,
         lastLoginAt:
           membership.user.activityLogs[0]?.createdAt.toISOString() ?? null,
@@ -213,6 +219,8 @@ export async function POST(request: Request) {
 
     const phone = parsedPhone.data ?? null;
 
+    assertAssignableRole(actor.membership.role, role);
+
     const createdStaff = await prisma.$transaction(async (transaction) => {
       const results: Array<{
         id: string;
@@ -231,6 +239,32 @@ export async function POST(request: Request) {
         const existingUser = await transaction.user.findUnique({
           where: { email: inviteEmail }
         });
+
+        // Re-inviting somebody who is already here is an EDIT, not an invite -
+        // the upsert below carries `update: { role, isActive: true }`. Without
+        // this check invite is a demotion primitive: POST the owner's address
+        // at "viewer" and it walks straight through the invite path.
+        const existingMembership = existingUser
+          ? await transaction.organizationMembership.findUnique({
+              where: {
+                organizationId_userId: {
+                  organizationId: actor.organizationId,
+                  userId: existingUser.id
+                }
+              }
+            })
+          : null;
+
+        if (existingMembership) {
+          assertCanManageMember(actor.membership.role, existingMembership.role);
+        }
+
+        // `role` is written on create only, as a NOT NULL placeholder the column
+        // demands - never as an authority. The update that used to follow this
+        // rewrote `name`, `venueName` and `role` on a row shared by every
+        // organization the person belongs to, forced `isActive: true` so any
+        // tenant could reinstate someone another tenant had removed, and - since
+        // the invite dialog collects no phone number - silently wiped `phone`.
         const user =
           existingUser ??
           (await transaction.user.create({
@@ -240,33 +274,22 @@ export async function POST(request: Request) {
               name: inviteEmail.split("@")[0],
               phone,
               venueName: department,
-              role,
+              role: "member",
               isActive: true
             }
           }));
-
-        const updatedUser = await transaction.user.update({
-          where: { id: user.id },
-          data: {
-            name: user.name || inviteEmail.split("@")[0],
-            phone,
-            venueName: department,
-            role,
-            isActive: true
-          }
-        });
 
         const membership = await transaction.organizationMembership.upsert({
           where: {
             organizationId_userId: {
               organizationId: actor.organizationId,
-              userId: updatedUser.id
+              userId: user.id
             }
           },
           update: { role, isActive: true },
           create: {
             organizationId: actor.organizationId,
-            userId: updatedUser.id,
+            userId: user.id,
             role,
             isActive: true
           }
@@ -276,26 +299,25 @@ export async function POST(request: Request) {
           where: {
             organizationId_userId: {
               organizationId: actor.organizationId,
-              userId: updatedUser.id
+              userId: user.id
             }
           },
           update: accessForRole(role),
           create: {
             organizationId: actor.organizationId,
-            userId: updatedUser.id,
+            userId: user.id,
             ...accessForRole(role)
           }
         });
 
         results.push({
-          id: updatedUser.id,
+          id: user.id,
           email: inviteEmail,
-          name: updatedUser.name || inviteEmail.split("@")[0],
-          phone: updatedUser.phone,
-          department: updatedUser.venueName ?? department,
-          role: updatedUser.role,
-          status:
-            updatedUser.isActive && membership.isActive ? "Active" : "Inactive",
+          name: user.name || inviteEmail.split("@")[0],
+          phone: user.phone,
+          department: user.venueName ?? department,
+          role: membership.role,
+          status: membership.isActive ? "Active" : "Inactive",
           membershipId: membership.id,
           createdAt: membership.createdAt,
           access
@@ -447,8 +469,6 @@ export async function PATCH(request: Request) {
       name?: string;
       phone?: string | null;
       venueName?: string;
-      role?: StaffRoleValue;
-      isActive?: boolean;
     } = {};
 
     const name = cleanText(input?.name);
@@ -472,36 +492,63 @@ export async function PATCH(request: Request) {
     if (name) userUpdates.name = name;
     if (parsedPhone) userUpdates.phone = parsedPhone.data ?? null;
     if (department) userUpdates.venueName = department;
-    if (role) userUpdates.role = role;
-    if (status === "Active") userUpdates.isActive = true;
-    if (status === "Inactive") userUpdates.isActive = false;
 
     const staff = await prisma.$transaction(async (transaction) => {
+      // `include: { user: true }` is load-bearing. The Assign-role submission
+      // posts `{ id, role }` only, so `userUpdates` is empty and the response
+      // falls back to this row - without it the dialog receives
+      // `staff.user.id === undefined` and breaks on a 200.
       const membership = await transaction.organizationMembership.findFirst({
-        where: { organizationId: actor.organizationId, userId: id }
+        where: { organizationId: actor.organizationId, userId: id },
+        include: { user: true }
       });
 
       if (!membership) {
-        throw new Error("Staff member was not found in this organization.");
+        throw new AuthorizationError(
+          404,
+          "Staff member was not found in this organization."
+        );
+      }
+
+      // The edit dialog posts `role` on EVERY save, including one that only
+      // touched a phone number. "Carried a role" is not "changed the role", and
+      // guarding on the former would 403 half of legitimate traffic.
+      const roleChanged =
+        role !== null && role !== normalizeStaffRole(membership.role);
+      const statusChanged = status === "Active" || status === "Inactive";
+
+      // Suspending or restoring somebody is an exercise of authority over them,
+      // so the target check applies to status transitions too.
+      if (roleChanged || statusChanged) {
+        assertCanManageMember(actor.membership.role, membership.role);
+      }
+
+      if (roleChanged) {
+        assertNotSelfRoleChange(actor.id, id);
+        assertAssignableRole(actor.membership.role, role);
       }
 
       const updatedMembership = await transaction.organizationMembership.update(
         {
           where: { id: membership.id },
           data: {
-            ...(role ? { role } : {}),
+            ...(roleChanged && role ? { role } : {}),
             ...(status === "Active" ? { isActive: true } : {}),
             ...(status === "Inactive" ? { isActive: false } : {})
           }
         }
       );
 
-      const updatedUser = await transaction.user.update({
-        where: { id },
-        data: userUpdates
-      });
+      // `role` and `isActive` are deliberately absent from `userUpdates`: both
+      // are global columns on a row shared across every organization this person
+      // belongs to. Membership carries the per-tenant answer for each.
+      const updatedUser =
+        Object.keys(userUpdates).length > 0
+          ? await transaction.user.update({ where: { id }, data: userUpdates })
+          : membership.user;
 
-      const accessData = customAccess ?? (role ? accessForRole(role) : null);
+      const accessData =
+        customAccess ?? (roleChanged && role ? accessForRole(role) : null);
       const access = accessData
         ? await transaction.userAccess.upsert({
             where: {
@@ -538,10 +585,7 @@ export async function PATCH(request: Request) {
         phone: staff.user.phone,
         department: staff.user.venueName ?? "General",
         role: staff.membership.role,
-        status:
-          staff.user.isActive && staff.membership.isActive
-            ? "Active"
-            : "Inactive",
+        status: staff.membership.isActive ? "Active" : "Inactive",
         access: staff.access,
         createdAt: staff.membership.createdAt
       }
@@ -571,13 +615,32 @@ export async function DELETE(request: Request) {
       );
     }
 
-    await prisma.organizationMembership.updateMany({
-      where: { organizationId: actor.organizationId, userId: id },
-      data: { isActive: false }
+    // Read first, so removing somebody who is not in this organization is a 404
+    // rather than a silent `updateMany` no-op followed by a global write. The
+    // old pair let any `canEditStaff` holder in any tenant disable any account
+    // platform-wide just by supplying its UUID.
+    const membership = await prisma.organizationMembership.findFirst({
+      where: { organizationId: actor.organizationId, userId: id }
     });
 
-    await prisma.user.update({
-      where: { id },
+    if (!membership) {
+      throw new AuthorizationError(
+        404,
+        "Staff member was not found in this organization."
+      );
+    }
+
+    assertCanManageMember(actor.membership.role, membership.role);
+
+    // The global `users.is_active` write is dropped rather than scoped.
+    // Scoping would remove "any user in the database" but keep "global effect":
+    // `requireAuthenticatedUser` and `ensureProvisionedUser` both reject on
+    // `user.isActive` BEFORE consulting any membership, so a person in orgs A
+    // and B removed from A was locked out of B too, with no surface in B able
+    // to undo it. Deactivating the membership is already a complete lockout,
+    // and it is what the UI promises.
+    await prisma.organizationMembership.update({
+      where: { id: membership.id },
       data: { isActive: false }
     });
 

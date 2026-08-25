@@ -11,7 +11,7 @@
  */
 export class AuthorizationError extends Error {
   constructor(
-    public readonly status: 401 | 403,
+    public readonly status: 401 | 403 | 404 | 409,
     message: string
   ) {
     super(message);

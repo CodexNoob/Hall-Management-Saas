@@ -9,7 +9,21 @@ export const staffRoleValues = [
 
 export type StaffRoleValue = (typeof staffRoleValues)[number];
 
+/**
+ * `Owner` is deliberately distinct from `Administrator`.
+ *
+ * Both role values used to render as "Administrator", and
+ * `staffRoleValueByName` maps that one name back to `admin` - so opening Edit
+ * on an owner and saving a phone number round-tripped their role through
+ * `owner -> "Administrator" -> admin` and silently demoted them. Every guard in
+ * `lib/auth/guards.ts` compares stored role against submitted role, so the
+ * round trip has to be lossless before those comparisons mean anything.
+ *
+ * `roleTemplates` stays owner-free: Owner is a name the UI can display, not a
+ * role the invite form may hand out.
+ */
 export type StaffRoleName =
+  | "Owner"
   | "Administrator"
   | "Event Manager"
   | "Kitchen Staff"
@@ -70,7 +84,7 @@ export const accessPermissionKeys: AccessPermissionKey[] = [
 ];
 
 export const staffRoleNameByValue: Record<StaffRoleValue, StaffRoleName> = {
-  owner: "Administrator",
+  owner: "Owner",
   admin: "Administrator",
   manager: "Event Manager",
   kitchen: "Kitchen Staff",
@@ -79,6 +93,7 @@ export const staffRoleNameByValue: Record<StaffRoleValue, StaffRoleName> = {
 };
 
 export const staffRoleValueByName: Record<StaffRoleName, StaffRoleValue> = {
+  Owner: "owner",
   Administrator: "admin",
   "Event Manager": "manager",
   "Kitchen Staff": "kitchen",

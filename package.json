@@ -18,12 +18,10 @@
     "e2e:authenticated": "playwright test --project=authenticated --project=authenticated-mobile",
     "e2e:mutation": "playwright test --project=mutation",
     "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:tenant-backfill": "prisma db execute --file prisma/multi-tenancy-backfill.sql",
     "db:clients-backfill": "prisma db execute --file prisma/clients-backfill.sql",
-    "db:admin-permissions-backfill": "prisma db execute --file prisma/admin-permissions-backfill.sql",
     "db:member-view-access-backfill": "prisma db execute --file prisma/member-view-access-backfill.sql",
     "db:sample-vendors": "prisma db execute --file prisma/sample-vendors.sql",
     "db:billing-strengthening": "prisma db execute --file prisma/billing-strengthening.sql",
@@ -41,7 +39,8 @@
     "mobile:add:ios": "capacitor add ios",
     "mobile:sync": "capacitor sync",
     "mobile:open:android": "capacitor open android",
-    "mobile:open:ios": "capacitor open ios"
+    "mobile:open:ios": "capacitor open ios",
+    "db:migrate:dev-DANGEROUS-see-AGENTS": "prisma migrate dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

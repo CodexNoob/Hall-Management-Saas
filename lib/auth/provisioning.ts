@@ -8,7 +8,7 @@ import type {
   UserAccess
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { accessForRole, normalizeStaffRole } from "@/lib/auth/permissions";
+import { accessForRole } from "@/lib/auth/permissions";
 import { createOrganizationSlug } from "@/lib/auth/organization-slug";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import {
@@ -55,6 +55,13 @@ type LoadedUser = User & {
   access: UserAccess[];
   memberships: MembershipWithOrganization[];
 };
+
+/**
+ * A membership provisioning has to invent gets the lowest privilege there is,
+ * never a role read off `users.role`. Inventing one is already a guess; an
+ * administrator raises it deliberately from the staff screen.
+ */
+const PROVISIONED_MEMBERSHIP_ROLE = "viewer" as const;
 
 const userGraph = {
   access: true,
@@ -156,7 +163,6 @@ async function reconcile(
   existing: LoadedUser,
   profile: SupabaseProfile
 ): Promise<ProvisionedContext> {
-  const resolvedRole = normalizeStaffRole(existing.role);
   const primaryMembership = existing.memberships.find(
     (membership) => membership.organizationId === existing.organizationId
   );
@@ -186,10 +192,16 @@ async function reconcile(
 
   // Absent rows get created. An inactive membership is left exactly as the
   // administrator left it - see rule 1 at the top of this file.
+  //
+  // There used to be a third branch here that repaired an active membership's
+  // role from `users.role` whenever the two disagreed. That is what made the
+  // global column dangerous: POST /api/staff wrote an invite's role onto the
+  // shared user row, and this copied it back into the invitee's PRIMARY
+  // organization at their next sign-in - so anyone able to create their own
+  // tenant could invite their own address at "owner" and be promoted inside
+  // somebody else's. A membership's role is now only ever what an administrator
+  // of that organization set.
   const createMembership = !primaryMembership;
-  const repairMembershipRole =
-    primaryMembership?.isActive === true &&
-    primaryMembership.role !== resolvedRole;
   const createAccess = !primaryAccess;
   const pinTesterSubscription =
     isTesterBypassEmail(profile.email) &&
@@ -198,7 +210,6 @@ async function reconcile(
   const hasWork =
     Object.keys(userData).length > 0 ||
     createMembership ||
-    repairMembershipRole ||
     createAccess ||
     pinTesterSubscription ||
     signedIn;
@@ -228,13 +239,8 @@ async function reconcile(
         data: {
           organizationId: user.organizationId,
           userId: user.id,
-          role: resolvedRole
+          role: PROVISIONED_MEMBERSHIP_ROLE
         }
-      });
-    } else if (repairMembershipRole) {
-      await transaction.organizationMembership.update({
-        where: { id: primaryMembership!.id },
-        data: { role: resolvedRole }
       });
     }
 
@@ -267,7 +273,7 @@ async function reconcile(
         data: {
           organizationId: user.organizationId,
           userId: user.id,
-          ...accessForRole(resolvedRole)
+          ...accessForRole(PROVISIONED_MEMBERSHIP_ROLE)
         }
       }));
 
