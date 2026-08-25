@@ -49,6 +49,59 @@ function* walk(directory: string): Generator<string> {
 }
 
 const HANDLER = /export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PATCH|PUT|DELETE)\b/g;
+const GUARD = /\bauthorize\s*\(|\bauthorizeMember\s*\(/;
+
+/**
+ * A handler may delegate its guard to the module it hands the request to.
+ *
+ * `staff/[principalId]/route.ts` parses one path segment and calls
+ * `updateStaffProfile(request, principalId)`; the guard is the first line of
+ * that function. Refusing to follow the call would leave two honest routes
+ * failing and the only remedies would be an allowlist entry - a free pass on a
+ * route that genuinely needs a guard - or authorizing twice per request.
+ *
+ * Followed ONE level, and only into the specific exported function the route
+ * calls, so this cannot be satisfied by a module that guards some OTHER export.
+ */
+function delegateIsGuarded(source: string): boolean {
+  const imports = [
+    ...source.matchAll(/import\s*\{([^}]+)\}\s*from\s*"(@\/[^"]+)"/g)
+  ];
+
+  for (const [, names, specifier] of imports) {
+    const called = names
+      .split(",")
+      .map((name) => name.trim().split(/\s+as\s+/).pop()!.trim())
+      .filter((name) => name && new RegExp(`\\b${name}\\s*\\(`).test(source));
+
+    if (called.length === 0) continue;
+
+    const target = path.join(ROOT, `${specifier.slice(2)}.ts`);
+    let module: string;
+    try {
+      module = readFileSync(target, "utf8");
+    } catch {
+      continue;
+    }
+
+    for (const name of called) {
+      // The function's own body: from its declaration to the next top-level
+      // export, so a guard on the neighbouring export does not count.
+      const start = module.search(
+        new RegExp(`export\\s+(?:async\\s+)?function\\s+${name}\\b`)
+      );
+      if (start === -1) continue;
+
+      const rest = module.slice(start);
+      const next = rest.slice(1).search(/\nexport\s/);
+      const body = next === -1 ? rest : rest.slice(0, next + 1);
+
+      if (GUARD.test(body)) return true;
+    }
+  }
+
+  return false;
+}
 
 describe("every API route reaches a guard", () => {
   const routes = [...walk(API)].map((file) => ({
@@ -86,8 +139,8 @@ describe("every API route reaches a guard", () => {
       ).toBeGreaterThan(0);
 
       expect(
-        /\bauthorize\s*\(|\bauthorizeMember\s*\(/.test(route.source),
-        `${relative} exports ${handlers.join(", ")} but never calls authorize() or authorizeMember()`
+        GUARD.test(route.source) || delegateIsGuarded(route.source),
+        `${relative} exports ${handlers.join(", ")} but neither calls authorize()/authorizeMember() nor delegates to a function that does`
       ).toBe(true);
     }
   );

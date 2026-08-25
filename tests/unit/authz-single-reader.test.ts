@@ -103,6 +103,9 @@ describe("INV-2: the privilege tables have one reader", () => {
 
     for (const specifier of dead) {
       const offenders = files
+        // This file names all five to look for them, so scanning itself would
+        // report every one of them as an offender forever.
+        .filter((file) => file.relative !== path.relative(ROOT, __filename))
         .filter((file) => file.source.includes(`"${specifier}"`))
         .map((file) => file.relative);
 

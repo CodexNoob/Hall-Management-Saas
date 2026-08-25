@@ -32,6 +32,7 @@ import { GET, POST, PUT } from "@/app/api/events/[eventId]/menu/route";
 import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createSignedFileUrls } from "@/lib/storage/files";
+import { authzContext } from "./authz-test-helpers";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -43,12 +44,10 @@ const addOnId = "12345678-1234-4234-8234-123456789012";
 const dishPicturePath = `${organizationId}/menu/ribs.jpg`;
 const signedUrl = "https://storage.example/signed/ribs.jpg?token=abc";
 
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
+const actor = authzContext({
   organizationId,
-  membership: { role: "OWNER" },
-  access: null
-};
+  userId: "22222222-2222-4222-8222-222222222222"
+});
 
 const params = Promise.resolve({ eventId });
 
@@ -119,8 +118,7 @@ function storedMenu(
 describe("event menu route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authorize).mockResolvedValue(actor as never);
-    vi.mocked(authorize).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor);
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       id: eventId,
       hallId,

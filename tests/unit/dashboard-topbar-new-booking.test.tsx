@@ -30,11 +30,15 @@ describe("DashboardTopbar New booking button", () => {
     ).not.toBeDisabled();
   });
 
-  it("is enabled for an administrative role regardless of the access row", () => {
+  it("is disabled for an administrative key set that lacks it", () => {
+    // There is no administrator bypass here, because there is no administrator
+    // concept anywhere. Holding 59 of the 62 keys does not stand in for holding
+    // this one - which is the whole point of asking about a key rather than
+    // about who somebody is.
     cacheTestSession(starterPermissionsExcept("administrator", ["booking.create"], []));
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
-    ).not.toBeDisabled();
+    ).toBeDisabled();
   });
 });

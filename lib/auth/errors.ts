@@ -1,6 +1,6 @@
 /**
  * Authorization failures, in one place so both the request-time guards
- * (`lib/auth/server-auth.ts`) and the provisioning path
+ * (`lib/authz/authorize.ts`) and the provisioning path
  * (`lib/auth/provisioning.ts`) can throw the same types without importing each
  * other. `createApiErrorResponse` maps every one of these to its status, so a
  * route only has to let them escape.

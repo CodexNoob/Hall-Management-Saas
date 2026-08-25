@@ -39,12 +39,13 @@ import { GET, POST } from "@/app/api/files/route";
 import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createSignedFileUrl } from "@/lib/storage/files";
+import { authzContext } from "./authz-test-helpers";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
-  organizationId
-};
+const actor = authzContext({
+  organizationId,
+  userId: "22222222-2222-4222-8222-222222222222"
+});
 
 describe("file access isolation", () => {
   beforeEach(() => {
@@ -56,7 +57,7 @@ describe("file access isolation", () => {
       data: { signedUrl: "https://storage.example/signed" },
       error: null
     });
-    vi.mocked(authorize).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor);
     vi.mocked(prisma.fileFolder.findMany).mockResolvedValue([]);
     vi.mocked(prisma.storedFile.findMany).mockResolvedValue([]);
     vi.mocked(prisma.event.findMany).mockResolvedValue([]);
@@ -80,7 +81,7 @@ describe("file access isolation", () => {
     expect(response.status).toBe(200);
     expect(authorize).toHaveBeenCalledWith(
       request,
-      "canViewEventManager"
+      "file.read"
     );
     expect(prisma.fileFolder.findMany).toHaveBeenCalledWith(
       expect.objectContaining({

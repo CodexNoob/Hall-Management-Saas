@@ -4,7 +4,11 @@ import {
   invoiceStatuses,
   transitionInvoiceStatus
 } from "@/features/billing/services/invoice-lifecycle.service";
-import { authorize, requireUserActor } from "@/lib/authz/authorize";
+import {
+  assertPermission,
+  authorize,
+  requireUserActor
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 
 const schema = z.object({
@@ -21,6 +25,15 @@ export async function PATCH(
     const { invoiceId } = await params;
     const id = z.string().uuid().parse(invoiceId);
     const input = schema.parse(await request.json());
+
+    // Cancelling stamps `voidedAt` - it reverses a billed amount without moving
+    // cash, which is the accounting-side twin of a refund. Every other
+    // transition is ordinary invoice bookkeeping, so the door asks for what
+    // every caller needs and this one branch asks again for the dangerous key.
+    if (input.status === "Cancelled") {
+      await assertPermission(actor, "invoice.void");
+    }
+
     const invoice = await transitionInvoiceStatus(
       { id: requireUserActor(actor), name: actor.actorName, organizationId: actor.organizationId },
       id,

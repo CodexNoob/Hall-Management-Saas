@@ -41,7 +41,6 @@ export const TABLE_ENDPOINTS: Record<string, readonly string[]> = {
   activity_logs: ["/api/events", "/api/dashboard"],
   vendors: ["/api/vendors"],
   users: ["/api/staff"],
-  user_access: ["/api/staff"],
   organization_memberships: ["/api/staff"],
   organization_settings: ["/api/settings"],
   support_tickets: ["/api/support/tickets"],

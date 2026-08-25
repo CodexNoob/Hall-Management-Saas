@@ -11,19 +11,37 @@ vi.mock("@/lib/prisma", () => ({
     }
   }
 }));
+// Who holds a key is the resolver's question, and it has its own suite. Here
+// the only thing that matters is that this module ASKS it rather than reading a
+// role name off the membership row.
+vi.mock("@/lib/authz/decide", () => ({
+  principalIdsHolding: vi.fn()
+}));
 
 import { syncKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
+import { principalIdsHolding } from "@/lib/authz/decide";
 import { prisma } from "@/lib/prisma";
 
 const organizationId = "11111111-1111-4111-8111-111111111111";
 
-function membership(role: string, id: string, name: string, email = `${id}@x.test`) {
-  return { role, user: { id, name, email } };
+function membership(
+  principalId: string,
+  id: string,
+  name: string,
+  email = `${id}@x.test`
+) {
+  return { principalId, user: { id, name, email } };
+}
+
+/** The principals the resolver reports as holding `kitchen.status.update`. */
+function eligible(...principalIds: string[]) {
+  vi.mocked(principalIdsHolding).mockResolvedValue(new Set(principalIds));
 }
 
 describe("kitchen staff workers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    eligible();
     vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({
       count: 0
     } as never);
@@ -32,9 +50,10 @@ describe("kitchen staff workers", () => {
     } as never);
   });
 
-  it("adds a Kitchen Staff member who has no worker row yet", async () => {
+  it("adds an eligible member who has no worker row yet", async () => {
+    eligible("principal-1");
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-      membership("Kitchen Staff", "user-1", "Mendy")
+      membership("principal-1", "user-1", "Mendy")
     ] as never);
     vi.mocked(prisma.kitchenWorker.findMany)
       .mockResolvedValueOnce([] as never)
@@ -55,15 +74,15 @@ describe("kitchen staff workers", () => {
     ]);
   });
 
-  it("recognises every spelling the role has been stored as", async () => {
-    // Roles are free text: "Kitchen Staff", "kitchen" and "kitchenstaff" have
-    // all been written. Comparing the raw string would silently leave most of
-    // the kitchen off the list.
+  it("asks who may advance production, not who holds a named role", async () => {
+    // Roles are tenant-authored, so "Kitchen Staff" is a label a venue may
+    // rename or replace. Eligibility asks the only question that survives that:
+    // who may move a dish along.
+    eligible("principal-1", "principal-2");
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-      membership("Kitchen Staff", "user-1", "A"),
-      membership("kitchen", "user-2", "B"),
-      membership("kitchenstaff", "user-3", "C"),
-      membership("Event Manager", "user-4", "D")
+      membership("principal-1", "user-1", "A"),
+      membership("principal-2", "user-2", "B"),
+      membership("principal-3", "user-3", "C")
     ] as never);
     vi.mocked(prisma.kitchenWorker.findMany)
       .mockResolvedValueOnce([] as never)
@@ -71,19 +90,21 @@ describe("kitchen staff workers", () => {
 
     await syncKitchenStaffWorkers(organizationId);
 
+    expect(principalIdsHolding).toHaveBeenCalledWith(
+      organizationId,
+      "kitchen.status.update"
+    );
+
     const created = vi.mocked(prisma.kitchenWorker.createMany).mock
       .calls[0][0] as { data: Array<{ userId: string }> };
 
-    expect(created.data.map((row) => row.userId)).toEqual([
-      "user-1",
-      "user-2",
-      "user-3"
-    ]);
+    expect(created.data.map((row) => row.userId)).toEqual(["user-1", "user-2"]);
   });
 
   it("falls back to the email when the account has no name", async () => {
+    eligible("principal-1");
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-      membership("kitchen", "user-1", "   ", "chef@venue.test")
+      membership("principal-1", "user-1", "   ", "chef@venue.test")
     ] as never);
     vi.mocked(prisma.kitchenWorker.findMany)
       .mockResolvedValueOnce([] as never)
@@ -98,8 +119,9 @@ describe("kitchen staff workers", () => {
   });
 
   it("does not duplicate a staff member who is already linked", async () => {
+    eligible("principal-1");
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-      membership("kitchen", "user-1", "Mendy")
+      membership("principal-1", "user-1", "Mendy")
     ] as never);
     vi.mocked(prisma.kitchenWorker.findMany)
       .mockResolvedValueOnce([
@@ -114,11 +136,12 @@ describe("kitchen staff workers", () => {
     expect(prisma.kitchenWorker.createMany).not.toHaveBeenCalled();
   });
 
-  it("retires a worker whose staff role was taken away", async () => {
+  it("retires a worker who no longer holds the permission", async () => {
     // The row stays so existing assignments keep their name; only its
     // availability changes.
+    eligible();
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-      membership("Event Manager", "user-1", "Mendy")
+      membership("principal-1", "user-1", "Mendy")
     ] as never);
     vi.mocked(prisma.kitchenWorker.findMany)
       .mockResolvedValueOnce([

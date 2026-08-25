@@ -34,9 +34,12 @@ describe("readMutationResponse", () => {
   });
 
   it("falls back to a generic message when a failure has no body", async () => {
+    // Deliberately not "Unable to update staff.": this reader now serves the
+    // invite, deactivate and assignment calls too, so the copy has to fit a
+    // failure that was never an update.
     await expect(
       readMutationResponse(new Response(null, { status: 500 }))
-    ).rejects.toThrow("Unable to update staff.");
+    ).rejects.toThrow("The change could not be saved.");
   });
 
   it("resolves to null when a successful response has no JSON body", async () => {

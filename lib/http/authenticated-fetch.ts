@@ -9,7 +9,7 @@ import { getCachedAuthSession } from "@/lib/auth/client";
  *
  * The `Authorization: Bearer` header is gone: the session now travels as a
  * cookie that the browser attaches to every same-origin request by itself, and
- * `lib/auth/server-auth.ts` reads it from there. Sending the token by hand as
+ * `lib/authz/authorize.ts` reads it from there. Sending the token by hand as
  * well would just be a second copy of the same credential.
  *
  * The session check stays. It is not what authenticates the request any more -

@@ -19,6 +19,9 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/features/bookings/services/booking.service", () => ({
   BookingError: class BookingError extends Error {},
+  // `createApiErrorResponse` reaches for this on every error path, so leaving
+  // it off the mock turns any failure into an unrelated "no export" crash.
+  isWriteConflictError: vi.fn(() => false),
   createBooking: vi.fn(),
   expireOrganizationHolds: vi.fn().mockResolvedValue(0)
 }));
@@ -26,18 +29,19 @@ vi.mock("@/features/bookings/services/booking.service", () => ({
 import { GET } from "@/app/api/events/route";
 import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
+import { authzContext } from "./authz-test-helpers";
 
 describe("event tenant isolation", () => {
   const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authorize).mockResolvedValue({
-      id: "22222222-2222-4222-8222-222222222222",
-      organizationId,
-      membership: { role: "member" },
-      access: { allowedHallIds: [] }
-    } as never);
+    vi.mocked(authorize).mockResolvedValue(
+      authzContext({
+        organizationId,
+        userId: "22222222-2222-4222-8222-222222222222"
+      })
+    );
     vi.mocked(prisma.event.findMany).mockResolvedValue([]);
     vi.mocked(prisma.hall.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventType.findMany).mockResolvedValue([]);

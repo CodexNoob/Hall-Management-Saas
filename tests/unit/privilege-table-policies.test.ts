@@ -33,11 +33,14 @@ const projectRoot = process.cwd();
  * the second, which holds roleAccessOverrides, two_factor_required and
  * session_timeout_minutes.
  */
+// Four, not five. `user_access` was the fifth and is gone: the RBAC migration
+// replaced its boolean columns with `principal_roles` / `principal_permissions`,
+// which are handled far more strictly - RLS on, everything revoked, and no
+// policy at all. Those are covered by tests/unit/authz-single-reader.ts.
 const PRIVILEGE_TABLES = [
   "organizations",
   "organization_memberships",
   "users",
-  "user_access",
   "organization_settings"
 ] as const;
 

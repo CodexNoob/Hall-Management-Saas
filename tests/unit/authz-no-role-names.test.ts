@@ -43,6 +43,70 @@ function* walk(directory: string): Generator<string> {
   }
 }
 
+/**
+ * The source with its comments blanked out.
+ *
+ * The invariant is about CODE. Explaining why a role name is not used -
+ * "checked against `role.manage` rather than against a role named 'owner'" - is
+ * the prose that keeps the next person from undoing it, and a test that forbids
+ * writing that down would be paid for by deleting the explanations.
+ *
+ * Blanked rather than deleted so nothing on either side of a comment joins up
+ * into a match that was never written.
+ */
+function codeOf(file: string): string {
+  const source = readFileSync(file, "utf8");
+  let out = "";
+  let index = 0;
+
+  while (index < source.length) {
+    const two = source.slice(index, index + 2);
+
+    if (two === "//") {
+      const end = source.indexOf("\n", index);
+      const stop = end === -1 ? source.length : end;
+      out += " ".repeat(stop - index);
+      index = stop;
+      continue;
+    }
+
+    if (two === "/*") {
+      const end = source.indexOf("*/", index + 2);
+      const stop = end === -1 ? source.length : end + 2;
+      // Newlines kept so a reported line number still means something.
+      out += source.slice(index, stop).replace(/[^\n]/g, " ");
+      index = stop;
+      continue;
+    }
+
+    const char = source[index];
+
+    if (char === '"' || char === "'" || char === "`") {
+      out += char;
+      index += 1;
+
+      while (index < source.length && source[index] !== char) {
+        if (source[index] === "\\") {
+          out += source.slice(index, index + 2);
+          index += 2;
+          continue;
+        }
+        out += source[index];
+        index += 1;
+      }
+
+      out += source[index] ?? "";
+      index += 1;
+      continue;
+    }
+
+    out += char;
+    index += 1;
+  }
+
+  return out;
+}
+
 describe("INV-1: no role name appears in application code", () => {
   const files = SCANNED.flatMap((directory) => [
     ...walk(path.join(ROOT, directory))
@@ -67,7 +131,7 @@ describe("INV-1: no role name appears in application code", () => {
 
         if (ALLOWED.has(relative)) return false;
 
-        return needle.test(readFileSync(file, "utf8"));
+        return needle.test(codeOf(file));
       });
 
       expect(offenders.map((file) => path.relative(ROOT, file))).toEqual([]);
@@ -87,7 +151,7 @@ describe("INV-1: no role name appears in application code", () => {
 
         if (ALLOWED.has(relative)) return false;
 
-        return needle.test(readFileSync(file, "utf8"));
+        return needle.test(codeOf(file));
       });
 
       expect(offenders.map((file) => path.relative(ROOT, file))).toEqual([]);
@@ -98,9 +162,7 @@ describe("INV-1: no role name appears in application code", () => {
     // The specific shape this replaced: one predicate, thirteen call sites, each
     // a place a new role silently got either everything or nothing.
     const offenders = files.filter((file) =>
-      /isAdministrativeRole|normalizeStaffRole|roleAccess\b/.test(
-        readFileSync(file, "utf8")
-      )
+      /isAdministrativeRole|normalizeStaffRole|roleAccess\b/.test(codeOf(file))
     );
 
     expect(offenders.map((file) => path.relative(ROOT, file))).toEqual([]);

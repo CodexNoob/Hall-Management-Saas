@@ -3,6 +3,7 @@ import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
   authorizeMember: vi.fn(),
+  hasPermission: vi.fn(),
   enforceRateLimit: vi.fn(),
   notify: vi.fn(),
   findMany: vi.fn(),
@@ -14,7 +15,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
-  authorizeMember: mocks.authorizeMember
+  authorizeMember: mocks.authorizeMember,
+  // "May I read a colleague's ticket" is a second question the handler asks
+  // after the door check. The resolver's answer has its own suite.
+  hasPermission: mocks.hasPermission
 }));
 vi.mock("@/lib/security/rate-limit", () => ({
   enforceRateLimit: mocks.enforceRateLimit
@@ -66,6 +70,7 @@ describe("support tickets API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.authorizeMember.mockResolvedValue(authzContext(actor));
+    mocks.hasPermission.mockResolvedValue(false);
     mocks.enforceRateLimit.mockResolvedValue(null);
     mocks.findMany.mockResolvedValue([ticket]);
     mocks.create.mockResolvedValue(ticket);

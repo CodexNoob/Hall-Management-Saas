@@ -30,6 +30,7 @@ import { DELETE, POST } from "@/app/api/events/[eventId]/menu/package/route";
 import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createSignedFileUrls } from "@/lib/storage/files";
+import { authzContext } from "./authz-test-helpers";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -41,12 +42,10 @@ const buffetDishId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 /** Carries both rules, so the event has to be asked which one applies. */
 const bothStylesDishId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
+const actor = authzContext({
   organizationId,
-  membership: { role: "OWNER" },
-  access: null
-};
+  userId: "22222222-2222-4222-8222-222222222222"
+});
 
 const params = Promise.resolve({ eventId });
 

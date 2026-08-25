@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
   authorize: vi.fn()
@@ -62,10 +63,7 @@ describe("payment confirmation", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(authorize).toHaveBeenCalledWith(
-      request,
-      "canManagePayments"
-    );
+    expect(authorize).toHaveBeenCalledWith(request, "payment.record");
     expect(recordPaymentWithAudit).toHaveBeenCalledWith(actor, {
       eventId,
       amountCents: 25000,

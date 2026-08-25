@@ -20,6 +20,32 @@ import {
 
 const ROOT = path.resolve(__dirname, "../..");
 
+/**
+ * Catalog keys whose FEATURE does not exist yet, each with the gap it names.
+ *
+ * Deliberately shaped like PUBLIC_ROUTES in authz-route-coverage.test.ts: an
+ * entry here is a visible line in a diff, so shipping an unenforceable key is a
+ * decision somebody reviews rather than something a test silently tolerates.
+ *
+ * This is NOT a place to park a key whose route you forgot to guard. The test
+ * below fails the moment a listed key becomes enforced, so the list cannot rot
+ * into a set of stale excuses - and every one of these is a permission an
+ * administrator can tick today with no effect anywhere, which is exactly the
+ * state it records.
+ */
+const NOT_YET_WIRED: Record<string, string> = {
+  "event.delete":
+    "No DELETE handler on /api/events. Deletion is a soft `deleted` flag that no route sets.",
+  "client.delete":
+    "No DELETE handler on /api/clients. The route exposes GET, POST and PATCH only.",
+  "integration.manage":
+    "No connect-or-configure endpoint exists. /api/integrations/google-drive only reports whether the deployment is configured, which is a file.read question.",
+  "schoolcycle.read":
+    "The SchoolCycle model is in the schema with no route and no dashboard page behind it.",
+  "schoolcycle.manage":
+    "Same gap as schoolcycle.read - the recurring schedule has a table and nothing that reads or writes it."
+};
+
 function* walk(directory: string): Generator<string> {
   for (const entry of readdirSync(directory)) {
     const full = path.join(directory, entry);
@@ -159,12 +185,42 @@ describe("permission catalog", () => {
       .join("\n");
 
     const unreferenced = permissionKeys.filter(
-      (key) => !sources.includes(`"${key}"`)
+      (key) => !sources.includes(`"${key}"`) && !(key in NOT_YET_WIRED)
     );
 
     expect(
       unreferenced,
       "these keys exist in the catalog but nothing enforces or renders them"
     ).toEqual([]);
+  });
+
+  it("keeps the not-yet-wired list honest", () => {
+    // The list above is only safe while it stays a list of GAPS. An entry for a
+    // key that has since been wired reads as an open question that is actually
+    // closed, and the next unenforced key added beside it inherits the excuse.
+    const sources = ["app", "features", "lib"]
+      .flatMap((directory) => [...walk(path.join(ROOT, directory))])
+      .filter(
+        (file) =>
+          !file.includes(path.join("lib", "authz", "catalog.ts")) &&
+          !file.includes(path.join("lib", "authz", "starter-roles.ts"))
+      )
+      .map((file) => readFileSync(file, "utf8"))
+      .join("\n");
+
+    for (const [key, reason] of Object.entries(NOT_YET_WIRED)) {
+      expect(
+        permissionKeys,
+        `${key} is listed as not-yet-wired but is not in the catalog`
+      ).toContain(key);
+      expect(
+        reason.length,
+        `${key} has no reason recorded`
+      ).toBeGreaterThan(20);
+      expect(
+        sources.includes(`"${key}"`),
+        `${key} is enforced now - take it off the not-yet-wired list`
+      ).toBe(false);
+    }
   });
 });

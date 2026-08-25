@@ -7,6 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardOverview } from "@/features/dashboard/components/dashboard-overview";
+import type { PermissionKey } from "@/lib/authz/catalog";
 import { cacheTestSession, cacheTestSessionForStarterRole, starterPermissionsExcept } from "./auth-session-fixture";
 
 // Gating follows the VIEW permissions and the route map, not the Staff page's
@@ -96,12 +97,14 @@ function visibleModuleTiles() {
 // so each role needs its own render.
 const cases: Array<{
   role: string;
+  /** For the cases modelling a key set no shipped starter role carries. */
+  permissions?: PermissionKey[];
   sections: string[];
   actions: string[];
   tiles: string[];
 }> = [
   {
-    role: "manager",
+    role: "event-manager",
     sections: [
       "totalEvents",
       "bookedEvents",
@@ -115,9 +118,9 @@ const cases: Array<{
     tiles: ["Kitchen", "Calendar", "Events"]
   },
   {
-    // canViewMenu/canViewKitchenDashboard but no canViewPaymentInfo, and
-    // /dashboard/events is reachable through canViewCalendar.
-    role: "kitchen",
+    // Menu and kitchen reads but no invoice.read, and /dashboard/events is
+    // reachable through calendar.read.
+    role: "kitchen-staff",
     sections: [
       "totalEvents",
       "bookedEvents",
@@ -129,10 +132,14 @@ const cases: Array<{
     tiles: ["Kitchen", "Calendar", "Events"]
   },
   {
-    // Billing Staff has no kitchen permission of its own, and the two shortcuts
-    // it could otherwise reach are the hidden ones - so it gets none, and the
-    // Quick actions panel drops its heading rather than showing an empty list.
-    role: "billing",
+    // Somebody who handles money and nothing operational. No shipped starter
+    // role carries this set - which is the point: what a screen shows follows
+    // KEYS, so a tenant who authors a Bookkeeper role gets this with no code
+    // change. The two shortcuts it could otherwise reach are the MVP-hidden
+    // ones, so it gets none and Quick actions drops its heading rather than
+    // showing an empty list.
+    role: "a money-only principal",
+    permissions: ["calendar.read", "event.read", "invoice.read", "report.read"],
     sections: [
       "totalEvents",
       "bookedEvents",
@@ -165,9 +172,10 @@ describe("DashboardOverview role gating", () => {
     window.localStorage.clear();
   });
 
-  for (const { role, sections, actions, tiles } of cases) {
+  for (const { role, permissions, sections, actions, tiles } of cases) {
     it(`renders exactly the ${role} section set`, () => {
-      cacheTestSessionForStarterRole(role);
+      if (permissions) cacheTestSession(permissions);
+      else cacheTestSessionForStarterRole(role);
       renderOverview();
 
       expect(visibleSections().sort()).toEqual([...sections].sort());
@@ -191,13 +199,16 @@ describe("DashboardOverview role gating", () => {
     );
   });
 
-  it("lets an administrative role through even with an all-false access row", () => {
-    cacheTestSession(starterPermissionsExcept("administrator", ["calendar.read", "event.read", "invoice.read"], []));
-    renderOverview();
+  it("gives an administrative key set no bypass at all", () => {
+    // This is the shape the rebuild removed. There used to be an administrator
+    // branch that rendered the page whatever the access row said; now the only
+    // thing that opens it is holding the key, and an Administrator stripped of
+    // `calendar.read` sees exactly what anyone else stripped of it sees.
+    cacheTestSession(starterPermissionsExcept("administrator", ["calendar.read"], []));
+    const { container } = renderOverview();
 
-    expect(visibleSections().sort()).toEqual(
-      Object.keys(sectionHeadings).sort()
-    );
+    expect(container).toBeEmptyDOMElement();
+    expect(visibleSections()).toEqual([]);
   });
 
   it("hides the whole page without canViewHome", () => {
@@ -233,16 +244,19 @@ describe("DashboardOverview role gating", () => {
     ).toBeInTheDocument();
   });
 
-  // Content gating and navigation gating are independent: losing event
-  // visibility removes the event-derived sections but keeps a shortcut to a page
-  // the user can still open.
-  it("drops the event overview when neither calendar nor event-manager view is granted", () => {
-    cacheTestSession(starterPermissionsExcept("viewer", ["calendar.read", "event.read", "invoice.read"], ["calendar.read"]));
+  // Content gating and navigation gating are independent: what the page DRAWS
+  // follows the content keys, and what it OFFERS follows the route map. Losing
+  // the kitchen key takes the shortcut and the tile without touching a single
+  // event-derived section.
+  it("drops the kitchen destinations while keeping the event sections", () => {
+    cacheTestSession(starterPermissionsExcept("viewer", ["kitchen.read"], []));
     renderOverview();
 
-    expect(visibleSections()).toEqual(["quickActions"]);
-    expect(visibleQuickActions()).toEqual(["Kitchen board"]);
-    expect(visibleModuleTiles()).toEqual(["Kitchen"]);
+    expect(visibleSections().sort()).toEqual(
+      ["bookedEvents", "eventsTimeline", "operatingSchedule", "totalEvents"]
+    );
+    expect(visibleQuickActions()).toEqual([]);
+    expect(visibleModuleTiles().sort()).toEqual(["Calendar", "Events"]);
   });
 
   it("drops every section when no permission at all is granted", () => {
@@ -255,7 +269,13 @@ describe("DashboardOverview role gating", () => {
   });
 
   it("keeps the /dashboard/events affordances clickable for every shipped role", () => {
-    for (const role of ["manager", "kitchen", "billing", "viewer"] as const) {
+    for (const role of [
+      "owner",
+      "administrator",
+      "event-manager",
+      "kitchen-staff",
+      "viewer"
+    ] as const) {
       window.localStorage.clear();
       cacheTestSessionForStarterRole(role);
       const { unmount } = renderOverview();

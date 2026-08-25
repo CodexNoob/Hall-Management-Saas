@@ -19,16 +19,17 @@ import { POST } from "@/app/api/menu/import/route";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
 import { AuthorizationError } from "@/lib/auth/errors";
 import { authorize } from "@/lib/authz/authorize";
+import { authzContext } from "./authz-test-helpers";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const otherOrganizationId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "Dana Klein",
-  organizationId
-};
+const actor = authzContext({
+  organizationId,
+  userId: "22222222-2222-4222-8222-222222222222",
+  actorName: "Dana Klein"
+});
 
 function importRequest(body: Record<string, unknown>) {
   return new Request("http://localhost/api/menu/import", {
@@ -62,7 +63,7 @@ describe("POST /api/menu/import", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(enforceRateLimit).mockResolvedValue(null);
-    vi.mocked(authorize).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor);
     vi.mocked(prisma.menuItem.create).mockImplementation((() =>
       Promise.resolve({ id: "created" })) as never);
     // Imported rows are filed under a real course, creating it the first time
@@ -179,7 +180,8 @@ describe("POST /api/menu/import", () => {
     expect(prisma.activityLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         organizationId,
-        userId: actor.id,
+        userId: actor.userId,
+        userName: "Dana Klein",
         actionType: "Menu Items Imported",
         newValue: { count: 2 }
       })
@@ -187,7 +189,7 @@ describe("POST /api/menu/import", () => {
   });
 
   describe("refusals", () => {
-    it("refuses a caller without canEditMenu", async () => {
+    it("refuses a caller without permission to import", async () => {
       vi.mocked(authorize).mockRejectedValue(
         new AuthorizationError(403, "You do not have permission.")
       );
@@ -203,7 +205,7 @@ describe("POST /api/menu/import", () => {
 
       expect(authorize).toHaveBeenCalledWith(
         expect.anything(),
-        "canEditMenu"
+        "menu.import"
       );
     });
 

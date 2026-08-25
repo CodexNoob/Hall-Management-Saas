@@ -53,10 +53,7 @@ describe("package item membership", () => {
 
     await PATCH(patchRequest({ includedMenuItemIds: [itemId] }), { params });
 
-    expect(authorize).toHaveBeenCalledWith(
-      expect.anything(),
-      "canEditMenu"
-    );
+    expect(authorize).toHaveBeenCalledWith(expect.anything(), "menu.update");
   });
 
   it("stores the items and scopes the write to the acting organization", async () => {

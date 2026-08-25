@@ -38,15 +38,27 @@ const sortedDashboardRoutes = Object.keys(dashboardRoutePermissions).sort(
   (a, b) => b.length - a.length
 );
 
+/**
+ * The home page's own entry, which must NOT act as a prefix.
+ *
+ * Every dashboard path starts with `/dashboard/`, so matching this one by
+ * prefix would make it the silent floor under every route in the app - and an
+ * unmapped page would then quietly require the home page's keys instead of
+ * being open. That is the opposite of the contract above: a page nobody has
+ * mapped yet is open in the nav and refused by its own API calls.
+ */
+const DASHBOARD_ROOT = "/dashboard";
+
 export function getRequiredDashboardPermission(
   route: string | null | undefined
 ): PermissionCheck | null {
   if (!route) return null;
 
-  const normalized = route.replace(/\/+$/, "") || "/dashboard";
-  const match = sortedDashboardRoutes.find(
-    (candidate) =>
-      normalized === candidate || normalized.startsWith(`${candidate}/`)
+  const normalized = route.replace(/\/+$/, "") || DASHBOARD_ROOT;
+  const match = sortedDashboardRoutes.find((candidate) =>
+    candidate === DASHBOARD_ROOT
+      ? normalized === candidate
+      : normalized === candidate || normalized.startsWith(`${candidate}/`)
   );
 
   return match ? dashboardRoutePermissions[match] : null;

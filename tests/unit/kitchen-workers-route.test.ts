@@ -11,13 +11,25 @@ vi.mock("@/lib/prisma", () => ({
     organizationMembership: { findMany: vi.fn(), findFirst: vi.fn() }
   }
 }));
+// Who holds a key is the resolver's question and has its own suite; this route
+// only has to ask it and honour the answer.
+vi.mock("@/lib/authz/decide", () => ({
+  principalIdsHolding: vi.fn()
+}));
 
 import { GET, POST } from "@/app/api/kitchen/workers/route";
 import { authorize } from "@/lib/authz/authorize";
+import { principalIdsHolding } from "@/lib/authz/decide";
 import { prisma } from "@/lib/prisma";
+import { authzContext } from "./authz-test-helpers";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const userId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+/** The principals the resolver reports as able to advance production status. */
+function eligible(...principalIds: string[]) {
+  vi.mocked(principalIdsHolding).mockResolvedValue(new Set(principalIds));
+}
 
 function postRequest(body: unknown) {
   return new Request("http://localhost/api/kitchen/workers", {
@@ -29,22 +41,31 @@ function postRequest(body: unknown) {
 describe("kitchen workers route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(authorize).mockResolvedValue({
-      organizationId
-    } as never);
+    vi.mocked(authorize).mockResolvedValue(authzContext({ organizationId }));
+    eligible();
   });
 
   describe("listing", () => {
-    it("offers Kitchen Staff who are not already workers", async () => {
+    it("offers eligible staff who are not already workers", async () => {
+      eligible("principal-1", "principal-2");
       vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([
         { id: "w1", name: "Mendy", userId, isActive: true, color: null }
       ] as never);
       vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
         // Already a worker - must not be offered twice.
-        { role: "Kitchen Staff", user: { id: userId, name: "Mendy", email: "m@x.test" } },
-        { role: "kitchen", user: { id: "user-2", name: "Shloimy", email: "s@x.test" } },
-        // Wrong role - not eligible at all.
-        { role: "Event Manager", user: { id: "user-3", name: "Rivky", email: "r@x.test" } }
+        {
+          principalId: "principal-1",
+          user: { id: userId, name: "Mendy", email: "m@x.test" }
+        },
+        {
+          principalId: "principal-2",
+          user: { id: "user-2", name: "Shloimy", email: "s@x.test" }
+        },
+        // Cannot advance production status - not eligible at all.
+        {
+          principalId: "principal-3",
+          user: { id: "user-3", name: "Rivky", email: "r@x.test" }
+        }
       ] as never);
 
       const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
@@ -55,9 +76,13 @@ describe("kitchen workers route", () => {
     });
 
     it("falls back to the email when a staff member has no name", async () => {
+      eligible("principal-2");
       vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
       vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
-        { role: "kitchen", user: { id: "user-2", name: "  ", email: "chef@x.test" } }
+        {
+          principalId: "principal-2",
+          user: { id: "user-2", name: "  ", email: "chef@x.test" }
+        }
       ] as never);
 
       const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
@@ -76,11 +101,12 @@ describe("kitchen workers route", () => {
       expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
     });
 
-    it("refuses a staff member who does not hold the Kitchen Staff role", async () => {
+    it("refuses a staff member who cannot advance production status", async () => {
       // The dropdown only offers eligible staff, but the rule is enforced here
       // rather than trusted from whatever the browser sent.
+      eligible("principal-other");
       vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
-        role: "Event Manager",
+        principalId: "principal-1",
         user: { name: "Rivky", email: "r@x.test" }
       } as never);
 
@@ -88,7 +114,7 @@ describe("kitchen workers route", () => {
 
       expect(response.status).toBe(409);
       expect(await response.json()).toMatchObject({
-        error: expect.stringContaining("Kitchen Staff role")
+        error: expect.stringContaining("kitchen production status")
       });
       expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
     });
@@ -105,8 +131,9 @@ describe("kitchen workers route", () => {
     });
 
     it("takes the name from the staff record, not the caller", async () => {
+      eligible("principal-1");
       vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
-        role: "Kitchen Staff",
+        principalId: "principal-1",
         user: { name: "Mendy", email: "m@x.test" }
       } as never);
       vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
@@ -134,8 +161,9 @@ describe("kitchen workers route", () => {
     });
 
     it("points at the retired row instead of creating a duplicate", async () => {
+      eligible("principal-1");
       vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
-        role: "kitchen",
+        principalId: "principal-1",
         user: { name: "Mendy", email: "m@x.test" }
       } as never);
       vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue({

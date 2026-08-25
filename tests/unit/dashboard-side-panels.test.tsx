@@ -77,10 +77,12 @@ describe("DashboardSidePanels quick actions", () => {
     ).not.toBeInTheDocument();
   });
 
-  // Billing Staff has neither the kitchen permission nor a module the MVP still
-  // ships, so the shortcut list empties out for that role entirely.
-  it("leaves Billing Staff with no shortcut at all", () => {
-    cacheTestSessionForStarterRole("viewer");
+  // Someone who only handles money has neither the kitchen permission nor a
+  // module the MVP still ships, so the shortcut list empties out entirely.
+  // Written as the keys rather than a role, because which role holds them is a
+  // tenant's decision (INV-1).
+  it("leaves a money-only principal with no shortcut at all", () => {
+    cacheTestSession(["invoice.read", "payment.record", "report.read"]);
     renderPanels();
 
     for (const label of ["Kitchen board", "Open billing", "Dining sheets"]) {
@@ -107,7 +109,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
 
   // The panel's hardcoded sample items include an open-balance notice, so it
   // follows payment visibility.
-  for (const role of ["manager", "billing"] as const) {
+  for (const role of ["event-manager", "administrator"] as const) {
     it(`is shown for ${role}, which can view payment info`, () => {
       cacheTestSessionForStarterRole(role);
       renderPanels();
@@ -118,7 +120,7 @@ describe("DashboardSidePanels Attention needed panel", () => {
     });
   }
 
-  for (const role of ["kitchen", "viewer"] as const) {
+  for (const role of ["kitchen-staff", "viewer"] as const) {
     it(`is hidden for ${role}, keeping the open-balance notice out of view`, () => {
       cacheTestSessionForStarterRole(role);
       renderPanels();
@@ -137,7 +139,13 @@ describe("DashboardSidePanels events timeline", () => {
   });
 
   it("is shown for every shipped role", () => {
-    for (const role of ["manager", "kitchen", "billing", "viewer"] as const) {
+    for (const role of [
+      "owner",
+      "administrator",
+      "event-manager",
+      "kitchen-staff",
+      "viewer"
+    ] as const) {
       window.localStorage.clear();
       cacheTestSessionForStarterRole(role);
       const { unmount } = renderPanels();
