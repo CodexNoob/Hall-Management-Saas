@@ -18,12 +18,21 @@ model Organization {
   subscriptionStartedAt DateTime? @map("subscription_started_at")
   subscriptionEndsAt    DateTime? @map("subscription_ends_at")
   onboardingCompletedAt DateTime? @map("onboarding_completed_at")
+  /// Bumped by any write that changes what someone may do in this
+  /// organization. P3 makes it part of the resolver's cache key, so an edit
+  /// invalidates instantly with no TTL and no cross-instance protocol. P1 only
+  /// creates the column; nothing bumps it yet.
+  permissionsEpoch      Int       @default(0) @map("permissions_epoch")
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
   primaryUsers            User[]                        @relation("PrimaryOrganization")
   memberships             OrganizationMembership[]
   accessRecords           UserAccess[]
+  roles                   Role[]
+  membershipRoles         MembershipRole[]
+  membershipPermissions   MembershipPermission[]
+  authorizationAudits     AuthorizationAudit[]
   halls                   Hall[]
   eventTypes              EventType[]
   events                  Event[]
@@ -132,7 +141,17 @@ model OrganizationMembership {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  membershipRoles       MembershipRole[]
+  membershipPermissions MembershipPermission[]
+
   @@unique([organizationId, userId])
+  /// Not a uniqueness rule anyone needed - `id` is already the primary key.
+  /// It exists so `membership_roles` and `membership_permissions` can carry a
+  /// COMPOSITE foreign key onto (id, organization_id), which makes a grant row
+  /// naming organization X while its membership lives in organization Y
+  /// structurally impossible. That is the same defect class as C2, closed by
+  /// the key rather than by a code path someone can forget to write.
+  @@unique([id, organizationId])
   @@index([userId, isActive])
   @@index([organizationId, isActive])
   @@map("organization_memberships")
@@ -183,6 +202,8 @@ model User {
   kitchenWorkers                   KitchenWorker[]          @relation("KitchenWorkerUser")
   createdSupportTickets            SupportTicket[]          @relation("SupportTicketCreatedBy")
   supportTicketMessages            SupportTicketMessage[]   @relation("SupportTicketMessageAuthor")
+  authorizationAuditsAsActor       AuthorizationAudit[]     @relation("AuthorizationAuditActor")
+  authorizationAuditsAsSubject     AuthorizationAudit[]     @relation("AuthorizationAuditSubject")
 
   @@index([organizationId, isActive])
   @@map("users")
@@ -271,6 +292,198 @@ model UserAccess {
   @@index([organizationId])
   @@index([userId])
   @@map("user_access")
+}
+
+//
+// ---------------------------------------------------------------------------
+// Authorization (P1). Introduced empty of application traffic.
+//
+// Every model below exists so that P2 can start writing privilege changes here
+// as the source of truth and project them back into `user_access`. In P1
+// nothing in `app/`, `features/` or `lib/` reads or writes any of them - that
+// is the phase's defining property and its exit test.
+//
+// Three things here are invisible to Prisma and MUST NOT be lost to a
+// `migrate diff`: the NULLS NOT DISTINCT clause on roles(organization_id, key),
+// the BEFORE trigger enforcing that a membership's role belongs to the same
+// tenant, and the CHECK constraint on membership_permissions.effect. They are
+// written by hand in the P1 migration and documented on the models they cover.
+// ---------------------------------------------------------------------------
+//
+
+/// A named bundle of permissions. `organizationId IS NULL` marks one of the six
+/// system templates; every other row is owned by a tenant.
+///
+/// INVISIBLE TO PRISMA: the unique index on (organization_id, key) is created
+/// with NULLS NOT DISTINCT, which Prisma cannot express. Without it two system
+/// templates could both be keyed "owner", because standard SQL treats every
+/// NULL as distinct. The database is deliberately stricter than this file says.
+///
+/// Consequence worth knowing before writing any upsert: Prisma compiles
+/// `where: { organizationId_key: { organizationId: null, key } }` into
+/// `organization_id = NULL`, which matches nothing - so an upsert through the
+/// compound unique silently tries to INSERT and is then rejected by the index
+/// with a confusing unique violation. Look system templates up with `findFirst`.
+model Role {
+  id             String   @id @default(uuid()) @db.Uuid
+  /// NULL for the six system templates. P2 clones them per tenant.
+  organizationId String?  @map("organization_id") @db.Uuid
+  key            String
+  name           String
+  description    String?
+  /// Mirrors `roleRank` in lib/auth/guards.ts. Sparse (0/10/20/30/30/40) so
+  /// tenant-authored roles can interleave later without renumbering. Lower
+  /// outranks higher; comparisons are strict, so equal rank denies.
+  rank           Int
+  /// True for the six templates and their per-tenant clones. P4 refuses to
+  /// rename or delete these, and returns 409.
+  isBuiltIn      Boolean  @default(false) @map("is_built_in")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization    Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  membershipRoles MembershipRole[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+  @@map("roles")
+}
+
+/// The permission catalog. Global, not per-tenant: tenants compose roles out of
+/// these keys, they do not invent keys.
+///
+/// `legacyColumn` names the `user_access` boolean this key replaces. It is the
+/// bridge P2's projection runs over, and P5 drops the column it points at.
+model Permission {
+  id           String   @id @default(uuid()) @db.Uuid
+  /// Dotted, final form - "staff.edit", not "canEditStaff".
+  key          String   @unique
+  legacyColumn String   @unique @map("legacy_column")
+  label        String
+  description  String
+  groupLabel   String   @map("group_label")
+  /// "Escalates privilege or moves money." P4 requires a confirmation step.
+  isDangerous  Boolean  @default(false) @map("is_dangerous")
+  sortOrder    Int      @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  rolePermissions       RolePermission[]
+  membershipPermissions MembershipPermission[]
+
+  @@index([sortOrder])
+  @@map("permissions")
+}
+
+/// Which permissions a role grants. 86 rows for the six system templates,
+/// derived from the compile-time matrix by the seed rather than restated.
+model RolePermission {
+  id           String   @id @default(uuid()) @db.Uuid
+  roleId       String   @map("role_id") @db.Uuid
+  permissionId String   @map("permission_id") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@map("role_permissions")
+}
+
+/// Which roles a membership holds.
+///
+/// NO RLS POLICY, DELIBERATELY. This table gets the
+/// `payment_provider_webhook_events` treatment - RLS enabled with every
+/// privilege revoked from `anon` and `authenticated`, and no policy at all -
+/// never the tenant `FOR ALL` policy the other tables in the array carry.
+/// It has an `organization_id` column, so it passes the mechanical "does it
+/// have organization_id?" test the next maintainer will apply to the loop in
+/// prisma/supabase-rls.sql. The column is there for the composite foreign key,
+/// NOT to opt in. See MembershipPermission for what the tenant policy would do.
+///
+/// INVISIBLE TO PRISMA: a BEFORE INSERT/UPDATE trigger asserts the role belongs
+/// to this tenant (or is a system template). A composite FK onto
+/// roles(id, organization_id) cannot express it, because roles.organization_id
+/// is nullable and MATCH SIMPLE satisfies any FK with a NULL component
+/// vacuously - silently skipping exactly the rows it most needs to cover.
+model MembershipRole {
+  id             String   @id @default(uuid()) @db.Uuid
+  membershipId   String   @map("membership_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  roleId         String   @map("role_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  membership   OrganizationMembership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role         Role                   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([membershipId, roleId])
+  @@index([organizationId])
+  @@index([roleId])
+  @@map("membership_roles")
+}
+
+/// Per-user overrides on top of whatever the membership's roles grant.
+/// GRANT adds a permission the roles do not carry; DENY removes one they do.
+///
+/// NO RLS POLICY, DELIBERATELY - and this is the table that shows why. Read the
+/// tenant policy against a table whose every row means "this member holds this
+/// permission": `WITH CHECK (is_organization_member(organization_id))` asks
+/// only whether the writer belongs to the organization, and they do. Any member
+/// could INSERT a row granting themselves any permission in it. That is C1
+/// reproduced verbatim on the one table whose entire purpose is handing out
+/// privileges. `FOR SELECT` is not sufficient either - it would expose every
+/// colleague's grant map. So: RLS enabled, all privileges revoked, no policy.
+/// A unit test is the control, because a comment is not one.
+///
+/// INVISIBLE TO PRISMA: a CHECK constraint pins `effect` to GRANT or DENY.
+model MembershipPermission {
+  id             String   @id @default(uuid()) @db.Uuid
+  membershipId   String   @map("membership_id") @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  permissionId   String   @map("permission_id") @db.Uuid
+  /// "GRANT" | "DENY". DENY wins over any role grant.
+  effect         String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  membership   OrganizationMembership @relation(fields: [membershipId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permission   Permission             @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, permissionId])
+  @@index([organizationId])
+  @@map("membership_permissions")
+}
+
+/// Append-only trail of privilege changes. P2 starts writing it.
+///
+/// `actorName` and `subjectName` are snapshots, for the same reason
+/// `activity_logs.user_name` exists: both user FKs are SET NULL, so without the
+/// snapshot a deleted user's audit entry stops naming anyone - which is exactly
+/// when the entry matters most.
+model AuthorizationAudit {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  actorId        String?  @map("actor_id") @db.Uuid
+  actorName      String   @map("actor_name")
+  subjectId      String?  @map("subject_id") @db.Uuid
+  subjectName    String?  @map("subject_name")
+  /// e.g. "role.assigned", "permission.granted", "member.deactivated".
+  action         String
+  /// Before/after detail. Shape is the writer's business, not the schema's.
+  detail         Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User?        @relation("AuthorizationAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  subject      User?        @relation("AuthorizationAuditSubject", fields: [subjectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([subjectId])
+  @@map("authorization_audit")
 }
 
 model Hall {

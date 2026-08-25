@@ -20,6 +20,7 @@
     "db:generate": "prisma generate",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed-authorization": "tsx prisma/seed-authorization.ts",
     "db:tenant-backfill": "prisma db execute --file prisma/multi-tenancy-backfill.sql",
     "db:clients-backfill": "prisma db execute --file prisma/clients-backfill.sql",
     "db:member-view-access-backfill": "prisma db execute --file prisma/member-view-access-backfill.sql",
