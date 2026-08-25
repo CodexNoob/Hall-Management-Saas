@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "settings.update");
     const { planId } = schema.parse(await request.json());
     const priceId = process.env[priceVariables[planId]];
     if (!priceId) {

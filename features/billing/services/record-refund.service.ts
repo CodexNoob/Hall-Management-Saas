@@ -1,7 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@prisma/client";
-import type { requirePermission } from "@/lib/auth/server-auth";
+import type { AuthzContext } from "@/lib/authz/authorize";
 import { BillingError } from "@/features/billing/services/billing-error";
 import { prisma } from "@/lib/prisma";
 
@@ -13,7 +13,7 @@ export type RecordRefundInput = {
   providerReference?: string;
 };
 
-type RefundActor = Awaited<ReturnType<typeof requirePermission>>;
+type RefundActor = AuthzContext;
 
 function centsToDecimal(cents: number) {
   return new Prisma.Decimal(cents).dividedBy(100);
@@ -69,7 +69,7 @@ export async function recordRefundWithAudit(
           organizationId: actor.organizationId,
           invoiceId: payment.invoiceId,
           paymentTransactionId: payment.id,
-          processedById: actor.id,
+          processedById: actor.userId,
           amountCents: input.amountCents,
           currency: payment.currency,
           status: "succeeded",
@@ -193,7 +193,7 @@ export async function recordRefundWithAudit(
           amountDue: centsToDecimal(eventBalanceCents),
           paymentStatus:
             eventBalanceCents === 0 ? "Paid in Full" : "Paid Partially",
-          updatedById: actor.id
+          updatedById: actor.userId
         }
       });
 
@@ -202,8 +202,8 @@ export async function recordRefundWithAudit(
           organizationId: actor.organizationId,
           eventId: payment.eventId,
           clientId: payment.event.clientId,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: "Payment Refund",
           message: `Refunded ${input.amountCents} cents from payment ${payment.id}.`,
           oldValue: {

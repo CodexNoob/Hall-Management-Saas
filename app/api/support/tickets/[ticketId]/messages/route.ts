@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireAuthenticatedUser } from "@/lib/auth/server-auth";
-import { isAdministrativeRole } from "@/lib/auth/roles";
+import { authorizeMember, hasPermission, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 
@@ -16,14 +15,16 @@ export async function POST(request: Request, context: { params: Promise<{ ticket
       windowMs: 10 * 60 * 1000
     });
     if (limited) return limited;
-    const actor = await requireAuthenticatedUser(request);
+    const actor = await authorizeMember(request);
     const { ticketId } = await context.params;
     const { body } = schema.parse(await request.json());
     const ticket = await prisma.supportTicket.findFirst({
       where: {
         id: ticketId,
         organizationId: actor.organizationId,
-        ...(isAdministrativeRole(actor.membership.role) ? {} : { createdById: actor.id })
+        ...((await hasPermission(actor, "staff.read"))
+          ? {}
+          : { createdById: requireUserActor(actor) })
       },
       select: { id: true }
     });
@@ -33,7 +34,7 @@ export async function POST(request: Request, context: { params: Promise<{ ticket
         data: {
           organizationId: actor.organizationId,
           ticketId,
-          authorId: actor.id,
+          authorId: actor.userId,
           body
         },
         select: {

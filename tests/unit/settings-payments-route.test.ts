@@ -4,9 +4,13 @@ vi.mock("server-only", () => ({}));
 // Re-export the real AuthorizationError: createApiErrorResponse maps it to a
 // 403 with `instanceof`, so a look-alike class defined here would fall through
 // to a 500 and the permission assertion below would pass for the wrong reason.
-vi.mock("@/lib/auth/server-auth", async () => ({
-  ...(await import("@/lib/auth/errors")),
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn(),
+  // The door asks for `settings.read`; the branches that reach further ask
+  // again through this. Whether the resolver answers correctly is a different
+  // suite's question.
+  assertPermission: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -23,8 +27,9 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET, PATCH } from "@/app/api/settings/route";
 import { AuthorizationError } from "@/lib/auth/errors";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { assertPermission, authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
+import { authzContext } from "./authz-test-helpers";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const actorId = "22222222-2222-4222-8222-222222222222";
@@ -42,10 +47,10 @@ function patch(body: unknown) {
 describe("organization payment link settings", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue({
-      id: actorId,
-      organizationId
-    } as never);
+    vi.mocked(authorize).mockResolvedValue(
+      authzContext({ organizationId, userId: actorId })
+    );
+    vi.mocked(assertPermission).mockResolvedValue(undefined);
     vi.mocked(prisma.organization.findUniqueOrThrow).mockResolvedValue({
       id: organizationId,
       name: "Venue A"
@@ -95,14 +100,15 @@ describe("organization payment link settings", () => {
   });
 
   it("requires the payments permission to change the link", async () => {
-    vi.mocked(requirePermission).mockImplementation((async (
-      _request: unknown,
+    // Getting through the settings door is not enough: redirecting where money
+    // lands is its own decision, asked separately.
+    vi.mocked(assertPermission).mockImplementation((async (
+      _context: unknown,
       permission: string
     ) => {
-      if (permission === "canManagePayments") {
+      if (permission === "payment.record") {
         throw new AuthorizationError(403, "You do not have permission.");
       }
-      return { id: actorId, organizationId };
     }) as never);
 
     const response = await patch({
@@ -119,9 +125,9 @@ describe("organization payment link settings", () => {
     });
 
     expect(response.status).toBe(200);
-    expect(requirePermission).toHaveBeenCalledWith(
+    expect(assertPermission).toHaveBeenCalledWith(
       expect.anything(),
-      "canManagePayments"
+      "payment.record"
     );
     expect(prisma.paymentSetting.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -155,9 +161,9 @@ describe("organization payment link settings", () => {
 
     expect(response.status).toBe(200);
     expect(prisma.paymentSetting.upsert).not.toHaveBeenCalled();
-    expect(requirePermission).not.toHaveBeenCalledWith(
+    expect(assertPermission).not.toHaveBeenCalledWith(
       expect.anything(),
-      "canManagePayments"
+      "payment.record"
     );
   });
 });

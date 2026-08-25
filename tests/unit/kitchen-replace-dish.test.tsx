@@ -20,7 +20,7 @@ import type {
 import { KitchenEventDetailsDialog } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import type { KitchenEvent } from "@/features/kitchen/components/kitchen-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * Swapping a dish from the board.
@@ -206,7 +206,7 @@ describe("replacing a dish from the kitchen board", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearAuthenticatedQueryCache();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
   });
 
   it("offers the library with its pictures, and says what each swap would be", async () => {

@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/security/rate-limit", () => ({
   enforceRateLimit: vi.fn().mockResolvedValue(null)
@@ -17,6 +18,7 @@ vi.mock("@/features/bookings/services/booking.service", () => ({
       super(message);
     }
   },
+  isWriteConflictError: vi.fn(() => false),
   createBooking: vi.fn(),
   expireOrganizationHolds: vi.fn(),
   transitionBooking: vi.fn()
@@ -32,26 +34,25 @@ vi.mock("@/lib/prisma", () => ({
 
 import { POST } from "@/app/api/events/route";
 import { PATCH } from "@/app/api/events/[eventId]/status/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import {
   BookingError,
   createBooking,
   transitionBooking
 } from "@/features/bookings/services/booking.service";
+import { authzContext } from "./authz-test-helpers";
 
-const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "Event Admin",
+const actor = authzContext({
   organizationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-  membership: { role: "admin" },
-  access: { allowedHallIds: [] }
-};
+  userId: "22222222-2222-4222-8222-222222222222",
+  actorName: "Event Admin"
+});
 const eventId = "44444444-4444-4444-8444-444444444444";
 
 describe("event creation and status editing", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor);
   });
 
   it("creates an event using only the verified actor organization", async () => {
@@ -85,7 +86,7 @@ describe("event creation and status editing", () => {
       }),
       expect.objectContaining({
         organizationId: actor.organizationId,
-        id: actor.id
+        id: actor.userId
       })
     );
     expect(createBooking).not.toHaveBeenCalledWith(

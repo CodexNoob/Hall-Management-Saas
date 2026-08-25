@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { getActiveHallLimit } from "@/lib/subscription/limits";
@@ -114,7 +114,7 @@ function dailyEventLimitFromIntegrations(integrations: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewSettings");
+    const actor = await authorize(request, "hall.read");
     const [organization, settings, halls] = await Promise.all([
       prisma.organization.findUnique({
         where: { id: actor.organizationId },
@@ -188,7 +188,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "hall.manage");
     const input = createHallSchema.parse(await request.json());
     const organization = await prisma.organization.findUnique({
       where: { id: actor.organizationId },
@@ -276,7 +276,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "hall.manage");
     const input = updateHallSchema.parse(await request.json());
     const current = await prisma.hall.findFirst({
       where: { id: input.id, organizationId: actor.organizationId },
@@ -389,7 +389,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "hall.manage");
     const input = deleteHallSchema.parse(await request.json());
     const hall = await prisma.hall.findFirst({
       where: { id: input.id, organizationId: actor.organizationId },

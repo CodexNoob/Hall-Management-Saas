@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "bank.connect");
     const config = getPlaidRuntimeConfig();
 
     if (!config.enabled) {
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         client_id: config.clientId,
         secret: config.secret,
-        user: { client_user_id: actor.id },
+        user: { client_user_id: actor.userId },
         client_name: "Event Core",
         products: ["transactions"],
         country_codes: ["US"],

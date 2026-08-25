@@ -11,11 +11,9 @@ vi.mock("@/lib/supabase/server", () => ({
     storage: { from: storageMocks.from }
   }))
 }));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -27,7 +25,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { GET, POST } from "@/app/api/menu/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 
@@ -66,7 +64,7 @@ describe("menu item pictures", () => {
       createSignedUrls: storageMocks.createSignedUrls
     });
     storageMocks.createSignedUrls.mockResolvedValue({ data: [], error: null });
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([]);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([]);
@@ -210,7 +208,7 @@ describe("add-on pictures", () => {
       createSignedUrls: storageMocks.createSignedUrls
     });
     storageMocks.createSignedUrls.mockResolvedValue({ data: [], error: null });
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([]);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([]);

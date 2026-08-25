@@ -16,7 +16,7 @@ import type {
   EventFile,
   EventMenuDocument
 } from "@/features/events/components/event-manager-shared";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * Editing the menu faster than the server can answer.
@@ -167,7 +167,7 @@ async function click(name: string) {
 describe("event menu edits made faster than the server answers", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     clearAuthenticatedQueryCache();
 
     serverDishes = ["Soup", "Salad", "Kugel"];

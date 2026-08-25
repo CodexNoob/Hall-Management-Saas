@@ -1,16 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    constructor(
-      public readonly status: 401 | 403,
-      message: string
-    ) {
-      super(message);
-    }
-  },
-  requirePermission: vi.fn()
+vi.mock("@/lib/prisma", () => ({ prisma: {} }));
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 vi.mock("@/features/billing/services/record-payment.service", () => ({
   recordPaymentWithAudit: vi.fn()
@@ -28,7 +22,7 @@ vi.mock("@/features/bookings/services/booking.service", () => ({
 }));
 
 import { POST } from "@/app/api/events/[eventId]/payments/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 
 describe("payment confirmation", () => {
@@ -41,7 +35,7 @@ describe("payment confirmation", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue(actor as never);
+    vi.mocked(authorize).mockResolvedValue(actor as never);
     vi.mocked(recordPaymentWithAudit).mockResolvedValue({
       transaction: { id: "66666666-6666-4666-8666-666666666666" }
     } as never);
@@ -69,10 +63,7 @@ describe("payment confirmation", () => {
     });
 
     expect(response.status).toBe(201);
-    expect(requirePermission).toHaveBeenCalledWith(
-      request,
-      "canManagePayments"
-    );
+    expect(authorize).toHaveBeenCalledWith(request, "payment.record");
     expect(recordPaymentWithAudit).toHaveBeenCalledWith(actor, {
       eventId,
       amountCents: 25000,

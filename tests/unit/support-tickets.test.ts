@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
-  requireAuthenticatedUser: vi.fn(),
+  authorizeMember: vi.fn(),
+  hasPermission: vi.fn(),
   enforceRateLimit: vi.fn(),
   notify: vi.fn(),
   findMany: vi.fn(),
@@ -11,11 +13,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    status = 403;
-  },
-  requireAuthenticatedUser: mocks.requireAuthenticatedUser
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorizeMember: mocks.authorizeMember,
+  // "May I read a colleague's ticket" is a second question the handler asks
+  // after the door check. The resolver's answer has its own suite.
+  hasPermission: mocks.hasPermission
 }));
 vi.mock("@/lib/security/rate-limit", () => ({
   enforceRateLimit: mocks.enforceRateLimit
@@ -32,13 +35,20 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET, POST } from "@/app/api/support/tickets/route";
 
+const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+
 const actor = {
-  id: "22222222-2222-4222-8222-222222222222",
-  name: "Test User",
-  email: "user@example.com",
-  organizationId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-  organization: { name: "Test Venue" },
-  membership: { role: "member" }
+  userId: "22222222-2222-4222-8222-222222222222",
+  actorName: "Test User",
+  userEmail: "user@example.com",
+  organizationId,
+  organization: {
+    id: organizationId,
+    name: "Test Venue",
+    slug: "test-venue",
+    subscriptionPlan: null,
+    subscriptionStatus: "active"
+  }
 };
 
 const ticket = {
@@ -52,14 +62,15 @@ const ticket = {
   pageUrl: "https://eventcore.app/dashboard/calendar",
   createdAt: new Date(),
   updatedAt: new Date(),
-  createdBy: { id: actor.id, name: actor.name, email: actor.email },
+  createdBy: { id: actor.userId, name: actor.actorName, email: actor.userEmail },
   messages: []
 };
 
 describe("support tickets API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireAuthenticatedUser.mockResolvedValue(actor);
+    mocks.authorizeMember.mockResolvedValue(authzContext(actor));
+    mocks.hasPermission.mockResolvedValue(false);
     mocks.enforceRateLimit.mockResolvedValue(null);
     mocks.findMany.mockResolvedValue([ticket]);
     mocks.create.mockResolvedValue(ticket);
@@ -79,7 +90,7 @@ describe("support tickets API", () => {
     expect(response.status).toBe(200);
     expect(mocks.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { organizationId: actor.organizationId, createdById: actor.id }
+        where: { organizationId: actor.organizationId, createdById: actor.userId }
       })
     );
   });
@@ -103,7 +114,7 @@ describe("support tickets API", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           organizationId: actor.organizationId,
-          createdById: actor.id
+          createdById: actor.userId
         })
       })
     );

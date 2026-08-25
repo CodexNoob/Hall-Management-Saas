@@ -1,10 +1,17 @@
 import "server-only";
 
-import { normalizeStaffRole } from "@/lib/auth/permissions";
+import { principalIdsHolding } from "@/lib/authz/decide";
 import { prisma } from "@/lib/prisma";
 
-/** The role whose holders should be assignable to a dish. */
-const KITCHEN_ROLE = "kitchen";
+/**
+ * Eligibility is a PERMISSION, not a role (INV-1).
+ *
+ * "Who can be assigned a dish" is "who may advance production status". Asking it
+ * that way stays correct for a tenant who invents a Head Chef role, and it no
+ * longer depends on a free-text column that has held "Kitchen Staff", "kitchen"
+ * and "kitchenstaff" at different times.
+ */
+const KITCHEN_WORKER_PERMISSION = "kitchen.status.update" as const;
 
 export type KitchenWorkerOption = {
   id: string;
@@ -43,7 +50,7 @@ export async function syncKitchenStaffWorkers(
         user: { isActive: true }
       },
       select: {
-        role: true,
+        principalId: true,
         user: { select: { id: true, name: true, email: true } }
       }
     }),
@@ -53,11 +60,12 @@ export async function syncKitchenStaffWorkers(
     })
   ]);
 
-  // Roles are stored as free text - "Kitchen Staff", "kitchen", "kitchenstaff"
-  // have all been written - so compare the normalized value rather than the
-  // string, or half the kitchen silently fails to appear.
-  const kitchenStaff = memberships.filter(
-    (membership) => normalizeStaffRole(membership.role) === KITCHEN_ROLE
+  const eligiblePrincipalIds = await principalIdsHolding(
+    organizationId,
+    KITCHEN_WORKER_PERMISSION
+  );
+  const kitchenStaff = memberships.filter((membership) =>
+    eligiblePrincipalIds.has(membership.principalId)
   );
 
   const workerByUserId = new Map(

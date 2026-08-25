@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "bank.connect");
     const input = schema.parse(await request.json());
     const connection = await prisma.bankConnection.findFirst({
       where: { organizationId: actor.organizationId, status: "CONNECTED" },
@@ -56,14 +56,14 @@ export async function POST(request: Request) {
         currency: row.currency.toUpperCase(),
         transactionDate: new Date(`${row.date}T00:00:00.000Z`),
         status: "PENDING",
-        metadata: { source: "csv-import", importedById: actor.id }
+        metadata: { source: "csv-import", importedById: actor.userId }
       }))
     });
     await prisma.activityLog.create({
       data: {
         organizationId: actor.organizationId,
-        userId: actor.id,
-        userName: actor.name,
+        userId: actor.userId,
+        userName: actor.actorName,
         actionType: "Bank File Imported",
         message: `Imported ${result.count} bank transactions.`,
         newValue: { count: result.count, bankConnectionId: connection.id }

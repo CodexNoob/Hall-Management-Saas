@@ -3,7 +3,7 @@ import { z } from "zod";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
 import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canEditMenu");
+    const actor = await authorize(request, "menu.import");
     const input = schema.parse(await request.json());
 
     // Resolved once per distinct name rather than once per row: a 500-row sheet
@@ -93,8 +93,8 @@ export async function POST(request: Request) {
     await prisma.activityLog.create({
       data: {
         organizationId: actor.organizationId,
-        userId: actor.id,
-        userName: actor.name,
+        userId: actor.userId,
+        userName: actor.actorName,
         actionType: "Menu Items Imported",
         message: `Imported ${created.length} menu items from a CSV file.`,
         newValue: { count: created.length }

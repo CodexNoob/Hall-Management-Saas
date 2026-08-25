@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSession, starterPermissionsExcept } from "./auth-session-fixture";
 
 describe("DashboardTopbar New booking button", () => {
   beforeEach(() => {
@@ -15,7 +15,7 @@ describe("DashboardTopbar New booking button", () => {
   });
 
   it("is disabled for a viewer without canCreateBooking", () => {
-    cacheTestSession("viewer", { canCreateBooking: false });
+    cacheTestSession(starterPermissionsExcept("viewer", ["booking.create"], []));
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
@@ -23,18 +23,22 @@ describe("DashboardTopbar New booking button", () => {
   });
 
   it("is enabled for a role whose access row has canCreateBooking", () => {
-    cacheTestSession("manager", { canCreateBooking: true });
+    cacheTestSession(["booking.create"]);
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
     ).not.toBeDisabled();
   });
 
-  it("is enabled for an administrative role regardless of the access row", () => {
-    cacheTestSession("admin", { canCreateBooking: false });
+  it("is disabled for an administrative key set that lacks it", () => {
+    // There is no administrator bypass here, because there is no administrator
+    // concept anywhere. Holding 59 of the 62 keys does not stand in for holding
+    // this one - which is the whole point of asking about a key rather than
+    // about who somebody is.
+    cacheTestSession(starterPermissionsExcept("administrator", ["booking.create"], []));
     render(<DashboardTopbar onNewBooking={vi.fn()} title="Dashboard" />);
     expect(
       screen.getByRole("button", { name: "Create new booking" })
-    ).not.toBeDisabled();
+    ).toBeDisabled();
   });
 });

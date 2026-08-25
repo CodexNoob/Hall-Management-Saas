@@ -15,7 +15,7 @@ import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-aut
 import { EventManagerPage } from "@/features/events/components/event-manager-page";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import type { EventsResponse } from "@/features/events/components/event-manager-shared";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * Which event the Event Manager opens on arrival, and what it shows when that is
@@ -141,7 +141,7 @@ describe("Event Manager selection", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.history.replaceState({}, "", "/dashboard/events");
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     vi.mocked(authenticatedFetch).mockReset();
     clearAuthenticatedQueryCache();
     Reflect.deleteProperty(window, "matchMedia");

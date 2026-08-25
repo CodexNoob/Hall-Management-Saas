@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
@@ -21,7 +21,7 @@ const exchangeSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "bank.connect");
     const input = exchangeSchema.parse(await request.json());
     const config = getPlaidRuntimeConfig();
 
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
       const created = await transaction.bankConnection.create({
         data: {
           organizationId: actor.organizationId,
-          userId: actor.id,
+          userId: actor.userId,
           plaidItemId: payload.item_id,
           plaidAccessToken: payload.access_token,
           institutionId: input.institutionId,
@@ -81,8 +81,8 @@ export async function POST(request: Request) {
 
       await createActivityLog(transaction, {
         organizationId: actor.organizationId,
-        userId: actor.id,
-        userName: actor.name,
+        userId: actor.userId,
+        userName: actor.actorName,
         actionType: "plaid.connection.created",
         message: `Connected a Plaid bank account for ${input.institutionName ?? "the selected institution"}.`,
         newValue: {

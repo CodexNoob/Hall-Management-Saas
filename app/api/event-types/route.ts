@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -15,7 +15,7 @@ const deleteSchema = z.object({ id: z.string().uuid() });
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewSettings");
+    const actor = await authorize(request, "event.read");
     const eventTypes = await prisma.eventType.findMany({
       where: { organizationId: actor.organizationId },
       orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "eventtype.manage");
     const input = fieldsSchema.parse(await request.json());
     const duplicate = await prisma.eventType.findFirst({
       where: { organizationId: actor.organizationId, name: { equals: input.name, mode: "insensitive" } },
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "eventtype.manage");
     const input = updateSchema.parse(await request.json());
     const current = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, select: { id: true } });
     if (!current) return NextResponse.json({ error: "Event type not found." }, { status: 404 });
@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const actor = await requirePermission(request, "canEditSettings");
+    const actor = await authorize(request, "eventtype.manage");
     const input = deleteSchema.parse(await request.json());
     const eventType = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, include: { _count: { select: { events: true } } } });
     if (!eventType) return NextResponse.json({ error: "Event type not found." }, { status: 404 });

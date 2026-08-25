@@ -4,11 +4,17 @@ import type {
   Prisma,
   Organization,
   OrganizationMembership,
-  User,
-  UserAccess
+  User
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { accessForRole } from "@/lib/auth/permissions";
+import {
+  DEFAULT_MEMBERSHIP_ROLE_KEY,
+  FOUNDING_OWNER_ROLE_KEY
+} from "@/lib/authz/starter-roles";
+import {
+  createUserPrincipal,
+  provisionOrganizationAuthorization
+} from "@/lib/authz/provision";
 import { createOrganizationSlug } from "@/lib/auth/organization-slug";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import {
@@ -44,27 +50,31 @@ type MembershipWithOrganization = OrganizationMembership & {
   organization: Organization;
 };
 
+/**
+ * Room for a remote database, rather than Prisma's five-second default.
+ *
+ * Provisioning an owner writes an organization, a user, a principal, a
+ * membership, the five starter roles with their grants, the founding assignment
+ * and a sign-in log - and every one of those is a round trip to a Supabase
+ * instance that is not in the same building. The work was batched down to about
+ * ten statements in lib/authz/provision.ts, which is comfortably inside five
+ * seconds on a good connection and not on a bad one. Timing out here rolls back
+ * a whole tenant, so the ceiling is set where a slow network costs latency
+ * instead of an account that can never finish being created.
+ */
+const PROVISIONING_TRANSACTION = { maxWait: 10_000, timeout: 20_000 } as const;
+
 export type ProvisionedContext = {
   user: User;
-  access: UserAccess;
   /** Active memberships in active organizations, oldest first. */
   memberships: MembershipWithOrganization[];
 };
 
 type LoadedUser = User & {
-  access: UserAccess[];
   memberships: MembershipWithOrganization[];
 };
 
-/**
- * A membership provisioning has to invent gets the lowest privilege there is,
- * never a role read off `users.role`. Inventing one is already a guess; an
- * administrator raises it deliberately from the staff screen.
- */
-const PROVISIONED_MEMBERSHIP_ROLE = "viewer" as const;
-
 const userGraph = {
-  access: true,
   memberships: { include: { organization: true } }
 } as const;
 
@@ -166,9 +176,6 @@ async function reconcile(
   const primaryMembership = existing.memberships.find(
     (membership) => membership.organizationId === existing.organizationId
   );
-  const primaryAccess = existing.access.find(
-    (access) => access.organizationId === existing.organizationId
-  );
   const signedIn = isNewSignIn(existing, profile);
 
   // Only fields Supabase actually supplied, and only when they differ. Invited
@@ -193,16 +200,14 @@ async function reconcile(
   // Absent rows get created. An inactive membership is left exactly as the
   // administrator left it - see rule 1 at the top of this file.
   //
-  // There used to be a third branch here that repaired an active membership's
-  // role from `users.role` whenever the two disagreed. That is what made the
-  // global column dangerous: POST /api/staff wrote an invite's role onto the
-  // shared user row, and this copied it back into the invitee's PRIMARY
-  // organization at their next sign-in - so anyone able to create their own
-  // tenant could invite their own address at "owner" and be promoted inside
-  // somebody else's. A membership's role is now only ever what an administrator
-  // of that organization set.
+  // There used to be a branch here that repaired an active membership's role
+  // from `users.role` whenever the two disagreed. That is what made the global
+  // column dangerous: POST /api/staff wrote an invite's role onto the shared
+  // user row, and this copied it back into the invitee's PRIMARY organization at
+  // their next sign-in - so anyone able to create their own tenant could invite
+  // their own address at "owner" and be promoted inside somebody else's. The
+  // column no longer exists, and what anyone may do is `principal_roles`.
   const createMembership = !primaryMembership;
-  const createAccess = !primaryAccess;
   const pinTesterSubscription =
     isTesterBypassEmail(profile.email) &&
     needsTesterSubscription(primaryMembership?.organization);
@@ -210,17 +215,13 @@ async function reconcile(
   const hasWork =
     Object.keys(userData).length > 0 ||
     createMembership ||
-    createAccess ||
     pinTesterSubscription ||
     signedIn;
 
   // The overwhelmingly common case: one query, no transaction, no writes.
-  // `primaryAccess` is necessarily present here - its absence sets
-  // `createAccess`, which is part of `hasWork`.
-  if (!hasWork && primaryAccess) {
+  if (!hasWork) {
     return {
       user: existing,
-      access: primaryAccess,
       memberships: activeMemberships(existing.memberships)
     };
   }
@@ -235,12 +236,31 @@ async function reconcile(
         : existing;
 
     if (createMembership) {
+      // The principal and the membership are written together, because a
+      // membership without a principal is a seat that silently denies
+      // everything. The starter roles are materialized here too: an
+      // organization that predates the RBAC migration and has never been seeded
+      // would otherwise have nothing to assign.
+      const principalId = await createUserPrincipal(
+        transaction,
+        user.organizationId
+      );
+
       await transaction.organizationMembership.create({
         data: {
           organizationId: user.organizationId,
           userId: user.id,
-          role: PROVISIONED_MEMBERSHIP_ROLE
+          principalId
         }
+      });
+
+      // A membership provisioning has to invent gets the lowest privilege there
+      // is. Inventing one is already a guess; an administrator raises it
+      // deliberately from the access screen.
+      await provisionOrganizationAuthorization(transaction, {
+        organizationId: user.organizationId,
+        principalId,
+        roleKey: DEFAULT_MEMBERSHIP_ROLE_KEY
       });
     }
 
@@ -256,37 +276,15 @@ async function reconcile(
       });
     }
 
-    // Seed access from the role on first sign-in only. Re-deriving it on every
-    // login discarded any per-user permissions an administrator customized
-    // through PATCH /api/staff. Role changes still update access there.
-    const access =
-      primaryAccess ??
-      (await transaction.userAccess.findUnique({
-        where: {
-          organizationId_userId: {
-            organizationId: user.organizationId,
-            userId: user.id
-          }
-        }
-      })) ??
-      (await transaction.userAccess.create({
-        data: {
-          organizationId: user.organizationId,
-          userId: user.id,
-          ...accessForRole(PROVISIONED_MEMBERSHIP_ROLE)
-        }
-      }));
-
     if (signedIn) {
       await logSignIn(transaction, user);
     }
 
     return {
       user,
-      access,
       memberships: await loadActiveMemberships(transaction, user.id)
     };
-  });
+  }, PROVISIONING_TRANSACTION);
 }
 
 /**
@@ -327,7 +325,6 @@ async function provisionOwner(
         name: profile.name,
         phone: profile.phone,
         venueName: profile.venueName,
-        role: "owner",
         // This branch is only reachable from the owner sign-up, which calls
         // supabase.auth.signUp with a password the user just chose.
         passwordSetAt: new Date(),
@@ -335,30 +332,33 @@ async function provisionOwner(
       }
     });
 
+    const principalId = await createUserPrincipal(transaction, organization.id);
+
     await transaction.organizationMembership.create({
       data: {
         organizationId: organization.id,
         userId: user.id,
-        role: "owner"
+        principalId
       }
     });
 
-    const access = await transaction.userAccess.create({
-      data: {
-        organizationId: organization.id,
-        userId: user.id,
-        ...accessForRole("owner")
-      }
+    // The starter five, and the founder holding the top one organization-wide.
+    // Without this the sign-up completes and the new owner can do nothing at
+    // all - deny by default is right, but not before anyone has had a chance to
+    // grant anything.
+    await provisionOrganizationAuthorization(transaction, {
+      organizationId: organization.id,
+      principalId,
+      roleKey: FOUNDING_OWNER_ROLE_KEY
     });
 
     await logSignIn(transaction, user);
 
     return {
       user,
-      access,
       memberships: await loadActiveMemberships(transaction, user.id)
     };
-  });
+  }, PROVISIONING_TRANSACTION);
 }
 
 function loadActiveMemberships(

@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import { isAdministrativeRole } from "@/lib/auth/roles";
-import {
-  requireAnyPermission,
-  requirePermission
-} from "@/lib/auth/server-auth";
+import { authorize, requireUserActor, scoped, tenant } from "@/lib/authz/authorize";
 import { createBookingSchema } from "@/features/bookings/validations/booking.schema";
 import {
   createBooking,
@@ -148,13 +144,7 @@ const EVENT_LIST_LIMIT = 1000;
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewCalendar",
-      "canViewEventManager"
-    ]);
-    const allowedHallIds = actor.access?.allowedHallIds ?? [];
-    const restrictHalls =
-      !isAdministrativeRole(actor.membership.role) && allowedHallIds.length > 0;
+    const actor = await authorize(request, "event.read");
     // The list below is capped, so an event a caller opened by id can fall
     // outside it - the workspace then had nothing to select and quietly showed
     // a different event instead. Naming it here guarantees it is in the answer.
@@ -165,9 +155,9 @@ export async function GET(request: Request) {
     const [events, halls, eventTypes, packages, settings] = await Promise.all([
       prisma.event.findMany({
         where: {
-          organizationId: actor.organizationId,
+          ...tenant(actor),
           deleted: false,
-          ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+          ...scoped(actor, "hall")
         },
         orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
         include: { hall: true, package: true, client: true },
@@ -175,23 +165,23 @@ export async function GET(request: Request) {
       }),
       prisma.hall.findMany({
         where: {
-          organizationId: actor.organizationId,
+          ...tenant(actor),
           isActive: true,
           isBookable: true,
-          ...(restrictHalls ? { id: { in: allowedHallIds } } : {})
+          ...scoped(actor, "hall", { field: "id" })
         },
         orderBy: { name: "asc" }
       }),
       prisma.eventType.findMany({
-        where: { organizationId: actor.organizationId, isActive: true },
+        where: { ...tenant(actor), isActive: true },
         orderBy: { name: "asc" }
       }),
       prisma.eventPackage.findMany({
-        where: { organizationId: actor.organizationId, isActive: true },
+        where: { ...tenant(actor), isActive: true },
         orderBy: { name: "asc" }
       }),
       prisma.organizationSetting.upsert({
-        where: { organizationId: actor.organizationId },
+        where: { ...tenant(actor) },
         update: {},
         create: { organizationId: actor.organizationId }
       })
@@ -204,11 +194,11 @@ export async function GET(request: Request) {
       const requested = await prisma.event.findFirst({
         where: {
           id: requestedEventId,
-          organizationId: actor.organizationId,
+          ...tenant(actor),
           deleted: false,
           // Still behind the same hall restriction: naming an id is not a way
           // around what this actor is allowed to see.
-          ...(restrictHalls ? { hallId: { in: allowedHallIds } } : {})
+          ...scoped(actor, "hall")
         },
         include: { hall: true, package: true, client: true }
       });
@@ -271,7 +261,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "event.create");
     const body = (await request.json()) as Record<string, unknown>;
     const headerKey = request.headers.get("idempotency-key") ?? undefined;
     const input = createBookingSchema.parse({
@@ -279,22 +269,20 @@ export async function POST(request: Request) {
       idempotencyKey: headerKey ?? body.idempotencyKey
     });
     const result = await createBooking(input, {
-      id: actor.id,
-      name: actor.name,
-      organizationId: actor.organizationId,
-      allowedHallIds: isAdministrativeRole(actor.membership.role)
-        ? []
-        : (actor.access?.allowedHallIds ?? [])
+      id: requireUserActor(actor),
+      name: actor.actorName,
+      ...tenant(actor),
+      hallScope: actor.scope.hallIds
     });
 
     if (!result.replayed && result.event.bookingStatus === "CONFIRMED") {
       await createShortNoticeKitchenNotification({
-        organizationId: actor.organizationId,
+        ...tenant(actor),
         eventId: result.event.id,
         eventType: result.event.eventType ?? result.event.clientName,
         eventDate: result.event.eventDate,
         hallOrRoom: result.event.hall?.name ?? result.event.hallName,
-        changedById: actor.id
+        changedById: requireUserActor(actor)
       });
     }
 

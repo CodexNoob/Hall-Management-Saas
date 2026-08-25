@@ -1,57 +1,127 @@
 import { describe, expect, it } from "vitest";
 import {
   canAccessDashboardRoute,
+  dashboardRoutePermissions,
   getRequiredDashboardPermission
 } from "@/lib/auth/dashboard-routes";
-import { accessForRole } from "@/lib/auth/permissions";
+import { permissionKeys } from "@/lib/authz/catalog";
+import { starterPermissions } from "./auth-session-fixture";
+
+/**
+ * The dashboard route map, keyed by PERMISSION rather than by role.
+ *
+ * There is no bypass here to test any more, and that absence is the point: a
+ * role reaching a new page is a data change, so this map only has to answer
+ * "which key does this page need".
+ */
 
 describe("canAccessDashboardRoute", () => {
-  const viewerAccess = accessForRole("viewer");
+  const viewer = starterPermissions("viewer");
+  const eventManager = starterPermissions("event-manager");
+  const kitchenStaff = starterPermissions("kitchen-staff");
+  const owner = starterPermissions("owner");
 
-  it("blocks the viewer role from billing, staff, and settings", () => {
-    expect(canAccessDashboardRoute("/dashboard/billing", viewerAccess, "viewer")).toBe(false);
-    expect(canAccessDashboardRoute("/dashboard/staff", viewerAccess, "viewer")).toBe(false);
-    expect(canAccessDashboardRoute("/dashboard/settings", viewerAccess, "viewer")).toBe(false);
+  it("keeps a Viewer out of billing, staff and access", () => {
+    expect(canAccessDashboardRoute("/dashboard/billing", viewer)).toBe(false);
+    expect(canAccessDashboardRoute("/dashboard/staff", viewer)).toBe(false);
+    expect(canAccessDashboardRoute("/dashboard/access", viewer)).toBe(false);
   });
 
-  it("allows the viewer role into every page it already has access to", () => {
-    expect(canAccessDashboardRoute("/dashboard", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/calendar", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/events", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/kitchen", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/menu", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/dining-manager", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/hall-room-map", viewerAccess, "viewer")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/files", viewerAccess, "viewer")).toBe(true);
+  it("lets a Viewer into every read-only page", () => {
+    for (const route of [
+      "/dashboard",
+      "/dashboard/calendar",
+      "/dashboard/events",
+      "/dashboard/kitchen",
+      "/dashboard/menu",
+      "/dashboard/dining-manager",
+      "/dashboard/hall-room-map",
+      "/dashboard/files",
+      "/dashboard/settings"
+    ]) {
+      expect(canAccessDashboardRoute(route, viewer), route).toBe(true);
+    }
   });
 
-  it("lets owner and admin roles bypass the map entirely", () => {
-    expect(canAccessDashboardRoute("/dashboard/billing", viewerAccess, "owner")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/staff", null, "admin")).toBe(true);
-    expect(canAccessDashboardRoute("/dashboard/settings", null, "administrator")).toBe(true);
+  it("gives an Owner everything - by holding the keys, not by bypassing", () => {
+    for (const route of Object.keys(dashboardRoutePermissions)) {
+      expect(canAccessDashboardRoute(route, owner), route).toBe(true);
+    }
   });
 
-  it("treats trailing slashes and nested sub-routes as the same route", () => {
-    expect(canAccessDashboardRoute("/dashboard/billing/", viewerAccess, "viewer")).toBe(false);
-    expect(
-      canAccessDashboardRoute("/dashboard/billing/invoices/123", viewerAccess, "viewer")
-    ).toBe(false);
+  it("lets an Event Manager into staff but not access", () => {
+    // The split that matters: reading the directory is `staff.read`, and
+    // authoring roles is `role.read` on a different page behind a different key.
+    expect(canAccessDashboardRoute("/dashboard/staff", eventManager)).toBe(true);
+    expect(canAccessDashboardRoute("/dashboard/access", eventManager)).toBe(
+      false
+    );
   });
 
-  it("allows unmapped routes by default so unrelated pages are unaffected", () => {
-    expect(canAccessDashboardRoute("/dashboard/does-not-exist", viewerAccess, "viewer")).toBe(
+  it("keeps Kitchen Staff on the kitchen", () => {
+    expect(canAccessDashboardRoute("/dashboard/kitchen", kitchenStaff)).toBe(
       true
     );
-    expect(canAccessDashboardRoute(null, viewerAccess, "viewer")).toBe(true);
+    expect(canAccessDashboardRoute("/dashboard/clients", kitchenStaff)).toBe(
+      false
+    );
+    expect(canAccessDashboardRoute("/dashboard/billing", kitchenStaff)).toBe(
+      false
+    );
   });
 
-  it("matches the real permission each backing API route enforces", () => {
-    expect(getRequiredDashboardPermission("/dashboard/billing")).toBe("canViewPaymentInfo");
-    expect(getRequiredDashboardPermission("/dashboard/settings")).toBe("canViewSettings");
-    expect(getRequiredDashboardPermission("/dashboard/staff")).toEqual([
-      "canEditStaff",
-      "canViewSettings",
-      "canEditSettings"
-    ]);
+  it("denies everything to a principal holding nothing", () => {
+    for (const route of Object.keys(dashboardRoutePermissions)) {
+      expect(canAccessDashboardRoute(route, []), route).toBe(false);
+    }
+  });
+
+  it("treats an unmapped route as open - the API is the real boundary", () => {
+    expect(canAccessDashboardRoute("/dashboard/something-new", [])).toBe(true);
+  });
+
+  it("matches nested paths against their parent", () => {
+    expect(canAccessDashboardRoute("/dashboard/kitchen/board", viewer)).toBe(
+      true
+    );
+    expect(canAccessDashboardRoute("/dashboard/billing/invoices", viewer)).toBe(
+      false
+    );
+  });
+
+  it("normalises a trailing slash", () => {
+    expect(canAccessDashboardRoute("/dashboard/calendar/", viewer)).toBe(true);
+  });
+});
+
+describe("getRequiredDashboardPermission", () => {
+  it("names a key for every mapped route", () => {
+    for (const route of Object.keys(dashboardRoutePermissions)) {
+      expect(getRequiredDashboardPermission(route), route).toBeTruthy();
+    }
+  });
+
+  it("only names keys that exist in the catalog", () => {
+    // A typo here silently locks everybody out of a page, and the failure looks
+    // like a permissions bug rather than a map bug.
+    for (const [route, required] of Object.entries(dashboardRoutePermissions)) {
+      for (const key of Array.isArray(required) ? required : [required]) {
+        expect(permissionKeys, `${route} needs unknown key ${key}`).toContain(
+          key
+        );
+      }
+    }
+  });
+
+  it("returns null for an unmapped route", () => {
+    expect(getRequiredDashboardPermission("/dashboard/nope")).toBeNull();
+    expect(getRequiredDashboardPermission(null)).toBeNull();
+  });
+
+  it("prefers the longest matching prefix", () => {
+    // /dashboard/client-portal must not be answered by /dashboard/clients.
+    expect(getRequiredDashboardPermission("/dashboard/client-portal")).toBe(
+      "client.read"
+    );
   });
 });

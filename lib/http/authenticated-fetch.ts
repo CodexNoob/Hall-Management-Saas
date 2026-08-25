@@ -9,7 +9,7 @@ import { getCachedAuthSession } from "@/lib/auth/client";
  *
  * The `Authorization: Bearer` header is gone: the session now travels as a
  * cookie that the browser attaches to every same-origin request by itself, and
- * `lib/auth/server-auth.ts` reads it from there. Sending the token by hand as
+ * `lib/authz/authorize.ts` reads it from there. Sending the token by hand as
  * well would just be a second copy of the same credential.
  *
  * The session check stays. It is not what authenticates the request any more -
@@ -43,5 +43,51 @@ export async function authenticatedFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  return fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers });
+
+  await refreshSessionIfEpochAdvanced(response, data.session.access_token);
+
+  return response;
+}
+
+/**
+ * How a revoked permission takes effect without a sign-out.
+ *
+ * Every authorization-aware response carries the epoch its verdict was computed
+ * under. If the server has moved past what this browser's cached session was
+ * built from, the hints on screen are stale - so refetch the session, which is
+ * one comparison here and one request at most per change.
+ *
+ * The response is peeked at through a CLONE. Reading the original body would
+ * consume the stream the caller is about to read, and every one of the ~73 call
+ * sites would get an empty payload.
+ *
+ * Deliberately best-effort: a failure here must never turn a successful request
+ * into an error at the call site. The worst case is a browser that keeps showing
+ * a button whose 403 it will discover on click, which is exactly what the
+ * server-side re-decide exists to catch.
+ */
+async function refreshSessionIfEpochAdvanced(
+  response: Response,
+  accessToken: string
+) {
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    return;
+  }
+
+  try {
+    const cached = getCachedAuthSession();
+    if (!cached) return;
+
+    const payload = (await response.clone().json()) as { epoch?: unknown };
+
+    if (typeof payload.epoch !== "number" || payload.epoch <= cached.epoch) {
+      return;
+    }
+
+    const { fetchAuthSession } = await import("@/lib/auth/client");
+    await fetchAuthSession(accessToken, { force: true });
+  } catch {
+    // See the note above: never escalate a stale hint into a failed request.
+  }
 }

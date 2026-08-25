@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { requireAuthenticatedUser } from "@/lib/auth/server-auth";
+import { authorize, authorizeMember } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -22,7 +22,7 @@ function operatingDateFromRequest(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAuthenticatedUser(request);
+    const actor = await authorizeMember(request);
     const { dateKey, date } = operatingDateFromRequest(request);
     const notes = await prisma.todayNote.findMany({
       where: {
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requireAuthenticatedUser(request);
+    const actor = await authorize(request, "note.manage");
     const { dateKey, date } = operatingDateFromRequest(request);
     const input = createNoteSchema.parse(await request.json());
     const note = await prisma.todayNote.create({
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         operatingDate: date,
         message: input.message,
         tone: input.tone,
-        createdById: actor.id
+        createdById: actor.userId
       },
       select: {
         id: true,

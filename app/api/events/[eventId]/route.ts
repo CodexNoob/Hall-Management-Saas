@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { assertHallAccess, requirePermission } from "@/lib/auth/server-auth";
+import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema } from "@/lib/validation/number";
@@ -110,12 +110,12 @@ export async function PATCH(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "event.update");
     const { eventId } = await params;
     const id = z.string().uuid().parse(eventId);
     const input = updateEventSchema.parse(await request.json());
     if (input.hallId) {
-      assertHallAccess(actor, input.hallId);
+      assertInScope(actor, "hall", input.hallId);
       const hall = await prisma.hall.findFirst({
         where: {
           id: input.hallId,
@@ -267,7 +267,7 @@ export async function PATCH(
             ? { shabbosSetup: shabbosSetup ?? Prisma.JsonNull }
             : {}),
           ...(workspaceData ? { workspaceData } : {}),
-          updatedById: actor.id,
+          updatedById: actor.userId,
           version: { increment: 1 }
         }
       });
@@ -283,8 +283,8 @@ export async function PATCH(
             organizationId: actor.organizationId,
             eventId: id,
             clientId: current.clientId,
-            userId: actor.id,
-            userName: actor.name,
+            userId: actor.userId,
+            userName: actor.actorName,
             actionType: "Guest Counts Changed",
             message: `Changed guest counts for ${current.clientName}: ${movedCounts
               .map(

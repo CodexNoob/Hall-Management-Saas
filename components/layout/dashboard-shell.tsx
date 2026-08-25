@@ -7,10 +7,9 @@ import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 import type {
   SessionOrganization,
-  SessionUser,
-  SessionUserAccess
+  SessionUser
 } from "@/lib/auth/client";
-import { isAdministrativeRole } from "@/lib/auth/roles";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { DashboardOverview } from "@/features/dashboard/components/dashboard-overview";
@@ -21,7 +20,6 @@ import {
 
 type DashboardShellProps = {
   user: SessionUser;
-  access: SessionUserAccess;
   activeOrganizationId: string;
   organizations: SessionOrganization[];
 };
@@ -38,11 +36,11 @@ import {
   type TimeFilter
 } from "@/components/layout/dashboard-shell-shared";
 export function DashboardShell({
-  access,
   activeOrganizationId,
   organizations,
   user
 }: DashboardShellProps) {
+  const access = useDashboardAccess();
   const [pageSearchQuery] = useDashboardPageSearch("Dashboard");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [todayNotesNeedRevision, setTodayNotesNeedRevision] = useState(true);
@@ -72,14 +70,13 @@ export function DashboardShell({
     organizations.find(
       (organization) => organization.id === activeOrganizationId
     ) ?? null;
-  // Mirrors requireAnyPermission(["canViewCalendar", "canViewEventManager"]) in
-  // app/api/dashboard/route.ts, including its administrative-role bypass - an
-  // owner whose UserAccess row is stale or incomplete would otherwise get a
-  // silently empty dashboard.
-  const canLoadDashboardData =
-    isAdministrativeRole(activeOrganization?.role) ||
-    access.canViewCalendar ||
-    access.canViewEventManager;
+  // Mirrors the keys GET /api/dashboard is gated on. No administrative bypass,
+  // because there is nothing to bypass: an owner holds `calendar.read` the same
+  // way everybody else does, as a row.
+  const canLoadDashboardData = access.hasPermission([
+    "calendar.read",
+    "event.read"
+  ]);
   const dashboardQueryUrl = `/api/dashboard?startDate=${dashboardDateRange.startDate}&endDate=${dashboardDateRange.endDate}`;
   const dashboardQuery = useAuthenticatedQuery<DashboardEventsResponse>(
     dashboardQueryUrl,

@@ -17,7 +17,7 @@ import {
   type KitchenEvent
 } from "@/features/kitchen/components/kitchen-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * The board draws one meal, and `EventMenu` holds four.
@@ -159,7 +159,7 @@ describe("the meals a kitchen surface is not showing", () => {
     beforeEach(() => {
       vi.clearAllMocks();
       clearAuthenticatedQueryCache();
-      cacheTestSession("manager");
+      cacheTestSessionForStarterRole("event-manager");
     });
 
     it("names them, and says which meal this sheet is", async () => {

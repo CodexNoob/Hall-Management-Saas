@@ -88,7 +88,7 @@ export function EventMenuRuleBand({
   // one that lets someone edit this event's menu. Every stock role holds both
   // or neither, so this only bites a hand-tuned grant - but it bites as a 403
   // from a form that looked writable, so the form is not offered at all.
-  const canEditMenu = useDashboardPermission("canEditMenu");
+  const canEditMenu = useDashboardPermission("menu.update");
   // Keyed by line id, seeded lazily from the dish's kind. Untouched lines are
   // absent rather than pre-filled, so `seed` below stays the single source of
   // what an unanswered row shows.

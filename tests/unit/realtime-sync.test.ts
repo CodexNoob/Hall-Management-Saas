@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 import {
@@ -54,20 +54,44 @@ describe("realtime table map", () => {
 });
 
 describe("realtime publication migration", () => {
+  const MIGRATIONS = path.join(process.cwd(), "prisma/migrations");
+  const PUBLICATION = "20260820210000_enable_realtime_publication";
+
   const sql = readFileSync(
-    path.join(
-      process.cwd(),
-      "prisma/migrations/20260820210000_enable_realtime_publication/migration.sql"
-    ),
+    path.join(MIGRATIONS, PUBLICATION, "migration.sql"),
     "utf8"
+  );
+
+  /** Every table a migration after the publication one has since dropped. */
+  const droppedTables = new Set(
+    readdirSync(MIGRATIONS, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name > PUBLICATION)
+      .flatMap((entry) => {
+        const file = path.join(MIGRATIONS, entry.name, "migration.sql");
+
+        return existsSync(file)
+          ? [
+              ...readFileSync(file, "utf8").matchAll(
+                /DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?"?([a-z_]+)"?/gi
+              )
+            ].map((match) => match[1])
+          : [];
+      })
   );
 
   it("publishes exactly the tables the client subscribes to", () => {
     // A table the client watches but nobody publishes is a screen that silently
     // never updates; one published but unwatched is replication overhead for
     // nothing. Neither shows up at runtime, so it is checked here.
+    //
+    // Minus whatever a LATER migration has since dropped. This migration is a
+    // historical artifact and does not get edited, but Postgres removes a table
+    // from every publication when it is dropped - so a name still listed here
+    // for a table that no longer exists is not a gap in coverage, and demanding
+    // the client keep subscribing to it would be the actual mistake.
     const published = [...sql.matchAll(/^\s*'([a-z_]+)',?$/gm)]
       .map((match) => match[1])
+      .filter((table) => !droppedTables.has(table))
       .sort();
 
     expect(published).toEqual(REALTIME_TABLES);

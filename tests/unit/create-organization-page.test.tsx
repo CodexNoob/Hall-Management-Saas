@@ -41,7 +41,7 @@ vi.mock("@/lib/auth/client", async (importOriginal) => {
 import { ToastProvider } from "@/components/ui/toast";
 import { CreateOrganizationPage } from "@/features/onboarding/components/create-organization-page";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 function renderPage() {
   return render(
@@ -52,7 +52,7 @@ function renderPage() {
 }
 
 function cachePendingOwner() {
-  cacheTestSession("owner", {}, {
+  cacheTestSessionForStarterRole("owner", {
     userName: "carldelfin25",
     organizationName: "carldelfin25's Organization",
     onboardingCompletedAt: null
@@ -286,7 +286,7 @@ describe("CreateOrganizationPage", () => {
   });
 
   it("blocks submission until the required names are filled in", async () => {
-    cacheTestSession("owner", {}, {
+    cacheTestSessionForStarterRole("owner", {
       organizationName: "",
       userName: "",
       onboardingCompletedAt: null

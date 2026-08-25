@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import {
+  assertPermission,
+  authorize,
+  requireUserActor,
+  tenant
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema } from "@/lib/validation/number";
@@ -109,14 +114,14 @@ function mergeBillingSettings(
 
 export async function GET(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewSettings");
+    const actor = await authorize(request, "settings.read");
     const [organization, settings, notifications, paymentSetting] =
       await Promise.all([
         prisma.organization.findUniqueOrThrow({
           where: { id: actor.organizationId }
         }),
         prisma.organizationSetting.upsert({
-          where: { organizationId: actor.organizationId },
+          where: { ...tenant(actor) },
           update: {},
           create: { organizationId: actor.organizationId }
         }),
@@ -124,14 +129,14 @@ export async function GET(request: Request) {
           where: {
             organizationId_userId: {
               organizationId: actor.organizationId,
-              userId: actor.id
+              userId: requireUserActor(actor)
             }
           },
           update: {},
-          create: { organizationId: actor.organizationId, userId: actor.id }
+          create: { organizationId: actor.organizationId, userId: requireUserActor(actor) }
         }),
         prisma.paymentSetting.findUnique({
-          where: { organizationId: actor.organizationId },
+          where: { ...tenant(actor) },
           select: { paymentLink: true }
         })
       ]);
@@ -152,7 +157,7 @@ export async function GET(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requirePermission(request, "canViewSettings");
+    const actor = await authorize(request, "settings.read");
     const input = settingsSchema.parse(await request.json());
     if (
       input.language !== undefined ||
@@ -162,15 +167,15 @@ export async function PATCH(request: Request) {
       input.dailyEventLimit !== undefined ||
       input.billing !== undefined
     ) {
-      await requirePermission(request, "canEditSettings");
+      await assertPermission(actor, "settings.update");
     }
     // Changing where client payments land is a money decision, not a general
     // settings edit, so it needs the dedicated payments permission.
     if (input.payments !== undefined) {
-      await requirePermission(request, "canManagePayments");
+      await assertPermission(actor, "payment.record");
     }
     const currentSettings = await prisma.organizationSetting.upsert({
-      where: { organizationId: actor.organizationId },
+      where: { ...tenant(actor) },
       update: {},
       create: { organizationId: actor.organizationId }
     });
@@ -202,7 +207,7 @@ export async function PATCH(request: Request) {
     const { settings, notifications } = await prisma.$transaction(
       async (transaction) => {
         const settings = await transaction.organizationSetting.upsert({
-          where: { organizationId: actor.organizationId },
+          where: { ...tenant(actor) },
           update: organizationChanges,
           create: {
             organizationId: actor.organizationId,
@@ -212,7 +217,7 @@ export async function PATCH(request: Request) {
 
         if (input.dailyEventLimit !== undefined) {
           await transaction.hall.updateMany({
-            where: { organizationId: actor.organizationId },
+            where: { ...tenant(actor) },
             data: { dailyEventLimit: input.dailyEventLimit }
           });
         }
@@ -221,13 +226,13 @@ export async function PATCH(request: Request) {
           where: {
             organizationId_userId: {
               organizationId: actor.organizationId,
-              userId: actor.id
+              userId: requireUserActor(actor)
             }
           },
           update: notificationChanges,
           create: {
             organizationId: actor.organizationId,
-            userId: actor.id,
+            userId: requireUserActor(actor),
             ...notificationChanges
           }
         });
@@ -238,7 +243,7 @@ export async function PATCH(request: Request) {
     const payments =
       input.payments !== undefined
         ? await prisma.paymentSetting.upsert({
-            where: { organizationId: actor.organizationId },
+            where: { ...tenant(actor) },
             update: { paymentLink: input.payments.paymentLink },
             create: {
               organizationId: actor.organizationId,
@@ -247,7 +252,7 @@ export async function PATCH(request: Request) {
             select: { paymentLink: true }
           })
         : await prisma.paymentSetting.findUnique({
-            where: { organizationId: actor.organizationId },
+            where: { ...tenant(actor) },
             select: { paymentLink: true }
           });
 

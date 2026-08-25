@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
@@ -20,7 +20,7 @@ export async function PATCH(
   { params }: { params: Promise<{ vendorId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canEditVendors");
+    const actor = await authorize(request, "vendor.manage");
     const { vendorId } = await params;
     const id = z.string().uuid().parse(vendorId);
     const vendor = await prisma.vendor.update({

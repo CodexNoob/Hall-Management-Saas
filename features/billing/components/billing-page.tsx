@@ -31,7 +31,7 @@ export function BillingPage() {
     useDashboardPageSearch("Billing");
   const { canAccessRoute, hasPermission } = useDashboardAccess();
   const canViewBilling = canAccessRoute("/dashboard/billing");
-  const canManagePayments = hasPermission("canManagePayments");
+  const canManagePayments = hasPermission("payment.record");
   const billingQuery = useAuthenticatedQuery<BillingResponse>(
     "/api/billing",
     canViewBilling

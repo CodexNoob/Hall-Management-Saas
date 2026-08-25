@@ -10,7 +10,7 @@ import {
   mealSchema,
   readPresentedMenu
 } from "@/features/events/server/event-menu-document";
-import { assertHallAccess, requirePermission } from "@/lib/auth/server-auth";
+import { assertInScope, authorize, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -175,7 +175,7 @@ export async function POST(
 ) {
   try {
     // The permission every other write to an event menu asks for.
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "eventmenu.update");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     const input = applySchema.parse(await request.json());
@@ -186,7 +186,7 @@ export async function POST(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     // Scoped to this organization and to an active package, the same check the
     // client portal makes before it lets a package near an event.
@@ -298,7 +298,7 @@ export async function POST(
               serviceStyle: styles.length === 1 ? styles[0] : null,
               sortOrder: nextSortOrder + index,
               source: PACKAGE_SOURCE,
-              addedById: actor.id
+              addedById: actor.userId
             };
           })
         });
@@ -308,7 +308,7 @@ export async function POST(
         organizationId: actor.organizationId,
         eventId: id,
         eventMenuId: gate.id,
-        actorId: actor.id,
+        actorId: requireUserActor(actor),
         packageColumns: {
           packageId: eventPackage.id,
           packageName: eventPackage.name
@@ -350,7 +350,7 @@ export async function DELETE(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canCreateBooking");
+    const actor = await authorize(request, "eventmenu.update");
     const { eventId } = await params;
     const id = eventIdSchema.parse(eventId);
     // Query params rather than a body: a DELETE with one is accepted unevenly
@@ -368,7 +368,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
-    assertHallAccess(actor, event.hallId);
+    assertInScope(actor, "hall", event.hallId);
 
     const clearedColumns = { packageId: null, packageName: null };
 
@@ -387,7 +387,7 @@ export async function DELETE(
       if (gate.kind === "missing") {
         await transaction.event.update({
           where: { id, organizationId: actor.organizationId },
-          data: { ...clearedColumns, updatedById: actor.id }
+          data: { ...clearedColumns, updatedById: actor.userId }
         });
 
         return gate;
@@ -403,7 +403,7 @@ export async function DELETE(
         organizationId: actor.organizationId,
         eventId: id,
         eventMenuId: gate.id,
-        actorId: actor.id,
+        actorId: requireUserActor(actor),
         packageColumns: clearedColumns
       });
 

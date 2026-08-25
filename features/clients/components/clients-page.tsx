@@ -22,7 +22,7 @@ import {
 } from "@/features/clients/components/clients-shared";
 export function ClientsPage() {
   const router = useRouter();
-  const canEdit = useDashboardPermission("canEditClients");
+  const canEdit = useDashboardPermission("client.update");
   const query = useAuthenticatedQuery<ClientsResponse>("/api/clients");
   const updateMutation = useAuthenticatedMutation<
     { id: string; status: ClientStatus },

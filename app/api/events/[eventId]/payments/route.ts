@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { centsSchema } from "@/lib/validation/number";
@@ -21,7 +21,7 @@ export async function POST(
   { params }: { params: Promise<{ eventId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "payment.record");
     const { eventId: rawEventId } = await params;
     const eventId = z.string().uuid().parse(rawEventId);
     const input = confirmationSchema.parse(await request.json());

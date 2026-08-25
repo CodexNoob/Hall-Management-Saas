@@ -33,7 +33,16 @@ type BookingActor = {
   id: string;
   name: string;
   organizationId: string;
-  allowedHallIds?: string[];
+  /**
+   * Which halls this actor may book in - the verdict's scope, passed straight
+   * through rather than re-derived.
+   *
+   * "all" is NOT the same as []. "all" means unrestricted; an empty array means
+   * scoped to nothing, and every hall check below must then fail. The column
+   * this replaced used the opposite convention - empty meant unrestricted - and
+   * each of its eight readers had to remember which.
+   */
+  hallScope: string[] | "all";
 };
 
 export class BookingError extends Error {
@@ -442,8 +451,8 @@ export async function createBooking(
         throw new BookingError("The selected hall is unavailable.");
       }
       if (
-        actor.allowedHallIds?.length &&
-        !actor.allowedHallIds.includes(hall.id)
+        actor.hallScope !== "all" &&
+        !actor.hallScope.includes(hall.id)
       ) {
         throw new BookingError(
           "You do not have access to this hall.",
@@ -713,8 +722,8 @@ export async function transitionBooking(
     if (!event)
       throw new BookingError("Booking not found.", 404, "BOOKING_NOT_FOUND");
     if (
-      actor.allowedHallIds?.length &&
-      !actor.allowedHallIds.includes(event.hallId)
+      actor.hallScope !== "all" &&
+      !actor.hallScope.includes(event.hallId)
     ) {
       throw new BookingError("Booking not found.", 404, "BOOKING_NOT_FOUND");
     }

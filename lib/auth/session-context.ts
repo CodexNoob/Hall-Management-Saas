@@ -3,49 +3,28 @@
  *
  * This module owns the shape outright: the route serializes through
  * `serializeAuthSession`, `lib/auth/client.ts` re-exports these types rather
- * than restating them, and `isAuthSessionResponse` guards what comes back
- * out of the browser cache. Before this existed the same object was written by
- * hand in four places - the route, the client type, the client's runtime guard
- * and the test fixture - and nothing made them agree.
+ * than restating them, and `isAuthSessionResponse` guards what comes back out of
+ * the browser cache. Before this existed the same object was written by hand in
+ * four places - the route, the client type, the client's runtime guard and the
+ * test fixture - and nothing made them agree.
+ *
+ * THE BROWSER READS KEYS, NEVER ROLES (INV-1).
+ *
+ * There is no `role` field anywhere in this response and no administrator
+ * concept on the client, because there is no administrator concept anywhere.
+ * `useAccess("event.create")` is the whole client-side API.
+ *
+ * Client hints are FOR RENDERING ONLY. Every mutation re-decides server-side. A
+ * hidden button is a courtesy; the 403 is the control.
  *
  * Kept free of Prisma and of `server-only` on purpose. The inputs are declared
  * structurally, so the serializer stays a pure function of plain data, is
- * importable from either side of the network boundary, and can be tested
- * without a database.
+ * importable from either side of the network boundary, and can be tested without
+ * a database.
  */
 
-import { normalizeStaffRole } from "@/lib/auth/permissions";
-
-export type SessionUserAccess = {
-  id: string;
-  userId: string;
-  canViewHome: boolean;
-  canViewCalendar: boolean;
-  canCreateBooking: boolean;
-  canViewEventManager: boolean;
-  canViewKitchenDashboard: boolean;
-  canViewMenu: boolean;
-  canEditMenu: boolean;
-  canViewSettings: boolean;
-  canEditSettings: boolean;
-  canEditStaff: boolean;
-  canEditVendors: boolean;
-  canEditClients: boolean;
-  canEditFiles: boolean;
-  canAssignWorkers: boolean;
-  canUpdateKitchenStatus: boolean;
-  canAddKitchenEvents: boolean;
-  canManageSchoolSchedule: boolean;
-  canSeeSchoolEvents: boolean;
-  canSeeSimchaEvents: boolean;
-  canViewPaymentInfo: boolean;
-  canManagePayments: boolean;
-  canSendPaymentEmail: boolean;
-  canUseNiceHomeBackground: boolean;
-  allowedHallIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+import type { PermissionKey } from "@/lib/authz/catalog";
+import type { ScopeFilter } from "@/lib/authz/types";
 
 export type SessionUser = {
   id: string;
@@ -53,7 +32,8 @@ export type SessionUser = {
   name: string;
   phone: string | null;
   venueName: string | null;
-  role: string;
+  /** Job title. Not a privilege - see the RBAC migration. */
+  title: string | null;
   organizationId: string;
 };
 
@@ -61,7 +41,6 @@ export type SessionOrganization = {
   id: string;
   name: string;
   slug: string;
-  role: string;
   trialStartedAt: string | null;
   trialEndsAt: string | null;
   subscriptionStatus: string;
@@ -73,11 +52,32 @@ export type SessionOrganization = {
 
 export type AuthSessionResponse = {
   user: SessionUser;
-  access: SessionUserAccess;
+  /** Every key the signed-in principal holds in the active organization. */
+  permissions: PermissionKey[];
+  /**
+   * A RENDERING HINT, and deliberately lossy: the widest set of halls and event
+   * types that ANY held permission reaches.
+   *
+   * Scope resolves per permission on the server, so a principal who is Kitchen
+   * Staff at Hall A and Viewer organization-wide has different scopes for
+   * different keys. Collapsing that into one filter is fine for deciding what to
+   * put in a hall picker and wrong for deciding whether a write will succeed -
+   * which is why the server never consults this and re-decides every mutation.
+   */
+  scope: ScopeFilter;
+  /**
+   * The permissions epoch these keys were computed under.
+   *
+   * Any API response carrying a higher one triggers a session refetch. That is
+   * how a revoked permission takes effect without a sign-out, and it costs one
+   * comparison in the fetch wrapper.
+   */
+  epoch: number;
   mustSetPassword: boolean;
   /**
-   * True when the signed-in owner still has to name their organization and pick a
-   * plan on /dashboard/new. The dashboard layout holds them there until they do.
+   * True when the signed-in owner still has to name their organization and pick
+   * a plan on /dashboard/new. The dashboard layout holds them there until they
+   * do.
    */
   mustCompleteOnboarding: boolean;
   activeOrganizationId: string;
@@ -93,7 +93,7 @@ type UserRow = {
   name: string;
   phone: string | null;
   venueName: string | null;
-  role: string;
+  title: string | null;
   organizationId: string;
   passwordSetAt: Timestamp;
 };
@@ -113,14 +113,18 @@ type OrganizationRow = {
 
 type MembershipRow = {
   organizationId: string;
-  role: string;
   organization: OrganizationRow;
 };
 
-type AccessRow = Omit<SessionUserAccess, "createdAt" | "updatedAt"> & {
-  createdAt: Date | string;
-  updatedAt: Date | string;
-};
+/**
+ * The key that gates naming the organization and choosing its plan.
+ *
+ * This used to read `normalizeStaffRole(membership.role) === "owner"`, which is
+ * exactly the shape INV-1 forbids. Asking for the permission instead means a
+ * tenant who invents a "Founder" role and gives it `settings.update` gets the
+ * onboarding form, with no code change.
+ */
+const ONBOARDING_PERMISSION: PermissionKey = "settings.update";
 
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : value;
@@ -139,7 +143,6 @@ function serializeOrganization(membership: MembershipRow): SessionOrganization {
     id: organization.id,
     name: organization.name,
     slug: organization.slug,
-    role: membership.role,
     trialStartedAt: toNullableIsoString(organization.trialStartedAt),
     trialEndsAt: toNullableIsoString(organization.trialEndsAt),
     subscriptionStatus: organization.subscriptionStatus,
@@ -154,9 +157,36 @@ function serializeOrganization(membership: MembershipRow): SessionOrganization {
   };
 }
 
+function unionDimension(
+  left: string[] | "all",
+  right: string[] | "all"
+): string[] | "all" {
+  if (left === "all" || right === "all") return "all";
+
+  return [...new Set([...left, ...right])];
+}
+
+/** The widest scope any held permission reaches. See `AuthSessionResponse.scope`. */
+export function widestScope(
+  scopes: Iterable<ScopeFilter>
+): ScopeFilter {
+  let hallIds: string[] | "all" = [];
+  let eventTypeIds: string[] | "all" = [];
+
+  for (const scope of scopes) {
+    hallIds = unionDimension(hallIds, scope.hallIds);
+    eventTypeIds = unionDimension(eventTypeIds, scope.eventTypeIds);
+  }
+
+  return { hallIds, eventTypeIds };
+}
+
 export function serializeAuthSession(input: {
   user: UserRow;
-  access: AccessRow;
+  /** Sorted by the caller, so the cached payload is stable between fetches. */
+  permissions: PermissionKey[];
+  scope: ScopeFilter;
+  epoch: number;
   /** Active memberships only - the caller has already filtered them. */
   memberships: MembershipRow[];
   /**
@@ -165,13 +195,13 @@ export function serializeAuthSession(input: {
    */
   usesEmailPassword: boolean;
 }): AuthSessionResponse {
-  const { user, access, memberships, usesEmailPassword } = input;
+  const { user, permissions, scope, epoch, memberships, usesEmailPassword } =
+    input;
 
-  // Deliberately the user's primary organization rather than
-  // `resolveMembership`'s header/cookie precedence: this response tells the
-  // client where to *start*, and switching organizations is a later, explicit
-  // act. Reusing the request-scoped resolver here would make a stale cookie
-  // decide what a fresh sign-in returns.
+  // Deliberately the user's primary organization rather than the request-scoped
+  // resolver's header/cookie precedence: this response tells the client where to
+  // *start*, and switching organizations is a later, explicit act. Reusing the
+  // resolver here would make a stale cookie decide what a fresh sign-in returns.
   const activeMembership = memberships.find(
     (membership) => membership.organizationId === user.organizationId
   );
@@ -183,19 +213,15 @@ export function serializeAuthSession(input: {
       name: user.name,
       phone: user.phone,
       venueName: user.venueName,
-      role: user.role,
+      title: user.title,
       organizationId: user.organizationId
     },
-    access: {
-      ...access,
-      createdAt: toIsoString(access.createdAt),
-      updatedAt: toIsoString(access.updatedAt)
-    },
+    permissions,
+    scope,
+    epoch,
     mustSetPassword: usesEmailPassword && !user.passwordSetAt,
-    // Only an owner can name the organization and pick its plan, so invited
-    // staff never see the setup form even if they happen to be the first one in.
     mustCompleteOnboarding:
-      normalizeStaffRole(activeMembership?.role) === "owner" &&
+      permissions.includes(ONBOARDING_PERMISSION) &&
       !activeMembership?.organization.onboardingCompletedAt,
     activeOrganizationId: user.organizationId,
     organizations: memberships.map(serializeOrganization)
@@ -210,17 +236,20 @@ export function isAuthSessionResponse(
   }
 
   const payload = value as Partial<AuthSessionResponse>;
-  // `mustCompleteOnboarding` is checked too, so a cache written before the
-  // onboarding gate existed is rejected and re-fetched rather than silently
-  // reading as "already onboarded".
+
+  // `permissions` and `epoch` are checked so a payload cached before the RBAC
+  // cutover - which carried a 23-boolean `access` object and no keys at all - is
+  // rejected and refetched rather than read as "holds nothing".
   return Boolean(
     payload.user &&
-    payload.access &&
-    typeof payload.user === "object" &&
-    typeof payload.access === "object" &&
-    typeof payload.mustSetPassword === "boolean" &&
-    typeof payload.mustCompleteOnboarding === "boolean" &&
-    typeof payload.activeOrganizationId === "string" &&
-    Array.isArray(payload.organizations)
+      typeof payload.user === "object" &&
+      Array.isArray(payload.permissions) &&
+      payload.scope &&
+      typeof payload.scope === "object" &&
+      typeof payload.epoch === "number" &&
+      typeof payload.mustSetPassword === "boolean" &&
+      typeof payload.mustCompleteOnboarding === "boolean" &&
+      typeof payload.activeOrganizationId === "string" &&
+      Array.isArray(payload.organizations)
   );
 }

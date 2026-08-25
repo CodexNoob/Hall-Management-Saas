@@ -22,9 +22,15 @@ const {
   createMembership,
   updateMembership,
   findManyMemberships,
-  findAccess,
-  createAccess,
-  createActivityLog
+  createActivityLog,
+  createPrincipal,
+  findManyRoles,
+  createRole,
+  createManyRolePermissions,
+  findManyPermissions,
+  createManyPrincipalRoles,
+  findManyPrincipalRoles,
+  findManyPrincipalPermissions
 } = vi.hoisted(() => ({
   findManyUsers: vi.fn(),
   createUser: vi.fn(),
@@ -34,9 +40,15 @@ const {
   createMembership: vi.fn(),
   updateMembership: vi.fn(),
   findManyMemberships: vi.fn(),
-  findAccess: vi.fn(),
-  createAccess: vi.fn(),
-  createActivityLog: vi.fn()
+  createActivityLog: vi.fn(),
+  createPrincipal: vi.fn(),
+  findManyRoles: vi.fn(),
+  createRole: vi.fn(),
+  createManyRolePermissions: vi.fn(),
+  findManyPermissions: vi.fn(),
+  createManyPrincipalRoles: vi.fn(),
+  findManyPrincipalRoles: vi.fn(),
+  findManyPrincipalPermissions: vi.fn()
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -49,8 +61,19 @@ vi.mock("@/lib/prisma", () => {
       update: updateMembership,
       findMany: findManyMemberships
     },
-    userAccess: { findUnique: findAccess, create: createAccess },
-    activityLog: { create: createActivityLog }
+    activityLog: { create: createActivityLog },
+    // The privilege tables. A membership is now a principal plus rows in
+    // `principal_roles`, so provisioning materializes the starter set and the
+    // resolver reads it back.
+    principal: { create: createPrincipal },
+    role: { findMany: findManyRoles, create: createRole },
+    rolePermission: { createMany: createManyRolePermissions },
+    permission: { findMany: findManyPermissions },
+    principalRole: {
+      createMany: createManyPrincipalRoles,
+      findMany: findManyPrincipalRoles
+    },
+    principalPermission: { findMany: findManyPrincipalPermissions }
   };
 
   return {
@@ -73,6 +96,11 @@ vi.mock("@/lib/security/rate-limit", () => ({
 
 import { POST } from "@/app/api/auth/session/route";
 import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
+import { clearAccessCache } from "@/lib/authz/decide";
+import {
+  DEFAULT_MEMBERSHIP_ROLE_KEY,
+  FOUNDING_OWNER_ROLE_KEY
+} from "@/lib/authz/starter-roles";
 
 const getUser = vi.fn();
 
@@ -92,22 +120,19 @@ const organization = {
   subscriptionPlan: null,
   subscriptionStartedAt: null,
   subscriptionEndsAt: null,
-  onboardingCompletedAt: new Date("2026-01-01T00:00:00.000Z")
+  onboardingCompletedAt: new Date("2026-01-01T00:00:00.000Z"),
+  // The resolver's cache key. Every response carries it so the browser can
+  // notice it is behind and refetch.
+  permissionsEpoch: BigInt(1)
 };
 
-const access = {
-  id: "access-1",
-  organizationId: ORGANIZATION_ID,
-  userId: USER_ID,
-  canViewCalendar: true,
-  allowedHallIds: []
-};
+const PRINCIPAL_ID = "33333333-3333-4333-8333-333333333333";
 
 const membership = {
   id: "membership-1",
   organizationId: ORGANIZATION_ID,
   userId: USER_ID,
-  role: "manager",
+  principalId: PRINCIPAL_ID,
   isActive: true,
   // Real rows always carry this and the fast path sorts on it. Omitting it
   // here would leave the sort untested - Array#sort skips the comparator
@@ -127,7 +152,7 @@ const secondMembership = {
   ...membership,
   id: "membership-2",
   organizationId: secondOrganization.id,
-  role: "viewer",
+  principalId: "44444444-4444-4444-8444-444444444444",
   createdAt: new Date("2026-02-01T00:00:00.000Z"),
   organization: secondOrganization
 };
@@ -140,7 +165,7 @@ const storedUser = {
   email: "user@example.com",
   phone: "+15551234567",
   venueName: "Main Hall",
-  role: "manager",
+  title: "Team member",
   isActive: true,
   passwordSetAt: new Date("2026-01-01T00:00:00.000Z"),
   lastSignInAt: new Date(SIGNED_IN_AT)
@@ -179,17 +204,39 @@ function syncRequest() {
 describe("POST /api/auth/session", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // The resolver caches on (principal, organization, epoch), so without this
+    // the first test in the file decides the verdict for every one after it -
+    // and their mocked rows are never read at all.
+    clearAccessCache();
     vi.mocked(createSupabaseTokenVerifier).mockReturnValue({
       auth: { getUser }
     } as never);
     getUser.mockResolvedValue(supabaseUser());
 
     findManyUsers.mockResolvedValue([
-      { ...storedUser, access: [access], memberships: [membership] }
+      { ...storedUser, memberships: [membership] }
     ]);
     findMembership.mockResolvedValue(membership);
     findManyMemberships.mockResolvedValue([membership]);
-    findAccess.mockResolvedValue(access);
+    // The resolver's two reads. A principal holding one role that grants one
+    // key is enough: what the fold does with more is authz-resolver's question.
+    findManyPrincipalRoles.mockResolvedValue([
+      {
+        scopeType: "org",
+        scopeId: ORGANIZATION_ID,
+        expiresAt: null,
+        role: { rolePermissions: [{ permission: { key: "calendar.read" } }] }
+      }
+    ]);
+    findManyPrincipalPermissions.mockResolvedValue([]);
+    findManyRoles.mockResolvedValue([]);
+    findManyPermissions.mockResolvedValue([]);
+    createPrincipal.mockResolvedValue({ id: PRINCIPAL_ID });
+    createRole.mockImplementation(async ({ data }: { data: { key: string } }) => ({
+      id: `role-${data.key}`
+    }));
+    createManyRolePermissions.mockResolvedValue({ count: 0 });
+    createManyPrincipalRoles.mockResolvedValue({ count: 1 });
     updateUser.mockImplementation(async ({ data }: { data: object }) => ({
       ...storedUser,
       ...data
@@ -224,6 +271,8 @@ describe("POST /api/auth/session", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    // No `role` anywhere - not on the user, not on the organization. The
+    // browser reads keys (INV-1).
     expect(body).toEqual({
       user: {
         id: USER_ID,
@@ -231,10 +280,12 @@ describe("POST /api/auth/session", () => {
         name: "Existing Name",
         phone: "+15551234567",
         venueName: "Main Hall",
-        role: "manager",
+        title: "Team member",
         organizationId: ORGANIZATION_ID
       },
-      access,
+      permissions: ["calendar.read"],
+      scope: { hallIds: "all", eventTypeIds: "all" },
+      epoch: 1,
       mustSetPassword: false,
       mustCompleteOnboarding: false,
       activeOrganizationId: ORGANIZATION_ID,
@@ -243,7 +294,6 @@ describe("POST /api/auth/session", () => {
           id: ORGANIZATION_ID,
           name: "Test Organization",
           slug: "test-organization",
-          role: "manager",
           trialStartedAt: null,
           trialEndsAt: null,
           subscriptionStatus: "active",
@@ -259,7 +309,6 @@ describe("POST /api/auth/session", () => {
   it("provisions an organization and an owner for a new sign-up", async () => {
     findManyUsers.mockResolvedValue([]);
     findMembership.mockResolvedValue(null);
-    findAccess.mockResolvedValue(null);
     createOrganization.mockResolvedValue({
       ...organization,
       name: "Ada's Organization",
@@ -269,21 +318,31 @@ describe("POST /api/auth/session", () => {
     createUser.mockResolvedValue({
       ...storedUser,
       name: "Ada",
-      role: "owner",
       phone: null,
       venueName: null
     });
-    createAccess.mockResolvedValue(access);
-    createMembership.mockResolvedValue({ ...membership, role: "owner" });
+    createMembership.mockResolvedValue(membership);
     findManyMemberships.mockResolvedValue([
       {
         ...membership,
-        role: "owner",
         organization: {
           ...organization,
           name: "Ada's Organization",
           subscriptionStatus: "trialing",
           onboardingCompletedAt: null
+        }
+      }
+    ]);
+    // What the founder's new assignment resolves to. `settings.update` is the
+    // key that gates naming the organization, so onboarding is decided by what
+    // they may DO rather than by what their role is called.
+    findManyPrincipalRoles.mockResolvedValue([
+      {
+        scopeType: "org",
+        scopeId: ORGANIZATION_ID,
+        expiresAt: null,
+        role: {
+          rolePermissions: [{ permission: { key: "settings.update" } }]
         }
       }
     ]);
@@ -298,7 +357,25 @@ describe("POST /api/auth/session", () => {
 
     expect(response.status).toBe(200);
     expect(createOrganization).toHaveBeenCalledTimes(1);
-    expect(body.user.role).toBe("owner");
+    // What makes them the owner is an assignment, not a column: the starter set
+    // is materialized and the founder gets the top role organization-wide.
+    // Without it the sign-up completes and the new owner can do nothing.
+    expect(createRole).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ key: FOUNDING_OWNER_ROLE_KEY })
+      })
+    );
+    expect(createManyPrincipalRoles).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: [
+          expect.objectContaining({
+            principalId: PRINCIPAL_ID,
+            roleId: `role-${FOUNDING_OWNER_ROLE_KEY}`,
+            scopeType: "org"
+          })
+        ]
+      })
+    );
     // The owner still has to name the organization on /dashboard/new.
     expect(body.mustCompleteOnboarding).toBe(true);
     expect(body.organizations[0].subscriptionStatus).toBe("trialing");
@@ -335,7 +412,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         passwordSetAt: null,
-        access: [access],
         memberships: [membership]
       }
     ]);
@@ -353,7 +429,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         passwordSetAt: null,
-        access: [access],
         memberships: [membership]
       }
     ]);
@@ -378,7 +453,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         isActive: false,
-        access: [access],
         memberships: [membership]
       }
     ]);
@@ -396,7 +470,6 @@ describe("POST /api/auth/session", () => {
     findManyUsers.mockResolvedValue([
       {
         ...storedUser,
-        access: [access],
         memberships: [{ ...membership, isActive: false }]
       }
     ]);
@@ -418,7 +491,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         isActive: false,
-        access: [access],
         memberships: [{ ...membership, isActive: false }]
       }
     ]);
@@ -438,7 +510,6 @@ describe("POST /api/auth/session", () => {
     expect(createUser).not.toHaveBeenCalled();
     expect(updateMembership).not.toHaveBeenCalled();
     expect(createMembership).not.toHaveBeenCalled();
-    expect(createAccess).not.toHaveBeenCalled();
     expect(createActivityLog).not.toHaveBeenCalled();
   });
 
@@ -448,7 +519,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         lastSignInAt: new Date("2026-08-14T10:00:00.000Z"),
-        access: [access],
         memberships: [membership]
       }
     ]);
@@ -465,11 +535,10 @@ describe("POST /api/auth/session", () => {
     // A second sync for the same session is a no-op.
     vi.clearAllMocks();
     findManyUsers.mockResolvedValue([
-      { ...storedUser, access: [access], memberships: [membership] }
+      { ...storedUser, memberships: [membership] }
     ]);
     findMembership.mockResolvedValue(membership);
     findManyMemberships.mockResolvedValue([membership]);
-    findAccess.mockResolvedValue(access);
 
     await POST(syncRequest());
 
@@ -480,7 +549,6 @@ describe("POST /api/auth/session", () => {
     findManyUsers.mockResolvedValue([
       {
         ...storedUser,
-        access: [access],
         // Deliberately out of order, and carrying one revoked membership.
         memberships: [
           secondMembership,
@@ -508,7 +576,6 @@ describe("POST /api/auth/session", () => {
       {
         ...storedUser,
         supabaseAuthId: null,
-        access: [access],
         memberships: [membership]
       }
     ]);
@@ -543,48 +610,48 @@ describe("POST /api/auth/session", () => {
    * inviting your own address at "owner" from a throwaway tenant promoted you
    * inside somebody else's tenant at your next sign-in.
    *
-   * These must FAIL against pre-change provisioning.
+   * The column is gone and privilege is `principal_roles`. What has to stay
+   * true is the property the column made false: SIGNING IN NEVER CHANGES WHAT
+   * ANYONE MAY DO.
    */
-  describe("users.role never decides a membership role (C2)", () => {
-    it("leaves a viewer membership alone when the global column says owner", async () => {
-      const viewerMembership = { ...membership, role: "viewer" };
-
-      findManyUsers.mockResolvedValue([
-        {
-          ...storedUser,
-          role: "owner",
-          access: [access],
-          memberships: [viewerMembership]
-        }
-      ]);
-      findMembership.mockResolvedValue(viewerMembership);
-      findManyMemberships.mockResolvedValue([viewerMembership]);
-
+  describe("signing in never changes what anyone may do (C2)", () => {
+    it("touches no privilege row for a member who already has one", async () => {
       const response = await POST(syncRequest());
-      const body = await response.json();
 
       expect(response.status).toBe(200);
       expect(updateMembership).not.toHaveBeenCalled();
-      expect(body.organizations[0].role).toBe("viewer");
+      // The three writes that could raise somebody: a new assignment, a new
+      // role, or a change to what an existing role grants.
+      expect(createManyPrincipalRoles).not.toHaveBeenCalled();
+      expect(createRole).not.toHaveBeenCalled();
+      expect(createManyRolePermissions).not.toHaveBeenCalled();
     });
 
-    it("creates an invented membership at the lowest privilege, not at users.role", async () => {
-      findManyUsers.mockResolvedValue([
-        {
-          ...storedUser,
-          role: "owner",
-          access: [access],
-          memberships: []
-        }
-      ]);
+    it("creates an invented membership at the lowest privilege there is", async () => {
+      // Inventing a membership is already a guess. It gets the bottom role, and
+      // an administrator raises it deliberately from the access screen.
+      findManyUsers.mockResolvedValue([{ ...storedUser, memberships: [] }]);
       findMembership.mockResolvedValue(null);
-      findManyMemberships.mockResolvedValue([{ ...membership, role: "viewer" }]);
+      findManyMemberships.mockResolvedValue([membership]);
 
       await POST(syncRequest());
 
-      expect(createMembership).toHaveBeenCalledWith(
+      expect(createManyPrincipalRoles).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ role: "viewer" })
+          data: [
+            expect.objectContaining({
+              roleId: `role-${DEFAULT_MEMBERSHIP_ROLE_KEY}`
+            })
+          ]
+        })
+      );
+      expect(createManyPrincipalRoles).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            expect.objectContaining({
+              roleId: `role-${FOUNDING_OWNER_ROLE_KEY}`
+            })
+          ]
         })
       );
     });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { authzContext } from "@/tests/unit/authz-test-helpers";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
@@ -14,16 +15,16 @@ const mocks = vi.hoisted(() => ({
     },
     $transaction: vi.fn()
   },
-  requirePermission: vi.fn()
+  authorize: vi.fn()
 }));
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({ prisma: mocks.prisma }));
 // Keep the real AuthorizationError: createApiErrorResponse does an
 // `instanceof` check against it, so a bare stub breaks the error path.
-vi.mock("@/lib/auth/server-auth", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/lib/auth/server-auth")>()),
-  requirePermission: mocks.requirePermission
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: mocks.authorize
 }));
 
 import { PATCH } from "@/app/api/halls/route";
@@ -44,7 +45,7 @@ function patch(body: Record<string, unknown>) {
 describe("PATCH /api/halls numeric validation", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requirePermission.mockResolvedValue({ id: "user-1", organizationId });
+    mocks.authorize.mockResolvedValue(authzContext({ userId: "user-1", organizationId }));
     mocks.prisma.hall.findFirst.mockResolvedValue({
       id: hallId,
       isActive: true

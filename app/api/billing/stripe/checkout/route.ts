@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "payment.notify");
     const input = schema.parse(await request.json());
     const invoice = await prisma.invoice.findFirst({
       where: { id: input.invoiceId, organizationId: actor.organizationId },
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         eventId: invoice.event.id,
         clientId: invoice.event.clientId,
         invoiceId: invoice.id,
-        confirmedById: actor.id,
+        confirmedById: actor.userId,
         amountCents,
         currency: invoice.currency,
         status: "pending",

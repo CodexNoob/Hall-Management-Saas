@@ -1,16 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/server-auth", () => ({
-  AuthorizationError: class AuthorizationError extends Error {
-    constructor(
-      public readonly status: 401 | 403,
-      message: string
-    ) {
-      super(message);
-    }
-  },
-  requirePermission: vi.fn()
+vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
+  authorize: vi.fn()
 }));
 
 const transaction = {
@@ -29,7 +22,7 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { PATCH } from "@/app/api/billing/invoices/[invoiceId]/route";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 
 describe("invoice update route", () => {
   const invoiceId = "11111111-1111-4111-8111-111111111111";
@@ -55,7 +48,7 @@ describe("invoice update route", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(requirePermission).mockResolvedValue({
+    vi.mocked(authorize).mockResolvedValue({
       id: "44444444-4444-4444-8444-444444444444",
       organizationId,
       name: "Billing Admin"

@@ -17,7 +17,7 @@ import type {
   EventKitchenSheet
 } from "@/features/events/components/event-manager-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSession, cacheTestSessionForStarterRole, starterPermissionsExcept } from "./auth-session-fixture";
 
 /**
  * What the kitchen tab says when the numbers are known, and - the ones that
@@ -192,7 +192,7 @@ async function rerender(
 describe("event kitchen tab", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     sheets.clear();
     pendingRequests.clear();
     clearAuthenticatedQueryCache();
@@ -394,7 +394,7 @@ describe("event kitchen tab", () => {
     await act(async () => {
       granted.unmount();
     });
-    cacheTestSession("manager", { canViewKitchenDashboard: false });
+    cacheTestSession(starterPermissionsExcept("event-manager", ["kitchen.read"], []));
     clearAuthenticatedQueryCache();
 
     await mount(<EventKitchenContent event={eventFile("event-1")} />);

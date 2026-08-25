@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAnyPermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
@@ -20,11 +20,7 @@ const clientUpdateSchema = clientInputSchema
 
 export async function GET(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, [
-      "canViewEventManager",
-      "canViewCalendar",
-      "canViewPaymentInfo"
-    ]);
+    const actor = await authorize(request, "client.read");
     const clients = await prisma.client.findMany({
       where: { organizationId: actor.organizationId },
       orderBy: { name: "asc" },
@@ -96,7 +92,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, ["canEditClients"]);
+    const actor = await authorize(request, "client.create");
     const input = clientInputSchema.parse(await request.json());
     const client = await prisma.$transaction(async (transaction) => {
       const created = await transaction.client.create({
@@ -106,8 +102,8 @@ export async function POST(request: Request) {
         data: {
           organizationId: actor.organizationId,
           clientId: created.id,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: "Client Created",
           message: `Created client ${created.name}.`
         }
@@ -122,7 +118,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const actor = await requireAnyPermission(request, ["canEditClients"]);
+    const actor = await authorize(request, "client.update");
     const { id, ...input } = clientUpdateSchema.parse(await request.json());
     const existing = await prisma.client.findFirst({
       where: { id, organizationId: actor.organizationId },
@@ -140,8 +136,8 @@ export async function PATCH(request: Request) {
         data: {
           organizationId: actor.organizationId,
           clientId: id,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: "Client Updated",
           message: `Updated client ${updated.name}.`
         }

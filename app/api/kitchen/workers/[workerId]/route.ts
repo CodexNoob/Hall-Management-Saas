@@ -7,7 +7,7 @@ import {
   workerNameSchema,
   workerSelect
 } from "@/features/kitchen/server/kitchen-workers";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -35,7 +35,7 @@ export async function PATCH(
   { params }: { params: Promise<{ workerId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canAssignWorkers");
+    const actor = await authorize(request, "kitchen.worker.assign");
     const { workerId } = await params;
     const id = workerIdSchema.parse(workerId);
     const input = updateWorkerSchema.parse(await request.json());
@@ -101,7 +101,7 @@ export async function DELETE(
   { params }: { params: Promise<{ workerId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canAssignWorkers");
+    const actor = await authorize(request, "kitchen.worker.assign");
     const { workerId } = await params;
     const id = workerIdSchema.parse(workerId);
     const current = await loadWorker(actor.organizationId, id);

@@ -2,6 +2,12 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { existsSync, readFileSync } from "node:fs";
 
+import {
+  createUserPrincipal,
+  provisionOrganizationAuthorization
+} from "../lib/authz/provision";
+import { FOUNDING_OWNER_ROLE_KEY } from "../lib/authz/starter-roles";
+
 function loadEnvFile(path: string) {
   if (!existsSync(path)) {
     return;
@@ -60,60 +66,54 @@ async function main() {
     where: { email: "admin@example.com" },
     update: {
       name: "Platform Admin",
-      role: "admin",
+      title: "Owner",
       isActive: true,
       organizationId: organization.id
     },
     create: {
       email: "admin@example.com",
       name: "Platform Admin",
-      role: "admin",
+      title: "Owner",
       organizationId: organization.id
     }
   });
 
-  await prisma.organizationMembership.upsert({
+  // The demo owner's privileges are ROWS, so they are written the same way the
+  // application writes them: a principal, the starter roles materialized for
+  // this organization, and one org-scoped assignment. There is no role string to
+  // set and no boolean matrix to restate - which is the whole point.
+  const membership = await prisma.organizationMembership.findUnique({
     where: {
       organizationId_userId: {
         organizationId: organization.id,
         userId: admin.id
       }
     },
-    update: { role: "owner", isActive: true },
-    create: {
-      organizationId: organization.id,
-      userId: admin.id,
-      role: "owner"
-    }
+    select: { id: true, principalId: true }
   });
 
-  await prisma.userAccess.upsert({
-    where: {
-      organizationId_userId: {
-        organizationId: organization.id,
-        userId: admin.id
-      }
-    },
-    update: {},
-    create: {
+  const principalId =
+    membership?.principalId ??
+    (await prisma.$transaction(async (transaction) => {
+      const created = await createUserPrincipal(transaction, organization.id);
+
+      await transaction.organizationMembership.create({
+        data: {
+          organizationId: organization.id,
+          userId: admin.id,
+          principalId: created
+        }
+      });
+
+      return created;
+    }));
+
+  await prisma.$transaction(async (transaction) => {
+    await provisionOrganizationAuthorization(transaction, {
       organizationId: organization.id,
-      userId: admin.id,
-      canViewHome: true,
-      canViewCalendar: true,
-      canCreateBooking: true,
-      canViewEventManager: true,
-      canViewKitchenDashboard: true,
-      canViewMenu: true,
-      canEditMenu: true,
-      canViewSettings: true,
-      canEditSettings: true,
-      canAssignWorkers: true,
-      canUpdateKitchenStatus: true,
-      canAddKitchenEvents: true,
-      canViewPaymentInfo: true,
-      canManagePayments: true,
-      canSendPaymentEmail: true
-    }
+      principalId,
+      roleKey: FOUNDING_OWNER_ROLE_KEY
+    });
   });
 
   const mainHall = await prisma.hall.upsert({

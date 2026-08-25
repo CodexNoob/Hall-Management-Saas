@@ -82,7 +82,6 @@ export function DashboardAuthGuard() {
 
   return (
     <DashboardShell
-      access={authSession.access}
       activeOrganizationId={authSession.activeOrganizationId}
       organizations={authSession.organizations}
       user={authSession.user}

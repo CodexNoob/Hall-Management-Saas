@@ -15,7 +15,7 @@ import type {
   EventMenuLine,
   EventMenuResponse
 } from "@/features/events/components/event-manager-shared";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSession, starterPermissionsExcept } from "./auth-session-fixture";
 
 /**
  * Answering "how much of this do we cook" on the event that first needed it.
@@ -131,7 +131,7 @@ describe("rulelessLines", () => {
 describe("EventMenuRuleBand", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager", { canEditMenu: true });
+    cacheTestSession(["menu.update"]);
     vi.mocked(updateMenuItem).mockReset();
     vi.mocked(updateMenuItem).mockResolvedValue(undefined);
   });
@@ -266,7 +266,7 @@ describe("EventMenuRuleBand", () => {
     // Writing a rule is a library edit. Every stock role holds both permissions
     // or neither, but a hand-tuned grant would otherwise get a 403 from a form
     // that looked writable.
-    cacheTestSession("manager", { canEditMenu: false });
+    cacheTestSession(starterPermissionsExcept("event-manager", ["menu.update"], []));
     renderBand();
 
     expect(screen.getByText("Grilled salmon")).toBeInTheDocument();

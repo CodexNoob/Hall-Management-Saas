@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
+import type { PermissionKey } from "@/lib/authz/catalog";
+import { starterRoles } from "@/lib/authz/starter-roles";
 
 // Exercises the home page's role gating through the real stack: app/dashboard
 // layout -> DashboardAuthGuard -> DashboardShell -> DashboardOverview, against
@@ -15,11 +16,8 @@ import { accessForRole, type StaffRoleValue } from "@/lib/auth/permissions";
 // empty for a role the real account cannot load data for; these tests assert
 // which sections render, never what is inside them.
 //
-// Gating follows the VIEW permissions and canAccessDashboardRoute, not the
-// Staff page's role-matrix columns: those are all-of checks over groups mixing
-// view and edit rights, so they read "-" for a role that can still open the
-// page (Viewer has canViewKitchenDashboard but not canAssignWorkers). The
-// per-surface expectations are pinned in tests/unit/dashboard-overview-gating,
+// Gating follows the READ keys and canAccessDashboardRoute. The per-surface
+// expectations are pinned in tests/unit/dashboard-overview-gating,
 // dashboard-side-panels and dashboard-module-links.
 
 const AUTH_SESSION_CACHE_KEY = "hms.authSession";
@@ -49,7 +47,7 @@ const moduleTileDescriptions = {
 } as const;
 
 type Expected = {
-  role: StaffRoleValue;
+  role: string;
   sections: Array<(typeof sectionHeadings)[number]>;
   actions: Array<(typeof quickActionLabels)[number]>;
   tiles: Array<keyof typeof moduleTileDescriptions>;
@@ -57,13 +55,13 @@ type Expected = {
 
 const expectations: Expected[] = [
   {
-    role: "admin",
+    role: "administrator",
     sections: [...sectionHeadings],
     actions: [...quickActionLabels],
     tiles: ["Kitchen", "Calendar", "Events", "Billing"]
   },
   {
-    role: "manager",
+    role: "event-manager",
     sections: [...sectionHeadings],
     actions: [...quickActionLabels],
     tiles: ["Kitchen", "Calendar", "Events", "Billing"]
@@ -71,7 +69,7 @@ const expectations: Expected[] = [
   {
     // No canViewPaymentInfo, so no income timeline and no attention panel;
     // /dashboard/events is still reachable through canViewCalendar.
-    role: "kitchen",
+    role: "kitchen-staff",
     sections: [
       "Total Events",
       "Booked Events",
@@ -81,14 +79,6 @@ const expectations: Expected[] = [
     ],
     actions: ["Kitchen board", "Dining sheets"],
     tiles: ["Kitchen", "Calendar", "Events"]
-  },
-  {
-    // canViewEventManager makes /dashboard/dining-manager reachable even without
-    // any kitchen permission of its own.
-    role: "billing",
-    sections: [...sectionHeadings],
-    actions: ["Open billing", "Dining sheets"],
-    tiles: ["Calendar", "Events", "Billing"]
   },
   {
     // Read-only: sees the operational surfaces it can open, no payment data,
@@ -110,7 +100,13 @@ const expectations: Expected[] = [
 // subject untouched and refreshes fetchedAt, so fetchAuthSession takes its
 // cache-fresh branch and never calls /api/auth/session; the route patch below
 // is a fallback for the case where it does.
-async function forceRole(page: Page, role: StaffRoleValue) {
+function permissionsFor(role: string): PermissionKey[] {
+  const starter = starterRoles.find((candidate) => candidate.key === role);
+  if (!starter) throw new Error(`No starter role keyed "${role}".`);
+  return [...starter.permissions];
+}
+
+async function forceRole(page: Page, role: string) {
   await page.goto("/dashboard");
 
   const blob = await page.evaluate(
@@ -125,20 +121,11 @@ async function forceRole(page: Page, role: StaffRoleValue) {
   ).toBeTruthy();
 
   const authSession = JSON.parse(blob as string);
+  // Only the KEYS are swapped. subscriptionStatus and the trial fields are
+  // preserved, otherwise UpgradePlanDialog's forceSelection covers the page.
   const patched = {
     ...authSession,
-    user: { ...authSession.user, role },
-    // Preserve id/userId/allowedHallIds/timestamps so the row stays well-formed.
-    access: { ...authSession.access, ...accessForRole(role) },
-    // Membership role drives isAdministrativeRole. subscriptionStatus and the
-    // trial fields are preserved, otherwise UpgradePlanDialog's forceSelection
-    // covers the page.
-    organizations: authSession.organizations.map(
-      (organization: { id: string }, index: number) =>
-        index === 0 || organization.id === authSession.activeOrganizationId
-          ? { ...organization, role }
-          : organization
-    )
+    permissions: permissionsFor(role)
   };
 
   await page.addInitScript(
@@ -160,17 +147,7 @@ async function forceRole(page: Page, role: StaffRoleValue) {
     const body = await response.json();
     await route.fulfill({
       response,
-      json: {
-        ...body,
-        user: { ...body.user, role },
-        access: { ...body.access, ...accessForRole(role) },
-        organizations: (body.organizations ?? []).map(
-          (organization: { id: string }, index: number) =>
-            index === 0 || organization.id === body.activeOrganizationId
-              ? { ...organization, role }
-              : organization
-        )
-      }
+      json: { ...body, permissions: permissionsFor(role) }
     });
   });
 
@@ -182,23 +159,17 @@ async function forceRole(page: Page, role: StaffRoleValue) {
   // Fails loudly instead of silently passing if the app ever re-syncs over the
   // fake (e.g. fetchAuthSession gaining force: true), which would quietly test
   // the real account's role instead of `role`.
-  const effectiveRole = await page.evaluate((key) => {
+  const effectivePermissions = await page.evaluate((key) => {
     const raw =
       window.localStorage.getItem(key) ?? window.sessionStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return (
-      parsed.organizations?.find(
-        (organization: { id: string }) =>
-          organization.id === parsed.activeOrganizationId
-      )?.role ?? null
-    );
+    return JSON.parse(raw).permissions ?? null;
   }, AUTH_SESSION_CACHE_KEY);
 
   expect(
-    effectiveRole,
-    "the forced role was overwritten, so this assertion would have tested the real account"
-  ).toBe(role);
+    effectivePermissions,
+    "the forced key set was overwritten, so this assertion would have tested the real account"
+  ).toEqual(permissionsFor(role));
 }
 
 test.beforeEach(async ({}, testInfo) => {
@@ -273,19 +244,12 @@ test("a role with no dashboard access at all gets the restricted panel, not a pa
   expect(blob).toBeTruthy();
 
   const authSession = JSON.parse(blob as string);
+  // A principal holding nothing the dashboard needs. `settings.read` is kept so
+  // the session is still well-formed and the layout renders - the point is that
+  // neither key the overview is gated on is present.
   const patched = {
     ...authSession,
-    user: { ...authSession.user, role: "viewer" },
-    access: {
-      ...authSession.access,
-      ...accessForRole("viewer"),
-      canViewHome: true,
-      canViewCalendar: false,
-      canViewEventManager: false
-    },
-    organizations: authSession.organizations.map(
-      (organization: { id: string }) => ({ ...organization, role: "viewer" })
-    )
+    permissions: ["settings.read"]
   };
 
   await page.addInitScript(

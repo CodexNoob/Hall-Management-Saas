@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/server-auth";
+import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { BillingError } from "@/features/billing/services/billing-error";
@@ -32,7 +32,7 @@ export async function PATCH(
   { params }: { params: Promise<{ transactionId: string }> }
 ) {
   try {
-    const actor = await requirePermission(request, "canManagePayments");
+    const actor = await authorize(request, "bank.connect");
     const { transactionId } = await params;
     const id = z.string().uuid().parse(transactionId);
     const input = updateSchema.parse(await request.json());
@@ -98,7 +98,7 @@ export async function PATCH(
                 : (previousMetadata as Record<string, unknown>).matchedAt,
             matchedById:
               input.action === "match"
-                ? actor.id
+                ? actor.userId
                 : (previousMetadata as Record<string, unknown>).matchedById,
             cancelledAt:
               input.action === "cancel"
@@ -116,8 +116,8 @@ export async function PATCH(
           organizationId: actor.organizationId,
           eventId,
           clientId,
-          userId: actor.id,
-          userName: actor.name,
+          userId: actor.userId,
+          userName: actor.actorName,
           actionType: `Billing Transaction ${input.action}`,
           message: `${input.action} transaction ${current.providerReference ?? current.id}.`,
           oldValue: {

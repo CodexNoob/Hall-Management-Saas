@@ -13,7 +13,7 @@ import type {
   EventFile,
   EventMenuDocument
 } from "@/features/events/components/event-manager-shared";
-import { cacheTestSession } from "./auth-session-fixture";
+import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
 /**
  * What the menu tab does while it has nothing to show, and what it shows when
@@ -171,7 +171,7 @@ const noop = async () => undefined;
 describe("event menu tab loading", () => {
   beforeEach(() => {
     window.localStorage.clear();
-    cacheTestSession("manager");
+    cacheTestSessionForStarterRole("event-manager");
     menus.clear();
     pendingRequests.clear();
     clearAuthenticatedQueryCache();

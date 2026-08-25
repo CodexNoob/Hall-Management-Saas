@@ -1,14 +1,21 @@
 "use client";
 
 import { type ReactNode } from "react";
-import {
-  permissionColumns,
-  roleTemplates,
-  type StaffRoleName
-} from "@/lib/auth/permissions";
+import type { AssignmentSummary } from "@/features/access/components/access-shared";
+
+/**
+ * The staff directory's presentation layer.
+ *
+ * NO ROLE UNION, AND NO PERMISSION MATRIX. Both used to live here, and both were
+ * the reason adding a role meant editing this file:  was a closed
+ * union,  was keyed by it, and a tenant-authored role had nowhere to
+ * render. Roles are rows now, so a role reaches this screen as data - see
+ *  in features/access/components/access-shared.ts for the colour, which
+ * is derived from the name rather than looked up in a fixed map.
+ */
 
 export type StaffStatus = "Active" | "Inactive";
-export type RoleName = StaffRoleName;
+
 export type IconName =
   | "users"
   | "building"
@@ -26,52 +33,18 @@ export type IconName =
   | "plus";
 
 export type StaffMember = {
-  id: string;
+  userId: string;
+  principalId: string;
   initials: string;
   name: string;
   email: string;
   department: string;
-  role: RoleName;
+  title: string | null;
   status: StaffStatus;
   lastLogin: string;
   phone: string;
   color: string;
-  access?: Record<string, unknown> | null;
-};
-
-export type StaffResponse = {
-  staff: Array<{
-    id: string;
-    name: string;
-    email: string;
-    phone: string | null;
-    department: string;
-    role: string;
-    status: StaffStatus;
-    access?: Record<string, unknown> | null;
-    lastLoginAt: string | null;
-    createdAt: string;
-  }>;
-  matrix?: {
-    roles: typeof roleTemplates;
-    columns: typeof permissionColumns;
-    access?: Record<string, Record<string, boolean>>;
-  };
-  canCustomizePermissions?: boolean;
-};
-
-export { permissionColumns, roleTemplates };
-
-export const roleColors: Record<RoleName, string> = {
-  // Owner is a distinct hue from Administrator on purpose - the two roles used
-  // to share the "Administrator" label, and a shared colour would keep them
-  // indistinguishable in the directory after the names were split apart.
-  Owner: "border-[#f0b2b8] bg-[#fdeef0] text-[#a52a3d]",
-  Administrator: "border-[#9bc8f2] bg-[#edf6ff] text-[#1769aa]",
-  "Event Manager": "border-[#a9dfc9] bg-[#effaf5] text-[#147653]",
-  "Kitchen Staff": "border-[#efd39d] bg-[#fff7e8] text-[#a45f00]",
-  "Billing Staff": "border-[#d2c6f7] bg-[#f5f2ff] text-[#6550c4]",
-  Viewer: "border-[#cdd5df] bg-[#f4f6f8] text-[#536172]"
+  assignments: AssignmentSummary[];
 };
 
 export function LineIcon({
@@ -158,16 +131,6 @@ export function LineIcon({
     plus: <path d="M12 5v14M5 12h14" />
   };
   return <svg {...common}>{icons[name]}</svg>;
-}
-
-export function RoleBadge({ role }: { role: RoleName }) {
-  return (
-    <span
-      className={`inline-flex whitespace-nowrap rounded-md border px-2 py-1 text-[10px] font-black ${roleColors[role]}`}
-    >
-      {role}
-    </span>
-  );
 }
 
 export function StatusBadge({ status }: { status: StaffStatus }) {
