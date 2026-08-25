@@ -19,7 +19,6 @@ import { HallMapContent } from "@/features/events/components/event-hall-map-cont
 import { EventKitchenContent } from "@/features/events/components/event-kitchen-content";
 import { EventMenuContent } from "@/features/events/components/event-menu-content";
 import { EventTabPlaceholder } from "@/features/events/components/event-tab-placeholder";
-import { EventVendorsContent } from "@/features/events/components/event-vendors-content";
 import {
   ActionButton,
   Badge,
@@ -223,7 +222,6 @@ export function EventWorkspace({
           <HallMapContent key={event.id} event={event} />
         ) : null}
         {activeTab === "Kitchen" ? <EventKitchenContent event={event} /> : null}
-        {activeTab === "Vendors" ? <EventVendorsContent /> : null}
         {activeTab === "Files" ? (
           <EventFilesContent
             clientName={event.clientName}
@@ -238,7 +236,6 @@ export function EventWorkspace({
           "Billing",
           "Hall map",
           "Kitchen",
-          "Vendors",
           "Files"
         ].includes(activeTab) ? (
           <EventTabPlaceholder label={activeTab} />

@@ -385,7 +385,7 @@ export async function createBooking(
   const holdsAHall = activeStatuses.has(status);
 
   try {
-    return await runInTransaction(async (transaction) => {
+    const result = await runInTransaction(async (transaction) => {
       // Only worth doing where it changes an answer: expiring holds exists to
       // keep the availability and daily-limit checks honest.
       if (holdsAHall) {
@@ -394,7 +394,7 @@ export async function createBooking(
 
       const replay = await transaction.event.findFirst({
         where: { organizationId: actor.organizationId, idempotencyKey },
-        include: { hall: true, package: true, client: true }
+        select: { id: true, idempotencyHash: true }
       });
       if (replay) {
         if (replay.idempotencyHash !== hash) {
@@ -404,7 +404,7 @@ export async function createBooking(
             "IDEMPOTENCY_KEY_REUSED"
           );
         }
-        return { event: replay, replayed: true };
+        return { eventId: replay.id, replayed: true };
       }
 
       // A Prisma transaction uses one pg client. Starting these reads together
@@ -616,8 +616,7 @@ export async function createBooking(
           notes: input.notes,
           idempotencyKey,
           idempotencyHash: hash
-        },
-        include: { hall: true, package: true, client: true }
+        }
       });
 
       if (activeStatuses.has(status)) {
@@ -651,11 +650,18 @@ export async function createBooking(
           }
         }
       });
-      return { event, replayed: false };
+      return { eventId: event.id, replayed: false };
     },
     holdsAHall
       ? Prisma.TransactionIsolationLevel.Serializable
       : Prisma.TransactionIsolationLevel.ReadCommitted);
+
+    const event = await prisma.event.findUniqueOrThrow({
+      where: { id: result.eventId },
+      include: { hall: true, package: true, client: true }
+    });
+
+    return { event, replayed: result.replayed };
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -695,15 +701,14 @@ export async function transitionBooking(
   holdDurationMinutes: number,
   actor: BookingActor
 ) {
-  return runInTransaction(async (transaction) => {
+  const result = await runInTransaction(async (transaction) => {
     await expireHolds(transaction, actor.organizationId, new Date());
     const event = await transaction.event.findFirst({
       where: {
         id: eventId,
         organizationId: actor.organizationId,
         deleted: false
-      },
-      include: { hall: true }
+      }
     });
     if (!event)
       throw new BookingError("Booking not found.", 404, "BOOKING_NOT_FOUND");
@@ -812,10 +817,12 @@ export async function transitionBooking(
         newValue: { bookingStatus: status, version: expectedVersion + 1 }
       }
     });
-    return transaction.event.findUniqueOrThrow({
-      where: { id: event.id },
-      include: { hall: true }
-    });
+    return { eventId: event.id };
+  });
+
+  return prisma.event.findUniqueOrThrow({
+    where: { id: result.eventId },
+    include: { hall: true }
   });
 }
 

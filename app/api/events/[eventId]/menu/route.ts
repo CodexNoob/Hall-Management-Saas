@@ -410,6 +410,16 @@ export async function POST(
 
     if (!result) return conflict();
 
+    const presentedMenu = await readPresentedMenu(result.id, {
+      organizationId: actor.organizationId,
+      packageId: event.packageId
+    });
+    const menuItems = (presentedMenu?.lines ?? []).map((line) => ({
+      item: line.name,
+      type: line.kind,
+      serviceStyle: line.serviceStyle ?? "None"
+    }));
+
     await createMenuChangedKitchenNotification({
       organizationId: actor.organizationId,
       eventId: event.id,
@@ -417,15 +427,24 @@ export async function POST(
       eventDate: event.eventDate,
       hallOrRoom: event.hall.name,
       changedById: actor.id,
-      oldValue: confirming ? "Draft" : "Confirmed",
-      newValue: confirming ? "Confirmed" : "Draft"
+      oldValue: confirming
+        ? { status: "Draft", meal: presentedMenu?.meal ?? input.meal }
+        : {
+            status: "Confirmed",
+            meal: presentedMenu?.meal ?? input.meal,
+            items: menuItems
+          },
+      newValue: confirming
+        ? {
+            status: "Confirmed",
+            meal: presentedMenu?.meal ?? input.meal,
+            items: menuItems
+          }
+        : { status: "Draft", meal: presentedMenu?.meal ?? input.meal }
     });
 
     return NextResponse.json({
-      menu: await readPresentedMenu(result.id, {
-        organizationId: actor.organizationId,
-        packageId: event.packageId
-      })
+      menu: presentedMenu
     });
   } catch (error) {
     return createApiErrorResponse(error);

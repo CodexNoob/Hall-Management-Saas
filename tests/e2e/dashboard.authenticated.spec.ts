@@ -136,9 +136,7 @@ const dashboardPages = [
   "/dashboard/calendar",
   "/dashboard/events",
   "/dashboard/menu",
-  "/dashboard/staff",
-  "/dashboard/vendors",
-  "/dashboard/settings"
+  "/dashboard/staff"
 ];
 
 for (const route of dashboardPages) {

@@ -391,14 +391,8 @@ export function NewBookingDialog({
                 </select>
                 {!eventsQuery.isLoading && eventTypes.length === 0 ? (
                   <p className="mt-1.5 text-xs font-semibold text-[#b26a00]">
-                    Add an event type in{" "}
-                    <a
-                      className="font-black text-[#1f4d73] underline"
-                      href="/dashboard/settings"
-                    >
-                      Settings
-                    </a>{" "}
-                    before creating a booking.
+                    Add an event type in the Settings modal before creating a
+                    booking.
                   </p>
                 ) : null}
               </div>

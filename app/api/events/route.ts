@@ -144,6 +144,7 @@ async function listEventActivityLogs(organizationId: string, eventIds: string[])
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EVENT_LIST_LIMIT = 1000;
 
 export async function GET(request: Request) {
   try {
@@ -170,7 +171,7 @@ export async function GET(request: Request) {
         },
         orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
         include: { hall: true, package: true, client: true },
-        take: 100
+        take: EVENT_LIST_LIMIT
       }),
       prisma.hall.findMany({
         where: {

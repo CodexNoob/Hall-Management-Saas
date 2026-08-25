@@ -33,9 +33,106 @@ const valueToText = (
   if (Array.isArray(value)) return value.map(valueToText).join(", ") || "—";
 
   const record = value as Record<string, Prisma.JsonValue>;
+  if ("status" in record || "items" in record) {
+    const status = valueToText(record.status);
+    const meal = valueToText(record.meal);
+    const headline =
+      status !== "â€”"
+        ? `${status}${meal !== "â€”" ? ` menu (${meal})` : " menu"}`
+        : meal !== "â€”"
+          ? `${meal} menu`
+          : null;
+    const items = Array.isArray(record.items)
+      ? record.items
+          .map((entry) => {
+            if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+              return valueToText(entry);
+            }
+
+            const item = entry as Record<string, Prisma.JsonValue>;
+            const name = valueToText(item.item);
+            const type = valueToText(item.type);
+            const serviceStyle = valueToText(item.serviceStyle);
+
+            return `- ${name}${type !== "â€”" ? ` (${type})` : ""}${
+              serviceStyle !== "â€”" && serviceStyle !== "None"
+                ? ` - ${serviceStyle}`
+                : ""
+            }`;
+          })
+          .join("\n")
+      : "";
+
+    return [headline, items ? `Menu items:\n${items}` : null]
+      .filter((part): part is string => Boolean(part))
+      .join("\n");
+  }
+
   return Object.entries(record)
     .map(([key, entry]) => `${key}: ${valueToText(entry)}`)
     .join(", ");
+};
+
+type KitchenNotificationChangeItem = {
+  name: string;
+  type: string;
+  serviceStyle: string | null;
+};
+
+type KitchenNotificationChangeSummary = {
+  beforeStatus?: string;
+  afterStatus?: string;
+  meal?: string;
+  items: KitchenNotificationChangeItem[];
+};
+
+const parseChangeSummary = (
+  oldValue: Prisma.JsonValue | null | undefined,
+  newValue: Prisma.JsonValue | null | undefined
+): KitchenNotificationChangeSummary | undefined => {
+  const oldRecord =
+    oldValue && typeof oldValue === "object" && !Array.isArray(oldValue)
+      ? (oldValue as Record<string, Prisma.JsonValue>)
+      : null;
+  const newRecord =
+    newValue && typeof newValue === "object" && !Array.isArray(newValue)
+      ? (newValue as Record<string, Prisma.JsonValue>)
+      : null;
+
+  if (!oldRecord && !newRecord) return undefined;
+
+  const rawItems = Array.isArray(newRecord?.items) ? newRecord.items : [];
+  const items = rawItems.flatMap((entry): KitchenNotificationChangeItem[] => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) return [];
+
+    const item = entry as Record<string, Prisma.JsonValue>;
+    const name = valueToText(item.item);
+    if (name === "â€”") return [];
+
+    const serviceStyle = valueToText(item.serviceStyle);
+
+    return [
+      {
+        name,
+        type: valueToText(item.type),
+        serviceStyle:
+          serviceStyle === "â€”" || serviceStyle === "None"
+            ? null
+            : serviceStyle
+      }
+    ];
+  });
+
+  return {
+    beforeStatus: oldRecord?.status ? valueToText(oldRecord.status) : undefined,
+    afterStatus: newRecord?.status ? valueToText(newRecord.status) : undefined,
+    meal: newRecord?.meal
+      ? valueToText(newRecord.meal)
+      : oldRecord?.meal
+        ? valueToText(oldRecord.meal)
+        : undefined,
+    items
+  };
 };
 
 export type PresentedKitchenNotification = {
@@ -53,6 +150,7 @@ export type PresentedKitchenNotification = {
   acknowledgedBy?: string;
   acknowledgedAt?: string;
   emailSent?: string;
+  changeSummary?: KitchenNotificationChangeSummary;
 };
 
 export const kitchenNotificationSelect = {
@@ -120,7 +218,8 @@ export function presentKitchenNotification(
       ? `Email sent ${dateTimeFormat.format(notification.emailSentAt)}`
       : notification.emailSent
         ? "Email sent"
-        : undefined
+        : undefined,
+    changeSummary: parseChangeSummary(notification.oldValue, notification.newValue)
   };
 }
 
