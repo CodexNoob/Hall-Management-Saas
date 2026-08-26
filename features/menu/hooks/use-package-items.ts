@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { updateMenuPackage } from "@/features/menu/services/menu-packages";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  updateMenuPackage,
+  type MenuPackageChanges
+} from "@/features/menu/services/menu-packages";
 
 type ActivePackage = {
   id: string;
@@ -15,17 +18,46 @@ type UsePackageItemsInput = {
   onChanged: () => Promise<unknown> | void;
 };
 
-const FALLBACK_ERROR =
-  "The package could not be updated. Please try again.";
+const FALLBACK_ERROR = "The package could not be updated. Please try again.";
+
+// A stable reference for "no package is open", so the effect below is not woken
+// by a fresh empty array on every render.
+const NO_ITEM_IDS: string[] = [];
+
+/** Order is not compared: the server does not preserve it and nothing reads it. */
+function haveSameItems(left: string[], right: string[]) {
+  return left.length === right.length && left.every((id) => right.includes(id));
+}
 
 /**
  * Adding and removing the library items a package includes.
  *
- * Every write sends the whole list, because that is what the column is - one
- * array, replaced as a unit. The list it edits is read from the freshly fetched
- * package on each call rather than kept in state, so two quick clicks cannot
- * both build their new array from the same stale copy and have the second one
- * undo the first.
+ * Two things are going on here, and they solve different halves of the same
+ * problem.
+ *
+ * Each write sends only the items it touched - `addMenuItemIds` or
+ * `removeMenuItemIds` - and the server applies them to whatever is stored. It
+ * used to send the whole list, rebuilt from the last fetch, which meant two
+ * quick clicks both started from the same copy and the second one landed
+ * without the first one's item in it. That is a lost write, and no amount of
+ * client-side care fixes it, because the other click may be on someone else's
+ * screen.
+ *
+ * Both take a list rather than one id, which is what lets a selection of ten
+ * items cost one request instead of ten. The single-item case is just a list of
+ * one; there is no separate path for it.
+ *
+ * The list is then held here as a draft and updated the instant a card is
+ * clicked, rather than after a write and a refetch have both come back. The
+ * card moves between the two grids immediately; the request follows it. Each
+ * response carries the stored list back, which the draft is reset to, so a
+ * guess never outlives the answer. The draft is dropped once no write is in
+ * flight and the refetched package agrees with it - not on the write returning,
+ * which would flash the pre-refetch list back for a frame.
+ *
+ * Writes are queued rather than fired in parallel. The server would cope
+ * either way; it is `pendingItemIds` and the draft that want them ordered, so
+ * a response cannot arrive describing a state two clicks stale.
  *
  * Unlike `useMenuItemActions`, this one holds onto the failure. That hook lets
  * rejections through because a dialog is already showing and renders them;
@@ -36,62 +68,135 @@ export function usePackageItems({
   activePackage,
   onChanged
 }: UsePackageItemsInput) {
-  // The id being written, not a boolean: it is what lets the one card that was
-  // clicked show as busy instead of the whole grid going dead.
-  const [pendingItemId, setPendingItemId] = useState<string | null>(null);
+  const packageId = activePackage?.id ?? null;
+  const storedItemIds = activePackage?.includedMenuItemIds ?? NO_ITEM_IDS;
+
+  // Tagged with the package it belongs to: switching packages while a write is
+  // in the air must not draw one package's items under another's name.
+  const [draft, setDraft] = useState<{
+    packageId: string;
+    itemIds: string[];
+  } | null>(null);
+  // A set, not a single id: a second card can be clicked while the first is
+  // still saving, and both should read as busy.
+  const [pendingItemIds, setPendingItemIds] = useState<ReadonlySet<string>>(
+    () => new Set()
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const writeQueue = useRef<Promise<unknown>>(Promise.resolve());
 
-  const writeItems = useCallback(
-    async (itemId: string, includedMenuItemIds: string[]) => {
-      if (!activePackage) return;
+  const itemIds =
+    draft && draft.packageId === packageId ? draft.itemIds : storedItemIds;
 
-      setPendingItemId(itemId);
+  const queueWrite = useCallback(
+    (
+      writingItemIds: string[],
+      applyToDraft: (current: string[]) => string[],
+      changes: MenuPackageChanges
+    ) => {
+      if (!packageId || writingItemIds.length === 0) return;
+
+      setDraft((current) =>
+        current && current.packageId === packageId
+          ? { packageId, itemIds: applyToDraft(current.itemIds) }
+          : { packageId, itemIds: applyToDraft(storedItemIds) }
+      );
+      setPendingItemIds((current) => {
+        const next = new Set(current);
+        for (const itemId of writingItemIds) next.add(itemId);
+
+        return next;
+      });
       setErrorMessage(null);
 
-      try {
-        await updateMenuPackage(activePackage.id, { includedMenuItemIds });
-        await onChanged();
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error && error.message
-            ? error.message
-            : FALLBACK_ERROR
-        );
-      } finally {
-        setPendingItemId(null);
-      }
+      writeQueue.current = writeQueue.current
+        .then(() => updateMenuPackage(packageId, changes))
+        .then(async (saved) => {
+          // The stored list, which accounts for anything that landed from
+          // another tab or another person between the click and the answer.
+          if (saved?.includedMenuItemIds) {
+            setDraft({ packageId, itemIds: saved.includedMenuItemIds });
+          }
+
+          await onChanged();
+        })
+        .catch(async (error: unknown) => {
+          setErrorMessage(
+            error instanceof Error && error.message
+              ? error.message
+              : FALLBACK_ERROR
+          );
+          // The whole draft goes, not just this item's part of it. Earlier
+          // writes in the queue already landed, so the refetch below is the
+          // honest answer about what the package holds - reverting one item by
+          // hand would be a second guess on top of the one that just failed.
+          setDraft(null);
+
+          // Wrapped because `onChanged` may hand back nothing at all, and a
+          // refetch that fails here must not replace the message above with
+          // its own.
+          await Promise.resolve(onChanged()).catch(() => undefined);
+        })
+        .finally(() => {
+          setPendingItemIds((current) => {
+            const next = new Set(current);
+            for (const itemId of writingItemIds) next.delete(itemId);
+
+            return next;
+          });
+        });
     },
-    [activePackage, onChanged]
+    [onChanged, packageId, storedItemIds]
   );
 
-  const addItem = useCallback(
-    async (itemId: string) => {
-      if (!activePackage) return;
-      // Already there: the picker hides included items, so this can only be a
-      // second click on a card that has not been refetched away yet.
-      if (activePackage.includedMenuItemIds.includes(itemId)) return;
-
-      await writeItems(itemId, [...activePackage.includedMenuItemIds, itemId]);
-    },
-    [activePackage, writeItems]
-  );
-
-  const removeItem = useCallback(
-    async (itemId: string) => {
-      if (!activePackage) return;
-
-      await writeItems(
-        itemId,
-        activePackage.includedMenuItemIds.filter((id) => id !== itemId)
+  const addItems = useCallback(
+    (addedItemIds: string[]) => {
+      queueWrite(
+        addedItemIds,
+        (current) => [
+          ...current,
+          ...addedItemIds.filter((itemId) => !current.includes(itemId))
+        ],
+        { addMenuItemIds: addedItemIds }
       );
     },
-    [activePackage, writeItems]
+    [queueWrite]
   );
 
+  const removeItems = useCallback(
+    (removedItemIds: string[]) => {
+      queueWrite(
+        removedItemIds,
+        (current) => current.filter((itemId) => !removedItemIds.includes(itemId)),
+        { removeMenuItemIds: removedItemIds }
+      );
+    },
+    [queueWrite]
+  );
+
+  // Hands the list back to the server copy once the two say the same thing.
+  // Held until then rather than cleared when the write returns, so the panel
+  // never drops back to the pre-refetch list for a frame.
+  useEffect(() => {
+    if (!draft) return;
+
+    if (draft.packageId !== packageId) {
+      setDraft(null);
+
+      return;
+    }
+
+    if (pendingItemIds.size > 0) return;
+
+    if (haveSameItems(draft.itemIds, storedItemIds)) setDraft(null);
+  }, [draft, packageId, pendingItemIds, storedItemIds]);
+
   return {
-    addItem,
-    removeItem,
-    pendingItemId,
+    addItems,
+    removeItems,
+    /** What to draw: the optimistic list while one is held, the stored one otherwise. */
+    itemIds,
+    pendingItemIds,
     errorMessage,
     dismissError: useCallback(() => setErrorMessage(null), [])
   };

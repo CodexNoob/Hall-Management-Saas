@@ -5,11 +5,13 @@ import type { MenuItemServiceRule } from "@/features/menu/lib/service-style";
 
 export type IconName =
   | "box"
+  | "check"
   | "chevron"
   | "dollar"
   | "document"
   | "filter"
   | "plus"
+  | "trash"
   | "upload";
 
 export function LineIcon({
@@ -37,6 +39,7 @@ export function LineIcon({
         <path d="M3 8v8l9 5 9-5V8M12 13v8" />
       </>
     ),
+    check: <path d="m4 12 5 5L20 6" />,
     chevron: <path d="m9 18 6-6-6-6" />,
     dollar: (
       <>
@@ -52,6 +55,12 @@ export function LineIcon({
     ),
     filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
     plus: <path d="M12 5v14M5 12h14" />,
+    trash: (
+      <>
+        <path d="M4 7h16M10 4h4M6 7l1 13h10l1-13" />
+        <path d="M10 11v6M14 11v6" />
+      </>
+    ),
     upload: (
       <>
         <path d="M12 16V4m0 0L8 8m4-4 4 4" />

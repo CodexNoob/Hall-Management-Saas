@@ -24,6 +24,7 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 import { useDashboardPermission } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { useMenuItemActions } from "@/features/menu/hooks/use-menu-item-actions";
 import { usePackageItems } from "@/features/menu/hooks/use-package-items";
+import { usePackageSelection } from "@/features/menu/hooks/use-package-selection";
 import { parseAllergens } from "@/features/menu/lib/allergens";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import { updateMenuPackage } from "@/features/menu/services/menu-packages";
@@ -35,7 +36,9 @@ import {
   MenuItemCard,
   MenuRuleCard
 } from "@/features/menu/components/menu-cards";
+import { PackageIncludedItems } from "@/features/menu/components/package-included-items";
 import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
+import { SelectionActionBar } from "@/features/menu/components/selection-action-bar";
 import {
   LineIcon,
   tabs,
@@ -154,6 +157,7 @@ export function MenuPage() {
     activePackage,
     onChanged: menuQuery.refetch
   });
+  const packageSelection = usePackageSelection(activePackage?.id ?? null);
 
   if (menuQuery.isLoading || menuQuery.error) {
     return (
@@ -203,16 +207,48 @@ export function MenuPage() {
   // Both lists are resolved against the library rather than read off the
   // package: `included_menu_item_ids` is an id array, so this is the only place
   // the ids become items with names to draw.
+  //
+  // Split on the hook's list, not on `activePackage.includedMenuItemIds`: a
+  // clicked card has to cross between these two grids on the click, and the
+  // package will not carry the change until a write and a refetch have both
+  // come back.
+  const packageItemIds = packageItemActions.itemIds;
   const activePackageItems = activePackage
-    ? allMenuItems.filter((item) =>
-        activePackage.includedMenuItemIds.includes(item.id)
-      )
+    ? allMenuItems.filter((item) => packageItemIds.includes(item.id))
     : [];
   const addablePackageItems = activePackage
-    ? allMenuItems.filter(
-        (item) => !activePackage.includedMenuItemIds.includes(item.id)
-      )
+    ? allMenuItems.filter((item) => !packageItemIds.includes(item.id))
     : [];
+  // Intersected with what is actually on screen rather than handed over raw: a
+  // ticked card can leave its grid without being unticked - refetched away, or
+  // moved across by someone else's write - and a count that includes it would
+  // put a number on the bar that nothing on the page adds up to.
+  const tickedIncludedIds = new Set(
+    activePackageItems
+      .map((item) => item.id)
+      .filter((itemId) => packageSelection.selectedIn("included").has(itemId))
+  );
+  const tickedLibraryIds = new Set(
+    addablePackageItems
+      .map((item) => item.id)
+      .filter((itemId) => packageSelection.selectedIn("library").has(itemId))
+  );
+  // One grid holds a selection at a time, so the panel needs one bar and this
+  // is which way round it reads.
+  const isRemoving = tickedIncludedIds.size > 0;
+  const tickedItemIds = isRemoving
+    ? [...tickedIncludedIds]
+    : [...tickedLibraryIds];
+  const tickedCount = tickedItemIds.length;
+  // Cleared on the click, not on the answer, for the same reason the cards move
+  // then: the items leave the grid they were ticked in, so a selection that
+  // outlived the click would be pointing at cards that are no longer there.
+  const actOnTickedItems = () => {
+    if (isRemoving) packageItemActions.removeItems(tickedItemIds);
+    else packageItemActions.addItems(tickedItemIds);
+
+    packageSelection.clear();
+  };
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const isPlatedMenu = activeTab === "Plated Menu";
   const ruleMode = isPlatedMenu ? "plated" : "buffet";
@@ -496,6 +532,12 @@ export function MenuPage() {
               <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-1">
                 {visiblePackages.map((item) => {
                   const isActive = activePackage?.id === item.id;
+                  // The open package counts what the panel is drawing, so the
+                  // two do not disagree for the moment between a click and the
+                  // refetch that follows it.
+                  const summary = isActive
+                    ? `${packageItemIds.length} included items`
+                    : item.summary;
 
                   return (
                     <button
@@ -516,7 +558,7 @@ export function MenuPage() {
                           {item.name}
                         </span>
                         <span className="hidden truncate text-xs leading-4 text-[#6a7483] sm:block">
-                          {item.type} - {item.summary}
+                          {item.type} - {summary}
                         </span>
                       </span>
                       <span className="max-w-full shrink-0 truncate rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-1.5 py-1 text-[9px] font-black leading-none text-[#1f4d73] sm:text-[10px]">
@@ -577,52 +619,36 @@ export function MenuPage() {
                     </div>
                   ) : null}
 
-                  {/* The same card as the Menu Library grid, so an item looks
-                      like itself - picture included - wherever it is shown.
-                      It keeps the three-dot menu the library grid gave up: the
-                      one action here takes the item out of this package, and a
-                      card that deletes on click is not what an operator scanning
-                      a package expects. */}
-                  {activePackageItems.length === 0 ? (
-                    <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
-                      No items in this package yet. Pick them from the library
-                      below.
-                    </p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-2 p-3 sm:gap-3 md:grid-cols-4 2xl:grid-cols-6">
-                      {activePackageItems.map((item) => {
-                        const isPending =
-                          packageItemActions.pendingItemId === item.id;
-
-                        return (
-                          <MenuItemCard
-                            key={`${activePackage.id}-${item.id}`}
-                            actions={[
-                              {
-                                label: "Remove",
-                                disabled: !canEditMenu,
-                                tone: "danger",
-                                onSelect: () =>
-                                  void packageItemActions.removeItem(item.id)
-                              }
-                            ]}
-                            category={item.category}
-                            name={item.name}
-                            pendingLabel={isPending ? "Removing…" : null}
-                            pictureUrl={item.pictureUrl}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
+                  <PackageIncludedItems
+                    includedItems={activePackageItems}
+                    isDisabled={!canEditMenu}
+                    onReplaceSelection={(itemIds) =>
+                      packageSelection.replace("included", itemIds)
+                    }
+                    onToggle={(itemId) =>
+                      packageSelection.toggle("included", itemId)
+                    }
+                    pendingItemIds={packageItemActions.pendingItemIds}
+                    selectedItemIds={tickedIncludedIds}
+                  />
 
                   <PackageItemPicker
                     availableItems={addablePackageItems}
                     isDisabled={!canEditMenu}
                     libraryItemCount={allMenuItems.length}
-                    onAdd={(itemId) => void packageItemActions.addItem(itemId)}
-                    pendingItemId={packageItemActions.pendingItemId}
+                    onReplaceSelection={(itemIds) =>
+                      packageSelection.replace("library", itemIds)
+                    }
+                    onToggle={(itemId) =>
+                      packageSelection.toggle("library", itemId)
+                    }
+                    pendingItemIds={packageItemActions.pendingItemIds}
+                    selectedItemIds={tickedLibraryIds}
                   />
+
+                  {/* Room for the floating bar to sit over, so it never covers
+                      the last row of cards the selection was made from. */}
+                  {tickedCount > 0 ? <div className="h-16" /> : null}
                 </div>
               ) : (
                 <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 py-10 text-center">
@@ -646,6 +672,20 @@ export function MenuPage() {
                 </div>
               )}
             </section>
+
+            {/* Outside both grids, because the selection belongs to the panel
+                rather than to whichever half of it is scrolled into view - and
+                because a sticky bar inside either of those `overflow-hidden`
+                sections would resolve against a box that never scrolls. */}
+            <SelectionActionBar
+              actionLabel={isRemoving ? "Remove" : "Add"}
+              icon={isRemoving ? "trash" : "plus"}
+              isDisabled={!canEditMenu}
+              onAct={actOnTickedItems}
+              onClear={packageSelection.clear}
+              selectedCount={tickedCount}
+              tone={isRemoving ? "danger" : "primary"}
+            />
           </div>
         ) : isRuleMenu ? (
           <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
