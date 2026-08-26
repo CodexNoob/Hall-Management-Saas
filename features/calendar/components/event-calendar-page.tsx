@@ -245,6 +245,7 @@ export function EventCalendarPage() {
       <DashboardTopbar
         title="Calendar"
         subtitle="Review hall availability, bookings, holds, and fully booked dates."
+        onNewBooking={() => setIsNewBookingOpen(true)}
         onTodayNotes={() => setIsTodayNotesOpen(true)}
       />
 

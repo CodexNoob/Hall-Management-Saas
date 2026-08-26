@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({
@@ -28,6 +28,35 @@ describe("DashboardTopbar New booking button", () => {
     expect(
       screen.getByRole("button", { name: "Create new booking" })
     ).not.toBeDisabled();
+  });
+
+  it("opens a booking dialog on a page that passes no handler", async () => {
+    // `onNewBooking` is optional, and every page except Settings left it out -
+    // so the button rendered wired to an undefined onClick and did nothing when
+    // clicked, while the "+" on each calendar cell, which goes through the
+    // page's own state, worked. The topbar now falls back to its own dialog.
+    cacheTestSession(["booking.create"]);
+    render(<DashboardTopbar title="Calendar" />);
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Create new booking" }));
+
+    expect(
+      await screen.findByRole("dialog", { name: "New booking" })
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the booking dialog to the page when it supplies a handler", () => {
+    // Settings and Calendar own a dialog and refresh themselves after a save.
+    // Mounting the topbar's as well would give those pages two.
+    cacheTestSession(["booking.create"]);
+    const onNewBooking = vi.fn();
+    render(<DashboardTopbar onNewBooking={onNewBooking} title="Calendar" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Create new booking" }));
+
+    expect(onNewBooking).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("is disabled for an administrative key set that lacks it", () => {

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { DASHBOARD_PAGE_SEARCH_EVENT } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { DashboardTrialBadge } from "@/components/layout/dashboard-trial-pill";
+import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
 export { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar-brand";
 
@@ -21,6 +22,11 @@ type DashboardTopbarProps = {
   subtitle?: string;
   onTodayNotes?: () => void;
   todayNotesNeedRevision?: boolean;
+  /**
+   * Opens the page's own booking dialog, for a page that has one and wants to
+   * refresh itself afterwards. Optional: without it the topbar opens its own,
+   * so the button works on every page that shows it.
+   */
   onNewBooking?: () => void;
   actionsSlot?: ReactNode;
   compactMobileActions?: boolean;
@@ -185,6 +191,13 @@ export function DashboardTopbar({
   const [isMobileSearchExpanded, setIsMobileSearchExpanded] = useState(false);
   const { canAccessRoute, hasPermission } = useDashboardAccess();
   const canCreateBooking = hasPermission("booking.create");
+  // Only ever opened on a page that passed no `onNewBooking` of its own. The
+  // dialog is self-contained - it fetches its own halls and event types and
+  // POSTs the booking itself - so the topbar can offer it anywhere rather than
+  // leaving the button wired to an undefined handler, which is what made it
+  // look live and do nothing outside Settings.
+  const [isOwnBookingOpen, setIsOwnBookingOpen] = useState(false);
+  const openNewBooking = onNewBooking ?? (() => setIsOwnBookingOpen(true));
   const visibleSearchTargets = useMemo(
     () => searchTargets.filter((target) => canAccessRoute(target.route)),
     [canAccessRoute]
@@ -420,7 +433,7 @@ export function DashboardTopbar({
                           aria-label="Create new booking"
                           type="button"
                           disabled={!canCreateBooking}
-                          onClick={onNewBooking}
+                          onClick={openNewBooking}
                           title="New booking"
                           className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
                         >
@@ -440,6 +453,15 @@ export function DashboardTopbar({
           </div>
         </div>
       </header>
+
+      {/* Skipped entirely when the page supplied a handler, so Settings and
+          Calendar cannot end up with two booking dialogs mounted. */}
+      {!onNewBooking ? (
+        <NewBookingDialog
+          onClose={() => setIsOwnBookingOpen(false)}
+          open={isOwnBookingOpen}
+        />
+      ) : null}
 
       <div className="h-21 xl:h-20" aria-hidden="true" />
     </>
