@@ -82,9 +82,14 @@ export function useMenuItemActions({
       // Parsed before the upload: a bad counting rule should cost nothing, and
       // this throws for the dialog to render.
       const services = toServiceRules(values.services);
+      // Three states, and the update schema has a value for each: a path
+      // replaces the picture, `null` drops the one that is stored, and
+      // `undefined` is the untouched field that leaves it alone.
       const picturePath = values.picture
         ? await uploadMenuPicture(values.picture)
-        : undefined;
+        : values.isPictureCleared
+          ? null
+          : undefined;
 
       await updateMenuItem(editingItemId, {
         name: values.name,

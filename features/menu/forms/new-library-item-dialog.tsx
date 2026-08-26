@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useScrollLock } from "@/lib/ui/use-scroll-lock";
+import { PictureField } from "@/features/menu/components/picture-field";
 import {
   CountingUnitsDatalist,
   ServiceRuleFields
@@ -38,9 +39,25 @@ export type NewLibraryItemFormValues = {
    */
   services: ServiceStyleFormValues;
   picture: File | null;
+  /**
+   * Set when the operator removed the stored picture without choosing another.
+   *
+   * Distinct from `picture: null`, which is the far commoner "left the picture
+   * alone": one clears the column, the other has to leave it exactly as it is.
+   * Meaningless on a create, where there is nothing stored to clear.
+   */
+  isPictureCleared: boolean;
 };
 
-export type LibraryItemSeedValues = Omit<NewLibraryItemFormValues, "picture">;
+/**
+ * What the form is seeded with, which is neither of the picture fields: the
+ * stored picture is passed as a URL to show, and clearing it is a decision made
+ * inside this dialog.
+ */
+export type LibraryItemSeedValues = Omit<
+  NewLibraryItemFormValues,
+  "picture" | "isPictureCleared"
+>;
 
 type NewLibraryItemDialogProps = {
   /**
@@ -48,6 +65,11 @@ type NewLibraryItemDialogProps = {
    * the two apart, the same way `NewPackageDialog` does it.
    */
   initialValues?: LibraryItemSeedValues;
+  /**
+   * The picture this item already has, signed by `GET /api/menu`. Absent for a
+   * create, and for an item that has never had one.
+   */
+  currentPictureUrl?: string | null;
   /**
    * What a create starts on, so "Add buffet item" opens a form that is already
    * a buffet item. Ignored for an edit, which seeds from the row itself.
@@ -98,19 +120,19 @@ function LibraryIcon() {
   );
 }
 
-export function NewLibraryItemDialog({ initialValues: editValues, defaultServiceStyle, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
+export function NewLibraryItemDialog({ initialValues: editValues, currentPictureUrl, defaultServiceStyle, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
   const titleId = useId();
   // One list for both style blocks - the suggestions are the same, and a
   // per-style copy would only duplicate eight options in the DOM.
   const unitListId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks the closed -> open edge. Seeding on every run of the effect instead
   // would overwrite what the user is typing each time the parent re-renders,
   // because `editValues` is an object the parent rebuilds as it goes.
   const wasOpenRef = useRef(false);
   const [values, setValues] = useState(initialValues);
   const [picture, setPicture] = useState<File | null>(null);
+  const [isPictureCleared, setIsPictureCleared] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const isEditing = Boolean(editValues);
@@ -144,8 +166,8 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
       wasOpenRef.current = true;
       setValues(editValues ?? buildCreateValues());
       setPicture(null);
+      setIsPictureCleared(false);
       setSaveError(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
     firstInputRef.current?.focus();
@@ -219,8 +241,8 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
   const resetForm = () => {
     setValues(buildCreateValues());
     setPicture(null);
+    setIsPictureCleared(false);
     setSaveError(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const closeAndReset = () => {
@@ -236,7 +258,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
     setSaveError(null);
 
     try {
-      await onSave({ ...values, picture });
+      await onSave({ ...values, picture, isPictureCleared });
       // Only on success, and only for a create - clearing after a failed upload
       // would throw away what the user typed along with the file they picked,
       // and blanking an edit would fight the seed it is about to be given.
@@ -353,13 +375,27 @@ export function NewLibraryItemDialog({ initialValues: editValues, defaultService
               Description
               <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" name="description" onChange={(event) => updateValue("description", event.target.value)} placeholder="Short description for reference" value={values.description} />
             </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
-              {isEditing ? "Replace picture" : "Picture"}
-              <input accept="image/jpeg,image/png,image/webp" className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5" name="picture" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} ref={fileInputRef} type="file" />
-              {isEditing ? (
-                <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">Leave empty to keep the current picture.</p>
-              ) : null}
-            </label>
+            {/* The current picture, not just a file input: an item that already
+                has a photo used to say "No file chosen" beside it. */}
+            <div className="sm:col-span-2">
+              <PictureField
+                currentPictureUrl={currentPictureUrl}
+                file={picture}
+                isCleared={isPictureCleared}
+                // Locked with the rest of the form while the save is in flight -
+                // the picture is uploaded inside that await, and swapping the
+                // file mid-upload would store one and show the other.
+                isDisabled={isSaving}
+                onClearStored={() => setIsPictureCleared(true)}
+                onRestoreStored={() => setIsPictureCleared(false)}
+                onSelect={(file) => {
+                  setPicture(file);
+                  // Choosing a picture is not a removal, whatever was decided
+                  // before it: the new file replaces the stored one anyway.
+                  if (file) setIsPictureCleared(false);
+                }}
+              />
+            </div>
           </div>
 
           <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">

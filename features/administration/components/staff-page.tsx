@@ -323,7 +323,7 @@ export function StaffPage() {
           />
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
+            <table className="w-full min-w-180 text-left">
               <thead>
                 <tr className="border-b border-[#eef1f5] text-[10px] uppercase tracking-wide text-[#6a7483]">
                   <th className="px-4 py-2 font-black">Person</th>
