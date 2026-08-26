@@ -25,7 +25,7 @@ const {
   createActivityLog,
   createPrincipal,
   findManyRoles,
-  createRole,
+  createManyRoles,
   createManyRolePermissions,
   findManyPermissions,
   createManyPrincipalRoles,
@@ -43,7 +43,7 @@ const {
   createActivityLog: vi.fn(),
   createPrincipal: vi.fn(),
   findManyRoles: vi.fn(),
-  createRole: vi.fn(),
+  createManyRoles: vi.fn(),
   createManyRolePermissions: vi.fn(),
   findManyPermissions: vi.fn(),
   createManyPrincipalRoles: vi.fn(),
@@ -66,7 +66,11 @@ vi.mock("@/lib/prisma", () => {
     // `principal_roles`, so provisioning materializes the starter set and the
     // resolver reads it back.
     principal: { create: createPrincipal },
-    role: { findMany: findManyRoles, create: createRole },
+    // The starter set is materialized in ONE statement, not a role at a time -
+    // the loop it replaced put eleven sequential round trips inside the sign-up
+    // transaction. Doubling `create` here instead would leave the route calling
+    // undefined and every assertion below reading a 500.
+    role: { findMany: findManyRoles, createManyAndReturn: createManyRoles },
     rolePermission: { createMany: createManyRolePermissions },
     permission: { findMany: findManyPermissions },
     principalRole: {
@@ -232,9 +236,10 @@ describe("POST /api/auth/session", () => {
     findManyRoles.mockResolvedValue([]);
     findManyPermissions.mockResolvedValue([]);
     createPrincipal.mockResolvedValue({ id: PRINCIPAL_ID });
-    createRole.mockImplementation(async ({ data }: { data: { key: string } }) => ({
-      id: `role-${data.key}`
-    }));
+    createManyRoles.mockImplementation(
+      async ({ data }: { data: { key: string }[] }) =>
+        data.map((role) => ({ id: `role-${role.key}`, key: role.key }))
+    );
     createManyRolePermissions.mockResolvedValue({ count: 0 });
     createManyPrincipalRoles.mockResolvedValue({ count: 1 });
     updateUser.mockImplementation(async ({ data }: { data: object }) => ({
@@ -360,9 +365,11 @@ describe("POST /api/auth/session", () => {
     // What makes them the owner is an assignment, not a column: the starter set
     // is materialized and the founder gets the top role organization-wide.
     // Without it the sign-up completes and the new owner can do nothing.
-    expect(createRole).toHaveBeenCalledWith(
+    expect(createManyRoles).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ key: FOUNDING_OWNER_ROLE_KEY })
+        data: expect.arrayContaining([
+          expect.objectContaining({ key: FOUNDING_OWNER_ROLE_KEY })
+        ])
       })
     );
     expect(createManyPrincipalRoles).toHaveBeenCalledWith(
@@ -623,7 +630,7 @@ describe("POST /api/auth/session", () => {
       // The three writes that could raise somebody: a new assignment, a new
       // role, or a change to what an existing role grants.
       expect(createManyPrincipalRoles).not.toHaveBeenCalled();
-      expect(createRole).not.toHaveBeenCalled();
+      expect(createManyRoles).not.toHaveBeenCalled();
       expect(createManyRolePermissions).not.toHaveBeenCalled();
     });
 
