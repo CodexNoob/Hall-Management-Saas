@@ -117,8 +117,14 @@ export async function GET(request: Request) {
     const actor = await authorize(request, "settings.read");
     const [organization, settings, notifications, paymentSetting] =
       await Promise.all([
+        // Selected, not the whole row. `permissionsEpoch` is a BigInt, which
+        // JSON.stringify throws on, so an unselected organization row turns
+        // this endpoint into a 500 the moment the column exists. Naming the two
+        // fields the response contract actually promises also means the next
+        // column added to Organization cannot silently join the payload.
         prisma.organization.findUniqueOrThrow({
-          where: { id: actor.organizationId }
+          where: { id: actor.organizationId },
+          select: { id: true, name: true }
         }),
         prisma.organizationSetting.upsert({
           where: { ...tenant(actor) },
