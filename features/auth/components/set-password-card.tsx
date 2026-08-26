@@ -150,7 +150,9 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
 
   const flowParam = searchParams.get("flow");
   const flow: SetPasswordFlow =
-    flowParam === "invite" || flowParam === "recovery" || flowParam === "required"
+    flowParam === "invite" ||
+    flowParam === "recovery" ||
+    flowParam === "required"
       ? flowParam
       : callbackParams.type === "invite" || callbackParams.type === "recovery"
         ? callbackParams.type
@@ -223,9 +225,9 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
 
       setSuccess("Password saved. Taking you to your dashboard...");
       router.replace(
-        getSafeDashboardReturnPath(
-          searchParams.get("next")
-        ) as Parameters<typeof router.replace>[0]
+        getSafeDashboardReturnPath(searchParams.get("next")) as Parameters<
+          typeof router.replace
+        >[0]
       );
       router.refresh();
     } catch (submitError) {
@@ -245,7 +247,7 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
 
   return (
     <section
-      className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}
+      className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-190 max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}
     >
       <div
         className={`relative overflow-hidden p-5 sm:p-8 ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : "order-2 bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-8" : !isDesktopApp ? "lg:p-10" : ""}`}
@@ -377,10 +379,7 @@ export function SetPasswordCard({ compact = false }: SetPasswordCardProps) {
               </p>
             </div>
           ) : (
-            <form
-              className={isDesktopApp ? "mt-4" : "mt-6"}
-              onSubmit={submit}
-            >
+            <form className={isDesktopApp ? "mt-4" : "mt-6"} onSubmit={submit}>
               <label
                 className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`}
                 htmlFor="newPassword"
