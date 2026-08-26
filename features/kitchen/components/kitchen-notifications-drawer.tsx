@@ -212,7 +212,7 @@ function NotificationCard({
             : "border-[#fed7aa] bg-[#fff7ed]"
         }`}
       >
-        <p className="text-xs font-black uppercase tracking-[0.05em] text-[#64748b]">
+        <p className="text-xs font-black uppercase tracking-wider text-[#64748b]">
           Kitchen response
         </p>
         <p className="mt-1 text-sm font-black text-[#17202a]">
@@ -236,7 +236,7 @@ function NotificationCard({
         <div className="sr-only">
           {notification.acknowledgedBy ? (
             <>
-              <p className="text-xs font-black uppercase tracking-[0.05em] text-[#64748b]">
+              <p className="text-xs font-black uppercase tracking-wider text-[#64748b]">
                 Acknowledged by:
               </p>
               <p className="mt-1 text-xs font-bold">

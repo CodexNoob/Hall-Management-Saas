@@ -10,6 +10,7 @@ import {
   type KitchenLineRow
 } from "@/features/kitchen/server/kitchen-sheet";
 import { assertInScope, authorize } from "@/lib/authz/authorize";
+import { resolveKitchenVisibility } from "@/features/kitchen/server/kitchen-visibility-resolve";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
@@ -127,6 +128,12 @@ export async function GET(
       actor.organizationId
     );
 
+    // The board withholds a scoped cook's colleagues' dishes; this route is the
+    // other way into the same sheet, so it has to withhold them too. Without
+    // this, opening an event card would hand back everything the board had just
+    // filtered out.
+    const visibility = await resolveKitchenVisibility(actor);
+
     return NextResponse.json({
       kitchen: buildKitchenSheet({
         event,
@@ -134,6 +141,7 @@ export async function GET(
         menu,
         otherMeals: otherMeals.map((row) => row.meal),
         statuses,
+        visibility,
         signedUrlsByPath
       }),
       notifications

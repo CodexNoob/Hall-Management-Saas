@@ -75,14 +75,42 @@ export function KitchenHeader({
 
   return (
     <header className="border-b border-[#8f8f8f] bg-[#a8a8a6] px-3 py-3 text-[#061126] sm:px-4">
-      <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center lg:min-w-150">
-          <div className="flex min-w-0 items-center gap-2">
+      {/*
+        * The single-row layout waits for `xl`, not `lg`.
+        *
+        * It needs the date block's 600px minimum plus the clock and three 120px
+        * range tabs - about 1090px. At `lg` on a 1024px iPad the sidebar has
+        * already taken ~140px, leaving ~884px, so the date block overflowed its
+        * track and the clock was printed straight over the date while the next
+        * arrow fell off the row entirely. Two rows until there is genuinely room
+        * for one.
+        */}
+      <div className="grid w-full min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:min-w-150">
+          {/*
+            * Two different ways of staying clear of the navigation toggle.
+            *
+            * The dashboard shell parks a fixed strip in the top-left corner for
+            * that toggle (`.dashboard-topbar-brand`, 4.5rem wide under 1024px -
+            * see globals.css). It floats above this header, so a row starting at
+            * the left edge had the burger lines drawn straight over the "Main
+            * Menu" label, and a tap there was a coin toss between the two.
+            *
+            * On a phone the row is this cluster and nothing else, so it moves to
+            * the right instead: the toggle keeps the corner, and the space that
+            * was empty on the right is used. From `sm` the row is shared with the
+            * date navigation, which needs the width more, so the cluster goes
+            * back to the left and takes `pl-13` of clearance instead. Only this
+            * row runs under the toggle - the date and tabs below already clear
+            * its height, which is why the padding is here and not on the header;
+            * there it squeezed the range tabs until "This Week" truncated. At
+            * `lg` the toggle is gone and neither is needed.
+            */}
+          <div className="flex min-w-0 items-center justify-end gap-2 sm:justify-start sm:pl-13 lg:pl-0">
             <Link
               className="inline-flex h-10 min-w-0 shrink items-center justify-center border border-[#e4e4e4] bg-white px-3 text-sm font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:shrink-0 sm:px-4"
               href="/dashboard/menu"
             >
-              <span aria-hidden="true">←</span>
               <span className="ml-1 truncate">Main Menu</span>
             </Link>
 
@@ -113,7 +141,14 @@ export function KitchenHeader({
             </button>
           </div>
 
-          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+          {/* Between `sm` and `lg` the row is wide enough that a `1fr` middle
+              track threw the two arrows to opposite ends of it, leaving the
+              previous arrow stranded beside the notification bell with the date
+              floating in the gap. Sizing the middle to its content and centring
+              the group keeps the arrows either side of the date they move. The
+              phone keeps `1fr` - there the row is narrow and the date fills it -
+              and so does `lg`, where the group has its own fixed column. */}
+          <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,auto)_auto] sm:justify-center xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:justify-normal">
             <NavButton
               direction="previous"
               label="Show previous dates"
@@ -121,11 +156,16 @@ export function KitchenHeader({
             />
 
             <div className="min-w-0 px-1 text-center">
+              {/* Two spans rather than one truncated string: `hidden` is
+                  display:none, so exactly one of them is in the accessibility
+                  tree at any width and a screen reader never hears the date
+                  twice. `title` stays the unabbreviated form. */}
               <h1
                 className="truncate text-lg font-black text-[#061126] sm:text-2xl"
                 title={information.heading}
               >
-                {information.heading}
+                <span className="sm:hidden">{information.compactHeading}</span>
+                <span className="hidden sm:inline">{information.heading}</span>
               </h1>
               {information.rangeLabel ? (
                 <p className="mt-0.5 truncate text-center text-xs font-bold text-[#6a7483]">
@@ -142,7 +182,7 @@ export function KitchenHeader({
           </div>
         </div>
 
-        <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center lg:grid-cols-[auto_auto] lg:justify-end">
+        <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:grid-cols-[auto_auto] xl:justify-end">
           <p className="inline-flex h-10 shrink-0 items-center justify-center text-2xl font-black tabular-nums text-[#ffcc55] sm:h-11 sm:px-4 sm:text-3xl">
             <span className="sr-only">Current time</span>
             {now ? formatClock(now) : "--:--"}

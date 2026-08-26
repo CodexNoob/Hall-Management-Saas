@@ -8,7 +8,8 @@ export function KitchenToolbar({
   onAddKitchenEvent,
   onManageWorkers,
   workersOnly,
-  onWorkersOnlyChange
+  onWorkersOnlyChange,
+  showWorkersOnly = true
 }: {
   canAddKitchenEvent: boolean;
   canManageWorkers: boolean;
@@ -16,6 +17,15 @@ export function KitchenToolbar({
   onManageWorkers: () => void;
   workersOnly: boolean;
   onWorkersOnlyChange: (checked: boolean) => void;
+  /**
+   * False for a cook the server already scoped to their own dishes.
+   *
+   * The filter is a personal view control, not a policy - it narrows the board
+   * of whoever ticks it and changes nothing for anybody else. For a scoped cook
+   * there is nothing left to narrow, so offering it would suggest they are
+   * choosing a restriction that was in fact decided for them.
+   */
+  showWorkersOnly?: boolean;
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2 border border-dashed border-[#eef0f3] bg-white/95 p-3">
@@ -43,21 +53,23 @@ export function KitchenToolbar({
         </button>
       ) : null}
 
-      <label
-        className="inline-flex h-10 w-full cursor-pointer items-center gap-2.5 border border-[#d8dde5] bg-white px-3 text-xs font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:ml-auto sm:w-auto"
-        htmlFor="workers-assigned-only"
-      >
-        <input
-          className="h-4 w-4 shrink-0 rounded accent-[#1f4d73]"
-          checked={workersOnly}
-          id="workers-assigned-only"
-          name="workersAssignedOnly"
-          onChange={(event) => onWorkersOnlyChange(event.target.checked)}
-          type="checkbox"
-        />
+      {showWorkersOnly ? (
+        <label
+          className="inline-flex h-10 w-full cursor-pointer items-center gap-2.5 border border-[#d8dde5] bg-white px-3 text-xs font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:ml-auto sm:w-auto"
+          htmlFor="workers-assigned-only"
+        >
+          <input
+            className="h-4 w-4 shrink-0 rounded accent-[#1f4d73]"
+            checked={workersOnly}
+            id="workers-assigned-only"
+            name="workersAssignedOnly"
+            onChange={(event) => onWorkersOnlyChange(event.target.checked)}
+            type="checkbox"
+          />
 
-        <span className="leading-tight">Workers see assigned items only</span>
-      </label>
+          <span className="leading-tight">Show only my assigned items</span>
+        </label>
+      ) : null}
     </div>
   );
 }

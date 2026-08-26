@@ -182,6 +182,10 @@ export function KitchenDashboardPage() {
   // what keeps the list of who there is to ask.
   const canManageWorkers =
     kitchenQuery.data?.permissions.canAssignWorkers ?? false;
+  // Whether the server sent the whole kitchen or only this cook's own dishes.
+  // Optimistic until the first response: assuming "scoped" would flash "nothing
+  // assigned to you" at a manager on every load.
+  const seesWholeBoard = kitchenQuery.data?.permissions.seesWholeBoard ?? true;
 
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
@@ -213,7 +217,7 @@ export function KitchenDashboardPage() {
 
     const isQuickMenu = Boolean(
       values.quickMenuName &&
-        (values.quickMenuDishes || values.quickMenuItemIds.length > 0)
+      (values.quickMenuDishes || values.quickMenuItemIds.length > 0)
     );
 
     await addKitchenEventMutation.mutate({
@@ -254,7 +258,9 @@ export function KitchenDashboardPage() {
         const payload = (await response.json().catch(() => null)) as {
           error?: string;
         } | null;
-        throw new Error(payload?.error ?? "Could not acknowledge notification.");
+        throw new Error(
+          payload?.error ?? "Could not acknowledge notification."
+        );
       }
 
       await kitchenQuery.refetch();
@@ -320,6 +326,11 @@ export function KitchenDashboardPage() {
             onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
             onManageWorkers={() => setIsManageWorkersOpen(true)}
             onWorkersOnlyChange={setWorkersOnly}
+            // Withheld from a scoped cook, for whom it is a no-op: the server
+            // already sent only their dishes, so the box would filter a list
+            // that is nothing else, and leaving it on screen implies they are
+            // choosing something they are not.
+            showWorkersOnly={seesWholeBoard}
             workersOnly={workersOnly}
           />
 
@@ -335,6 +346,7 @@ export function KitchenDashboardPage() {
             <TodayView
               day={days.find((day) => day.selected) ?? days[0]}
               onSelectEvent={setSelectedKitchenEvent}
+              seesWholeBoard={seesWholeBoard}
             />
           ) : activeView === "week" ? (
             <WeekView
@@ -387,7 +399,11 @@ export function KitchenDashboardPage() {
           kitchenQuery.data?.permissions ?? {
             canAddKitchenEvents: false,
             canAssignWorkers: false,
-            canUpdateKitchenStatus: false
+            canUpdateKitchenStatus: false,
+            // Every capability falls closed before the first response; this one
+            // is not a capability but a description of what arrived, and the
+            // dialog only opens on an event the board already drew.
+            seesWholeBoard: true
           }
         }
         workersOnly={workersOnly}

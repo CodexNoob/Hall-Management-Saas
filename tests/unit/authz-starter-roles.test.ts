@@ -25,6 +25,7 @@ function roleFor(key: string) {
 const OWNER = roleFor("owner");
 const ADMINISTRATOR = roleFor("administrator");
 const EVENT_MANAGER = roleFor("event-manager");
+const KITCHEN_MANAGER = roleFor("kitchen-manager");
 const KITCHEN_STAFF = roleFor("kitchen-staff");
 const VIEWER = roleFor("viewer");
 
@@ -36,19 +37,22 @@ function holds(
 }
 
 describe("starter roles", () => {
-  it("ships exactly five", () => {
-    expect(starterRoles).toHaveLength(5);
+  it("ships exactly six", () => {
+    expect(starterRoles).toHaveLength(6);
   });
 
   it("ranks them sparsely, so a tenant can interleave without renumbering", () => {
+    // Kitchen Manager took 350 - one of the gaps the sparse scheme exists to
+    // provide - rather than renumbering Kitchen Staff, whose rank a tenant may
+    // already have reasoned about when composing roles of their own.
     expect(starterRoles.map((role) => role.rank)).toEqual([
-      100, 200, 300, 400, 500
+      100, 200, 300, 350, 400, 500
     ]);
   });
 
   it("has no duplicate keys or ranks", () => {
-    expect(new Set(starterRoles.map((role) => role.key)).size).toBe(5);
-    expect(new Set(starterRoles.map((role) => role.rank)).size).toBe(5);
+    expect(new Set(starterRoles.map((role) => role.key)).size).toBe(6);
+    expect(new Set(starterRoles.map((role) => role.rank)).size).toBe(6);
   });
 
   it("grants only keys that exist in the catalog", () => {
@@ -81,6 +85,7 @@ describe("starter roles", () => {
       OWNER.permissions.length +
         ADMINISTRATOR.permissions.length +
         EVENT_MANAGER.permissions.length +
+        KITCHEN_MANAGER.permissions.length +
         KITCHEN_STAFF.permissions.length +
         VIEWER.permissions.length
     );
@@ -88,11 +93,14 @@ describe("starter roles", () => {
 
   describe("exact counts", () => {
     it.each([
-      [OWNER, 62],
-      [ADMINISTRATOR, 59],
-      [EVENT_MANAGER, 40],
-      [KITCHEN_STAFF, 14],
-      [VIEWER, 14]
+      [OWNER, 63],
+      [ADMINISTRATOR, 60],
+      [EVENT_MANAGER, 41],
+      [KITCHEN_MANAGER, 15],
+      // Eleven, down from fourteen: `kitchen.event.create`,
+      // `kitchen.worker.assign` and `eventmenu.confirm` moved to Kitchen Manager.
+      [KITCHEN_STAFF, 11],
+      [VIEWER, 15]
     ])("$key holds %i keys", (role, expected) => {
       expect(role.permissions).toHaveLength(expected as number);
     });
@@ -181,12 +189,51 @@ describe("starter roles", () => {
     });
   });
 
+  describe("Kitchen Manager", () => {
+    it("supervises the kitchen", () => {
+      expect(holds(KITCHEN_MANAGER, "kitchen.status.update")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "kitchen.event.create")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "kitchen.worker.assign")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "eventmenu.confirm")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "kitchen.read.all")).toBe(true);
+    });
+
+    it("supervises the kitchen and nothing else", () => {
+      // Rank 350 puts it above the cooks, which says who it may act on - never
+      // what it may reach. The office half of Event Manager is not its business.
+      for (const key of [
+        "event.create",
+        "menu.create",
+        "client.read",
+        "invoice.read",
+        "payment.record",
+        "staff.read",
+        "settings.read"
+      ] as PermissionKey[]) {
+        expect(holds(KITCHEN_MANAGER, key), `must not hold ${key}`).toBe(false);
+      }
+    });
+  });
+
   describe("Kitchen Staff", () => {
-    it("runs production", () => {
+    it("runs production and directs nobody", () => {
+      expect(holds(KITCHEN_STAFF, "kitchen.read")).toBe(true);
       expect(holds(KITCHEN_STAFF, "kitchen.status.update")).toBe(true);
-      expect(holds(KITCHEN_STAFF, "kitchen.event.create")).toBe(true);
-      expect(holds(KITCHEN_STAFF, "kitchen.worker.assign")).toBe(true);
-      expect(holds(KITCHEN_STAFF, "eventmenu.confirm")).toBe(true);
+      expect(holds(KITCHEN_STAFF, "kitchen.worker.read")).toBe(true);
+
+      // The split: everything that directs other people's work moved to Kitchen
+      // Manager. A cook marks their own dishes done and hands out nothing.
+      expect(holds(KITCHEN_STAFF, "kitchen.event.create")).toBe(false);
+      expect(holds(KITCHEN_STAFF, "kitchen.worker.assign")).toBe(false);
+      expect(holds(KITCHEN_STAFF, "eventmenu.confirm")).toBe(false);
+    });
+
+    it("is scoped to its own dishes by the absence of kitchen.read.all", () => {
+      // The one negative that the kitchen routes read directly: without this key
+      // they send a caller only the lines assigned to them. It is deliberately an
+      // absence rather than a flag, so a role nobody has looked at cannot quietly
+      // acquire the whole board.
+      expect(holds(KITCHEN_STAFF, "kitchen.read.all")).toBe(false);
     });
 
     it("is refused every money key", () => {

@@ -115,6 +115,16 @@ export type KitchenResponse = {
     canAssignWorkers: boolean;
     canUpdateKitchenStatus: boolean;
     canAddKitchenEvents: boolean;
+    /**
+     * Whether this response holds the whole kitchen or only the caller's own
+     * dishes.
+     *
+     * False for Kitchen Staff, who are sent their assigned lines and nothing
+     * else. The board reads it to word an empty day correctly - "nothing
+     * scheduled" and "nothing assigned to you" are different facts, and only one
+     * of them is true for a cook whose colleagues are busy.
+     */
+    seesWholeBoard: boolean;
   };
 };
 
@@ -328,6 +338,17 @@ export function kitchenViewInformation(
     day: "numeric",
     year: "numeric"
   });
+  // The same date with every word abbreviated, for the phone header. A 360px
+  // screen leaves the heading about 260px between the two arrows, which is not
+  // enough for "Wednesday, August 26, 2026" - it truncated to "Wednesday,
+  // August 26, ..." and dropped the year, the one part that is not obvious from
+  // context. Abbreviated it fits whole.
+  const compactDate = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
   const shortDate = new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric"
@@ -340,6 +361,7 @@ export function kitchenViewInformation(
 
     return {
       heading: fullDate.format(anchorDate),
+      compactHeading: compactDate.format(anchorDate),
       rangeLabel: relativeDayNames.get(dayOffset) ?? null
     };
   }
@@ -349,6 +371,9 @@ export function kitchenViewInformation(
 
   return {
     heading: activeView === "week" ? "This Week" : "4 Weeks",
+    // Already two words; there is nothing to abbreviate, but the header reads
+    // this field unconditionally so it has to be here.
+    compactHeading: activeView === "week" ? "This Week" : "4 Weeks",
     rangeLabel: `${shortDate.format(rangeStart)} – ${shortDate.format(rangeEnd)}, ${rangeEnd.getFullYear()}`
   };
 }

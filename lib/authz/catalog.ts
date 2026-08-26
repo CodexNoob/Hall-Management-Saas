@@ -199,6 +199,21 @@ const CATALOG = [
     isDangerous: false
   },
   {
+    // Split from `kitchen.read` under rule 1 at the top of this file: a cook who
+    // may open the board but may only see the dishes assigned to them is an
+    // ordinary request, not a contrived one. Holding `kitchen.read` without this
+    // key is what makes someone production staff rather than a supervisor, and
+    // the kitchen routes read it to decide how much of a sheet to send. Withheld
+    // rather than granted by default, so a role that has never been looked at
+    // cannot quietly see the whole kitchen.
+    key: "kitchen.read.all",
+    label: "View the whole kitchen board",
+    description:
+      "See every event and dish, not only the ones assigned to you.",
+    group: "Kitchen",
+    isDangerous: false
+  },
+  {
     key: "kitchen.status.update",
     label: "Update production status",
     description: "Advance production status on kitchen items.",
