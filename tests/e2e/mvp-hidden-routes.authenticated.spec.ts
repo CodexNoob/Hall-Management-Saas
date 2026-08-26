@@ -14,26 +14,46 @@ import {
  * is also the half that is easy to get wrong - hiding the link while leaving the
  * page reachable looks identical in every other test.
  *
+ * A module can be withdrawn two ways and they do not behave alike, so the routes
+ * are split into two lists below. Both are unreachable; only one of them lands
+ * anywhere friendly.
+ *
  * Deliberately NOT in playwright.config.ts's `mvpHiddenSpecs`: this file is
  * about the gate, so it runs while the gate is up. When a module ships, its
  * route leaves the list below and its own spec comes back.
  */
 
+/**
+ * Modules the gate hides while their pages are still there. The dashboard layout
+ * is what answers with the landing page, so a redirect is only possible for a
+ * route that reaches it.
+ */
 const hiddenRoutes = [
   "/dashboard",
   "/dashboard/billing",
   "/dashboard/dining-manager",
   "/dashboard/hall-room-map",
-  "/dashboard/files",
-  "/dashboard/vendors",
-  "/dashboard/settings"
+  "/dashboard/files"
 ];
 
-// Guards against this list and lib/ui/mvp-features drifting apart: shipping a
+/**
+ * Modules whose pages were DELETED rather than hidden - Vendors and the
+ * standalone Settings screen went with the kitchen phase-1 work.
+ *
+ * They are still listed in lib/ui/mvp-features, which is not redundant: that is
+ * what keeps a saved /dashboard/vendors out of the sidebar, out of the topbar
+ * search, and out of the return path a login restores. What it cannot do is
+ * redirect them. `app/dashboard/layout.tsx` holds the redirect, and a route with
+ * no page never reaches a layout - the 404 renders above it. So these get a 404,
+ * and asserting the redirect they used to get is what made this suite fail.
+ */
+const deletedRoutes = ["/dashboard/vendors", "/dashboard/settings"];
+
+// Guards against these lists and lib/ui/mvp-features drifting apart: shipping a
 // module again means deleting its route above, and forgetting to leaves a test
-// asserting a redirect that no longer happens.
+// asserting a gate that no longer applies.
 test("every route asserted here is one the gate actually hides", () => {
-  for (const route of hiddenRoutes) {
+  for (const route of [...hiddenRoutes, ...deletedRoutes]) {
     expect(isHiddenDashboardRoute(route), route).toBe(true);
   }
 });
@@ -63,6 +83,19 @@ for (const route of hiddenRoutes) {
     );
     // The page under the redirect must never paint: these modules fetch on
     // mount, and a frame of Billing's chrome would mean the route rendered.
+    await expect(page.locator("body")).not.toContainText("Application error");
+  });
+}
+
+for (const route of deletedRoutes) {
+  test(`${route} has no page left to serve`, async ({ page }) => {
+    const response = await page.goto(route);
+
+    // The status, not the copy: what is asserted is that nothing answers here,
+    // and Next's own not-found page is free to look like whatever it likes.
+    // A page put back at this route turns this into a failure that says so -
+    // move it up to `hiddenRoutes`, where the gate can redirect it again.
+    expect(response?.status()).toBe(404);
     await expect(page.locator("body")).not.toContainText("Application error");
   });
 }

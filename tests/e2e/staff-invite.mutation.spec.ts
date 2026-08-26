@@ -13,7 +13,7 @@ import { expect, test, type Page } from "@playwright/test";
  */
 
 const inviteMailbox = process.env.E2E_STAFF_INVITE_EMAIL;
-const undeliveredNotice = /these invitation emails were not delivered/i;
+const undeliveredNotice = /some invitations could not be emailed/i;
 
 /**
  * Routes every run to one real mailbox through + subaddressing, so no invite is
@@ -25,23 +25,41 @@ function uniqueInviteAddress(mailbox: string) {
   return `${local.split("+")[0]}+e2e-${Date.now()}@${domain}`;
 }
 
-// The form carries role="dialog" without an accessible name, so anchor on the
-// invite field it uniquely contains rather than on a name lookup.
+// The form carries no dialog role and no accessible name, so anchor on the
+// address field it uniquely contains rather than on a name lookup.
 function inviteDialog(page: Page) {
   return page
-    .locator("form[role=dialog]")
-    .filter({ has: page.locator("#staff-invite-email") });
+    .locator("form")
+    .filter({ has: page.getByLabel("Email addresses") });
+}
+
+/**
+ * Fills the address field and hands back the dialog, ready to submit.
+ *
+ * The blur is not ceremony: the textarea takes a list, and it is parsed into
+ * addresses on blur - until then `Send invitations` is disabled, and clicking a
+ * disabled button moves no focus, so a click alone would wait on a state that
+ * only the click could have produced.
+ */
+async function fillInvite(page: Page, email: string) {
+  const dialog = await openInviteDialog(page);
+  const addresses = dialog.getByLabel("Email addresses");
+
+  await addresses.fill(email);
+  await addresses.blur();
+
+  return dialog;
 }
 
 async function openInviteDialog(page: Page) {
   await page.goto("/dashboard/staff");
 
-  const addStaff = page.getByRole("button", { name: "Add staff" });
+  const invite = page.getByRole("button", { name: "Invite", exact: true });
   await expect(
-    addStaff,
-    "the mutation account needs canEditStaff to invite anyone"
+    invite,
+    "the mutation account needs staff.invite to invite anyone"
   ).toBeEnabled({ timeout: 30_000 });
-  await addStaff.click();
+  await invite.click();
 
   const dialog = inviteDialog(page);
   await expect(dialog).toBeVisible();
@@ -66,8 +84,7 @@ test("creates staff access and reports invitation delivery without failing the r
   // No teardown exists for staff, matching events.mutation.spec.ts. The unique
   // address keeps back-to-back runs from colliding on the email unique index.
   const inviteEmail = uniqueInviteAddress(inviteMailbox!);
-  const dialog = await openInviteDialog(page);
-  await dialog.locator("#staff-invite-email").fill(inviteEmail);
+  const dialog = await fillInvite(page, inviteEmail);
 
   const invitePost = page.waitForResponse(
     (response) =>
@@ -81,7 +98,7 @@ test("creates staff access and reports invitation delivery without failing the r
       response.status() === 200
   );
 
-  await dialog.getByRole("button", { name: "Invite staff" }).click();
+  await dialog.getByRole("button", { name: "Send invitations" }).click();
   const response = await invitePost;
 
   // The original defect: staff rows were committed inside the transaction and
@@ -103,16 +120,14 @@ test("creates staff access and reports invitation delivery without failing the r
   if (invite.emailSent) {
     // A delivered email owns the only valid token, so nothing may regenerate it.
     expect(invite.inviteLink).toBeNull();
-    await expect(
-      page.getByText("Staff invitation email sent. They can use the invite link to join.")
-    ).toBeVisible();
+    await expect(page.getByText("Invitations sent.")).toBeVisible();
   } else {
     expect(
       invite.inviteLink,
       "an undelivered invitation must still yield a shareable link"
     ).toBeTruthy();
     await expect(page.getByText(undeliveredNotice)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Copy" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
   }
 
   const directory = await (await directoryRefresh).json();
@@ -154,25 +169,26 @@ test("hands the inviter a copyable link when the invitation email cannot be sent
     });
   });
 
-  const dialog = await openInviteDialog(page);
-  await dialog.locator("#staff-invite-email").fill(inviteEmail);
-  await dialog.getByRole("button", { name: "Invite staff" }).click();
+  const dialog = await fillInvite(page, inviteEmail);
+  await dialog.getByRole("button", { name: "Send invitations" }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
 
   await expect(page.getByText(undeliveredNotice)).toBeVisible();
 
   const inviteRow = page.getByRole("listitem").filter({ hasText: inviteEmail });
   await expect(inviteRow).toBeVisible();
-  await expect(inviteRow.getByText("email rate limit exceeded")).toBeVisible();
-  await expect(inviteRow.locator("input")).toHaveValue(inviteLink);
 
-  await inviteRow.getByRole("button", { name: "Copy" }).click();
+  await inviteRow.getByRole("button", { name: "Copy link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     inviteLink
   );
 
-  // The panel is the only copy of that token, so it must survive the notice
-  // timeout and only leave when the inviter dismisses it.
-  await page.getByRole("button", { name: "Dismiss" }).click();
-  await expect(page.getByText(undeliveredNotice)).toBeHidden();
+  // The panel is the only copy of that token, so it must outlive the "Invitations
+  // sent." notice beside it, which clears itself after a few seconds. Asserting
+  // the notice goes first is what makes this a test of the panel's persistence
+  // rather than of how quickly the assertion ran.
+  await expect(page.getByText("Invitations sent.")).toBeHidden({
+    timeout: 10_000
+  });
+  await expect(page.getByText(undeliveredNotice)).toBeVisible();
 });

@@ -23,6 +23,9 @@ type PackageItemPickerProps = {
   selectedItemIds: ReadonlySet<string>;
 };
 
+// One package panel is open at a time, so a constant is unique on the page.
+const HEADING_ID = "package-item-picker-heading";
+
 function EmptyState({ children }: { children: string }) {
   return <p className="px-3 py-6 text-xs text-[#516174]">{children}</p>;
 }
@@ -69,9 +72,16 @@ export function PackageItemPicker({
     visibleItems.every((item) => selectedItemIds.has(item.id));
 
   return (
-    <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+    // Named by its own heading rather than by a repeated `aria-label`, which is
+    // what makes this half of the panel addressable: the included grid above
+    // draws the same card for the same item, so "Select Roast beef" means two
+    // different things depending on which region it was found in.
+    <section
+      aria-labelledby={HEADING_ID}
+      className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white"
+    >
       <header className="flex min-h-11 flex-col gap-2 border-b border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-        <h3 className="text-sm font-black text-[#17202a]">
+        <h3 className="text-sm font-black text-[#17202a]" id={HEADING_ID}>
           Add items from the Menu Library
         </h3>
         {availableItems.length > 0 ? (

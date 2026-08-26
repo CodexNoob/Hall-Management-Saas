@@ -2,8 +2,8 @@ import { expect, test, type Page, type Response } from "@playwright/test";
 
 /**
  * Covers a package through the UI it ships with: the New package dialog, the
- * Edit package dialog, the library picker that fills it, and the card menu that
- * empties it again.
+ * Edit package dialog, the library picker that fills it, and the same ticking
+ * that empties it again.
  *
  * One test rather than four, for two reasons. `fullyParallel` runs tests in a
  * file concurrently, so separate tests could not share the package they act on
@@ -144,6 +144,21 @@ test("creates a package, edits it, and fills and empties it from the library", a
   const itemName = `E2E Package Item ${stamp}`;
   const itemId = await createItem(page, itemName);
 
+  // Both halves of the panel draw the SAME card for the same item - identical
+  // picture, identical "Select <name>" - so every card lookup is scoped to the
+  // region it is expected in. Unscoped, each one would match whichever side the
+  // item happened to be on and the add and the remove would both pass without
+  // moving anything.
+  const picker = page.getByRole("region", {
+    name: "Add items from the Menu Library"
+  });
+  const libraryCard = picker.getByRole("button", { name: `Select ${itemName}` });
+  const includedCard = page
+    .getByRole("region", { name: "Items in this package" })
+    .getByRole("article")
+    .filter({ hasText: itemName });
+  const addOne = page.getByRole("button", { name: "Add 1 item" });
+
   try {
     // The page was loaded before the item existed and its query cache lives as
     // long as the page does.
@@ -221,11 +236,14 @@ test("creates a package, edits it, and fills and empties it from the library", a
       .getByLabel("Search library items to add")
       .fill(itemName);
 
-    const addCard = page.getByRole("button", {
-      name: `Add ${itemName} to package`
-    });
-    await expect(addCard).toBeVisible({ timeout: 20_000 });
-    await addCard.click();
+    await expect(libraryCard).toBeVisible({ timeout: 20_000 });
+
+    // A click ticks; the bar the panel floats over the page is what writes. The
+    // count is part of the button's name on purpose - it is the last thing the
+    // reader sees before a selection is acted on.
+    await libraryCard.click();
+    await expect(addOne).toBeVisible();
+    await addOne.click();
 
     await expect(page.locator(PAGE_ALERT)).toHaveText(failureMessage);
     // The package is unchanged and the card is still on offer: a refusal that
@@ -233,37 +251,42 @@ test("creates a package, edits it, and fills and empties it from the library", a
     await expect(
       page.getByText("Base $125.50 - 0 items included")
     ).toBeVisible();
-    await expect(addCard).toBeVisible();
+    await expect(libraryCard).toBeVisible();
+    // And nothing is left ticked. The selection goes on the click rather than on
+    // the answer, so a bar still offering "Add 1 item" here would be pointing at
+    // a write that already failed.
+    await expect(addOne).toBeHidden();
 
     await page.getByRole("button", { name: "Dismiss" }).click();
     await expect(page.locator(PAGE_ALERT)).toBeHidden();
     await page.unroute(PACKAGE_PATCH_ROUTE);
 
     // --- add --------------------------------------------------------------
+    await libraryCard.click();
+
     const added = page.waitForResponse(packageResponse("PATCH"));
-    await addCard.click();
+    await addOne.click();
     expect((await added).status()).toBe(200);
 
+    // Gone from the picker: an item offered twice invites a click that cannot
+    // do anything.
+    await expect(libraryCard).toBeHidden({ timeout: 20_000 });
     // The card the item is drawn as in the package - the same one the library
-    // grid uses, so the picture comes with it.
-    const includedCard = page.getByRole("article").filter({ hasText: itemName });
+    // grid uses, so the picture comes with it. Which is also why it is looked up
+    // inside the included region: the two cards are indistinguishable by name.
     await expect(includedCard).toBeVisible({ timeout: 20_000 });
     await expect(
       page.getByText("Base $125.50 - 1 item included")
     ).toBeVisible();
-    // Gone from the picker: an item offered twice invites a click that cannot
-    // do anything.
-    await expect(addCard).toBeHidden();
 
     // --- remove -----------------------------------------------------------
-    await includedCard
-      .getByRole("button", { name: `More actions for ${itemName}` })
-      .click();
+    await includedCard.getByRole("button", { name: `Select ${itemName}` }).click();
+
+    const removeOne = page.getByRole("button", { name: "Remove 1 item" });
+    await expect(removeOne).toBeVisible();
 
     const removed = page.waitForResponse(packageResponse("PATCH"));
-    await includedCard
-      .getByRole("menuitem", { name: "Remove", exact: true })
-      .click();
+    await removeOne.click();
     expect((await removed).status()).toBe(200);
 
     await expect(includedCard).toBeHidden({ timeout: 20_000 });
@@ -271,7 +294,7 @@ test("creates a package, edits it, and fills and empties it from the library", a
       page.getByText("Base $125.50 - 0 items included")
     ).toBeVisible();
     // Back on offer, which is the only way it could ever be added again.
-    await expect(addCard).toBeVisible({ timeout: 20_000 });
+    await expect(libraryCard).toBeVisible({ timeout: 20_000 });
   } finally {
     await page.unroute(PACKAGE_PATCH_ROUTE);
     await releaseFixtures(page, itemId);

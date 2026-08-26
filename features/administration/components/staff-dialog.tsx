@@ -47,11 +47,22 @@ export function staffToForm(staff: StaffMember): StaffFormState {
   };
 }
 
+/**
+ * One entry of POST /api/staff's `invites`, mirroring the `StaffInvitation` that
+ * features/administration/server/staff-invitations.ts actually sends.
+ *
+ * Structural rather than imported: that module reaches for the Supabase service
+ * client, and pulling it into a client bundle to borrow a type would ship the
+ * admin calls with it. The field names have to match it exactly - the payload
+ * arrives as JSON and is cast, so a name this side invents is a lie no compiler
+ * can catch, and the one thing it costs is the link an undelivered invitation
+ * leaves behind.
+ */
 export type StaffInvitation = {
   email: string;
-  status: "sent" | "failed";
-  actionLink?: string | null;
-  error?: string | null;
+  emailSent: boolean;
+  inviteLink: string | null;
+  error: string | null;
 };
 
 export async function readMutationResponse(response: Response) {

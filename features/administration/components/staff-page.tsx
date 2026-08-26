@@ -146,7 +146,7 @@ export function StaffPage() {
         const payload = await readMutationResponse(response);
 
         setUndeliveredInvites(
-          (payload?.invites ?? []).filter((invite) => invite.status === "failed")
+          (payload?.invites ?? []).filter((invite) => !invite.emailSent)
         );
 
         if (payload?.assignmentErrors?.length) {
@@ -252,10 +252,10 @@ export function StaffPage() {
                   key={invite.email}
                 >
                   <span className="font-black">{invite.email}</span>
-                  {invite.actionLink ? (
+                  {invite.inviteLink ? (
                     <button
                       className="rounded border border-[#c7d0dc] px-1.5 py-0.5 font-black"
-                      onClick={() => copyInviteLink(invite.actionLink)}
+                      onClick={() => copyInviteLink(invite.inviteLink)}
                       type="button"
                     >
                       Copy link
