@@ -224,7 +224,7 @@ function KitchenAcknowledgments({
 
   if (notifications.length === 0) {
     return (
-      <section className="border-b border-[#d8dde5] bg-[#f8fbff] px-3 py-3 sm:px-4">
+      <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
@@ -241,7 +241,7 @@ function KitchenAcknowledgments({
   }
 
   return (
-    <section className="border-b border-[#d8dde5] bg-[#f8fbff] px-3 py-3 sm:px-4">
+    <section className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
@@ -271,10 +271,10 @@ function KitchenAcknowledgments({
         </Badge>
       </div>
 
-      <div className="mt-3 grid gap-2">
+      <div className="mt-3 divide-y divide-[#d8dde5] border border-[#d8dde5] bg-white">
         {notifications.map((notification) => (
           <article
-            className="rounded-lg border border-[#d8dde5] bg-white p-3"
+            className="p-3"
             key={notification.id}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
@@ -306,22 +306,6 @@ function KitchenAcknowledgments({
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#17202a]">
                   {notification.when}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-black uppercase tracking-[0.06em]">
-                  Old
-                </dt>
-                <dd className="mt-0.5 font-semibold text-[#17202a]">
-                  {notification.oldValue}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-black uppercase tracking-[0.06em]">
-                  New
-                </dt>
-                <dd className="mt-0.5 font-semibold text-[#17202a]">
-                  {notification.newValue}
                 </dd>
               </div>
               <div className="sm:col-span-2">
@@ -410,10 +394,6 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
         </p>
       ) : null}
 
-      {!kitchenQuery.isLoading && !kitchenQuery.error ? (
-        <KitchenAcknowledgments notifications={notifications} />
-      ) : null}
-
       {kitchenQuery.isLoading ? (
         <EventKitchenSkeleton />
       ) : kitchenQuery.error ? (
@@ -442,6 +422,10 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       ) : (
         <KitchenSheet event={event} sheet={sheet} />
       )}
+
+      {!kitchenQuery.isLoading && !kitchenQuery.error ? (
+        <KitchenAcknowledgments notifications={notifications} />
+      ) : null}
 
       <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
         Read-only. Statuses and worker assignments are set on the kitchen board.

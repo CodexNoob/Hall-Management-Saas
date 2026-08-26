@@ -131,14 +131,24 @@ function statusLabel(status: EventKitchenLine["status"]) {
 function StatTile({
   label,
   note,
+  tone = "default",
   value
 }: {
   label: string;
   note: string;
+  tone?: "default" | "blue" | "gold" | "green" | "red";
   value: string | number;
 }) {
+  const toneClass = {
+    default: "border-[#d8dde5] bg-white",
+    blue: "border-[#c7d8e8] bg-[#f3f8fc]",
+    gold: "border-[#eed39a] bg-[#fff9eb]",
+    green: "border-[#b9dfca] bg-[#f3fbf6]",
+    red: "border-[#f3b7b7] bg-[#fff5f5]"
+  }[tone];
+
   return (
-    <div className="min-w-0 border border-[#d8dde5] bg-white p-3">
+    <div className={`min-w-0 border p-3 ${toneClass}`}>
       <p className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
         {label}
       </p>
@@ -146,6 +156,29 @@ function StatTile({
         {value}
       </p>
       <p className="mt-3 text-xs leading-4 text-[#64748b]">{note}</p>
+    </div>
+  );
+}
+
+function WorkflowStep({
+  label,
+  tone,
+  value
+}: {
+  label: string;
+  tone: "none" | "pending" | "complete";
+  value: number;
+}) {
+  const toneClass = {
+    none: "border-[#d8dde5] bg-white text-[#475569]",
+    pending: "border-[#e5c894] bg-[#fffaf1] text-[#8a5a00]",
+    complete: "border-[#a5d5bd] bg-[#f2fbf6] text-[#0f5132]"
+  }[tone];
+
+  return (
+    <div className={`flex min-w-0 items-center justify-between border px-3 py-2 ${toneClass}`}>
+      <span className="truncate text-xs font-black">{label}</span>
+      <span className="ml-3 text-sm font-black">{value}</span>
     </div>
   );
 }
@@ -524,6 +557,13 @@ function KitchenEventDetails({
               >
                 {event.title}
               </h2>
+              <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
+                <span>{event.totalGuests} portions</span>
+                <span aria-hidden="true">•</span>
+                <span>Serves {formatServeTime(event.startsAt)}</span>
+                <span aria-hidden="true">•</span>
+                <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
+              </p>
             </div>
 
             <button
@@ -536,22 +576,29 @@ function KitchenEventDetails({
             </button>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef2f6] p-5">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef2f6] p-3 sm:p-5">
             <div
-              className={`mb-3 flex min-h-10 items-center justify-center px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+              className={`mb-3 flex min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
                 hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
               }`}
             >
-              {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
+              <span>
+                {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
+              </span>
+              <span className="text-white/70" aria-hidden="true">
+                •
+              </span>
+              <span>{event.menuStatus}</span>
             </div>
 
             <div className="overflow-hidden border border-[#d8dde5] bg-white">
-              <div className="grid grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
                 <StatTile
                   label="Serves"
                   note={
                     event.startsAt ? "Event start time" : "No start time set"
                   }
+                  tone="blue"
                   value={formatServeTime(event.startsAt)}
                 />
                 <StatTile
@@ -586,6 +633,36 @@ function KitchenEventDetails({
                   value={summary ? summary.needsAttention : "—"}
                 />
               </div>
+
+              {summary ? (
+                <div className="border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                      Dish workflow
+                    </h3>
+                    <p className="text-xs font-semibold text-[#64748b]">
+                      Tap a dish card to move it forward
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <WorkflowStep
+                      label="Not started"
+                      tone="none"
+                      value={summary.notStarted}
+                    />
+                    <WorkflowStep
+                      label="Pending / In prep"
+                      tone="pending"
+                      value={summary.pending}
+                    />
+                    <WorkflowStep
+                      label="Complete / Ready"
+                      tone="complete"
+                      value={summary.complete}
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               {/* Before the counting problems, because this one is about work
                   that is not on this sheet at all: every number above is the
@@ -649,7 +726,7 @@ function KitchenEventDetails({
               ) : (
                 <>
                   <div className="border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
                           Worker ownership
@@ -660,7 +737,7 @@ function KitchenEventDetails({
                           total dishes
                         </p>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
                         {[
                           { id: "all", label: "All dishes" },
                           {
@@ -672,7 +749,7 @@ function KitchenEventDetails({
                           { id: "unassigned", label: "Unassigned" }
                         ].map((item) => (
                           <button
-                            className={`h-8 border px-3 text-xs font-black transition ${
+                            className={`h-9 border px-3 text-xs font-black transition ${
                               assignmentFilter === item.id
                                 ? "border-[#1f4d73] bg-[#1f4d73] text-white"
                                 : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
@@ -703,7 +780,7 @@ function KitchenEventDetails({
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-3 p-3 min-[420px]:grid-cols-2 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
                       {visibleDishes.map((line) => (
                         <DishCard
                           canReplace={!isStandalone}
