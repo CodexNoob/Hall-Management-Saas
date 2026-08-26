@@ -10,8 +10,10 @@ export function MenuItemCard({
   actions = [],
   category,
   isSelectDisabled = false,
+  isTicked = false,
   name,
   onSelect,
+  onToggleTick,
   pendingLabel = null,
   pictureUrl
 }: {
@@ -30,6 +32,8 @@ export function MenuItemCard({
    * offering a form that could not save. Ignored without `onSelect`.
    */
   isSelectDisabled?: boolean;
+  /** Whether this card is part of the current selection. Needs `onToggleTick`. */
+  isTicked?: boolean;
   name: string;
   /**
    * Makes the whole card one click target - the update flow's entry point.
@@ -38,6 +42,17 @@ export function MenuItemCard({
    * where the corner of a card is the hardest place on the page to hit.
    */
   onSelect?: () => void;
+  /**
+   * Turns the card into a toggle: clicking it ticks and unticks rather than
+   * doing anything on its own. Set from the package panel, where a click builds
+   * up a selection that one button at the bottom then acts on.
+   *
+   * Takes precedence over `onSelect`, which is the library grid's click and has
+   * no meaning while a selection is being made. The tick mark replaces the
+   * actions menu in the corner rather than sitting beside it - a card offering
+   * both a tick and a hidden menu of verbs is two answers to one tap.
+   */
+  onToggleTick?: () => void;
   /**
    * Set while a write started from this card is in flight. It takes the corner
    * from the actions menu, because the menu has already closed itself by then
@@ -48,11 +63,13 @@ export function MenuItemCard({
   pictureUrl?: string | null;
 }) {
   const isPending = Boolean(pendingLabel);
-  const hasActions = actions.length > 0 && !isPending;
-  // Either control sits in the same corner, and the category pill has to give
-  // up its right edge for whichever one is there.
-  const hasCornerControl = hasActions || isPending;
-  const isSelectable = Boolean(onSelect) && !isSelectDisabled && !isPending;
+  const isTickable = Boolean(onToggleTick);
+  const hasActions = actions.length > 0 && !isPending && !isTickable;
+  // Whichever control is there sits in the same corner, and the category pill
+  // has to give up its right edge for it.
+  const hasCornerControl = hasActions || isPending || isTickable;
+  const isSelectable =
+    Boolean(onSelect) && !isTickable && !isSelectDisabled && !isPending;
 
   // Written once and placed into whichever wrapper this card needs, rather than
   // duplicated down two branches of the return.
@@ -103,11 +120,33 @@ export function MenuItemCard({
     // open dropdown.
     <article
       aria-busy={isPending || undefined}
-      className={`relative flex h-50 rounded-lg border border-[#d8dde5] bg-white ${
-        isPending ? "opacity-60" : ""
-      } ${isSelectable ? "transition hover:border-[#1f4d73]" : ""}`}
+      className={`relative flex h-50 rounded-lg border bg-white ${
+        isTicked
+          ? "border-[#1f4d73] ring-2 ring-[#1f4d73]/25"
+          : "border-[#d8dde5]"
+      } ${isPending ? "opacity-60" : ""} ${
+        isSelectable || (isTickable && !isPending)
+          ? "transition hover:border-[#1f4d73]"
+          : ""
+      }`}
     >
-      {onSelect ? (
+      {isTickable ? (
+        // The whole card again, for the reason the editor's click is the whole
+        // card: a tick box in the corner is a 24px target on a grid that is
+        // three columns wide on a phone. `aria-pressed` rather than a checkbox
+        // role because this is a button that stays down, and the bar at the
+        // bottom of the grid is what submits.
+        <button
+          aria-label={`Select ${name}`}
+          aria-pressed={isTicked}
+          className="flex min-w-0 w-full flex-col rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
+          disabled={isSelectDisabled || isPending}
+          onClick={onToggleTick}
+          type="button"
+        >
+          {body}
+        </button>
+      ) : onSelect ? (
         // The whole card is the button. Its accessible name says what the click
         // does rather than repeating the category pill and the dish name that
         // are already rendered inside it.
@@ -130,6 +169,20 @@ export function MenuItemCard({
           role="status"
         >
           {pendingLabel}
+        </span>
+      ) : isTickable ? (
+        // Drawn even when empty, and not only on hover: an outline is what says
+        // these cards are ticked rather than opened, and hover does not exist
+        // on the phone where most of this grid is read.
+        <span
+          aria-hidden
+          className={`pointer-events-none absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm backdrop-blur-sm sm:right-2 sm:top-2 sm:h-7 sm:w-7 ${
+            isTicked
+              ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+              : "border-[#b9c2cf] bg-white/90 text-transparent"
+          }`}
+        >
+          <LineIcon name="check" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </span>
       ) : hasActions ? (
         <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
@@ -159,81 +212,6 @@ export function AddItemCard({ onClick }: { onClick: () => void }) {
         </div>
         <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] text-sm font-black">
           Add item
-        </div>
-      </div>
-    </button>
-  );
-}
-
-/**
- * One library item offered to the open package, as a single click target.
- *
- * The whole card is the button rather than a small "Add" control inside it:
- * these sit in a grid that is three columns wide on a phone, where a 24px
- * target in the corner of a card is the hardest thing on the page to hit.
- *
- * No price here either, for the reason spelled out on `MenuRuleCard`: this
- * card offers a dish to a package, and the price belongs to the package.
- */
-export function PackageAddCard({
-  category,
-  isDisabled = false,
-  isPending = false,
-  name,
-  onAdd,
-  pictureUrl
-}: {
-  category: string;
-  /** Set when the viewer may not edit the menu; the card stays readable. */
-  isDisabled?: boolean;
-  isPending?: boolean;
-  name: string;
-  onAdd: () => void;
-  pictureUrl?: string | null;
-}) {
-  return (
-    <button
-      aria-label={`Add ${name} to package`}
-      className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white text-left transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-[#d8dde5] disabled:hover:bg-white"
-      disabled={isDisabled || isPending}
-      onClick={onAdd}
-      type="button"
-    >
-      <div className="flex min-w-0 w-full flex-col">
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
-          {pictureUrl ? (
-            // Plain <img> and alt="", for the reasons spelled out on
-            // MenuItemCard: a rotating signed URL the optimizer can never cache,
-            // beside a name this card already renders.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              src={pictureUrl}
-            />
-          ) : (
-            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
-            </span>
-          )}
-          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
-            {category}
-          </span>
-        </div>
-        <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
-          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">
-            {name}
-          </p>
-          <p className="mt-1 flex w-full items-center justify-center gap-1 text-[9px] font-black leading-3 text-[#1f4d73] sm:text-xs sm:leading-4">
-            {isPending ? (
-              "Adding…"
-            ) : (
-              <>
-                <LineIcon name="plus" className="h-3 w-3" />
-                Add to package
-              </>
-            )}
-          </p>
         </div>
       </div>
     </button>

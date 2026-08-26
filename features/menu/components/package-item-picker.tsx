@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PackageAddCard } from "@/features/menu/components/menu-cards";
+import { MenuItemCard } from "@/features/menu/components/menu-cards";
 import type { MenuLibraryItem } from "@/features/menu/components/menu-shared";
 
 type PackageItemPickerProps = {
@@ -15,9 +15,12 @@ type PackageItemPickerProps = {
    * need opposite advice.
    */
   libraryItemCount: number;
-  onAdd: (itemId: string) => void;
-  /** The item currently being written, so only its card reads as busy. */
-  pendingItemId: string | null;
+  /** Ticks exactly these ids, for "Select all". */
+  onReplaceSelection: (itemIds: string[]) => void;
+  onToggle: (itemId: string) => void;
+  /** The items with a write still out, so only those cards read as busy. */
+  pendingItemIds: ReadonlySet<string>;
+  selectedItemIds: ReadonlySet<string>;
 };
 
 function EmptyState({ children }: { children: string }) {
@@ -31,6 +34,13 @@ function EmptyState({ children }: { children: string }) {
  * greyed out: the list beside it is the record of what is included, and a card
  * that appears in both places invites a click that cannot do anything.
  *
+ * A click ticks rather than adds, and the bar the panel floats over the page is
+ * what acts on the ticks. Adding on the click cost one request per item and,
+ * before the write became a delta, quietly lost one of any two that overlapped;
+ * the greater part of the reason is that building a package means choosing a
+ * dozen dishes in a row, and "Add 12 items" is both one request and one place to
+ * notice you ticked something by mistake.
+ *
  * The search box is local state and deliberately not the page's search query -
  * that one filters the library grid on another tab, and reusing it would mean
  * typing here quietly narrowed a list the user cannot see.
@@ -39,8 +49,10 @@ export function PackageItemPicker({
   availableItems,
   isDisabled = false,
   libraryItemCount,
-  onAdd,
-  pendingItemId
+  onReplaceSelection,
+  onToggle,
+  pendingItemIds,
+  selectedItemIds
 }: PackageItemPickerProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedSearch = searchQuery.trim().toLowerCase();
@@ -49,6 +61,12 @@ export function PackageItemPicker({
       !normalizedSearch ||
       `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
   );
+  // Over what the search has left on screen, not over the whole library. A
+  // button that also ticks the forty cards a search just hid is not the one
+  // anybody meant to press.
+  const areAllVisibleTicked =
+    visibleItems.length > 0 &&
+    visibleItems.every((item) => selectedItemIds.has(item.id));
 
   return (
     <section className="mx-3 mb-3 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
@@ -57,15 +75,30 @@ export function PackageItemPicker({
           Add items from the Menu Library
         </h3>
         {availableItems.length > 0 ? (
-          <input
-            aria-label="Search library items to add"
-            className="h-8 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73] sm:w-56"
-            name="packageItemSearch"
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search items"
-            type="search"
-            value={searchQuery}
-          />
+          <div className="flex items-center gap-2">
+            {!isDisabled && visibleItems.length > 0 ? (
+              <button
+                className="inline-flex h-8 shrink-0 items-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
+                onClick={() =>
+                  onReplaceSelection(
+                    areAllVisibleTicked ? [] : visibleItems.map((item) => item.id)
+                  )
+                }
+                type="button"
+              >
+                {areAllVisibleTicked ? "Select none" : "Select all"}
+              </button>
+            ) : null}
+            <input
+              aria-label="Search library items to add"
+              className="h-8 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73] sm:w-56"
+              name="packageItemSearch"
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search items"
+              type="search"
+              value={searchQuery}
+            />
+          </div>
         ) : null}
       </header>
 
@@ -78,17 +111,19 @@ export function PackageItemPicker({
       ) : visibleItems.length === 0 ? (
         <EmptyState>No library items match that search.</EmptyState>
       ) : (
-        // The same grid as the included list above it, so the two halves of the
-        // panel line up column for column instead of drifting apart.
+        // The same grid and the same card as the included list above it, so an
+        // item looks like itself on both sides of the panel and the two halves
+        // line up column for column.
         <div className="grid grid-cols-3 gap-2 p-3 sm:gap-3 md:grid-cols-4 2xl:grid-cols-6">
           {visibleItems.map((item) => (
-            <PackageAddCard
+            <MenuItemCard
               key={item.id}
               category={item.category}
-              isDisabled={isDisabled}
-              isPending={pendingItemId === item.id}
+              isSelectDisabled={isDisabled}
+              isTicked={selectedItemIds.has(item.id)}
               name={item.name}
-              onAdd={() => onAdd(item.id)}
+              onToggleTick={() => onToggle(item.id)}
+              pendingLabel={pendingItemIds.has(item.id) ? "Saving…" : null}
               pictureUrl={item.pictureUrl}
             />
           ))}

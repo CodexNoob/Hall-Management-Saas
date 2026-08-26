@@ -39,10 +39,35 @@ export const menuPackageFieldsSchema = z.object({
 /**
  * Every field optional, because an edit sends only what changed.
  *
- * `includedMenuItemIds` is still the whole list when it is sent, not a delta:
- * the column is replaced wholesale, so a caller that omits it keeps what is
- * stored and a caller that sends `[]` empties the package.
+ * Two ways to write the item list, and the difference matters:
+ *
+ * - `includedMenuItemIds` is the whole list, replacing what is stored. It is
+ *   what a form that shows every checkbox at once has to send, because only the
+ *   full list can express an unchecked box.
+ * - `addMenuItemIds` / `removeMenuItemIds` name one end of the change and leave
+ *   the rest of the column alone. This is what a click on a single card sends,
+ *   and it is the form that survives two clicks racing: the whole-list version
+ *   is built from whatever the browser last fetched, so the second write to
+ *   arrive undoes the first.
+ *
+ * Sending both at once is refused rather than resolved in some order, because
+ * either order is a guess at which one the caller meant.
  */
 export const menuPackageUpdateSchema = menuPackageFieldsSchema
   .partial()
-  .pick({ name: true, regularPrice: true, includedMenuItemIds: true });
+  .pick({ name: true, regularPrice: true, includedMenuItemIds: true })
+  .extend({
+    addMenuItemIds: packageMenuItemIdsSchema.optional(),
+    removeMenuItemIds: packageMenuItemIdsSchema.optional()
+  })
+  .refine(
+    (input) =>
+      input.includedMenuItemIds === undefined ||
+      (input.addMenuItemIds === undefined &&
+        input.removeMenuItemIds === undefined),
+    {
+      message:
+        "Send either the whole item list or an add/remove change, not both.",
+      path: ["includedMenuItemIds"]
+    }
+  );
