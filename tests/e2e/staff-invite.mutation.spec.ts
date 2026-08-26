@@ -91,11 +91,24 @@ test("creates staff access and reports invitation delivery without failing the r
       response.url().includes("/api/staff") &&
       response.request().method() === "POST"
   );
+  /**
+   * The refetch the page runs AFTER the invite, told apart from the one it ran
+   * on the way in by the address it carries.
+   *
+   * The directory loads itself on mount, and that fetch is issued after
+   * hydration - which is after `fillInvite` returned and after this waiter is
+   * registered. Matching on method and status alone resolved with that one, and
+   * a snapshot taken before the invite is exactly the snapshot that cannot
+   * contain it. Registering the waiter after the POST instead would swap this
+   * race for the opposite one: `refresh()` runs the moment the POST resolves, so
+   * the response could land before anything was listening.
+   */
   const directoryRefresh = page.waitForResponse(
-    (response) =>
+    async (response) =>
       response.url().includes("/api/staff") &&
       response.request().method() === "GET" &&
-      response.status() === 200
+      response.status() === 200 &&
+      (await response.text()).includes(inviteEmail)
   );
 
   await dialog.getByRole("button", { name: "Send invitations" }).click();
@@ -130,6 +143,9 @@ test("creates staff access and reports invitation delivery without failing the r
     await expect(page.getByRole("button", { name: "Copy link" })).toBeVisible();
   }
 
+  // Kept as an assertion on `staff` rather than left to the predicate's
+  // substring match: the invited address has to come back as a member of the
+  // directory, not merely somewhere in the body.
   const directory = await (await directoryRefresh).json();
   expect(
     directory.staff.map((member: { email: string }) => member.email)
