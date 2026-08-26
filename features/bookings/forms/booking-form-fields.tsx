@@ -24,10 +24,22 @@ export type BookingLookupOption = {
   name: string;
 };
 
+const bookingControlBase =
+  "h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 " +
+  "text-sm text-[#17202a] transition";
+
 export const bookingControlClass =
-  "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 " +
-  "text-sm text-[#17202a] outline-none transition " +
+  `${bookingControlBase} w-full outline-none ` +
   "focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+
+/**
+ * The phone country trigger. Same skin as any other control, but a fixed width
+ * rather than `w-full` - it holds an ISO code and a dialling code, and letting
+ * it size itself would shove the number input around as the country changed.
+ * No `focus:` rules: the trigger is a div, and `PhoneField` rings it from the
+ * `<select>` inside.
+ */
+const bookingCountryClass = `${bookingControlBase} w-[6.5rem]`;
 
 type BookingFormFieldsProps = {
   autoFocus?: boolean;
@@ -126,6 +138,7 @@ export function BookingFormFields({
 
         <PhoneField
           country={phoneCountry}
+          countryClassName={bookingCountryClass}
           id={fieldId("phone")}
           inputClassName={`${bookingControlClass} min-w-0 flex-1`}
           name="phone"
@@ -133,7 +146,6 @@ export function BookingFormFields({
           onCountryChange={onPhoneCountryChange}
           required
           rowClassName="flex gap-2"
-          selectClassName={`${bookingControlClass} max-w-[8.5rem]`}
           serverError={errors.phone}
           value={values.phone}
         />

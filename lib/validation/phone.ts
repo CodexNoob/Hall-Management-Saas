@@ -251,6 +251,18 @@ function buildCountryList(): PhoneCountry[] {
   return [...priority, ...rest];
 }
 
+/**
+ * One entry from `PHONE_COUNTRIES` by ISO code. A Map rather than a `.find`,
+ * because the picker looks this up on every keystroke and the list is 245 long.
+ */
+export function findPhoneCountry(code: CountryCode): PhoneCountry | undefined {
+  return COUNTRY_BY_CODE.get(code);
+}
+
+const COUNTRY_BY_CODE = new Map(
+  PHONE_COUNTRIES.map((entry) => [entry.code, entry])
+);
+
 function regionName(code: CountryCode): string {
   return regionNames?.of(code) ?? code;
 }

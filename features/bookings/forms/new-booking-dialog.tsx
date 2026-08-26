@@ -70,8 +70,17 @@ const initialValues: NewBookingFormValues = {
 
 const steps = ["Client", "Event", "Availability", "Proposal", "Confirm"];
 
+const controlBase =
+  "h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] transition";
+
 const controlClass =
-  "h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
+  `${controlBase} w-full outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15`;
+
+/**
+ * The phone country trigger: same skin, fixed width rather than `w-full`, and
+ * no `focus:` rules - see `bookingCountryClass` in booking-form-fields.tsx.
+ */
+const countryClass = `${controlBase} w-[6.5rem]`;
 
 function hallReady(data: EventsLookupResponse | null) {
   return Boolean(data?.halls.length);
@@ -342,13 +351,13 @@ export function NewBookingDialog({
                 <FieldLabel htmlFor="booking-phone">Phone</FieldLabel>
                 <PhoneField
                   country={phoneCountry}
+                  countryClassName={countryClass}
                   id="booking-phone"
                   inputClassName={`${controlClass} min-w-0 flex-1`}
                   name="phone"
                   onChange={(value) => updateValue("phone", value)}
                   onCountryChange={setPhoneCountry}
                   rowClassName="flex gap-2"
-                  selectClassName={`${controlClass} max-w-[8.5rem]`}
                   serverError={phoneError}
                   value={values.phone}
                 />
