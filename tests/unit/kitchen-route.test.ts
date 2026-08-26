@@ -30,6 +30,9 @@ vi.mock("@/lib/prisma", () => ({
     // into the worker list on read.
     kitchenWorker: {
       findMany: vi.fn(),
+      // The caller's own roster row, which is what scopes a cook to their own
+      // dishes. Null in these cases unless one says otherwise.
+      findFirst: vi.fn(),
       createMany: vi.fn(),
       updateMany: vi.fn()
     },
@@ -208,6 +211,11 @@ describe("kitchen dashboard route", () => {
     vi.clearAllMocks();
     vi.mocked(authorize).mockResolvedValue(actor);
     vi.mocked(hasPermission).mockResolvedValue(true);
+    // Including `kitchen.read.all` by way of the line above: these cases are
+    // about what the board computes, not who may see it, so the caller is
+    // unscoped unless a case dials `hasPermission` down. The scoping rules have
+    // their own suite in kitchen-visibility.test.ts.
+    vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
     vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
     mockMenus();
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);

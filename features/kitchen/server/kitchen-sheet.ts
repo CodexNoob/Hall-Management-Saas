@@ -1,6 +1,11 @@
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
+  visibleKitchenLines,
+  WHOLE_KITCHEN,
+  type KitchenVisibility
+} from "@/features/kitchen/server/kitchen-visibility";
+import {
   calculateStyleQuantity,
   totalGuests,
   type EventHeadCounts
@@ -299,6 +304,7 @@ export function buildKitchenSheet({
   otherMeals = [],
   statuses,
   currentWorkerId,
+  visibility = WHOLE_KITCHEN,
   signedUrlsByPath
 }: {
   event: KitchenEventRow;
@@ -310,6 +316,13 @@ export function buildKitchenSheet({
   otherMeals?: string[];
   statuses: StatusRow[];
   currentWorkerId?: string | null;
+  /// How much of this sheet the caller may be sent. Applied here rather than at
+  /// each call site so `counts`, `lines` and `summary` can never disagree about
+  /// which lines exist: a summary counted over ten dishes beside a list of the
+  /// three that were sent is how a restriction becomes a leak of the other
+  /// seven. Defaults to the whole sheet, so every non-kitchen caller is
+  /// unchanged.
+  visibility?: KitchenVisibility;
   signedUrlsByPath?: Map<string, string>;
 }) {
   const counts = readHeadCounts(event);
@@ -319,17 +332,20 @@ export function buildKitchenSheet({
     statuses.map((itemStatus) => [itemStatus.menuItemId, itemStatus])
   );
 
-  const lines = (menu?.lines ?? []).map((line) => {
-    const picturePath =
-      line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
+  const lines = visibleKitchenLines(
+    (menu?.lines ?? []).map((line) => {
+      const picturePath =
+        line.menuItem?.picturePath ?? line.addOn?.picturePath ?? null;
 
-    return presentKitchenLine(
-      line,
-      picturePath ? (signedUrlsByPath?.get(picturePath) ?? null) : null,
-      counts,
-      line.menuItemId ? statusByMenuItemId.get(line.menuItemId) : undefined
-    );
-  });
+      return presentKitchenLine(
+        line,
+        picturePath ? (signedUrlsByPath?.get(picturePath) ?? null) : null,
+        counts,
+        line.menuItemId ? statusByMenuItemId.get(line.menuItemId) : undefined
+      );
+    }),
+    visibility
+  );
 
   return {
     meal,

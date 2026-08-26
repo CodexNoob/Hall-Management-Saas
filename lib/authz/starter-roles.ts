@@ -1,17 +1,25 @@
 import { permissionKeys, type PermissionKey } from "@/lib/authz/catalog";
 
 /**
- * The five starter roles. SEED DATA, NOT CODE.
+ * The six starter roles. SEED DATA, NOT CODE.
  *
  * Nothing in `app/`, `features/` or the rest of `lib/` may branch on a role key
  * from this file (INV-1). It exists so a brand-new organization arrives with a
  * usable set of roles, and so `npm run db:seed-authorization` can converge every
- * existing organization on the same five. A tenant may then edit every cell, add
+ * existing organization on the same six. A tenant may then edit every cell, add
  * roles of their own, and delete any role they created.
  *
- * RANKS ARE SPARSE (100/200/300/400/500) so a tenant can insert "Front Desk" at
- * 350 or "Head Chef" at 380 without renumbering anything. Lower outranks higher,
- * and every comparison is strict, so equal rank denies.
+ * RANKS ARE SPARSE (100/200/300/350/400/500) so a tenant can still insert a role
+ * of their own without renumbering anything. Lower outranks higher, and every
+ * comparison is strict, so equal rank denies. Kitchen Manager took 350 - one of
+ * the gaps this scheme exists to make available - rather than pushing Kitchen
+ * Staff down, because a rank is a row a tenant may already have reasoned about.
+ *
+ * NOTE ON CONVERGENCE. `ensureStarterRoles` is create-only for permissions by
+ * design, so an organization that already has a `kitchen-staff` role keeps every
+ * key it was seeded with even after this file drops one. Removing a key here
+ * changes what NEW organizations get; revoking it from existing ones is a
+ * deliberate, audited migration - `prisma/kitchen-role-split.sql`.
  *
  * Rank answers WHO MAY ACT ON WHOM. It never answers what may be handed out -
  * that is the subset check in `lib/authz/guards.ts` (INV-6). The moment a tenant
@@ -99,8 +107,11 @@ export const starterRoles: readonly StarterRole[] = [
       "eventmenu.confirm",
 
       // Kitchen - read and staffing, not production. Advancing a dish's status
-      // is the kitchen's call, not the office's.
+      // is the kitchen's call, not the office's. The whole board, because an
+      // office manager answering "is the Friday wedding ready" needs every dish
+      // on it, not the none that are assigned to them.
       "kitchen.read",
+      "kitchen.read.all",
       "kitchen.worker.read",
       "kitchen.worker.assign",
 
@@ -145,10 +156,64 @@ export const starterRoles: readonly StarterRole[] = [
     ]
   },
   {
+    /*
+     * Runs the kitchen. Rank 350 uses the gap the header promises, between the
+     * office's Event Manager and the cooks.
+     *
+     * This role is the whole of what Kitchen Staff used to hold. Staffing a
+     * board, raising a production job and signing a menu off as cookable are
+     * supervision, and they were sitting with everyone who cooks - so a cook
+     * could hand another cook's dish to a third, or lock a menu, with nobody
+     * having decided they should. Splitting them out is what lets Kitchen Staff
+     * below be genuinely restricted rather than restricted-looking.
+     */
+    key: "kitchen-manager",
+    name: "Kitchen Manager",
+    description:
+      "Runs the kitchen. Staffs the board, raises production jobs and signs menus off as cookable.",
+    rank: 350,
+    permissions: [
+      "calendar.read",
+      "event.read",
+
+      "menu.read",
+      "eventmenu.read",
+      // The kitchen's sign-off that a menu can be cooked as written. An approval,
+      // so it sits with the person who answers for the kitchen.
+      "eventmenu.confirm",
+
+      "kitchen.read",
+      "kitchen.read.all",
+      "kitchen.status.update",
+      "kitchen.event.create",
+      "kitchen.worker.read",
+      "kitchen.worker.assign",
+
+      "hall.read",
+      "hallmap.read",
+      "dining.read",
+
+      "note.manage"
+    ]
+  },
+  {
+    /*
+     * Production only, and deliberately without `kitchen.read.all`.
+     *
+     * That absence is the role: the kitchen routes send a holder of this set
+     * only the dishes assigned to them, and drop events that have none. Every
+     * key that lets somebody direct other people's work - assigning a worker,
+     * creating a production job, confirming a menu - moved to Kitchen Manager
+     * above. What is left is "see my dishes and mark them done".
+     *
+     * `kitchen.status.update` stays, but the route additionally refuses a status
+     * write against a dish assigned to somebody else: the permission says the
+     * holder may advance production, and the assignment check says whose.
+     */
     key: "kitchen-staff",
     name: "Kitchen Staff",
     description:
-      "Runs production. Sees what is coming and marks it done; touches nothing financial.",
+      "Cooks. Sees the dishes assigned to them and marks them done; directs nobody and touches nothing financial.",
     rank: 400,
     permissions: [
       "calendar.read",
@@ -156,15 +221,10 @@ export const starterRoles: readonly StarterRole[] = [
 
       "menu.read",
       "eventmenu.read",
-      // Confirming an event's menu is the kitchen's sign-off that it can be
-      // cooked as written.
-      "eventmenu.confirm",
 
       "kitchen.read",
       "kitchen.status.update",
-      "kitchen.event.create",
       "kitchen.worker.read",
-      "kitchen.worker.assign",
 
       "hall.read",
       "hallmap.read",
@@ -185,7 +245,11 @@ export const starterRoles: readonly StarterRole[] = [
       "menu.read",
       "eventmenu.read",
 
+      // The whole board: this role exists to see, and a viewer is never a cook,
+      // so scoping them to their own assignments would show them an empty
+      // kitchen rather than a restricted one.
       "kitchen.read",
+      "kitchen.read.all",
       "kitchen.worker.read",
 
       "hall.read",

@@ -10,6 +10,13 @@ import {
   kitchenMenuSelect,
   type StatusRow
 } from "@/features/kitchen/server/kitchen-sheet";
+import {
+  canWriteKitchenLine,
+  visibleKitchenLines,
+  WHOLE_KITCHEN,
+  type KitchenVisibility
+} from "@/features/kitchen/server/kitchen-visibility";
+import { resolveKitchenVisibility } from "@/features/kitchen/server/kitchen-visibility-resolve";
 import type { EventKitchenLine } from "@/features/events/components/event-manager-shared";
 import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import {
@@ -176,13 +183,17 @@ function buildStandaloneKitchenSheet({
   menuItemsById,
   portions,
   statuses,
-  currentWorkerId
+  currentWorkerId,
+  visibility = WHOLE_KITCHEN
 }: {
   menuItemIds: string[];
   menuItemsById: Map<string, StandaloneMenuItemRow>;
   portions: number;
   statuses: StandaloneStatusRow[];
   currentWorkerId?: string | null;
+  /// Same contract as `buildKitchenSheet`: filter before summarising, so a
+  /// scoped caller's counts describe the lines they were actually sent.
+  visibility?: KitchenVisibility;
 }) {
   const counts: EventHeadCounts = {
     couples: 0,
@@ -198,7 +209,7 @@ function buildStandaloneKitchenSheet({
     statuses.map((itemStatus) => [itemStatus.menuItemId, itemStatus])
   );
 
-  const lines: EventKitchenLine[] = menuItemIds.flatMap((menuItemId, index) => {
+  const allLines: EventKitchenLine[] = menuItemIds.flatMap((menuItemId, index) => {
     const menuItem = menuItemsById.get(menuItemId);
     if (!menuItem) return [];
 
@@ -256,6 +267,8 @@ function buildStandaloneKitchenSheet({
       }
     ];
   });
+
+  const lines = visibleKitchenLines(allLines, visibility);
 
   return {
     meal: DEFAULT_MEAL,
@@ -357,6 +370,13 @@ export async function GET(request: Request) {
     ]);
     const currentWorkerId =
       workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
+
+    // How much of the kitchen this caller may be sent. Resolved after
+    // `syncKitchenStaffWorkers` above, which is what creates the roster row for
+    // somebody who was given the Kitchen Staff role but never added by hand -
+    // asking first would scope a cook to a worker record that did not exist yet
+    // and hand them an empty board on their first visit.
+    const visibility = await resolveKitchenVisibility(actor);
 
     const eventIds = events.map((event) => event.id);
     const standaloneEventIds = standaloneEvents.map((event) => event.id);
@@ -471,7 +491,7 @@ export async function GET(request: Request) {
       otherMealsByEventId.set(menu.eventId, current);
     }
 
-    const boardEvents = events.map((event) => {
+    const boardEvents = events.flatMap((event) => {
       // The same builder the event's own kitchen tab runs, so a card's progress
       // ratio and that tab's can never disagree. No signed pictures: the board
       // lists events, not dishes, and signing a four week window of thumbnails
@@ -482,8 +502,16 @@ export async function GET(request: Request) {
         menu: menuByEventId.get(event.id) ?? null,
         otherMeals: otherMealsByEventId.get(event.id) ?? [],
         statuses: statusesByEventId.get(event.id) ?? [],
-        currentWorkerId
+        currentWorkerId,
+        visibility
       });
+
+      // An event a scoped cook has no dish on is not their job, so it does not
+      // reach them at all - the card would otherwise sit on the board reading
+      // "0 of 0" and inviting a tap that opens an empty sheet. Unscoped callers
+      // keep every event, including the ones with no menu saved yet, because for
+      // them an empty sheet is a fact about the event rather than about them.
+      if (!visibility.seesWholeBoard && sheet.lines.length === 0) return [];
 
       return {
         id: event.id,
@@ -545,14 +573,19 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       events: boardEvents,
-      kitchenEvents: standaloneEvents.map((event) => {
+      kitchenEvents: standaloneEvents.flatMap((event) => {
         const sheet = buildStandaloneKitchenSheet({
           menuItemIds: event.menu.includedMenuItemIds,
           menuItemsById: standaloneMenuItemsById,
           portions: event.portions,
           statuses: standaloneStatusesByEventId.get(event.id) ?? [],
-          currentWorkerId
+          currentWorkerId,
+          visibility
         });
+
+        // Same rule as the booked events above: a production job with nothing
+        // assigned to this cook is not theirs to see.
+        if (!visibility.seesWholeBoard && sheet.lines.length === 0) return [];
 
         return {
           id: event.id,
@@ -588,7 +621,13 @@ export async function GET(request: Request) {
       permissions: {
         canAssignWorkers,
         canUpdateKitchenStatus,
-        canAddKitchenEvents
+        canAddKitchenEvents,
+        // Not a capability - a description of what was just sent. The board uses
+        // it to word an empty day honestly: "nothing scheduled" is false for a
+        // cook whose colleagues are cooking eight dishes they cannot see, and
+        // the difference between "no work exists" and "none of it is yours" is
+        // the whole point of scoping the sheet.
+        seesWholeBoard: visibility.seesWholeBoard
       }
     });
   } catch (error) {
@@ -746,10 +785,67 @@ export async function PATCH(request: Request) {
     // asks for its own key. Splitting the route would be cleaner and is a larger
     // change than this one; what matters is that no branch is reachable on the
     // strength of another branch's permission.
-    const [canAssignWorkers, canUpdateKitchenStatus] = await Promise.all([
-      hasPermission(actor, "kitchen.worker.assign"),
-      hasPermission(actor, "kitchen.status.update")
-    ]);
+    const [canAssignWorkers, canUpdateKitchenStatus, visibility] =
+      await Promise.all([
+        hasPermission(actor, "kitchen.worker.assign"),
+        hasPermission(actor, "kitchen.status.update"),
+        resolveKitchenVisibility(actor)
+      ]);
+
+    /**
+     * Whose production this caller may advance.
+     *
+     * `kitchen.status.update` says they may advance production at all; this says
+     * on which dishes. Without it the read scoping would be decoration - line ids
+     * travel in the request body, so a cook who cannot SEE another cook's dish
+     * could still complete it by sending the id.
+     *
+     * A dish with no assignment yet is nobody's, so a scoped caller is refused
+     * there too: claiming unassigned work is `kitchen.worker.assign`, which is
+     * the key they do not hold.
+     */
+    const refuseForeignLine = async (
+      target:
+        | { kind: "event"; eventId: string; menuItemId: string }
+        | { kind: "standalone"; kitchenEventId: string; menuItemId: string }
+    ) => {
+      if (visibility.seesWholeBoard) return null;
+
+      const assignedWorkerId =
+        target.kind === "event"
+          ? (
+              await prisma.kitchenItemStatus.findUnique({
+                where: {
+                  eventId_menuItemId: {
+                    eventId: target.eventId,
+                    menuItemId: target.menuItemId
+                  }
+                },
+                select: { assignedWorkerId: true }
+              })
+            )?.assignedWorkerId
+          : (
+              await prisma.kitchenStandaloneItemStatus.findUnique({
+                where: {
+                  kitchenStandaloneEventId_menuItemId: {
+                    kitchenStandaloneEventId: target.kitchenEventId,
+                    menuItemId: target.menuItemId
+                  }
+                },
+                select: { assignedWorkerId: true }
+              })
+            )?.assignedWorkerId;
+
+      if (canWriteKitchenLine(assignedWorkerId, visibility)) return null;
+
+      // 403 and the same wording whether the dish belongs to someone else or to
+      // nobody: a different answer for each would let one cook map the board they
+      // are not allowed to read.
+      return NextResponse.json(
+        { error: "That dish is not assigned to you." },
+        { status: 403 }
+      );
+    };
 
     if (
       input.action === "standalone-assign-worker" ||
@@ -772,6 +868,18 @@ export async function PATCH(request: Request) {
           { error: "You do not have permission to update kitchen status." },
           { status: 403 }
         );
+      }
+
+      if (
+        input.action === "standalone-status" ||
+        input.action === "standalone-reset-status"
+      ) {
+        const refusal = await refuseForeignLine({
+          kind: "standalone",
+          kitchenEventId: input.kitchenEventId,
+          menuItemId: input.menuItemId
+        });
+        if (refusal) return refusal;
       }
 
       const [kitchenEvent, menuItem] = await Promise.all([
@@ -902,6 +1010,15 @@ export async function PATCH(request: Request) {
         { error: "You do not have permission to update kitchen status." },
         { status: 403 }
       );
+    }
+
+    if (input.action === "status" || input.action === "reset-status") {
+      const refusal = await refuseForeignLine({
+        kind: "event",
+        eventId: input.eventId,
+        menuItemId: input.menuItemId
+      });
+      if (refusal) return refusal;
     }
 
     // The same permission that lets someone say a dish is done lets them say it

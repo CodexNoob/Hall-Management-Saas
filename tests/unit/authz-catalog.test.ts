@@ -60,11 +60,15 @@ function* walk(directory: string): Generator<string> {
 }
 
 describe("permission catalog", () => {
-  it("holds exactly 62 keys", () => {
-    // The count is asserted, not just the uniqueness. Sixty-two replacing
-    // twenty-three booleans is the design's own claim, and a silent drift in
-    // either direction means somebody added a key without deciding it was one.
-    expect(permissionKeys).toHaveLength(62);
+  it("holds exactly 63 keys", () => {
+    // The count is asserted, not just the uniqueness. Replacing twenty-three
+    // booleans is the design's own claim, and a silent drift in either direction
+    // means somebody added a key without deciding it was one.
+    //
+    // Sixty-three since `kitchen.read.all` split the board into "may open it"
+    // and "may see all of it", which is what lets Kitchen Staff be scoped to
+    // their own dishes.
+    expect(permissionKeys).toHaveLength(63);
   });
 
   it("has no duplicates", () => {

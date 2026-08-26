@@ -432,15 +432,6 @@ function KitchenEventDetails({
   );
   const sheet = isStandalone ? (event.sheet ?? null) : (kitchenQuery.data?.kitchen ?? null);
   const hold = event.statusType === "hold";
-  const dishes =
-    sheet?.lines.filter((line) => {
-      if (line.kind !== "Dish") return false;
-      if (!workersOnly) return true;
-
-      return currentWorkerId
-        ? line.assignedWorkerId === currentWorkerId
-        : Boolean(line.assignedWorkerId);
-    }) ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(
     workersOnly ? "mine" : "all"
@@ -543,7 +534,7 @@ function KitchenEventDetails({
         <section
           aria-labelledby="kitchen-event-details-title"
           aria-modal="true"
-          className="flex max-h-[calc(100dvh-48px)] w-full max-w-256 flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
+          className="flex max-h-[calc(100dvh-48px)] w-full max-w-5xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
           role="dialog"
         >
           <header className="flex shrink-0 items-start gap-3 border-b border-[#d8dde5] bg-white px-5 py-5">

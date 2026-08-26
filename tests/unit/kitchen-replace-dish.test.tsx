@@ -143,7 +143,8 @@ const boardEvent: KitchenEvent = {
 const allPermissions = {
   canAssignWorkers: true,
   canUpdateKitchenStatus: true,
-  canAddKitchenEvents: true
+  canAddKitchenEvents: true,
+  seesWholeBoard: true
 };
 
 /**

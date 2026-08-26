@@ -6,7 +6,11 @@ vi.mock("@/lib/storage/files", () => ({ createSignedFileUrls: vi.fn() }));
 vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
   assertInScope: vi.fn(),
-  authorize: vi.fn()
+  authorize: vi.fn(),
+  // The route resolves how much of the sheet the caller may see. These cases are
+  // about the arithmetic, so the default below answers "the whole kitchen" and
+  // the scoping itself is covered in kitchen-visibility.test.ts.
+  hasPermission: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -15,13 +19,14 @@ vi.mock("@/lib/prisma", () => ({
     // the one it is.
     eventMenu: { findUnique: vi.fn(), findMany: vi.fn() },
     kitchenItemStatus: { findMany: vi.fn() },
-    kitchenNotification: { findMany: vi.fn() }
+    kitchenNotification: { findMany: vi.fn() },
+    kitchenWorker: { findFirst: vi.fn() }
   }
 }));
 
 import { GET } from "@/app/api/events/[eventId]/kitchen/route";
 import type { EventKitchenResponse } from "@/features/events/components/event-manager-shared";
-import { authorize } from "@/lib/authz/authorize";
+import { authorize, hasPermission } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createSignedFileUrls } from "@/lib/storage/files";
 
@@ -133,6 +138,10 @@ describe("event kitchen route", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(authorize).mockResolvedValue(actor as never);
+    // `kitchen.read.all`: these cases assert what the sheet says, not who may
+    // read it, so the caller sees the whole board unless a case says otherwise.
+    vi.mocked(hasPermission).mockResolvedValue(true);
+    vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
     vi.mocked(createSignedFileUrls).mockResolvedValue(
       new Map<string, string>() as never
     );
