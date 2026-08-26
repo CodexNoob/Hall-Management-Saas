@@ -191,6 +191,37 @@ describe("PhoneField", () => {
     );
   });
 
+  it("shows the country as a code and dialling code, not its full name", () => {
+    // A native select is as wide as its widest option - "United States Minor
+    // Outlying Islands (+1)" here - so the control has to be width-capped, and
+    // capping it used to clip the selected country to "Philippines (+6". The
+    // closed control shows a short, near-constant-width label instead, while
+    // the menu keeps every full name.
+    render(<Harness initialCountry={"PH" as CountryCode} />);
+
+    expect(screen.getByText("PH")).toBeInTheDocument();
+    expect(screen.getByText("+63")).toBeInTheDocument();
+
+    // The full name survives, but only in the menu - one occurrence, and it is
+    // an <option>. Still a real select underneath, with its label and value.
+    const named = screen.getAllByText("Philippines (+63)");
+    expect(named).toHaveLength(1);
+    expect(named[0].tagName).toBe("OPTION");
+    expect(screen.getByLabelText("Country")).toHaveValue("PH");
+  });
+
+  it("relabels the country trigger when the country changes", () => {
+    render(<Harness initialCountry={"PH" as CountryCode} />);
+
+    fireEvent.change(screen.getByLabelText("Country"), {
+      target: { value: "GB" }
+    });
+
+    expect(screen.getByText("GB")).toBeInTheDocument();
+    expect(screen.getByText("+44")).toBeInTheDocument();
+    expect(screen.queryByText("+63")).toBeNull();
+  });
+
   it("accepts a national number under the country that owns it", () => {
     render(<Harness initialCountry={"PH" as CountryCode} onValidChange={onValidChange} />);
 

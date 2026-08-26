@@ -1,11 +1,13 @@
 "use client";
 
 import { useId, useLayoutEffect, useReducer, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 
 import {
   DEFAULT_PHONE_COUNTRY,
   PHONE_COUNTRIES,
+  findPhoneCountry,
   formatAsYouType,
   parsePhoneInput
 } from "@/lib/validation/phone";
@@ -32,7 +34,11 @@ type PhoneFieldProps = {
   /** The select + input group. Put any bordered "one control" styling here, so
    *  the error message renders below the border rather than inside it. */
   rowClassName?: string;
-  selectClassName?: string;
+  /** The country control. Styles the visible trigger, not the `<select>` itself
+   *  - see the comment on it below. Give it a fixed width: the trigger's text is
+   *  short and of near-constant length, so a width keeps the number input from
+   *  shifting sideways when the country changes. */
+  countryClassName?: string;
   inputClassName?: string;
   errorClassName?: string;
   /** The "only digits and + ( ) -" hint shown when characters are filtered. */
@@ -67,7 +73,7 @@ export function PhoneField({
   serverError,
   className,
   rowClassName = "flex",
-  selectClassName,
+  countryClassName,
   inputClassName,
   errorClassName = "mt-1 text-xs font-bold text-[#c2410c]",
   noticeClassName = "mt-1 text-xs font-semibold text-[#64748b]"
@@ -94,6 +100,12 @@ export function PhoneField({
     }
   });
 
+  // Falls back to the bare ISO code rather than blanking the trigger, for a
+  // country libphonenumber has no calling code for.
+  const selectedCountry = findPhoneCountry(country) ?? {
+    code: country,
+    callingCode: ""
+  };
   const result = parsePhoneInput(value, { country, label });
   const localError =
     result.status === "invalid"
@@ -165,24 +177,52 @@ export function PhoneField({
   return (
     <div className={className}>
       <div className={rowClassName}>
-        <select
-          aria-label="Country"
-          autoComplete="tel-country-code"
-          className={selectClassName}
-          disabled={disabled}
-          id={`${fieldId}-country`}
-          name={name ? `${name}Country` : undefined}
-          onChange={(event) =>
-            handleCountryChange(event.target.value as CountryCode)
-          }
-          value={country}
+        {/* What you see is the trigger; the `<select>` is a transparent overlay
+            sitting on top of it.
+
+            A native select is as wide as its widest option, and this list runs
+            to "United States Minor Outlying Islands (+1)" - so the width has to
+            be capped, and capping it clipped the SELECTED country to
+            "Philippines (+6". Nothing about the closed control can be styled
+            away from that: the browser paints the chosen option's own text.
+
+            So the trigger shows the ISO code and dialling code, which is all
+            the closed state needs to say and is a near-constant width. The
+            select keeps every full country name for the open menu, keeps its
+            label, keyboard behaviour and autofill, and on a phone still hands
+            over to the platform's own picker. */}
+        <div
+          className={`relative inline-flex shrink-0 items-center gap-1.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 ${
+            disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+          } ${countryClassName ?? ""}`}
         >
-          {PHONE_COUNTRIES.map((entry) => (
-            <option key={entry.code} value={entry.code}>
-              {entry.name} ({entry.callingCode})
-            </option>
-          ))}
-        </select>
+          {/* Hidden from assistive tech: it is the select that is labelled, and
+              announcing "PH +63" alongside it would just be said twice. */}
+          <span aria-hidden="true">{selectedCountry.code}</span>
+          <span aria-hidden="true" className="tabular-nums opacity-70">
+            {selectedCountry.callingCode}
+          </span>
+          <ChevronDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 opacity-60" />
+
+          <select
+            aria-label="Country"
+            autoComplete="tel-country-code"
+            className="absolute inset-0 size-full cursor-[inherit] opacity-0"
+            disabled={disabled}
+            id={`${fieldId}-country`}
+            name={name ? `${name}Country` : undefined}
+            onChange={(event) =>
+              handleCountryChange(event.target.value as CountryCode)
+            }
+            value={country}
+          >
+            {PHONE_COUNTRIES.map((entry) => (
+              <option key={entry.code} value={entry.code}>
+                {entry.name} ({entry.callingCode})
+              </option>
+            ))}
+          </select>
+        </div>
 
         <input
           ref={inputRef}

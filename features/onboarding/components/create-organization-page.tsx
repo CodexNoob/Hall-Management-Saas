@@ -261,13 +261,13 @@ export function CreateOrganizationPage() {
                 <PhoneField
                   className="w-full"
                   country={form.country}
+                  countryClassName="h-full w-[7rem] border-r border-[#cfd6e0] bg-white px-4 text-sm font-bold"
                   id={`${fieldId}-phone`}
                   inputClassName="min-w-0 flex-1 bg-transparent px-4 text-base outline-none"
                   name="phone"
                   onChange={(value) => updateField("phone", value)}
                   onCountryChange={updateCountry}
                   rowClassName="flex h-12 w-full overflow-hidden rounded-xl border border-[#cfd6e0] bg-white transition focus-within:border-[#1f557d] focus-within:shadow-[0_0_0_4px_rgba(31,85,125,0.14)]"
-                  selectClassName="h-full max-w-[9.5rem] border-r border-[#cfd6e0] bg-white px-3 text-sm font-bold outline-none"
                   value={form.phone}
                 />
                 <p className="mt-2 text-sm text-[#64748b]">

@@ -110,6 +110,7 @@ export function NewClientDialog({
             <label htmlFor="new-client-phone">Phone</label>
             <PhoneField
               country={phoneCountry}
+              countryClassName="mt-1 h-10 w-[6.5rem] rounded-lg border border-[#b9c2cf] px-3 font-medium"
               id="new-client-phone"
               inputClassName="mt-1 h-10 min-w-0 flex-1 rounded-lg border border-[#b9c2cf] px-3 font-medium"
               onChange={(value) => {
@@ -118,7 +119,6 @@ export function NewClientDialog({
               }}
               onCountryChange={setPhoneCountry}
               rowClassName="flex gap-2"
-              selectClassName="mt-1 h-10 max-w-[8.5rem] rounded-lg border border-[#b9c2cf] px-2 font-medium"
               serverError={phoneError}
               value={phone}
             />
