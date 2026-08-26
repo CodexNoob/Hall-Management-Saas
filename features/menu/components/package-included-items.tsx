@@ -16,6 +16,15 @@ type PackageIncludedItemsProps = {
 };
 
 /**
+ * Names the region, because an item's card is identical on both sides of the
+ * panel - same picture, same "Select <name>" - and the only thing that says
+ * which half of the package a card belongs to is which grid it sits in. Without
+ * a name on each, neither a screen reader nor a test can tell the item that IS
+ * included from the one that COULD be.
+ */
+const INCLUDED_GRID_LABEL = "Items in this package";
+
+/**
  * What the open package holds.
  *
  * Ticking rather than a three-dot menu per card. The menu's one entry removed
@@ -34,9 +43,11 @@ export function PackageIncludedItems({
 }: PackageIncludedItemsProps) {
   if (includedItems.length === 0) {
     return (
-      <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
-        No items in this package yet. Pick them from the library below.
-      </p>
+      <section aria-label={INCLUDED_GRID_LABEL}>
+        <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
+          No items in this package yet. Pick them from the library below.
+        </p>
+      </section>
     );
   }
 
@@ -45,7 +56,7 @@ export function PackageIncludedItems({
   );
 
   return (
-    <>
+    <section aria-label={INCLUDED_GRID_LABEL}>
       {!isDisabled ? (
         <div className="flex items-center justify-end px-3 pt-3">
           <button
@@ -78,6 +89,6 @@ export function PackageIncludedItems({
           />
         ))}
       </div>
-    </>
+    </section>
   );
 }
