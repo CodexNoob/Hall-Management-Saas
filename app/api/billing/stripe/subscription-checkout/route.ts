@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 const schema = z.object({
   planId: z.enum(["starter", "professional", "enterprise"])
@@ -36,10 +37,15 @@ export async function POST(request: Request) {
     }
     const origin =
       process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin;
+    // Stripe sends the customer back here itself, so these have to name a page
+    // that exists. They pointed at /dashboard/settings until that route was
+    // deleted, which would have returned everyone who just paid to a 404. The
+    // query stays on the URL even though nothing reads it yet - it costs
+    // nothing and is the only record of how the customer arrived.
     const session = await stripeRequest<CheckoutSession>("checkout/sessions", {
       mode: "subscription",
-      success_url: `${origin}/dashboard/settings?subscription=success`,
-      cancel_url: `${origin}/dashboard/settings?subscription=cancelled`,
+      success_url: `${origin}${MVP_LANDING_ROUTE}?subscription=success`,
+      cancel_url: `${origin}${MVP_LANDING_ROUTE}?subscription=cancelled`,
       "line_items[0][quantity]": 1,
       "line_items[0][price]": priceId,
       "metadata[organizationId]": actor.organizationId,

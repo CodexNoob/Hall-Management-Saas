@@ -157,6 +157,7 @@ test("hands the inviter a copyable link when the invitation email cannot be sent
   page
 }) => {
   const inviteEmail = `e2e-undelivered-${Date.now()}@example.com`;
+  const linklessEmail = `e2e-linkless-${Date.now()}@example.com`;
   const inviteLink =
     "https://app.example.com/auth/confirm?token_hash=e2e-token-hash&type=invite";
 
@@ -179,6 +180,16 @@ test("hands the inviter a copyable link when the invitation email cannot be sent
             emailSent: false,
             inviteLink,
             error: "email rate limit exceeded"
+          },
+          // A second failure with no link to fall back on. The panel shows a row
+          // the inviter can act on OR the reason it cannot be acted on, never
+          // both, so covering the reason takes an invitation that produced no
+          // link - which is also the worse case for the inviter to be told about.
+          {
+            email: linklessEmail,
+            emailSent: false,
+            inviteLink: null,
+            error: "email rate limit exceeded"
           }
         ]
       })
@@ -194,17 +205,28 @@ test("hands the inviter a copyable link when the invitation email cannot be sent
   const inviteRow = page.getByRole("listitem").filter({ hasText: inviteEmail });
   await expect(inviteRow).toBeVisible();
 
+  // The one that failed without a link says why instead of offering a button.
+  const linklessRow = page
+    .getByRole("listitem")
+    .filter({ hasText: linklessEmail });
+  await expect(linklessRow.getByText("email rate limit exceeded")).toBeVisible();
+  await expect(linklessRow.getByRole("button", { name: "Copy link" })).toHaveCount(
+    0
+  );
+
+  // The clipboard, not a rendered field, is where the token has to arrive: the
+  // panel holds it in the button's handler and never draws it on the page.
   await inviteRow.getByRole("button", { name: "Copy link" }).click();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     inviteLink
   );
 
-  // The panel is the only copy of that token, so it must outlive the "Invitations
-  // sent." notice beside it, which clears itself after a few seconds. Asserting
-  // the notice goes first is what makes this a test of the panel's persistence
-  // rather than of how quickly the assertion ran.
-  await expect(page.getByText("Invitations sent.")).toBeHidden({
-    timeout: 10_000
-  });
+  // The panel is the only copy of that token, so it must not be swept away on a
+  // timer. The green `notice` beside it clears itself after 2800ms; this panel is
+  // deliberately held out of that (staff-page.tsx), and only the next submit
+  // replaces it. Waiting past that window is what proves the two are separate -
+  // there is no dismiss control to click, by design.
+  await page.waitForTimeout(3500);
   await expect(page.getByText(undeliveredNotice)).toBeVisible();
+  await expect(inviteRow.getByRole("button", { name: "Copy link" })).toBeVisible();
 });

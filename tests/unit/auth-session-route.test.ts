@@ -25,7 +25,7 @@ const {
   createActivityLog,
   createPrincipal,
   findManyRoles,
-  createManyRoles,
+  createManyAndReturnRoles,
   createManyRolePermissions,
   findManyPermissions,
   createManyPrincipalRoles,
@@ -43,7 +43,7 @@ const {
   createActivityLog: vi.fn(),
   createPrincipal: vi.fn(),
   findManyRoles: vi.fn(),
-  createManyRoles: vi.fn(),
+  createManyAndReturnRoles: vi.fn(),
   createManyRolePermissions: vi.fn(),
   findManyPermissions: vi.fn(),
   createManyPrincipalRoles: vi.fn(),
@@ -70,7 +70,10 @@ vi.mock("@/lib/prisma", () => {
     // the loop it replaced put eleven sequential round trips inside the sign-up
     // transaction. Doubling `create` here instead would leave the route calling
     // undefined and every assertion below reading a 500.
-    role: { findMany: findManyRoles, createManyAndReturn: createManyRoles },
+    role: {
+      findMany: findManyRoles,
+      createManyAndReturn: createManyAndReturnRoles
+    },
     rolePermission: { createMany: createManyRolePermissions },
     permission: { findMany: findManyPermissions },
     principalRole: {
@@ -236,8 +239,8 @@ describe("POST /api/auth/session", () => {
     findManyRoles.mockResolvedValue([]);
     findManyPermissions.mockResolvedValue([]);
     createPrincipal.mockResolvedValue({ id: PRINCIPAL_ID });
-    createManyRoles.mockImplementation(
-      async ({ data }: { data: { key: string }[] }) =>
+    createManyAndReturnRoles.mockImplementation(
+      async ({ data }: { data: Array<{ key: string }> }) =>
         data.map((role) => ({ id: `role-${role.key}`, key: role.key }))
     );
     createManyRolePermissions.mockResolvedValue({ count: 0 });
@@ -365,7 +368,7 @@ describe("POST /api/auth/session", () => {
     // What makes them the owner is an assignment, not a column: the starter set
     // is materialized and the founder gets the top role organization-wide.
     // Without it the sign-up completes and the new owner can do nothing.
-    expect(createManyRoles).toHaveBeenCalledWith(
+    expect(createManyAndReturnRoles).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.arrayContaining([
           expect.objectContaining({ key: FOUNDING_OWNER_ROLE_KEY })
@@ -630,7 +633,7 @@ describe("POST /api/auth/session", () => {
       // The three writes that could raise somebody: a new assignment, a new
       // role, or a change to what an existing role grants.
       expect(createManyPrincipalRoles).not.toHaveBeenCalled();
-      expect(createManyRoles).not.toHaveBeenCalled();
+      expect(createManyAndReturnRoles).not.toHaveBeenCalled();
       expect(createManyRolePermissions).not.toHaveBeenCalled();
     });
 

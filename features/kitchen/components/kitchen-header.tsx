@@ -80,7 +80,7 @@ export function KitchenHeader({
           <div className="flex min-w-0 items-center gap-2">
             <Link
               className="inline-flex h-10 min-w-0 shrink items-center justify-center border border-[#e4e4e4] bg-white px-3 text-sm font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:shrink-0 sm:px-4"
-              href="/dashboard/events"
+              href="/dashboard/menu"
             >
               <span aria-hidden="true">←</span>
               <span className="ml-1 truncate">Main Menu</span>

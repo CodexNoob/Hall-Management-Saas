@@ -15,6 +15,10 @@
  * what makes this a real gate instead of a coat of paint - a bookmarked
  * /dashboard/billing lands on Events like any other unavailable page.
  *
+ * Vendors and Settings are the exception: those two pages were deleted rather
+ * than withheld, so a bookmark gets a 404 instead of a redirect. See the note on
+ * the list below.
+ *
  * This is a product decision, not a permission one: `lib/auth/dashboard-routes`
  * still describes who *may* open each page, and the API routes still enforce it.
  * A module hidden here is hidden from everyone, admins included.
@@ -33,6 +37,13 @@ const hiddenDashboardRoutes = [
   "/dashboard/dining-manager",
   "/dashboard/hall-room-map",
   "/dashboard/files",
+  // The last two differ from the rest: their pages are deleted, not withheld, so
+  // they answer 404 rather than redirecting. They are listed anyway because the
+  // other readers of this file still need to know the routes are unavailable -
+  // the topbar search must not offer them, and the login return-path sanitiser
+  // must not send a signed-in user back to one. Shipping either module again
+  // means writing the page first; deleting these lines alone would only start
+  // advertising a route that answers nothing.
   "/dashboard/vendors",
   "/dashboard/settings"
 ] as const;
