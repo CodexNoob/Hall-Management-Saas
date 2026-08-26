@@ -456,6 +456,9 @@ export function MenuPage() {
       {/* One dialog for both flows: `initialValues` is what makes it an edit,
           and the save handler follows it. */}
       <NewLibraryItemDialog
+        // Signed by GET /api/menu, the same URL the card draws - so the form
+        // shows the picture the operator clicked on rather than an empty slot.
+        currentPictureUrl={libraryItemActions.editingItem?.pictureUrl}
         // A create started from a service tab is already that kind of item.
         defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
         initialValues={libraryItemActions.editingValues}
