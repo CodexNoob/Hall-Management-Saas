@@ -94,11 +94,29 @@ export function AssignmentDialog({
       });
 
       if (!response.ok) {
-        setError(
-          describeApiError(
-            (await response.json().catch(() => null)) as ApiError | null
-          )
-        );
+        const payload = (await response
+          .json()
+          .catch(() => null)) as ApiError | null;
+
+        setError(describeApiError(payload));
+
+        /**
+         * A 409 means somebody else committed first, and the epoch this dialog
+         * is holding is now known to be behind. `onSaved` is what refetches the
+         * roles query the `epoch` prop is read from, so calling it here is what
+         * makes the NEXT attempt composable.
+         *
+         * Without it this dialog dead-ends: the failed write never reaches
+         * `onSaved`, nothing refetches, and every retry re-sends the same stale
+         * `If-Match` for another 409 - permanently, because the epoch only moves
+         * further away. Reloading the page was the only way out.
+         *
+         * Deliberately NOT a silent retry. The epoch moved because somebody
+         * changed the permission matrix, and the user's intent may no longer
+         * apply to what it changed into - so they are told, the list refreshes
+         * underneath them, and the next click is theirs to make.
+         */
+        if (payload?.code === "epoch_stale") onSaved();
         return;
       }
 
@@ -121,11 +139,12 @@ export function AssignmentDialog({
       );
 
       if (!response.ok) {
-        setError(
-          describeApiError(
-            (await response.json().catch(() => null)) as ApiError | null
-          )
-        );
+        const payload = (await response
+          .json()
+          .catch(() => null)) as ApiError | null;
+
+        setError(describeApiError(payload));
+        if (payload?.code === "epoch_stale") onSaved();
         return;
       }
 
