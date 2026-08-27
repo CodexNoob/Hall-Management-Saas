@@ -427,6 +427,11 @@ export function EventInformation({
           onChange={updateValue}
           onPhoneCountryChange={setPhoneCountry}
           phoneCountry={phoneCountry}
+          // No country picker here: this panel edits a number that was already
+          // saved with a country, so the picker only ever restated it - and the
+          // three-column grid makes this the tightest phone field in the app.
+          // An overseas number can still be typed in full, with its own "+".
+          showPhoneCountry={false}
           values={values}
         />
 

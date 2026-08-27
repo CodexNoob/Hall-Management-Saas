@@ -28,6 +28,10 @@ type PhoneFieldProps = {
   required?: boolean;
   disabled?: boolean;
   placeholder?: string;
+  /** Render the country control. Turned off where the country is already
+   *  settled by what is stored and the width is better spent on the number.
+   *  `country` still drives validation and formatting either way. */
+  showCountry?: boolean;
   /** A server-side rejection, shown while there is no local error. */
   serverError?: string;
   className?: string;
@@ -57,6 +61,10 @@ type PhoneFieldProps = {
  * Like `NumberField`, this stays `type="tel"` over raw text and keeps whatever
  * was typed, so the validator can report "that is not a valid number" instead
  * of silently receiving an empty string.
+ *
+ * `showCountry={false}` hides the picker without making validation any looser:
+ * the host still owns the country, and a number typed with its own `+` is read
+ * from the `+` regardless of it.
  */
 export function PhoneField({
   id,
@@ -70,6 +78,7 @@ export function PhoneField({
   required = false,
   disabled,
   placeholder,
+  showCountry = true,
   serverError,
   className,
   rowClassName = "flex",
@@ -191,38 +200,43 @@ export function PhoneField({
             select keeps every full country name for the open menu, keeps its
             label, keyboard behaviour and autofill, and on a phone still hands
             over to the platform's own picker. */}
-        <div
-          className={`relative inline-flex shrink-0 items-center gap-1.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 ${
-            disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-          } ${countryClassName ?? ""}`}
-        >
-          {/* Hidden from assistive tech: it is the select that is labelled, and
-              announcing "PH +63" alongside it would just be said twice. */}
-          <span aria-hidden="true">{selectedCountry.code}</span>
-          <span aria-hidden="true" className="tabular-nums opacity-70">
-            {selectedCountry.callingCode}
-          </span>
-          <ChevronDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 opacity-60" />
-
-          <select
-            aria-label="Country"
-            autoComplete="tel-country-code"
-            className="absolute inset-0 size-full cursor-[inherit] opacity-0"
-            disabled={disabled}
-            id={`${fieldId}-country`}
-            name={name ? `${name}Country` : undefined}
-            onChange={(event) =>
-              handleCountryChange(event.target.value as CountryCode)
-            }
-            value={country}
+        {/* Not rendered at all when hidden, rather than made invisible: a
+            `<select>` still in the tree would keep its tab stop and its
+            autofill, and be a control nobody can see themselves reaching. */}
+        {showCountry ? (
+          <div
+            className={`relative inline-flex shrink-0 items-center gap-1.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 ${
+              disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+            } ${countryClassName ?? ""}`}
           >
-            {PHONE_COUNTRIES.map((entry) => (
-              <option key={entry.code} value={entry.code}>
-                {entry.name} ({entry.callingCode})
-              </option>
-            ))}
-          </select>
-        </div>
+            {/* Hidden from assistive tech: it is the select that is labelled,
+                and announcing "PH +63" alongside it would just be said twice. */}
+            <span aria-hidden="true">{selectedCountry.code}</span>
+            <span aria-hidden="true" className="tabular-nums opacity-70">
+              {selectedCountry.callingCode}
+            </span>
+            <ChevronDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 opacity-60" />
+
+            <select
+              aria-label="Country"
+              autoComplete="tel-country-code"
+              className="absolute inset-0 size-full cursor-[inherit] opacity-0"
+              disabled={disabled}
+              id={`${fieldId}-country`}
+              name={name ? `${name}Country` : undefined}
+              onChange={(event) =>
+                handleCountryChange(event.target.value as CountryCode)
+              }
+              value={country}
+            >
+              {PHONE_COUNTRIES.map((entry) => (
+                <option key={entry.code} value={entry.code}>
+                  {entry.name} ({entry.callingCode})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         <input
           ref={inputRef}

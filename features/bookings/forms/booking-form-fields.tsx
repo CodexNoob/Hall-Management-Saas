@@ -55,6 +55,12 @@ type BookingFormFieldsProps = {
   onPhoneCountryChange: (country: CountryCode) => void;
   renderEventTypeExtra?: () => ReactNode;
   phoneCountry: CountryCode;
+  /**
+   * Show the phone country picker. Off for the event manager's panel, where the
+   * country is already fixed by the number that was saved and the row is better
+   * spent on the number itself. `phoneCountry` still validates either way.
+   */
+  showPhoneCountry?: boolean;
   values: BookingFormValues;
 };
 
@@ -99,6 +105,7 @@ export function BookingFormFields({
   onPhoneCountryChange,
   renderEventTypeExtra,
   phoneCountry,
+  showPhoneCountry = true,
   values
 }: BookingFormFieldsProps) {
   const fieldId = (name: string) => `${idPrefix}-${name}`;
@@ -147,6 +154,7 @@ export function BookingFormFields({
           required
           rowClassName="flex gap-2"
           serverError={errors.phone}
+          showCountry={showPhoneCountry}
           value={values.phone}
         />
       </div>
