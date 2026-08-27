@@ -11,7 +11,12 @@ vi.mock("@/lib/prisma", () => ({
     addOn: { count: vi.fn() },
     activityLog: { create: vi.fn() },
     eventMenu: { upsert: vi.fn() },
-    eventMenuLine: { deleteMany: vi.fn(), createMany: vi.fn() },
+    eventMenuLine: {
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+      findMany: vi.fn()
+    },
+    kitchenItemStatus: { deleteMany: vi.fn() },
     $transaction: vi.fn()
   }
 }));
@@ -64,6 +69,12 @@ describe("public client portal selections", () => {
     } as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.eventMenuLine.deleteMany).mockResolvedValue({
+      count: 0
+    } as never);
+    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
+      { menuItemId }
+    ] as never);
+    vi.mocked(prisma.kitchenItemStatus.deleteMany).mockResolvedValue({
       count: 0
     } as never);
     vi.mocked(prisma.eventMenuLine.createMany).mockResolvedValue({
@@ -206,7 +217,11 @@ describe("public client portal selections", () => {
     expect(response.status).toBe(200);
     expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
       data: [
-        expect.objectContaining({ addOnId, sortOrder: 0, source: "ClientPortal" })
+        expect.objectContaining({
+          addOnId,
+          sortOrder: 0,
+          source: "ClientPortal"
+        })
       ]
     });
   });

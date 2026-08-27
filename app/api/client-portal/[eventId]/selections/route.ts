@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { discardOrphanedKitchenStatuses } from "@/features/events/server/event-menu-document";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -243,6 +244,13 @@ export async function POST(
               source: "ClientPortal"
             }))
           ]
+        });
+
+        // A client dropping a dish removes it as surely as staff doing it, so
+        // the kitchen rows behind it go too.
+        await discardOrphanedKitchenStatuses(transaction, {
+          organizationId,
+          eventId: event.id
         });
       }
 

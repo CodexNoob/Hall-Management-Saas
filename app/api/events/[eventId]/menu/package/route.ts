@@ -4,13 +4,18 @@ import { z } from "zod";
 import {
   conflict,
   confirmedMenu,
+  discardOrphanedKitchenStatuses,
   emptyMenu,
   eventIdSchema,
   loadEventForMenu,
   mealSchema,
   readPresentedMenu
 } from "@/features/events/server/event-menu-document";
-import { assertInScope, authorize, requireUserActor } from "@/lib/authz/authorize";
+import {
+  assertInScope,
+  authorize,
+  requireUserActor
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 
@@ -159,6 +164,13 @@ async function mirrorOntoEvent(
       ...packageColumns,
       updatedById: actorId
     }
+  });
+
+  // Removing a package takes its dishes off the menu, so the kitchen rows they
+  // left behind go with them - same rule the manual editor follows.
+  await discardOrphanedKitchenStatuses(transaction, {
+    organizationId,
+    eventId
   });
 }
 

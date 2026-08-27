@@ -210,6 +210,54 @@ export const emptyMenu = (meal: string, packageId: string | null = null) => ({
   lines: []
 });
 
+/**
+ * Drops the kitchen's per-dish rows for dishes this event no longer serves.
+ *
+ * `kitchen_item_statuses` is keyed on (event, dish) rather than on a menu line,
+ * so taking a dish off a menu used to leave its row behind. Nothing rendered it
+ * afterwards - the kitchen board builds its lines from the menu and looks each
+ * status up - so the orphan was invisible until the menu library refused to
+ * delete the dish and could not say which event was holding it.
+ *
+ * Every path that rewrites lines calls this, and every one of them is already
+ * inside the transaction that did the rewrite: a status row must not outlive a
+ * line removal that later rolls back.
+ *
+ * Scoped to the whole event, not one meal. The statuses are, so pruning against
+ * a single meal's lines would delete the progress recorded against another
+ * meal's dishes.
+ */
+export async function discardOrphanedKitchenStatuses(
+  transaction: Prisma.TransactionClient,
+  { organizationId, eventId }: { organizationId: string; eventId: string }
+) {
+  const served = await transaction.eventMenuLine.findMany({
+    where: { eventMenu: { eventId }, menuItemId: { not: null } },
+    select: { menuItemId: true }
+  });
+
+  const servedMenuItemIds = [
+    ...new Set(
+      served
+        .map((line) => line.menuItemId)
+        .filter((value): value is string => Boolean(value))
+    )
+  ];
+
+  await transaction.kitchenItemStatus.deleteMany({
+    where: {
+      organizationId,
+      eventId,
+      // An event serving nothing keeps no statuses at all. Spelled out rather
+      // than left to `notIn: []`, which is a no-op filter in some engines and
+      // an empty `NOT IN` in others.
+      ...(servedMenuItemIds.length > 0
+        ? { menuItemId: { notIn: servedMenuItemIds } }
+        : {})
+    }
+  });
+}
+
 export function loadEventForMenu(
   actor: { organizationId: string },
   eventId: string
