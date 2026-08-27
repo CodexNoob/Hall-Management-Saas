@@ -32,7 +32,12 @@ test.beforeEach(async ({ page }, testInfo) => {
   );
 
   await page.goto("/dashboard/calendar");
-  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  // Scoped to the page's own tab strip: the sidebar has a "Settings" entry as
+  // well, and a page-wide lookup matches that one too.
+  await page
+    .getByRole("navigation", { name: "Calendar views" })
+    .getByRole("button", { name: "Settings", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "Calendar Settings", exact: true })
   ).toBeVisible();

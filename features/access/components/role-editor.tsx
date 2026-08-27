@@ -145,10 +145,22 @@ export function RoleEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">
-      <div className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+      {/*
+        A real dialog rather than a div that looks like one. It already behaves
+        as a modal - fixed, over a scrim, with everything behind it inert to the
+        eye - and saying so is what lets assistive technology, and anything else
+        addressing a control by where it lives, tell this editor's permission
+        checkboxes from the panels it opens on top of.
+      */}
+      <div
+        aria-labelledby="role-editor-title"
+        aria-modal="true"
+        className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl sm:rounded-2xl"
+        role="dialog"
+      >
         <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-black">
+            <h2 className="text-sm font-black" id="role-editor-title">
               {role ? `Edit ${role.name}` : "New role"}
             </h2>
             <p className="mt-0.5 text-[10px] text-[#6a7483]">
