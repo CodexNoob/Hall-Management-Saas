@@ -1,4 +1,4 @@
-﻿-- Split the kitchen in two: Kitchen Manager supervises, Kitchen Staff cooks.
+-- Split the kitchen in two: Kitchen Manager supervises, Kitchen Staff cooks.
 --
 -- WHY THIS FILE EXISTS AT ALL. `ensureStarterRoles` is create-only for
 -- permissions on purpose (lib/authz/provision.ts): re-running the seed must

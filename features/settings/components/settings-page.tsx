@@ -278,13 +278,13 @@ export function SettingsPage({
             ) : null}
 
             <div
-              className={`mx-auto grid w-full gap-4 ${
+              className={`mx-auto grid w-full items-start gap-4 ${
                 isModal
                   ? modalGridClass
-                  : "max-w-[1800px] xl:grid-cols-[300px_minmax(0,1fr)]"
+                  : "max-w-[1500px] lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]"
               }`}
             >
-              <aside className={isModal ? "contents" : "space-y-4"}>
+              <aside className={isModal ? "contents" : "grid gap-4"}>
                 {showAllSettingsContent || activeModalSection === "General" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                     <PanelHeader title="My Account" />
@@ -428,9 +428,7 @@ export function SettingsPage({
 
                 {showAllSettingsContent || activeModalSection === "General" ? (
                   <section
-                    className={`overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm ${
-                      isModal ? "" : "xl:min-h-55.5"
-                    }`}
+                    className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm"
                   >
                     <PanelHeader title="Language & Region" icon="globe" />
 
@@ -510,7 +508,7 @@ export function SettingsPage({
                 ) : null}
               </aside>
 
-              <div className={isModal ? "contents" : "min-w-0 space-y-4"}>
+              <div className={isModal ? "contents" : "grid min-w-0 gap-4"}>
                 {!isModal || activeModalSection === "Halls" ? (
                   <HallsSettingsPanel canEdit={canEditSettings} />
                 ) : null}
@@ -527,7 +525,7 @@ export function SettingsPage({
                         ? activeModalSection === "User Access"
                           ? "sm:col-span-2"
                           : ""
-                        : "xl:min-h-88.25"
+                        : ""
                     }`}
                   >
                     <PanelHeader
@@ -538,12 +536,12 @@ export function SettingsPage({
                       className={`grid gap-3 p-4 ${
                         isModal
                           ? "lg:grid-cols-2"
-                          : "sm:grid-cols-2 xl:grid-cols-5"
+                          : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
                       }`}
                     >
                       {visibleSettingsHubItems.map((item) => (
                         <article
-                          className="flex min-h-24 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
+                          className="flex min-h-28 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
                           key={item.title}
                         >
                           <Icon
@@ -573,15 +571,15 @@ export function SettingsPage({
                         activeModalSection === "PDF & Branding"
                         ? "grid-cols-1"
                         : "sm:grid-cols-2"
-                      : "lg:grid-cols-3 xl:pt-px"
+                      : "sm:grid-cols-2 xl:grid-cols-4"
                   }`}
                 >
                   {showAllSettingsContent ||
                   activeModalSection === "PDF & Branding" ? (
-                    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Branding Preview" icon="eye" />
 
-                      <div className="p-4">
+                      <div className="flex flex-1 flex-col justify-between p-4">
                         <Image
                           alt="Hall Management SaaS"
                           className="h-16 w-auto object-contain"
@@ -605,7 +603,7 @@ export function SettingsPage({
                   ) : null}
 
                   {shouldShowIntegrations ? (
-                    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader
                         title={
                           isModal && activeModalSection !== "Integrations"
@@ -615,7 +613,7 @@ export function SettingsPage({
                         icon="link"
                       />
 
-                      <div className="space-y-4 p-4">
+                      <div className="flex flex-1 flex-col justify-center space-y-4 p-4">
                         {visibleIntegrations.map((integration) => (
                           <div
                             className="flex items-center gap-3"
@@ -647,10 +645,10 @@ export function SettingsPage({
                   {(showAllSettingsContent ||
                     activeModalSection === "Payments & Gmail") &&
                   canManagePayments ? (
-                    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Client Payment Link" icon="billing" />
 
-                      <div className="space-y-3 p-4">
+                      <div className="flex flex-1 flex-col space-y-3 p-4">
                         <label
                           className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#516174]"
                           htmlFor="organization-payment-link"
@@ -696,10 +694,10 @@ export function SettingsPage({
 
                   {showAllSettingsContent ||
                   activeModalSection === "Billing Cycle" ? (
-                    <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Billing Cycle" icon="billing" />
 
-                      <dl className="space-y-4 p-4 text-[10px]">
+                      <dl className="flex-1 space-y-4 p-4 text-[10px]">
                         <div className="flex justify-between gap-3">
                           <dt>Current plan</dt>
                           <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">

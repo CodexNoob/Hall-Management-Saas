@@ -1,13 +1,13 @@
 /**
  * What the MVP does not ship yet.
  *
- * The Dashboard overview, Hall Room Map, Billing, Dining Manager, Files,
- * Vendors and the standalone Settings page
+ * The Dashboard overview, Hall Room Map, Billing, Dining Manager, Files and
+ * Vendors
  * modules are finished enough to run but are out of scope for the first
- * release, which is Events, Menu and Kitchen. Their routes, components, API
- * handlers and tables are all left in place - only the ways a user could reach
- * them are withdrawn, so turning one back on is an edit to this file rather
- * than a revert.
+ * release, which is Events, Menu, Kitchen and Settings. Their routes,
+ * components, API handlers and tables are all left in place - only the ways a
+ * user could reach them are withdrawn, so turning one back on is an edit to
+ * this file rather than a revert.
  *
  * Everything that offers a destination reads from here: the sidebar, the topbar
  * search, the event workspace's tabs, the login return-path sanitiser, and the
@@ -15,9 +15,8 @@
  * what makes this a real gate instead of a coat of paint - a bookmarked
  * /dashboard/billing lands on Events like any other unavailable page.
  *
- * Vendors and Settings are the exception: those two pages were deleted rather
- * than withheld, so a bookmark gets a 404 instead of a redirect. See the note on
- * the list below.
+ * Vendors is the exception: that page was deleted rather than withheld, so a
+ * bookmark gets a 404 instead of a redirect. See the note on the list below.
  *
  * This is a product decision, not a permission one: `lib/auth/dashboard-routes`
  * still describes who *may* open each page, and the API routes still enforce it.
@@ -37,15 +36,12 @@ const hiddenDashboardRoutes = [
   "/dashboard/dining-manager",
   "/dashboard/hall-room-map",
   "/dashboard/files",
-  // The last two differ from the rest: their pages are deleted, not withheld, so
-  // they answer 404 rather than redirecting. They are listed anyway because the
-  // other readers of this file still need to know the routes are unavailable -
-  // the topbar search must not offer them, and the login return-path sanitiser
-  // must not send a signed-in user back to one. Shipping either module again
-  // means writing the page first; deleting these lines alone would only start
-  // advertising a route that answers nothing.
-  "/dashboard/vendors",
-  "/dashboard/settings"
+  // Vendors differs from the rest: its page is deleted, not withheld, so it
+  // answers 404 rather than redirecting. It is listed anyway because the other
+  // readers of this file still need to know the route is unavailable - the
+  // topbar search must not offer it, and the login return-path sanitiser must
+  // not send a signed-in user back to it.
+  "/dashboard/vendors"
 ] as const;
 
 export function isHiddenDashboardRoute(route: string | null | undefined) {

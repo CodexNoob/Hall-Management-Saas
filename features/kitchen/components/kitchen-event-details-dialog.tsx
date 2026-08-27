@@ -317,6 +317,20 @@ function DishCard({
         </span>
       )}
 
+      {line.pictureUrl ? (
+        <span className="mb-3 block overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+          {/* Plain img, not next/image: these are short-lived signed storage URLs
+              and the card already names the dish for assistive tech. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt=""
+            className="h-28 w-full object-cover"
+            loading="lazy"
+            src={line.pictureUrl}
+          />
+        </span>
+      ) : null}
+
       <span className="block text-sm font-black leading-tight text-[#17202a]">
         {line.name}
       </span>

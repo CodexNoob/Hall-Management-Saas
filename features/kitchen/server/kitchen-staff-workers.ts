@@ -36,8 +36,9 @@ export type KitchenWorkerOption = {
  * alternative is every screen that grants a role having to remember to mirror
  * it here - which is exactly the coupling that let them diverge.
  *
- * Workers with no `userId` are left alone: a casual hand hired for one night
- * has a name and no login, which is what this table was originally for.
+ * Workers with no `userId` are left alone in storage so old assignments keep
+ * their label, but they are no longer returned as assignable workers. The
+ * Kitchen page is now driven by staff access, not manually typed names.
  */
 export async function syncKitchenStaffWorkers(
   organizationId: string
@@ -115,15 +116,17 @@ export async function syncKitchenStaffWorkers(
   // database knows, and a name edited in Manage workers must win over the
   // staff name it started from.
   const assignable = await prisma.kitchenWorker.findMany({
-    where: { organizationId, isActive: true },
+    where: { organizationId, isActive: true, userId: { not: null } },
     select: { id: true, name: true, userId: true },
     orderBy: { name: "asc" }
   });
 
-  return assignable.map((worker) => ({
-    id: worker.id,
-    name: worker.name,
-    userId: worker.userId,
-    isStaff: Boolean(worker.userId)
-  }));
+  return assignable
+    .filter((worker) => worker.userId && kitchenUserIds.has(worker.userId))
+    .map((worker) => ({
+      id: worker.id,
+      name: worker.name,
+      userId: worker.userId,
+      isStaff: Boolean(worker.userId)
+    }));
 }
