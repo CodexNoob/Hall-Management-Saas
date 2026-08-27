@@ -12,8 +12,12 @@ const WEAK_PASSWORD =
 const INVALID_EMAIL = "Please enter a valid email address.";
 const SIGN_UP_DISABLED =
   "New accounts are not being accepted right now. Please contact support.";
-const EMAIL_SEND_RATE_LIMITED =
+const EMAIL_SEND_COOLDOWN =
   "We just sent an email to this address. Please wait a minute before trying again.";
+const EMAIL_SEND_RATE_LIMITED =
+  "We are temporarily unable to send confirmation emails. Please try again in a little while.";
+const EMAIL_NOT_AUTHORIZED =
+  "We are unable to send a confirmation email to this address. This is a problem on our end, not yours - please contact support.";
 const GENERIC_SIGN_UP_FAILURE = "Unable to create your account. Please try again.";
 
 export const AUTH_ERROR_MESSAGES = {
@@ -26,7 +30,9 @@ export const AUTH_ERROR_MESSAGES = {
   weakPassword: WEAK_PASSWORD,
   invalidEmail: INVALID_EMAIL,
   signUpDisabled: SIGN_UP_DISABLED,
+  emailSendCooldown: EMAIL_SEND_COOLDOWN,
   emailSendRateLimited: EMAIL_SEND_RATE_LIMITED,
+  emailNotAuthorized: EMAIL_NOT_AUTHORIZED,
   genericSignUpFailure: GENERIC_SIGN_UP_FAILURE
 } as const;
 
@@ -47,9 +53,50 @@ const SIGN_UP_MESSAGES_BY_CODE: Record<string, string> = {
   validation_failed: INVALID_EMAIL,
   signup_disabled: SIGN_UP_DISABLED,
   email_provider_disabled: SIGN_UP_DISABLED,
-  over_email_send_rate_limit: EMAIL_SEND_RATE_LIMITED,
   over_request_rate_limit: RATE_LIMITED
 };
+
+/**
+ * The three ways GoTrue refuses to mail a confirmation link. Two of them share
+ * the `over_email_send_rate_limit` code and are told apart only by the message,
+ * so this has to be consulted before the code map short-circuits - and before
+ * the "email address" substring test below, which would otherwise flatten an
+ * unauthorized address into "please enter a valid email address" and send the
+ * owner hunting for a typo that is not there.
+ *
+ * - "For security purposes, you can only request this after 51 seconds."
+ *   The per-address cooldown. Waiting really does clear it, so the copy may
+ *   say so.
+ * - "Email rate limit exceeded" / a bare `over_email_send_rate_limit`.
+ *   The project-wide hourly quota, spent by *any* address. Telling the owner
+ *   to wait a minute and retry is wrong twice over, which is why this no
+ *   longer shares copy with the cooldown above.
+ * - `email_address_not_authorized`.
+ *   Supabase's built-in mail service refusing every address that is not a
+ *   member of the Supabase organization. No amount of retrying clears it; the
+ *   project needs custom SMTP. See docs/supabase-auth-configuration.md §7.
+ */
+function getEmailDeliveryMessage(code: string, normalized: string) {
+  if (
+    code === "email_address_not_authorized" ||
+    normalized.includes("not authorized")
+  ) {
+    return EMAIL_NOT_AUTHORIZED;
+  }
+
+  if (normalized.includes("security purposes")) {
+    return EMAIL_SEND_COOLDOWN;
+  }
+
+  if (
+    code === "over_email_send_rate_limit" ||
+    normalized.includes("email rate limit")
+  ) {
+    return EMAIL_SEND_RATE_LIMITED;
+  }
+
+  return null;
+}
 
 type AuthErrorLike = {
   code?: unknown;
@@ -136,6 +183,17 @@ export function getSignUpErrorMessage(
   fallback: string = GENERIC_SIGN_UP_FAILURE
 ): string {
   const { code, status, message } = readAuthErrorLike(error);
+  const rawMessage = typeof message === "string" ? message.trim() : "";
+  const normalized = rawMessage.toLowerCase();
+
+  const deliveryFailure = getEmailDeliveryMessage(
+    typeof code === "string" ? code : "",
+    normalized
+  );
+
+  if (deliveryFailure) {
+    return deliveryFailure;
+  }
 
   if (typeof code === "string") {
     const mappedByCode = SIGN_UP_MESSAGES_BY_CODE[code];
@@ -144,9 +202,6 @@ export function getSignUpErrorMessage(
       return mappedByCode;
     }
   }
-
-  const rawMessage = typeof message === "string" ? message.trim() : "";
-  const normalized = rawMessage.toLowerCase();
 
   if (normalized) {
     if (
@@ -168,15 +223,6 @@ export function getSignUpErrorMessage(
       normalized.includes("unable to validate email")
     ) {
       return INVALID_EMAIL;
-    }
-
-    // Email-send throttling is its own message: "wait a minute" is actionable,
-    // whereas the generic rate-limit copy reads like the account was rejected.
-    if (
-      normalized.includes("email rate limit") ||
-      normalized.includes("security purposes")
-    ) {
-      return EMAIL_SEND_RATE_LIMITED;
     }
 
     if (normalized.includes("rate limit")) {

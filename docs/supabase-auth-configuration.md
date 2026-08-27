@@ -5,24 +5,40 @@ repository. It is not versioned, not covered by tests, and **not revertible with
 `git revert`** — if it is wrong, the only record of what it used to be is this
 file. Keep it current.
 
-Project ref: **`lrxppdlbhymbsgehspwx`** · GoTrue v2.195.0 (supports
-`token_hash`; no upgrade required).
+GoTrue v2.195.0 (supports `token_hash`; no upgrade required).
 
-Verify the ref in your dashboard URL before editing anything. An earlier
-revision of this file named `nychjjjixbaniwftblyx`, which is a **different**
-project - it was the ref cached in `supabase/.temp/` by an old `supabase link`,
-not the one the application authenticates against. The runtime project is the
-one in `NEXT_PUBLIC_SUPABASE_URL` in `.env.local`, and `supabase/.temp/` has
-since been deleted so nothing points at the stale one any more.
+## There are TWO projects. Every setting below has to be applied to both.
 
-Verify the live values rather than trusting this file:
+| Environment                      | Project ref              | Where the ref comes from        |
+| -------------------------------- | ------------------------ | ------------------------------- |
+| **Production** (Vercel)          | `embeuhifhylbychgivkp`   | Vercel environment variables    |
+| **Local development**            | `lrxppdlbhymbsgehspwx`   | `NEXT_PUBLIC_SUPABASE_URL` in `.env.local` |
+
+An earlier revision of this file said "that one project is shared by local
+development, Vercel previews and production," named only `lrxppdlbhymbsgehspwx`,
+and was **wrong**. Local dev has not talked to the production project for as
+long as `.env.local` has existed: Next.js loads `.env.local` ahead of `.env`, and
+the two files name different refs. `.env` names the production one, so anything
+that reads `.env` alone looks correct and still is not what `next dev` used.
+
+The consequence is the trap this whole file exists to prevent, one level up:
+**a dashboard change verified locally proves nothing about production.** Email
+templates, the redirect allowlist, SMTP and rate limits are per-project. Paste
+every one of them into both dashboards, or write down deliberately why not.
+
+This is the second time a stale ref has been recorded here - an even earlier
+revision named `nychjjjixbaniwftblyx`, cached in `supabase/.temp/` by an old
+`supabase link`. Verify the live values rather than trusting this file:
 
 ```bash
-curl -s "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/health" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+# local
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/auth/v1/settings" -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+# production - read the ref off the deployed bundle, not off any file in this repo
 ```
 
-That one project is shared by local development, Vercel previews and
-production.
+The two databases have already diverged: `GET /rest/v1/organizations` answers on
+`embeuhifhylbychgivkp` and returns `42501 permission denied for schema public` on
+`lrxppdlbhymbsgehspwx`, which has had its public-schema grants revoked.
 
 ---
 
@@ -234,7 +250,85 @@ resolve to a route that no longer exists.
 
 ---
 
-## 7. Verifying the cutover
+## 7. The email sender — custom SMTP is not optional
+
+**Authentication → Emails → SMTP Settings.**
+
+Templates decide what an email *says*. They do not decide whether it is *sent*.
+With **Enable Custom SMTP** off, the project falls back to Supabase's shared
+built-in sender, which is a testing convenience with two hard limits — neither
+of them configurable, both applied before the template is ever rendered:
+
+| Limit                                                   | Consequence                                                                   |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| **2 messages per hour, project-wide**                    | The third signup of the hour fails no matter which address it uses.            |
+| **Recipients must be members of the Supabase organization** | Every real prospect's address is refused with `email_address_not_authorized`. |
+
+That second one is the fatal one: it means **public signup cannot work at all**
+on the built-in sender. A developer testing with their own Supabase account
+address sees it succeed and concludes email is fine. It is not — that address is
+the only kind that is allowed through.
+
+### Measured state of production, 2026-08-27
+
+**`embeuhifhylbychgivkp`: custom SMTP off, "Rate limit for sending emails" = 2
+emails/h.** Read off the dashboard, not inferred. Public signup is therefore
+dead there, and has been since the project was created — the two working
+registrations in its history (2026-08-25, 2026-08-27 05:43) fit inside a
+2-per-hour allowance and prove nothing about capacity.
+
+`GET /auth/v1/admin/users` corroborates it without dashboard access.
+`confirmation_sent_at` is the honest signal — set means GoTrue handed the
+message to a sender, null means none was attempted. Production shows sends at
+05:43, 06:40:28, 06:40:43, 07:10:45 and 07:11:01: **exactly two in the 06:00
+hour, exactly two in the 07:00 hour**, then nothing.
+
+Failed signups roll the user row back, so the attempts that hit the cap leave no
+trace at all. A quiet gap in that list is the symptom, not an absence of one.
+
+> **The 2 is not editable while custom SMTP is off.** Raising it is step 3
+> below and only unlocks after step 2. Reading "2 emails/h" and hunting for a
+> way to type 100 into it is the wrong order.
+
+Note also that `tests/e2e/staff-invite.mutation.spec.ts` and
+`staff-lifecycle.mutation.spec.ts` invite real addresses through
+`inviteUserByEmail`, which spends this same quota. Four `…+e2e-…@gmail.com`
+users were created on **production** on 2026-08-27 despite
+`playwright.config.ts` loading `.env.local` — most likely `reuseExistingServer`
+attaching to a server started with different environment. One e2e run can empty
+the hour's allowance for real signups.
+
+The same dead end follows either way, so
+[lib/auth/auth-error-messages.ts](../lib/auth/auth-error-messages.ts) keeps three
+distinct messages for them. Do not re-merge them: "please wait a minute" is true
+only of the per-address cooldown, and is actively misleading for the other two.
+
+### What to configure — on **both** projects, checked one at a time
+
+As of 2026-08-27 production has had none of these three done.
+
+1. Create a sender at a transactional provider and verify the sending domain.
+   **Resend** is the path of least resistance here — the app already talks to it
+   for support mail ([support-notifications.ts](../features/support/server/support-notifications.ts)),
+   so `RESEND_API_KEY` and `SUPPORT_EMAIL_FROM` end up serving both. SendGrid,
+   Postmark, Brevo and SES are equally fine; nothing in the app depends on the
+   choice.
+2. **Authentication → Emails → SMTP Settings → Enable Custom SMTP**, then fill in
+   the provider's host, port, username and password. The sender address must be
+   on the domain verified in step 1 or the provider will reject every message.
+3. **Authentication → Rate Limits → "Emails sent per hour."** Enabling custom
+   SMTP raises the project cap from 2 to 30, which is still low for a public
+   signup page. Set it to something the launch can absorb. **Enabling SMTP does
+   not raise a cap you have already pinned by hand** — check the number even when
+   step 2 is visibly done.
+
+Until this is right on the production project, signup is broken there no matter
+what local development shows, and no amount of application code can work around
+it.
+
+---
+
+## 8. Verifying the cutover
 
 The one that proves `token_hash` is actually in use:
 
