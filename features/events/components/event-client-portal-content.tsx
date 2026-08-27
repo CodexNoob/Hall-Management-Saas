@@ -26,22 +26,30 @@ type PortalResponse = {
 /**
  * One selectable option, rendered as a tile.
  *
- * The name is printed once, not twice: this used to repeat it inside an empty
- * 80px box that stood in for a picture the portal never loads, which pushed the
- * real label - price included - out past the card's edge on any option whose
- * name was longer than a word or two.
+ * The picture is a banner across the top rather than a box beside the label.
+ * That is the shape the earlier attempt got wrong: an 80px square in the row
+ * repeated the name inside itself and pushed the real label - price included -
+ * out past the card's edge on any option whose name was longer than a word or
+ * two. Full width takes nothing from the text.
+ *
+ * `showImageSlot` is decided by the section, not by this option: the grid
+ * stretches every tile to the tallest in its row, so a dish with no photo sat
+ * beside one that had it as a tall empty box. Reserving the slot for the whole
+ * group turns that empty space into the placeholder below.
  */
 function PortalOptionCard({
   option,
   group,
   type,
   disabled,
+  showImageSlot,
   onSelect
 }: {
   option: ClientPortalOption;
   group: string;
   type: "radio" | "checkbox";
   disabled: boolean;
+  showImageSlot: boolean;
   onSelect: (checked: boolean) => void;
 }) {
   const price =
@@ -52,8 +60,10 @@ function PortalOptionCard({
         : formatMoney(option.priceCents);
 
   return (
+    // A column now, so the picture can span the tile. `overflow-hidden` is what
+    // clips the image to the card's corners.
     <label
-      className={`flex min-w-0 items-start gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-[#1f4d73]/40 ${
+      className={`flex min-w-0 flex-col overflow-hidden rounded-lg border transition-colors focus-within:ring-2 focus-within:ring-[#1f4d73]/40 ${
         option.selected
           ? "border-[#1f4d73] bg-[#eef4fa]"
           : "border-[#d8dde5] bg-white"
@@ -63,38 +73,69 @@ function PortalOptionCard({
           : `cursor-pointer ${option.selected ? "" : "hover:border-[#b9c2cf] hover:bg-[#fbfcfd]"}`
       }`}
     >
-      <input
-        checked={option.selected}
-        className={`mt-0.5 h-4 w-4 shrink-0 accent-[#1f4d73] ${
-          disabled ? "" : "cursor-pointer"
-        }`}
-        disabled={disabled}
-        name={group}
-        onChange={(changeEvent) => onSelect(changeEvent.target.checked)}
-        type={type}
-      />
-      <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
-          <span className="min-w-0 wrap-break-word text-sm font-black leading-snug text-[#17202a]">
-            {option.name}
-          </span>
-          {price ? (
+      {showImageSlot ? (
+        <span className="flex h-32 w-full shrink-0 items-center justify-center overflow-hidden border-b border-[#d8dde5] bg-[#fbfcfd]">
+          {option.imageUrl ? (
+            // Plain <img>, not next/image: the URL is signed with a token that
+            // expires in minutes, so the optimizer would never serve a cache
+            // hit and its host would have to be listed in remotePatterns.
+            // alt="", because the dish is named directly below - reading it out
+            // twice is worse for a screen reader than treating the picture as
+            // decorative.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt=""
+              className="h-full w-full object-cover"
+              loading="lazy"
+              src={option.imageUrl}
+            />
+          ) : (
+            // The same two concentric circles the dashboard's menu card draws
+            // for a dish with no picture, so the two views agree on what an
+            // empty slot looks like.
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${
-                option.priceCents === 0
-                  ? "bg-[#eef4fa] text-[#146c43]"
-                  : "bg-[#f1f4f8] text-[#17202a]"
-              }`}
+              aria-hidden="true"
+              className="flex h-14 w-14 items-center justify-center rounded-full border border-[#b9c2cf]"
             >
-              {price}
+              <span className="h-8 w-8 rounded-full border border-[#b9c2cf]" />
+            </span>
+          )}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 items-start gap-3 p-3">
+        <input
+          checked={option.selected}
+          className={`mt-0.5 h-4 w-4 shrink-0 accent-[#1f4d73] ${
+            disabled ? "" : "cursor-pointer"
+          }`}
+          disabled={disabled}
+          name={group}
+          onChange={(changeEvent) => onSelect(changeEvent.target.checked)}
+          type={type}
+        />
+        <span className="min-w-0 flex-1">
+          <span className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+            <span className="min-w-0 wrap-break-word text-sm font-black leading-snug text-[#17202a]">
+              {option.name}
+            </span>
+            {price ? (
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-black ${
+                  option.priceCents === 0
+                    ? "bg-[#eef4fa] text-[#146c43]"
+                    : "bg-[#f1f4f8] text-[#17202a]"
+                }`}
+              >
+                {price}
+              </span>
+            ) : null}
+          </span>
+          {option.description ? (
+            <span className="mt-1 block wrap-break-word text-xs font-medium leading-snug text-[#6a7483]">
+              {option.description}
             </span>
           ) : null}
         </span>
-        {option.description ? (
-          <span className="mt-1 block wrap-break-word text-xs font-medium leading-snug text-[#6a7483]">
-            {option.description}
-          </span>
-        ) : null}
       </span>
     </label>
   );
@@ -146,6 +187,11 @@ function OptionSection({
     .filter((option) => option.selected)
     .map((option) => option.name)
     .join(", ");
+  // All or nothing across the group, and read off the full list rather than the
+  // filtered one so typing in the search box cannot resize the cards. A group
+  // whose rows carry no picture at all - packages, linen - keeps the compact
+  // tiles it has always had.
+  const showImageSlot = options.some((option) => option.imageUrl);
 
   return (
     // Native <details>, not a button and a boolean: it brings keyboard support
@@ -219,6 +265,7 @@ function OptionSection({
                   key={option.id}
                   onSelect={(checked) => onSelect(option, checked)}
                   option={option}
+                  showImageSlot={showImageSlot}
                   type={type}
                 />
               ))}

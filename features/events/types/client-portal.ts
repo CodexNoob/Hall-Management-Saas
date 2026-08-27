@@ -13,6 +13,16 @@ export type ClientPortalOption = {
   description: string | null;
   /** Integer cents, or null for models that carry no price. */
   priceCents: number | null;
+  /**
+   * A signed URL for the option's picture, or null when the row stores none.
+   * The menu bucket is private, so this is minted per request and expires in
+   * minutes - it is a thing to render now, never a value to cache or store.
+   *
+   * Menu items and add-ons are the two models with a picture column, so they
+   * are the two that can fill this. Packages and tablecloths store none and
+   * always report null.
+   */
+  imageUrl: string | null;
   selected: boolean;
 };
 
