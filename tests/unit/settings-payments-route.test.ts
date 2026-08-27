@@ -14,7 +14,7 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    organization: { findUniqueOrThrow: vi.fn() },
+    organization: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
     organizationSetting: { upsert: vi.fn() },
     notificationPreference: { upsert: vi.fn() },
     // Every hall gets the organization-wide daily event limit written to it in
@@ -165,5 +165,75 @@ describe("organization payment link settings", () => {
       expect.anything(),
       "payment.record"
     );
+  });
+
+  it("persists validated control-center settings in the tenant settings document", async () => {
+    const controlCenter = {
+      general: {
+        logoUrl: "https://example.com/logo.png",
+        contactEmail: "office@example.com",
+        dateFormat: "MMM d, yyyy",
+        timeFormat: "12-hour"
+      },
+      calendar: {
+        defaultView: "week",
+        weekStartsOn: "monday",
+        showHebrewDate: true,
+        showAvailability: true,
+        holdExpirationHours: 48,
+        shortNoticeDays: 7
+      },
+      kitchen: {
+        defaultView: "today",
+        shortNoticeDays: 3,
+        notificationsEnabled: true,
+        requireMenuAcknowledgment: true
+      }
+    };
+
+    const response = await patch({ controlCenter });
+
+    expect(response.status).toBe(200);
+    expect(assertPermission).toHaveBeenCalledWith(
+      expect.anything(),
+      "settings.update"
+    );
+    expect(prisma.organizationSetting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          integrations: expect.objectContaining({ controlCenter })
+        })
+      })
+    );
+  });
+
+  it("rejects invalid control-center values before writing", async () => {
+    const response = await patch({
+      controlCenter: {
+        general: {
+          logoUrl: "",
+          contactEmail: "not-an-email",
+          dateFormat: "MMM d, yyyy",
+          timeFormat: "12-hour"
+        },
+        calendar: {
+          defaultView: "year",
+          weekStartsOn: "monday",
+          showHebrewDate: true,
+          showAvailability: true,
+          holdExpirationHours: 48,
+          shortNoticeDays: 7
+        },
+        kitchen: {
+          defaultView: "today",
+          shortNoticeDays: 3,
+          notificationsEnabled: true,
+          requireMenuAcknowledgment: true
+        }
+      }
+    });
+
+    expect(response.status).toBe(400);
+    expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
   });
 });

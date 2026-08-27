@@ -252,8 +252,21 @@ function permissionRow(page: Page, key: string) {
   return page.getByRole("listitem").filter({ hasText: key });
 }
 
+/**
+ * A tab in Staff management.
+ *
+ * Access stopped being its own page and became tabs inside Staff, so the three
+ * this suite used to click are now two of four: Roles and the permission
+ * summary share "Roles & Permissions", and the audit trail is "Activity". The
+ * old names are kept as the argument so the tests below still read in the
+ * vocabulary of what they are testing rather than of where it currently lives.
+ */
 function tab(page: Page, name: "Roles" | "People" | "Audit") {
-  return page.getByRole("button", { name, exact: true });
+  // Roles and the permission summary stack in one tab, so "Roles" and "People"
+  // resolve to the same button and both sections are on screen together.
+  const label = name === "Audit" ? "Activity" : "Roles & Permissions";
+
+  return page.getByRole("button", { name: label, exact: true });
 }
 
 /**

@@ -24,6 +24,7 @@ const paymentLinkSchema = z
   );
 
 const settingsSchema = z.object({
+  organizationName: z.string().trim().min(1).max(200).optional(),
   language: z.enum(["en-US", "en-GB", "he-IL", "es-US"]).optional(),
   timezone: z.string().trim().min(1).optional(),
   twoFactorRequired: z.boolean().optional(),
@@ -37,6 +38,40 @@ const settingsSchema = z.object({
     max: 50,
     label: "Daily event limit"
   }).optional(),
+  controlCenter: z
+    .object({
+      general: z.object({
+        logoUrl: z.union([z.literal(""), z.string().url()]).default(""),
+        contactEmail: z.union([z.literal(""), z.string().email()]).default(""),
+        dateFormat: z.enum(["MMM d, yyyy", "MM/dd/yyyy", "dd/MM/yyyy"]),
+        timeFormat: z.enum(["12-hour", "24-hour"])
+      }),
+      calendar: z.object({
+        defaultView: z.enum(["month", "week", "agenda"]),
+        weekStartsOn: z.enum(["sunday", "monday"]),
+        showHebrewDate: z.boolean(),
+        showAvailability: z.boolean(),
+        holdExpirationHours: z.union([
+          z.literal(24),
+          z.literal(48),
+          z.literal(72),
+          z.literal(168)
+        ]),
+        shortNoticeDays: z.union([
+          z.literal(3),
+          z.literal(7),
+          z.literal(14),
+          z.literal(30)
+        ])
+      }),
+      kitchen: z.object({
+        defaultView: z.enum(["today", "week", "four-weeks"]),
+        shortNoticeDays: z.union([z.literal(1), z.literal(3), z.literal(7)]),
+        notificationsEnabled: z.boolean(),
+        requireMenuAcknowledgment: z.boolean()
+      })
+    })
+    .optional(),
   emailNotifications: z.boolean().optional(),
   eventConfirmations: z.boolean().optional(),
   billingAlerts: z.boolean().optional(),
@@ -54,6 +89,52 @@ const settingsSchema = z.object({
     })
     .optional()
 });
+
+const defaultControlCenter = {
+  general: {
+    logoUrl: "",
+    contactEmail: "",
+    dateFormat: "MMM d, yyyy" as const,
+    timeFormat: "12-hour" as const
+  },
+  calendar: {
+    defaultView: "month" as const,
+    weekStartsOn: "sunday" as const,
+    showHebrewDate: true,
+    showAvailability: true,
+    holdExpirationHours: 48 as const,
+    shortNoticeDays: 7 as const
+  },
+  kitchen: {
+    defaultView: "week" as const,
+    shortNoticeDays: 3 as const,
+    notificationsEnabled: true,
+    requireMenuAcknowledgment: true
+  }
+};
+
+function controlCenterFromIntegrations(integrations: unknown) {
+  const candidate =
+    integrations &&
+    typeof integrations === "object" &&
+    "controlCenter" in integrations
+      ? (integrations as { controlCenter?: unknown }).controlCenter
+      : undefined;
+  const parsed = settingsSchema.shape.controlCenter.safeParse(candidate);
+  return parsed.success && parsed.data ? parsed.data : defaultControlCenter;
+}
+
+function mergeControlCenterSettings(
+  integrations: unknown,
+  controlCenter: z.infer<typeof settingsSchema>["controlCenter"]
+): Prisma.InputJsonValue | undefined {
+  if (!controlCenter) return undefined;
+  const base =
+    integrations && typeof integrations === "object"
+      ? { ...(integrations as Record<string, unknown>) }
+      : {};
+  return { ...base, controlCenter } as Prisma.InputJsonValue;
+}
 
 function calendarSettingsFromIntegrations(integrations: unknown) {
   if (
@@ -139,7 +220,10 @@ export async function GET(request: Request) {
             }
           },
           update: {},
-          create: { organizationId: actor.organizationId, userId: requireUserActor(actor) }
+          create: {
+            organizationId: actor.organizationId,
+            userId: requireUserActor(actor)
+          }
         }),
         prisma.paymentSetting.findUnique({
           where: { ...tenant(actor) },
@@ -151,7 +235,8 @@ export async function GET(request: Request) {
       organization,
       settings: {
         ...settings,
-        calendar: calendarSettingsFromIntegrations(settings.integrations)
+        calendar: calendarSettingsFromIntegrations(settings.integrations),
+        controlCenter: controlCenterFromIntegrations(settings.integrations)
       },
       notifications,
       payments: { paymentLink: paymentSetting?.paymentLink ?? "" }
@@ -168,9 +253,11 @@ export async function PATCH(request: Request) {
     if (
       input.language !== undefined ||
       input.timezone !== undefined ||
+      input.organizationName !== undefined ||
       input.twoFactorRequired !== undefined ||
       input.sessionTimeoutMinutes !== undefined ||
       input.dailyEventLimit !== undefined ||
+      input.controlCenter !== undefined ||
       input.billing !== undefined
     ) {
       await assertPermission(actor, "settings.update");
@@ -185,12 +272,33 @@ export async function PATCH(request: Request) {
       update: {},
       create: { organizationId: actor.organizationId }
     });
+    if (input.organizationName !== undefined) {
+      await prisma.organization.update({
+        where: { id: actor.organizationId },
+        data: { name: input.organizationName }
+      });
+    }
     const organizationChanges = {
       language: input.language,
       timezone: input.timezone,
       twoFactorRequired: input.twoFactorRequired,
       sessionTimeoutMinutes: input.sessionTimeoutMinutes,
       integrations:
+        mergeControlCenterSettings(
+          mergeBillingSettings(
+            mergeCalendarSettings(
+              currentSettings.integrations,
+              input.dailyEventLimit
+            ) ?? currentSettings.integrations,
+            input.billing
+          ) ??
+            mergeCalendarSettings(
+              currentSettings.integrations,
+              input.dailyEventLimit
+            ) ??
+            currentSettings.integrations,
+          input.controlCenter
+        ) ??
         mergeBillingSettings(
           mergeCalendarSettings(
             currentSettings.integrations,
@@ -265,7 +373,8 @@ export async function PATCH(request: Request) {
     return NextResponse.json({
       settings: {
         ...settings,
-        calendar: calendarSettingsFromIntegrations(settings.integrations)
+        calendar: calendarSettingsFromIntegrations(settings.integrations),
+        controlCenter: controlCenterFromIntegrations(settings.integrations)
       },
       notifications,
       payments: { paymentLink: payments?.paymentLink ?? "" }

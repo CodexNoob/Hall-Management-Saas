@@ -8,6 +8,7 @@ export type SettingsResponse = {
     language: string;
     timezone: string;
     calendar?: { dailyEventLimit: number };
+    controlCenter: ControlCenterSettings;
   };
   notifications: {
     emailNotifications: boolean;
@@ -20,9 +21,33 @@ export type SettingsResponse = {
   payments: { paymentLink: string };
 };
 
+export type ControlCenterSettings = {
+  general: {
+    logoUrl: string;
+    contactEmail: string;
+    dateFormat: "MMM d, yyyy" | "MM/dd/yyyy" | "dd/MM/yyyy";
+    timeFormat: "12-hour" | "24-hour";
+  };
+  calendar: {
+    defaultView: "month" | "week" | "agenda";
+    weekStartsOn: "sunday" | "monday";
+    showHebrewDate: boolean;
+    showAvailability: boolean;
+    holdExpirationHours: 24 | 48 | 72 | 168;
+    shortNoticeDays: 3 | 7 | 14 | 30;
+  };
+  kitchen: {
+    defaultView: "today" | "week" | "four-weeks";
+    shortNoticeDays: 1 | 3 | 7;
+    notificationsEnabled: boolean;
+    requireMenuAcknowledgment: boolean;
+  };
+};
+
 export type IconName =
   | "gear"
   | "hall"
+  | "kitchen"
   | "users"
   | "access"
   | "feature"
@@ -45,17 +70,14 @@ export type SettingsHubItem = {
 
 export type ModalSettingsSection =
   | "General"
-  | "Notifications"
-  | "Security"
   | "Halls"
-  | "Event Types"
-  | "User Access"
-  | "Payments & Gmail"
-  | "Google Calendar"
-  | "PDF & Branding"
-  | "Activity Logs"
-  | "Integrations"
-  | "Billing Cycle";
+  | "Calendar"
+  | "Kitchen"
+  | "Notifications"
+  | "Billing"
+  | "Access"
+  | "Branding"
+  | "Integrations";
 
 export type ModalSettingsNavItem = {
   label: ModalSettingsSection;
@@ -70,72 +92,57 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     icon: "gear"
   },
   {
-    label: "Notifications",
-    description: "Email, billing, and system alerts.",
-    icon: "mail"
-  },
-  {
-    label: "Security",
-    description: "Password, sessions, and two-factor access.",
-    icon: "shield"
-  },
-  {
     label: "Halls",
     description: "Rooms, halls, capacity, and setup.",
     icon: "hall"
   },
   {
-    label: "Event Types",
-    description: "Booking categories and allowed event days.",
+    label: "Calendar",
+    description: "Booking calendar behavior and date defaults.",
     icon: "calendar"
   },
   {
-    label: "User Access",
-    description: "Staff permissions and feature visibility.",
+    label: "Kitchen",
+    description: "Kitchen dashboard defaults and alerts.",
+    icon: "kitchen"
+  },
+  {
+    label: "Notifications",
+    description: "Email, kitchen, booking, and system alerts.",
+    icon: "mail"
+  },
+  {
+    label: "Billing",
+    description: "Simple payment settings and client payment link.",
+    icon: "billing"
+  },
+  {
+    label: "Access",
+    description: "Staff, roles, permissions, and invites.",
     icon: "access"
   },
   {
-    label: "Payments & Gmail",
-    description: "Payment processing and email integrations.",
-    icon: "billing"
-  },
-  {
-    label: "Google Calendar",
-    description: "Event sync and calendar availability.",
-    icon: "calendar"
-  },
-  {
-    label: "PDF & Branding",
-    description: "Logos, invoices, packets, and exports.",
+    label: "Branding",
+    description: "Logo, client portal copy, and PDF identity.",
     icon: "file"
   },
   {
-    label: "Activity Logs",
-    description: "Audit history and system activity.",
-    icon: "activity"
-  },
-  {
     label: "Integrations",
-    description: "Connected services and account links.",
+    description: "Connected services and coming-soon channels.",
     icon: "link"
-  },
-  {
-    label: "Billing Cycle",
-    description: "Plan, renewal, and subscription settings.",
-    icon: "billing"
   }
 ];
 
 export const modalHubTitlesBySection: Partial<
   Record<ModalSettingsSection, string[]>
 > = {
+  General: ["Platform Settings"],
   Halls: ["Halls"],
-  "Event Types": ["Event Types"],
-  "User Access": ["User Types", "User Access", "Feature Access"],
-  "Payments & Gmail": ["Payments & Gmail"],
-  "Google Calendar": ["Google Calendar"],
-  "PDF & Branding": ["PDF & Branding"],
-  "Activity Logs": ["Activity Logs"]
+  Calendar: ["Calendar Defaults"],
+  Kitchen: ["Kitchen Defaults", "Kitchen Workers", "Kitchen Alerts"],
+  Access: ["User Types", "User Access", "Feature Access"],
+  Billing: ["Billing Basics"],
+  Branding: ["PDF & Branding"]
 };
 
 export const settingsHubItems: SettingsHubItem[] = [
@@ -150,9 +157,29 @@ export const settingsHubItems: SettingsHubItem[] = [
     icon: "hall"
   },
   {
+    title: "Calendar Defaults",
+    description: "Default view, Hebrew dates, availability markers, and holds.",
+    icon: "calendar"
+  },
+  {
     title: "Event Types",
     description: "Create booking categories such as weddings and conferences.",
     icon: "calendar"
+  },
+  {
+    title: "Kitchen Defaults",
+    description: "Default kitchen view, assigned-only mode, and prep display.",
+    icon: "kitchen"
+  },
+  {
+    title: "Kitchen Workers",
+    description: "Manage who can be assigned to kitchen dishes.",
+    icon: "users"
+  },
+  {
+    title: "Kitchen Alerts",
+    description: "Short-notice alerts and required acknowledgments.",
+    icon: "mail"
   },
   {
     title: "User Types",
@@ -168,6 +195,11 @@ export const settingsHubItems: SettingsHubItem[] = [
     title: "Feature Access",
     description: "Control access to platform features and modules.",
     icon: "feature"
+  },
+  {
+    title: "Billing Basics",
+    description: "Currency, payment methods, and simple ledger defaults.",
+    icon: "billing"
   },
   {
     title: "Payments & Gmail",
@@ -235,6 +267,12 @@ export function Icon({
       <>
         <path d="M3 21h18M5 21V9l7-5 7 5v12" />
         <path d="M8 11h8M9 21v-6h6v6" />
+      </>
+    ),
+    kitchen: (
+      <>
+        <path d="M4 3v8M8 3v8M4 7h4M6 11v10" />
+        <path d="M14 3v18M14 3c3 1 5 4 5 8 0 3-2 5-5 6" />
       </>
     ),
     users: (

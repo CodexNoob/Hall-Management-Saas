@@ -96,7 +96,7 @@ export function StaffProfileDialog({
                 <dt className="text-[10px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
                   {label}
                 </dt>
-                <dd className="mt-1 break-words text-sm font-bold text-[#17202a]">
+                <dd className="mt-1 wrap-break-word text-sm font-bold text-[#17202a]">
                   {value || "Not provided"}
                 </dd>
               </div>
@@ -131,7 +131,7 @@ export function StaffProfileDialog({
             </div>
             <a
               className="mt-3 inline-block text-xs font-black text-[#1769aa]"
-              href="/dashboard/access"
+              href="/dashboard/staff?tab=roles"
             >
               See exactly what this resolves to
             </a>

@@ -98,13 +98,19 @@ const allSidebarSections: SidebarSection[] = [
         label: "Billing",
         route: "/dashboard/billing"
       },
+      /*
+       * Staff management, all four parts of it: the directory, roles and
+       * permissions, invitations, and the privilege trail.
+       *
+       * Access used to sit beside this as its own entry, so that the sidebar's
+       * per-permission filter kept somebody who may edit a phone number away
+       * from the screen that hands out privileges. It is a tab inside Staff now,
+       * and that separation moved with it rather than being dropped: each tab
+       * carries the permission its old route was gated on, so the Roles &
+       * Permissions tab still needs `role.read` and is simply absent without it.
+       * See features/administration/components/staff-tabs.ts.
+       */
       { icon: "staff", label: "Staff", route: "/dashboard/staff" },
-      // Roles, assignments and the audit trail. Separate from Staff on purpose:
-      // the two are different resources behind different permissions, and one
-      // entry covering both is how "edit a phone number" came to mean "hand out
-      // privileges". The per-permission filter in dashboard-sidebar.tsx drops
-      // this for anyone without `role.read`.
-      { icon: "staff", label: "Access", route: "/dashboard/access" },
       {
         icon: "settings",
         label: "Settings",
