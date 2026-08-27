@@ -32,8 +32,9 @@ test.beforeEach(async ({ page }, testInfo) => {
   );
 
   await page.goto("/dashboard/calendar");
-  // Scoped to the page's own tab strip: the sidebar has a "Settings" entry as
-  // well, and a page-wide lookup matches that one too.
+  // Scoped to the calendar's own tab strip: the sidebar carries a "Settings"
+  // entry as well now, and an unscoped lookup matches both and fails strict mode
+  // rather than picking one.
   await page
     .getByRole("navigation", { name: "Calendar views" })
     .getByRole("button", { name: "Settings", exact: true })

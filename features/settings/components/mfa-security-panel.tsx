@@ -208,6 +208,7 @@ export function MfaSecurityPanel() {
                 className="min-h-10 w-full rounded-lg border border-[#cbd5e1] bg-white px-3 text-sm outline-none focus:border-[#1f557d] focus:ring-2 focus:ring-[#1f557d]/15"
                 inputMode="numeric"
                 maxLength={6}
+                name="authenticatorCode"
                 onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
                 placeholder="6-digit code"
                 value={code}

@@ -126,6 +126,7 @@ export function EffectivePanel({
         <label className="flex items-center gap-1.5 text-[10px] font-black text-[#39465a]">
           <input
             checked={showHeldOnly}
+            name="showHeldPermissionsOnly"
             onChange={(event) => setShowHeldOnly(event.target.checked)}
             type="checkbox"
           />

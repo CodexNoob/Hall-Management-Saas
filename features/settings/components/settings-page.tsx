@@ -334,6 +334,7 @@ export function SettingsPage({
                         <input
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-[#f5f6f8] px-3 text-xs"
                           disabled={!canEditSettings}
+                          name="organizationName"
                           onChange={(event) =>
                             setOrganizationName(event.target.value)
                           }
@@ -344,6 +345,7 @@ export function SettingsPage({
                         Logo URL
                         <input
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                          name="organizationLogoUrl"
                           onChange={(event) =>
                             setControlCenter((current) => ({
                               ...current,
@@ -362,6 +364,7 @@ export function SettingsPage({
                         Contact email
                         <input
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                          name="organizationContactEmail"
                           onChange={(event) =>
                             setControlCenter((current) => ({
                               ...current,

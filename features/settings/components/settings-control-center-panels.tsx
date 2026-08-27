@@ -59,6 +59,7 @@ export function CalendarSettingsPanel({
             Default view
             <select
               className={fieldClass}
+              name="calendarDefaultView"
               value={value.defaultView}
               onChange={(event) =>
                 onChange({
@@ -76,6 +77,7 @@ export function CalendarSettingsPanel({
             Week starts on
             <select
               className={fieldClass}
+              name="calendarWeekStartsOn"
               value={value.weekStartsOn}
               onChange={(event) =>
                 onChange({
@@ -92,6 +94,7 @@ export function CalendarSettingsPanel({
             Hold expiration
             <select
               className={fieldClass}
+              name="calendarHoldExpirationHours"
               value={value.holdExpirationHours}
               onChange={(event) =>
                 onChange({
@@ -112,6 +115,7 @@ export function CalendarSettingsPanel({
             Short-notice warning
             <select
               className={fieldClass}
+              name="calendarShortNoticeDays"
               value={value.shortNoticeDays}
               onChange={(event) =>
                 onChange({
@@ -133,6 +137,7 @@ export function CalendarSettingsPanel({
             <input
               className={fieldClass}
               disabled={!canEdit}
+              name="calendarEventsPerHallPerDay"
               max={50}
               min={1}
               onChange={(event) =>
@@ -186,6 +191,7 @@ export function KitchenSettingsPanel({
             Default view
             <select
               className={fieldClass}
+              name="eventsDefaultView"
               value={value.defaultView}
               onChange={(event) =>
                 onChange({
@@ -203,6 +209,7 @@ export function KitchenSettingsPanel({
             Short-notice alert threshold
             <select
               className={fieldClass}
+              name="eventsShortNoticeDays"
               value={value.shortNoticeDays}
               onChange={(event) =>
                 onChange({
@@ -337,7 +344,7 @@ export function BillingBasicsPanel() {
       <div className="grid gap-x-4 p-4 sm:grid-cols-2">
         <label className="text-[10px] font-black">
           Currency
-          <select className={fieldClass} defaultValue="USD">
+          <select className={fieldClass} defaultValue="USD" name="billingCurrency">
             <option value="USD">USD — US Dollar</option>
             <option value="CAD">CAD — Canadian Dollar</option>
             <option value="ILS">ILS — Israeli New Shekel</option>
@@ -345,11 +352,11 @@ export function BillingBasicsPanel() {
         </label>
         <label className="text-[10px] font-black">
           Default deposit label
-          <input className={fieldClass} defaultValue="Deposit" />
+          <input className={fieldClass} defaultValue="Deposit" name="defaultDepositLabel" />
         </label>
         <label className="mt-4 text-[10px] font-black sm:col-span-2">
           Accepted payment methods
-          <input className={fieldClass} defaultValue="Card, ACH, Check, Cash" />
+          <input className={fieldClass} defaultValue="Card, ACH, Check, Cash" name="acceptedPaymentMethods" />
         </label>
         <div className="mt-3 sm:col-span-2">
           <SettingRow

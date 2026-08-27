@@ -188,15 +188,28 @@ async function createConfirmedEvent(page: Page, clientName: string) {
         )
       )
   );
-  const candidates = Array.from({ length: 26 }, (_, index) =>
+  /*
+   * Every date the board can show, preferred order.
+   *
+   * The window is 26 days rather than something larger because `/api/kitchen`
+   * only ever returns 28 days from today (`WINDOW_DAYS`), so a booking outside
+   * it is one this board can never draw however far the view is paged.
+   *
+   * THE ±1 FILTER IS A HEURISTIC, NOT THE AUTHORITY. It skips the dates most
+   * likely to clash to save round trips, but it reads every active booking in
+   * the organization while the server only refuses a clash on the SAME hall and
+   * its connected halls (`assertAvailable`) - so it excludes far more than it
+   * needs to. This used to throw when it excluded everything, failing the test
+   * before a single request had been made; on a shared database with a busy
+   * month that is a report about the fixture data rather than about the code.
+   * Falling back to trying every date instead lets the API arbitrate, which it
+   * does with a 409 that the loop below already walks past.
+   */
+  const window = Array.from({ length: 26 }, (_, index) =>
     format(addDays(new Date(), index + 2), "yyyy-MM-dd")
-  ).filter((candidate) => !unavailable.has(candidate));
-
-  if (candidates.length === 0) {
-    throw new Error(
-      "Every date in the visible Kitchen board range already has an active booking in the E2E organization."
-    );
-  }
+  );
+  const unclashed = window.filter((candidate) => !unavailable.has(candidate));
+  const candidates = unclashed.length > 0 ? unclashed : window;
 
   let lastRefusal = "";
 
