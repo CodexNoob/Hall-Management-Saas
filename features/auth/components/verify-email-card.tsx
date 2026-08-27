@@ -9,7 +9,10 @@ import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 // Supabase throttles confirmation sends per address, so the button stays disabled
-// long enough that a second press cannot trip `over_email_send_rate_limit`.
+// long enough that a second press cannot trip that cooldown. It does nothing for
+// the project-wide hourly quota, which a resend can still exhaust - that failure
+// gets its own copy in auth-error-messages.ts rather than a "wait a minute" the
+// button has already waited out.
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export function VerifyEmailCard() {

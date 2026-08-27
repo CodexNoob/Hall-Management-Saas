@@ -109,13 +109,50 @@ describe("sign-up error copy", () => {
     expect(
       getSignUpErrorMessage({ code: "over_email_send_rate_limit" })
     ).toBe(AUTH_ERROR_MESSAGES.emailSendRateLimited);
-    expect(
-      getSignUpErrorMessage(
-        new Error("For security purposes, you can only request this after 51 seconds.")
-      )
-    ).toBe(AUTH_ERROR_MESSAGES.emailSendRateLimited);
     expect(getSignUpErrorMessage({ code: "over_request_rate_limit" })).toBe(
       AUTH_ERROR_MESSAGES.rateLimited
+    );
+  });
+
+  it("only promises a one-minute wait for the per-address cooldown", () => {
+    // GoTrue reports the per-address cooldown and the project-wide hourly quota
+    // under one code, so the message is the only thing that tells them apart.
+    // Waiting a minute clears the first and does nothing for the second.
+    expect(
+      getSignUpErrorMessage({
+        code: "over_email_send_rate_limit",
+        status: 429,
+        message: "For security purposes, you can only request this after 51 seconds."
+      })
+    ).toBe(AUTH_ERROR_MESSAGES.emailSendCooldown);
+
+    expect(
+      getSignUpErrorMessage({
+        code: "over_email_send_rate_limit",
+        status: 429,
+        message: "Email rate limit exceeded"
+      })
+    ).toBe(AUTH_ERROR_MESSAGES.emailSendRateLimited);
+  });
+
+  it("does not blame the address when the sender refuses to deliver to it", () => {
+    // Supabase's built-in mail service only delivers to members of the Supabase
+    // organization. The message contains "email address", which the generic
+    // substring test below it would otherwise flatten into "enter a valid email
+    // address" - sending the owner hunting for a typo instead of surfacing a
+    // project-configuration problem they cannot fix from the form.
+    const refused = {
+      code: "email_address_not_authorized",
+      status: 403,
+      message:
+        "Email address not authorized. Emails can only be sent to members in your Supabase organization."
+    };
+
+    expect(getSignUpErrorMessage(refused)).toBe(
+      AUTH_ERROR_MESSAGES.emailNotAuthorized
+    );
+    expect(getSignUpErrorMessage(refused)).not.toBe(
+      AUTH_ERROR_MESSAGES.invalidEmail
     );
   });
 
