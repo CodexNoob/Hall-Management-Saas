@@ -49,7 +49,21 @@ describe("kitchen workers route", () => {
     it("offers eligible staff who are not already workers", async () => {
       eligible("principal-1", "principal-2");
       vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([
-        { id: "w1", name: "Mendy", userId, isActive: true, color: null }
+        { id: "w1", name: "Mendy", userId, isActive: true, color: null },
+        {
+          id: "w2",
+          name: "Old manual worker",
+          userId: null,
+          isActive: true,
+          color: null
+        },
+        {
+          id: "w3",
+          name: "Not kitchen anymore",
+          userId: "user-3",
+          isActive: true,
+          color: null
+        }
       ] as never);
       vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
         // Already a worker - must not be offered twice.
@@ -70,6 +84,9 @@ describe("kitchen workers route", () => {
 
       const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
 
+      expect(body.workers).toEqual([
+        { id: "w1", name: "Mendy", userId, isActive: true, color: null }
+      ]);
       expect(body.availableStaff).toEqual([
         { id: "user-2", name: "Shloimy" }
       ]);

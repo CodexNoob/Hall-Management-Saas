@@ -125,7 +125,7 @@ const guides = [
     icon: Settings,
     video: null,
     steps: [
-      "Open Settings from the dashboard sidebar or profile menu.",
+      "Open Settings from the dashboard sidebar.",
       "Set the organization timezone, language, halls, and notification preferences.",
       "Configure Google Calendar, Gmail, payments, and branding when credentials are available.",
       "Review user access and remove accounts that should no longer enter the organization.",

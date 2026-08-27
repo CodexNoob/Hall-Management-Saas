@@ -10,6 +10,7 @@ vi.mock("@/lib/http/authenticated-fetch", () => ({
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import type {
   EventKitchenLine,
+  EventKitchenResponse,
   EventKitchenSheet
 } from "@/features/events/components/event-manager-shared";
 import { KitchenEventDetailsDialog } from "@/features/kitchen/components/kitchen-event-details-dialog";
@@ -216,6 +217,39 @@ describe("kitchen dish card", () => {
     expect(screen.getByText("Potato kugel")).toBeInTheDocument();
     expect(screen.queryByText("Someone else's kugel")).toBeNull();
     expect(screen.queryByText("Unassigned salad")).toBeNull();
+  });
+
+  it("shows the dish picture when the kitchen sheet includes one", async () => {
+    vi.mocked(authenticatedFetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () =>
+        ({
+          kitchen: sheet([
+            line({ pictureUrl: "https://storage.example/signed/kugel.jpg" })
+          ])
+        }) as EventKitchenResponse
+    } as unknown as Response);
+
+    const { container } = render(
+      <KitchenEventDetailsDialog
+        event={boardEvent}
+        isSaving={false}
+        onClose={vi.fn()}
+        onSaveItemAction={vi.fn()}
+        permissions={allPermissions}
+        workers={[]}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Potato kugel")).toBeInTheDocument()
+    );
+
+    expect(container.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://storage.example/signed/kugel.jpg"
+    );
   });
 
   it("moves a dish from not started to pending on a click", async () => {

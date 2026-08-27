@@ -37,17 +37,15 @@ const hiddenRoutes = [
 ];
 
 /**
- * Modules whose pages were DELETED rather than hidden - Vendors and the
- * standalone Settings screen went with the kitchen phase-1 work.
+ * Modules whose pages were DELETED rather than hidden.
  *
  * They are still listed in lib/ui/mvp-features, which is not redundant: that is
  * what keeps a saved /dashboard/vendors out of the sidebar, out of the topbar
  * search, and out of the return path a login restores. What it cannot do is
  * redirect them. `app/dashboard/layout.tsx` holds the redirect, and a route with
- * no page never reaches a layout - the 404 renders above it. So these get a 404,
- * and asserting the redirect they used to get is what made this suite fail.
+ * no page never reaches a layout - the 404 renders above it.
  */
-const deletedRoutes = ["/dashboard/vendors", "/dashboard/settings"];
+const deletedRoutes = ["/dashboard/vendors"];
 
 // Guards against these lists and lib/ui/mvp-features drifting apart: shipping a
 // module again means deleting its route above, and forgetting to leaves a test
@@ -127,7 +125,14 @@ test("the sidebar offers no way into a hidden module", async ({ page }) => {
 
   // The MVP's own destinations are untouched - without this the test would pass
   // just as well against a sidebar that failed to render at all.
-  for (const label of ["Kitchen", "Calendar", "Events", "Menu", "Staff"]) {
+  for (const label of [
+    "Kitchen",
+    "Calendar",
+    "Events",
+    "Menu",
+    "Staff",
+    "Settings"
+  ]) {
     await expect(
       sidebar.getByRole("button", { exact: true, name: label }),
       `the sidebar dropped ${label}, which the MVP ships`

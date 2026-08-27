@@ -31,11 +31,6 @@ const UpgradePlanDialog = dynamic(() =>
     (module) => module.UpgradePlanDialog
   )
 );
-const SettingsDialog = dynamic(() =>
-  import("@/features/settings/components/settings-dialog").then(
-    (module) => module.SettingsDialog
-  )
-);
 const HelpDialog = dynamic(() =>
   import("@/features/help/components/help-dialog").then(
     (module) => module.HelpDialog
@@ -74,7 +69,6 @@ export function DashboardSidebar({
   );
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
   const [isUpgradePlanDialogOpen, setIsUpgradePlanDialogOpen] = useState(false);
   const { canAccessRoute } = useDashboardAccess();
   const visibleSidebarSections = useMemo(
@@ -103,11 +97,6 @@ export function DashboardSidebar({
           route: null
         },
         {
-          label: "Settings",
-          iconSrc: "/images/icons/profile-menu/settings.png",
-          route: null
-        },
-        {
           label: "Help",
           iconSrc: "/images/icons/profile-menu/help.png",
           route: null
@@ -117,10 +106,8 @@ export function DashboardSidebar({
           iconSrc: "/images/icons/profile-menu/logout.png",
           route: null
         }
-      ].filter(
-        (item) => item.label !== "Settings" || canAccessRoute("/dashboard/settings")
-      ),
-    [canAccessRoute]
+      ],
+    []
   );
   const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
     visibleSidebarSections.map((section) => section.title)
@@ -638,7 +625,7 @@ export function DashboardSidebar({
                     }
                     aria-haspopup={item.label === "Help" ? "menu" : undefined}
                     className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
-                      item.label === "Settings"
+                      item.label === "Profile"
                         ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
                         : ""
                     }`}
@@ -648,13 +635,6 @@ export function DashboardSidebar({
                         setIsProfileMenuOpen(false);
                         setIsMobileOpen(false);
                         setIsUpgradePlanDialogOpen(true);
-                        return;
-                      }
-
-                      if (item.label === "Settings") {
-                        setIsProfileMenuOpen(false);
-                        setIsMobileOpen(false);
-                        setIsSettingsDialogOpen(true);
                         return;
                       }
 
@@ -848,12 +828,6 @@ export function DashboardSidebar({
         <LogoutConfirmationDialog
           onClose={() => setIsLogoutDialogOpen(false)}
           onConfirm={logout}
-          open
-        />
-      ) : null}
-      {isSettingsDialogOpen ? (
-        <SettingsDialog
-          onClose={() => setIsSettingsDialogOpen(false)}
           open
         />
       ) : null}

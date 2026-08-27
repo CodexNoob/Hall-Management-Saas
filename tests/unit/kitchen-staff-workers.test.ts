@@ -157,10 +157,9 @@ describe("kitchen staff workers", () => {
     });
   });
 
-  it("leaves a worker with no login alone", async () => {
-    // A casual hand hired for one night has a name and no account. Retiring
-    // them because they are not staff would empty the list this table exists
-    // for.
+  it("keeps old manual workers stored but does not return them as assignable", async () => {
+    // A casual hand hired for one night can stay in storage so old assignments
+    // keep their label, but the active Kitchen page is now staff-access driven.
     vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue(
       [] as never
     );
@@ -175,9 +174,7 @@ describe("kitchen staff workers", () => {
     const workers = await syncKitchenStaffWorkers(organizationId);
 
     expect(prisma.kitchenWorker.updateMany).not.toHaveBeenCalled();
-    expect(workers).toEqual([
-      { id: "worker-1", name: "Sunday help", userId: null, isStaff: false }
-    ]);
+    expect(workers).toEqual([]);
   });
 
   it("only considers active members of the organization", async () => {

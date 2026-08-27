@@ -104,7 +104,12 @@ const allSidebarSections: SidebarSection[] = [
       // entry covering both is how "edit a phone number" came to mean "hand out
       // privileges". The per-permission filter in dashboard-sidebar.tsx drops
       // this for anyone without `role.read`.
-      { icon: "staff", label: "Access", route: "/dashboard/access" }
+      { icon: "staff", label: "Access", route: "/dashboard/access" },
+      {
+        icon: "settings",
+        label: "Settings",
+        route: "/dashboard/settings"
+      }
     ]
   }
 ];

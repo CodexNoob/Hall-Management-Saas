@@ -68,6 +68,8 @@ function getDashboardActiveLabel(pathname: string | null): string {
   )
     return "Events";
   if (path.startsWith("/dashboard/staff")) return "Staff";
+  if (path.startsWith("/dashboard/access")) return "Access";
+  if (path.startsWith("/dashboard/settings")) return "Settings";
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
 
   return "Events";

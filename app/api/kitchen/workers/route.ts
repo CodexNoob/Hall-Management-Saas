@@ -48,7 +48,7 @@ export async function GET(request: Request) {
     const actor = await authorize(request, "kitchen.worker.read");
     // Retired ones too, unlike the board's own read: this is the screen where
     // someone puts a worker back, so it has to be able to show them.
-    const [workers, memberships] = await Promise.all([
+    const [workerRows, memberships] = await Promise.all([
       prisma.kitchenWorker.findMany({
         where: { organizationId: actor.organizationId },
         select: { ...workerSelect, userId: true },
@@ -72,6 +72,14 @@ export async function GET(request: Request) {
     const eligiblePrincipalIds = await principalIdsHolding(
       actor.organizationId,
       WORKER_ELIGIBILITY_PERMISSION
+    );
+    const eligibleUserIds = new Set(
+      memberships
+        .filter((membership) => eligiblePrincipalIds.has(membership.principalId))
+        .map((membership) => membership.user.id)
+    );
+    const workers = workerRows.filter(
+      (worker) => worker.userId && eligibleUserIds.has(worker.userId)
     );
     const existingUserIds = new Set(
       workers.map((worker) => worker.userId).filter(Boolean)
