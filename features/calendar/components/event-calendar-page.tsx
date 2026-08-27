@@ -249,7 +249,16 @@ export function EventCalendarPage() {
         onTodayNotes={() => setIsTodayNotesOpen(true)}
       />
 
-      <nav className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0">
+      {/*
+        Named, because the sidebar is a navigation landmark too and one of its
+        entries is also called "Settings". Two unnamed navs leave a screen reader
+        - and anything else looking a control up by its name - unable to say
+        which "Settings" it found.
+      */}
+      <nav
+        aria-label="Calendar views"
+        className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0"
+      >
         <div className="grid w-full min-w-0 grid-cols-3 sm:flex sm:min-w-max sm:gap-2">
           <button
             className={`flex h-12 min-w-0 items-center justify-center gap-1 whitespace-nowrap border-b-3 px-1 text-xs font-black sm:gap-2 sm:px-2 sm:text-sm ${activeTab === "calendar" ? "border-[#1f4d73] text-[#17202a]" : "border-transparent text-[#516071]"}`}

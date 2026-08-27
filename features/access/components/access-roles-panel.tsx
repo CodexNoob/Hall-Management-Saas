@@ -107,7 +107,16 @@ export function AccessRolesPanel() {
         </p>
       ) : null}
 
-      <section className="rounded-xl border border-[#d8dde5] bg-white">
+      {/*
+        Both sections below are named, because they stack on one tab and each
+        renders the other's vocabulary: a role's name appears in this list and
+        again under whoever holds it in the summary. Without a name a <section>
+        is not a landmark at all, so "the Roles list" was not addressable.
+      */}
+      <section
+        aria-label="Roles"
+        className="rounded-xl border border-[#d8dde5] bg-white"
+      >
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-sm font-black">Roles</h2>
@@ -190,7 +199,10 @@ export function AccessRolesPanel() {
       </section>
 
       <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
-        <section className="rounded-xl border border-[#d8dde5] bg-white">
+        <section
+          aria-label="Permission summary"
+          className="rounded-xl border border-[#d8dde5] bg-white"
+        >
           <header className="border-b border-[#d8dde5] px-4 py-3">
             <h2 className="text-sm font-black">Permission summary</h2>
             <p className="mt-0.5 text-[10px] text-[#6a7483]">

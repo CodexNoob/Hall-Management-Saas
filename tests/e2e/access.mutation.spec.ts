@@ -239,13 +239,26 @@ test.afterEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 /**
- * The role editor and the assignment dialog carry no dialog role and no
- * accessible name, and both are full-screen overlays - so rather than invent a
- * container locator out of nested divs, everything below addresses their fields
- * from the page and uses a heading to say whether the overlay is open.
+ * The assignment dialog carries no dialog role and no accessible name, and is a
+ * full-screen overlay - so rather than invent a container locator out of nested
+ * divs, its fields are addressed from the page and a heading says whether the
+ * overlay is open. The role editor is a real dialog and is scoped as one below.
+ */
+const roleEditor = (page: Page) => page.getByRole("dialog");
+
+/**
+ * A row in the Roles list.
+ *
+ * Scoped to that section rather than looked up page-wide: Roles and the
+ * permission summary share one tab now, and the summary names whatever roles
+ * each person holds - so a role that has just been assigned to somebody appears
+ * in both lists, and an unscoped lookup matches two rows for one role.
  */
 function roleRow(page: Page, name: string) {
-  return page.getByRole("listitem").filter({ hasText: name });
+  return page
+    .getByRole("region", { name: "Roles" })
+    .getByRole("listitem")
+    .filter({ hasText: name });
 }
 
 function permissionRow(page: Page, key: string) {
@@ -298,9 +311,12 @@ function effectiveRefetched(page: Page, principalId: string) {
 
 /** Filters the catalog down to one key and ticks it. */
 async function tickPermission(page: Page, key: string) {
-  await page.getByPlaceholder("Filter permissions").fill(key);
+  const editor = roleEditor(page);
+  await editor.getByPlaceholder("Filter permissions").fill(key);
 
-  const checkbox = page.getByRole("checkbox");
+  // The editor's own checkboxes: the permission summary behind it carries a
+  // filter toggle of its own, which a page-wide lookup counts as a second match.
+  const checkbox = editor.getByRole("checkbox");
   await expect(
     checkbox,
     `"${key}" must match exactly one catalog entry for this to be unambiguous`
