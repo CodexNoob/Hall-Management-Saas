@@ -29,7 +29,17 @@ export const dashboardRoutePermissions: Record<string, PermissionCheck> = {
   "/dashboard/client-portal": "client.read",
   "/dashboard/vendors": "vendor.read",
   "/dashboard/billing": "invoice.read",
-  "/dashboard/staff": "staff.read",
+  /*
+   * EITHER key, because Staff is four tabs behind two permissions now.
+   *
+   * The directory needs `staff.read` and the Roles & Permissions tab needs
+   * `role.read`, exactly as the two separate routes did. Requiring `staff.read`
+   * alone would lock somebody who may read roles out of the only screen that
+   * shows them - the page itself renders whichever tabs the caller holds, and
+   * refuses when that is none.
+   */
+  "/dashboard/staff": ["staff.read", "role.read"],
+  /// Kept so the compatibility redirect is reachable by the people it is for.
   "/dashboard/access": "role.read",
   "/dashboard/settings": "settings.read"
 };

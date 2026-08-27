@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
@@ -34,6 +35,13 @@ import type {
   RolesResponse,
   StaffResponse
 } from "@/features/access/components/access-shared";
+import { AccessRolesPanel } from "@/features/access/components/access-roles-panel";
+import { AuditPanel } from "@/features/access/components/audit-panel";
+import {
+  resolveStaffTab,
+  visibleStaffTabs,
+  type StaffTab
+} from "@/features/administration/components/staff-tabs";
 
 /**
  * The staff directory: WHO WORKS HERE.
@@ -106,6 +114,44 @@ export function StaffPage() {
   const assigningStaff = staffQuery.data?.staff.find(
     (entry) => entry.principalId === assigningPrincipalId
   );
+
+  /*
+   * The open tab lives in the URL, not in state.
+   *
+   * `/dashboard/access` is a redirect to `?tab=roles` now, and Settings links
+   * straight at three of the four - so the tab has to survive being arrived at,
+   * shared, and reloaded. `replace` rather than `push` when switching: a tab is
+   * a view of one page, and making Back walk through four of them before
+   * leaving Staff is the thing nobody wants.
+   */
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const tabs = visibleStaffTabs(access);
+  const tab = resolveStaffTab(searchParams.get("tab"), access);
+
+  const openTab = (next: StaffTab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", next);
+    // `typedRoutes` cannot know a template literal is a real route, so the cast
+    // is what every other runtime-built href in this app uses - see the password
+    // setup redirect in app/dashboard/layout.tsx.
+    router.replace(
+      `${pathname}?${params.toString()}` as Parameters<typeof router.replace>[0],
+      { scroll: false }
+    );
+  };
+
+  /*
+   * Invited, never arrived. `lastLoginAt` is the only signal the directory
+   * carries for this: there is no invitations table, because an invitation IS a
+   * staff row that has not been signed into yet. Sorted newest first, since the
+   * one somebody is asking about is almost always the one just sent.
+   */
+  const pendingInvitations = (staffQuery.data?.staff ?? [])
+    .filter((entry) => !entry.lastLoginAt && entry.status === "Active")
+    .slice()
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 
   function showNotice(message: string) {
     setNotice(message);
@@ -201,10 +247,19 @@ export function StaffPage() {
     }
   }
 
-  if (!canViewStaff) {
+  /*
+   * Refused only when there is no tab at all to offer.
+   *
+   * `staff.read` alone used to decide this, but Access folded in here and it was
+   * gated on `role.read` - so somebody who may read roles and not the directory
+   * would have been locked out of a screen they could reach yesterday. The page
+   * now renders whatever subset of tabs the caller holds, and this is the case
+   * where that subset is empty.
+   */
+  if (!tab) {
     return (
       <DashboardPageState
-        emptyMessage="Seeing the staff directory needs the staff.read permission."
+        emptyMessage="Staff management needs the staff.read permission for the directory, or role.read for roles and permissions."
         emptyTitle="Access restricted"
         isEmpty
         showNewBookingAction={false}
@@ -229,6 +284,24 @@ export function StaffPage() {
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
+        <nav aria-label="Staff management" className="mb-3 flex flex-wrap gap-1.5">
+          {tabs.map((entry) => (
+            <button
+              aria-current={tab === entry.value ? "page" : undefined}
+              className={`h-9 rounded-lg border px-3 text-xs font-black ${
+                tab === entry.value
+                  ? "border-[#17202a] bg-[#17202a] text-white"
+                  : "border-[#c7d0dc] bg-white text-[#233144]"
+              }`}
+              key={entry.value}
+              onClick={() => openTab(entry.value)}
+              type="button"
+            >
+              {entry.label}
+            </button>
+          ))}
+        </nav>
+
         {notice ? (
           <p className="mb-3 rounded-lg border border-[#a9dfc9] bg-[#effaf5] px-3 py-2 text-[11px] font-semibold text-[#147653]">
             {notice}
@@ -269,6 +342,93 @@ export function StaffPage() {
           </div>
         ) : null}
 
+        {tab === "roles" ? <AccessRolesPanel /> : null}
+
+        {tab === "audit" ? <AuditPanel canRead /> : null}
+
+        {tab === "invitations" ? (
+          <section className="rounded-xl border border-[#d8dde5] bg-white">
+            <SectionHeader
+              action={
+                <button
+                  className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#17202a] px-3 text-xs font-black text-white disabled:opacity-50"
+                  disabled={!canInvite}
+                  onClick={() => {
+                    setForm(emptyForm());
+                    setInviteInput("");
+                    setInviteEmails([]);
+                    setMutationError("");
+                    setDialogMode("add");
+                  }}
+                  type="button"
+                >
+                  <LineIcon name="plus" />
+                  Invite
+                </button>
+              }
+              subtitle="Sent, and not signed in yet. An invitation is a staff row nobody has arrived at."
+              title="Invitations"
+            />
+
+            {pendingInvitations.length === 0 ? (
+              <p className="px-4 py-6 text-[11px] text-[#6a7483]">
+                Everybody invited has signed in at least once.
+              </p>
+            ) : (
+              <ul className="divide-y divide-[#eef1f5]">
+                {pendingInvitations.map((entry) => (
+                  <li
+                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
+                    key={entry.principalId}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-black">{entry.name}</p>
+                      <p className="mt-0.5 truncate text-[10px] text-[#6a7483]">
+                        {entry.email} · invited{" "}
+                        {new Intl.DateTimeFormat("en-US", {
+                          dateStyle: "medium"
+                        }).format(new Date(entry.createdAt))}
+                      </p>
+                    </div>
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      {entry.assignments.length === 0 ? (
+                        <span className="rounded border border-[#efd39d] bg-[#fff7e8] px-1.5 py-0.5 text-[9px] font-black text-[#a45f00]">
+                          No role yet
+                        </span>
+                      ) : (
+                        entry.assignments.map((assignment) => (
+                          <RoleBadge
+                            key={assignment.id}
+                            name={assignment.roleName}
+                          />
+                        ))
+                      )}
+                      <button
+                        className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
+                        disabled={!canAssign}
+                        onClick={() =>
+                          setAssigningPrincipalId(entry.principalId)
+                        }
+                        type="button"
+                      >
+                        Access
+                      </button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <footer className="border-t border-[#eef1f5] px-4 py-3">
+              <p className="text-[10px] text-[#6a7483]">
+                An invitation that could not be emailed shows its link at the top
+                of this page, once. It is the only copy.
+              </p>
+            </footer>
+          </section>
+        ) : null}
+
+        {tab === "people" ? (
         <section className="rounded-xl border border-[#d8dde5] bg-white">
           <SectionHeader
             action={
@@ -297,10 +457,20 @@ export function StaffPage() {
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
                 </select>
-                <a className={secondaryButtonClass} href="/dashboard/access">
-                  <LineIcon name="shield" />
-                  Manage access
-                </a>
+                {/* A tab away, not a page away. Hidden entirely without
+                    `role.read`, the same key the old Access route was gated on -
+                    a button onto a tab the caller cannot open is worse than no
+                    button. */}
+                {tabs.some((entry) => entry.value === "roles") ? (
+                  <button
+                    className={secondaryButtonClass}
+                    onClick={() => openTab("roles")}
+                    type="button"
+                  >
+                    <LineIcon name="shield" />
+                    Manage access
+                  </button>
+                ) : null}
                 <button
                   className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#17202a] px-3 text-xs font-black text-white disabled:opacity-50"
                   disabled={!canInvite}
@@ -462,6 +632,7 @@ export function StaffPage() {
             </div>
           </footer>
         </section>
+        ) : null}
       </div>
 
       <StaffDialog

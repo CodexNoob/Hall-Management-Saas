@@ -3,16 +3,18 @@
 import Image from "next/image";
 import { useEffect, useState, type RefObject } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
-import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
-import { EventTypesSettingsPanel } from "@/features/settings/components/event-types-settings-panel";
-import { MfaSecurityPanel } from "@/features/settings/components/mfa-security-panel";
-import { SettingsSidebar } from "@/features/settings/components/settings-sidebar";
+import {
+  AccessSettingsPanel,
+  BillingBasicsPanel,
+  CalendarSettingsPanel,
+  ComingSoonPanel,
+  KitchenSettingsPanel
+} from "@/features/settings/components/settings-control-center-panels";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
@@ -26,6 +28,7 @@ import {
   modalSettingsNavItems,
   secondaryButton,
   settingsHubItems,
+  type ControlCenterSettings,
   type ModalSettingsSection,
   type SettingsResponse
 } from "@/features/settings/components/settings-shared";
@@ -54,19 +57,45 @@ export function SettingsPage({
       SettingsResponse["notifications"] & {
         language: string;
         timezone: string;
+        dailyEventLimit: number;
+        organizationName: string;
+        controlCenter: ControlCenterSettings;
         payments: { paymentLink: string };
       }
     >,
     SettingsResponse
   >("/api/settings", "PATCH");
-  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
-  const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [eventConfirmations, setEventConfirmations] = useState(true);
   const [billingAlerts, setBillingAlerts] = useState(true);
   const [systemAnnouncements, setSystemAnnouncements] = useState(false);
   const [timezone, setTimezone] = useState("America/New_York");
   const [language, setLanguage] = useState("en-US");
+  const [dailyEventLimit, setDailyEventLimit] = useState(2);
+  const [organizationName, setOrganizationName] = useState("");
+  const [controlCenter, setControlCenter] = useState<ControlCenterSettings>({
+    general: {
+      logoUrl: "",
+      contactEmail: "",
+      dateFormat: "MMM d, yyyy",
+      timeFormat: "12-hour"
+    },
+    calendar: {
+      defaultView: "month",
+      weekStartsOn: "sunday",
+      showHebrewDate: true,
+      showAvailability: true,
+      holdExpirationHours: 48,
+      shortNoticeDays: 7
+    },
+    kitchen: {
+      defaultView: "week",
+      shortNoticeDays: 3,
+      notificationsEnabled: true,
+      requireMenuAcknowledgment: true
+    }
+  });
+  const [settingsMessage, setSettingsMessage] = useState("");
   const [activeModalSection, setActiveModalSection] =
     useState<ModalSettingsSection>("General");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
@@ -83,6 +112,11 @@ export function SettingsPage({
     );
     setLanguage(settingsQuery.data.settings.language);
     setTimezone(settingsQuery.data.settings.timezone);
+    setDailyEventLimit(
+      settingsQuery.data.settings.calendar?.dailyEventLimit ?? 2
+    );
+    setOrganizationName(settingsQuery.data.organization.name);
+    setControlCenter(settingsQuery.data.settings.controlCenter);
     setPaymentLink(settingsQuery.data.payments?.paymentLink ?? "");
   }, [settingsQuery.data]);
 
@@ -113,44 +147,45 @@ export function SettingsPage({
     await settingsMutation.mutate({ [field]: value });
   };
 
-  const closeNewBooking = () => setIsNewBookingOpen(false);
-
-  const submitNewBooking = () => {
-    closeNewBooking();
+  const saveControlCenter = async () => {
+    setSettingsMessage("");
+    try {
+      await settingsMutation.mutate({ organizationName, controlCenter });
+      setSettingsMessage("Settings saved.");
+      await settingsQuery.refetch();
+    } catch (error) {
+      setSettingsMessage(
+        error instanceof Error ? error.message : "Could not save settings."
+      );
+    }
   };
 
   const activeModalNavItem =
     modalSettingsNavItems.find((item) => item.label === activeModalSection) ??
     modalSettingsNavItems[0];
-  const showAllSettingsContent = !isModal;
+  const showAllSettingsContent = false;
   const visibleSettingsHubItems = showAllSettingsContent
     ? settingsHubItems
     : settingsHubItems.filter((item) =>
         (modalHubTitlesBySection[activeModalSection] ?? []).includes(item.title)
       );
-  const visibleIntegrations =
-    activeModalSection === "Google Calendar"
-      ? integrations.filter(
-          (integration) => integration.name === "Google Calendar"
-        )
-      : activeModalSection === "Payments & Gmail"
-        ? integrations.filter((integration) => integration.name === "Gmail")
-        : integrations;
-  const shouldShowIntegrations =
-    showAllSettingsContent ||
-    activeModalSection === "Integrations" ||
-    activeModalSection === "Google Calendar" ||
-    activeModalSection === "Payments & Gmail";
+  const visibleIntegrations = integrations;
+  const shouldShowIntegrations = false;
   const modalGridClass =
-    activeModalSection === "User Access"
+    activeModalSection === "Access"
       ? "max-w-full lg:grid-cols-2"
-      : activeModalSection === "Payments & Gmail" ||
-          activeModalSection === "Google Calendar" ||
-          activeModalSection === "PDF & Branding"
+      : activeModalSection === "Billing" ||
+          activeModalSection === "Branding" ||
+          activeModalSection === "Integrations"
         ? "max-w-3xl"
         : "max-w-3xl";
 
-  if (!canViewSettings || settingsQuery.isLoading || settingsQuery.error) {
+  if (
+    !canViewSettings ||
+    settingsQuery.isLoading ||
+    settingsQuery.error ||
+    !settingsQuery.data
+  ) {
     return (
       <main
         className={`flex items-center justify-center bg-[#f5f6f8] p-4 ${
@@ -173,6 +208,8 @@ export function SettingsPage({
     );
   }
 
+  const settingsData = settingsQuery.data;
+
   return (
     <div
       className={`dashboard-readable-page flex min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a] ${
@@ -183,30 +220,13 @@ export function SettingsPage({
         <DashboardTopbar
           title="Settings"
           subtitle="Manage organization, system, access, integrations, branding, and account plan."
-          onNewBooking={() => setIsNewBookingOpen(true)}
-          onTodayNotes={() => setIsTodayNotesOpen(true)}
+          showDefaultActions={false}
+          showSearch={false}
         />
       ) : null}
 
-      <main
-        className={`min-h-0 flex-1 ${
-          isModal
-            ? "grid overflow-hidden lg:grid-cols-[14rem_minmax(0,1fr)]"
-            : "overflow-x-hidden overflow-y-auto p-3 sm:p-4"
-        }`}
-      >
-        {isModal ? (
-          <SettingsSidebar
-            activeSection={activeModalSection}
-            onSectionChange={setActiveModalSection}
-          />
-        ) : null}
-
-        <section
-          className={
-            isModal ? "flex min-h-0 flex-col overflow-hidden bg-[#f5f6f8]" : ""
-          }
-        >
+      <main className="min-h-0 flex-1 overflow-hidden">
+        <section className="flex h-full min-h-0 flex-col overflow-hidden bg-[#f5f6f8]">
           {isModal ? (
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#d8dde5] bg-[#f5f6f8] px-4 sm:px-5">
               <h3 className="text-sm font-black text-[#17202a] lg:sr-only">
@@ -227,108 +247,136 @@ export function SettingsPage({
             </header>
           ) : null}
 
-          {isModal ? (
-            <nav
-              aria-label="Settings sections"
-              className="scrollbar-none flex shrink-0 gap-2 overflow-x-auto border-b border-[#d8dde5] bg-[#061126] px-3 py-2 lg:hidden"
-            >
-              {modalSettingsNavItems.map((item) => (
-                <button
-                  className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition ${
-                    item.label === activeModalSection
-                      ? "bg-white/15 text-white"
-                      : "text-white/70 hover:bg-white/10 hover:text-white"
-                  }`}
-                  key={item.label}
-                  onClick={(event) => {
-                    setActiveModalSection(item.label);
-                    centerMobileTab(event.currentTarget);
-                  }}
-                  type="button"
-                >
-                  <Icon className="h-4 w-4 shrink-0" name={item.icon} />
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          ) : null}
+          <nav
+            aria-label="Settings sections"
+            className="scrollbar-none flex shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-4 py-2"
+          >
+            {modalSettingsNavItems.map((item) => (
+              <button
+                className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition ${
+                  item.label === activeModalSection
+                    ? "bg-[#e8f1f8] text-[#1f4d73]"
+                    : "text-[#596779] hover:bg-[#f0f3f6] hover:text-[#233144]"
+                }`}
+                key={item.label}
+                onClick={(event) => {
+                  setActiveModalSection(item.label);
+                  centerMobileTab(event.currentTarget);
+                }}
+                type="button"
+              >
+                <Icon className="h-4 w-4 shrink-0" name={item.icon} />
+                {item.label}
+              </button>
+            ))}
+          </nav>
 
           <div
             className={
               isModal
                 ? "min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4"
-                : ""
+                : "min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 sm:p-4"
             }
           >
-            {isModal ? (
-              <div className="mb-4 rounded-xl border border-[#d8dde5] bg-white px-4 py-3 shadow-sm">
-                <div className="flex items-center gap-2">
-                  <Icon
-                    className="h-4 w-4 shrink-0 text-[#536b83]"
-                    name={activeModalNavItem.icon}
-                  />
-                  <h2 className="text-sm font-black text-[#17202a]">
-                    {activeModalNavItem.label}
-                  </h2>
-                </div>
-                <p className="mt-1 text-xs leading-5 text-[#6a7483]">
-                  {activeModalNavItem.description}
-                </p>
+            <div className="mb-4 rounded-xl border border-[#d8dde5] bg-white px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Icon
+                  className="h-4 w-4 shrink-0 text-[#536b83]"
+                  name={activeModalNavItem.icon}
+                />
+                <h2 className="text-sm font-black text-[#17202a]">
+                  {activeModalNavItem.label}
+                </h2>
               </div>
-            ) : null}
+              <p className="mt-1 text-xs leading-5 text-[#6a7483]">
+                {activeModalNavItem.description}
+              </p>
+            </div>
 
             <div
               className={`mx-auto grid w-full items-start gap-4 ${
-                isModal
-                  ? modalGridClass
-                  : "max-w-[1500px] lg:grid-cols-[minmax(280px,340px)_minmax(0,1fr)]"
+                isModal ? modalGridClass : "max-w-375"
               }`}
             >
               <aside className={isModal ? "contents" : "grid gap-4"}>
                 {showAllSettingsContent || activeModalSection === "General" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader title="My Account" />
+                    <PanelHeader title="Organization profile" />
 
                     <div className="flex items-center gap-3 border-b border-[#d8dde5] p-4">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25292e] text-base font-bold text-white">
-                        N
+                        {settingsData.organization.name
+                          .slice(0, 1)
+                          .toUpperCase()}
                       </span>
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <h2 className="truncate text-sm font-black">
-                            Charles John Duot
+                            {settingsData.organization.name}
                           </h2>
                           <span className="rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]">
-                            Super Admin
+                            Organization
                           </span>
                         </div>
                         <p className="mt-1 text-[10px] text-[#6a7483]">
-                          Administrator
+                          Event Core workspace
                         </p>
                         <p className="mt-1 truncate text-[10px] text-[#6a7483]">
-                          charles.duot@example.com
+                          Organization details and primary contact
                         </p>
                       </div>
                     </div>
 
-                    <dl className="space-y-3 p-4 text-[10px]">
-                      <div className="flex justify-between gap-4">
-                        <dt>Last login</dt>
-                        <dd className="font-bold">Jul 8, 2026 8:42 AM</dd>
-                      </div>
-                      <div className="flex justify-between gap-4">
-                        <dt>Account created</dt>
-                        <dd className="font-bold">May 12, 2026</dd>
-                      </div>
-                    </dl>
-                  </section>
-                ) : null}
-
-                {showAllSettingsContent || activeModalSection === "Security" ? (
-                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader title="Security" />
-                    <MfaSecurityPanel />
+                    <div className="grid gap-3 p-4 sm:grid-cols-2">
+                      <label className="text-[10px] font-bold sm:col-span-2">
+                        Organization name
+                        <input
+                          className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-[#f5f6f8] px-3 text-xs"
+                          disabled={!canEditSettings}
+                          onChange={(event) =>
+                            setOrganizationName(event.target.value)
+                          }
+                          value={organizationName}
+                        />
+                      </label>
+                      <label className="text-[10px] font-bold sm:col-span-2">
+                        Logo URL
+                        <input
+                          className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                          onChange={(event) =>
+                            setControlCenter((current) => ({
+                              ...current,
+                              general: {
+                                ...current.general,
+                                logoUrl: event.target.value
+                              }
+                            }))
+                          }
+                          placeholder="https://example.com/logo.png"
+                          type="url"
+                          value={controlCenter.general.logoUrl}
+                        />
+                      </label>
+                      <label className="text-[10px] font-bold sm:col-span-2">
+                        Contact email
+                        <input
+                          className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                          onChange={(event) =>
+                            setControlCenter((current) => ({
+                              ...current,
+                              general: {
+                                ...current.general,
+                                contactEmail: event.target.value
+                              }
+                            }))
+                          }
+                          placeholder="office@example.com"
+                          type="email"
+                          value={controlCenter.general.contactEmail}
+                        />
+                      </label>
+                    </div>
                   </section>
                 ) : null}
 
@@ -427,9 +475,7 @@ export function SettingsPage({
                 ) : null}
 
                 {showAllSettingsContent || activeModalSection === "General" ? (
-                  <section
-                    className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm"
-                  >
+                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                     <PanelHeader title="Language & Region" icon="globe" />
 
                     <div className="space-y-3 p-4">
@@ -486,9 +532,21 @@ export function SettingsPage({
                           <select
                             className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
                             name="settingsDateFormat"
+                            onChange={(event) =>
+                              setControlCenter((current) => ({
+                                ...current,
+                                general: {
+                                  ...current.general,
+                                  dateFormat: event.target
+                                    .value as ControlCenterSettings["general"]["dateFormat"]
+                                }
+                              }))
+                            }
+                            value={controlCenter.general.dateFormat}
                           >
-                            <option>Jul 8, 2026</option>
-                            <option>07/08/2026</option>
+                            <option value="MMM d, yyyy">Jul 8, 2026</option>
+                            <option value="MM/dd/yyyy">07/08/2026</option>
+                            <option value="dd/MM/yyyy">08/07/2026</option>
                           </select>
                         </label>
 
@@ -497,9 +555,20 @@ export function SettingsPage({
                           <select
                             className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
                             name="settingsTimeFormat"
+                            onChange={(event) =>
+                              setControlCenter((current) => ({
+                                ...current,
+                                general: {
+                                  ...current.general,
+                                  timeFormat: event.target
+                                    .value as ControlCenterSettings["general"]["timeFormat"]
+                                }
+                              }))
+                            }
+                            value={controlCenter.general.timeFormat}
                           >
-                            <option>12 Hour (1:30 PM)</option>
-                            <option>24 Hour (13:30)</option>
+                            <option value="12-hour">12 Hour (1:30 PM)</option>
+                            <option value="24-hour">24 Hour (13:30)</option>
                           </select>
                         </label>
                       </div>
@@ -509,25 +578,53 @@ export function SettingsPage({
               </aside>
 
               <div className={isModal ? "contents" : "grid min-w-0 gap-4"}>
-                {!isModal || activeModalSection === "Halls" ? (
+                {activeModalSection === "Halls" ? (
                   <HallsSettingsPanel canEdit={canEditSettings} />
                 ) : null}
-                {!isModal || activeModalSection === "Event Types" ? (
-                  <EventTypesSettingsPanel canEdit={canEditSettings} />
+                {activeModalSection === "Calendar" ? (
+                  <CalendarSettingsPanel
+                    canEdit={canEditSettings}
+                    dailyEventLimit={dailyEventLimit}
+                    onDailyEventLimitChange={(value) => {
+                      if (!Number.isFinite(value) || value < 1 || value > 50)
+                        return;
+                      setDailyEventLimit(value);
+                      void settingsMutation.mutate({ dailyEventLimit: value });
+                    }}
+                    onChange={(calendar) =>
+                      setControlCenter((current) => ({ ...current, calendar }))
+                    }
+                    value={controlCenter.calendar}
+                  />
+                ) : null}
+                {activeModalSection === "Kitchen" ? (
+                  <KitchenSettingsPanel
+                    onChange={(kitchen) =>
+                      setControlCenter((current) => ({ ...current, kitchen }))
+                    }
+                    value={controlCenter.kitchen}
+                  />
+                ) : null}
+                {activeModalSection === "Access" ? (
+                  <AccessSettingsPanel />
+                ) : null}
+                {activeModalSection === "Billing" ? (
+                  <BillingBasicsPanel />
+                ) : null}
+                {activeModalSection === "Branding" ||
+                activeModalSection === "Integrations" ? (
+                  <ComingSoonPanel section={activeModalSection} />
                 ) : null}
                 {(showAllSettingsContent ||
                   visibleSettingsHubItems.length > 0) &&
                 activeModalSection !== "Halls" &&
-                activeModalSection !== "Event Types" ? (
-                  <section
-                    className={`overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm ${
-                      isModal
-                        ? activeModalSection === "User Access"
-                          ? "sm:col-span-2"
-                          : ""
-                        : ""
-                    }`}
-                  >
+                activeModalSection !== "Calendar" &&
+                activeModalSection !== "Kitchen" &&
+                activeModalSection !== "Access" &&
+                activeModalSection !== "Billing" &&
+                activeModalSection !== "Branding" &&
+                activeModalSection !== "Integrations" ? (
+                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                     <PanelHeader
                       title={isModal ? activeModalSection : "Settings Hub"}
                     />
@@ -566,16 +663,15 @@ export function SettingsPage({
                 <div
                   className={`grid gap-4 ${
                     isModal
-                      ? activeModalSection === "Payments & Gmail" ||
-                        activeModalSection === "Google Calendar" ||
-                        activeModalSection === "PDF & Branding"
+                      ? activeModalSection === "Billing" ||
+                        activeModalSection === "Branding" ||
+                        activeModalSection === "Integrations"
                         ? "grid-cols-1"
                         : "sm:grid-cols-2"
                       : "sm:grid-cols-2 xl:grid-cols-4"
                   }`}
                 >
-                  {showAllSettingsContent ||
-                  activeModalSection === "PDF & Branding" ? (
+                  {showAllSettingsContent ? (
                     <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Branding Preview" icon="eye" />
 
@@ -591,9 +687,7 @@ export function SettingsPage({
 
                         <button
                           className={`${secondaryButton} mt-4 w-full`}
-                          onClick={() =>
-                            setActiveModalSection("PDF & Branding")
-                          }
+                          onClick={() => setActiveModalSection("Branding")}
                           type="button"
                         >
                           Customize Branding
@@ -643,7 +737,7 @@ export function SettingsPage({
                   ) : null}
 
                   {(showAllSettingsContent ||
-                    activeModalSection === "Payments & Gmail") &&
+                    activeModalSection === "Billing") &&
                   canManagePayments ? (
                     <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Client Payment Link" icon="billing" />
@@ -692,8 +786,7 @@ export function SettingsPage({
                     </section>
                   ) : null}
 
-                  {showAllSettingsContent ||
-                  activeModalSection === "Billing Cycle" ? (
+                  {showAllSettingsContent ? (
                     <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                       <PanelHeader title="Billing Cycle" icon="billing" />
 
@@ -726,6 +819,34 @@ export function SettingsPage({
                     </section>
                   ) : null}
                 </div>
+                {activeModalSection === "General" ||
+                activeModalSection === "Calendar" ||
+                activeModalSection === "Kitchen" ? (
+                  <div className="flex items-center justify-end gap-3 rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
+                    {settingsMessage ? (
+                      <p
+                        className="mr-auto text-xs font-bold text-[#315573]"
+                        role="status"
+                      >
+                        {settingsMessage}
+                      </p>
+                    ) : null}
+                    <button
+                      className="h-9 rounded-lg bg-[#1f4d73] px-5 text-xs font-black text-white disabled:opacity-45"
+                      disabled={
+                        !canEditSettings ||
+                        settingsMutation.isPending ||
+                        !organizationName.trim()
+                      }
+                      onClick={() => void saveControlCenter()}
+                      type="button"
+                    >
+                      {settingsMutation.isPending
+                        ? "Saving..."
+                        : "Save changes"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -735,21 +856,6 @@ export function SettingsPage({
           />
         </section>
       </main>
-
-      {!isModal ? (
-        <>
-          <TodayNotesDrawer
-            onClose={() => setIsTodayNotesOpen(false)}
-            open={isTodayNotesOpen}
-          />
-
-          <NewBookingDialog
-            onClose={closeNewBooking}
-            onSubmit={submitNewBooking}
-            open={isNewBookingOpen}
-          />
-        </>
-      ) : null}
     </div>
   );
 }

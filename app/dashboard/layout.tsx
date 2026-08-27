@@ -67,8 +67,14 @@ function getDashboardActiveLabel(pathname: string | null): string {
     path.startsWith("/dashboard/event-manager")
   )
     return "Events";
-  if (path.startsWith("/dashboard/staff")) return "Staff";
-  if (path.startsWith("/dashboard/access")) return "Access";
+  // Both, because Access is a tab inside Staff now and `/dashboard/access` is a
+  // redirect onto it. Highlighting a sidebar entry that no longer exists would
+  // leave nothing highlighted for the moment the redirect is in flight.
+  if (
+    path.startsWith("/dashboard/staff") ||
+    path.startsWith("/dashboard/access")
+  )
+    return "Staff";
   if (path.startsWith("/dashboard/settings")) return "Settings";
   if (path.startsWith("/dashboard/vendors")) return "Vendors";
 
