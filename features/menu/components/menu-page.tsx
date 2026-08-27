@@ -514,9 +514,16 @@ export function MenuPage() {
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
         {activeTab === "Packages" ? (
-          <div className="grid min-w-0 items-start gap-3 xl:grid-cols-[310px_minmax(0,1fr)]">
-            <aside className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-              <header className="flex h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
+          // Both columns are capped at the row height from `xl` up, so a long
+          // package list scrolls inside its own sidebar instead of growing the
+          // row and handing the scroll to `main`. `max-h-full` rather than
+          // `h-full`, so a column that fits still hugs its content instead of
+          // drawing a screen-tall card around four packages. Below `xl` the two
+          // stack and the page scrolls, which is the only shape that fits on a
+          // phone.
+          <div className="grid min-h-0 min-w-0 items-start gap-3 xl:h-full xl:grid-cols-[310px_minmax(0,1fr)]">
+            <aside className="flex min-h-0 min-w-0 flex-col self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:max-h-full">
+              <header className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-[#d8dde5] px-3">
                 <div className="flex items-center gap-2">
                   <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
                   <h2 className="text-sm font-black text-[#17202a]">
@@ -532,7 +539,7 @@ export function MenuPage() {
                 </button>
               </header>
 
-              <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-1">
+              <div className="grid min-h-0 grid-cols-3 gap-2 p-3 sm:grid-cols-1 xl:overflow-y-auto">
                 {visiblePackages.map((item) => {
                   const isActive = activePackage?.id === item.id;
                   // The open package counts what the panel is drawing, so the
@@ -573,9 +580,13 @@ export function MenuPage() {
               </div>
             </aside>
 
-            <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
+            <section className="flex min-h-0 min-w-0 flex-col self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:max-h-full">
               {activePackage ? (
-                <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+                // Bounded by the section above rather than by a `100vh` cap:
+                // the topbar and the tab strip are not a fixed number of rems -
+                // they wrap on narrow screens - so any subtracted constant is
+                // wrong at some width.
+                <div className="min-h-0 overflow-visible xl:overflow-y-auto">
                   <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
@@ -691,8 +702,8 @@ export function MenuPage() {
             />
           </div>
         ) : isRuleMenu ? (
-          <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <div className="max-h-none overflow-visible xl:max-h-[calc(100vh-9rem)] xl:overflow-y-auto">
+          <section className="flex min-h-0 min-w-0 flex-col self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:max-h-full">
+            <div className="min-h-0 overflow-visible xl:overflow-y-auto">
               <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -747,8 +758,8 @@ export function MenuPage() {
             </div>
           </section>
         ) : activeTab === "Add-ons" ? (
-          <section className="min-w-0 self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-            <header className="flex min-h-14 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
+          <section className="flex min-h-0 min-w-0 flex-col self-start overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:max-h-full">
+            <header className="flex min-h-14 shrink-0 flex-col items-stretch gap-3 border-b border-[#d8dde5] px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <LineIcon name="dollar" className="h-4 w-4 text-[#17202a]" />
@@ -768,7 +779,7 @@ export function MenuPage() {
               </button>
             </header>
 
-            <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)]">
+            <div className="grid min-h-0 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)] xl:overflow-y-auto">
               {visibleAddOns.map((item) => (
                 <AddOnCard
                   // By id, not name: two add-ons may share a name, and a
