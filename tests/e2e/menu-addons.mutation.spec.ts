@@ -145,9 +145,19 @@ test("creates an add-on with a picture and draws it from a signed URL", async ({
   await expect(reloadedThumbnail).toHaveAttribute("src", /token=/, {
     timeout: 20_000
   });
+  // The same 20s the first decode gets. This one is the slower of the two - a
+  // cold page signs a fresh URL and fetches the object with nothing warmed - so
+  // the 5s default was failing the test on a round trip rather than on a defect.
   await expect
-    .poll(() =>
-      reloadedThumbnail.evaluate((image: HTMLImageElement) => image.naturalWidth)
+    .poll(
+      () =>
+        reloadedThumbnail.evaluate(
+          (image: HTMLImageElement) => image.naturalWidth
+        ),
+      {
+        message: "the freshly signed URL has to be fetchable too",
+        timeout: 20_000
+      }
     )
     .toBeGreaterThan(0);
 
