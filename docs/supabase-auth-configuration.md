@@ -100,6 +100,31 @@ Every template moves from `{{ .ConfirmationURL }}` to a link the app owns:
 </a>
 ```
 
+Branded, email-client-safe bodies for all six dashboard templates are kept in
+[docs/email-templates/](./email-templates/) — paste one whole into the matching
+Message body field. Each file's header comment records why its link is shaped
+the way it is; read it before editing.
+
+| Dashboard template   | File                                                                   |
+| -------------------- | ---------------------------------------------------------------------- |
+| Confirm sign up      | [confirm-signup.html](./email-templates/confirm-signup.html)            |
+| Invite user          | [invite-user.html](./email-templates/invite-user.html)                  |
+| Magic link or OTP    | [magic-link.html](./email-templates/magic-link.html)                    |
+| Change email address | [change-email-address.html](./email-templates/change-email-address.html) |
+| Reset password       | [reset-password.html](./email-templates/reset-password.html)            |
+| Reauthentication     | [reauthentication.html](./email-templates/reauthentication.html)        |
+
+Two of them are not reachable from the app as it stands, and are here so they
+are correct on the day they become reachable rather than being found stale:
+**Magic link** (nothing calls `signInWithOtp()`, though `magiclink` is an
+accepted callback type) and **Reauthentication** (nothing calls
+`reauthenticate()`).
+
+Reauthentication is also the one template with no link at all — it carries a
+6-digit `{{ .Token }}` the user types back in. Every other template is
+link-only: the app verifies a token hash and has no code-entry screen, so a
+`{{ .Token }}` block elsewhere would be a dead end for the recipient.
+
 ### Why `{{ .RedirectTo }}` and not `{{ .SiteURL }}`
 
 `.SiteURL` is a single constant for the whole project. With one project serving
