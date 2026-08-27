@@ -67,7 +67,8 @@ setup.beforeAll(async () => {
   const emptyState = JSON.stringify({ cookies: [], origins: [] });
   await Promise.all([
     fs.writeFile(path.join(authDirectory, "readonly.json"), emptyState),
-    fs.writeFile(path.join(authDirectory, "mutation.json"), emptyState)
+    fs.writeFile(path.join(authDirectory, "mutation.json"), emptyState),
+    fs.writeFile(path.join(authDirectory, "restricted.json"), emptyState)
   ]);
 });
 
@@ -94,5 +95,36 @@ setup("create mutation-account authenticated state", async ({ page }) => {
     email!,
     password!,
     path.join(authDirectory, "mutation.json")
+  );
+});
+
+/**
+ * The account that holds NOTHING.
+ *
+ * rbac-enforcement.mutation.spec.ts needs a principal whose effective set is
+ * empty, so that a 200 from any guarded endpoint proves the grant that test just
+ * made rather than something the account already carried. That is the whole
+ * value of the account: it is the control in the experiment.
+ *
+ * It must be a real, active member of the same organization as the mutation
+ * account and hold no role at all. A stranger would be refused by provisioning
+ * with `InvitationRequiredError` long before any permission check, which looks
+ * identical to a working guard from the outside and would make the suite pass
+ * for the wrong reason.
+ *
+ * Signing in with no permissions still lands on /dashboard - the layout guard
+ * renders "Access restricted" in place rather than redirecting - so the shared
+ * `authenticate` helper's URL wait holds without special-casing.
+ */
+setup("create restricted-account authenticated state", async ({ page }) => {
+  const email = process.env.E2E_RESTRICTED_EMAIL;
+  const password = process.env.E2E_RESTRICTED_PASSWORD;
+  setup.skip(!email || !password, "Restricted E2E credentials are not set.");
+
+  await authenticate(
+    page,
+    email!,
+    password!,
+    path.join(authDirectory, "restricted.json")
   );
 });
