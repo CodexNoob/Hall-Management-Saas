@@ -292,6 +292,13 @@ test("refuses to remove an item a package still includes, and says why", async (
     // open and repeat what the server said.
     await expect(confirmDialog).toBeVisible();
     await expect(confirmDialog.getByText(IN_USE_MESSAGE)).toBeVisible();
+    // And name the holder: "used somewhere" leaves the operator with nowhere to
+    // go, so the package actually blocking the delete is listed under it.
+    await expect(
+      confirmDialog
+        .getByRole("listitem")
+        .filter({ hasText: GUARD_PACKAGE_NAME })
+    ).toBeVisible();
 
     // Backing out of the confirmation lands back in the editor rather than on
     // the grid: the removal was refused, not the edit.

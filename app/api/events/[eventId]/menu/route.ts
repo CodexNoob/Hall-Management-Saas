@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   conflict,
   confirmedMenu,
+  discardOrphanedKitchenStatuses,
   emptyMenu,
   eventIdSchema,
   LINE_SOURCES,
@@ -14,7 +15,11 @@ import {
   readPresentedMenu,
   serviceStyleSchema
 } from "@/features/events/server/event-menu-document";
-import { assertInScope, authorize, requireUserActor } from "@/lib/authz/authorize";
+import {
+  assertInScope,
+  authorize,
+  requireUserActor
+} from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { createMenuChangedKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
@@ -279,6 +284,13 @@ export async function PUT(
       await transaction.event.update({
         where: { id, organizationId: actor.organizationId },
         data: { menuItemIds, addOnIds, updatedById: actor.userId }
+      });
+
+      // After the rewrite above, so it prunes against the menu that was just
+      // saved rather than the one it replaced.
+      await discardOrphanedKitchenStatuses(transaction, {
+        organizationId: actor.organizationId,
+        eventId: id
       });
 
       return savedMenu;

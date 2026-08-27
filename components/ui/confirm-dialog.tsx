@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { readApiErrorDetails } from "@/lib/http/api-request-error";
 import { useScrollLock } from "@/lib/ui/use-scroll-lock";
 
 type ConfirmDialogProps = {
@@ -24,7 +25,10 @@ type ConfirmDialogProps = {
  * the whole tab - so a destructive action inside a grid gets this instead.
  *
  * It stays open on failure and shows the server's message: closing would hide
- * the only explanation the user is going to get.
+ * the only explanation the user is going to get. When the rejection names what
+ * caused it - the events and packages still holding a menu item - those are
+ * listed under the message, because "it is used somewhere" is not something the
+ * user can go and fix.
  */
 export function ConfirmDialog({
   open,
@@ -44,6 +48,7 @@ export function ConfirmDialog({
   const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string[]>([]);
 
   // Shared with whatever this is stacked on top of, so closing an editor and
   // the confirmation over it in the same commit cannot leave the page locked.
@@ -53,6 +58,7 @@ export function ConfirmDialog({
     if (!open) return;
 
     setErrorMessage(null);
+    setErrorDetails([]);
     cancelButtonRef.current?.focus();
 
     // Escape is not swallowed here. A dialog underneath listens on the same
@@ -76,6 +82,7 @@ export function ConfirmDialog({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
+    setErrorDetails([]);
 
     try {
       await onConfirm();
@@ -85,6 +92,7 @@ export function ConfirmDialog({
           ? error.message
           : fallbackErrorMessage
       );
+      setErrorDetails(readApiErrorDetails(error));
     } finally {
       isSubmittingRef.current = false;
       setIsSubmitting(false);
@@ -117,12 +125,23 @@ export function ConfirmDialog({
           </p>
 
           {errorMessage ? (
-            <p
-              className="mt-4 rounded-lg border border-[#efb6b6] bg-[#fff5f5] px-3 py-2 text-sm font-semibold text-[#b42318]"
+            <div
+              className="mt-4 rounded-lg border border-[#efb6b6] bg-[#fff5f5] px-3 py-2"
               role="alert"
             >
-              {errorMessage}
-            </p>
+              <p className="text-sm font-semibold text-[#b42318]">
+                {errorMessage}
+              </p>
+              {errorDetails.length > 0 ? (
+                // Scrolls rather than grows: the server caps the list, but the
+                // dialog is short and a capped list is still several lines.
+                <ul className="mt-2 max-h-40 list-disc space-y-1 overflow-y-auto pl-5 text-sm text-[#b42318]">
+                  {errorDetails.map((detail, index) => (
+                    <li key={`${index}-${detail}`}>{detail}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
         </div>
 

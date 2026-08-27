@@ -22,6 +22,9 @@ const hidePictureLocation = {
   countingRules: true
 } as const;
 
+/** How many blocking events and packages a refusal names before it counts the rest. */
+const MAX_LISTED_BLOCKERS = 8;
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ itemId: string }> }
@@ -126,11 +129,7 @@ export async function DELETE(
 
     const item = await prisma.menuItem.findFirst({
       where: { id, organizationId: actor.organizationId },
-      select: {
-        id: true,
-        picturePath: true,
-        _count: { select: { kitchenItemStatuses: true } }
-      }
+      select: { id: true, picturePath: true }
     });
 
     if (!item) {
@@ -142,48 +141,92 @@ export async function DELETE(
 
     // `event_menu_lines` has a real foreign key with ON DELETE RESTRICT, so a
     // dish still on a menu cannot be deleted whatever this route does. It is
-    // counted anyway, because the constraint error it would otherwise raise is
+    // checked anyway, because the constraint error it would otherwise raise is
     // not something the caller could read.
     //
     // `EventPackage.includedMenuItemIds` is still a bare id array with no
-    // foreign key behind it, so that count is doing real work rather than
-    // duplicating a guarantee. `Event.menuItemIds` is counted too while it is
+    // foreign key behind it, so that lookup is doing real work rather than
+    // duplicating a guarantee. `Event.menuItemIds` is checked too while it is
     // still written as a mirror - it should never disagree with the line table,
     // and if it ever does, refusing is the safe direction.
     //
     // Kitchen statuses have a foreign key of their own, for the same reason.
     //
-    // `menu_item_services` is deliberately NOT counted. Those rows belong to the
+    // `menu_item_services` is deliberately NOT checked. Those rows belong to the
     // item and cascade with it; counting them would make every dish that is
     // actually served permanently undeletable.
-    const [menuLineCount, eventCount, packageCount] = await Promise.all([
-      prisma.eventMenuLine.count({
-        where: { organizationId: actor.organizationId, menuItemId: id }
-      }),
-      prisma.event.count({
-        where: {
-          organizationId: actor.organizationId,
-          menuItemIds: { has: id }
-        }
-      }),
-      prisma.eventPackage.count({
-        where: {
-          organizationId: actor.organizationId,
-          includedMenuItemIds: { has: id }
-        }
-      })
-    ]);
+    //
+    // Rows rather than counts, because "still used somewhere" is not something
+    // the operator can act on: they have to be told which event or package to
+    // open. The three event sources overlap by design - a dish on a menu is
+    // normally mirrored onto `menu_item_ids` and may have a kitchen status too -
+    // so they are merged by event id below rather than listed three times.
+    const eventFields = {
+      id: true,
+      clientName: true,
+      eventDate: true
+    } as const;
 
-    if (
-      item._count.kitchenItemStatuses > 0 ||
-      menuLineCount > 0 ||
-      eventCount > 0 ||
-      packageCount > 0
-    ) {
+    const [menuLines, mirroredEvents, packages, kitchenStatuses] =
+      await Promise.all([
+        prisma.eventMenuLine.findMany({
+          where: { organizationId: actor.organizationId, menuItemId: id },
+          select: { eventMenu: { select: { event: { select: eventFields } } } }
+        }),
+        prisma.event.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            menuItemIds: { has: id }
+          },
+          select: eventFields
+        }),
+        prisma.eventPackage.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            includedMenuItemIds: { has: id }
+          },
+          select: { id: true, name: true }
+        }),
+        prisma.kitchenItemStatus.findMany({
+          where: { organizationId: actor.organizationId, menuItemId: id },
+          select: { event: { select: eventFields } }
+        })
+      ]);
+
+    const blockingEvents = new Map<string, string>();
+
+    for (const event of [
+      ...menuLines.map((line) => line.eventMenu.event),
+      ...mirroredEvents,
+      ...kitchenStatuses.map((status) => status.event)
+    ]) {
+      // `event_date` is a DATE column, so Prisma hands back UTC midnight and
+      // slicing the ISO string cannot land on the day before.
+      blockingEvents.set(
+        event.id,
+        `Event: ${event.clientName} (${event.eventDate.toISOString().slice(0, 10)})`
+      );
+    }
+
+    const blockers = [
+      ...blockingEvents.values(),
+      ...packages.map((eventPackage) => `Package: ${eventPackage.name}`)
+    ];
+
+    if (blockers.length > 0) {
+      // Capped so a dish on a season of events does not return a dialog the
+      // operator has to scroll. The remainder is counted rather than dropped
+      // silently - a truncated list reads as the whole list.
+      const listed = blockers.slice(0, MAX_LISTED_BLOCKERS);
+      const hidden = blockers.length - listed.length;
+
       return NextResponse.json(
         {
+          // Unchanged: the sentence is the summary, and the list underneath it
+          // is what the operator actually acts on.
           error:
-            "This item is still used by an event or package. Remove it there first."
+            "This item is still used by an event or package. Remove it there first.",
+          details: hidden > 0 ? [...listed, `and ${hidden} more`] : listed
         },
         { status: 409 }
       );

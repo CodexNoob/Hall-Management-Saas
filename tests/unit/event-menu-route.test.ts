@@ -20,8 +20,10 @@ vi.mock("@/lib/prisma", () => ({
     eventMenuLine: {
       deleteMany: vi.fn(),
       createMany: vi.fn(),
-      updateMany: vi.fn()
+      updateMany: vi.fn(),
+      findMany: vi.fn()
     },
+    kitchenItemStatus: { deleteMany: vi.fn() },
     kitchenNotification: { create: vi.fn() },
     $executeRaw: vi.fn(),
     $transaction: vi.fn()
@@ -151,6 +153,14 @@ describe("event menu route", () => {
     vi.mocked(prisma.eventMenuLine.updateMany).mockResolvedValue({
       count: 1
     } as never);
+    // What the event still serves after the write, read back by the kitchen
+    // status prune. The saved dish is on it, so nothing is pruned by default.
+    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
+      { menuItemId }
+    ] as never);
+    vi.mocked(prisma.kitchenItemStatus.deleteMany).mockResolvedValue({
+      count: 0
+    } as never);
     // Both call styles the route uses: a callback for the guarded read-then-
     // write, and an array for the batch that follows it.
     vi.mocked(prisma.$transaction).mockImplementation((async (
@@ -271,10 +281,7 @@ describe("event menu route", () => {
     const response = await PUT(
       request("PUT", {
         version: 1,
-        lines: [
-          { menuItemId, serviceStyle: "Buffet" },
-          { addOnId }
-        ]
+        lines: [{ menuItemId, serviceStyle: "Buffet" }, { addOnId }]
       }),
       { params }
     );
@@ -306,6 +313,55 @@ describe("event menu route", () => {
           sortOrder: 1
         })
       ]
+    });
+  });
+
+  it("drops the kitchen's rows for a dish the save took off the menu", async () => {
+    vi.mocked(prisma.eventMenu.findUnique)
+      .mockResolvedValueOnce({
+        id: eventMenuId,
+        status: "Draft",
+        version: 1
+      } as never)
+      .mockResolvedValueOnce(storedMenu() as never);
+
+    const response = await PUT(
+      request("PUT", {
+        version: 1,
+        lines: [{ menuItemId, serviceStyle: "Buffet" }]
+      }),
+      { params }
+    );
+
+    expect(response.status).toBe(200);
+    // `kitchen_item_statuses` is keyed on (event, dish) rather than on a line,
+    // so nothing else would ever clear a row for a dish that just left the
+    // menu - and the menu library's delete guard reads those rows.
+    expect(prisma.kitchenItemStatus.deleteMany).toHaveBeenCalledWith({
+      where: {
+        organizationId,
+        eventId,
+        menuItemId: { notIn: [menuItemId] }
+      }
+    });
+  });
+
+  it("keeps no kitchen rows at all for an event serving nothing", async () => {
+    vi.mocked(prisma.eventMenu.findUnique)
+      .mockResolvedValueOnce({
+        id: eventMenuId,
+        status: "Draft",
+        version: 1
+      } as never)
+      .mockResolvedValueOnce(storedMenu() as never);
+    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([] as never);
+
+    await PUT(request("PUT", { version: 1, lines: [] }), { params });
+
+    // No `notIn` clause: an empty one is a no-op filter in some engines, which
+    // would leave every orphan in place on the one save that clears the menu.
+    expect(prisma.kitchenItemStatus.deleteMany).toHaveBeenCalledWith({
+      where: { organizationId, eventId }
     });
   });
 

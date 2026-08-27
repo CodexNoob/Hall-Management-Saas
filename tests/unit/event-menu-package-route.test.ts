@@ -22,6 +22,7 @@ vi.mock("@/lib/prisma", () => ({
       deleteMany: vi.fn(),
       createMany: vi.fn()
     },
+    kitchenItemStatus: { deleteMany: vi.fn() },
     $transaction: vi.fn()
   }
 }));
@@ -115,6 +116,9 @@ describe("event menu package route", () => {
     } as never);
     vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.eventMenuLine.deleteMany).mockResolvedValue({
+      count: 0
+    } as never);
+    vi.mocked(prisma.kitchenItemStatus.deleteMany).mockResolvedValue({
       count: 0
     } as never);
     vi.mocked(prisma.eventMenuLine.createMany).mockResolvedValue({
