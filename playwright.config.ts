@@ -49,11 +49,35 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "only-on-failure"
   },
+  /*
+   * A BUILT APP, NOT `next dev`.
+   *
+   * The suite drives six projects across three workers, which asks the server
+   * for several dozen routes at once. `next dev` compiles a route the first time
+   * it is requested, and under that much concurrency Turbopack stops answering
+   * some of them: the request falls through to the not-found page and the test
+   * sees a 404 whose body is Next's own 404 HTML. It hit the dynamic API routes
+   * hardest - `/api/events/[eventId]/menu`, `/api/menu/packages/[packageId]` -
+   * and cost 28 failures a run, reproducibly, while every one of those specs
+   * passed when run on its own against the same code.
+   *
+   * That is a property of on-demand compilation rather than of anything the
+   * tests or the app do, so the fix is to remove it: `next build` compiles every
+   * route up front and `next start` only serves them. The build costs a couple of
+   * minutes and buys most of it back, because no request pays to compile.
+   *
+   * `reuseExistingServer` still holds, so a server already up on 3000 is used as
+   * it was - but note that a `npm run dev` left running is exactly the thing this
+   * is avoiding. Stop it before a full run.
+   */
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    /// Serves only. The build is the `e2e` scripts' job in package.json, so a
+    /// build failure reads as a build failure rather than as "webServer was not
+    /// able to start", and so Playwright is not managing a two-stage command.
+    command: "npm run start -- --hostname 127.0.0.1 --port 3000",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: true,
-    timeout: 120000
+    timeout: 120_000
   },
   projects: [
     {

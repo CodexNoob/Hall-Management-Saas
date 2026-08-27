@@ -146,11 +146,9 @@ export function RoleEditor({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">
       {/*
-        A real dialog rather than a div that looks like one. It already behaves
-        as a modal - fixed, over a scrim, with everything behind it inert to the
-        eye - and saying so is what lets assistive technology, and anything else
-        addressing a control by where it lives, tell this editor's permission
-        checkboxes from the panels it opens on top of.
+        A named dialog, not an anonymous overlay. It lets assistive technology
+        distinguish this editor's permission checkboxes from the controls in the
+        Roles & Permissions panels behind it.
       */}
       <div
         aria-labelledby="role-editor-title"
@@ -190,6 +188,7 @@ export function RoleEditor({
             <input
               className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs font-semibold text-[#17202a]"
               disabled={disabled}
+              name="roleName"
               onChange={(event) => setName(event.target.value)}
               value={name}
             />
@@ -199,6 +198,7 @@ export function RoleEditor({
             <input
               className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs font-semibold text-[#17202a]"
               disabled={disabled}
+              name="roleRank"
               min={1}
               onChange={(event) => setRank(Number(event.target.value))}
               title={RANK_HELP}
@@ -211,6 +211,7 @@ export function RoleEditor({
             <input
               className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs font-semibold text-[#17202a]"
               disabled={disabled}
+              name="roleDescription"
               onChange={(event) => setDescription(event.target.value)}
               value={description}
             />
@@ -221,6 +222,7 @@ export function RoleEditor({
         <div className="border-b border-[#eef1f5] px-4 py-2">
           <input
             className="h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+            name="permissionSearch"
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Filter permissions"
             value={search}
@@ -257,6 +259,7 @@ export function RoleEditor({
                           checked={selected.has(permission.key)}
                           className="mt-0.5"
                           disabled={disabled}
+                          name={`permission-${permission.key}`}
                           onChange={() => toggle(permission.key)}
                           type="checkbox"
                         />

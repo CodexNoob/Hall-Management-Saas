@@ -239,26 +239,22 @@ test.afterEach(async ({ page }) => {
 // ---------------------------------------------------------------------------
 
 /**
- * The assignment dialog carries no dialog role and no accessible name, and is a
- * full-screen overlay - so rather than invent a container locator out of nested
- * divs, its fields are addressed from the page and a heading says whether the
- * overlay is open. The role editor is a real dialog and is scoped as one below.
- */
-const roleEditor = (page: Page) => page.getByRole("dialog");
-
-/**
- * A row in the Roles list.
+ * One row in the Roles list, matched on its name EXACTLY.
  *
- * Scoped to that section rather than looked up page-wide: Roles and the
- * permission summary share one tab now, and the summary names whatever roles
- * each person holds - so a role that has just been assigned to somebody appears
- * in both lists, and an unscoped lookup matches two rows for one role.
+ * Two things made the loose version wrong. The tab draws a second list - the
+ * people beneath, whose subtitle is the roles each of them holds - so an
+ * unscoped `getByRole("listitem")` reaches rows that are not roles at all. And
+ * `hasText` is a case-insensitive substring match, so "Owner" also selected a
+ * role literally named "owner": this organization has one, an Administrator row
+ * a legacy backfill renamed, and the two are different roles that a test must
+ * not confuse. Anchoring on the named list and on exact text distinguishes them
+ * while still failing loudly if two roles ever genuinely share a name.
  */
 function roleRow(page: Page, name: string) {
   return page
-    .getByRole("region", { name: "Roles" })
+    .getByRole("list", { name: "Roles" })
     .getByRole("listitem")
-    .filter({ hasText: name });
+    .filter({ has: page.getByText(name, { exact: true }) });
 }
 
 function permissionRow(page: Page, key: string) {
@@ -307,6 +303,18 @@ function effectiveRefetched(page: Page, principalId: string) {
       response.request().method() === "GET" &&
       response.ok()
   );
+}
+
+/**
+ * The role editor overlay, which is a named dialog.
+ *
+ * Scoped rather than addressed from the page: the effective-permission panel
+ * shares the Roles & Permissions tab with the roles list, so it is behind this
+ * overlay whenever the editor is open and it carries controls of its own - "the
+ * checkbox on the page" is two checkboxes without a boundary.
+ */
+function roleEditor(page: Page) {
+  return page.getByRole("dialog", { name: /^(Edit .+|New role)$/ });
 }
 
 /** Filters the catalog down to one key and ticks it. */

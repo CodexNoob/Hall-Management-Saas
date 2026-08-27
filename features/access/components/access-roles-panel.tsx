@@ -134,7 +134,11 @@ export function AccessRolesPanel() {
           </button>
         </header>
 
-        <ul className="divide-y divide-[#eef1f5]">
+        {/* Named, because this tab renders two lists that both spell out role
+            names - these rows, and the people below them whose subtitle is the
+            roles they hold. Unlabelled, "the row for Owner" is ambiguous to a
+            screen reader walking the lists and to anything else looking one up. */}
+        <ul aria-label="Roles" className="divide-y divide-[#eef1f5]">
           {roles.map((role) => (
             <li
               className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
@@ -209,7 +213,10 @@ export function AccessRolesPanel() {
               Pick somebody to see exactly what they can do, and why.
             </p>
           </header>
-          <ul className="max-h-[60dvh] divide-y divide-[#eef1f5] overflow-y-auto">
+          <ul
+            aria-label="People"
+            className="max-h-[60dvh] divide-y divide-[#eef1f5] overflow-y-auto"
+          >
             {staff.map((entry) => (
               <li key={entry.principalId}>
                 <button

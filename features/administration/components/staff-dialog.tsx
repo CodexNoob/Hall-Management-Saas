@@ -8,10 +8,14 @@ import type { StaffMember } from "@/features/administration/components/staff-sha
  * Invite somebody, or edit their profile. TWO DIALOGS, NEITHER OF WHICH TOUCHES
  * A PERMISSION.
  *
- * The role picker and the permission matrix that used to live here are gone -
- * not moved into a tab, gone. They are `/dashboard/access`, behind their own
- * keys, because the account that fixes a typo in a phone number should not be
- * the account that can mint an owner.
+ * The role picker and the permission matrix that used to live here are gone from
+ * this dialog. They are the Roles & Permissions tab, behind `role.read` and
+ * `role.manage`, because the account that fixes a typo in a phone number should
+ * not be the account that can mint an owner.
+ *
+ * Note that "a tab away" is not the same as "in reach": the tab is absent
+ * entirely for anybody without `role.read`, which is the same gate the separate
+ * `/dashboard/access` route used to apply.
  */
 
 export type StaffDialogMode = "add" | "edit" | null;
@@ -137,7 +141,7 @@ export function StaffDialog({
             <p className="mt-0.5 text-[10px] text-[#6a7483]">
               {mode === "add"
                 ? "They arrive with no permissions. Give them a role from Access when they are ready."
-                : "Profile only. What this person can do lives in Access."}
+                : "Profile only. What this person can do lives in Roles & Permissions."}
             </p>
           </div>
           <button
@@ -156,6 +160,7 @@ export function StaffDialog({
                 Email addresses
                 <textarea
                   className="mt-1 min-h-20 w-full rounded-lg border border-[#c7d0dc] px-3 py-2 text-xs"
+                  name="inviteEmails"
                   onBlur={(event) => commitInvites(event.target.value)}
                   onChange={(event) => setLocalInvite(event.target.value)}
                   placeholder="one@example.com, two@example.com"
@@ -172,6 +177,7 @@ export function StaffDialog({
                 Department
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  name="inviteDepartment"
                   onChange={(event) =>
                     onChangeForm({ ...form, department: event.target.value })
                   }
@@ -185,6 +191,7 @@ export function StaffDialog({
                 Name
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  name="staffName"
                   onChange={(event) =>
                     onChangeForm({ ...form, name: event.target.value })
                   }
@@ -195,6 +202,7 @@ export function StaffDialog({
                 Phone
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  name="staffPhone"
                   onChange={(event) =>
                     onChangeForm({ ...form, phone: event.target.value })
                   }
@@ -205,6 +213,7 @@ export function StaffDialog({
                 Department
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  name="staffDepartment"
                   onChange={(event) =>
                     onChangeForm({ ...form, department: event.target.value })
                   }
@@ -215,6 +224,7 @@ export function StaffDialog({
                 Job title
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
+                  name="staffJobTitle"
                   onChange={(event) =>
                     onChangeForm({ ...form, title: event.target.value })
                   }

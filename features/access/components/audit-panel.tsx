@@ -81,6 +81,7 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
         <div className="flex items-center gap-2">
           <select
             className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
+            name="auditActionFilter"
             onChange={(event) => setAction(event.target.value)}
             value={action}
           >

@@ -235,6 +235,7 @@ export function AssignmentDialog({
               <select
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canAssign}
+                name="roleId"
                 onChange={(event) => setRoleId(event.target.value)}
                 value={roleId}
               >
@@ -250,6 +251,7 @@ export function AssignmentDialog({
               <select
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canAssign}
+                name="scopeType"
                 onChange={(event) =>
                   setScopeType(
                     event.target.value as "org" | "hall" | "event_type"
@@ -268,6 +270,7 @@ export function AssignmentDialog({
                 <select
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                   disabled={!canAssign}
+                  name="scopeId"
                   onChange={(event) => setScopeId(event.target.value)}
                   value={scopeId}
                 >
@@ -285,6 +288,7 @@ export function AssignmentDialog({
               <input
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canAssign}
+                name="expiresAt"
                 onChange={(event) => setExpiresAt(event.target.value)}
                 type="datetime-local"
                 value={expiresAt}

@@ -44,17 +44,20 @@ import {
 } from "@/features/administration/components/staff-tabs";
 
 /**
- * The staff directory: WHO WORKS HERE.
+ * Staff management, in four tabs: WHO WORKS HERE, what they may do, who has not
+ * arrived yet, and what was changed.
  *
- * The permission matrix that used to occupy the bottom half of this page has
- * moved to /dashboard/access. That is the same split the API makes, and for the
- * same reason: editing a phone number and handing out privileges were one screen
- * and one permission, which is exactly the conflation this design exists to
- * undo. What is left here changes nothing about what anyone can do.
+ * ONE PAGE, STILL TWO PERMISSIONS. The permission matrix used to be its own
+ * route and its own sidebar entry, and that separation existed because editing a
+ * phone number and handing out privileges had been one screen behind one
+ * permission - exactly the conflation this design undoes. Folding Access back in
+ * as a tab keeps the separation where it actually lives: each tab carries the
+ * key its old route was gated on, so Roles & Permissions is absent, not merely
+ * inert, for anybody without `role.read`. See staff-tabs.ts.
  *
- * The one bridge is the "Access" button on each row, which opens the assignment
- * dialog - and that dialog posts to /api/access/assignments like everything
- * else. One writer per privilege change.
+ * The bridge from a person to their privileges is the "Access" button on each
+ * row, which opens the assignment dialog - and that dialog posts to
+ * /api/access/assignments like everything else. One writer per privilege change.
  */
 
 const STAFF_URL = "/api/staff";
@@ -435,6 +438,7 @@ export function StaffPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <select
                   className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
+                  name="departmentFilter"
                   onChange={(event) => setDepartmentFilter(event.target.value)}
                   value={departmentFilter}
                 >
@@ -446,6 +450,7 @@ export function StaffPage() {
                 </select>
                 <select
                   className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
+                  name="statusFilter"
                   onChange={(event) =>
                     setStatusFilter(
                       event.target.value as "All" | "Active" | "Inactive"
@@ -488,7 +493,7 @@ export function StaffPage() {
                 </button>
               </div>
             }
-            subtitle="Profiles here, privileges in Access."
+            subtitle="Profiles here, privileges under Roles & Permissions."
             title="Directory"
           />
 

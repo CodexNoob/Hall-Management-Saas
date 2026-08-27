@@ -108,8 +108,8 @@ export function StaffProfileDialog({
               Access
             </h3>
             {/* What they HOLD, not what that resolves to. The full key-by-key
-                answer is one screen away in Access, and duplicating a summary of
-                it here is how the two come to disagree. */}
+                answer is one tab away under Roles & Permissions, and duplicating
+                a summary of it here is how the two come to disagree. */}
             <div className="mt-3 space-y-1.5">
               {staff.assignments.length ? (
                 staff.assignments.map((assignment) => (
