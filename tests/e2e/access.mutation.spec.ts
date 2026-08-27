@@ -612,6 +612,116 @@ test("assigns a role from the staff directory and revokes it again", async ({
   await expect(row.getByText(roleName, { exact: true })).toBeHidden();
 });
 
+test("recovers the assignment dialog from a stale epoch instead of dead-ending", async ({
+  page
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+
+  const subject = await findSubject(page);
+  test.skip(
+    !subject,
+    "No staff member is available to act on: every member either is the actor, already holds a role, or shares a name with somebody else."
+  );
+
+  const roleName = `E2E Recover ${Date.now()}`;
+  const rivalName = `E2E Recover Rival ${Date.now()}`;
+  const roleId = await createRole(page, roleName, [ROLE_PERMISSION]);
+  pending.roleIds.push(roleId);
+
+  await page.goto("/dashboard/staff");
+  await page
+    .getByPlaceholder("Search staff, roles and departments")
+    .fill(subject!.email);
+
+  const row = page.getByRole("row").filter({ hasText: subject!.email });
+  await expect(row).toHaveCount(1, { timeout: 30_000 });
+
+  // Opening the dialog is what captures the epoch, so everything after this is a
+  // genuine race rather than a hand-written header.
+  await row.getByRole("button", { name: "Access" }).click();
+  await expect(
+    page.getByRole("heading", { name: `Access for ${subject!.name}` })
+  ).toBeVisible();
+
+  const roleOption = `${roleName} (rank ${E2E_ROLE_RANK})`;
+  await page
+    .locator("select")
+    .filter({ hasText: roleOption })
+    .selectOption({ label: roleOption });
+
+  /**
+   * The other administrator. Creating a role writes `role_permissions` rows and
+   * those rows carry the epoch trigger, so this moves the matrix under the open
+   * dialog exactly as a colleague would.
+   */
+  pending.roleIds.push(await createRole(page, rivalName, [ROLE_PERMISSION]));
+
+  /* ------------------------- the refusal, then recovery -------------------- */
+
+  const refused = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/access/assignments" &&
+      response.request().method() === "POST"
+  );
+  // The refetch the 409 handler is supposed to trigger. THIS is the regression
+  // guard: before the fix the dialog dead-ended here, nothing refetched, and
+  // every retry re-sent the same stale precondition for another 409.
+  const recovered = rolesRefetched(page);
+
+  await page.getByRole("button", { name: "Assign" }).click();
+  expect((await refused).status()).toBe(409);
+
+  await expect(
+    page.getByText("Someone else changed permissions while you were editing.")
+  ).toBeVisible();
+  // Held open with the unsaved intent rather than closed - the user decides
+  // whether it still applies now that they can see the list refresh.
+  await expect(
+    page.getByRole("heading", { name: `Access for ${subject!.name}` })
+  ).toBeVisible();
+
+  await recovered;
+
+  /**
+   * The response is not the thing to wait on - the RE-RENDER is.
+   *
+   * `epoch` reaches the dialog as a prop off `rolesQuery.data`, so between the
+   * refetch landing and React writing it into the tree there is a window where
+   * the retry would still send the old precondition. The rival role appearing
+   * among the options is the observable proof that the new list - and with it
+   * the new epoch - is what the dialog is now holding. An earlier draft awaited
+   * only the response and failed here for exactly that reason.
+   */
+  await expect(
+    page.locator("select option").filter({ hasText: rivalName }),
+    "the refetched role list has to reach the dialog before the retry"
+  ).toHaveCount(1);
+
+  /* ---------------------- the same click, now composable ------------------- */
+
+  const accepted = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/access/assignments" &&
+      response.request().method() === "POST"
+  );
+
+  await page.getByRole("button", { name: "Assign" }).click();
+  const assignResponse = await accepted;
+
+  expect(
+    assignResponse.status(),
+    "the retry after a refreshed epoch has to go through, or the dialog is still a dead end"
+  ).toBe(201);
+
+  pending.assignmentIds.push(
+    ((await assignResponse.json()) as { data: { id: string } }).data.id
+  );
+
+  await expect(
+    page.getByRole("heading", { name: `Access for ${subject!.name}` })
+  ).toBeHidden();
+});
+
 // ---------------------------------------------------------------------------
 // Effective permissions and individual overrides
 // ---------------------------------------------------------------------------
