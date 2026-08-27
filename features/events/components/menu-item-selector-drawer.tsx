@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MenuThumbnail } from "@/features/events/components/event-manager-shared";
 
 /**
@@ -141,19 +141,37 @@ export function MenuItemSelectorDrawer({
   // selection made on one tab survives switching to another.
   const [pending, setPending] = useState<Map<string, MenuSection>>(new Map());
 
+  // Escape reads the handler from here rather than closing over it, so the
+  // effects below do not have to depend on a prop the parent rebuilds every
+  // render. That dependency is what used to wipe a half-made selection: the
+  // parent re-renders for its own reasons - a save settling, an undo offer
+  // expiring eight seconds after a removal - and each new `onClose` re-ran the
+  // reset below as though the drawer had just been opened.
+  const closeRef = useRef(onClose);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+
+  // Opening is the only thing that resets. Keyed on `open` and the section it
+  // was opened from, because those are the two things that mean "this is a
+  // fresh drawer" - leftovers from the last time it was open would otherwise be
+  // added by a click the user does not connect to them.
   useEffect(() => {
     if (!open) return;
 
     setActiveSection(initialSection);
-    // A fresh drawer starts empty; leftovers from the last time it was open
-    // would be added by a click the user does not connect to them.
     setPending(new Map());
+  }, [initialSection, open]);
+
+  useEffect(() => {
+    if (!open) return;
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeRef.current();
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -162,7 +180,7 @@ export function MenuItemSelectorDrawer({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [initialSection, open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

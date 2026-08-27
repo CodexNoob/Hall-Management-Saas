@@ -196,4 +196,36 @@ describe("MenuItemSelectorDrawer", () => {
 
     expect(onClear).toHaveBeenCalledWith("Plated");
   });
+
+  it("keeps a half-made selection when the parent re-renders", () => {
+    const props = {
+      initialSection: "Buffet" as const,
+      items,
+      onAdd: vi.fn(),
+      onClear: vi.fn(),
+      onClose: vi.fn(),
+      open: true,
+      selectedIds: new Set<string>()
+    };
+    const { rerender } = render(<MenuItemSelectorDrawer {...props} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Potato kugel/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Plated" }));
+
+    // The parent rebuilds its handlers every render, so a re-render it does for
+    // its own reasons - a save settling, an undo offer timing out after a
+    // removal - hands the drawer a brand new `onClose`. That used to read as
+    // the drawer having just been opened: the pick vanished and the tab snapped
+    // back, seconds after a removal and never again once things had settled.
+    rerender(<MenuItemSelectorDrawer {...props} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Plated" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add 1 item" }));
+
+    expect(queued(props.onAdd)).toEqual(["Potato kugel:Buffet"]);
+  });
 });
