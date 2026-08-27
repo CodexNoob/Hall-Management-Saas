@@ -1,0 +1,372 @@
+<!--
+  Supabase → Authentication → Email Templates → "Change email address".
+  Paste the whole file into the Message body field.
+
+  The link MUST stay `{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change`.
+
+  With "Secure email change" on (the default — see §6 of
+  ../supabase-auth-configuration.md) this ONE template is mailed to BOTH the old
+  and the new address, and both have to be confirmed. Whichever is clicked first
+  verifies with `error: null` and NO session, which completeAuthLink() turns into
+  /auth/auth-error?error_code=confirmation_pending. That is why the copy below
+  says up front that two confirmations are needed — otherwise the first click
+  looks like a failure.
+
+  The copy must therefore read correctly at either address: it names both
+  {{ .Email }} (current) and {{ .NewEmail }} (new) rather than saying "your
+  address".
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Confirm your email change</title>
+    <!--[if mso]>
+      <style>
+        body,
+        table,
+        td,
+        a {
+          font-family: Arial, Helvetica, sans-serif !important;
+        }
+      </style>
+    <![endif]-->
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background-color: #f5f6f8;
+      color: #17202a;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    "
+  >
+    <!-- Preheader: shown in the inbox preview, hidden in the body. -->
+    <div
+      style="
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        mso-hide: all;
+        font-size: 1px;
+        line-height: 1px;
+        color: #f5f6f8;
+      "
+    >
+      Confirm the email change on your Event Core account — both addresses must
+      confirm.
+      &#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #f5f6f8"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px">
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="width: 100%; max-width: 600px"
+          >
+            <!-- Brand bar -->
+            <tr>
+              <td
+                align="left"
+                style="
+                  padding: 0 8px 20px;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 18px;
+                  font-weight: 700;
+                  letter-spacing: 0.02em;
+                  color: #1f4d73;
+                "
+              >
+                Event Core
+              </td>
+            </tr>
+
+            <!-- Card -->
+            <tr>
+              <td
+                style="
+                  background-color: #ffffff;
+                  border: 1px solid #d8dde5;
+                  border-radius: 12px;
+                "
+              >
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  <!-- Accent rule -->
+                  <tr>
+                    <td
+                      style="
+                        height: 4px;
+                        line-height: 4px;
+                        font-size: 0;
+                        background-color: #1f4d73;
+                        border-radius: 12px 12px 0 0;
+                      "
+                    >
+                      &nbsp;
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 36px 40px 8px;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 22px;
+                        line-height: 30px;
+                        font-weight: 700;
+                        color: #17202a;
+                      "
+                    >
+                      Confirm your email change
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 12px 40px 0;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 15px;
+                        line-height: 24px;
+                        color: #17202a;
+                      "
+                    >
+                      A request was made to change the email address on an
+                      Event Core account.
+                    </td>
+                  </tr>
+
+                  <!-- From → to -->
+                  <tr>
+                    <td style="padding: 24px 40px 0">
+                      <table
+                        role="presentation"
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        style="
+                          background-color: #f5f6f8;
+                          border: 1px solid #d8dde5;
+                          border-radius: 8px;
+                        "
+                      >
+                        <tr>
+                          <td
+                            style="
+                              padding: 14px 16px 6px;
+                              font-family: -apple-system, BlinkMacSystemFont,
+                                'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                              font-size: 13px;
+                              line-height: 20px;
+                              color: #6a7483;
+                            "
+                          >
+                            Current address:
+                            <span style="color: #17202a; font-weight: 600"
+                              >{{ .Email }}</span
+                            >
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="
+                              padding: 0 16px 14px;
+                              font-family: -apple-system, BlinkMacSystemFont,
+                                'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                              font-size: 13px;
+                              line-height: 20px;
+                              color: #6a7483;
+                            "
+                          >
+                            New address:
+                            <span style="color: #17202a; font-weight: 600"
+                              >{{ .NewEmail }}</span
+                            >
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Both-addresses notice -->
+                  <tr>
+                    <td
+                      style="
+                        padding: 20px 40px 0;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 15px;
+                        line-height: 24px;
+                        color: #17202a;
+                      "
+                    >
+                      <strong>This email was sent to both addresses, and both
+                        have to confirm.</strong>
+                      After the first confirmation you'll be told the change is
+                      still pending — that is expected. Open the link in the
+                      other inbox to finish.
+                    </td>
+                  </tr>
+
+                  <!-- Button -->
+                  <tr>
+                    <td align="left" style="padding: 28px 40px 4px">
+                      <!--[if mso]>
+                        <v:roundrect
+                          xmlns:v="urn:schemas-microsoft-com:vml"
+                          xmlns:w="urn:schemas-microsoft-com:office:word"
+                          href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change"
+                          style="height:48px;v-text-anchor:middle;width:280px;"
+                          arcsize="21%"
+                          strokecolor="#1f4d73"
+                          fillcolor="#1f4d73"
+                        >
+                          <w:anchorlock/>
+                          <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">
+                            Confirm this change
+                          </center>
+                        </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-- -->
+                      <a
+                        href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change"
+                        style="
+                          display: inline-block;
+                          background-color: #1f4d73;
+                          color: #ffffff;
+                          font-family: -apple-system, BlinkMacSystemFont,
+                            'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                          font-size: 15px;
+                          font-weight: 600;
+                          line-height: 20px;
+                          text-decoration: none;
+                          padding: 14px 28px;
+                          border-radius: 10px;
+                        "
+                      >
+                        Confirm this change
+                      </a>
+                      <!--<![endif]-->
+                    </td>
+                  </tr>
+
+                  <!-- Plain-URL fallback -->
+                  <tr>
+                    <td
+                      style="
+                        padding: 24px 40px 0;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 13px;
+                        line-height: 20px;
+                        color: #6a7483;
+                      "
+                    >
+                      If the button doesn't work, copy this link into your
+                      browser:
+                      <br />
+                      <a
+                        href="{{ .RedirectTo }}?token_hash={{ .TokenHash }}&type=email_change"
+                        style="color: #1f4d73; word-break: break-all"
+                        >{{ .RedirectTo }}?token_hash={{ .TokenHash
+                        }}&type=email_change</a
+                      >
+                    </td>
+                  </tr>
+
+                  <!-- Divider -->
+                  <tr>
+                    <td style="padding: 28px 40px 0">
+                      <table
+                        role="presentation"
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                      >
+                        <tr>
+                          <td
+                            style="
+                              height: 1px;
+                              line-height: 1px;
+                              font-size: 0;
+                              background-color: #d8dde5;
+                            "
+                          >
+                            &nbsp;
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 20px 40px 36px;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 13px;
+                        line-height: 20px;
+                        color: #6a7483;
+                      "
+                    >
+                      This link can only be used once and expires in 24 hours.
+                      If you didn't request this change, do not open the link —
+                      the address stays as it is unless both inboxes confirm.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding: 24px 16px 0;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 18px;
+                  color: #6a7483;
+                "
+              >
+                Event Core &middot; hall, event and kitchen management
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

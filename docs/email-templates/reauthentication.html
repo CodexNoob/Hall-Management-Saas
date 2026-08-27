@@ -1,0 +1,265 @@
+<!--
+  Supabase → Authentication → Email Templates → "Reauthentication".
+  Paste the whole file into the Message body field.
+
+  This is the one template with NO link. GoTrue's reauthentication flow mails a
+  6-digit `{{ .Token }}` that the user types back into the app; there is no
+  `{{ .TokenHash }}` journey and nothing for /auth/confirm to handle, so
+  `{{ .RedirectTo }}` does not apply here.
+
+  NOTE: nothing in the app calls supabase.auth.reauthenticate() today, so this
+  template is never sent. It exists so the set is complete and correctly branded
+  before someone adds a sensitive operation that needs it — at which point they
+  must also build the screen that accepts the code, since the app has no
+  code-entry UI at all.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Your Event Core verification code</title>
+    <!--[if mso]>
+      <style>
+        body,
+        table,
+        td,
+        a {
+          font-family: Arial, Helvetica, sans-serif !important;
+        }
+      </style>
+    <![endif]-->
+  </head>
+  <body
+    style="
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background-color: #f5f6f8;
+      color: #17202a;
+      -webkit-font-smoothing: antialiased;
+      -webkit-text-size-adjust: 100%;
+    "
+  >
+    <!-- Preheader: shown in the inbox preview, hidden in the body. -->
+    <div
+      style="
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        mso-hide: all;
+        font-size: 1px;
+        line-height: 1px;
+        color: #f5f6f8;
+      "
+    >
+      Your verification code for Event Core.
+      &#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;&#8203;&#847;
+    </div>
+
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #f5f6f8"
+    >
+      <tr>
+        <td align="center" style="padding: 32px 16px">
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="width: 100%; max-width: 600px"
+          >
+            <!-- Brand bar -->
+            <tr>
+              <td
+                align="left"
+                style="
+                  padding: 0 8px 20px;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 18px;
+                  font-weight: 700;
+                  letter-spacing: 0.02em;
+                  color: #1f4d73;
+                "
+              >
+                Event Core
+              </td>
+            </tr>
+
+            <!-- Card -->
+            <tr>
+              <td
+                style="
+                  background-color: #ffffff;
+                  border: 1px solid #d8dde5;
+                  border-radius: 12px;
+                "
+              >
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                >
+                  <!-- Accent rule -->
+                  <tr>
+                    <td
+                      style="
+                        height: 4px;
+                        line-height: 4px;
+                        font-size: 0;
+                        background-color: #1f4d73;
+                        border-radius: 12px 12px 0 0;
+                      "
+                    >
+                      &nbsp;
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 36px 40px 8px;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 22px;
+                        line-height: 30px;
+                        font-weight: 700;
+                        color: #17202a;
+                      "
+                    >
+                      Confirm it's you
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 12px 40px 0;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 15px;
+                        line-height: 24px;
+                        color: #17202a;
+                      "
+                    >
+                      Enter this code in Event Core to verify your identity and
+                      continue.
+                    </td>
+                  </tr>
+
+                  <!-- Code -->
+                  <tr>
+                    <td align="center" style="padding: 28px 40px 0">
+                      <table
+                        role="presentation"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                        style="
+                          background-color: #f5f6f8;
+                          border: 1px solid #d8dde5;
+                          border-radius: 10px;
+                        "
+                      >
+                        <tr>
+                          <td
+                            align="center"
+                            style="
+                              padding: 18px 36px;
+                              font-family: 'SFMono-Regular', Consolas,
+                                'Liberation Mono', Menlo, Courier, monospace;
+                              font-size: 32px;
+                              line-height: 40px;
+                              font-weight: 700;
+                              letter-spacing: 0.28em;
+                              color: #1f4d73;
+                              text-indent: 0.28em;
+                            "
+                          >
+                            {{ .Token }}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Divider -->
+                  <tr>
+                    <td style="padding: 28px 40px 0">
+                      <table
+                        role="presentation"
+                        width="100%"
+                        cellpadding="0"
+                        cellspacing="0"
+                        border="0"
+                      >
+                        <tr>
+                          <td
+                            style="
+                              height: 1px;
+                              line-height: 1px;
+                              font-size: 0;
+                              background-color: #d8dde5;
+                            "
+                          >
+                            &nbsp;
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td
+                      style="
+                        padding: 20px 40px 36px;
+                        font-family: -apple-system, BlinkMacSystemFont,
+                          'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                        font-size: 13px;
+                        line-height: 20px;
+                        color: #6a7483;
+                      "
+                    >
+                      The code can only be used once and expires shortly. Nobody
+                      from Event Core will ever ask you for it — if you didn't
+                      start this, don't share the code and change your password.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding: 24px 16px 0;
+                  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+                  font-size: 12px;
+                  line-height: 18px;
+                  color: #6a7483;
+                "
+              >
+                Event Core &middot; hall, event and kitchen management
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
