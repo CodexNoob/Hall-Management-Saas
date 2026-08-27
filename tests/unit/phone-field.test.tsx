@@ -8,11 +8,13 @@ import { PhoneField } from "@/components/ui/phone-field";
 function Harness({
   initialCountry = "US" as CountryCode,
   onValidChange,
-  required = false
+  required = false,
+  showCountry
 }: {
   initialCountry?: CountryCode;
   onValidChange?: (value: string | null) => void;
   required?: boolean;
+  showCountry?: boolean;
 }) {
   const [country, setCountry] = useState<CountryCode>(initialCountry);
   const [value, setValue] = useState("");
@@ -29,6 +31,7 @@ function Harness({
         onCountryChange={setCountry}
         onValidChange={onValidChange}
         required={required}
+        showCountry={showCountry}
         value={value}
       />
     </>
@@ -220,6 +223,56 @@ describe("PhoneField", () => {
     expect(screen.getByText("GB")).toBeInTheDocument();
     expect(screen.getByText("+44")).toBeInTheDocument();
     expect(screen.queryByText("+63")).toBeNull();
+  });
+
+  it("drops the country control entirely when it is not shown", () => {
+    // Hidden, not merely invisible. A select left in the tree would still take
+    // a tab stop and still answer to autofill, which is a control someone can
+    // reach and change without ever being able to see what it says.
+    render(<Harness initialCountry={"PH" as CountryCode} showCountry={false} />);
+
+    expect(screen.queryByLabelText("Country")).toBeNull();
+    expect(screen.queryByText("PH")).toBeNull();
+    expect(screen.queryByText("+63")).toBeNull();
+    expect(input()).toBeInTheDocument();
+  });
+
+  it("still validates against the host's country with the picker hidden", () => {
+    // The picker is what makes the country visible, not what makes it apply.
+    // Ten digits stays an impossible UK number with nothing on screen saying so.
+    render(
+      <Harness
+        initialCountry={"GB" as CountryCode}
+        onValidChange={onValidChange}
+        showCountry={false}
+      />
+    );
+
+    fireEvent.change(input(), { target: { value: "2125550142" } });
+    fireEvent.blur(input());
+
+    expect(onValidChange).not.toHaveBeenCalledWith(
+      expect.stringContaining("+1")
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "not a valid United Kingdom phone number"
+    );
+  });
+
+  it("takes an overseas number by its own + when the picker is hidden", () => {
+    // The only way left to enter a number from elsewhere, so it has to work:
+    // a leading "+" is read ahead of the country the host is holding.
+    render(
+      <Harness
+        initialCountry={"US" as CountryCode}
+        onValidChange={onValidChange}
+        showCountry={false}
+      />
+    );
+
+    fireEvent.change(input(), { target: { value: "+63 917 123 4567" } });
+
+    expect(onValidChange).toHaveBeenLastCalledWith("+639171234567");
   });
 
   it("accepts a national number under the country that owns it", () => {
