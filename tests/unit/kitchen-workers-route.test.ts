@@ -28,7 +28,9 @@ const userId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 /** The principals the resolver reports as able to advance production status. */
 function eligible(...principalIds: string[]) {
-  vi.mocked(principalIdsHolding).mockResolvedValue(new Set(principalIds));
+  vi.mocked(principalIdsHolding).mockImplementation(async (_org, key) =>
+    key === "kitchen.status.update" ? new Set(principalIds) : new Set()
+  );
 }
 
 function postRequest(body: unknown) {
@@ -82,14 +84,14 @@ describe("kitchen workers route", () => {
         }
       ] as never);
 
-      const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
+      const body = await (
+        await GET(new Request("http://localhost/api/kitchen/workers"))
+      ).json();
 
       expect(body.workers).toEqual([
         { id: "w1", name: "Mendy", userId, isActive: true, color: null }
       ]);
-      expect(body.availableStaff).toEqual([
-        { id: "user-2", name: "Shloimy" }
-      ]);
+      expect(body.availableStaff).toEqual([{ id: "user-2", name: "Shloimy" }]);
     });
 
     it("falls back to the email when a staff member has no name", async () => {
@@ -102,11 +104,47 @@ describe("kitchen workers route", () => {
         }
       ] as never);
 
-      const body = await (await GET(new Request("http://localhost/api/kitchen/workers"))).json();
+      const body = await (
+        await GET(new Request("http://localhost/api/kitchen/workers"))
+      ).json();
 
       expect(body.availableStaff).toEqual([
         { id: "user-2", name: "chef@x.test" }
       ]);
+    });
+
+    it("does not list a staff administrator as a kitchen worker", async () => {
+      vi.mocked(principalIdsHolding).mockImplementation(async (_org, key) =>
+        key === "kitchen.status.update" || key === "role.assign"
+          ? new Set(["admin-principal"])
+          : new Set()
+      );
+      vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([
+        {
+          id: "admin-worker",
+          name: "Administrator",
+          userId: "admin-user",
+          isActive: true,
+          color: null
+        }
+      ] as never);
+      vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([
+        {
+          principalId: "admin-principal",
+          user: {
+            id: "admin-user",
+            name: "Administrator",
+            email: "admin@x.test"
+          }
+        }
+      ] as never);
+
+      const body = await (
+        await GET(new Request("http://localhost/api/kitchen/workers"))
+      ).json();
+
+      expect(body.workers).toEqual([]);
+      expect(body.availableStaff).toEqual([]);
     });
   });
 
@@ -131,8 +169,25 @@ describe("kitchen workers route", () => {
 
       expect(response.status).toBe(409);
       expect(await response.json()).toMatchObject({
-        error: expect.stringContaining("kitchen production status")
+        error: expect.stringContaining("production staff")
       });
+      expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
+    });
+
+    it("refuses a staff administrator even when they can update production", async () => {
+      vi.mocked(principalIdsHolding).mockImplementation(async (_org, key) =>
+        key === "kitchen.status.update" || key === "role.assign"
+          ? new Set(["admin-principal"])
+          : new Set()
+      );
+      vi.mocked(prisma.organizationMembership.findFirst).mockResolvedValue({
+        principalId: "admin-principal",
+        user: { name: "Administrator", email: "admin@x.test" }
+      } as never);
+
+      const response = await POST(postRequest({ userId, color: null }));
+
+      expect(response.status).toBe(409);
       expect(prisma.kitchenWorker.create).not.toHaveBeenCalled();
     });
 
@@ -153,7 +208,9 @@ describe("kitchen workers route", () => {
         principalId: "principal-1",
         user: { name: "Mendy", email: "m@x.test" }
       } as never);
-      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(null as never);
+      vi.mocked(prisma.kitchenWorker.findFirst).mockResolvedValue(
+        null as never
+      );
       vi.mocked(prisma.kitchenWorker.create).mockResolvedValue({
         id: "w1",
         name: "Mendy",

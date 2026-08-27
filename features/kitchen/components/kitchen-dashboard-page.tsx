@@ -42,7 +42,13 @@ import {
 } from "@/features/kitchen/components/kitchen-shared";
 export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
-  const kitchenQuery = useAuthenticatedQuery<KitchenResponse>("/api/kitchen");
+  const [activeView, setActiveView] = useState<KitchenView>("today");
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const [anchorDate, setAnchorDate] = useState(today);
+  const rangeStart =
+    activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+  const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}`;
+  const kitchenQuery = useAuthenticatedQuery<KitchenResponse>(kitchenQueryUrl);
   const kitchenMutation = useAuthenticatedMutation<
     KitchenItemActionInput,
     unknown
@@ -62,9 +68,6 @@ export function KitchenDashboardPage() {
     },
     { kitchenEvent: KitchenEvent & { dateKey: string } }
   >("/api/kitchen", "POST");
-  const [activeView, setActiveView] = useState<KitchenView>("today");
-  const today = useMemo(() => startOfDay(new Date()), []);
-  const [anchorDate, setAnchorDate] = useState(today);
   const [workersOnly, setWorkersOnly] = useState(false);
   const [isAddKitchenEventOpen, setIsAddKitchenEventOpen] = useState(false);
   const [isManageWorkersOpen, setIsManageWorkersOpen] = useState(false);
@@ -76,6 +79,9 @@ export function KitchenDashboardPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [acknowledgingNotificationId, setAcknowledgingNotificationId] =
     useState<string | null>(null);
+  const [acknowledgmentError, setAcknowledgmentError] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
     // The Kitchen page is a live operations board. On desktop, collapse the
@@ -87,6 +93,7 @@ export function KitchenDashboardPage() {
   const days = useMemo<KitchenDay[]>(() => {
     const normalizedSearch = pageSearchQuery.trim().toLowerCase();
     const eventsByDate = new Map<string, KitchenEvent[]>();
+    const todayKey = dateKey(today);
     const currentWorkerId = kitchenQuery.data?.currentWorkerId ?? null;
     const visibleAssignedCount = (
       summary: KitchenEvent["summary"] | undefined | null
@@ -106,6 +113,8 @@ export function KitchenDashboardPage() {
       // coincidence, in a second place, with nothing keeping the two in step.
       const kitchenEvent: KitchenEvent = {
         id: event.id,
+        dateKey: key,
+        past: key < todayKey,
         source: "booking",
         category: event.hall.name,
         title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
@@ -140,13 +149,12 @@ export function KitchenDashboardPage() {
       if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
 
       const current = eventsByDate.get(event.dateKey) ?? [];
-      current.push(event);
+      current.push({ ...event, past: event.dateKey < todayKey });
       eventsByDate.set(event.dateKey, current);
     }
 
     const start = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
     const selectedDateKey = dateKey(anchorDate);
-    const todayKey = dateKey(today);
 
     return Array.from({ length: 28 }, (_, index) => {
       const date = addDays(start, index);
@@ -164,6 +172,7 @@ export function KitchenDashboardPage() {
         shabbos: date.getDay() === 6,
         selected: isSelectedDate,
         today: key === todayKey,
+        past: key < todayKey,
         events: eventsByDate.get(key)
       };
     });
@@ -178,6 +187,8 @@ export function KitchenDashboardPage() {
 
   const canAddKitchenEvent =
     kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
+  const canAddOnSelectedDate =
+    canAddKitchenEvent && dateKey(anchorDate) >= dateKey(today);
   // The same permission that gates assigning a dish. Whoever decides who cooks
   // what keeps the list of who there is to ask.
   const canManageWorkers =
@@ -186,6 +197,19 @@ export function KitchenDashboardPage() {
   // Optimistic until the first response: assuming "scoped" would flash "nothing
   // assigned to you" at a manager on every load.
   const seesWholeBoard = kitchenQuery.data?.permissions.seesWholeBoard ?? true;
+  const detailsPermissions = kitchenQuery.data?.permissions ?? {
+    canAddKitchenEvents: false,
+    canAssignWorkers: false,
+    canUpdateKitchenStatus: false,
+    seesWholeBoard: true
+  };
+  const selectedEventPermissions = selectedKitchenEvent?.past
+    ? {
+        ...detailsPermissions,
+        canAssignWorkers: false,
+        canUpdateKitchenStatus: false
+      }
+    : detailsPermissions;
 
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
@@ -242,12 +266,14 @@ export function KitchenDashboardPage() {
   }
 
   function openAddKitchenEvent(targetDateKey: string) {
+    if (targetDateKey < dateKey(today)) return;
     setKitchenEventDateKey(targetDateKey);
     setIsAddKitchenEventOpen(true);
   }
 
   async function acknowledgeKitchenNotification(notificationId: string) {
     setAcknowledgingNotificationId(notificationId);
+    setAcknowledgmentError(null);
     try {
       const response = await authenticatedFetch(
         `/api/kitchen/notifications/${notificationId}`,
@@ -264,6 +290,12 @@ export function KitchenDashboardPage() {
       }
 
       await kitchenQuery.refetch();
+    } catch (error) {
+      setAcknowledgmentError(
+        error instanceof Error
+          ? error.message
+          : "Could not acknowledge notification."
+      );
     } finally {
       setAcknowledgingNotificationId(null);
     }
@@ -321,7 +353,7 @@ export function KitchenDashboardPage() {
       <main className="flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-3 py-3 sm:px-4">
         <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
           <KitchenToolbar
-            canAddKitchenEvent={canAddKitchenEvent}
+            canAddKitchenEvent={canAddOnSelectedDate}
             canManageWorkers={canManageWorkers}
             onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
             onManageWorkers={() => setIsManageWorkersOpen(true)}
@@ -377,10 +409,14 @@ export function KitchenDashboardPage() {
       />
 
       <KitchenNotificationsDrawer
+        acknowledgmentError={acknowledgmentError}
         acknowledgingId={acknowledgingNotificationId}
         notifications={kitchenQuery.data?.notifications ?? []}
         onAcknowledge={acknowledgeKitchenNotification}
-        onClose={() => setIsTodayNotesOpen(false)}
+        onClose={() => {
+          setIsTodayNotesOpen(false);
+          setAcknowledgmentError(null);
+        }}
         open={isTodayNotesOpen}
       />
 
@@ -395,17 +431,7 @@ export function KitchenDashboardPage() {
         isSaving={kitchenMutation.isPending}
         onClose={() => setSelectedKitchenEvent(null)}
         onSaveItemAction={saveKitchenItemAction}
-        permissions={
-          kitchenQuery.data?.permissions ?? {
-            canAddKitchenEvents: false,
-            canAssignWorkers: false,
-            canUpdateKitchenStatus: false,
-            // Every capability falls closed before the first response; this one
-            // is not a capability but a description of what arrived, and the
-            // dialog only opens on an event the board already drew.
-            seesWholeBoard: true
-          }
-        }
+        permissions={selectedEventPermissions}
         workersOnly={workersOnly}
         currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
         workers={kitchenQuery.data?.workers ?? []}

@@ -54,7 +54,7 @@ export function WeekDayColumn({
           </h2>
 
           <PlusButton
-            disabled={!canAddKitchenEvent}
+            disabled={!canAddKitchenEvent || day.past}
             label={`Add kitchen event on ${day.dateLabel}`}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />

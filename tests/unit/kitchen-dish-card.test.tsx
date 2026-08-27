@@ -21,11 +21,9 @@ import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 /**
  * The dish card is the control.
  *
- * A click moves a dish on - not started, then pending, then complete - and a
- * double-click puts it back. That is the interaction the kitchen was specified
- * to have, and the reason it needs a test is the overlap between the two: a
- * double-click delivers two `click` events of its own before its `dblclick`, so
- * the obvious implementation resets the dish *and* advances it twice.
+ * A click moves a dish on - not started, then pending, then complete. A
+ * double-click requests a reset, but confirmation prevents it from erasing
+ * progress accidentally. The named reset control uses the same confirmation.
  */
 
 function line(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
@@ -279,8 +277,8 @@ describe("kitchen dish card", () => {
   });
 
   it("stops at complete rather than cycling back round", async () => {
-    // Reset is the way back, and it is the double-click. A click that wrapped
-    // complete to not started would undo finished work by mis-tap.
+    // Reset is a separate action. A click that wrapped complete to not started
+    // would undo finished work by mis-tap.
     const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
 
     fireEvent.click(dishCard());
@@ -289,46 +287,51 @@ describe("kitchen dish card", () => {
     expect(onSaveItemAction).not.toHaveBeenCalled();
   });
 
-  it("resets on a double-click without also advancing", async () => {
-    // The regression this guards: a dblclick is preceded by two clicks, so an
-    // unguarded handler writes PENDING, then COMPLETE, then the reset - and the
-    // dish lands wherever the responses happen to arrive.
+  it("asks for confirmation on double-click without also advancing", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
     const card = dishCard();
 
+    // Browsers deliver two click events before dblclick. Neither delayed click
+    // may advance the dish while the confirmation is opening.
     fireEvent.click(card);
-    fireEvent.click(card);
-    fireEvent.doubleClick(card);
-    settleClick();
-
-    expect(onSaveItemAction).toHaveBeenCalledTimes(1);
-    expect(onSaveItemAction).toHaveBeenCalledWith({
-      action: "reset-status",
-      eventId: boardEvent.id,
-      menuItemId: "item-1"
-    });
-  });
-
-  it("ignores a double-click on a dish that has not been started", async () => {
-    const onSaveItemAction = await renderDialog([line()]);
-    const card = dishCard();
-
     fireEvent.click(card);
     fireEvent.doubleClick(card);
     settleClick();
 
     expect(onSaveItemAction).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("alertdialog", { name: "Reset dish status?" })
+    ).toBeInTheDocument();
   });
 
-  it("offers reset from the keyboard, which has no double-click", async () => {
+  it("confirms a reset requested from the named control", async () => {
+    const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
+    fireEvent.click(screen.getByRole("button", { name: /Reset status for/ }));
+    expect(onSaveItemAction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset dish status" }));
+
+    await waitFor(() =>
+      expect(onSaveItemAction).toHaveBeenCalledWith({
+        action: "reset-status",
+        eventId: boardEvent.id,
+        menuItemId: "item-1"
+      })
+    );
+  });
+
+  it("confirms before resetting a completed dish", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
 
-    fireEvent.keyDown(dishCard(), {
-      key: "Delete"
-    });
+    fireEvent.click(screen.getByRole("button", { name: /Reset status for/ }));
+    expect(onSaveItemAction).not.toHaveBeenCalled();
 
-    expect(onSaveItemAction).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "reset-status" })
+    fireEvent.click(screen.getByRole("button", { name: "Reset dish status" }));
+
+    await waitFor(() =>
+      expect(onSaveItemAction).toHaveBeenCalledWith(
+        expect.objectContaining({ action: "reset-status" })
+      )
     );
   });
 

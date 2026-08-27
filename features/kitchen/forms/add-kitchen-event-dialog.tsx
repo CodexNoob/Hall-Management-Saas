@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent
+} from "react";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
 
 export type AddKitchenEventFormValues = {
@@ -100,7 +107,8 @@ export function AddKitchenEventDialog({
   const drinkOptions = useMemo(
     () =>
       menuItems.filter((item) => {
-        const text = `${item.kind} ${item.category ?? ""} ${item.name}`.toLowerCase();
+        const text =
+          `${item.kind} ${item.category ?? ""} ${item.name}`.toLowerCase();
         return (
           item.kind.toLowerCase() === "drink" ||
           text.includes("drink") ||
@@ -112,7 +120,10 @@ export function AddKitchenEventDialog({
     [menuItems]
   );
   const foodOptions = useMemo(
-    () => menuItems.filter((item) => !drinkOptions.some((drink) => drink.id === item.id)),
+    () =>
+      menuItems.filter(
+        (item) => !drinkOptions.some((drink) => drink.id === item.id)
+      ),
     [drinkOptions, menuItems]
   );
 
@@ -156,7 +167,10 @@ export function AddKitchenEventDialog({
   }
 
   function updateValue(
-    field: keyof Pick<AddKitchenEventFormValues, "quickMenuName" | "portions" | "kitchenNote">,
+    field: keyof Pick<
+      AddKitchenEventFormValues,
+      "quickMenuName" | "portions" | "kitchenNote"
+    >,
     value: string
   ) {
     if (field === "portions") setPortionsError("");
@@ -172,7 +186,8 @@ export function AddKitchenEventDialog({
     const eventName = values.quickMenuName.trim();
     const normalizedValues: AddKitchenEventFormValues = {
       menuId: selectedTemplateId,
-      menuName: menus.find((menu) => menu.id === selectedTemplateId)?.name ?? "",
+      menuName:
+        menus.find((menu) => menu.id === selectedTemplateId)?.name ?? "",
       quickMenuName: selectedQuickItems.length > 0 ? eventName : "",
       quickMenuDishes: "",
       quickMenuItemIds: selectedQuickItems.map((item) => item.id),
@@ -239,7 +254,10 @@ export function AddKitchenEventDialog({
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-4">
           <div>
-            <h2 className="text-base font-black leading-none text-[#061126]" id={titleId}>
+            <h2
+              className="text-base font-black leading-none text-[#061126]"
+              id={titleId}
+            >
               Add Kitchen Event
             </h2>
             <p className="mt-2 text-sm font-bold text-[#1f4d73]">
@@ -266,7 +284,9 @@ export function AddKitchenEventDialog({
                 </label>
                 <input
                   ref={firstInputRef}
-                  aria-describedby={menuError ? `${eventNameId}-error` : undefined}
+                  aria-describedby={
+                    menuError ? `${eventNameId}-error` : undefined
+                  }
                   aria-invalid={menuError ? true : undefined}
                   className={`${inputClass} mt-2`}
                   id={eventNameId}
@@ -331,7 +351,9 @@ export function AddKitchenEventDialog({
                 onToggle={(item) => {
                   setMenuError("");
                   setSubmitError("");
-                  setSelectedMenuItemIds((current) => toggleInList(current, item));
+                  setSelectedMenuItemIds((current) =>
+                    toggleInList(current, item)
+                  );
                 }}
                 selectedItems={selectedMenuItemIds}
               />
@@ -342,7 +364,9 @@ export function AddKitchenEventDialog({
                 onToggle={(item) => {
                   setMenuError("");
                   setSubmitError("");
-                  setSelectedMenuItemIds((current) => toggleInList(current, item));
+                  setSelectedMenuItemIds((current) =>
+                    toggleInList(current, item)
+                  );
                 }}
                 selectedItems={selectedMenuItemIds}
               />
@@ -356,6 +380,7 @@ export function AddKitchenEventDialog({
                         <input
                           checked={selectedTemplateId === menu.id}
                           className="mt-0.5 h-3.5 w-3.5 border-[#9aa4b2]"
+                          name="kitchenMenuTemplate"
                           onChange={() => {
                             setMenuError("");
                             setSubmitError("");
@@ -450,17 +475,20 @@ function CheckboxList({
       <div
         className={`mt-2 grid gap-2 overflow-y-auto pr-1 text-sm font-bold text-[#111827] ${maxHeightClass}`}
       >
-        {items.length ? items.map((item) => (
-          <label key={item.id} className="flex items-start gap-2">
-            <input
-              checked={selectedItems.includes(item.id)}
-              className="mt-0.5 h-3.5 w-3.5 border-[#9aa4b2]"
-              onChange={() => onToggle(item.id)}
-              type="checkbox"
-            />
-            <span>{item.name}</span>
-          </label>
-        )) : (
+        {items.length ? (
+          items.map((item) => (
+            <label key={item.id} className="flex items-start gap-2">
+              <input
+                checked={selectedItems.includes(item.id)}
+                className="mt-0.5 h-3.5 w-3.5 border-[#9aa4b2]"
+                name={`kitchenMenuItem-${item.id}`}
+                onChange={() => onToggle(item.id)}
+                type="checkbox"
+              />
+              <span>{item.name}</span>
+            </label>
+          ))
+        ) : (
           <p className="text-xs font-bold text-[#6b7280]">
             No saved {label.toLowerCase()} yet.
           </p>

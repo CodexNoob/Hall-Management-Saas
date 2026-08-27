@@ -43,16 +43,15 @@ export const WHOLE_KITCHEN: KitchenVisibility = {
 
 type AssignableLine = {
   assignedWorkerId?: string | null;
+  kind?: "Dish" | "AddOn";
 };
 
 /**
  * The lines this caller may be sent.
  *
- * Add-on lines carry no assignment, so under "only what is assigned to me" they
- * belong to nobody and are withheld from a scoped caller. That is a product
- * choice rather than a technical one, and it keeps the sheet honest: a cook
- * shown two add-ons and none of the eight dishes around them would read that as
- * the whole job. One line to change if add-ons should always ride along.
+ * Add-ons carry no assignment or status row, but they are still part of what
+ * the kitchen must prepare. They therefore ride along for every rostered cook,
+ * while ordinary dishes remain restricted to the worker assigned to them.
  */
 export function visibleKitchenLines<Line extends AssignableLine>(
   lines: readonly Line[],
@@ -61,7 +60,10 @@ export function visibleKitchenLines<Line extends AssignableLine>(
   if (visibility.seesWholeBoard) return [...lines];
   if (!visibility.workerId) return [];
 
-  return lines.filter((line) => line.assignedWorkerId === visibility.workerId);
+  return lines.filter(
+    (line) =>
+      line.kind === "AddOn" || line.assignedWorkerId === visibility.workerId
+  );
 }
 
 /**
