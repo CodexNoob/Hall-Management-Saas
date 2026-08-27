@@ -37,6 +37,7 @@ import {
  */
 /** The key that makes someone assignable to a dish. */
 const WORKER_ELIGIBILITY_PERMISSION = "kitchen.status.update" as const;
+const STAFF_ADMIN_PERMISSION = "role.assign" as const;
 
 const createWorkerSchema = z.object({
   userId: z.string().uuid(),
@@ -67,15 +68,19 @@ export async function GET(request: Request) {
       })
     ]);
 
-    // Who can still be added: everyone who may advance production status and is
-    // not already on the list.
-    const eligiblePrincipalIds = await principalIdsHolding(
-      actor.organizationId,
-      WORKER_ELIGIBILITY_PERMISSION
-    );
+    // Who can still be added: production staff who are not access managers and
+    // are not already on the list. Owner has every permission, but that alone
+    // must not make the account an assignable cook.
+    const [eligiblePrincipalIds, accessAdminPrincipalIds] = await Promise.all([
+      principalIdsHolding(actor.organizationId, WORKER_ELIGIBILITY_PERMISSION),
+      principalIdsHolding(actor.organizationId, STAFF_ADMIN_PERMISSION)
+    ]);
+    const isEligibleWorker = (principalId: string) =>
+      eligiblePrincipalIds.has(principalId) &&
+      !accessAdminPrincipalIds.has(principalId);
     const eligibleUserIds = new Set(
       memberships
-        .filter((membership) => eligiblePrincipalIds.has(membership.principalId))
+        .filter((membership) => isEligibleWorker(membership.principalId))
         .map((membership) => membership.user.id)
     );
     const workers = workerRows.filter(
@@ -87,7 +92,7 @@ export async function GET(request: Request) {
     const availableStaff = memberships
       .filter(
         (membership) =>
-          eligiblePrincipalIds.has(membership.principalId) &&
+          isEligibleWorker(membership.principalId) &&
           !existingUserIds.has(membership.user.id)
       )
       .map((membership) => ({
@@ -131,16 +136,19 @@ export async function POST(request: Request) {
 
     // The eligibility rule is enforced server-side rather than trusted from
     // whatever the dropdown happened to offer.
-    const eligiblePrincipalIds = await principalIdsHolding(
-      actor.organizationId,
-      WORKER_ELIGIBILITY_PERMISSION
-    );
+    const [eligiblePrincipalIds, accessAdminPrincipalIds] = await Promise.all([
+      principalIdsHolding(actor.organizationId, WORKER_ELIGIBILITY_PERMISSION),
+      principalIdsHolding(actor.organizationId, STAFF_ADMIN_PERMISSION)
+    ]);
 
-    if (!eligiblePrincipalIds.has(membership.principalId)) {
+    if (
+      !eligiblePrincipalIds.has(membership.principalId) ||
+      accessAdminPrincipalIds.has(membership.principalId)
+    ) {
       return NextResponse.json(
         {
           error:
-            "Only staff who can update kitchen production status can be added as kitchen workers."
+            "Only production staff who do not manage organization access can be added as kitchen workers."
         },
         { status: 409 }
       );

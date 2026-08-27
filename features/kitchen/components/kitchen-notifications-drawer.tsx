@@ -16,6 +16,7 @@ const filters: Array<{
 ];
 
 type KitchenNotificationsDrawerProps = {
+  acknowledgmentError?: string | null;
   open: boolean;
   onClose: () => void;
   notifications: KitchenNotification[];
@@ -24,6 +25,7 @@ type KitchenNotificationsDrawerProps = {
 };
 
 export function KitchenNotificationsDrawer({
+  acknowledgmentError = null,
   acknowledgingId = null,
   notifications,
   open,
@@ -105,27 +107,36 @@ export function KitchenNotificationsDrawer({
           </div>
 
           <div className="flex items-center gap-2">
-          {filters.map((item) => (
-            <button
-              key={item.id}
-              className={`h-8 border px-3 text-xs font-black ${
-                filter === item.id
-                  ? "border-[#061126] bg-[#061126] text-white"
-                  : "border-[#cbd5e1] bg-[#f8fafc] text-[#475569] hover:bg-[#eef2f7]"
-              }`}
-              onClick={() => setFilter(item.id)}
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
-          <p className="ml-auto text-xs font-black text-[#9aa4b2]">
-            {notifications.length} records
-          </p>
+            {filters.map((item) => (
+              <button
+                key={item.id}
+                className={`h-8 border px-3 text-xs font-black ${
+                  filter === item.id
+                    ? "border-[#061126] bg-[#061126] text-white"
+                    : "border-[#cbd5e1] bg-[#f8fafc] text-[#475569] hover:bg-[#eef2f7]"
+                }`}
+                onClick={() => setFilter(item.id)}
+                type="button"
+              >
+                {item.label}
+              </button>
+            ))}
+            <p className="ml-auto text-xs font-black text-[#9aa4b2]">
+              {notifications.length} records
+            </p>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+          {acknowledgmentError ? (
+            <p
+              className="mb-3 border border-[#f0b9b4] bg-[#fff5f4] px-3 py-2 text-sm font-bold text-[#b42318]"
+              role="alert"
+            >
+              {acknowledgmentError}
+            </p>
+          ) : null}
+
           {visibleNotifications.length ? (
             <div className="grid gap-3">
               {visibleNotifications.map((notification) => (
@@ -232,7 +243,7 @@ function NotificationCard({
         </p>
       ) : null}
 
-      {(notification.acknowledgedBy || notification.emailSent) ? (
+      {notification.acknowledgedBy || notification.emailSent ? (
         <div className="sr-only">
           {notification.acknowledgedBy ? (
             <>
@@ -269,14 +280,14 @@ function NotificationCard({
         </button>
 
         {!notification.acknowledged ? (
-        <button
-          className="h-10 flex-1 border border-[#061126] bg-[#061126] px-4 text-xs font-black text-white hover:bg-[#16243a] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
-          disabled={acknowledging}
-          onClick={() => void onAcknowledge(notification.id)}
-          type="button"
-        >
-          {acknowledging ? "Saving acknowledgment..." : "Acknowledge now"}
-        </button>
+          <button
+            className="h-10 flex-1 border border-[#061126] bg-[#061126] px-4 text-xs font-black text-white hover:bg-[#16243a] disabled:cursor-wait disabled:opacity-60 sm:flex-none"
+            disabled={acknowledging}
+            onClick={() => void onAcknowledge(notification.id)}
+            type="button"
+          >
+            {acknowledging ? "Saving acknowledgment..." : "Acknowledge now"}
+          </button>
         ) : null}
       </div>
     </article>

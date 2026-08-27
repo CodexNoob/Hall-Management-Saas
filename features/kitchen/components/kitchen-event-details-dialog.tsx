@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AsyncState } from "@/components/ui/async-state";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import {
   type EventKitchenLine,
@@ -176,15 +177,14 @@ function WorkflowStep({
   }[tone];
 
   return (
-    <div className={`flex min-w-0 items-center justify-between border px-3 py-2 ${toneClass}`}>
+    <div
+      className={`flex min-w-0 items-center justify-between border px-3 py-2 ${toneClass}`}
+    >
       <span className="truncate text-xs font-black">{label}</span>
       <span className="ml-3 text-sm font-black">{value}</span>
     </div>
   );
 }
-
-/** How long to wait for a second click before treating the first as a single. */
-const DOUBLE_CLICK_GRACE_MS = 220;
 
 const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
   COMPLETE: "border-[#a5d5bd] bg-[#f2fbf6]",
@@ -192,19 +192,16 @@ const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
   NONE: "border-[#d8dde5] bg-white"
 };
 
+/** Wait briefly so the clicks preceding a double-click do not advance status. */
+const DOUBLE_CLICK_GRACE_MS = 220;
+
 /**
  * One dish, as a card the kitchen taps.
  *
- * The card *is* the control: a click moves the dish on - nothing, then pending,
- * then complete - and a double-click puts it back to nothing. That is the
- * interaction the kitchen was specified to have, and it is the right one for the
- * room: the person using this is usually holding a tray, and asking them to find
- * a named button on the correct row is asking for the wrong row.
- *
- * A double-click delivers two `click` events before its `dblclick`, so a single
- * click is held for `DOUBLE_CLICK_GRACE_MS` and cancelled if the second arrives.
- * Without that, a reset would first fire two status writes and land wherever the
- * race left it.
+ * The card *is* the forward control: a click moves the dish from nothing, to
+ * pending, to complete. A double-click requests a reset, but never writes it
+ * until the worker confirms. The named reset action provides the same flow for
+ * touch and keyboard users.
  *
  * Assignment stays a `<select>`, beneath the card body rather than inside it: a
  * control nested in a button is both invalid markup and a second meaning for the
@@ -229,6 +226,7 @@ function DishCard({
   canReplace?: boolean;
   workers: KitchenResponse["workers"];
 }) {
+  const [confirmingReset, setConfirmingReset] = useState(false);
   const pendingClick = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
@@ -261,15 +259,17 @@ function DishCard({
     });
   }
 
-  function reset() {
+  async function reset() {
     if (!menuItemId || !line.status) return;
+    await onSaveItemAction({ action: "reset-status", menuItemId });
+  }
 
-    void onSaveItemAction({ action: "reset-status", menuItemId });
+  function requestReset() {
+    if (!line.status) return;
+    setConfirmingReset(true);
   }
 
   function handleClick() {
-    // Already waiting on the first click of this pair - the dblclick handler
-    // will clear it.
     if (pendingClick.current) return;
 
     pendingClick.current = setTimeout(() => {
@@ -284,7 +284,7 @@ function DishCard({
       pendingClick.current = null;
     }
 
-    reset();
+    requestReset();
   }
 
   const body = (
@@ -354,19 +354,11 @@ function DishCard({
     <article className="flex min-w-0 flex-col">
       {canTick ? (
         <button
-          aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to reset.`}
+          aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to request a reset.`}
           className={`flex min-h-34 flex-1 flex-col rounded-xl border p-3 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
           disabled={isSaving}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
-          // Double-click has no keyboard equivalent, and reset would otherwise
-          // be reachable by mouse only.
-          onKeyDown={(keyEvent) => {
-            if (keyEvent.key === "Delete" || keyEvent.key === "Backspace") {
-              keyEvent.preventDefault();
-              reset();
-            }
-          }}
           type="button"
         >
           {body}
@@ -392,6 +384,7 @@ function DishCard({
               <select
                 className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50"
                 disabled={isSaving}
+                name={`assignedWorker-${menuItemId}`}
                 onChange={(changeEvent) =>
                   void onSaveItemAction({
                     action: "assign-worker",
@@ -411,6 +404,18 @@ function DishCard({
             </label>
           ) : null}
 
+          {permissions.canUpdateKitchenStatus && line.status ? (
+            <button
+              aria-label={`Reset status for ${line.name}`}
+              className="h-9 w-full rounded-lg border border-[#e5c894] bg-[#fffaf1] px-2 text-xs font-black text-[#80500c] transition hover:border-[#c98b2e] hover:bg-[#fff4db] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={isSaving}
+              onClick={requestReset}
+              type="button"
+            >
+              Reset status
+            </button>
+          ) : null}
+
           {permissions.canUpdateKitchenStatus && canReplace ? (
             <button
               aria-label={`Replace ${line.name}`}
@@ -424,6 +429,20 @@ function DishCard({
           ) : null}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        confirmLabel="Reset dish status"
+        description={`Reset “${line.name}” from ${statusLabel(line.status)} to Not started? This removes its recorded progress.`}
+        fallbackErrorMessage="The dish status could not be reset. Please try again."
+        onClose={() => setConfirmingReset(false)}
+        onConfirm={async () => {
+          await reset();
+          setConfirmingReset(false);
+        }}
+        open={confirmingReset}
+        pendingLabel="Resetting…"
+        title="Reset dish status?"
+      />
     </article>
   );
 }
@@ -444,7 +463,9 @@ function KitchenEventDetails({
     `/api/events/${event.id}/kitchen`,
     hasSheet && !isStandalone
   );
-  const sheet = isStandalone ? (event.sheet ?? null) : (kitchenQuery.data?.kitchen ?? null);
+  const sheet = isStandalone
+    ? (event.sheet ?? null)
+    : (kitchenQuery.data?.kitchen ?? null);
   const hold = event.statusType === "hold";
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(
@@ -587,6 +608,12 @@ function KitchenEventDetails({
                 hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
               }`}
             >
+              {event.past ? <span>Past event</span> : null}
+              {event.past ? (
+                <span className="text-white/70" aria-hidden="true">
+                  •
+                </span>
+              ) : null}
               <span>
                 {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
               </span>
@@ -737,9 +764,8 @@ function KitchenEventDetails({
                           Worker ownership
                         </h3>
                         <p className="mt-1 text-xs text-[#64748b]">
-                          {assignedToMeCount} assigned to me ·{" "}
-                          {unassignedCount} unassigned · {allDishes.length}{" "}
-                          total dishes
+                          {assignedToMeCount} assigned to me · {unassignedCount}{" "}
+                          unassigned · {allDishes.length} total dishes
                         </p>
                       </div>
                       <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">

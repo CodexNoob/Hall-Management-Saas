@@ -18,7 +18,7 @@ vi.mock("@/features/kitchen/server/kitchen-dish-replacement", () => ({
 // Reconciling Kitchen Staff into the worker list is its own module with its own
 // suite. The board only has to reach it and render what it answers.
 vi.mock("@/features/kitchen/server/kitchen-staff-workers", () => ({
-  syncKitchenStaffWorkers: vi.fn()
+  loadKitchenStaffWorkers: vi.fn()
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -67,7 +67,7 @@ vi.mock("@/lib/prisma", () => ({
 
 import { GET, PATCH } from "@/app/api/kitchen/route";
 import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
-import { syncKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
+import { loadKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
 import { assertInScope, authorize, hasPermission } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { authzContext, hallScopedContext } from "./authz-test-helpers";
@@ -219,7 +219,7 @@ describe("kitchen dashboard route", () => {
     vi.mocked(prisma.event.findMany).mockResolvedValue([] as never);
     mockMenus();
     vi.mocked(prisma.kitchenItemStatus.findMany).mockResolvedValue([] as never);
-    vi.mocked(syncKitchenStaffWorkers).mockResolvedValue([]);
+    vi.mocked(loadKitchenStaffWorkers).mockResolvedValue([]);
     vi.mocked(prisma.kitchenWorker.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenWorker.createMany).mockResolvedValue({
       count: 0
@@ -285,6 +285,17 @@ describe("kitchen dashboard route", () => {
     expect(filter.eventDate.lt.getTime() - filter.eventDate.gte.getTime()).toBe(
       28 * 24 * 60 * 60 * 1000
     );
+  });
+
+  it("loads a requested historical window for previous navigation", async () => {
+    await GET(new Request("http://localhost/api/kitchen?start=2026-07-01"));
+
+    const filter = eventQueryFilter() as {
+      eventDate: { gte: Date; lt: Date };
+    };
+
+    expect(filter.eventDate.gte.toISOString()).toBe("2026-07-01T00:00:00.000Z");
+    expect(filter.eventDate.lt.toISOString()).toBe("2026-07-29T00:00:00.000Z");
   });
 
   describe("hall scoping", () => {
@@ -408,7 +419,7 @@ describe("kitchen dashboard route", () => {
           }
         ]
       });
-      vi.mocked(syncKitchenStaffWorkers).mockResolvedValue([
+      vi.mocked(loadKitchenStaffWorkers).mockResolvedValue([
         {
           id: workerId,
           name: "Test Actor",
@@ -571,7 +582,8 @@ describe("kitchen dashboard route", () => {
     it("records the status when the booking is confirmed", async () => {
       vi.mocked(prisma.event.findFirst).mockResolvedValue({
         id: eventId,
-        hallId
+        hallId,
+        eventDate: new Date("2099-08-20T00:00:00.000Z")
       } as never);
       vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
         id: menuItemId,
@@ -589,11 +601,31 @@ describe("kitchen dashboard route", () => {
       expect(prisma.kitchenItemStatus.upsert).toHaveBeenCalledTimes(1);
     });
 
+    it("keeps a past event read-only", async () => {
+      vi.mocked(prisma.event.findFirst).mockResolvedValue({
+        id: eventId,
+        hallId,
+        eventDate: new Date("2020-08-20T00:00:00.000Z")
+      } as never);
+      vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
+        id: menuItemId,
+        name: "Potato kugel"
+      } as never);
+
+      const response = await PATCH(
+        request({ action: "status", eventId, menuItemId, status: "COMPLETE" })
+      );
+
+      expect(response.status).toBe(409);
+      expect(prisma.kitchenItemStatus.upsert).not.toHaveBeenCalled();
+    });
+
     describe("assigning a worker", () => {
       beforeEach(() => {
         vi.mocked(prisma.event.findFirst).mockResolvedValue({
           id: eventId,
-          hallId
+          hallId,
+          eventDate: new Date("2099-08-20T00:00:00.000Z")
         } as never);
         vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
           id: menuItemId,
@@ -698,7 +730,8 @@ describe("kitchen dashboard route", () => {
       // takes to write against a hall this member cannot see.
       vi.mocked(prisma.event.findFirst).mockResolvedValue({
         id: eventId,
-        hallId
+        hallId,
+        eventDate: new Date("2099-08-20T00:00:00.000Z")
       } as never);
       vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
         id: menuItemId,
@@ -734,7 +767,8 @@ describe("kitchen dashboard route", () => {
       beforeEach(() => {
         vi.mocked(prisma.event.findFirst).mockResolvedValue({
           id: eventId,
-          hallId
+          hallId,
+          eventDate: new Date("2099-08-20T00:00:00.000Z")
         } as never);
         vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
           id: menuItemId,
@@ -841,8 +875,8 @@ describe("kitchen dashboard route", () => {
 
       it("refuses the swap without permission to update kitchen status", async () => {
         // Assigning workers is a different job from deciding what is cooked.
-        vi.mocked(hasPermission).mockImplementation(async (_context, key) =>
-          key !== "kitchen.status.update"
+        vi.mocked(hasPermission).mockImplementation(
+          async (_context, key) => key !== "kitchen.status.update"
         );
 
         const response = await PATCH(

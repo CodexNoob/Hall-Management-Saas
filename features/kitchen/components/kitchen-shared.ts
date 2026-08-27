@@ -18,6 +18,8 @@ export type KitchenView = "today" | "week" | "four-weeks";
  */
 export type KitchenEvent = {
   id: string;
+  dateKey?: string;
+  past?: boolean;
   source?: "booking" | "standalone";
   category: string;
   title: string;
@@ -46,6 +48,7 @@ export type KitchenDay = {
   shabbos?: boolean;
   selected?: boolean;
   today?: boolean;
+  past?: boolean;
   events?: KitchenEvent[];
 };
 

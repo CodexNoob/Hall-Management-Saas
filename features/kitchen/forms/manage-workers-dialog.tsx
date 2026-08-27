@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { AsyncState } from "@/components/ui/async-state";
 import {
   invalidateAuthenticatedQuery,
+  invalidateAuthenticatedQueryPrefix,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { readApiError } from "@/lib/http/api-request-error";
@@ -135,7 +136,7 @@ export function ManageWorkersDialog({
       if (!response.ok) throw await readApiError(response);
 
       invalidateAuthenticatedQuery(WORKERS_URL);
-      invalidateAuthenticatedQuery("/api/kitchen");
+      invalidateAuthenticatedQueryPrefix("/api/kitchen?");
       await workersQuery.refetch();
       return true;
     } catch (writeError) {
@@ -217,77 +218,75 @@ export function ManageWorkersDialog({
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {canManage ? (
             availableStaff.length > 0 ? (
-            <form className="mb-4" onSubmit={addWorker}>
-              <label htmlFor={nameId}>
-                <span className="block text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
-                  Add Kitchen Staff member
-                </span>
-              </label>
-              {/* Chosen from staff rather than typed. A typed name produced a
+              <form className="mb-4" onSubmit={addWorker}>
+                <label htmlFor={nameId}>
+                  <span className="block text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
+                    Add Kitchen Staff member
+                  </span>
+                </label>
+                {/* Chosen from staff rather than typed. A typed name produced a
                   row with no link to any account, so the same person could
                   end up on the list twice with neither row aware of the
                   other. */}
-              <div className="mt-1 flex gap-2">
-                <select
-                  ref={nameInputRef}
-                  aria-label="Add Kitchen Staff member"
-                  className={inputClass}
-                  id={nameId}
-                  name="workerUserId"
-                  onChange={(event) => setSelectedUserId(event.target.value)}
-                  value={selectedUserId}
-                >
-                  <option value="">
-                    Select a staff member
-                  </option>
-                  {availableStaff.map((staff) => (
-                    <option key={staff.id} value={staff.id}>
-                      {staff.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="h-10 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={isSaving || !selectedUserId}
-                  type="submit"
-                >
-                  Add
-                </button>
-              </div>
-
-              <fieldset className="mt-2 flex items-center gap-2">
-                <legend className="sr-only">Colour</legend>
-                {COLOR_CHOICES.map((choice) => (
-                  <label
-                    className="cursor-pointer"
-                    key={choice}
-                    title={`Use ${choice}`}
+                <div className="mt-1 flex gap-2">
+                  <select
+                    ref={nameInputRef}
+                    aria-label="Add Kitchen Staff member"
+                    className={inputClass}
+                    id={nameId}
+                    name="workerUserId"
+                    onChange={(event) => setSelectedUserId(event.target.value)}
+                    value={selectedUserId}
                   >
-                    <input
-                      checked={color === choice}
-                      className="peer sr-only"
-                      name="workerColor"
-                      onChange={() => setColor(choice)}
-                      type="radio"
-                      value={choice}
-                    />
-                    <span
-                      className="block h-7 w-7 rounded-full border-2 border-transparent ring-offset-2 peer-checked:border-white peer-checked:ring-2 peer-checked:ring-[#1f4d73] peer-focus-visible:ring-2 peer-focus-visible:ring-[#1f4d73]"
-                      style={{ backgroundColor: choice }}
-                    />
-                    <span className="sr-only">{choice}</span>
-                  </label>
-                ))}
-              </fieldset>
-            </form>
+                    <option value="">Select a staff member</option>
+                    {availableStaff.map((staff) => (
+                      <option key={staff.id} value={staff.id}>
+                        {staff.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    className="h-10 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={isSaving || !selectedUserId}
+                    type="submit"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                <fieldset className="mt-2 flex items-center gap-2">
+                  <legend className="sr-only">Colour</legend>
+                  {COLOR_CHOICES.map((choice) => (
+                    <label
+                      className="cursor-pointer"
+                      key={choice}
+                      title={`Use ${choice}`}
+                    >
+                      <input
+                        checked={color === choice}
+                        className="peer sr-only"
+                        name="workerColor"
+                        onChange={() => setColor(choice)}
+                        type="radio"
+                        value={choice}
+                      />
+                      <span
+                        className="block h-7 w-7 rounded-full border-2 border-transparent ring-offset-2 peer-checked:border-white peer-checked:ring-2 peer-checked:ring-[#1f4d73] peer-focus-visible:ring-2 peer-focus-visible:ring-[#1f4d73]"
+                        style={{ backgroundColor: choice }}
+                      />
+                      <span className="sr-only">{choice}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              </form>
             ) : (
               <div className="mb-4 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
                 <p className="text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
-                  Kitchen Staff are listed automatically
+                  Kitchen worker roster is up to date
                 </p>
                 <p className="mt-1 text-sm font-medium text-[#64748b]">
-                  Everyone with the Kitchen Staff role is already available on
-                  this board. Add or change staff roles from the Staff page.
+                  Everyone currently designated as a kitchen worker is already
+                  on this board. Change production access from the Staff page.
                 </p>
               </div>
             )
@@ -332,6 +331,7 @@ export function ManageWorkersDialog({
                         <input
                           aria-label={`Rename ${worker.name}`}
                           className={`${inputClass} min-w-40 flex-1`}
+                          name={`workerName-${worker.id}`}
                           onChange={(event) =>
                             setEditingName(event.target.value)
                           }

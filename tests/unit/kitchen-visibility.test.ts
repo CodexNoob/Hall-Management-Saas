@@ -25,21 +25,23 @@ const OTHER_COOK: KitchenVisibility = {
 const STRANGER: KitchenVisibility = { seesWholeBoard: false, workerId: null };
 
 const LINES = [
-  { id: "a", assignedWorkerId: "worker-1" },
-  { id: "b", assignedWorkerId: "worker-2" },
-  { id: "c", assignedWorkerId: null },
-  { id: "d", assignedWorkerId: "worker-1" }
+  { id: "a", kind: "Dish" as const, assignedWorkerId: "worker-1" },
+  { id: "b", kind: "Dish" as const, assignedWorkerId: "worker-2" },
+  { id: "c", kind: "Dish" as const, assignedWorkerId: null },
+  { id: "d", kind: "Dish" as const, assignedWorkerId: "worker-1" },
+  { id: "addon", kind: "AddOn" as const, assignedWorkerId: null }
 ];
 
 describe("visibleKitchenLines", () => {
   it("sends the whole sheet to a caller who holds kitchen.read.all", () => {
-    expect(visibleKitchenLines(LINES, WHOLE_KITCHEN)).toHaveLength(4);
+    expect(visibleKitchenLines(LINES, WHOLE_KITCHEN)).toHaveLength(5);
   });
 
   it("sends a scoped cook only their own dishes", () => {
     expect(visibleKitchenLines(LINES, COOK).map((line) => line.id)).toEqual([
       "a",
-      "d"
+      "d",
+      "addon"
     ]);
   });
 
@@ -55,6 +57,12 @@ describe("visibleKitchenLines", () => {
     expect(ids).not.toContain("c");
   });
 
+  it("shows add-ons to a rostered cook even though they cannot be assigned", () => {
+    const ids = visibleKitchenLines(LINES, COOK).map((line) => line.id);
+
+    expect(ids).toContain("addon");
+  });
+
   it("sends nothing to a scoped caller who is on no roster", () => {
     // Fails closed. The alternative - treating "no worker row" as "no filter" -
     // is how a restriction becomes a no-op for exactly the accounts nobody
@@ -65,18 +73,19 @@ describe("visibleKitchenLines", () => {
   it("gives each cook a different sheet from the same lines", () => {
     expect(visibleKitchenLines(LINES, COOK).map((line) => line.id)).toEqual([
       "a",
-      "d"
+      "d",
+      "addon"
     ]);
     expect(
       visibleKitchenLines(LINES, OTHER_COOK).map((line) => line.id)
-    ).toEqual(["b"]);
+    ).toEqual(["b", "addon"]);
   });
 
   it("copies rather than aliases, so a caller cannot mutate the source", () => {
     const visible = visibleKitchenLines(LINES, WHOLE_KITCHEN);
     visible.pop();
 
-    expect(LINES).toHaveLength(4);
+    expect(LINES).toHaveLength(5);
   });
 });
 

@@ -38,7 +38,7 @@ import {
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { listKitchenNotifications } from "@/features/kitchen/server/kitchen-notifications";
-import { syncKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
+import { loadKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
 
 /**
  * The one booking state the kitchen cooks for.
@@ -53,6 +53,10 @@ const CONFIRMED_STATUS = "CONFIRMED";
  * How far ahead the board plans, in days.
  */
 const WINDOW_DAYS = 28;
+const kitchenRangeSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid range start.")
+  .optional();
 
 /**
  * Progress, who is on a dish, and swapping one dish for another.
@@ -123,33 +127,33 @@ const kitchenActionSchema = z.union([
   standaloneKitchenMutationSchema
 ]);
 
-const kitchenStandaloneEventSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date."),
-  menuId: z.string().uuid().optional(),
-  quickMenu: z
-    .object({
-      name: z.string().trim().min(1).max(200),
-      dishNames: z
-        .array(z.string().trim().min(1).max(200))
-        .default([]),
-      menuItemIds: z.array(z.string().uuid()).default([]),
-      saveToLibrary: z.boolean().default(false)
-    })
-    .refine(
-      (quickMenu) =>
-        quickMenu.dishNames.length > 0 || quickMenu.menuItemIds.length > 0,
-      "Add at least one dish."
-    )
-    .optional(),
-  portions: z.coerce
-    .number()
-    .int("Portions must be a whole number.")
-    .min(1, "Portions must be at least 1."),
-  kitchenNote: z.string().trim().max(2000).optional()
-}).refine((input) => Boolean(input.menuId) !== Boolean(input.quickMenu), {
-  message: "Choose an existing menu or create a new one.",
-  path: ["menuId"]
-});
+const kitchenStandaloneEventSchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid date."),
+    menuId: z.string().uuid().optional(),
+    quickMenu: z
+      .object({
+        name: z.string().trim().min(1).max(200),
+        dishNames: z.array(z.string().trim().min(1).max(200)).default([]),
+        menuItemIds: z.array(z.string().uuid()).default([]),
+        saveToLibrary: z.boolean().default(false)
+      })
+      .refine(
+        (quickMenu) =>
+          quickMenu.dishNames.length > 0 || quickMenu.menuItemIds.length > 0,
+        "Add at least one dish."
+      )
+      .optional(),
+    portions: z.coerce
+      .number()
+      .int("Portions must be a whole number.")
+      .min(1, "Portions must be at least 1."),
+    kitchenNote: z.string().trim().max(2000).optional()
+  })
+  .refine((input) => Boolean(input.menuId) !== Boolean(input.quickMenu), {
+    message: "Choose an existing menu or create a new one.",
+    path: ["menuId"]
+  });
 
 type StandaloneStatusRow = {
   menuItemId: string;
@@ -209,64 +213,69 @@ function buildStandaloneKitchenSheet({
     statuses.map((itemStatus) => [itemStatus.menuItemId, itemStatus])
   );
 
-  const allLines: EventKitchenLine[] = menuItemIds.flatMap((menuItemId, index) => {
-    const menuItem = menuItemsById.get(menuItemId);
-    if (!menuItem) return [];
+  const allLines: EventKitchenLine[] = menuItemIds.flatMap(
+    (menuItemId, index) => {
+      const menuItem = menuItemsById.get(menuItemId);
+      if (!menuItem) return [];
 
-    const services = menuItem.services;
-    const rules = readServiceRules(
-      services.map((service) => ({
-        ...service,
-        quantity: Number(service.quantity)
-      }))
-    );
-    const availableStyles = [
-      ...new Set(services.map((service) => service.serviceStyle))
-    ];
-    const style = SERVICE_STYLES.find((candidate) =>
-      availableStyles.includes(candidate)
-    ) ?? null;
-    const result = style ? calculateStyleQuantity(rules, style, counts) : null;
-    const itemStatus = statusByMenuItemId.get(menuItem.id);
+      const services = menuItem.services;
+      const rules = readServiceRules(
+        services.map((service) => ({
+          ...service,
+          quantity: Number(service.quantity)
+        }))
+      );
+      const availableStyles = [
+        ...new Set(services.map((service) => service.serviceStyle))
+      ];
+      const style =
+        SERVICE_STYLES.find((candidate) =>
+          availableStyles.includes(candidate)
+        ) ?? null;
+      const result = style
+        ? calculateStyleQuantity(rules, style, counts)
+        : null;
+      const itemStatus = statusByMenuItemId.get(menuItem.id);
 
-    return [
-      {
-        id: `${menuItem.id}:${index}`,
-        menuItemId: menuItem.id,
-        addOnId: null,
-        kind: "Dish" as const,
-        name: menuItem.name,
-        pictureUrl: null,
-        serviceStyle: style,
-        availableStyles,
-        notes: null,
-        sortOrder: index,
-        isRetired: !menuItem.isActive,
-        quantities: (result?.quantities ?? []).map((quantity) => ({
-          unit: quantity.unit,
-          units: quantity.units,
-          raw: quantity.raw
-        })),
-        unresolvedBases: result?.unresolved ?? [],
-        countState:
-          result && result.quantities.length > 0
-            ? ("Counted" as const)
-            : result && result.unresolved.length > 0
-              ? ("Unresolved" as const)
-              : !style && availableStyles.length > 0
-                ? ("NeedsStyle" as const)
-                : ("NoRule" as const),
-        status:
-          itemStatus?.status == null
-            ? null
-            : itemStatus.status === "COMPLETE"
-              ? ("COMPLETE" as const)
-              : ("PENDING" as const),
-        assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
-        assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
-      }
-    ];
-  });
+      return [
+        {
+          id: `${menuItem.id}:${index}`,
+          menuItemId: menuItem.id,
+          addOnId: null,
+          kind: "Dish" as const,
+          name: menuItem.name,
+          pictureUrl: null,
+          serviceStyle: style,
+          availableStyles,
+          notes: null,
+          sortOrder: index,
+          isRetired: !menuItem.isActive,
+          quantities: (result?.quantities ?? []).map((quantity) => ({
+            unit: quantity.unit,
+            units: quantity.units,
+            raw: quantity.raw
+          })),
+          unresolvedBases: result?.unresolved ?? [],
+          countState:
+            result && result.quantities.length > 0
+              ? ("Counted" as const)
+              : result && result.unresolved.length > 0
+                ? ("Unresolved" as const)
+                : !style && availableStyles.length > 0
+                  ? ("NeedsStyle" as const)
+                  : ("NoRule" as const),
+          status:
+            itemStatus?.status == null
+              ? null
+              : itemStatus.status === "COMPLETE"
+                ? ("COMPLETE" as const)
+                : ("PENDING" as const),
+          assignedWorkerId: itemStatus?.assignedWorkerId ?? null,
+          assignedWorkerName: itemStatus?.assignedWorker?.name ?? null
+        }
+      ];
+    }
+  );
 
   const lines = visibleKitchenLines(allLines, visibility);
 
@@ -316,63 +325,68 @@ const boardEventSelect = {
   hall: { select: { name: true } }
 } satisfies Prisma.EventSelect;
 
-
 export async function GET(request: Request) {
   try {
     const actor = await authorize(request, "kitchen.read");
-    const start = new Date();
-    start.setUTCHours(0, 0, 0, 0);
+    const requestedStart = kitchenRangeSchema.parse(
+      new URL(request.url).searchParams.get("start") ?? undefined
+    );
+    const start = requestedStart
+      ? new Date(`${requestedStart}T00:00:00.000Z`)
+      : new Date();
+    if (!requestedStart) start.setUTCHours(0, 0, 0, 0);
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-    const [events, standaloneEvents, workers, notifications] = await Promise.all([
-      prisma.event.findMany({
-        where: {
-          organizationId: actor.organizationId,
-          deleted: false,
-          // Only the events the hall is committed to. Without this the board
-          // listed inquiries, expired holds and cancelled bookings beside real
-          // work, so a kitchen reading today's list could not tell what it was
-          // actually cooking.
-          //
-          // `bookingStatus`, not `eventStatus`: the lifecycle in
-          // `booking.service.ts` is the only writer of this column, while
-          // `eventStatus` is a display label PATCH /api/events/[eventId] still
-          // accepts as "Confirmed" or "Hold" - so a caller sending it for a
-          // cancelled event would relabel it and put it back on this board.
-          bookingStatus: CONFIRMED_STATUS,
-          eventDate: { gte: start, lt: end },
-          // A kitchen lead restricted to one hall was still served every hall's
-          // production, because this query only ever scoped by organization.
-          ...scoped(actor, "hall")
-        },
-        select: boardEventSelect,
-        orderBy: { eventDate: "asc" }
-      }),
-      prisma.kitchenStandaloneEvent.findMany({
-        where: {
-          organizationId: actor.organizationId,
-          eventDate: { gte: start, lt: end }
-        },
-        select: {
-          id: true,
-          menuId: true,
-          menuName: true,
-          eventDate: true,
-          portions: true,
-          kitchenNote: true,
-          menu: { select: { includedMenuItemIds: true } }
-        },
-        orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
-      }),
-      syncKitchenStaffWorkers(actor.organizationId),
-      listKitchenNotifications(actor.organizationId)
-    ]);
+    const [events, standaloneEvents, workers, notifications] =
+      await Promise.all([
+        prisma.event.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            deleted: false,
+            // Only the events the hall is committed to. Without this the board
+            // listed inquiries, expired holds and cancelled bookings beside real
+            // work, so a kitchen reading today's list could not tell what it was
+            // actually cooking.
+            //
+            // `bookingStatus`, not `eventStatus`: the lifecycle in
+            // `booking.service.ts` is the only writer of this column, while
+            // `eventStatus` is a display label PATCH /api/events/[eventId] still
+            // accepts as "Confirmed" or "Hold" - so a caller sending it for a
+            // cancelled event would relabel it and put it back on this board.
+            bookingStatus: CONFIRMED_STATUS,
+            eventDate: { gte: start, lt: end },
+            // A kitchen lead restricted to one hall was still served every hall's
+            // production, because this query only ever scoped by organization.
+            ...scoped(actor, "hall")
+          },
+          select: boardEventSelect,
+          orderBy: { eventDate: "asc" }
+        }),
+        prisma.kitchenStandaloneEvent.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            eventDate: { gte: start, lt: end }
+          },
+          select: {
+            id: true,
+            menuId: true,
+            menuName: true,
+            eventDate: true,
+            portions: true,
+            kitchenNote: true,
+            menu: { select: { includedMenuItemIds: true } }
+          },
+          orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
+        }),
+        loadKitchenStaffWorkers(actor.organizationId),
+        listKitchenNotifications(actor.organizationId)
+      ]);
     const currentWorkerId =
       workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
 
     // How much of the kitchen this caller may be sent. Resolved after
-    // `syncKitchenStaffWorkers` above, which is what creates the roster row for
+    // `loadKitchenStaffWorkers` above, which returns the roster row for
     // somebody who was given the Kitchen Staff role but never added by hand -
     // asking first would scope a cook to a worker record that did not exist yet
     // and hand them an empty board on their first visit.
@@ -394,8 +408,7 @@ export async function GET(request: Request) {
       statuses,
       standaloneMenuItems,
       standaloneStatuses
-    ] =
-      await Promise.all([
+    ] = await Promise.all([
       prisma.eventMenu.findMany({
         where: {
           eventId: { in: eventIds },
@@ -472,7 +485,10 @@ export async function GET(request: Request) {
     const standaloneMenuItemsById = new Map(
       standaloneMenuItems.map((menuItem) => [menuItem.id, menuItem])
     );
-    const standaloneStatusesByEventId = new Map<string, StandaloneStatusRow[]>();
+    const standaloneStatusesByEventId = new Map<
+      string,
+      StandaloneStatusRow[]
+    >();
 
     for (const itemStatus of standaloneStatuses) {
       const current =
@@ -639,6 +655,14 @@ export async function POST(request: Request) {
   try {
     const actor = await authorize(request, "kitchen.event.create");
     const input = kitchenStandaloneEventSchema.parse(await request.json());
+    const todayKey = new Date().toISOString().slice(0, 10);
+
+    if (input.date < todayKey) {
+      return NextResponse.json(
+        { error: "Kitchen events cannot be created in the past." },
+        { status: 409 }
+      );
+    }
 
     const eventDate = new Date(`${input.date}T00:00:00.000Z`);
 
@@ -890,6 +914,7 @@ export async function PATCH(request: Request) {
           },
           select: {
             id: true,
+            eventDate: true,
             menu: { select: { includedMenuItemIds: true } }
           }
         }),
@@ -907,6 +932,16 @@ export async function PATCH(request: Request) {
         return NextResponse.json(
           { error: "Kitchen event or menu item not found." },
           { status: 404 }
+        );
+      }
+
+      if (
+        kitchenEvent.eventDate.toISOString().slice(0, 10) <
+        new Date().toISOString().slice(0, 10)
+      ) {
+        return NextResponse.json(
+          { error: "Past kitchen events are read-only." },
+          { status: 409 }
         );
       }
 
@@ -1045,7 +1080,7 @@ export async function PATCH(request: Request) {
         // work to do.
         bookingStatus: CONFIRMED_STATUS
       },
-      select: { id: true, hallId: true }
+      select: { id: true, hallId: true, eventDate: true }
     });
     const menuItem = await prisma.menuItem.findFirst({
       where: { id: input.menuItemId, organizationId: actor.organizationId },
@@ -1062,6 +1097,16 @@ export async function PATCH(request: Request) {
     // Scoping the GET alone would be half the fix: an event id is all it takes
     // to write progress against a hall this member cannot see.
     assertInScope(actor, "hall", event.hallId);
+
+    if (
+      event.eventDate.toISOString().slice(0, 10) <
+      new Date().toISOString().slice(0, 10)
+    ) {
+      return NextResponse.json(
+        { error: "Past kitchen events are read-only." },
+        { status: 409 }
+      );
+    }
 
     if (input.action === "replace-menu-item") {
       const result = await replaceKitchenDish({
