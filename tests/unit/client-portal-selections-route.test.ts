@@ -226,6 +226,55 @@ describe("public client portal selections", () => {
     });
   });
 
+  describe("counts staff set, across the client's replace", () => {
+    it("carries a quantity onto the row that replaces the line", async () => {
+      // The portal deletes every line and rebuilds from two id arrays, and its
+      // body cannot carry a count - the client is never asked one. Without the
+      // carry-over, a client tapping Save on picks they did not change silently
+      // undoes "2x the brisket".
+      vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
+      vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
+        { menuItemId, addOnId: null, quantityMultiplier: 3 }
+      ] as never);
+
+      const response = await post({ menuItemIds: [menuItemId] });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ menuItemId, quantityMultiplier: 3 })]
+      });
+    });
+
+    it("carries an add-on's quantity too", async () => {
+      vi.mocked(prisma.addOn.count).mockResolvedValue(1);
+      vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
+        { menuItemId: null, addOnId, quantityMultiplier: 2 }
+      ] as never);
+
+      const response = await post({ addOnIds: [addOnId] });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ addOnId, quantityMultiplier: 2 })]
+      });
+    });
+
+    it("starts a dish the client has newly picked at one", async () => {
+      vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
+      vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
+        // A different dish carried the count; the one being added did not.
+        { menuItemId: "other", addOnId: null, quantityMultiplier: 4 }
+      ] as never);
+
+      const response = await post({ menuItemIds: [menuItemId] });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ menuItemId, quantityMultiplier: 1 })]
+      });
+    });
+  });
+
   it("keeps the dishes when the client only changes add-ons", async () => {
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       id: eventId,

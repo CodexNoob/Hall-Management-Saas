@@ -261,7 +261,10 @@ export async function POST(
 
       // Swapping packages: whatever the previous one put here and this one does
       // not include goes, so the menu matches the package it now names. A dish
-      // in both packages stays put and keeps the style it was given.
+      // in both packages stays put and keeps the style it was given, along with
+      // however many of it the event ordered - the row is never rewritten, so
+      // `quantity_multiplier` survives the swap. Additions take the column's
+      // default of one; a package is a list of dishes and cannot ask for two.
       const supersededIds = existingLines
         .filter(
           (line) =>

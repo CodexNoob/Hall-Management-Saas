@@ -39,7 +39,10 @@ function line(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     notes: null,
     sortOrder: 0,
     isRetired: false,
-    quantities: [{ unit: "tray", units: 7, raw: 6.233333 }],
+    quantityMultiplier: 1,
+    quantities: [
+      { unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }
+    ],
     unresolvedBases: [],
     countState: "Counted",
     status: null,

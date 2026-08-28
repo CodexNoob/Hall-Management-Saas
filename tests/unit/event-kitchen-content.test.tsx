@@ -88,7 +88,10 @@ function dishLine(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     notes: null,
     sortOrder: 0,
     isRetired: false,
-    quantities: [{ unit: "tray", units: 7, raw: 6.233333 }],
+    quantityMultiplier: 1,
+    quantities: [
+      { unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }
+    ],
     unresolvedBases: [],
     countState: "Counted",
     status: null,
@@ -244,6 +247,39 @@ describe("event kitchen tab", () => {
     expect(screen.getAllByText("7 trays")).toHaveLength(2);
     expect(screen.getAllByText("6.23 before rounding")).toHaveLength(2);
     expect(screen.getByText("187")).toBeInTheDocument();
+  });
+
+  it("puts the total in the headline and the doubling underneath it", async () => {
+    // The number a cook acts on is 14, so that is what is drawn large; the ×2
+    // chip is what tells them it is a doubled 7 rather than a large event, and
+    // the working is there for anyone who wants to check it.
+    sheets.set("event-1", [
+      dishLine({
+        quantityMultiplier: 2,
+        quantities: [
+          { unit: "tray", units: 14, perServingUnits: 7, raw: 6.233333 }
+        ]
+      })
+    ]);
+
+    await mount(<EventKitchenContent event={eventFile("event-1")} />);
+
+    expect(screen.getAllByText("14 trays")).toHaveLength(2);
+    expect(screen.getAllByText("×2")).toHaveLength(2);
+    expect(
+      screen.getAllByText("2 × 7 trays per serving · 6.23 before rounding")
+    ).toHaveLength(2);
+  });
+
+  it("leaves a single serving reading exactly as it always did", async () => {
+    // No chip, and no "per serving" line: everything about a 1x dish has to be
+    // untouched by the column, or every existing sheet has changed for nothing.
+    sheets.set("event-1", [dishLine()]);
+
+    await mount(<EventKitchenContent event={eventFile("event-1")} />);
+
+    expect(screen.queryByText("×1")).not.toBeInTheDocument();
+    expect(screen.getAllByText("6.23 before rounding")).toHaveLength(2);
   });
 
   it("never shows the previous event's dishes under the newly selected event", async () => {

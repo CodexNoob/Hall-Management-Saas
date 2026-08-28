@@ -95,6 +95,7 @@ function dishLine(
     price: null,
     notes: null,
     sortOrder: 0,
+    quantityMultiplier: 1,
     source: "Manual",
     isRetired: false,
     ...overrides

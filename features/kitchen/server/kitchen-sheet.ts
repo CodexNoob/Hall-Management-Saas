@@ -7,6 +7,8 @@ import {
 } from "@/features/kitchen/server/kitchen-visibility";
 import {
   calculateStyleQuantity,
+  readLineMultiplier,
+  scaleMenuQuantities,
   totalGuests,
   type EventHeadCounts
 } from "@/features/menu/lib/menu-quantity";
@@ -82,6 +84,10 @@ export const kitchenLineSelect = {
   serviceStyle: true,
   notes: true,
   sortOrder: true,
+  // Without this the sheet still typechecks and still renders - at 1x, for every
+  // line, forever. There is no failing symptom to notice, which is why the route
+  // test asserts a doubled line end to end rather than trusting the select.
+  quantityMultiplier: true,
   menuItem: {
     select: {
       name: true,
@@ -212,6 +218,9 @@ export function presentKitchenLine(
   // `null` means "this dish is not served that way", which is different from a
   // dish served that way whose arithmetic came out at zero.
   const result = style ? calculateStyleQuantity(rules, style, counts) : null;
+  // "2x the brisket". Applied to the finished units rather than to the head
+  // counts, so each serving clears the rule's minimum on its own.
+  const quantityMultiplier = readLineMultiplier(line.quantityMultiplier);
 
   const countState = isAddOn
     ? ("NotCounted" as const)
@@ -237,11 +246,11 @@ export function presentKitchenLine(
     isRetired: isAddOn
       ? line.addOn?.isActive === false
       : line.menuItem?.isActive === false,
-    quantities: (result?.quantities ?? []).map((quantity) => ({
-      unit: quantity.unit,
-      units: quantity.units,
-      raw: quantity.raw
-    })),
+    // Multiplied here rather than at the point it is drawn: a doubled line that
+    // reaches a screen which has not heard of multipliers must still say 14, not
+    // 7. Under-cooking is the failure worth designing against.
+    quantityMultiplier,
+    quantities: scaleMenuQuantities(result?.quantities ?? [], quantityMultiplier),
     unresolvedBases: result?.unresolved ?? [],
     countState,
     // Null and "no row at all" are the same answer - not started - which is why

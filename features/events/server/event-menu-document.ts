@@ -58,6 +58,7 @@ const lineSelect = {
   serviceStyle: true,
   notes: true,
   sortOrder: true,
+  quantityMultiplier: true,
   source: true,
   menuItem: {
     select: {
@@ -119,6 +120,10 @@ function presentLine(line: MenuLineRow, pictureUrl: string | null) {
     price: line.addOn?.price === undefined ? null : Number(line.addOn.price),
     notes: line.notes,
     sortOrder: line.sortOrder,
+    // Not snapshotted on confirmation the way the name is: how many of a dish
+    // this event ordered is the event's own decision, never a library value
+    // that could change underneath it.
+    quantityMultiplier: line.quantityMultiplier,
     source: line.source,
     isRetired: isAddOn
       ? line.addOn?.isActive === false

@@ -24,6 +24,10 @@ import {
   rulelessLines
 } from "@/features/events/components/event-menu-rule-band";
 import { EventMenuSkeleton } from "@/features/events/components/event-menu-skeleton";
+import {
+  LINE_MULTIPLIER_MAX,
+  LINE_MULTIPLIER_MIN
+} from "@/features/menu/lib/menu-quantity";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
@@ -47,12 +51,111 @@ function targetId(line: EventMenuLine) {
   return line.menuItemId ?? line.addOnId ?? "";
 }
 
+/**
+ * How long the stepper waits for the next press before saving.
+ *
+ * Long enough that stepping from one to five is one write, short enough that a
+ * user who presses once and looks away is durable before they have finished
+ * looking. Everything that could cut the wait short - leaving the tab, changing
+ * event, closing the page - flushes it early, so this is a pause, never a
+ * window in which work can be lost.
+ */
+const QUANTITY_SYNC_DELAY_MS = 700;
+
+/**
+ * How many of one line the event is getting, as a control under its name.
+ *
+ * In the card's footer rather than floating over the picture: this is a number
+ * about the dish, so it belongs with the dish's name and its price, not laid
+ * over a photograph of it. The footer grew to make room and the picture area
+ * gave the height up - the card's outside dimensions are unchanged, which is
+ * what keeps `EventMenuSkeleton` an honest placeholder for it.
+ *
+ * Tinted amber above one, the same colour the review dialog and the kitchen
+ * sheet mark a multiplied line in, so a doubled dish is findable in a grid of
+ * forty at a glance instead of by reading every number.
+ */
+function CardQuantity({
+  name,
+  targetId,
+  quantity,
+  onQuantityChange
+}: {
+  name: string;
+  targetId: string;
+  quantity: number;
+  /// Absent on a confirmed menu, which shows the count without offering to
+  /// change it.
+  onQuantityChange?: (next: number) => void;
+}) {
+  const isMultiplied = quantity > 1;
+  const tone = isMultiplied
+    ? "border-[#f0d9a8] bg-[#fdf8ec] text-[#8a6414]"
+    : "border-[#d8dde5] text-[#17202a]";
+
+  if (!onQuantityChange) {
+    // A locked menu still has to say what was ordered - but only when there is
+    // something to say. A chip reading "×1" on every card is noise.
+    if (!isMultiplied) return null;
+
+    return (
+      <span
+        className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black leading-none sm:text-xs ${tone}`}
+        data-testid={`event-menu-quantity-${targetId}`}
+      >
+        ×{quantity}
+      </span>
+    );
+  }
+
+  const step = (delta: number) => onQuantityChange(quantity + delta);
+
+  return (
+    <span className={`flex items-center rounded-full border ${tone}`}>
+      {/* Disabled at one rather than removing the line: the × on the picture is
+          removal, and a stepper that deletes on the last press is a surprise
+          nobody asked for. */}
+      <button
+        aria-label={`Decrease ${name} quantity`}
+        className="flex h-5 w-5 items-center justify-center rounded-full text-base leading-none hover:bg-black/5 disabled:opacity-30 disabled:hover:bg-transparent sm:h-6 sm:w-6"
+        data-testid={`event-menu-quantity-decrease-${targetId}`}
+        disabled={quantity <= LINE_MULTIPLIER_MIN}
+        onClick={() => step(-1)}
+        type="button"
+      >
+        <span aria-hidden="true">−</span>
+      </button>
+      {/* Fixed width so stepping past nine does not shuffle the buttons out
+          from under the finger that is pressing them. */}
+      <span
+        className="min-w-5 text-center text-[10px] font-black tabular-nums sm:min-w-6 sm:text-xs"
+        data-testid={`event-menu-quantity-${targetId}`}
+      >
+        ×{quantity}
+      </span>
+      <button
+        aria-label={`Increase ${name} quantity`}
+        className="flex h-5 w-5 items-center justify-center rounded-full text-base leading-none hover:bg-black/5 disabled:opacity-30 disabled:hover:bg-transparent sm:h-6 sm:w-6"
+        data-testid={`event-menu-quantity-increase-${targetId}`}
+        disabled={quantity >= LINE_MULTIPLIER_MAX}
+        onClick={() => step(1)}
+        type="button"
+      >
+        <span aria-hidden="true">+</span>
+      </button>
+    </span>
+  );
+}
+
+/** One dish or add-on on the menu, with how many of it the event is getting. */
 function MenuDishCard({
   badge,
   name,
   targetId,
   detail,
   pictureUrl,
+  quantity,
+  onQuantityChange,
   onRemove,
   disabled = false
 }: {
@@ -61,6 +164,8 @@ function MenuDishCard({
   targetId: string;
   detail?: string | null;
   pictureUrl: string | null;
+  quantity: number;
+  onQuantityChange: (next: number) => void;
   onRemove: () => void;
   disabled?: boolean;
 }) {
@@ -101,15 +206,36 @@ function MenuDishCard({
           </div>
         )}
       </div>
-      <div className="flex h-10 flex-col items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+      {/* Taller than the name alone needs, to seat the stepper under it. The
+          height comes out of the picture above rather than out of the card, so
+          the grid and the skeleton are unchanged - keep the two in step if this
+          moves again. */}
+      <div className="flex h-14 flex-col items-center justify-center gap-1 border-t border-[#d8dde5] px-1 sm:h-16 sm:px-2">
         <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
           {name}
         </h3>
-        {detail ? (
-          <span className="mt-0.5 text-[8px] text-[#6a7483] sm:text-[10px]">
-            {detail}
+        {/* The count and the price share a row. The price is per serving and
+            stays that way - nothing multiplies it into the event's totals - so
+            putting them side by side is the honest arrangement rather than a
+            sum. */}
+        <span className="flex w-full min-w-0 items-center justify-center gap-1.5">
+          <span className="shrink-0">
+            <CardQuantity
+              name={name}
+              onQuantityChange={disabled ? undefined : onQuantityChange}
+              quantity={quantity}
+              targetId={targetId}
+            />
           </span>
-        ) : null}
+          {detail ? (
+            // Truncating rather than wrapping: the stepper is the control and
+            // holds its width, so a four-figure price gives way instead of
+            // pushing the buttons off the card.
+            <span className="min-w-0 truncate text-[8px] text-[#6a7483] sm:text-[10px]">
+              {detail}
+            </span>
+          ) : null}
+        </span>
       </div>
     </div>
   );
@@ -193,7 +319,12 @@ export function EventMenuContent({
   // second click undo the first.
   const pendingRef = useRef<PendingMenuWrite | null>(null);
   const editSeq = useRef(0);
-  const isFlushing = useRef(false);
+  /// The drain that is running, so a second caller waits for it rather than
+  /// starting a competing one.
+  const flushing = useRef<Promise<void> | null>(null);
+  /// A sync waiting for the user to stop adjusting. Held so the next press can
+  /// push it back, and so leaving the tab can bring it forward.
+  const syncTimer = useRef<number | null>(null);
 
   // The action that was just taken and the lines it replaced. Removing a dish
   // is one small click on a grid of them, so it is worth being able to take
@@ -488,12 +619,14 @@ export function EventMenuContent({
               ? {
                   addOnId: line.addOnId,
                   notes: line.notes,
+                  quantityMultiplier: line.quantityMultiplier,
                   source: line.source
                 }
               : {
                   menuItemId: line.menuItemId,
                   serviceStyle: line.serviceStyle,
                   notes: line.notes,
+                  quantityMultiplier: line.quantityMultiplier,
                   // Sent back as it was read, so a dish the package put here
                   // is still the package's after an unrelated edit.
                   source: line.source
@@ -519,8 +652,6 @@ export function EventMenuContent({
       setAuthenticatedQueryData<EventMenuDocumentResponse>(write.url, {
         menu: payload.menu
       });
-      /// The kitchen tab reads these same lines through its own route.
-      invalidateAuthenticatedQuery(write.kitchenUrl);
 
       const queued = pendingRef.current;
 
@@ -559,17 +690,22 @@ export function EventMenuContent({
    * end with the second one back on screen: the first save answered, the
    * overlay came off, and the second was refused as a conflict.
    */
-  const flushPending = async () => {
-    if (isFlushing.current) return;
-
-    isFlushing.current = true;
+  const drainQueue = async () => {
     setIsSyncing(true);
+
+    /// Aged once, when the queue has drained, rather than once per request. The
+    /// kitchen tab reads these same lines through its own route, and a stepper
+    /// being walked up to eight would otherwise refetch that whole sheet on
+    /// every press - a second request behind each of the first.
+    let kitchenToAge: string | null = null;
 
     try {
       while (pendingRef.current) {
         const write = pendingRef.current;
 
         if (!(await sendPendingWrite(write))) return;
+
+        kitchenToAge = write.kitchenUrl;
 
         // Nothing new arrived while that was saving, so what the server just
         // confirmed is what is on screen and the overlay has nothing left to
@@ -581,15 +717,83 @@ export function EventMenuContent({
         }
       }
     } finally {
-      isFlushing.current = false;
+      if (kitchenToAge) invalidateAuthenticatedQuery(kitchenToAge);
+
       setIsSyncing(false);
     }
+  };
+
+  /**
+   * Drains the queue, and answers when it is drained.
+   *
+   * Awaitable rather than fire-and-forget because a write that replaces the
+   * whole line set - a package, a confirmation - carries a version, and anything
+   * still queued behind it would be answered 409 and rolled back. Those callers
+   * settle this first; a stepper press does not wait on it.
+   */
+  const flushPending = (): Promise<void> => {
+    // Already draining. The loop picks up whatever has been queued since, so a
+    // second caller only has to wait for the one that is running.
+    if (flushing.current) return flushing.current;
+
+    const run = drainQueue();
+
+    flushing.current = run;
+    void run.finally(() => {
+      if (flushing.current === run) flushing.current = null;
+    });
+
+    return run;
+  };
+
+  /**
+   * Everything the user has done reaches the server before the caller's own
+   * write does. Used by the writes that rewrite the whole menu at once.
+   */
+  const settleSync = async () => {
+    cancelScheduledSync();
+    await flushPending();
+  };
+
+  const cancelScheduledSync = () => {
+    if (syncTimer.current === null) return;
+
+    window.clearTimeout(syncTimer.current);
+    syncTimer.current = null;
+  };
+
+  /**
+   * Starts the sync loop, now or once the user stops.
+   *
+   * Most edits go immediately: adding a dish or taking one off is a deliberate,
+   * occasional act, and the sooner it is durable the better. A stepper is not -
+   * getting to four is four presses, and a write per press is four round trips
+   * and four version bumps to reach one number the user was always heading for.
+   * Waiting for the pauses between them sends one.
+   *
+   * The wait is only ever on the request. The screen has already moved: the
+   * overlay is what the user sees, and nothing here blocks the next press.
+   */
+  const scheduleSync = (delayMs: number) => {
+    cancelScheduledSync();
+
+    if (delayMs <= 0) {
+      void flushPending();
+
+      return;
+    }
+
+    syncTimer.current = window.setTimeout(() => {
+      syncTimer.current = null;
+      void flushPending();
+    }, delayMs);
   };
 
   /** Puts the menu the user now wants on screen and starts the sync loop. */
   const queueEdit = (
     next: EventMenuDocument,
-    undo: { label: string; lines: EventMenuLine[] } | null = null
+    undo: { label: string; lines: EventMenuLine[] } | null = null,
+    { delayMs = 0 }: { delayMs?: number } = {}
   ) => {
     editSeq.current += 1;
     setPending({
@@ -601,6 +805,18 @@ export function EventMenuContent({
     setUndoOffer(undo ? { url: menuUrl, ...undo } : null);
     say("");
 
+    scheduleSync(delayMs);
+  };
+
+  // Rebuilt every render but registered once, so the listeners below reach the
+  // current one through a ref rather than the one from the render they were
+  // attached in.
+  const flushNowRef = useRef(() => {});
+
+  flushNowRef.current = () => {
+    if (syncTimer.current === null) return;
+
+    cancelScheduledSync();
     void flushPending();
   };
 
@@ -614,7 +830,8 @@ export function EventMenuContent({
    */
   const editLines = (
     nextLines: (current: EventMenuDocument) => EventMenuLine[],
-    undoLabel?: string
+    undoLabel?: string,
+    options?: { delayMs?: number }
   ) => {
     const current = workingMenu();
 
@@ -622,7 +839,8 @@ export function EventMenuContent({
 
     queueEdit(
       { ...current, lines: nextLines(current) },
-      undoLabel ? { label: undoLabel, lines: current.lines } : null
+      undoLabel ? { label: undoLabel, lines: current.lines } : null,
+      options
     );
   };
 
@@ -665,6 +883,9 @@ export function EventMenuContent({
         price: null,
         notes: null,
         sortOrder: kept.length + index,
+        // A package is a list of dishes and cannot ask for two of one, so
+        // everything it drops on the menu starts at a single serving.
+        quantityMultiplier: 1,
         source: "Package",
         isRetired: false
       }));
@@ -753,6 +974,9 @@ export function EventMenuContent({
         price: item.price,
         notes: null,
         sortOrder: current.lines.length + index,
+        // Newly picked is one of it; the stepper on the card is how it becomes
+        // two, which is a separate edit.
+        quantityMultiplier: 1,
         source: "Manual",
         isRetired: false
       }));
@@ -792,6 +1016,34 @@ export function EventMenuContent({
       current.lines.map((candidate) =>
         candidate.id === line.id ? { ...candidate, serviceStyle } : candidate
       )
+    );
+  };
+
+  /**
+   * How many of this line the event is getting.
+   *
+   * No undo offer, like `assignStyle` and unlike a removal: a stepper is one
+   * press to reverse, and the bar is for edits that take something away.
+   *
+   * The only edit that waits before saving. Held for a beat so getting to four
+   * is one write rather than four - see `scheduleSync` for why this control and
+   * no other.
+   */
+  const setQuantity = (line: EventMenuLine, next: number) => {
+    const clamped = Math.min(
+      Math.max(next, LINE_MULTIPLIER_MIN),
+      LINE_MULTIPLIER_MAX
+    );
+
+    editLines(
+      (current) =>
+        current.lines.map((candidate) =>
+          candidate.id === line.id
+            ? { ...candidate, quantityMultiplier: clamped }
+            : candidate
+        ),
+      undefined,
+      { delayMs: QUANTITY_SYNC_DELAY_MS }
     );
   };
 
@@ -836,6 +1088,52 @@ export function EventMenuContent({
 
     return () => window.clearTimeout(timer);
   }, [undoOffer]);
+
+  /**
+   * A waiting write must never outlive the reason to make it.
+   *
+   * The pause the stepper takes is the one moment this tab is holding something
+   * the server has not been told about, so every way out of that moment brings
+   * it forward: hiding the tab, closing the page, and - through the cleanup -
+   * selecting a different event or leaving the menu entirely. What is left after
+   * that is the request itself, which the guard below covers.
+   */
+  useEffect(() => {
+    const flushNow = () => flushNowRef.current();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") flushNow();
+    };
+
+    window.addEventListener("pagehide", flushNow);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", flushNow);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      flushNow();
+    };
+  }, [menuUrl]);
+
+  /**
+   * Closing the tab on a save that has not answered yet.
+   *
+   * Rare and brief - but the instant a user reaches for the close button is
+   * exactly the one worth asking about, and the alternative is a menu that says
+   * one thing on screen and another in the database.
+   */
+  const hasUnsyncedWork = pendingWrite !== null;
+
+  useEffect(() => {
+    if (!hasUnsyncedWork) return;
+
+    const warn = (unloadEvent: BeforeUnloadEvent) => {
+      unloadEvent.preventDefault();
+    };
+
+    window.addEventListener("beforeunload", warn);
+
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsyncedWork]);
 
   // "Saving..." only once a save is slow enough to be worth saying. A dish
   // removal usually answers in well under this, and a label that blinks on and
@@ -939,6 +1237,11 @@ export function EventMenuContent({
                     return;
                   }
                   say("");
+                  // Sent now, not when the dialog is answered: confirming
+                  // carries a version, and a count still waiting on its pause
+                  // would be refused as a conflict and rolled back. Opening the
+                  // dialog is the last quiet moment to get it in.
+                  void settleSync();
                   setIsReviewOpen(true);
                 }}
               >
@@ -997,7 +1300,12 @@ export function EventMenuContent({
               hasPackages={offeredPackages.length > 0}
               isConfirmed={isConfirmed}
               isSaving={isSaving || !menu}
-              onOpenSelector={() => setIsPackageSelectorOpen(true)}
+              onOpenSelector={() => {
+                // Same reason as the confirm dialog: applying a package
+                // rewrites the whole line set against a version.
+                void settleSync();
+                setIsPackageSelectorOpen(true);
+              }}
               onRemove={() => void removePackage()}
               packageLineCount={packageLineCount}
             />
@@ -1089,6 +1397,11 @@ export function EventMenuContent({
                           ? null
                           : priceFormatter.format(line.price)
                       }
+                      // Per serving, and it stays per serving: the price of an
+                      // add-on is not multiplied into the event's totals, which
+                      // nothing derives from these lines anyway.
+                      quantity={line.quantityMultiplier}
+                      onQuantityChange={(next) => setQuantity(line, next)}
                       onRemove={() => removeLine(line)}
                       disabled={!canEditMenu}
                     />
@@ -1178,8 +1491,18 @@ export function EventMenuContent({
                       {section.label}
                     </h3>
                     <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
+                      {/* Confirming is the last chance to catch a stepper that
+                          was leant on, so the doubled lines say so here. */}
                       {section.lines.map((line) => (
-                        <li key={line.id}>• {line.name}</li>
+                        <li key={line.id}>
+                          • {line.name}
+                          {line.quantityMultiplier > 1 ? (
+                            <span className="font-black text-[#8a6414]">
+                              {" "}
+                              ×{line.quantityMultiplier}
+                            </span>
+                          ) : null}
+                        </li>
                       ))}
                     </ul>
                   </section>

@@ -58,6 +58,7 @@ function line(overrides: Record<string, unknown> = {}) {
     serviceStyle: "Buffet",
     notes: null,
     sortOrder: 0,
+    quantityMultiplier: 1,
     menuItem: {
       name: "Potato kugel",
       isActive: true,
@@ -110,7 +111,7 @@ describe("kitchen sheet builder", () => {
     // 187 / 30 = 6.233, rounded up because you cannot cook a third of a tray.
     expect(sheet.lines[0].countState).toBe("Counted");
     expect(sheet.lines[0].quantities).toEqual([
-      { unit: "tray", units: 7, raw: 6.233333 }
+      { unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }
     ]);
   });
 
@@ -131,6 +132,53 @@ describe("kitchen sheet builder", () => {
     // for how we are serving it", not a quantity of zero.
     expect(sheet.lines[0].countState).toBe("NoRule");
     expect(sheet.lines[0].quantities).toEqual([]);
+  });
+
+  describe("more than one of the same dish", () => {
+    it("cooks two batches, and says what one batch was", () => {
+      const sheet = build([line({ quantityMultiplier: 2 })]);
+
+      expect(sheet.lines[0].quantityMultiplier).toBe(2);
+      expect(sheet.lines[0].quantities).toEqual([
+        { unit: "tray", units: 14, perServingUnits: 7, raw: 6.233333 }
+      ]);
+    });
+
+    it("counts a doubled line as one dish, not two", () => {
+      // The multiplier is how much to cook, not how much there is to do:
+      // KitchenItemStatus is keyed on (event, dish), so a 2x line is one job
+      // with one status. "1 of 1 done" has to keep meaning menu lines or the
+      // board and the event's own tab disagree about the same event.
+      const sheet = build([line({ quantityMultiplier: 2 })]);
+
+      expect(sheet.summary).toMatchObject({ dishes: 1, notStarted: 1 });
+    });
+
+    it("invents no number for a doubled line that has no rule to run", () => {
+      const sheet = build([
+        line({
+          quantityMultiplier: 3,
+          serviceStyle: "Plated",
+          menuItem: {
+            name: "Potato kugel",
+            isActive: true,
+            picturePath: null,
+            services: [rule()]
+          }
+        })
+      ]);
+
+      expect(sheet.lines[0].countState).toBe("NoRule");
+      expect(sheet.lines[0].quantities).toEqual([]);
+      expect(sheet.lines[0].quantityMultiplier).toBe(3);
+    });
+
+    it("reads a line written before the column as one serving", () => {
+      const sheet = build([line({ quantityMultiplier: undefined })]);
+
+      expect(sheet.lines[0].quantityMultiplier).toBe(1);
+      expect(sheet.lines[0].quantities[0].units).toBe(7);
+    });
   });
 
   describe("refusing to invent a number", () => {
@@ -234,7 +282,7 @@ describe("kitchen sheet builder", () => {
 
       expect(sheet.counts.tables).toBe(2);
       expect(sheet.lines[0].quantities).toEqual([
-        { unit: "tray", units: 4, raw: 4 }
+        { unit: "tray", units: 4, perServingUnits: 4, raw: 4 }
       ]);
     });
   });

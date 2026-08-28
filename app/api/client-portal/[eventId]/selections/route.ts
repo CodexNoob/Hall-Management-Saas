@@ -217,6 +217,32 @@ export async function POST(
           ])
         );
 
+        // The portal replaces the whole line set from two id arrays, and its
+        // body cannot carry a quantity - the client is never asked one. So a
+        // decision staff made about a line the client is keeping has to be read
+        // off the row before it is deleted and put back on the row replacing it.
+        // Without this, a client tapping Save on selections they did not change
+        // silently undoes "2x the brisket", and nothing anywhere says so.
+        //
+        // A dish the client genuinely drops takes its multiplier with it: it is
+        // not in the recreated set at all, which is the same rule its style and
+        // its notes already follow.
+        const carriedByTarget = new Map(
+          (
+            await transaction.eventMenuLine.findMany({
+              where: { eventMenuId: menu.id },
+              select: {
+                menuItemId: true,
+                addOnId: true,
+                quantityMultiplier: true
+              }
+            })
+          ).map((line) => [
+            line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
+            line.quantityMultiplier
+          ])
+        );
+
         await transaction.eventMenuLine.deleteMany({
           where: { eventMenuId: menu.id }
         });
@@ -231,6 +257,7 @@ export async function POST(
                 menuItemId,
                 serviceStyle: styles.length === 1 ? styles[0] : null,
                 sortOrder: index,
+                quantityMultiplier: carriedByTarget.get(`dish:${menuItemId}`) ?? 1,
                 // Recorded rather than assumed: a line staff added and a line
                 // the client picked are not the same thing when they disagree.
                 source: "ClientPortal"
@@ -241,6 +268,7 @@ export async function POST(
               eventMenuId: menu.id,
               addOnId,
               sortOrder: menuItemIds.length + index,
+              quantityMultiplier: carriedByTarget.get(`addon:${addOnId}`) ?? 1,
               source: "ClientPortal"
             }))
           ]

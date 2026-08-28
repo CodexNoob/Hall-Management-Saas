@@ -26,8 +26,12 @@ function MenuCardSkeleton() {
       <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
         <Skeleton className="h-12 w-12 rounded-full sm:h-16 sm:w-16 lg:h-18 lg:w-18" />
       </div>
-      <div className="flex h-10 items-center justify-center border-t border-[#d8dde5] px-1 sm:h-12 sm:px-2">
+      {/* Two rows, the same two the real card's footer has: the name, and the
+          quantity stepper under it. Kept in step with `MenuDishCard` - a
+          skeleton a row short is a panel that jumps when the menu lands. */}
+      <div className="flex h-14 flex-col items-center justify-center gap-1.5 border-t border-[#d8dde5] px-1 sm:h-16 sm:px-2">
         <Skeleton className="h-2 w-4/5 sm:h-2.5" />
+        <Skeleton className="h-5 w-14 rounded-full sm:h-6 sm:w-16" />
       </div>
     </div>
   );

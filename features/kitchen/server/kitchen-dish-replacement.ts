@@ -124,6 +124,11 @@ export async function replaceKitchenDish({
         // A note is written about a dish, not about a slot on the menu - "extra
         // crispy" does not survive the salmon it was about.
         notes: null,
+        // `quantityMultiplier` is deliberately absent, so the swap keeps it: two
+        // was asked of the slot on the buffet, and the salmon standing in for the
+        // brisket is still two of it. The opposite of the note above, and the
+        // difference is what the column is about - a count belongs to the menu,
+        // a note belongs to the dish.
         addedById: actorId
       }
     });

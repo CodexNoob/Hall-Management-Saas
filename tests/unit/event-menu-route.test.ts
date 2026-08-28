@@ -83,6 +83,7 @@ function storedMenu(
         serviceStyle: "Buffet",
         notes: null,
         sortOrder: 0,
+        quantityMultiplier: 1,
         source: "Manual",
         menuItem: {
           name: "Braised ribs",
@@ -101,6 +102,7 @@ function storedMenu(
         serviceStyle: null,
         notes: null,
         sortOrder: 1,
+        quantityMultiplier: 1,
         source: "Manual",
         menuItem: null,
         addOn: {
@@ -217,6 +219,24 @@ describe("event menu route", () => {
       serviceStyle: null,
       price: 850
     });
+  });
+
+  it("hands the tab back the count each line was saved with", async () => {
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu({
+        lines: [
+          {
+            ...storedMenu().lines[0],
+            quantityMultiplier: 4
+          }
+        ]
+      }) as never
+    );
+
+    const response = await GET(request("GET"), { params });
+    const payload = await response.json();
+
+    expect(payload.menu.lines[0].quantityMultiplier).toBe(4);
   });
 
   it("signs pictures once for the whole menu and never leaks the path", async () => {
@@ -502,6 +522,95 @@ describe("event menu route", () => {
     expect(response.status).toBe(200);
     expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
       data: [expect.objectContaining({ menuItemId, sortOrder: 0 })]
+    });
+  });
+
+  describe("more than one of the same dish", () => {
+    function saving(body: Record<string, unknown>) {
+      vi.mocked(prisma.eventMenu.findUnique)
+        .mockResolvedValueOnce({
+          id: eventMenuId,
+          status: "Draft",
+          version: 1
+        } as never)
+        .mockResolvedValueOnce(storedMenu() as never);
+
+      return PUT(request("PUT", { version: 1, ...body }), { params });
+    }
+
+    it("stores how many of a dish the event ordered", async () => {
+      const response = await saving({
+        lines: [{ menuItemId, serviceStyle: "Buffet", quantityMultiplier: 3 }]
+      });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ menuItemId, quantityMultiplier: 3 })]
+      });
+    });
+
+    it("stores one for a line that did not name a count", async () => {
+      // What an older client sends, and what the column would have defaulted
+      // to anyway - written explicitly so the two cannot drift apart.
+      const response = await saving({
+        lines: [{ menuItemId, serviceStyle: "Buffet" }]
+      });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ quantityMultiplier: 1 })]
+      });
+    });
+
+    it("takes a count on an add-on, which is not served in a style", async () => {
+      const response = await saving({
+        lines: [{ addOnId, quantityMultiplier: 2 }]
+      });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            addOnId,
+            serviceStyle: null,
+            quantityMultiplier: 2
+          })
+        ]
+      });
+    });
+
+    it("refuses a count that is not a whole number of servings", async () => {
+      // The same bounds as the CHECK on the column. Zero servings is spelled by
+      // taking the line off the menu.
+      for (const quantityMultiplier of [0, -1, 1.5, 100]) {
+        const response = await PUT(
+          request("PUT", {
+            version: 1,
+            lines: [{ menuItemId, serviceStyle: "Buffet", quantityMultiplier }]
+          }),
+          { params }
+        );
+
+        expect(response.status).toBe(400);
+      }
+    });
+
+    it("keeps the last count when one dish arrives twice", async () => {
+      // Deliberately not summed into 5: the tab sends the line set it holds,
+      // which cannot carry a target twice, so a duplicate is a client bug -
+      // and reading it as a deliberate "5x" would put a number in front of the
+      // kitchen that looks right and nobody asked for.
+      const response = await saving({
+        lines: [
+          { menuItemId, quantityMultiplier: 2 },
+          { menuItemId, quantityMultiplier: 3 }
+        ]
+      });
+
+      expect(response.status).toBe(200);
+      expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ quantityMultiplier: 3 })]
+      });
     });
   });
 

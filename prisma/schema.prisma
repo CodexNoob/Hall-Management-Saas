@@ -37,62 +37,62 @@ model Organization {
   createdAt             DateTime  @default(now()) @map("created_at")
   updatedAt             DateTime  @updatedAt @map("updated_at")
 
-  primaryUsers            User[]                        @relation("PrimaryOrganization")
-  memberships             OrganizationMembership[]
-  principals              Principal[]
-  serviceAccounts         ServiceAccount[]
-  roles                   Role[]
-  principalRoles          PrincipalRole[]
-  principalPermissions    PrincipalPermission[]
-  authorizationAudits     AuthorizationAudit[]
-  halls                   Hall[]
-  eventTypes              EventType[]
-  events                  Event[]
-  menuItems               MenuItem[]
-  menuItemServices        MenuItemService[]
-  eventMenus              EventMenu[]
-  eventMenuLines          EventMenuLine[]
-  eventPackages           EventPackage[]
-  addOns                  AddOn[]
-  kitchenWorkers          KitchenWorker[]
-  kitchenStandaloneEvents KitchenStandaloneEvent[]
+  primaryUsers                  User[]                        @relation("PrimaryOrganization")
+  memberships                   OrganizationMembership[]
+  principals                    Principal[]
+  serviceAccounts               ServiceAccount[]
+  roles                         Role[]
+  principalRoles                PrincipalRole[]
+  principalPermissions          PrincipalPermission[]
+  authorizationAudits           AuthorizationAudit[]
+  halls                         Hall[]
+  eventTypes                    EventType[]
+  events                        Event[]
+  menuItems                     MenuItem[]
+  menuItemServices              MenuItemService[]
+  eventMenus                    EventMenu[]
+  eventMenuLines                EventMenuLine[]
+  eventPackages                 EventPackage[]
+  addOns                        AddOn[]
+  kitchenWorkers                KitchenWorker[]
+  kitchenStandaloneEvents       KitchenStandaloneEvent[]
   kitchenStandaloneItemStatuses KitchenStandaloneItemStatus[]
-  kitchenItemStatuses     KitchenItemStatus[]
-  kitchenNotifications    KitchenNotification[]
-  schoolCycles            SchoolCycle[]
-  memberShuls             MemberShul[]
-  paymentSettings         PaymentSetting[]
-  tableclothOptions       TableclothOption[]
-  menuCategories          MenuCategory[]
-  holidayBlockedDates     HolidayBlockedDate[]
-  activityLogs            ActivityLog[]
-  generatedPdfs           GeneratedPdf[]
-  emailLogs               EmailLog[]
-  storedFiles             StoredFile[]
-  fileFolders             FileFolder[]
-  paymentTransactions     PaymentTransaction[]
-  paymentRefunds          PaymentRefund[]
-  paymentReceipts         PaymentReceipt[]
-  paymentWebhookEvents    PaymentProviderWebhookEvent[]
-  bankConnections         BankConnection[]
-  bankTransactions        BankTransaction[]
-  vendors                 Vendor[]
-  invoices                Invoice[]
-  invoiceLineItems        InvoiceLineItem[]
-  invoiceDiscounts        InvoiceDiscount[]
-  invoiceTaxes            InvoiceTax[]
-  invoicePaymentSchedules InvoicePaymentSchedule[]
-  invoiceBalances         InvoiceBalance[]
-  settings                OrganizationSetting?
-  notificationPreferences NotificationPreference[]
-  clients                 Client[]
-  bookingReservations     BookingReservation[]
-  todayNotes              TodayNote[]
-  diningPlans             DiningPlan[]
-  hallMapPresets          HallMapPreset[]
-  hallMapShapeLibraryItems HallMapShapeLibraryItem[]
-  supportTickets          SupportTicket[]
-  supportTicketMessages   SupportTicketMessage[]
+  kitchenItemStatuses           KitchenItemStatus[]
+  kitchenNotifications          KitchenNotification[]
+  schoolCycles                  SchoolCycle[]
+  memberShuls                   MemberShul[]
+  paymentSettings               PaymentSetting[]
+  tableclothOptions             TableclothOption[]
+  menuCategories                MenuCategory[]
+  holidayBlockedDates           HolidayBlockedDate[]
+  activityLogs                  ActivityLog[]
+  generatedPdfs                 GeneratedPdf[]
+  emailLogs                     EmailLog[]
+  storedFiles                   StoredFile[]
+  fileFolders                   FileFolder[]
+  paymentTransactions           PaymentTransaction[]
+  paymentRefunds                PaymentRefund[]
+  paymentReceipts               PaymentReceipt[]
+  paymentWebhookEvents          PaymentProviderWebhookEvent[]
+  bankConnections               BankConnection[]
+  bankTransactions              BankTransaction[]
+  vendors                       Vendor[]
+  invoices                      Invoice[]
+  invoiceLineItems              InvoiceLineItem[]
+  invoiceDiscounts              InvoiceDiscount[]
+  invoiceTaxes                  InvoiceTax[]
+  invoicePaymentSchedules       InvoicePaymentSchedule[]
+  invoiceBalances               InvoiceBalance[]
+  settings                      OrganizationSetting?
+  notificationPreferences       NotificationPreference[]
+  clients                       Client[]
+  bookingReservations           BookingReservation[]
+  todayNotes                    TodayNote[]
+  diningPlans                   DiningPlan[]
+  hallMapPresets                HallMapPreset[]
+  hallMapShapeLibraryItems      HallMapShapeLibraryItem[]
+  supportTickets                SupportTicket[]
+  supportTicketMessages         SupportTicketMessage[]
 
   @@index([isActive])
   @@map("organizations")
@@ -202,33 +202,33 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  organization                     Organization             @relation("PrimaryOrganization", fields: [organizationId], references: [id])
-  memberships                      OrganizationMembership[]
-  createdEvents                    Event[]                  @relation("EventCreatedBy")
-  updatedEvents                    Event[]                  @relation("EventUpdatedBy")
-  createdSchoolCycles              SchoolCycle[]            @relation("SchoolCycleCreatedBy")
-  updatedKitchenItemStatuses       KitchenItemStatus[]      @relation("KitchenItemStatusUpdatedBy")
+  organization                         Organization                  @relation("PrimaryOrganization", fields: [organizationId], references: [id])
+  memberships                          OrganizationMembership[]
+  createdEvents                        Event[]                       @relation("EventCreatedBy")
+  updatedEvents                        Event[]                       @relation("EventUpdatedBy")
+  createdSchoolCycles                  SchoolCycle[]                 @relation("SchoolCycleCreatedBy")
+  updatedKitchenItemStatuses           KitchenItemStatus[]           @relation("KitchenItemStatusUpdatedBy")
   updatedKitchenStandaloneItemStatuses KitchenStandaloneItemStatus[] @relation("KitchenStandaloneItemStatusUpdatedBy")
-  createdKitchenStandaloneEvents   KitchenStandaloneEvent[] @relation("KitchenStandaloneEventCreatedBy")
-  confirmedEventMenus              EventMenu[]              @relation("EventMenuConfirmedBy")
-  addedEventMenuLines              EventMenuLine[]          @relation("EventMenuLineAddedBy")
-  changedKitchenNotifications      KitchenNotification[]    @relation("KitchenNotificationChangedBy")
-  acknowledgedKitchenNotifications KitchenNotification[]    @relation("KitchenNotificationAcknowledgedBy")
-  activityLogs                     ActivityLog[]
-  generatedPdfs                    GeneratedPdf[]
-  sentEmailLogs                    EmailLog[]
-  uploadedFiles                    StoredFile[]             @relation("StoredFileUploadedBy")
-  confirmedPaymentTransactions     PaymentTransaction[]     @relation("PaymentTransactionConfirmedBy")
-  processedPaymentRefunds          PaymentRefund[]          @relation("PaymentRefundProcessedBy")
-  issuedPaymentReceipts            PaymentReceipt[]         @relation("PaymentReceiptIssuedBy")
-  bankConnections                  BankConnection[]
-  notificationPreferences          NotificationPreference[]
-  createdTodayNotes                TodayNote[]              @relation("TodayNoteCreatedBy")
-  kitchenWorkers                   KitchenWorker[]          @relation("KitchenWorkerUser")
-  createdSupportTickets            SupportTicket[]          @relation("SupportTicketCreatedBy")
-  supportTicketMessages            SupportTicketMessage[]   @relation("SupportTicketMessageAuthor")
-  authorizationAuditsAsActor       AuthorizationAudit[]     @relation("AuthorizationAuditActor")
-  grantedPrincipalRoles            PrincipalRole[]          @relation("PrincipalRoleGrantedBy")
+  createdKitchenStandaloneEvents       KitchenStandaloneEvent[]      @relation("KitchenStandaloneEventCreatedBy")
+  confirmedEventMenus                  EventMenu[]                   @relation("EventMenuConfirmedBy")
+  addedEventMenuLines                  EventMenuLine[]               @relation("EventMenuLineAddedBy")
+  changedKitchenNotifications          KitchenNotification[]         @relation("KitchenNotificationChangedBy")
+  acknowledgedKitchenNotifications     KitchenNotification[]         @relation("KitchenNotificationAcknowledgedBy")
+  activityLogs                         ActivityLog[]
+  generatedPdfs                        GeneratedPdf[]
+  sentEmailLogs                        EmailLog[]
+  uploadedFiles                        StoredFile[]                  @relation("StoredFileUploadedBy")
+  confirmedPaymentTransactions         PaymentTransaction[]          @relation("PaymentTransactionConfirmedBy")
+  processedPaymentRefunds              PaymentRefund[]               @relation("PaymentRefundProcessedBy")
+  issuedPaymentReceipts                PaymentReceipt[]              @relation("PaymentReceiptIssuedBy")
+  bankConnections                      BankConnection[]
+  notificationPreferences              NotificationPreference[]
+  createdTodayNotes                    TodayNote[]                   @relation("TodayNoteCreatedBy")
+  kitchenWorkers                       KitchenWorker[]               @relation("KitchenWorkerUser")
+  createdSupportTickets                SupportTicket[]               @relation("SupportTicketCreatedBy")
+  supportTicketMessages                SupportTicketMessage[]        @relation("SupportTicketMessageAuthor")
+  authorizationAuditsAsActor           AuthorizationAudit[]          @relation("AuthorizationAuditActor")
+  grantedPrincipalRoles                PrincipalRole[]               @relation("PrincipalRoleGrantedBy")
 
   @@index([organizationId, isActive])
   @@map("users")
@@ -503,13 +503,13 @@ model PrincipalRole {
   source         String    @default("manual")
   createdAt      DateTime  @default(now()) @map("created_at")
 
-  principal      Principal    @relation(fields: [principalId, organizationId], references: [id, organizationId], onDelete: Cascade)
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  principal     Principal    @relation(fields: [principalId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   /// RESTRICT, not CASCADE: deleting a role people still hold must fail loudly.
   /// The API returns 409 role_in_use, and the database refuses even if that
   /// check is bypassed.
-  role           Role         @relation(fields: [roleId, organizationId], references: [id, organizationId], onDelete: Restrict)
-  grantedByUser  User?        @relation("PrincipalRoleGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
+  role          Role         @relation(fields: [roleId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  grantedByUser User?        @relation("PrincipalRoleGrantedBy", fields: [grantedBy], references: [id], onDelete: SetNull)
 
   @@unique([principalId, roleId, scopeType, scopeId])
   @@index([organizationId])
@@ -578,18 +578,18 @@ model PrincipalPermission {
 /// The subject is a PRINCIPAL, not a user, so a change to a service account's
 /// grants is auditable in the same table and read by the same screen.
 model AuthorizationAudit {
-  id               String   @id @default(uuid()) @db.Uuid
-  organizationId   String   @map("organization_id") @db.Uuid
-  actorId          String?  @map("actor_id") @db.Uuid
-  actorName        String   @map("actor_name")
-  subjectPrincipalId String? @map("subject_principal_id") @db.Uuid
-  subjectName      String?  @map("subject_name")
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  actorId            String?  @map("actor_id") @db.Uuid
+  actorName          String   @map("actor_name")
+  subjectPrincipalId String?  @map("subject_principal_id") @db.Uuid
+  subjectName        String?  @map("subject_name")
   /// e.g. "role.created", "role.updated", "assignment.created",
   /// "override.replaced", "staff.deactivated".
-  action           String
+  action             String
   /// Before/after detail. Shape is the writer's business, not the schema's.
-  detail           Json?
-  createdAt        DateTime @default(now()) @map("created_at")
+  detail             Json?
+  createdAt          DateTime @default(now()) @map("created_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   actor        User?        @relation("AuthorizationAuditActor", fields: [actorId], references: [id], onDelete: SetNull)
@@ -804,12 +804,12 @@ model MenuItem {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  categoryRef         MenuCategory?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  services            MenuItemService[]
-  kitchenItemStatuses KitchenItemStatus[]
+  organization                  Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  categoryRef                   MenuCategory?                 @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  services                      MenuItemService[]
+  kitchenItemStatuses           KitchenItemStatus[]
   kitchenStandaloneItemStatuses KitchenStandaloneItemStatus[]
-  eventMenuLines      EventMenuLine[]
+  eventMenuLines                EventMenuLine[]
 
   @@index([organizationId, isActive])
   @@index([organizationId, categoryId])
@@ -874,9 +874,9 @@ model EventPackage {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  organization             Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  events                   Event[]
-  kitchenStandaloneEvents  KitchenStandaloneEvent[]
+  organization            Organization             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  events                  Event[]
+  kitchenStandaloneEvents KitchenStandaloneEvent[]
 
   @@index([organizationId, isActive])
   @@index([isActive])
@@ -940,9 +940,9 @@ model KitchenWorker {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user                 User?               @relation("KitchenWorkerUser", fields: [userId], references: [id], onDelete: Cascade)
-  assignedKitchenItems KitchenItemStatus[]
+  organization                   Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user                           User?                         @relation("KitchenWorkerUser", fields: [userId], references: [id], onDelete: Cascade)
+  assignedKitchenItems           KitchenItemStatus[]
   assignedStandaloneKitchenItems KitchenStandaloneItemStatus[]
 
   @@unique([organizationId, userId])
@@ -969,9 +969,9 @@ model KitchenStandaloneEvent {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  menu         EventPackage @relation(fields: [menuId], references: [id], onDelete: Restrict)
-  createdBy    User?        @relation("KitchenStandaloneEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  menu         EventPackage                  @relation(fields: [menuId], references: [id], onDelete: Restrict)
+  createdBy    User?                         @relation("KitchenStandaloneEventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   itemStatuses KitchenStandaloneItemStatus[]
 
   @@index([organizationId, eventDate])
@@ -1257,27 +1257,39 @@ model EventMenu {
 /// confirmation lock and the delete protection dishes get instead of staying in
 /// a bare id array beside them.
 model EventMenuLine {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  eventMenuId    String   @map("event_menu_id") @db.Uuid
-  menuItemId     String?  @map("menu_item_id") @db.Uuid
-  addOnId        String?  @map("add_on_id") @db.Uuid
+  id                 String   @id @default(uuid()) @db.Uuid
+  organizationId     String   @map("organization_id") @db.Uuid
+  eventMenuId        String   @map("event_menu_id") @db.Uuid
+  menuItemId         String?  @map("menu_item_id") @db.Uuid
+  addOnId            String?  @map("add_on_id") @db.Uuid
   /// Null while the menu is a draft, filled when it is confirmed: a draft
   /// should follow a library rename, a confirmed menu must not change under
   /// the kitchen that already read it.
-  itemName       String?  @map("item_name")
+  itemName           String?  @map("item_name")
   /// Which way this dish is served at this event, and therefore which of its
   /// `MenuItemService` rules the quantity math runs. Null on an add-on, which
   /// is not served in a style at all.
-  serviceStyle   String?  @map("service_style")
-  notes          String?
-  sortOrder      Int      @default(0) @map("sort_order")
+  serviceStyle       String?  @map("service_style")
+  notes              String?
+  sortOrder          Int      @default(0) @map("sort_order")
+  /// How many complete servings of this line the event is getting - "2x the
+  /// brisket". Multiplies the finished kitchen quantity, so two of a dish that
+  /// works out at 7 trays is 14 trays - not the 13 that doubling the guest count
+  /// before rounding would give, and not the 2 that a per-tray minimum would
+  /// swallow the doubling into.
+  ///
+  /// Not `MenuItemService.quantity`, which is the rate for ONE serving.
+  ///
+  /// A column rather than a second row: the uniques below make a repeated dish
+  /// unstorable, and `KitchenItemStatus` is keyed on (event, dish) anyway, so a
+  /// duplicate row could not carry its own progress even if it existed.
+  quantityMultiplier Int      @default(1) @map("quantity_multiplier")
   /// Manual | Package | ClientPortal. 'Package' is unused until packages
   /// materialise their items onto the event; it reserves the room.
-  source         String   @default("Manual")
-  addedById      String?  @map("added_by") @db.Uuid
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  source             String   @default("Manual")
+  addedById          String?  @map("added_by") @db.Uuid
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   eventMenu    EventMenu    @relation(fields: [eventMenuId], references: [id], onDelete: Cascade)

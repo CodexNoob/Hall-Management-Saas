@@ -21,6 +21,10 @@ import {
   requireUserActor
 } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import {
+  LINE_MULTIPLIER_MAX,
+  LINE_MULTIPLIER_MIN
+} from "@/features/menu/lib/menu-quantity";
 import { prisma } from "@/lib/prisma";
 import { createMenuChangedKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
 
@@ -53,6 +57,17 @@ const menuLineSchema = z
     /// menu would be relabelled `Manual` by the next unrelated edit, and
     /// removing the package would no longer find them.
     source: z.enum(LINE_SOURCES).optional(),
+    /// "2x the brisket". Absent from an older client, which means one serving -
+    /// the same answer the column's default gives. Deliberately not refined away
+    /// for add-ons: the tab echoes back every field it read on every write, and
+    /// a schema that rejects a field the column permits would turn one stray row
+    /// into a menu that can never be saved again.
+    quantityMultiplier: z
+      .number()
+      .int()
+      .min(LINE_MULTIPLIER_MIN)
+      .max(LINE_MULTIPLIER_MAX)
+      .optional(),
     notes: z.string().trim().max(2000).nullable().optional()
   })
   .refine(
@@ -162,6 +177,12 @@ export async function PUT(
 
     // Last one wins rather than rejecting: the unique on (menu, dish) makes a
     // repeated target unstorable, and the client has no way to have meant two.
+    //
+    // Specifically NOT summed into `quantityMultiplier` now that there is one.
+    // Two of the same dish in one payload is a client bug - the tab sends the
+    // line set it is holding, which cannot contain a target twice - and reading
+    // it as a deliberate "2x" would put a number in front of the kitchen that
+    // nobody asked for and that looks right on screen.
     const linesByTarget = new Map(
       input.lines.map((line) => [
         line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
@@ -271,6 +292,7 @@ export async function PUT(
             serviceStyle: line.menuItemId ? (line.serviceStyle ?? null) : null,
             notes: line.notes ?? null,
             sortOrder: index,
+            quantityMultiplier: line.quantityMultiplier ?? 1,
             // Kept as it arrived, so a line a package put here still reads as
             // one after an unrelated edit rewrites the set around it.
             source: line.source ?? "Manual",

@@ -262,6 +262,10 @@ export type EventMenuLine = {
   price: number | null;
   notes: string | null;
   sortOrder: number;
+  /// How many of this line the event is getting. 1 is one serving, which is what
+  /// every line was before the column existed. `price` is per serving and does
+  /// not follow it - see the note on the card's stepper.
+  quantityMultiplier: number;
   source: string;
   /// Deactivated in the library since it was put on this menu. Still served,
   /// but it will not be offered for anything new.
@@ -297,10 +301,16 @@ export type PendingMenuWrite = {
 /// strings, and the table count lives in the dining plan's json.
 export type EventKitchenQuantity = {
   unit: string;
-  /// What to cook. Whole unless the rule's rounding is `Exact`.
+  /// What to cook, the line's multiplier included. Whole unless the rule's
+  /// rounding is `Exact`.
   units: number;
-  /// Before rounding, so a row can explain where its number came from.
+  /// Before rounding, so a row can explain where its number came from. Per
+  /// serving, because rounding is per serving: on a doubled line this is the
+  /// working behind `perServingUnits`, not behind `units`.
   raw: number;
+  /// What one serving rounds to. `units` is this times the line's multiplier,
+  /// kept so a sheet can show "2 x 7 trays" rather than an unexplained 14.
+  perServingUnits: number;
 };
 
 /// Why a line has the number it has - or why it has none.
@@ -324,6 +334,10 @@ export type EventKitchenLine = {
   notes: string | null;
   sortOrder: number;
   isRetired: boolean;
+  /// How many complete servings of this line the event ordered. Already applied
+  /// to every `units` below; carried so the sheet can say a 14 is a doubled 7
+  /// rather than a large event.
+  quantityMultiplier: number;
   quantities: EventKitchenQuantity[];
   /// Counts this event could not answer - in practice ["Tables"], on an event
   /// with no dining plan.

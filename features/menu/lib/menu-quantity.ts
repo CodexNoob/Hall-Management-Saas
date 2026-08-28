@@ -212,3 +212,61 @@ export function calculateStyleQuantity(
 
   return forStyle.length > 0 ? calculateMenuQuantity(forStyle, counts) : null;
 }
+
+/**
+ * The bounds `EventMenuLine.quantityMultiplier` is held to, in the three places
+ * that have to agree: the CHECK on the column, the zod schema on the menu PUT
+ * and the stepper on the card.
+ */
+export const LINE_MULTIPLIER_MIN = 1;
+export const LINE_MULTIPLIER_MAX = 99;
+
+/** What one serving rounds to. `units` is that times the line's multiplier. */
+export type ScaledMenuQuantity = MenuQuantity & { perServingUnits: number };
+
+/**
+ * A multiplier off a row, an old client or a test, made safe.
+ *
+ * Every branch shares one database, so a line can have been written by code that
+ * predates the column and its CHECK. Answering 1 for anything unusable is the
+ * right failure: a presenter is not the place to throw over a menu line, and one
+ * serving is what that row has always meant.
+ */
+export function readLineMultiplier(value: number | null | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return LINE_MULTIPLIER_MIN;
+  }
+
+  return Math.min(
+    Math.max(Math.floor(value), LINE_MULTIPLIER_MIN),
+    LINE_MULTIPLIER_MAX
+  );
+}
+
+/**
+ * "2x the brisket": how many complete servings of one line the event is getting.
+ *
+ * Multiplies the FINISHED units - after rounding and after `minimumUnits` -
+ * because ordering two of a dish is two servings, and each one clears the rule
+ * on its own. Scaling `raw` first instead would let a minimum swallow the
+ * doubling whole: one tray per hundred with a floor of two, at forty guests, is
+ * two trays at 1x and still two trays at 2x, and nothing on the sheet would say
+ * why the second helping never arrived.
+ *
+ * `raw` is deliberately left per-serving. It exists to explain the rounding
+ * step, and rounding happens per serving - a doubled `raw` printed beside the
+ * total would be a note contradicting the number above it.
+ */
+export function scaleMenuQuantities(
+  quantities: MenuQuantity[],
+  multiplier: number
+): ScaledMenuQuantity[] {
+  const safe = readLineMultiplier(multiplier);
+
+  return quantities.map((quantity) => ({
+    unit: quantity.unit,
+    raw: quantity.raw,
+    perServingUnits: quantity.units,
+    units: quantity.units * safe
+  }));
+}

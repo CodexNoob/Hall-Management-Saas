@@ -250,10 +250,15 @@ function buildStandaloneKitchenSheet({
           notes: null,
           sortOrder: index,
           isRetired: !menuItem.isActive,
+          // Always one serving here, and not for want of support: a standalone
+          // job is built from a package's `included_menu_item_ids`, so there is
+          // no `EventMenuLine` to have carried a multiplier in the first place.
+          quantityMultiplier: 1,
           quantities: (result?.quantities ?? []).map((quantity) => ({
             unit: quantity.unit,
             units: quantity.units,
-            raw: quantity.raw
+            raw: quantity.raw,
+            perServingUnits: quantity.units
           })),
           unresolvedBases: result?.unresolved ?? [],
           countState:
