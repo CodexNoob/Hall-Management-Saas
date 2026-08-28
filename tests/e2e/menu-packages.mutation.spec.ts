@@ -126,7 +126,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto("/dashboard/menu");
   await expect(
-    page.getByRole("button", { name: "Create new package" }),
+    page.getByRole("button", { name: "Bulk upload menu items" }),
     "the mutation account needs canEditMenu to manage packages"
   ).toBeVisible({ timeout: 30_000 });
 });
@@ -165,7 +165,10 @@ test("creates a package, edits it, and fills and empties it from the library", a
     await page.reload();
 
     // --- create -----------------------------------------------------------
-    await page.getByRole("button", { name: "Create new package" }).click();
+    // Created from the tab that owns packages now that the topbar no longer
+    // offers it. Exact on "New", or it also matches the library's "New item".
+    await page.getByRole("button", { name: "Packages", exact: true }).click();
+    await page.getByRole("button", { name: "New", exact: true }).click();
 
     const createDialog = page.getByRole("dialog", { name: "New package" });
     await expect(createDialog).toBeVisible();
