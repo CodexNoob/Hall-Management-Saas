@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { authorize, requireUserActor, scoped, tenant } from "@/lib/authz/authorize";
+import {
+  authorize,
+  requireUserActor,
+  scoped,
+  tenant
+} from "@/lib/authz/authorize";
 import { createBookingSchema } from "@/features/bookings/validations/booking.schema";
 import {
   createBooking,
@@ -20,7 +25,10 @@ function dailyEventLimitFromIntegrations(integrations: unknown) {
     if (calendar && typeof calendar === "object") {
       const dailyEventLimit = (calendar as { dailyEventLimit?: unknown })
         .dailyEventLimit;
-      if (typeof dailyEventLimit === "number" && Number.isFinite(dailyEventLimit)) {
+      if (
+        typeof dailyEventLimit === "number" &&
+        Number.isFinite(dailyEventLimit)
+      ) {
         return dailyEventLimit;
       }
     }
@@ -83,15 +91,21 @@ async function listDiningHallMapPresets(
   return new Map(rows.map((row) => [row.eventId, row]));
 }
 
-async function listEventActivityLogs(organizationId: string, eventIds: string[]) {
+async function listEventActivityLogs(
+  organizationId: string,
+  eventIds: string[]
+) {
   if (eventIds.length === 0) {
-    return new Map<string, Array<{
-      id: string;
-      actionType: string;
-      message: string;
-      userName: string | null;
-      createdAt: Date;
-    }>>();
+    return new Map<
+      string,
+      Array<{
+        id: string;
+        actionType: string;
+        message: string;
+        userName: string | null;
+        createdAt: Date;
+      }>
+    >();
   }
 
   const activityLogs = await prisma.activityLog.findMany({
@@ -111,13 +125,16 @@ async function listEventActivityLogs(organizationId: string, eventIds: string[])
     take: eventIds.length * 8
   });
 
-  const logsByEventId = new Map<string, Array<{
-    id: string;
-    actionType: string;
-    message: string;
-    userName: string | null;
-    createdAt: Date;
-  }>>();
+  const logsByEventId = new Map<
+    string,
+    Array<{
+      id: string;
+      actionType: string;
+      message: string;
+      userName: string | null;
+      createdAt: Date;
+    }>
+  >();
 
   for (const log of activityLogs) {
     if (!log.eventId) continue;
@@ -212,10 +229,10 @@ export async function GET(request: Request) {
       diningHallMapPresetByEventId,
       activityLogsByEventId
     ] = await Promise.all([
-        listDiningManagerNotes(actor.organizationId, eventIds),
-        listDiningHallMapPresets(actor.organizationId, eventIds),
-        listEventActivityLogs(actor.organizationId, eventIds)
-      ]);
+      listDiningManagerNotes(actor.organizationId, eventIds),
+      listDiningHallMapPresets(actor.organizationId, eventIds),
+      listEventActivityLogs(actor.organizationId, eventIds)
+    ]);
 
     return NextResponse.json({
       events: events.map((event) => {
@@ -261,7 +278,7 @@ export async function POST(request: Request) {
     });
     if (limited) return limited;
 
-    const actor = await authorize(request, "event.create");
+    const actor = await authorize(request, "booking.create");
     const body = (await request.json()) as Record<string, unknown>;
     const headerKey = request.headers.get("idempotency-key") ?? undefined;
     const input = createBookingSchema.parse({

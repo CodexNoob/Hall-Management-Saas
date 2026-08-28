@@ -1,20 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DateRangePickerDialog, type DateRange } from "@/features/calendar/forms/date-range-picker-dialog";
+import {
+  DateRangePickerDialog,
+  type DateRange
+} from "@/features/calendar/forms/date-range-picker-dialog";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
 import { dateKey } from "@/lib/dates/calendar-date";
-import { ClockIcon, SettingsIcon, initialBlockedRanges } from "@/features/calendar/components/calendar-shared";
+import {
+  ClockIcon,
+  SettingsIcon
+} from "@/features/calendar/components/calendar-shared";
 import { LiveNumberField } from "@/components/ui/number-field";
 import { countSchema } from "@/lib/validation/number";
 
 export function CalendarSettingsView({
   dailyEventLimit,
+  blockedDates,
+  canUpdateSettings,
+  blockedDateMutationError,
   hallAvailability,
+  isMutatingBlockedDate,
   isSavingDailyEventLimit,
   saveDailyEventLimitError,
-  onSaveDailyEventLimit
+  onSaveDailyEventLimit,
+  onAddBlockedRange,
+  onRemoveBlockedRange
 }: {
+  blockedDates: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    label: string;
+  }>;
+  canUpdateSettings: boolean;
+  blockedDateMutationError: string | null;
   dailyEventLimit: number;
   hallAvailability: Array<{
     id: string;
@@ -25,10 +45,12 @@ export function CalendarSettingsView({
     usesDefaultLimit: boolean;
   }>;
   isSavingDailyEventLimit: boolean;
+  isMutatingBlockedDate: boolean;
   saveDailyEventLimitError: string | null;
   onSaveDailyEventLimit: (limit: number) => Promise<void>;
+  onAddBlockedRange: (range: DateRange) => Promise<void>;
+  onRemoveBlockedRange: (id: string) => Promise<void>;
 }) {
-  const [blockedRanges, setBlockedRanges] = useState(initialBlockedRanges);
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   const [dailyEventLimitDraft, setDailyEventLimitDraft] =
     useState(dailyEventLimit);
@@ -51,33 +73,21 @@ export function CalendarSettingsView({
     setDailyEventLimitDraft(dailyEventLimit);
   }, [dailyEventLimit]);
 
-  function addBlockedRange() {
-    setBlockedRanges((current) => {
-      const rangeId = `blocked-${dateKey(blockedRangeDraft.startDate)}-${dateKey(blockedRangeDraft.endDate)}`;
-      const isSingleBlockedDay =
-        dateKey(blockedRangeDraft.startDate) ===
-        dateKey(blockedRangeDraft.endDate);
-      if (current.some((range) => range.id === rangeId)) return current;
-
-      return [
-        {
-          id: rangeId,
-          startLabel: blockedStartLabel,
-          endLabel: isSingleBlockedDay ? undefined : blockedEndLabel,
-          hebrewLabel: isSingleBlockedDay
-            ? formatHebrewDateWithoutYear(blockedRangeDraft.startDate)
-            : `${formatHebrewDateWithoutYear(blockedRangeDraft.startDate)} to ${formatHebrewDateWithoutYear(blockedRangeDraft.endDate)}`
-        },
-        ...current
-      ];
-    });
-  }
-
-  function removeBlockedRange(rangeId: string) {
-    setBlockedRanges((current) =>
-      current.filter((range) => range.id !== rangeId)
-    );
-  }
+  const blockedRanges = blockedDates.map((range) => {
+    const startDate = new Date(`${range.startDate.slice(0, 10)}T00:00:00`);
+    const endDate = new Date(`${range.endDate.slice(0, 10)}T00:00:00`);
+    const isSingleBlockedDay = dateKey(startDate) === dateKey(endDate);
+    return {
+      id: range.id,
+      startLabel: rangeDateFormatter.format(startDate),
+      endLabel: isSingleBlockedDay
+        ? undefined
+        : rangeDateFormatter.format(endDate),
+      hebrewLabel: isSingleBlockedDay
+        ? formatHebrewDateWithoutYear(startDate)
+        : `${formatHebrewDateWithoutYear(startDate)} to ${formatHebrewDateWithoutYear(endDate)}`
+    };
+  });
 
   return (
     <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-visible rounded-xl border border-[#d8dde5] bg-white">
@@ -119,6 +129,7 @@ export function CalendarSettingsView({
             <button
               className="h-10 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={
+                !canUpdateSettings ||
                 isSavingDailyEventLimit ||
                 dailyEventLimitDraft === dailyEventLimit
               }
@@ -227,7 +238,8 @@ export function CalendarSettingsView({
                 </div>
                 <button
                   className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
-                  onClick={addBlockedRange}
+                  disabled={!canUpdateSettings || isMutatingBlockedDate}
+                  onClick={() => void onAddBlockedRange(blockedRangeDraft)}
                   type="button"
                 >
                   Add blocked range
@@ -258,7 +270,8 @@ export function CalendarSettingsView({
 
                   <button
                     className="h-8 shrink-0 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]"
-                    onClick={() => removeBlockedRange(range.id)}
+                    disabled={!canUpdateSettings || isMutatingBlockedDate}
+                    onClick={() => void onRemoveBlockedRange(range.id)}
                     type="button"
                   >
                     Remove
@@ -269,6 +282,14 @@ export function CalendarSettingsView({
               {blockedRanges.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-[#b9c2cf] p-6 text-center text-sm text-[#6a7483]">
                   No blocked date ranges.
+                </p>
+              ) : null}
+              {blockedDateMutationError ? (
+                <p
+                  className="rounded-lg border border-[#f1c4bd] bg-[#fff5f3] px-3 py-2 text-xs font-bold text-[#b42318]"
+                  role="alert"
+                >
+                  {blockedDateMutationError}
                 </p>
               ) : null}
             </div>

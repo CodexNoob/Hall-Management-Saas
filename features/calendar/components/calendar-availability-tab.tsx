@@ -1,10 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { DateRangePickerDialog, type DateRange } from "@/features/calendar/forms/date-range-picker-dialog";
-import { BuildingIcon, StatusDot, type AvailabilityDay } from "@/features/calendar/components/calendar-shared";
+import {
+  DateRangePickerDialog,
+  type DateRange
+} from "@/features/calendar/forms/date-range-picker-dialog";
+import {
+  BuildingIcon,
+  StatusDot,
+  type AvailabilityDay
+} from "@/features/calendar/components/calendar-shared";
 
 export function AvailabilityView({
+  canManageBlockedDates,
+  blockDateError,
   days,
   endDate,
   endDateLabel,
@@ -14,11 +23,13 @@ export function AvailabilityView({
   startDate,
   startDateLabel
 }: {
+  canManageBlockedDates: boolean;
+  blockDateError: string | null;
   days: AvailabilityDay[];
   endDate: Date;
   endDateLabel: string;
-  onNewBooking: () => void;
-  onRemoveDay: (dateKey: string) => void;
+  onNewBooking?: () => void;
+  onRemoveDay: (dateKey: string) => void | Promise<void>;
   onRangeChange: (range: DateRange) => void;
   startDate: Date;
   startDateLabel: string;
@@ -39,13 +50,15 @@ export function AvailabilityView({
           </p>
         </div>
 
-        <button
-          className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f]"
-          onClick={onNewBooking}
-          type="button"
-        >
-          New booking
-        </button>
+        {onNewBooking ? (
+          <button
+            className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f]"
+            onClick={onNewBooking}
+            type="button"
+          >
+            New booking
+          </button>
+        ) : null}
       </header>
 
       <div className="p-3">
@@ -123,17 +136,27 @@ export function AvailabilityView({
                   >
                     {isHold ? "Hold" : "Available"}
                   </span>
-                  <button
-                    className="h-8 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]"
-                    onClick={() => onRemoveDay(availabilityDay.dateKey)}
-                    type="button"
-                  >
-                    Remove
-                  </button>
+                  {canManageBlockedDates ? (
+                    <button
+                      className="h-8 rounded-lg border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2]"
+                      onClick={() => onRemoveDay(availabilityDay.dateKey)}
+                      type="button"
+                    >
+                      Block date
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
           })}
+          {blockDateError ? (
+            <p
+              className="rounded-lg border border-[#f1c4bd] bg-[#fff5f3] px-3 py-2 text-xs font-bold text-[#b42318]"
+              role="alert"
+            >
+              {blockDateError}
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
