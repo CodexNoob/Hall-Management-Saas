@@ -132,6 +132,10 @@ export function DateRangePickerDialog({
       startDate: draftStartDate,
       endDate: selectedDate
     });
+    // The end date completes the range, so there is nothing left to pick: the
+    // picker dismisses itself rather than sitting over the filtered list until
+    // it is clicked away.
+    onClose();
   }
 
   return (
