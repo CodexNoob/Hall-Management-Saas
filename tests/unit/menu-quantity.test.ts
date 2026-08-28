@@ -4,6 +4,8 @@ import {
   calculateMenuQuantity,
   calculateStyleQuantity,
   readBasisCount,
+  readLineMultiplier,
+  scaleMenuQuantities,
   totalGuests,
   type EventHeadCounts
 } from "@/features/menu/lib/menu-quantity";
@@ -185,5 +187,91 @@ describe("calculateStyleQuantity", () => {
 
   it("tells a dish that is not served this way apart from one that came out at zero", () => {
     expect(calculateStyleQuantity([trayRule], "Plated", counts)).toBeNull();
+  });
+});
+
+describe("readLineMultiplier", () => {
+  it("reads a multiplier a staff member set", () => {
+    expect(readLineMultiplier(2)).toBe(2);
+    expect(readLineMultiplier(99)).toBe(99);
+  });
+
+  it("answers one for anything it cannot use", () => {
+    // A line written by a branch that predates the column, or by one that
+    // predates its CHECK. Throwing here would take a whole menu down over one
+    // row, and one serving is what that row has always meant.
+    expect(readLineMultiplier(null)).toBe(1);
+    expect(readLineMultiplier(undefined)).toBe(1);
+    expect(readLineMultiplier(0)).toBe(1);
+    expect(readLineMultiplier(-3)).toBe(1);
+    expect(readLineMultiplier(Number.NaN)).toBe(1);
+  });
+
+  it("floors a fraction and clamps past the cap", () => {
+    expect(readLineMultiplier(2.7)).toBe(2);
+    expect(readLineMultiplier(500)).toBe(99);
+  });
+});
+
+describe("scaleMenuQuantities", () => {
+  const oneServing = calculateMenuQuantity([trayRule], counts).quantities;
+
+  it("doubles what the kitchen cooks, and says what one serving was", () => {
+    // 187 guests at 1 tray per 30 is 7 trays to cook; two of the dish is two
+    // batches of 7.
+    expect(scaleMenuQuantities(oneServing, 2)).toEqual([
+      { unit: "tray", raw: 6.233333, perServingUnits: 7, units: 14 }
+    ]);
+  });
+
+  it("leaves raw per-serving, because rounding is per serving", () => {
+    // 6.23 is the working behind the 7, not behind the 14. Doubling it here
+    // would print "12.47 before rounding" under a total of 14 - a note that
+    // contradicts the number it is meant to explain.
+    expect(scaleMenuQuantities(oneServing, 2)[0].raw).toBe(6.233333);
+  });
+
+  it("multiplies AFTER the minimum, so a second helping is not swallowed", () => {
+    // This is the case the whole design turns on. One tray per hundred with a
+    // floor of two, at 40 guests: raw is 0.4, which the minimum lifts to 2.
+    // Ordering two has to be 4 trays. Scaling raw first would give
+    // max(ceil(0.8), 2) = 2 - the same as ordering one, with nothing on the
+    // sheet to say the second one went missing.
+    const minimumRule: MenuItemServiceRule = {
+      ...trayRule,
+      per: 100,
+      minimumUnits: 2
+    };
+    const small: EventHeadCounts = { ...counts, couples: 0, men: 40, ladies: 0, boys: 0, girls: 0 };
+    const single = calculateMenuQuantity([minimumRule], small).quantities;
+
+    expect(single[0].units).toBe(2);
+
+    const doubled = scaleMenuQuantities(single, 2);
+
+    expect(doubled[0].units).toBe(4);
+    expect(doubled[0].units).not.toBe(2);
+  });
+
+  it("is the identity at one, so an unmultiplied line reads as it always did", () => {
+    expect(scaleMenuQuantities(oneServing, 1)).toEqual([
+      { unit: "tray", raw: 6.233333, perServingUnits: 7, units: 7 }
+    ]);
+  });
+
+  it("scales every unit group, not just the first", () => {
+    const bottleRule: MenuItemServiceRule = {
+      ...trayRule,
+      unit: "bottle",
+      per: 60
+    };
+    const groups = calculateMenuQuantity([trayRule, bottleRule], counts)
+      .quantities;
+
+    expect(scaleMenuQuantities(groups, 3).map((q) => q.units)).toEqual([21, 12]);
+  });
+
+  it("refuses an unusable multiplier the same way the reader does", () => {
+    expect(scaleMenuQuantities(oneServing, 0)[0].units).toBe(7);
   });
 });

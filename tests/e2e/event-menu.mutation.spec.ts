@@ -48,6 +48,8 @@ type MenuLine = {
   name: string;
   serviceStyle: string | null;
   pictureUrl: string | null;
+  /** How many complete servings of this line the event is getting. */
+  quantityMultiplier: number;
   /** Manual | Package | ClientPortal - who put the line on the menu. */
   source: string;
 };
@@ -227,6 +229,14 @@ function selectorItem(page: Page, id: string) {
 
 function removeLineButton(page: Page, id: string) {
   return page.getByTestId(`event-menu-remove-${id}`);
+}
+
+function quantityReadout(page: Page, id: string) {
+  return page.getByTestId(`event-menu-quantity-${id}`);
+}
+
+function increaseQuantity(page: Page, id: string) {
+  return page.getByTestId(`event-menu-quantity-increase-${id}`);
 }
 
 /**
@@ -757,6 +767,97 @@ test.describe("event menu", () => {
       await expect
         .poll(async () => (await getMenu(page, eventId)).lines.map((l) => l.name))
         .toEqual([BUFFET_B]);
+    } finally {
+      await cleanUp(page, eventId);
+    }
+  });
+
+  test("orders two of one buffet dish, and the kitchen cooks for two", async ({
+    page
+  }) => {
+    test.setTimeout(120_000);
+
+    const eventId = await createInquiryEvent(
+      page,
+      `E2E Menu Quantity ${Date.now()}`
+    );
+
+    try {
+      const catalog = await provisionCatalog(page);
+      await page.request.put(`/api/events/${eventId}/menu`, {
+        data: {
+          meal: "Main",
+          version: 0,
+          lines: [{ menuItemId: catalog.buffetA.id, serviceStyle: "Buffet" }]
+        }
+      });
+
+      await openMenuTab(page, eventId);
+
+      // Everything starts at one serving, which is what every line meant before
+      // the column existed.
+      await expect(quantityReadout(page, catalog.buffetA.id)).toHaveText("×1");
+
+      const saved = page.waitForResponse(
+        (response) =>
+          response.request().method() === "PUT" &&
+          new URL(response.url()).pathname === `/api/events/${eventId}/menu`,
+        { timeout: 30_000 }
+      );
+      await increaseQuantity(page, catalog.buffetA.id).click();
+      expect((await saved).status()).toBe(200);
+
+      await expect(quantityReadout(page, catalog.buffetA.id)).toHaveText("×2");
+
+      // --- and again from a cold page --------------------------------------
+      // The card is stepped optimistically, so the readout alone proves nothing
+      // about the row behind it.
+      await page.reload();
+      await workspaceTab(page, "Menu").click();
+      await expect(quantityReadout(page, catalog.buffetA.id)).toHaveText("×2", {
+        timeout: 30_000
+      });
+
+      const menu = await getMenu(page, eventId);
+      expect(menu.lines).toHaveLength(1);
+      expect(menu.lines[0].quantityMultiplier).toBe(2);
+
+      // --- what the kitchen is told -----------------------------------------
+      // 80 guests at one tray per thirty is 2.67, which is 3 trays to cook for
+      // one serving - and two servings is two batches of 3, not the 6 that
+      // rounding 5.33 would happen to give. The chip is what tells a cook the 6
+      // is a doubled 3 rather than a bigger event.
+      //
+      // Filtered to what is on screen, not merely in the DOM: the tab draws the
+      // sheet twice, as cards for a phone and as a table for a desktop, with the
+      // wrong one hidden by CSS. An unfiltered `.first()` finds the hidden copy
+      // and proves only that the markup exists.
+      await workspaceTab(page, "Kitchen").click();
+      const onScreen = (text: string) =>
+        page.getByText(text, { exact: false }).filter({ visible: true }).first();
+
+      await expect(onScreen("6 trays")).toBeVisible({ timeout: 30_000 });
+      await expect(onScreen("×2")).toBeVisible();
+      await expect(onScreen("2 × 3 trays per serving")).toBeVisible();
+
+      // --- and once the menu is locked --------------------------------------
+      await workspaceTab(page, "Menu").click();
+      await page.getByRole("button", { name: "Review & confirm" }).click();
+
+      const dialog = page.getByRole("dialog", { name: "Confirm event menu?" });
+      await expect(dialog).toBeVisible();
+      // The count is in the review list, because confirming is the last chance
+      // to catch a stepper somebody leant on.
+      await expect(dialog.getByText("×2")).toBeVisible();
+      await dialog.getByRole("button", { name: /Confirm & lock menu/ }).click();
+
+      await expect(page.getByRole("button", { name: "Reopen menu" })).toBeVisible(
+        { timeout: 20_000 }
+      );
+      // The stepper is gone with every other edit, but what was ordered still
+      // has to be readable.
+      await expect(increaseQuantity(page, catalog.buffetA.id)).toBeHidden();
+      await expect(quantityReadout(page, catalog.buffetA.id)).toHaveText("×2");
     } finally {
       await cleanUp(page, eventId);
     }

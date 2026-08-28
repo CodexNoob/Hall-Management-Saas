@@ -96,6 +96,7 @@ function menuDocument(dishNames: string[]): EventMenuDocument {
       price: null,
       notes: null,
       sortOrder: index,
+      quantityMultiplier: 1,
       source: "Manual",
       isRetired: false
     }))

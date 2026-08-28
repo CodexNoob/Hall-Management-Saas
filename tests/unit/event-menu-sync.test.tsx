@@ -98,6 +98,7 @@ function menuDocument(dishNames: string[], version: number): EventMenuDocument {
       price: null,
       notes: null,
       sortOrder: index,
+      quantityMultiplier: 1,
       source: "Manual",
       isRetired: false
     }))
@@ -142,8 +143,18 @@ function writes() {
     .mock.calls.filter(([, init]) => init?.method === "PUT")
     .map(([, init]) => JSON.parse(String(init?.body)) as {
       version: number;
-      lines: Array<{ menuItemId: string | null }>;
+      lines: Array<{ menuItemId: string | null; quantityMultiplier?: number }>;
     });
+}
+
+function quantityOf(
+  body: {
+    lines: Array<{ menuItemId: string | null; quantityMultiplier?: number }>;
+  },
+  dish: string
+) {
+  return body.lines.find((line) => line.menuItemId === `item-${dish}`)
+    ?.quantityMultiplier;
 }
 
 function dishesIn(body: { lines: Array<{ menuItemId: string | null }> }) {
@@ -275,6 +286,44 @@ describe("event menu edits made faster than the server answers", () => {
     // accepted rather than refused as a conflict.
     expect(dishesIn(sent[1])).toEqual([]);
     expect(sent[1].version).toBe(2);
+  });
+
+  it("saves a burst on the stepper once, at the number it was left on", async () => {
+    // Three presses of + is one more dish to cook, not three saves. The stepper
+    // waits for the user to stop, so the server hears 4 and never hears 2 or 3 -
+    // three round trips and two version bumps that nobody was waiting for.
+    await mount();
+
+    await click("Increase Soup quantity");
+    await click("Increase Soup quantity");
+    await click("Increase Soup quantity");
+
+    // Nothing has gone out yet; the card has moved regardless, which is the
+    // point of the overlay.
+    expect(writes()).toHaveLength(0);
+    expect(
+      screen.getByTestId("event-menu-quantity-item-Soup")
+    ).toHaveTextContent("×4");
+
+    await waitFor(() => expect(writes()).toHaveLength(1), { timeout: 3000 });
+
+    const sent = writes();
+
+    expect(quantityOf(sent[0], "Soup")).toBe(4);
+    // The other dishes ride along untouched, because the tab sends the whole
+    // line set on every write.
+    expect(quantityOf(sent[0], "Kugel")).toBe(1);
+  });
+
+  it("does not make a removal wait on the stepper's pause", async () => {
+    // Only the stepper is debounced. Taking a dish off is deliberate and rare,
+    // and the sooner it is durable the better.
+    await mount();
+
+    await click("Remove Soup");
+
+    await waitFor(() => expect(serverDishes).toEqual(["Salad", "Kugel"]));
+    expect(writes()).toHaveLength(1);
   });
 
   it("offers to undo a removal, and puts the dish back where it was", async () => {

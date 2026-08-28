@@ -159,6 +159,19 @@ describe("replacing a dish on the kitchen board", () => {
     expect(lineWrite()).toMatchObject({ serviceStyle: "Plated" });
   });
 
+  it("keeps how many of the slot were ordered, unlike the note", async () => {
+    // Two was asked of the slot on the buffet, and the chicken standing in for
+    // the brisket is still two of it - a count belongs to the menu. A note is
+    // the opposite: "extra crispy" was about the dish that just came off.
+    //
+    // Both hold only because of which columns the update names, so they are
+    // asserted rather than left to be rediscovered by whoever changes it next.
+    await swap();
+
+    expect(lineWrite()).not.toHaveProperty("quantityMultiplier");
+    expect(lineWrite()).toMatchObject({ notes: null });
+  });
+
   it("takes the only style the replacement has when the old one does not apply", async () => {
     vi.mocked(prisma.menuItem.findFirst).mockResolvedValue(
       replacement(["Plated"]) as never

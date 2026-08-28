@@ -218,6 +218,37 @@ describe("event menu package route", () => {
     });
   });
 
+  it("leaves the count on a dish the new package also includes", async () => {
+    // The kept row is never rewritten, so "2x the brisket" survives a package
+    // swap along with the style it was given. Asserted rather than assumed,
+    // because it holds only for as long as nothing updates that row.
+    vi.mocked(prisma.eventMenu.findUnique)
+      .mockResolvedValueOnce(menuHeader() as never)
+      .mockResolvedValueOnce(storedMenu() as never);
+    vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValueOnce([
+      {
+        id: "line-kept",
+        menuItemId: buffetDishId,
+        source: "Package",
+        sortOrder: 0
+      }
+    ] as never);
+
+    await POST(request("POST", { version: 2, packageId }), { params });
+
+    // The kept line is neither deleted nor rewritten - `eventMenuLine.update`
+    // is not even mocked in this file, so a route that reached for it would
+    // throw rather than quietly reset the count.
+    expect(prisma.eventMenuLine.deleteMany).not.toHaveBeenCalled();
+    // The additions get the column's default of one: a package is a list of
+    // dishes and has no way to ask for two of any of them.
+    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.not.objectContaining({ menuItemId: buffetDishId })
+      ]
+    });
+  });
+
   it("drops the previous package's dishes but keeps hand-added ones", async () => {
     vi.mocked(prisma.eventMenu.findUnique)
       .mockResolvedValueOnce(menuHeader() as never)

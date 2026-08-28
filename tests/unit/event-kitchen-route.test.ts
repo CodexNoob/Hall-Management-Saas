@@ -103,6 +103,7 @@ function dishLine(overrides: Record<string, unknown> = {}) {
     serviceStyle: "Buffet",
     notes: null,
     sortOrder: 0,
+    quantityMultiplier: 1,
     menuItem: {
       name: "Braised ribs",
       isActive: true,
@@ -180,7 +181,7 @@ describe("event kitchen route", () => {
 
     expect(sheet.lines[0].countState).toBe("Counted");
     expect(sheet.lines[0].quantities).toEqual([
-      { unit: "tray", units: 7, raw: 6.233333 }
+      { unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }
     ]);
     expect(sheet.summary.needsAttention).toBe(0);
   });
@@ -265,8 +266,26 @@ describe("event kitchen route", () => {
 
     expect(sheet.counts.tables).toBe(1);
     expect(sheet.lines[0].quantities).toEqual([
-      { unit: "set", units: 1, raw: 1 }
+      { unit: "set", units: 1, perServingUnits: 1, raw: 1 }
     ]);
+  });
+
+  it("multiplies the trays for a dish this event ordered twice", async () => {
+    // End to end rather than against the builder, because the thing most likely
+    // to go wrong is the select: leave `quantityMultiplier` out of it and every
+    // sheet still renders, at 1x, with nothing to notice.
+    vi.mocked(prisma.eventMenu.findUnique).mockResolvedValue(
+      storedMenu([dishLine({ quantityMultiplier: 2 })]) as never
+    );
+
+    const sheet = await readSheet(await GET(request(), { params }));
+
+    expect(sheet.lines[0].quantityMultiplier).toBe(2);
+    expect(sheet.lines[0].quantities).toEqual([
+      { unit: "tray", units: 14, perServingUnits: 7, raw: 6.233333 }
+    ]);
+    // One dish, one cooking job: the multiplier is how much, not how many.
+    expect(sheet.summary.dishes).toBe(1);
   });
 
   it("marks a dish served both ways as needing a service style", async () => {
