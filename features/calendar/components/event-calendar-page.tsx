@@ -20,6 +20,7 @@ import {
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
+import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { AvailabilityView } from "@/features/calendar/components/calendar-availability-tab";
 import { EventPill } from "@/features/calendar/components/calendar-event-pill";
@@ -35,11 +36,18 @@ import {
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
 export function EventCalendarPage() {
-  const eventsQuery = useAuthenticatedQuery<EventsResponse>("/api/events");
   const settingsMutation = useAuthenticatedMutation<
     { dailyEventLimit: number },
     unknown
   >("/api/settings", "PATCH");
+  const createBlockedDateMutation = useAuthenticatedMutation<
+    { startDate: string; endDate: string; label: string },
+    unknown
+  >("/api/calendar/blocked-dates");
+  const removeBlockedDateMutation = useAuthenticatedMutation<
+    { id: string },
+    unknown
+  >("/api/calendar/blocked-dates", "DELETE");
   const [activeTab, setActiveTab] = useState<
     "calendar" | "availability" | "settings"
   >("calendar");
@@ -51,9 +59,6 @@ export function EventCalendarPage() {
       endDate: new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0)
     };
   });
-  const [removedAvailabilityDays, setRemovedAvailabilityDays] = useState<
-    string[]
-  >([]);
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
   const [selectedDateValue, setSelectedDateValue] = useState(today);
   const selectedDate = dateKey(selectedDateValue);
@@ -63,6 +68,26 @@ export function EventCalendarPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
+  const canCreateEvent = useAccess("booking.create");
+  const canUpdateSettings = useAccess("settings.update");
+  const calendarGridDays = useMemo(
+    () => buildMonthGrid(visibleMonth),
+    [visibleMonth]
+  );
+  const calendarQueryRange = useMemo(() => {
+    const dates = [
+      calendarGridDays[0].date,
+      calendarGridDays[calendarGridDays.length - 1].date,
+      availabilityRange.startDate,
+      availabilityRange.endDate
+    ];
+    return {
+      startDate: new Date(Math.min(...dates.map((date) => date.getTime()))),
+      endDate: new Date(Math.max(...dates.map((date) => date.getTime())))
+    };
+  }, [availabilityRange, calendarGridDays]);
+  const calendarQueryUrl = `/api/calendar?startDate=${dateKey(calendarQueryRange.startDate)}&endDate=${dateKey(calendarQueryRange.endDate)}`;
+  const eventsQuery = useAuthenticatedQuery<EventsResponse>(calendarQueryUrl);
   const dailyEventLimit =
     eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
   const dailyHallCapacity = useMemo(() => {
@@ -78,7 +103,7 @@ export function EventCalendarPage() {
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
-        const normalizedStatus = event.eventStatus.toLowerCase();
+        const normalizedStatus = event.bookingStatus.toLowerCase();
         const isSchoolEvent = event.eventType?.toLowerCase().includes("school");
 
         return {
@@ -101,10 +126,6 @@ export function EventCalendarPage() {
   const halls = useMemo(
     () => (eventsQuery.data?.halls ?? []).map((hall) => hall.name),
     [eventsQuery.data]
-  );
-  const calendarGridDays = useMemo(
-    () => buildMonthGrid(visibleMonth),
-    [visibleMonth]
   );
   const availabilityRangeDays = useMemo(() => {
     const days: Date[] = [];
@@ -146,8 +167,20 @@ export function EventCalendarPage() {
               : ("available" as const)
           };
         })
-        .filter((day) => !removedAvailabilityDays.includes(day.dateKey)),
-    [availabilityRangeDays, bookings, dailyHallCapacity, removedAvailabilityDays]
+        .filter(
+          (day) =>
+            !(eventsQuery.data?.blockedDates ?? []).some(
+              (range) =>
+                day.dateKey >= dateKeyFromIso(range.startDate) &&
+                day.dateKey <= dateKeyFromIso(range.endDate)
+            )
+        ),
+    [
+      availabilityRangeDays,
+      bookings,
+      dailyHallCapacity,
+      eventsQuery.data?.blockedDates
+    ]
   );
 
   const filteredBookings = useMemo(() => {
@@ -195,6 +228,15 @@ export function EventCalendarPage() {
       }),
     [dailyEventLimit, eventsQuery.data?.halls, selectedBookings]
   );
+  const selectedDateIsBlocked = (eventsQuery.data?.blockedDates ?? []).some(
+    (range) =>
+      selectedDate >= dateKeyFromIso(range.startDate) &&
+      selectedDate <= dateKeyFromIso(range.endDate)
+  );
+  const canBookSelectedDate =
+    canCreateEvent &&
+    !selectedDateIsBlocked &&
+    hallAvailability.some((hall) => !hall.isFull);
 
   const monthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -245,7 +287,9 @@ export function EventCalendarPage() {
       <DashboardTopbar
         title="Calendar"
         subtitle="Review hall availability, bookings, holds, and fully booked dates."
-        onNewBooking={() => setIsNewBookingOpen(true)}
+        onNewBooking={
+          canBookSelectedDate ? () => setIsNewBookingOpen(true) : undefined
+        }
         onTodayNotes={() => setIsTodayNotesOpen(true)}
       />
 
@@ -299,8 +343,7 @@ export function EventCalendarPage() {
       </nav>
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
-        {activeTab === "calendar" &&
-        (eventsQuery.isLoading || eventsQuery.error) ? (
+        {eventsQuery.isLoading || eventsQuery.error ? (
           <div className="flex h-full min-h-80 items-center justify-center">
             <AsyncState
               error={eventsQuery.error}
@@ -310,28 +353,59 @@ export function EventCalendarPage() {
           </div>
         ) : activeTab === "availability" ? (
           <AvailabilityView
+            blockDateError={createBlockedDateMutation.error}
+            canManageBlockedDates={canUpdateSettings}
             days={liveAvailabilityDays}
             endDate={availabilityRange.endDate}
             endDateLabel={availabilityEndDateLabel}
-            onNewBooking={() => setIsNewBookingOpen(true)}
-            onRemoveDay={(removedDateKey) =>
-              setRemovedAvailabilityDays((current) =>
-                current.includes(removedDateKey)
-                  ? current
-                  : [...current, removedDateKey]
-              )
+            onNewBooking={
+              canBookSelectedDate ? () => setIsNewBookingOpen(true) : undefined
             }
+            onRemoveDay={async (removedDateKey) => {
+              await createBlockedDateMutation.mutate({
+                startDate: removedDateKey,
+                endDate: removedDateKey,
+                label: `Blocked ${removedDateKey}`
+              });
+              await eventsQuery.refetch();
+            }}
             onRangeChange={setAvailabilityRange}
             startDate={availabilityRange.startDate}
             startDateLabel={availabilityStartDateLabel}
           />
         ) : activeTab === "settings" ? (
           <CalendarSettingsView
+            blockedDateMutationError={
+              createBlockedDateMutation.error ?? removeBlockedDateMutation.error
+            }
+            blockedDates={eventsQuery.data?.blockedDates ?? []}
+            canUpdateSettings={canUpdateSettings}
             dailyEventLimit={dailyEventLimit}
             hallAvailability={hallAvailability}
+            isMutatingBlockedDate={
+              createBlockedDateMutation.isPending ||
+              removeBlockedDateMutation.isPending
+            }
             isSavingDailyEventLimit={settingsMutation.isPending}
             onSaveDailyEventLimit={async (nextLimit) => {
               await settingsMutation.mutate({ dailyEventLimit: nextLimit });
+              await eventsQuery.refetch();
+            }}
+            onAddBlockedRange={async (range) => {
+              const startDate = dateKey(range.startDate);
+              const endDate = dateKey(range.endDate);
+              await createBlockedDateMutation.mutate({
+                startDate,
+                endDate,
+                label:
+                  startDate === endDate
+                    ? `Blocked ${startDate}`
+                    : `Blocked ${startDate} to ${endDate}`
+              });
+              await eventsQuery.refetch();
+            }}
+            onRemoveBlockedRange={async (id) => {
+              await removeBlockedDateMutation.mutate({ id });
               await eventsQuery.refetch();
             }}
             saveDailyEventLimitError={settingsMutation.error}
@@ -435,10 +509,11 @@ export function EventCalendarPage() {
                     value={typeFilter}
                   >
                     <option value="all">All types</option>
-                    <option value="Wedding">Wedding</option>
-                    <option value="Sheva Brachos">Sheva Brachos</option>
-                    <option value="Bar Mitzvah">Bar Mitzvah</option>
-                    <option value="School event">School event</option>
+                    {(eventsQuery.data?.eventTypes ?? []).map((eventType) => (
+                      <option key={eventType.id} value={eventType.name}>
+                        {eventType.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -461,12 +536,30 @@ export function EventCalendarPage() {
                       const dayBookings = filteredBookings.filter(
                         (booking) => booking.dateKey === calendarDay.dateKey
                       );
+                      const allDayBookings = bookings.filter(
+                        (booking) => booking.dateKey === calendarDay.dateKey
+                      );
                       const isSelected = calendarDay.dateKey === selectedDate;
                       const isToday = calendarDay.dateKey === dateKey(today);
+                      const isBlocked = (
+                        eventsQuery.data?.blockedDates ?? []
+                      ).some(
+                        (range) =>
+                          calendarDay.dateKey >=
+                            dateKeyFromIso(range.startDate) &&
+                          calendarDay.dateKey <= dateKeyFromIso(range.endDate)
+                      );
                       const fullyBooked =
                         calendarDay.currentMonth &&
-                        dailyHallCapacity > 0 &&
-                        dayBookings.length >= dailyHallCapacity;
+                        (eventsQuery.data?.halls ?? []).length > 0 &&
+                        (eventsQuery.data?.halls ?? []).every((hall) => {
+                          const limit = hall.dailyEventLimit ?? dailyEventLimit;
+                          return (
+                            allDayBookings.filter(
+                              (booking) => booking.hall === hall.name
+                            ).length >= limit
+                          );
+                        });
                       const dateLabel = new Intl.DateTimeFormat("en-US", {
                         month: "long",
                         day: "numeric",
@@ -497,11 +590,16 @@ export function EventCalendarPage() {
                             </span>
                           </div>
 
-                          {calendarDay.currentMonth && !fullyBooked ? (
+                          {calendarDay.currentMonth &&
+                          !fullyBooked &&
+                          !isBlocked &&
+                          canCreateEvent ? (
                             <button
                               aria-label={`Book ${dateLabel}`}
                               className="absolute right-2 top-2 z-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#b9c2cf] bg-white text-sm font-black leading-none text-[#1f4d73] shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus:outline-none focus:ring-2 focus:ring-[#a8ccec]"
-                              onClick={() => openBookingForDate(calendarDay.date)}
+                              onClick={() =>
+                                openBookingForDate(calendarDay.date)
+                              }
                               title={`Book ${dateLabel}`}
                               type="button"
                             >
@@ -522,6 +620,11 @@ export function EventCalendarPage() {
                           {fullyBooked ? (
                             <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">
                               Fully booked
+                            </span>
+                          ) : null}
+                          {isBlocked ? (
+                            <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#b42318]">
+                              Blocked
                             </span>
                           ) : null}
                         </div>
@@ -547,13 +650,15 @@ export function EventCalendarPage() {
                   </p>
                 </div>
 
-                <button
-                  className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
-                  onClick={() => setIsNewBookingOpen(true)}
-                  type="button"
-                >
-                  Book date
-                </button>
+                {canBookSelectedDate ? (
+                  <button
+                    className="h-9 shrink-0 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f]"
+                    onClick={() => setIsNewBookingOpen(true)}
+                    type="button"
+                  >
+                    Book date
+                  </button>
+                ) : null}
               </div>
 
               <div className="space-y-3 p-3">
@@ -580,8 +685,20 @@ export function EventCalendarPage() {
                         </p>
                       </div>
 
-                      <span className="rounded-full border border-[#b9ddcf] bg-white px-2 py-1 text-[9px] font-black text-[#178151]">
-                        Confirmed
+                      <span
+                        className={`rounded-full border bg-white px-2 py-1 text-[9px] font-black ${
+                          booking.status === "confirmed"
+                            ? "border-[#b9ddcf] text-[#178151]"
+                            : booking.status === "school"
+                              ? "border-[#c9c4fa] text-[#5649dd]"
+                              : "border-[#efcf98] text-[#995700]"
+                        }`}
+                      >
+                        {booking.status === "confirmed"
+                          ? "Confirmed"
+                          : booking.status === "school"
+                            ? "School"
+                            : "Hold"}
                       </span>
                     </div>
                   </article>

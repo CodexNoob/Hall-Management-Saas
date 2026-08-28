@@ -19,6 +19,7 @@ export type EventsResponse = {
     clientName: string;
     eventDate: string;
     eventStatus: string;
+    bookingStatus: string;
     eventType: string | null;
     packageName: string | null;
     hall: { id: string; name: string; color: string | null };
@@ -30,7 +31,13 @@ export type EventsResponse = {
     dailyEventLimit?: number | null;
   }>;
   eventTypes: Array<{ id: string; name: string }>;
-  packages: Array<{ id: string; name: string }>;
+  blockedDates: Array<{
+    id: string;
+    startDate: string;
+    endDate: string;
+    label: string;
+    reason: string | null;
+  }>;
   calendarSettings?: {
     dailyEventLimit: number;
   };
@@ -48,7 +55,11 @@ export type AvailabilityDay = {
   status: "available" | "hold";
 };
 
-export function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function CalendarIcon({
+  className = "h-4 w-4"
+}: {
+  className?: string;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -66,7 +77,11 @@ export function CalendarIcon({ className = "h-4 w-4" }: { className?: string }) 
   );
 }
 
-export function BuildingIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function BuildingIcon({
+  className = "h-4 w-4"
+}: {
+  className?: string;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -81,7 +96,11 @@ export function BuildingIcon({ className = "h-4 w-4" }: { className?: string }) 
   );
 }
 
-export function SettingsIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function SettingsIcon({
+  className = "h-4 w-4"
+}: {
+  className?: string;
+}) {
   return (
     <svg
       aria-hidden="true"
@@ -105,32 +124,6 @@ export function StatusDot({ color, label }: { color: string; label: string }) {
     </span>
   );
 }
-
-export type BlockedRange = {
-  id: string;
-  startLabel: string;
-  endLabel?: string;
-  hebrewLabel: string;
-};
-
-export const initialBlockedRanges: BlockedRange[] = [
-  {
-    id: "july-4",
-    startLabel: "Sat, Jul 4, 2026",
-    hebrewLabel: "19 בתמוז"
-  },
-  {
-    id: "july-18",
-    startLabel: "Sat, Jul 18, 2026",
-    hebrewLabel: "4 באב"
-  },
-  {
-    id: "july-22-24",
-    startLabel: "Wed, Jul 22, 2026",
-    endLabel: "Fri, Jul 24, 2026",
-    hebrewLabel: "8 באב to 10 באב"
-  }
-];
 
 export function ClockIcon() {
   return (

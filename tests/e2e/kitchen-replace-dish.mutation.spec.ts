@@ -355,6 +355,25 @@ async function openEventDialog(
 
   await page.getByRole("button", { name: "4 Weeks" }).click();
 
+  const eventButton = page.getByRole("button", { name: clientName });
+
+  // A shared E2E organization can have every early date occupied, forcing the
+  // fixture near the end of the API's 28-day window. Because the four-week grid
+  // starts on Sunday, that date can fall just beyond its first visible range.
+  // The board supports paging, so follow the fixture instead of assuming every
+  // successful booking landed in the first grid.
+  if ((await eventButton.count()) === 0) {
+    const nextBoard = page.waitForResponse(
+      (response) =>
+        response.request().method() === "GET" &&
+        new URL(response.url()).pathname === "/api/kitchen",
+      { timeout: 30_000 }
+    );
+
+    await page.getByRole("button", { name: "Show next dates" }).click();
+    await nextBoard;
+  }
+
   // The sheet behind the dialog is a second request, and every control in it is
   // absent until it lands.
   const sheet = page.waitForResponse(
@@ -364,9 +383,7 @@ async function openEventDialog(
     { timeout: 30_000 }
   );
 
-  await page
-    .getByRole("button", { name: clientName })
-    .click({ timeout: 30_000 });
+  await eventButton.click({ timeout: 30_000 });
   await sheet;
 
   const dialog = page.getByRole("dialog", { name: clientName });
