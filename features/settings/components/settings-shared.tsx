@@ -78,7 +78,8 @@ export type ModalSettingsSection =
   | "Billing"
   | "Access"
   | "Branding"
-  | "Integrations";
+  | "Integrations"
+  | "Reset";
 
 export type ModalSettingsNavItem = {
   label: ModalSettingsSection;
@@ -131,6 +132,13 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     label: "Integrations",
     description: "Connected services and coming-soon channels.",
     icon: "link"
+  },
+  // Last, and it stays last. Everything above it is a preference somebody can
+  // change back; this one empties the account.
+  {
+    label: "Reset",
+    description: "Permanently clear events, menus, configuration or access.",
+    icon: "gear"
   }
 ];
 

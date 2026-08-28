@@ -439,6 +439,11 @@ export function KitchenDashboardPage() {
         acknowledgmentError={acknowledgmentError}
         acknowledgingId={acknowledgingNotificationId}
         bulkAction={notificationBulkAction}
+        // The same signal the server scopes the feed and gates the bulk
+        // endpoints on: a cook is sent only the notifications for events they
+        // are cooking on, so the drawer is shaped for that rather than for a
+        // supervisor's ledger.
+        seesWholeKitchen={seesWholeBoard}
         notifications={kitchenQuery.data?.notifications ?? []}
         onAcknowledge={acknowledgeKitchenNotification}
         onAcknowledgeAll={() => runNotificationBulkAction("acknowledge-all")}

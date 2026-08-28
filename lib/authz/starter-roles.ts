@@ -59,7 +59,13 @@ function allExcept(...excluded: PermissionKey[]): PermissionKey[] {
 const ADMINISTRATOR_WITHHELD: PermissionKey[] = [
   "bank.connect",
   "role.manage",
-  "permission.override"
+  "permission.override",
+  // Erasing the organization's events, menus, configuration or staff list is
+  // not day-to-day administration, and it is the one act in the catalog with
+  // nothing to undo it. It stays with whoever answers for the account. A tenant
+  // that wants their administrator to hold it can grant it - that is what a
+  // role editor is for - but nobody is given it by default.
+  "organization.reset"
 ];
 
 export const starterRoles: readonly StarterRole[] = [
@@ -287,5 +293,8 @@ export const FOUNDING_OWNER_ROLE_KEY = "owner";
 
 /** Total `role_permissions` rows the seed writes per organization. */
 export function totalStarterRolePermissionRows(): number {
-  return starterRoles.reduce((total, role) => total + role.permissions.length, 0);
+  return starterRoles.reduce(
+    (total, role) => total + role.permissions.length,
+    0
+  );
 }

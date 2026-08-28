@@ -93,7 +93,9 @@ describe("starter roles", () => {
 
   describe("exact counts", () => {
     it.each([
-      [OWNER, 63],
+      [OWNER, 64],
+      // Still sixty: `organization.reset` joined the catalog and was withheld
+      // here in the same change, so what an Administrator holds is unmoved.
       [ADMINISTRATOR, 60],
       [EVENT_MANAGER, 41],
       [KITCHEN_MANAGER, 15],
@@ -133,6 +135,10 @@ describe("starter roles", () => {
 
       expect(missing.sort()).toEqual([
         "bank.connect",
+        // Emptying the organization is not day-to-day administration, and it is
+        // the one key with nothing to undo it. A tenant can grant it in the
+        // role editor; nobody but the Owner starts with it.
+        "organization.reset",
         "permission.override",
         "role.manage"
       ]);

@@ -43,6 +43,24 @@ function AlertIcon() {
 
 type KitchenNotificationsDrawerProps = {
   acknowledgmentError?: string | null;
+  /**
+   * Whether this caller is shown the whole kitchen, or only their own work.
+   *
+   * One fact, and it decides two things, because they are the same difference.
+   *
+   * A supervisor reads a ledger: every notification in the organization, an
+   * audit trail behind each one, and the two controls that sweep the feed.
+   *
+   * A cook is sent only the notifications for events they are cooking on, and
+   * the API refuses their acknowledge-all and clear with a 403 - so those
+   * controls are withheld rather than disabled, since a disabled control
+   * describes work the person could do in some other state and there is no such
+   * state here. What is left is shaped for the one question they open this to
+   * ask: has anything changed about my work. The event, hall and date sit on
+   * the face of the card rather than behind a toggle, the dish list with them,
+   * and the delivery receipt for the manager's own email is not their business.
+   */
+  seesWholeKitchen?: boolean;
   open: boolean;
   onClose: () => void;
   notifications: KitchenNotification[];
@@ -59,6 +77,7 @@ export function KitchenNotificationsDrawer({
   bulkAction = null,
   notifications,
   open,
+  seesWholeKitchen = false,
   onAcknowledge,
   onAcknowledgeAll,
   onClearNotifications,
@@ -83,7 +102,9 @@ export function KitchenNotificationsDrawer({
               Kitchen Notifications
             </h2>
             <p className="mt-1 text-sm font-semibold text-[#cbd5e1]">
-              Change history &amp; acknowledgments
+              {seesWholeKitchen
+                ? "Change history & acknowledgments"
+                : "Changes to the events you're cooking"}
             </p>
           </div>
           <button
@@ -96,34 +117,36 @@ export function KitchenNotificationsDrawer({
           </button>
         </header>
 
-        <div className="flex shrink-0 flex-wrap gap-2 border-b border-[#e2e8f0] px-5 py-3">
-          <button
-            className="h-9 border border-[#061126] bg-[#061126] px-3 text-xs font-black text-white hover:bg-[#16243a] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!hasUnacknowledged || bulkAction !== null}
-            onClick={() => void onAcknowledgeAll()}
-            type="button"
-          >
-            {bulkAction === "acknowledge-all"
-              ? "Acknowledging..."
-              : "Acknowledge all"}
-          </button>
-          <button
-            className="h-9 border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={notifications.length === 0 || bulkAction !== null}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "Clear all kitchen notifications? This cannot be undone."
-                )
-              ) {
-                void onClearNotifications();
-              }
-            }}
-            type="button"
-          >
-            {bulkAction === "clear" ? "Clearing..." : "Clear notifications"}
-          </button>
-        </div>
+        {seesWholeKitchen ? (
+          <div className="flex shrink-0 flex-wrap gap-2 border-b border-[#e2e8f0] px-5 py-3">
+            <button
+              className="h-9 border border-[#061126] bg-[#061126] px-3 text-xs font-black text-white hover:bg-[#16243a] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!hasUnacknowledged || bulkAction !== null}
+              onClick={() => void onAcknowledgeAll()}
+              type="button"
+            >
+              {bulkAction === "acknowledge-all"
+                ? "Acknowledging..."
+                : "Acknowledge all"}
+            </button>
+            <button
+              className="h-9 border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={notifications.length === 0 || bulkAction !== null}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Clear all kitchen notifications? This cannot be undone."
+                  )
+                ) {
+                  void onClearNotifications();
+                }
+              }}
+              type="button"
+            >
+              {bulkAction === "clear" ? "Clearing..." : "Clear notifications"}
+            </button>
+          </div>
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {acknowledgmentError ? (
@@ -143,12 +166,27 @@ export function KitchenNotificationsDrawer({
                   key={notification.id}
                   notification={notification}
                   onAcknowledge={onAcknowledge}
+                  seesWholeKitchen={seesWholeKitchen}
                 />
               ))}
             </div>
           ) : (
+            /* Two different facts. "None" is true for a supervisor, who is sent
+               the organization's whole feed - but for a cook, who is sent only
+               the events they are cooking on, there may be twenty and none of
+               them theirs. The board already words an empty day this way for the
+               same reason. */
             <div className="border border-[#d8dde5] bg-[#f8fafc] px-4 py-8 text-center text-sm font-bold text-[#64748b]">
-              No kitchen notifications.
+              {seesWholeKitchen ? (
+                "No kitchen notifications."
+              ) : (
+                <>
+                  Nothing here needs you.
+                  <span className="mt-1 block font-semibold text-[#94a3b8]">
+                    Changes to events you&apos;re cooking will appear here.
+                  </span>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -160,13 +198,22 @@ export function KitchenNotificationsDrawer({
 function NotificationCard({
   acknowledging,
   onAcknowledge,
-  notification
+  notification,
+  seesWholeKitchen
 }: {
   acknowledging: boolean;
   onAcknowledge: (notificationId: string) => void | Promise<void>;
   notification: KitchenNotification;
+  seesWholeKitchen: boolean;
 }) {
   const [showChanges, setShowChanges] = useState(false);
+  // Which day, which hall, whose event - the first thing a cook needs and the
+  // last thing they should have to open a panel for. A supervisor reading the
+  // whole organization's feed keeps it in the audit list below, where it sits
+  // beside the rest of the trail.
+  const whichEvent = [notification.event, notification.hall, notification.date]
+    .filter((part) => part && part !== "—")
+    .join(" · ");
   const changedItem =
     notification.title === "Menu Changed"
       ? "Menu status"
@@ -200,7 +247,29 @@ function NotificationCard({
           )}
         </span>
       </div>
+      {!seesWholeKitchen && whichEvent ? (
+        <p className="mt-1 text-xs font-bold text-[#475467]">{whichEvent}</p>
+      ) : null}
+
       <p className="mt-4 font-black leading-6">{notification.description}</p>
+
+      {/* A cook is reading their own event, so the dish list is the point of the
+          card and opens with it. The raw before/after pair is deliberately not
+          the fallback here: where no clean summary was parsed, the message above
+          has already said what happened, and two columns of dumped JSON say it
+          worse. */}
+      {!seesWholeKitchen && notification.changeSummary ? (
+        <div className="mt-3">
+          <CleanChangeSummary notification={notification} />
+        </div>
+      ) : null}
+
+      {!seesWholeKitchen ? (
+        <p className="mt-3 text-xs font-semibold text-[#64748b]">
+          Changed by{" "}
+          <span className="font-black text-[#17202a]">{notification.by}</span>
+        </p>
+      ) : null}
 
       {showChanges ? (
         <section className="mt-3 border border-[#d8dde5] bg-white p-3">
@@ -208,13 +277,24 @@ function NotificationCard({
             Change made by Event Manager
           </h4>
 
+          {/* The cook's version holds only what the face of their card does not
+              already carry - not a second copy of the event, the dish list and
+              the name, which is what this panel would be for them otherwise. */}
           <dl className="mt-3 grid gap-3">
-            <Meta label="Event" value={notification.event} />
-            <Meta label="Hall" value={notification.hall} />
-            <Meta label="Date" value={notification.date} />
+            {seesWholeKitchen ? (
+              <>
+                <Meta label="Event" value={notification.event} />
+                <Meta label="Hall" value={notification.hall} />
+                <Meta label="Date" value={notification.date} />
+              </>
+            ) : null}
             <Meta label="Changed item" value={changedItem} />
-            <CleanChangeSummary notification={notification} />
-            <Meta label="Changed by" value={notification.by} />
+            {seesWholeKitchen ? (
+              <>
+                <CleanChangeSummary notification={notification} />
+                <Meta label="Changed by" value={notification.by} />
+              </>
+            ) : null}
             <Meta label="Changed at" value={notification.when} />
           </dl>
         </section>
@@ -241,7 +321,9 @@ function NotificationCard({
         </p>
       </div>
 
-      {notification.emailSent ? (
+      {/* The receipt for the notification email the platform sent - a fact about
+          the supervisor's own inbox, and nothing a cook can act on. */}
+      {seesWholeKitchen && notification.emailSent ? (
         <p className="mt-3 text-xs font-semibold text-[#0284c7]">
           Email: {notification.emailSent}
         </p>
@@ -266,9 +348,14 @@ function NotificationCard({
             </>
           ) : null}
 
-          {notification.emailSent ? (
+          {/* Read aloud rather than seen, so it spells the word out where the
+              visible copy above uses its "Email:" label - the glyph that used
+              to stand in for it here was announced as its character name. Held
+              back from a cook for the same reason the visible one is: withheld
+              on screen but still announced would be no restriction at all. */}
+          {seesWholeKitchen && notification.emailSent ? (
             <p className="mt-3 text-xs font-semibold text-[#0284c7]">
-              ◉ {notification.emailSent}
+              Email: {notification.emailSent}
             </p>
           ) : null}
         </div>
@@ -336,7 +423,13 @@ function CleanChangeSummary({
     );
   }
 
-  const { afterStatus, beforeStatus, items, meal } = notification.changeSummary;
+  const { afterStatus, beforeStatus, items, meal, otherItemCount } =
+    notification.changeSummary;
+  // Present only on a cook's copy, where the list was narrowed to their own
+  // dishes. Nought is not the same as absent: a cook whose every dish is still
+  // on the menu gets a nought here and no remainder line, while a supervisor
+  // gets no field at all because their list was never narrowed.
+  const otherDishes = otherItemCount ?? 0;
 
   return (
     <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
@@ -346,10 +439,22 @@ function CleanChangeSummary({
         <MiniChangeStat label="Meal" value={meal ?? "—"} />
       </div>
 
+      {items.length === 0 && otherDishes > 0 ? (
+        // The list was narrowed and nothing survived it. Said out loud, because
+        // an empty panel here would read as "the menu is empty" when what
+        // happened is that this change is somebody else's work.
+        <p className="mt-3 border-t border-[#d8dde5] pt-3 text-xs font-bold text-[#64748b]">
+          None of this event&apos;s {otherDishes}{" "}
+          {otherDishes === 1 ? "dish is" : "dishes are"} assigned to you.
+        </p>
+      ) : null}
+
       {items.length > 0 ? (
         <div className="mt-3 border-t border-[#d8dde5] pt-3">
           <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-            Menu items now on this event
+            {otherItemCount === undefined
+              ? "Menu items now on this event"
+              : "Your dishes on this event"}
           </p>
           <ul className="mt-2 grid gap-1.5">
             {items.map((item, index) => (
@@ -369,6 +474,14 @@ function CleanChangeSummary({
               </li>
             ))}
           </ul>
+
+          {/* So a shortened list never reads as a smaller night. */}
+          {otherDishes > 0 ? (
+            <p className="mt-2 text-xs font-bold text-[#64748b]">
+              and {otherDishes} other {otherDishes === 1 ? "dish" : "dishes"} on
+              this event
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>

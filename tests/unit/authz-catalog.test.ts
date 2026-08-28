@@ -60,15 +60,17 @@ function* walk(directory: string): Generator<string> {
 }
 
 describe("permission catalog", () => {
-  it("holds exactly 63 keys", () => {
+  it("holds exactly 64 keys", () => {
     // The count is asserted, not just the uniqueness. Replacing twenty-three
     // booleans is the design's own claim, and a silent drift in either direction
     // means somebody added a key without deciding it was one.
     //
     // Sixty-three since `kitchen.read.all` split the board into "may open it"
     // and "may see all of it", which is what lets Kitchen Staff be scoped to
-    // their own dishes.
-    expect(permissionKeys).toHaveLength(63);
+    // their own dishes. Sixty-four since `organization.reset`, which is the
+    // Settings panel that empties the account and is deliberately not
+    // `settings.update`.
+    expect(permissionKeys).toHaveLength(64);
   });
 
   it("has no duplicates", () => {
@@ -132,7 +134,9 @@ describe("permission catalog", () => {
 
   it("gives every entry a label and a description", () => {
     for (const entry of permissionCatalog) {
-      expect(entry.label.length, `${entry.key} has no label`).toBeGreaterThan(2);
+      expect(entry.label.length, `${entry.key} has no label`).toBeGreaterThan(
+        2
+      );
       expect(
         entry.description.length,
         `${entry.key} has no description`
@@ -164,6 +168,9 @@ describe("permission catalog", () => {
     expect(dangerous).toEqual([
       "bank.connect",
       "invoice.void",
+      // Destroys rather than escalates, which is the other way a key earns
+      // this mark: there is no editing it back.
+      "organization.reset",
       "payment.notify",
       "payment.record",
       "payment.refund",
@@ -217,10 +224,9 @@ describe("permission catalog", () => {
         permissionKeys,
         `${key} is listed as not-yet-wired but is not in the catalog`
       ).toContain(key);
-      expect(
-        reason.length,
-        `${key} has no reason recorded`
-      ).toBeGreaterThan(20);
+      expect(reason.length, `${key} has no reason recorded`).toBeGreaterThan(
+        20
+      );
       expect(
         sources.includes(`"${key}"`),
         `${key} is enforced now - take it off the not-yet-wired list`
