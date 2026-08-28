@@ -110,7 +110,6 @@ const searchTargets: SearchTarget[] = allSearchTargets.filter(
 const searchPlaceholders: Record<string, string> = {
   Kitchen: "Search kitchen events and items",
   Calendar: "Search bookings, clients and halls",
-  "Event Manager": "Search clients, halls and event types",
   Menu: "Search menu items and packages",
   Clients: "Search clients and contact details",
   Vendors: "Search vendors and categories",

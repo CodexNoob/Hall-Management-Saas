@@ -26,22 +26,23 @@ test("authenticated state opens the workspace without logging in again", async (
   ).toBeVisible({ timeout: 45_000 });
 });
 
-// Every route here renders `DashboardTopbar`, which is what the assertion below
-// measures. Kitchen was in this list until it stopped using that topbar: it now
-// draws its own full-width `KitchenHeader` - a Main Menu link, a notifications
-// button and the date as its h1 - and offers neither the Search nor the Today
-// notes button the wrap regression is about. There is nothing left there to
-// wrap, so the route is out rather than skipped, and the smoke list at the foot
-// of this file still opens /dashboard/kitchen and checks it fits the viewport.
-for (const [label, route] of [["Events", "/dashboard/events"]] as Array<
-  [string, string]
->) {
+// Every route here renders `DashboardTopbar` with both a search box and at
+// least one action button, which is what the assertion below measures. Kitchen
+// was in this list until it stopped using that topbar: it now draws its own
+// full-width `KitchenHeader` - a Main Menu link, a notifications button and the
+// date as its h1. Events left it for the opposite reason: its topbar carries
+// neither a search box nor an action now that the event list owns the only
+// search. Both still appear in the smoke list at the foot of this file, which
+// opens them and checks they fit the viewport.
+for (const [label, route, action] of [
+  ["Menu", "/dashboard/menu", "Create new package"]
+] as Array<[string, string, string]>) {
   test(`${label} keeps the topbar actions on the title line on a phone`, async ({
     page
   }) => {
-    // The regression this guards: a page passing a custom Today notes button
-    // that keeps its label, border and padding at every width. The actions row
-    // is then too wide to sit beside the title, wraps onto a second line, and
+    // The regression this guards: a page passing a custom action button that
+    // keeps its label, border and padding at every width. The actions row is
+    // then too wide to sit beside the title, wraps onto a second line, and
     // costs 36px of vertical space on every phone. Reported on the overview,
     // which covers itself in dashboard-overview.authenticated.spec.ts now.
     await page.setViewportSize({ width: 360, height: 727 });
@@ -51,22 +52,22 @@ for (const [label, route] of [["Events", "/dashboard/events"]] as Array<
     const topbar = page.locator(".dashboard-topbar-content");
     const title = topbar.getByRole("heading", { level: 1 });
     const search = topbar.getByRole("button", { name: "Search", exact: true });
-    const notes = topbar.getByRole("button", { name: "Open today notes" });
+    const actionButton = topbar.getByRole("button", { name: action });
     await expect(title).toBeVisible();
     await expect(search).toBeVisible();
-    await expect(notes).toBeVisible();
+    await expect(actionButton).toBeVisible();
 
-    const [titleBox, searchBox, notesBox] = await Promise.all([
+    const [titleBox, searchBox, actionBox] = await Promise.all([
       title.boundingBox(),
       search.boundingBox(),
-      notes.boundingBox()
+      actionButton.boundingBox()
     ]);
-    if (!titleBox || !searchBox || !notesBox) {
+    if (!titleBox || !searchBox || !actionBox) {
       throw new Error("Topbar is not visible.");
     }
 
     // Same row as each other, and level with the title rather than under it.
-    expect(Math.abs(searchBox.y - notesBox.y)).toBeLessThan(4);
+    expect(Math.abs(searchBox.y - actionBox.y)).toBeLessThan(4);
     expect(searchBox.y).toBeLessThan(titleBox.y + titleBox.height);
     // And clear of the title, so nothing overlaps at the narrowest width.
     expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(searchBox.x);
@@ -108,7 +109,7 @@ test("booking creation is not exposed on the kitchen or event manager pages", as
   }
 });
 
-test("event manager keeps today notes available without exposing booking creation", async ({
+test("event manager topbar carries the title only, leaving search to the event list", async ({
   page
 }) => {
   await page.goto("/dashboard/events");
@@ -119,13 +120,20 @@ test("event manager keeps today notes available without exposing booking creatio
     page.getByRole("heading", { name: "Event Manager", exact: true })
   ).toBeVisible({ timeout: 45_000 });
 
-  await expect(page.getByRole("button", { name: "New booking" })).toHaveCount(
+  const topbar = page.locator(".dashboard-topbar-content");
+  await expect(topbar.getByRole("button", { name: "New booking" })).toHaveCount(
     0
   );
+  await expect(
+    topbar.getByRole("button", { name: "Open today notes" })
+  ).toHaveCount(0);
+  await expect(topbar.getByRole("searchbox")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Open today notes" }).click();
-
-  await expect(page.getByRole("dialog", { name: "Today notes" })).toBeVisible();
+  // The one search this page keeps, which filters the list rather than jumping
+  // between modules.
+  await expect(
+    page.getByPlaceholder("Search client, hall, type")
+  ).toBeVisible();
 });
 
 // The smoke list is the pages the MVP ships. /dashboard and the four hidden

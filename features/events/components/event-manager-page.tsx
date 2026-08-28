@@ -4,12 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { requestDashboardSidebarCollapse } from "@/components/layout/dashboard-sidebar-shared";
-import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import {
   prefetchAuthenticatedQuery,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
-import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 
 import { EventListCard } from "@/features/events/components/event-list-panel";
 import { EventWorkspace } from "@/features/events/components/event-workspace";
@@ -21,8 +19,9 @@ import {
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
 export function EventManagerPage() {
-  const [pageSearchQuery, setPageSearchQuery] =
-    useDashboardPageSearch("Event Manager");
+  // Plain state, not `useDashboardPageSearch`: the topbar no longer carries a
+  // search box on this page, so nothing outside the event list can set it.
+  const [pageSearchQuery, setPageSearchQuery] = useState("");
   // Read once, on the way in: this decides the first selection only, so that a
   // later click in the list is not snapped back to whatever the link said.
   const [deepLinkEventId] = useState(() =>
@@ -44,7 +43,6 @@ export function EventManagerPage() {
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
-  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const allEvents = useMemo<EventFile[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -152,7 +150,8 @@ export function EventManagerPage() {
     return (
       <DashboardPageState
         isLoading
-        showNewBookingAction={false}
+        showDefaultActions={false}
+        showSearch={false}
         subtitle="Select an event, then manage every connected section from one workspace."
         title="Event Manager"
       />
@@ -167,7 +166,8 @@ export function EventManagerPage() {
         error={eventsQuery.error}
         isEmpty={!eventsQuery.error}
         onRetry={eventsQuery.refetch}
-        showNewBookingAction={false}
+        showDefaultActions={false}
+        showSearch={false}
         subtitle="Select an event, then manage every connected section from one workspace."
         title="Event Manager"
       />
@@ -181,7 +181,8 @@ export function EventManagerPage() {
         emptyTitle="That event could not be opened"
         isEmpty
         onRetry={eventsQuery.refetch}
-        showNewBookingAction={false}
+        showDefaultActions={false}
+        showSearch={false}
         subtitle="Select an event, then manage every connected section from one workspace."
         title="Event Manager"
       />
@@ -233,17 +234,15 @@ export function EventManagerPage() {
 
   return (
     <div className="flex min-h-dvh flex-col overflow-x-hidden bg-[#f5f6f8] text-[#17202a] xl:h-screen xl:overflow-hidden">
+      {/* No topbar search or actions: the event list has its own search box,
+          and a second one above it only split the same filter across two
+          inputs. */}
       <DashboardTopbar
         title="Event Manager"
         subtitle="Select an event, then manage every connected section from one workspace."
         compactMobileActions
-        onTodayNotes={() => setIsTodayNotesOpen(true)}
-        showNewBookingAction={false}
-      />
-
-      <TodayNotesDrawer
-        onClose={() => setIsTodayNotesOpen(false)}
-        open={isTodayNotesOpen}
+        showDefaultActions={false}
+        showSearch={false}
       />
 
       <div className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto px-2 pb-2 pt-4 sm:p-3">
