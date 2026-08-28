@@ -97,6 +97,10 @@ export async function GET(
 
     assertInScope(actor, "hall", event.hallId);
 
+    // Resolved before the reads rather than after them, because the feed below
+    // is scoped by it now as well as the sheet.
+    const visibility = await resolveKitchenVisibility(actor);
+
     const [menu, otherMeals, statuses, notifications] = await Promise.all([
       prisma.eventMenu.findUnique({
         where: { eventId_meal: { eventId: id, meal } },
@@ -119,7 +123,8 @@ export async function GET(
       }),
       listKitchenNotificationsForEvent({
         eventId: id,
-        organizationId: actor.organizationId
+        organizationId: actor.organizationId,
+        visibility
       })
     ]);
 
@@ -132,8 +137,6 @@ export async function GET(
     // other way into the same sheet, so it has to withhold them too. Without
     // this, opening an event card would hand back everything the board had just
     // filtered out.
-    const visibility = await resolveKitchenVisibility(actor);
-
     return NextResponse.json({
       kitchen: buildKitchenSheet({
         event,

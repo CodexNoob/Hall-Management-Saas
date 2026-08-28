@@ -8,6 +8,7 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
+import { ResetSettingsPanel } from "@/features/settings/components/reset-settings-panel";
 import {
   AccessSettingsPanel,
   BillingBasicsPanel,
@@ -161,9 +162,16 @@ export function SettingsPage({
     }
   };
 
+  // The Reset panel draws nothing for anyone without `organization.reset`, so
+  // its tab goes with it. A tab that opens on an empty page reads as a broken
+  // screen, and one labelled Reset invites a conversation about who has the
+  // permission - which is not a conversation this screen should start.
+  const visibleModalNavItems = modalSettingsNavItems.filter(
+    (item) => item.label !== "Reset" || hasPermission("organization.reset")
+  );
   const activeModalNavItem =
-    modalSettingsNavItems.find((item) => item.label === activeModalSection) ??
-    modalSettingsNavItems[0];
+    visibleModalNavItems.find((item) => item.label === activeModalSection) ??
+    visibleModalNavItems[0];
   const showAllSettingsContent = false;
   const visibleSettingsHubItems = showAllSettingsContent
     ? settingsHubItems
@@ -252,7 +260,7 @@ export function SettingsPage({
             aria-label="Settings sections"
             className="scrollbar-none flex shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-4 py-2"
           >
-            {modalSettingsNavItems.map((item) => (
+            {visibleModalNavItems.map((item) => (
               <button
                 className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold transition ${
                   item.label === activeModalSection
@@ -612,6 +620,7 @@ export function SettingsPage({
                 {activeModalSection === "Access" ? (
                   <AccessSettingsPanel />
                 ) : null}
+                {activeModalSection === "Reset" ? <ResetSettingsPanel /> : null}
                 {activeModalSection === "Billing" ? (
                   <BillingBasicsPanel />
                 ) : null}

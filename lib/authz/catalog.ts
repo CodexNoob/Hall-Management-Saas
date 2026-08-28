@@ -208,8 +208,7 @@ const CATALOG = [
     // cannot quietly see the whole kitchen.
     key: "kitchen.read.all",
     label: "View the whole kitchen board",
-    description:
-      "See every event and dish, not only the ones assigned to you.",
+    description: "See every event and dish, not only the ones assigned to you.",
     group: "Kitchen",
     isDangerous: false
   },
@@ -223,7 +222,8 @@ const CATALOG = [
   {
     key: "kitchen.event.create",
     label: "Create kitchen events",
-    description: "Create standalone kitchen events with no booking behind them.",
+    description:
+      "Create standalone kitchen events with no booking behind them.",
     group: "Kitchen",
     isDangerous: false
   },
@@ -515,6 +515,19 @@ const CATALOG = [
     group: "Configuration",
     isDangerous: false
   },
+  {
+    // Its own key rather than `settings.update`, because the two are not the
+    // same kind of act: editing a preference is reversible by editing it back,
+    // and this erases the organization's work with nothing to edit back from.
+    // Held by the Owner alone out of the box - see ADMINISTRATOR_WITHHELD in
+    // lib/authz/starter-roles.ts.
+    key: "organization.reset",
+    label: "Reset organization data",
+    description:
+      "Permanently delete this organization's events, menus, configuration or staff access. Cannot be undone.",
+    group: "Configuration",
+    isDangerous: true
+  },
 
   // ------------------------------------------------------------ Scheduling
   {
@@ -538,7 +551,9 @@ const CATALOG = [
     group: "Scheduling",
     isDangerous: false
   }
-] as const satisfies ReadonlyArray<Omit<PermissionCatalogEntry, "key"> & { key: string }>;
+] as const satisfies ReadonlyArray<
+  Omit<PermissionCatalogEntry, "key"> & { key: string }
+>;
 
 /**
  * The compile-time union. A typo at a call site is a build failure, which is the
@@ -559,8 +574,10 @@ export function isPermissionKey(value: unknown): value is PermissionKey {
   return typeof value === "string" && permissionKeySet.has(value);
 }
 
-export const permissionByKey: ReadonlyMap<PermissionKey, PermissionCatalogEntry> =
-  new Map(permissionCatalog.map((entry) => [entry.key, entry]));
+export const permissionByKey: ReadonlyMap<
+  PermissionKey,
+  PermissionCatalogEntry
+> = new Map(permissionCatalog.map((entry) => [entry.key, entry]));
 
 /** The catalog grouped for rendering, in `PERMISSION_GROUPS` order. */
 export function groupedPermissionCatalog(): Array<{

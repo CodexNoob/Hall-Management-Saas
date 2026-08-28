@@ -343,50 +343,48 @@ export async function GET(request: Request) {
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-    const [events, standaloneEvents, workers, notifications] =
-      await Promise.all([
-        prisma.event.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            deleted: false,
-            // Only the events the hall is committed to. Without this the board
-            // listed inquiries, expired holds and cancelled bookings beside real
-            // work, so a kitchen reading today's list could not tell what it was
-            // actually cooking.
-            //
-            // `bookingStatus`, not `eventStatus`: the lifecycle in
-            // `booking.service.ts` is the only writer of this column, while
-            // `eventStatus` is a display label PATCH /api/events/[eventId] still
-            // accepts as "Confirmed" or "Hold" - so a caller sending it for a
-            // cancelled event would relabel it and put it back on this board.
-            bookingStatus: CONFIRMED_STATUS,
-            eventDate: { gte: start, lt: end },
-            // A kitchen lead restricted to one hall was still served every hall's
-            // production, because this query only ever scoped by organization.
-            ...scoped(actor, "hall")
-          },
-          select: boardEventSelect,
-          orderBy: { eventDate: "asc" }
-        }),
-        prisma.kitchenStandaloneEvent.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            eventDate: { gte: start, lt: end }
-          },
-          select: {
-            id: true,
-            menuId: true,
-            menuName: true,
-            eventDate: true,
-            portions: true,
-            kitchenNote: true,
-            menu: { select: { includedMenuItemIds: true } }
-          },
-          orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
-        }),
-        loadKitchenStaffWorkers(actor.organizationId),
-        listKitchenNotifications(actor.organizationId)
-      ]);
+    const [events, standaloneEvents, workers] = await Promise.all([
+      prisma.event.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          deleted: false,
+          // Only the events the hall is committed to. Without this the board
+          // listed inquiries, expired holds and cancelled bookings beside real
+          // work, so a kitchen reading today's list could not tell what it was
+          // actually cooking.
+          //
+          // `bookingStatus`, not `eventStatus`: the lifecycle in
+          // `booking.service.ts` is the only writer of this column, while
+          // `eventStatus` is a display label PATCH /api/events/[eventId] still
+          // accepts as "Confirmed" or "Hold" - so a caller sending it for a
+          // cancelled event would relabel it and put it back on this board.
+          bookingStatus: CONFIRMED_STATUS,
+          eventDate: { gte: start, lt: end },
+          // A kitchen lead restricted to one hall was still served every hall's
+          // production, because this query only ever scoped by organization.
+          ...scoped(actor, "hall")
+        },
+        select: boardEventSelect,
+        orderBy: { eventDate: "asc" }
+      }),
+      prisma.kitchenStandaloneEvent.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          eventDate: { gte: start, lt: end }
+        },
+        select: {
+          id: true,
+          menuId: true,
+          menuName: true,
+          eventDate: true,
+          portions: true,
+          kitchenNote: true,
+          menu: { select: { includedMenuItemIds: true } }
+        },
+        orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
+      }),
+      loadKitchenStaffWorkers(actor.organizationId)
+    ]);
     const currentWorkerId =
       workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
 
@@ -396,6 +394,14 @@ export async function GET(request: Request) {
     // asking first would scope a cook to a worker record that did not exist yet
     // and hand them an empty board on their first visit.
     const visibility = await resolveKitchenVisibility(actor);
+
+    // Not in the batch above, because it needs the answer that batch produces:
+    // the feed is scoped to the events this caller is cooking on, and asking
+    // before the roster row exists would scope a brand new cook to nothing.
+    const notifications = await listKitchenNotifications(
+      actor.organizationId,
+      visibility
+    );
 
     const eventIds = events.map((event) => event.id);
     const standaloneEventIds = standaloneEvents.map((event) => event.id);

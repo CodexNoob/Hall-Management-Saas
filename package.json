@@ -32,6 +32,8 @@
     "db:kitchen-status-cleanup": "prisma db execute --file prisma/orphaned-kitchen-statuses-cleanup.sql",
     "db:kitchen-role-split": "prisma db execute --file prisma/kitchen-role-split.sql",
     "db:kitchen-role-split-rollback": "prisma db execute --file prisma/kitchen-role-split-rollback.sql",
+    "db:organization-reset-permission": "prisma db execute --file prisma/organization-reset-permission.sql",
+    "db:organization-reset-permission-rollback": "prisma db execute --file prisma/organization-reset-permission-rollback.sql",
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "db:rls": "prisma db execute --file prisma/supabase-rls.sql",
     "format": "prettier --write .",

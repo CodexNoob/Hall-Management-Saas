@@ -103,6 +103,14 @@ export type KitchenResponse = {
         type: string;
         serviceStyle: string | null;
       }>;
+      /**
+       * Dishes on this event that were left out of `items`.
+       *
+       * Sent only to a cook, whose list is narrowed to the dishes assigned to
+       * them; the card names the remainder as a count so a shortened list never
+       * reads as a smaller event.
+       */
+      otherItemCount?: number;
     };
   }>;
   /** Menus a kitchen event can be raised against. */
