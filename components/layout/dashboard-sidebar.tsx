@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -42,12 +42,14 @@ type DashboardSidebarProps = {
   roleLabel: string;
   profileSubtitle?: string;
   activeLabel?: string;
+  forceOverlay?: boolean;
 };
 
 export function DashboardSidebar({
   user,
   roleLabel,
   profileSubtitle,
+  forceOverlay = false,
   // Only a fallback - app/dashboard/layout.tsx always passes one. "Events"
   // rather than "Dashboard" because the overview is hidden for the MVP, and a
   // default naming no section would highlight nothing.
@@ -84,29 +86,28 @@ export function DashboardSidebar({
     [canAccessRoute]
   );
   const profileMenuItems = useMemo(
-    () =>
-      [
-        {
-          label: "Upgrade Plan",
-          iconSrc: "/images/icons/profile-menu/upgrade-plan.png",
-          route: null
-        },
-        {
-          label: "Profile",
-          iconSrc: "/images/icons/profile-menu/profile.png",
-          route: null
-        },
-        {
-          label: "Help",
-          iconSrc: "/images/icons/profile-menu/help.png",
-          route: null
-        },
-        {
-          label: "Logout",
-          iconSrc: "/images/icons/profile-menu/logout.png",
-          route: null
-        }
-      ],
+    () => [
+      {
+        label: "Upgrade Plan",
+        iconSrc: "/images/icons/profile-menu/upgrade-plan.png",
+        route: null
+      },
+      {
+        label: "Profile",
+        iconSrc: "/images/icons/profile-menu/profile.png",
+        route: null
+      },
+      {
+        label: "Help",
+        iconSrc: "/images/icons/profile-menu/help.png",
+        route: null
+      },
+      {
+        label: "Logout",
+        iconSrc: "/images/icons/profile-menu/logout.png",
+        route: null
+      }
+    ],
     []
   );
   const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
@@ -148,8 +149,38 @@ export function DashboardSidebar({
     );
   }, [isMobileOpen]);
 
+  useLayoutEffect(() => {
+    // Opening Kitchen's full-width drawer is an explicit request for expanded
+    // navigation. Forget a collapse inherited from Event Manager so the next
+    // destination does not immediately shrink the sidebar again.
+    if (forceOverlay) {
+      if (isMobileOpen && isCollapsed) setIsCollapsed(false);
+      return;
+    }
+
+    // On desktop the Kitchen drawer stays open while routing so the normal
+    // sidebar can take over without sliding in a second time. Once that route
+    // has rendered, clear the drawer-only state before paint. Otherwise a later
+    // collapse narrows the rail while `showCollapsed` still renders the wide
+    // navigation, leaving section labels clipped inside a 72px sidebar.
+    if (
+      !isMobileOpen ||
+      typeof window.matchMedia !== "function" ||
+      !window.matchMedia("(min-width: 1024px)").matches
+    ) {
+      return;
+    }
+
+    setIsMobileOpen(false);
+  }, [forceOverlay, isCollapsed, isMobileOpen]);
+
   useEffect(() => {
-    if (!isMobileOpen) return;
+    // The kitchen board is `h-dvh` with its own inner scrollers, so there is no
+    // page scroll to lock there - and pinning `body` to `position: fixed` (plus
+    // the `scrollTo` on the way out) forces a layout pass in the same frame the
+    // drawer starts moving, which is felt as a stutter at the start of the
+    // slide.
+    if (!isMobileOpen || forceOverlay) return;
 
     const scrollY = window.scrollY;
     const previousHtmlOverflow = document.documentElement.style.overflow;
@@ -177,7 +208,7 @@ export function DashboardSidebar({
       document.body.style.width = previousBodyWidth;
       window.scrollTo(0, scrollY);
     };
-  }, [isMobileOpen]);
+  }, [forceOverlay, isMobileOpen]);
 
   useEffect(() => {
     const saved = window.localStorage.getItem("sidebarCollapsed");
@@ -316,6 +347,19 @@ export function DashboardSidebar({
     router.push(route as Parameters<typeof router.push>[0], { scroll: false });
   };
 
+  const openNavigationDestination = (route: string) => {
+    // The Kitchen sidebar is docked on desktop. Closing it before navigation
+    // made it slide left, then the destination's normal sidebar slid straight
+    // back in. Keep the same mounted panel visible across that route change.
+    // Phones still close their drawer after choosing a destination.
+    const isDesktopKitchenSidebar =
+      forceOverlay &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(min-width: 1024px)").matches;
+    if (!isDesktopKitchenSidebar) setIsMobileOpen(false);
+    router.push(route as Parameters<typeof router.push>[0], { scroll: false });
+  };
+
   const logout = async () => {
     setIsHelpMenuOpen(false);
     setIsProfileMenuOpen(false);
@@ -333,31 +377,47 @@ export function DashboardSidebar({
     router.refresh();
   };
 
-  const showCollapsed = isCollapsed && !isMobileOpen;
+  const showCollapsed = !forceOverlay && isCollapsed && !isMobileOpen;
 
   return (
     <>
       <button
         aria-label="Close navigation"
-        className={`fixed inset-x-0 top-0 z-55 h-dvh touch-pan-y bg-[#17202a]/45 backdrop-blur-[2px] transition-[opacity,backdrop-filter] duration-300 ease-out lg:hidden ${
+        // No backdrop blur behind the kitchen's drawer. Blurring a full-screen
+        // board of cards is the most expensive thing on the frame, and it was
+        // being animated alongside the panel's slide; the dim alone reads the
+        // same and the board stays legible to somebody standing back from the
+        // screen.
+        className={`fixed inset-x-0 top-0 z-55 h-dvh touch-pan-y bg-[#17202a]/45 duration-300 ease-out ${
+          forceOverlay
+            ? "transition-opacity lg:hidden"
+            : "backdrop-blur-[2px] transition-[opacity,backdrop-filter] lg:hidden"
+        } ${
           isMobileOpen
             ? "pointer-events-auto opacity-100"
-            : "pointer-events-none opacity-0 backdrop-blur-none"
+            : `pointer-events-none opacity-0 ${forceOverlay ? "" : "backdrop-blur-none"}`
         }`}
         onClick={() => setIsMobileOpen(false)}
         tabIndex={isMobileOpen ? 0 : -1}
         type="button"
       />
       <aside
-        className={`app-sidebar fixed left-0 top-0 z-70 flex h-dvh max-h-dvh w-[min(76vw,17rem)] touch-pan-y flex-col overscroll-none border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform lg:bottom-0 lg:top-20 lg:h-auto lg:max-h-none lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out sidebar-will-change-width ${
-          isMobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        className={`app-sidebar fixed left-0 top-0 flex h-dvh max-h-dvh w-[min(76vw,17rem)] touch-pan-y flex-col overscroll-none border-r border-white/10 bg-[#061126] shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-transform ${forceOverlay ? "app-sidebar-overlay z-70" : "sidebar-will-change-width z-70 lg:bottom-0 lg:top-20 lg:h-auto lg:max-h-none lg:z-40 lg:shadow-none lg:transition-[width] lg:duration-150 lg:ease-in-out"} ${
+          isMobileOpen
+            ? "translate-x-0"
+            : forceOverlay
+              ? "-translate-x-full"
+              : "-translate-x-full lg:translate-x-0"
         } ${isSidebarTransitionReady ? "" : "transition-none"} ${
           showCollapsed
             ? "overflow-visible lg:w-18"
             : "overflow-visible lg:w-64"
         }`}
       >
-        <DashboardSidebarMobileHeader onClose={() => setIsMobileOpen(false)} />
+        <DashboardSidebarMobileHeader
+          onClose={() => setIsMobileOpen(false)}
+          overlay={forceOverlay}
+        />
 
         <nav
           className={`flex-1 ${
@@ -540,12 +600,8 @@ export function DashboardSidebar({
                           }`}
                           type="button"
                           onClick={() => {
-                            setIsMobileOpen(false);
                             if (item.route)
-                              router.push(
-                                item.route as Parameters<typeof router.push>[0],
-                                { scroll: false }
-                              );
+                              openNavigationDestination(item.route);
                           }}
                           aria-label={item.label}
                           title={isCollapsed ? item.label : undefined}
@@ -744,44 +800,44 @@ export function DashboardSidebar({
             ) : null}
 
             <div className="relative">
-            <button
-              className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-white/10 ${
-                showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
-              }`}
-              type="button"
-              aria-expanded={isProfileMenuOpen}
-              aria-haspopup="menu"
-              onClick={() => {
-                setIsHelpMenuOpen(false);
-                setIsProfileMenuOpen((current) => !current);
-              }}
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#061126]">
-                {initials}
-              </span>
-
-              {!showCollapsed ? (
-                <>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-black text-white">
-                      {profileName}
-                    </span>
-                    <span
-                      className={`block truncate text-xs font-semibold ${
-                        isUpgradePrompt ? "text-[#F1B84B]" : "text-white/60"
-                      }`}
-                    >
-                      {profileSubtitle ?? roleLabel}
-                    </span>
-                  </span>
-                  <span className="text-white/55">›</span>
-                </>
-              ) : !isProfileMenuOpen ? (
-                <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                  {profileName}
+              <button
+                className={`group relative flex w-full items-center rounded-xl text-left transition hover:bg-white/10 ${
+                  showCollapsed ? "justify-center p-1.5" : "gap-3 p-2"
+                }`}
+                type="button"
+                aria-expanded={isProfileMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => {
+                  setIsHelpMenuOpen(false);
+                  setIsProfileMenuOpen((current) => !current);
+                }}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-black text-[#061126]">
+                  {initials}
                 </span>
-              ) : null}
-            </button>
+
+                {!showCollapsed ? (
+                  <>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-black text-white">
+                        {profileName}
+                      </span>
+                      <span
+                        className={`block truncate text-xs font-semibold ${
+                          isUpgradePrompt ? "text-[#F1B84B]" : "text-white/60"
+                        }`}
+                      >
+                        {profileSubtitle ?? roleLabel}
+                      </span>
+                    </span>
+                    <span className="text-white/55">›</span>
+                  </>
+                ) : !isProfileMenuOpen ? (
+                  <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                    {profileName}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
         ) : (

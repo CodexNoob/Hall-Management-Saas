@@ -1,12 +1,11 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AddKitchenEventDialog,
   type AddKitchenEventFormValues
 } from "@/features/kitchen/forms/add-kitchen-event-dialog";
 import { AsyncState } from "@/components/ui/async-state";
-import { requestDashboardSidebarCollapse } from "@/components/layout/dashboard-sidebar-shared";
 import {
   addDays,
   dateKey,
@@ -79,16 +78,12 @@ export function KitchenDashboardPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [acknowledgingNotificationId, setAcknowledgingNotificationId] =
     useState<string | null>(null);
+  const [notificationBulkAction, setNotificationBulkAction] = useState<
+    "acknowledge-all" | "clear" | null
+  >(null);
   const [acknowledgmentError, setAcknowledgmentError] = useState<string | null>(
     null
   );
-
-  useEffect(() => {
-    // The Kitchen page is a live operations board. On desktop, collapse the
-    // dashboard sidebar as soon as the board opens so the schedule and dish
-    // cards get the extra working space. The helper no-ops below lg.
-    requestDashboardSidebarCollapse();
-  }, []);
 
   const days = useMemo<KitchenDay[]>(() => {
     const normalizedSearch = pageSearchQuery.trim().toLowerCase();
@@ -301,6 +296,38 @@ export function KitchenDashboardPage() {
     }
   }
 
+  async function runNotificationBulkAction(
+    action: "acknowledge-all" | "clear"
+  ) {
+    setNotificationBulkAction(action);
+    setAcknowledgmentError(null);
+    try {
+      const response = await authenticatedFetch("/api/kitchen/notifications", {
+        method: action === "acknowledge-all" ? "PATCH" : "DELETE"
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        throw new Error(
+          payload?.error ??
+            (action === "acknowledge-all"
+              ? "Could not acknowledge all notifications."
+              : "Could not clear notifications.")
+        );
+      }
+      await kitchenQuery.refetch();
+    } catch (error) {
+      setAcknowledgmentError(
+        error instanceof Error
+          ? error.message
+          : "Could not update notifications."
+      );
+    } finally {
+      setNotificationBulkAction(null);
+    }
+  }
+
   async function saveKitchenItemAction(input: KitchenItemActionInput) {
     await kitchenMutation.mutate(input);
     if (
@@ -411,8 +438,11 @@ export function KitchenDashboardPage() {
       <KitchenNotificationsDrawer
         acknowledgmentError={acknowledgmentError}
         acknowledgingId={acknowledgingNotificationId}
+        bulkAction={notificationBulkAction}
         notifications={kitchenQuery.data?.notifications ?? []}
         onAcknowledge={acknowledgeKitchenNotification}
+        onAcknowledgeAll={() => runNotificationBulkAction("acknowledge-all")}
+        onClearNotifications={() => runNotificationBulkAction("clear")}
         onClose={() => {
           setIsTodayNotesOpen(false);
           setAcknowledgmentError(null);

@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { requestDashboardSidebarOpenFromKitchen } from "@/components/layout/dashboard-sidebar-shared";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
 import {
   formatClock,
@@ -65,6 +65,7 @@ export function KitchenHeader({
 }) {
   const information = kitchenViewInformation(activeView, anchorDate, today);
   const [now, setNow] = useState<Date | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     setNow(new Date());
@@ -73,46 +74,62 @@ export function KitchenHeader({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const handleSidebarChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsSidebarOpen(Boolean(customEvent.detail?.open));
+    };
+    window.addEventListener(
+      "dashboard-mobile-sidebar-change",
+      handleSidebarChange
+    );
+    return () =>
+      window.removeEventListener(
+        "dashboard-mobile-sidebar-change",
+        handleSidebarChange
+      );
+  }, []);
+
   return (
     <header className="border-b border-[#8f8f8f] bg-[#a8a8a6] px-3 py-3 text-[#061126] sm:px-4">
       {/*
-        * The single-row layout waits for `xl`, not `lg`.
-        *
-        * It needs the date block's 600px minimum plus the clock and three 120px
-        * range tabs - about 1090px. At `lg` on a 1024px iPad the sidebar has
-        * already taken ~140px, leaving ~884px, so the date block overflowed its
-        * track and the clock was printed straight over the date while the next
-        * arrow fell off the row entirely. Two rows until there is genuinely room
-        * for one.
-        */}
+       * The single-row layout waits for `xl`, not `lg`.
+       *
+       * It needs the date block's 600px minimum plus the clock and three 120px
+       * range tabs - about 1090px. At `lg` on a 1024px iPad the sidebar has
+       * already taken ~140px, leaving ~884px, so the date block overflowed its
+       * track and the clock was printed straight over the date while the next
+       * arrow fell off the row entirely. Two rows until there is genuinely room
+       * for one.
+       */}
       <div className="grid w-full min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
         <div className="grid min-w-0 gap-3 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:min-w-150">
           {/*
-            * Two different ways of staying clear of the navigation toggle.
-            *
-            * The dashboard shell parks a fixed strip in the top-left corner for
-            * that toggle (`.dashboard-topbar-brand`, 4.5rem wide under 1024px -
-            * see globals.css). It floats above this header, so a row starting at
-            * the left edge had the burger lines drawn straight over the "Main
-            * Menu" label, and a tap there was a coin toss between the two.
-            *
-            * On a phone the row is this cluster and nothing else, so it moves to
-            * the right instead: the toggle keeps the corner, and the space that
-            * was empty on the right is used. From `sm` the row is shared with the
-            * date navigation, which needs the width more, so the cluster goes
-            * back to the left and takes `pl-13` of clearance instead. Only this
-            * row runs under the toggle - the date and tabs below already clear
-            * its height, which is why the padding is here and not on the header;
-            * there it squeezed the range tabs until "This Week" truncated. At
-            * `lg` the toggle is gone and neither is needed.
-            */}
-          <div className="flex min-w-0 items-center justify-end gap-2 sm:justify-start sm:pl-13 lg:pl-0">
-            <Link
+           * Starts at the left edge, at every width.
+           *
+           * This cluster used to be pushed right - `justify-end` on a phone,
+           * `sm:pl-13` above it - to stay clear of the shell's fixed corner
+           * strip (`.dashboard-topbar-brand`), whose burger was otherwise drawn
+           * straight over the button's label. The board takes the whole screen
+           * now and that strip is not rendered on this route at all, so the
+           * clearance was holding an empty gap open for something that no
+           * longer arrives.
+           *
+           * When the sidebar opens the whole board shifts to its right, keeping
+           * this control visible. The same button then closes it, avoiding a
+           * duplicate X inside the Kitchen sidebar.
+           */}
+          <div className="flex min-w-0 items-center gap-2">
+            <button
               className="inline-flex h-10 min-w-0 shrink items-center justify-center border border-[#e4e4e4] bg-white px-3 text-sm font-black text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:shrink-0 sm:px-4"
-              href="/dashboard/menu"
+              onClick={requestDashboardSidebarOpenFromKitchen}
+              type="button"
             >
-              <span className="ml-1 truncate">Main Menu</span>
-            </Link>
+              <LineIcon className="h-4 w-4" name="menu" />
+              <span className="ml-2 truncate">
+                {isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+              </span>
+            </button>
 
             <button
               aria-label="Open kitchen notifications"

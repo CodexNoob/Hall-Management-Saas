@@ -482,6 +482,14 @@ svg {
   will-change: padding-left;
 }
 
+.dashboard-shell-main.kitchen-fullscreen-shell.kitchen-sidebar-open {
+  padding-left: 0;
+}
+
+.dashboard-shell-main.kitchen-fullscreen-shell {
+  transition: padding-left 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .dashboard-topbar-brand {
   width: var(--dashboard-sidebar-expanded-width);
   transition:
@@ -567,7 +575,17 @@ svg {
 }
 
 @media (min-width: 1024px) {
-  .app-sidebar {
+  /*
+   * The rail resizes; the kitchen's drawer slides.
+   *
+   * This is the `transition` shorthand with `!important`, so it replaces the
+   * whole declaration - including the `transition-transform` Tailwind puts on
+   * the aside. On the kitchen board, where the sidebar is an overlay that moves
+   * on the x axis rather than a rail that changes width, that left the panel
+   * with nothing to animate and it appeared in one frame. The overlay is
+   * excluded here and keeps its own transform transition.
+   */
+  .app-sidebar:not(.app-sidebar-overlay) {
     transition: width var(--dashboard-sidebar-motion) !important;
   }
 
@@ -579,11 +597,29 @@ svg {
     padding-left: var(--dashboard-sidebar-collapsed-width) !important;
   }
 
-  html[data-dashboard-sidebar="expanded"] .app-sidebar {
+  html[data-dashboard-sidebar] .dashboard-shell-main.kitchen-fullscreen-shell {
+    padding-left: 0 !important;
+  }
+
+  html[data-dashboard-sidebar]
+    .dashboard-shell-main.kitchen-fullscreen-shell.kitchen-sidebar-open {
+    padding-left: var(--dashboard-sidebar-expanded-width) !important;
+  }
+
+  /*
+   * Excluded for the same reason, plus one of its own: this flag is the rail's
+   * remembered collapse preference, and the kitchen's overlay is never a
+   * collapsed rail. Somebody who had collapsed the sidebar on another page
+   * would otherwise open the board's drawer to a 4.5rem strip with full-width
+   * labels inside it.
+   */
+  html[data-dashboard-sidebar="expanded"]
+    .app-sidebar:not(.app-sidebar-overlay) {
     width: var(--dashboard-sidebar-expanded-width) !important;
   }
 
-  html[data-dashboard-sidebar="collapsed"] .app-sidebar {
+  html[data-dashboard-sidebar="collapsed"]
+    .app-sidebar:not(.app-sidebar-overlay) {
     width: var(--dashboard-sidebar-collapsed-width) !important;
   }
 
@@ -625,6 +661,17 @@ svg {
 
   html[data-dashboard-sidebar="collapsed"] .dashboard-topbar-content {
     left: var(--dashboard-sidebar-collapsed-width);
+  }
+}
+
+@media (max-width: 1023px) {
+  /* Kitchen uses a drawer on phones and tablets. Keep this after the desktop
+     sidebar-state rules so neither a remembered collapsed state nor the open
+     drawer class can push the board into the narrow strip beside the panel. */
+  html[data-dashboard-sidebar] .dashboard-shell-main.kitchen-fullscreen-shell,
+  html[data-dashboard-sidebar]
+    .dashboard-shell-main.kitchen-fullscreen-shell.kitchen-sidebar-open {
+    padding-left: 0 !important;
   }
 }
 

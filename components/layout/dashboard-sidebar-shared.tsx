@@ -162,6 +162,11 @@ export function requestDashboardSidebarCollapse() {
   );
 }
 
+export function requestDashboardSidebarOpenFromKitchen() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("dashboard-mobile-sidebar-toggle"));
+}
+
 export function getInitials(name: string) {
   return (
     name

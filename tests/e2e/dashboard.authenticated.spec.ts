@@ -29,7 +29,7 @@ test("authenticated state opens the workspace without logging in again", async (
 // Every route here renders `DashboardTopbar` with both a search box and at
 // least one action button, which is what the assertion below measures. Kitchen
 // was in this list until it stopped using that topbar: it now draws its own
-// full-width `KitchenHeader` - a Main Menu link, a notifications button and the
+// full-width `KitchenHeader` - an Open sidebar button, notifications and the
 // date as its h1. Events left it for the opposite reason: its topbar carries
 // neither a search box nor an action now that the event list owns the only
 // search. Both still appear in the smoke list at the foot of this file, which
@@ -92,6 +92,146 @@ test("authenticated layouts do not overflow the mobile viewport", async ({
   await expect(
     page.getByRole("button", { name: /Open navigation|Expand sidebar/ })
   ).toBeVisible();
+});
+
+test("the Kitchen sidebar overlays rather than squeezing the mobile board", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "authenticated-mobile",
+    "Mobile-only Kitchen drawer assertion."
+  );
+
+  await page.goto("/dashboard/kitchen");
+  const sidebar = page.locator("aside.app-sidebar");
+  await page.getByRole("button", { name: "Open sidebar" }).click();
+  await expect(sidebar).toHaveClass(/translate-x-0/);
+
+  const dimensions = await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(".dashboard-shell-main");
+    return {
+      content: document.documentElement.scrollWidth,
+      paddingLeft: shell ? getComputedStyle(shell).paddingLeft : null,
+      viewport: document.documentElement.clientWidth
+    };
+  });
+  expect(dimensions.paddingLeft).toBe("0px");
+  expect(dimensions.content).toBeLessThanOrEqual(dimensions.viewport + 1);
+  await expect(
+    page.getByRole("button", { name: "Close navigation" })
+  ).toBeVisible();
+  await page.mouse.click(dimensions.viewport - 4, 100);
+  await expect(sidebar).toHaveClass(/-translate-x-full/);
+});
+
+test("the kitchen board takes the whole screen until its own button asks for the sidebar", async ({
+  page
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name === "authenticated-mobile",
+    "Reaching the sidebar's Kitchen entry on a phone means opening the drawer first; the gutter this guards is a desktop rule."
+  );
+
+  await page.goto("/dashboard/events");
+  const sidebar = page.locator("aside.app-sidebar");
+  await expect(sidebar).toBeAttached();
+
+  // Arrived at client-side on purpose. The sidebar writes
+  // `html[data-dashboard-sidebar]` and that flag outlives its unmount, so this
+  // is the path where globals.css would go on padding the shell by a sidebar
+  // width and leave an empty gutter beside a board that owns the screen.
+  await page.getByRole("button", { name: "Kitchen", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/kitchen/);
+
+  await expect(sidebar).toBeAttached();
+  await expect(sidebar).toHaveClass(/-translate-x-full/);
+  await expect(page.locator(".dashboard-topbar-brand")).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const shell = document.querySelector(".dashboard-shell-main");
+
+        return shell ? getComputedStyle(shell).paddingLeft : null;
+      })
+    )
+    .toBe("0px");
+
+  // The sidebar slides into its normal left-hand position while the Kitchen
+  // board moves by exactly the same width. The button that opened it therefore
+  // remains visible immediately to its right instead of being covered. Mimic
+  // the collapsed preference left by selecting an event first: opening this
+  // full drawer must replace that preference with expanded navigation.
+  await page.evaluate(() => {
+    window.dispatchEvent(
+      new CustomEvent("dashboard-sidebar-toggle", {
+        detail: { collapsed: true }
+      })
+    );
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.dashboardSidebar)
+    )
+    .toBe("collapsed");
+  const openButton = page.getByRole("button", { name: "Open sidebar" });
+  await openButton.click();
+  await expect(sidebar).toHaveClass(/translate-x-0/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.dashboardSidebar)
+    )
+    .toBe("expanded");
+  await expect(page.locator(".dashboard-topbar-brand")).toHaveCount(0);
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const shell = document.querySelector(".dashboard-shell-main");
+        return shell ? getComputedStyle(shell).paddingLeft : null;
+      })
+    )
+    .toBe("256px");
+
+  const [sidebarBox, openBox] = await Promise.all([
+    sidebar.boundingBox(),
+    openButton.boundingBox()
+  ]);
+  if (!sidebarBox || !openBox) {
+    throw new Error(
+      "The sidebar and its Open sidebar button must both be drawn."
+    );
+  }
+  expect(openBox.x).toBeGreaterThanOrEqual(sidebarBox.x + sidebarBox.width - 1);
+
+  // Kitchen has no duplicate X inside the panel. The header control remains
+  // visible beside it and becomes the way to close the sidebar.
+  await expect(
+    sidebar.getByRole("button", { name: "Close navigation" })
+  ).toHaveCount(0);
+  const closeButton = page.getByRole("button", { name: "Close sidebar" });
+  await closeButton.click();
+  await expect(sidebar).toHaveClass(/-translate-x-full/);
+  await expect(openButton).toBeVisible();
+  await expect
+    .poll(async () =>
+      page.evaluate(() => {
+        const shell = document.querySelector(".dashboard-shell-main");
+        return shell ? getComputedStyle(shell).paddingLeft : null;
+      })
+    )
+    .toBe("0px");
+
+  // Reopen it and leave Kitchen. Desktop navigation keeps this same panel in
+  // place instead of closing it and making the destination slide it back in.
+  await openButton.click();
+  await expect(sidebar).toHaveClass(/translate-x-0/);
+  await sidebar.getByRole("button", { name: "Calendar", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/calendar/);
+  await expect(sidebar).toHaveClass(/translate-x-0/);
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.dataset.dashboardSidebar)
+    )
+    .toBe("expanded");
 });
 
 test("booking creation is not exposed on the kitchen or event manager pages", async ({

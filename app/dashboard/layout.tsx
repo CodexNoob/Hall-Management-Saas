@@ -146,6 +146,32 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState("Preparing your dashboard...");
   const [startupError, setStartupError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  // The kitchen board takes the whole screen. Its sidebar remains mounted as a
+  // closed overlay so the board's own Open sidebar button is the only control
+  // that reveals it; opening navigation never shrinks the operations board.
+  const isKitchenRoute = pathname?.startsWith("/dashboard/kitchen") ?? false;
+  const [isKitchenSidebarOpen, setIsKitchenSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isKitchenRoute) {
+      setIsKitchenSidebarOpen(false);
+      return;
+    }
+
+    const handleSidebarChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsKitchenSidebarOpen(Boolean(customEvent.detail?.open));
+    };
+    window.addEventListener(
+      "dashboard-mobile-sidebar-change",
+      handleSidebarChange
+    );
+    return () =>
+      window.removeEventListener(
+        "dashboard-mobile-sidebar-change",
+        handleSidebarChange
+      );
+  }, [isKitchenRoute]);
 
   useEffect(() => {
     if (!isHiddenRoute) return;
@@ -290,15 +316,22 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         children
       ) : (
         <main className="dashboard-font min-h-dvh bg-[#f5f6f8] text-[#17202a]">
-          <DashboardTopbarBrand />
+          {!isKitchenRoute ? <DashboardTopbarBrand /> : null}
           <DashboardSidebar
             user={authSession.user}
             roleLabel={getProfileTitle(authSession)}
             profileSubtitle={getSidebarProfileSubtitle(authSession)}
             activeLabel={getDashboardActiveLabel(pathname)}
+            forceOverlay={isKitchenRoute}
           />
 
-          <section className="dashboard-shell-main min-h-dvh lg:pl-64">
+          <section
+            className={`dashboard-shell-main min-h-dvh ${
+              isKitchenRoute
+                ? `kitchen-fullscreen-shell ${isKitchenSidebarOpen ? "kitchen-sidebar-open" : ""}`
+                : "lg:pl-64"
+            }`}
+          >
             <DashboardTrialProvider authSession={authSession}>
               {canAccessDashboardRoute(pathname, authSession.permissions) ? (
                 children
