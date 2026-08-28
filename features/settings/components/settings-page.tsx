@@ -85,6 +85,7 @@ export function SettingsPage({
       weekStartsOn: "sunday",
       showHebrewDate: true,
       showAvailability: true,
+      clickAnywhereToAdd: false,
       holdExpirationHours: 48,
       shortNoticeDays: 7
     },

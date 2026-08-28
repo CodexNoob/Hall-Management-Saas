@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  weekStartDayIndex,
+  type WeekStartsOn
+} from "@/lib/dates/calendar-date";
+
 export type CalendarStatus = "confirmed" | "hold" | "school";
 
 export type CalendarBooking = {
@@ -40,10 +45,22 @@ export type EventsResponse = {
   }>;
   calendarSettings?: {
     dailyEventLimit: number;
+    weekStartsOn?: WeekStartsOn;
+    clickAnywhereToAdd?: boolean;
   };
 };
 
 export const weekDays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+
+/// The header row rotated to match the grid, which starts its weeks wherever
+/// Settings says. Rotating the labels and the grid from the same value is what
+/// keeps a column's heading over the days it actually holds.
+export function weekDayLabels(weekStartsOn: WeekStartsOn = "sunday") {
+  const startIndex = weekStartDayIndex(weekStartsOn);
+  return weekDays.map(
+    (_, index) => weekDays[(startIndex + index) % weekDays.length]
+  );
+}
 
 export type AvailabilityDay = {
   dateKey: string;

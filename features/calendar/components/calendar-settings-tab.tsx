@@ -6,7 +6,7 @@ import {
   type DateRange
 } from "@/features/calendar/forms/date-range-picker-dialog";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
-import { dateKey } from "@/lib/dates/calendar-date";
+import { dateKey, type WeekStartsOn } from "@/lib/dates/calendar-date";
 import {
   ClockIcon,
   SettingsIcon
@@ -25,7 +25,8 @@ export function CalendarSettingsView({
   saveDailyEventLimitError,
   onSaveDailyEventLimit,
   onAddBlockedRange,
-  onRemoveBlockedRange
+  onRemoveBlockedRange,
+  weekStartsOn
 }: {
   blockedDates: Array<{
     id: string;
@@ -50,6 +51,7 @@ export function CalendarSettingsView({
   onSaveDailyEventLimit: (limit: number) => Promise<void>;
   onAddBlockedRange: (range: DateRange) => Promise<void>;
   onRemoveBlockedRange: (id: string) => Promise<void>;
+  weekStartsOn?: WeekStartsOn;
 }) {
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   const [dailyEventLimitDraft, setDailyEventLimitDraft] =
@@ -234,6 +236,7 @@ export function CalendarSettingsView({
                     onApply={setBlockedRangeDraft}
                     onClose={() => setIsRangePickerOpen(false)}
                     startDate={blockedRangeDraft.startDate}
+                    weekStartsOn={weekStartsOn}
                   />
                 </div>
                 <button

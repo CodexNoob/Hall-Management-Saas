@@ -30,9 +30,10 @@ export type ControlCenterSettings = {
   };
   calendar: {
     defaultView: "month" | "week" | "agenda";
-    weekStartsOn: "sunday" | "monday";
+    weekStartsOn: "sunday" | "monday" | "saturday";
     showHebrewDate: boolean;
     showAvailability: boolean;
+    clickAnywhereToAdd: boolean;
     holdExpirationHours: 24 | 48 | 72 | 168;
     shortNoticeDays: 3 | 7 | 14 | 30;
   };

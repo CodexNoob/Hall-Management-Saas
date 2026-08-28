@@ -10,6 +10,7 @@ import {
   StatusDot,
   type AvailabilityDay
 } from "@/features/calendar/components/calendar-shared";
+import { type WeekStartsOn } from "@/lib/dates/calendar-date";
 
 export function AvailabilityView({
   canManageBlockedDates,
@@ -21,7 +22,8 @@ export function AvailabilityView({
   onRemoveDay,
   onRangeChange,
   startDate,
-  startDateLabel
+  startDateLabel,
+  weekStartsOn
 }: {
   canManageBlockedDates: boolean;
   blockDateError: string | null;
@@ -33,6 +35,7 @@ export function AvailabilityView({
   onRangeChange: (range: DateRange) => void;
   startDate: Date;
   startDateLabel: string;
+  weekStartsOn?: WeekStartsOn;
 }) {
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
 
@@ -98,6 +101,7 @@ export function AvailabilityView({
                 onApply={onRangeChange}
                 onClose={() => setIsRangePickerOpen(false)}
                 startDate={startDate}
+                weekStartsOn={weekStartsOn}
               />
             </div>
           </div>

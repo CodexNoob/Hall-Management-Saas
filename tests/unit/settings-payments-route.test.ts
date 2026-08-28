@@ -198,6 +198,51 @@ describe("organization payment link settings", () => {
       expect.anything(),
       "settings.update"
     );
+    // `clickAnywhereToAdd` is written even though the body omitted it: it is
+    // defaulted rather than required precisely so a payload saved before the
+    // field existed still parses, and what parses is what gets stored back.
+    expect(prisma.organizationSetting.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          integrations: expect.objectContaining({
+            controlCenter: {
+              ...controlCenter,
+              calendar: { ...controlCenter.calendar, clickAnywhereToAdd: false }
+            }
+          })
+        })
+      })
+    );
+  });
+
+  it("keeps a saturday week start and an explicit click-anywhere choice", async () => {
+    const controlCenter = {
+      general: {
+        logoUrl: "",
+        contactEmail: "",
+        dateFormat: "MMM d, yyyy",
+        timeFormat: "12-hour"
+      },
+      calendar: {
+        defaultView: "month",
+        weekStartsOn: "saturday",
+        showHebrewDate: true,
+        showAvailability: true,
+        clickAnywhereToAdd: true,
+        holdExpirationHours: 48,
+        shortNoticeDays: 7
+      },
+      kitchen: {
+        defaultView: "today",
+        shortNoticeDays: 3,
+        notificationsEnabled: true,
+        requireMenuAcknowledgment: true
+      }
+    };
+
+    const response = await patch({ controlCenter });
+
+    expect(response.status).toBe(200);
     expect(prisma.organizationSetting.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({

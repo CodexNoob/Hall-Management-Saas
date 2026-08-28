@@ -5,7 +5,9 @@ import {
   addMonths,
   buildMonthGrid,
   startOfDay,
-  startOfMonth
+  startOfMonth,
+  weekStartDayIndex,
+  type WeekStartsOn
 } from "@/lib/dates/calendar-date";
 
 export type DateRange = {
@@ -20,6 +22,7 @@ type DateRangePickerDialogProps = {
   onApply: (range: DateRange) => void;
   onClose: () => void;
   startDate: Date;
+  weekStartsOn?: WeekStartsOn;
 };
 
 const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -42,7 +45,8 @@ export function DateRangePickerDialog({
   mobileCentered = false,
   onApply,
   onClose,
-  startDate
+  startDate,
+  weekStartsOn = "sunday"
 }: DateRangePickerDialogProps) {
   const pickerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
@@ -98,9 +102,15 @@ export function DateRangePickerDialog({
   }, [endDate, isOpen, startDate]);
 
   const calendarDays = useMemo(
-    () => buildMonthGrid(visibleMonth),
-    [visibleMonth]
+    () => buildMonthGrid(visibleMonth, weekStartsOn),
+    [visibleMonth, weekStartsOn]
   );
+  const headerWeekDays = useMemo(() => {
+    const startIndex = weekStartDayIndex(weekStartsOn);
+    return weekDays.map(
+      (_, index) => weekDays[(startIndex + index) % weekDays.length]
+    );
+  }, [weekStartsOn]);
 
   if (!isOpen) {
     return null;
@@ -172,7 +182,7 @@ export function DateRangePickerDialog({
       </div>
 
       <div className="mt-4 grid grid-cols-7 gap-1">
-        {weekDays.map((day) => (
+        {headerWeekDays.map((day) => (
           <span
             className="py-1 text-center text-[10px] font-black uppercase text-[#6a7483]"
             key={day}

@@ -30,7 +30,7 @@ import {
   CalendarIcon,
   SettingsIcon,
   StatusDot,
-  weekDays,
+  weekDayLabels,
   type AvailabilityDay,
   type CalendarBooking,
   type EventsResponse
@@ -70,14 +70,17 @@ export function EventCalendarPage() {
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const canCreateEvent = useAccess("booking.create");
   const canUpdateSettings = useAccess("settings.update");
-  const calendarGridDays = useMemo(
-    () => buildMonthGrid(visibleMonth),
-    [visibleMonth]
-  );
+  // Bounded by the month rather than by the rendered grid, because the grid now
+  // depends on a setting this very query returns. A 42-cell grid always starts
+  // within six days before the 1st and ends within 41 days after it, whichever
+  // day the week is set to start on, so this covers every rotation and stays
+  // the same URL when the setting arrives - no refetch, no flash of a grid
+  // drawn from a range that was measured for a different one.
   const calendarQueryRange = useMemo(() => {
+    const monthStart = startOfMonth(visibleMonth);
     const dates = [
-      calendarGridDays[0].date,
-      calendarGridDays[calendarGridDays.length - 1].date,
+      addDays(monthStart, -7),
+      addDays(monthStart, 42),
       availabilityRange.startDate,
       availabilityRange.endDate
     ];
@@ -85,9 +88,23 @@ export function EventCalendarPage() {
       startDate: new Date(Math.min(...dates.map((date) => date.getTime()))),
       endDate: new Date(Math.max(...dates.map((date) => date.getTime())))
     };
-  }, [availabilityRange, calendarGridDays]);
+  }, [availabilityRange, visibleMonth]);
   const calendarQueryUrl = `/api/calendar?startDate=${dateKey(calendarQueryRange.startDate)}&endDate=${dateKey(calendarQueryRange.endDate)}`;
   const eventsQuery = useAuthenticatedQuery<EventsResponse>(calendarQueryUrl);
+  const weekStartsOn =
+    eventsQuery.data?.calendarSettings?.weekStartsOn ?? "sunday";
+  // Settings can drop the + button on each day and let the whole cell open the
+  // booking form instead. Off, a day click only selects the day.
+  const clickAnywhereToAdd =
+    eventsQuery.data?.calendarSettings?.clickAnywhereToAdd ?? false;
+  const calendarGridDays = useMemo(
+    () => buildMonthGrid(visibleMonth, weekStartsOn),
+    [visibleMonth, weekStartsOn]
+  );
+  const gridWeekDays = useMemo(
+    () => weekDayLabels(weekStartsOn),
+    [weekStartsOn]
+  );
   const dailyEventLimit =
     eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
   const dailyHallCapacity = useMemo(() => {
@@ -372,6 +389,7 @@ export function EventCalendarPage() {
             onRangeChange={setAvailabilityRange}
             startDate={availabilityRange.startDate}
             startDateLabel={availabilityStartDateLabel}
+            weekStartsOn={weekStartsOn}
           />
         ) : activeTab === "settings" ? (
           <CalendarSettingsView
@@ -409,6 +427,7 @@ export function EventCalendarPage() {
               await eventsQuery.refetch();
             }}
             saveDailyEventLimitError={settingsMutation.error}
+            weekStartsOn={weekStartsOn}
           />
         ) : (
           <div className="mx-auto grid w-full min-w-0 max-w-[1800px] gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -421,7 +440,9 @@ export function EventCalendarPage() {
                   </div>
 
                   <p className="mt-1 text-xs text-[#6a7483]">
-                    Click a day to book or review the schedule.
+                    {clickAnywhereToAdd
+                      ? "Click any bookable day to start a booking on that date."
+                      : "Click a day to review the schedule, or + to book it."}
                   </p>
                 </div>
 
@@ -521,7 +542,7 @@ export function EventCalendarPage() {
               <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-3 pb-3">
                 <div className="min-w-212.5 overflow-hidden rounded-xl border border-[#d8dde5]">
                   <div className="grid grid-cols-7 bg-[#fbfcfd]">
-                    {weekDays.map((day) => (
+                    {gridWeekDays.map((day) => (
                       <div
                         key={day}
                         className="border-r border-[#d8dde5] py-3 text-center text-[10px] font-black tracking-wider text-[#6a7483] last:border-r-0"
@@ -565,6 +586,15 @@ export function EventCalendarPage() {
                         day: "numeric",
                         year: "numeric"
                       }).format(calendarDay.date);
+                      // The same three conditions either way: a day that cannot
+                      // take a booking has no + button, and books nothing when
+                      // the whole cell is the button instead.
+                      const canBookDay =
+                        calendarDay.currentMonth &&
+                        !fullyBooked &&
+                        !isBlocked &&
+                        canCreateEvent;
+                      const bookOnDayClick = clickAnywhereToAdd && canBookDay;
 
                       return (
                         <div
@@ -572,9 +602,18 @@ export function EventCalendarPage() {
                           className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}
                         >
                           <button
-                            aria-label={`Select ${dateLabel}`}
+                            aria-label={
+                              bookOnDayClick
+                                ? `Book ${dateLabel}`
+                                : `Select ${dateLabel}`
+                            }
                             className="absolute inset-0 z-0"
-                            onClick={() => selectDate(calendarDay.date)}
+                            onClick={() =>
+                              bookOnDayClick
+                                ? openBookingForDate(calendarDay.date)
+                                : selectDate(calendarDay.date)
+                            }
+                            title={bookOnDayClick ? `Book ${dateLabel}` : undefined}
                             type="button"
                           />
 
@@ -590,10 +629,7 @@ export function EventCalendarPage() {
                             </span>
                           </div>
 
-                          {calendarDay.currentMonth &&
-                          !fullyBooked &&
-                          !isBlocked &&
-                          canCreateEvent ? (
+                          {canBookDay && !clickAnywhereToAdd ? (
                             <button
                               aria-label={`Book ${dateLabel}`}
                               className="absolute right-2 top-2 z-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#b9c2cf] bg-white text-sm font-black leading-none text-[#1f4d73] shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus:outline-none focus:ring-2 focus:ring-[#a8ccec]"

@@ -88,6 +88,7 @@ export function CalendarSettingsPanel({
             >
               <option value="sunday">Sunday</option>
               <option value="monday">Monday</option>
+              <option value="saturday">Saturday</option>
             </select>
           </label>
           <label className="text-[10px] font-black">
@@ -168,6 +169,17 @@ export function CalendarSettingsPanel({
               onChange({ ...value, showAvailability: !value.showAvailability })
             }
             title="Show available-date indicator"
+          />
+          <SettingRow
+            checked={value.clickAnywhereToAdd}
+            description="On: clicking anywhere on a day opens the booking form, and the + button is dropped. Off: only the + button books, and clicking the day just selects it."
+            onChange={() =>
+              onChange({
+                ...value,
+                clickAnywhereToAdd: !value.clickAnywhereToAdd
+              })
+            }
+            title="Click anywhere to add"
           />
         </div>
       </section>
