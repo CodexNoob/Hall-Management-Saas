@@ -15,7 +15,10 @@ import {
   assertSubset,
   notFound
 } from "@/lib/authz/guards";
-import { loadActorFacts } from "@/lib/authz/admin/context";
+import {
+  PRIVILEGE_TRANSACTION_OPTIONS,
+  loadActorFacts
+} from "@/lib/authz/admin/context";
 import { diffPermissionSets, writeAudit } from "@/lib/authz/admin/audit";
 
 /**
@@ -175,7 +178,7 @@ export async function createRole(
     });
 
     return loadRoleOrThrow(transaction, created.id, actor.organizationId);
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 export type UpdateRoleInput = {
@@ -272,7 +275,7 @@ export async function updateRole(
     });
 
     return loadRoleOrThrow(transaction, role.id, actor.organizationId);
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 export async function deleteRole(
@@ -331,7 +334,7 @@ export async function deleteRole(
           .sort()
       }
     });
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 // ---------------------------------------------------------------------------

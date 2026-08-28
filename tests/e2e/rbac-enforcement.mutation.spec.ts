@@ -76,6 +76,18 @@ const OTHER_RESOURCE_URL = "/api/menu";
  */
 const EMPTY_BODY = {};
 
+/**
+ * A syntactically valid UUID no row will ever carry.
+ *
+ * What unlocks the parameterized routes for this matrix: their handlers all
+ * call `authorize()` before touching the id, so a non-holder is refused at 403
+ * before the id is even parsed - and a HOLDER gets a 400 from Zod or a 404 from
+ * the lookup, both of which read as "not refused", which is all a non-strict
+ * probe asserts. Nothing is ever read or written under this id because nothing
+ * exists under it.
+ */
+const FAKE_ID = "00000000-0000-4000-8000-000000000000";
+
 type Assignment = {
   id: string;
   roleId: string;
@@ -534,7 +546,7 @@ test("a role's holder cannot use it to widen itself", async ({
  */
 type Probe = {
   permission: string;
-  method: "GET" | "POST" | "PUT";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   url: string;
   strict?: boolean;
 };
@@ -641,7 +653,145 @@ const PROBES: Probe[] = [
   // The three that hand out privilege. Administrator holds `role.assign` and
   // neither of the other two, which is precisely the distinction being drawn.
   { permission: "role.manage", method: "POST", url: "/api/access/roles" },
-  { permission: "role.assign", method: "POST", url: "/api/access/assignments" }
+  { permission: "role.assign", method: "POST", url: "/api/access/assignments" },
+  {
+    permission: "permission.override",
+    method: "PUT",
+    url: `/api/access/overrides/${FAKE_ID}`
+  },
+
+  /* ------------------------------------------------------------------------
+   * Parameterized routes, reached through FAKE_ID.
+   *
+   * Every handler below was read before its probe was written, and each calls
+   * `authorize()` as its first statement - before parsing the id and before
+   * parsing the body. A denial is therefore exact, and a grant never touches a
+   * row: the id does not exist, so a holder bottoms out in a Zod 400 or a
+   * lookup 404 and writes nothing.
+   * ---------------------------------------------------------------------- */
+
+  // Reads that take an id.
+  {
+    permission: "eventmenu.read",
+    method: "GET",
+    url: `/api/events/${FAKE_ID}/menu`
+  },
+  {
+    permission: "event.document.generate",
+    method: "GET",
+    url: `/api/events/${FAKE_ID}/pdf`
+  },
+
+  // Bookings and events.
+  { permission: "booking.create", method: "POST", url: "/api/events" },
+  /**
+   * The one probe whose HOLDER runs real code to completion: there is no body
+   * to fail on and no id to miss. What runs is `expireOrganizationHolds`,
+   * which the route's own comment calls safe to fire at any time - ordinary
+   * event reads expire the same holds, so a holder probing it does maintenance
+   * that was about to happen anyway, and a non-holder's 403 is the assertion.
+   */
+  {
+    permission: "booking.cancel",
+    method: "POST",
+    url: "/api/bookings/expire-holds"
+  },
+  { permission: "event.update", method: "PATCH", url: `/api/events/${FAKE_ID}` },
+  {
+    permission: "event.status.update",
+    method: "PATCH",
+    url: `/api/events/${FAKE_ID}/status`
+  },
+  {
+    permission: "eventmenu.update",
+    method: "PUT",
+    url: `/api/events/${FAKE_ID}/menu`
+  },
+  {
+    permission: "eventmenu.confirm",
+    method: "POST",
+    url: `/api/events/${FAKE_ID}/menu`
+  },
+
+  // Operations.
+  { permission: "dining.update", method: "PATCH", url: "/api/dining" },
+  { permission: "hallmap.update", method: "POST", url: "/api/hall-map-shapes" },
+  {
+    permission: "menu.update",
+    method: "PATCH",
+    url: `/api/menu/items/${FAKE_ID}`
+  },
+  {
+    permission: "menu.delete",
+    method: "DELETE",
+    url: `/api/menu/items/${FAKE_ID}`
+  },
+  { permission: "client.update", method: "PATCH", url: "/api/clients" },
+  { permission: "file.create", method: "POST", url: "/api/files" },
+  { permission: "file.delete", method: "DELETE", url: "/api/files" },
+  {
+    permission: "kitchen.status.update",
+    method: "PATCH",
+    url: `/api/kitchen/notifications/${FAKE_ID}`
+  },
+  { permission: "kitchen.event.create", method: "POST", url: "/api/kitchen" },
+  {
+    permission: "settings.update",
+    method: "POST",
+    url: "/api/calendar/blocked-dates"
+  },
+
+  // Money. Empty bodies mean a holder never reaches Stripe or Plaid: every one
+  // of these parses before it acts, and the parse is what answers.
+  { permission: "invoice.create", method: "POST", url: "/api/billing" },
+  {
+    permission: "invoice.update",
+    method: "PATCH",
+    url: `/api/billing/invoices/${FAKE_ID}`
+  },
+  {
+    permission: "payment.record",
+    method: "POST",
+    url: `/api/events/${FAKE_ID}/payments`
+  },
+  { permission: "payment.refund", method: "POST", url: "/api/billing/refunds" },
+  {
+    permission: "payment.notify",
+    method: "POST",
+    url: "/api/billing/stripe/checkout"
+  },
+
+  // Staff lifecycle. `staff.deactivate` parses no body at all: a holder fails
+  // the membership lookup on FAKE_ID and writes nothing.
+  { permission: "staff.update", method: "PATCH", url: `/api/staff/${FAKE_ID}` },
+  {
+    permission: "staff.deactivate",
+    method: "POST",
+    url: `/api/staff/${FAKE_ID}/deactivate`
+  }
+
+  /* ------------------------------------------------------------------------
+   * Deliberately absent, and why - so nobody "completes" this list into a bug.
+   *
+   * `staff.invite` and `menu.import`: their rate limiters run BEFORE the
+   * guard, 10 per 10 minutes. Two matrix runs inside one window would start
+   * answering 429 where this test demands 403, and a 429 proves nothing about
+   * the guard either way.
+   *
+   * `invoice.void`: guarded AFTER the body parse, conditionally, behind
+   * `invoice.update` on the same route - an empty body never reaches it, and a
+   * well-formed one would report the wrong key for roles without the first.
+   *
+   * `kitchen.read.all` and the per-action keys inside PATCH /api/kitchen: the
+   * guard sits behind the body parse by design (one door, several actions), so
+   * they get their own tests below the matrix.
+   *
+   * `event.create`, `event.delete`, `client.delete`, `integration.manage`,
+   * `schoolcycle.read`, `schoolcycle.manage`: no route enforces them today.
+   * There is nothing to probe - which the catalog's own header calls a smell
+   * ("a key nothing enforces is not a permission"), recorded here rather than
+   * papered over.
+   * ---------------------------------------------------------------------- */
 ];
 
 /**
@@ -682,8 +832,96 @@ function rankOf(member: StaffMember) {
 async function send(api: APIRequestContext, probe: Probe) {
   if (probe.method === "GET") return api.get(probe.url);
   if (probe.method === "PUT") return api.put(probe.url, { data: EMPTY_BODY });
+  if (probe.method === "PATCH") return api.patch(probe.url, { data: EMPTY_BODY });
+  if (probe.method === "DELETE")
+    return api.delete(probe.url, { data: EMPTY_BODY });
 
   return api.post(probe.url, { data: EMPTY_BODY });
+}
+
+/**
+ * One probe, judged. Returns what was wrong with it, or null when it behaved.
+ *
+ * Split out of the loop so the probes can overlap - see `runProbes` - and so
+ * the judgement itself stays one readable piece rather than a body nested
+ * three deep inside a scheduler.
+ */
+async function checkProbe(
+  api: APIRequestContext,
+  probe: Probe,
+  held: ReadonlySet<string>,
+  roleKey: string
+): Promise<string | null> {
+  const response = await send(api, probe);
+  const status = response.status();
+  const body = (await response.json().catch(() => null)) as {
+    code?: string;
+  } | null;
+  const refused = status === 403 && body?.code === "not_permitted";
+  const where = `${probe.method} ${probe.url} (${probe.permission})`;
+
+  if (held.has(probe.permission)) {
+    if (refused) return `${where} was REFUSED, but ${roleKey} holds that key`;
+
+    // A granted read that answers with no parameters has to actually answer.
+    if (probe.strict && status !== 200) {
+      return `${where} answered ${status}, expected 200`;
+    }
+
+    return null;
+  }
+
+  if (!refused) {
+    return `${where} answered ${status}, but ${roleKey} does NOT hold that key - it must be a 403 not_permitted`;
+  }
+
+  return null;
+}
+
+/**
+ * How many probes are in flight at once.
+ *
+ * Sequentially this matrix is one round trip per probe, and once it grew past
+ * the two dozen it started with that overran the 60-second budget - every role
+ * test failed on the clock rather than on a permission. The probes share
+ * nothing: each is a single request whose answer depends only on the role
+ * assigned before the loop, so overlapping them changes what none of them
+ * proves.
+ *
+ * The cap is what keeps that true, and it is set against a real number: the
+ * server's Prisma pool holds ten connections (`getPoolMax` in lib/prisma.ts).
+ * A burst of fifty would queue behind that pool, and a request that waits long
+ * enough answers 500 rather than 403 - which this matrix reads as "not
+ * refused", failing the suite as though a guard were missing. An earlier draft
+ * ran eight at a time, close enough to the pool's own limit that the privilege
+ * write at the START of the next test was still paying for the pressure. Five
+ * leaves half the pool for everything else the request does.
+ */
+const PROBE_CONCURRENCY = 5;
+
+/** Every probe, run several at a time, reported in the order they are written. */
+async function runProbes(
+  api: APIRequestContext,
+  held: ReadonlySet<string>,
+  roleKey: string
+) {
+  const findings: Array<string | null> = new Array(PROBES.length).fill(null);
+  let next = 0;
+
+  // Each worker takes the next unclaimed index. `next++` is safe: the read and
+  // the increment sit together with no await between them.
+  const worker = async () => {
+    while (next < PROBES.length) {
+      const index = next++;
+      findings[index] = await checkProbe(api, PROBES[index], held, roleKey);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(PROBE_CONCURRENCY, PROBES.length) }, worker)
+  );
+
+  return findings.filter((finding): finding is string => finding !== null);
 }
 
 for (const roleKey of ROLE_KEYS_UNDER_TEST) {
@@ -691,6 +929,18 @@ for (const roleKey of ROLE_KEYS_UNDER_TEST) {
     page,
     restricted
   }) => {
+    /**
+     * Room to be slow, deliberately, rather than a matrix trimmed to fit sixty
+     * seconds.
+     *
+     * Every probe is a real HTTP round trip to a real database, and the count
+     * grows each time a permission gains a route worth guarding - so the
+     * default budget is a ceiling this test would keep re-hitting, and each
+     * time it would fail on the clock while reporting nothing about any
+     * permission. A slow run here is worth more than a fast gap.
+     */
+    test.setTimeout(180_000);
+
     const subject = await restrictedPrincipal(page);
     const roles = await readRoles(page);
     const role = roles.find((candidate) => candidate.key === roleKey);
@@ -717,37 +967,7 @@ for (const roleKey of ROLE_KEYS_UNDER_TEST) {
      * way or whether that one is a lone typo. The shape of the mistake is the
      * diagnosis.
      */
-    const wrong: string[] = [];
-
-    for (const probe of PROBES) {
-      const response = await send(restricted, probe);
-      const status = response.status();
-      const body = (await response.json().catch(() => null)) as {
-        code?: string;
-      } | null;
-      const refused = status === 403 && body?.code === "not_permitted";
-      const where = `${probe.method} ${probe.url} (${probe.permission})`;
-
-      if (held.has(probe.permission)) {
-        if (refused) {
-          wrong.push(`${where} was REFUSED, but ${roleKey} holds that key`);
-          continue;
-        }
-
-        // A granted read that answers with no parameters has to actually answer.
-        if (probe.strict && status !== 200) {
-          wrong.push(`${where} answered ${status}, expected 200`);
-        }
-
-        continue;
-      }
-
-      if (!refused) {
-        wrong.push(
-          `${where} answered ${status}, but ${roleKey} does NOT hold that key - it must be a 403 not_permitted`
-        );
-      }
-    }
+    const wrong = await runProbes(restricted, held, roleKey);
 
     expect(
       wrong,
@@ -755,6 +975,182 @@ for (const roleKey of ROLE_KEYS_UNDER_TEST) {
     ).toEqual([]);
   });
 }
+
+// ---------------------------------------------------------------------------
+// The kitchen's one-door PATCH, branch by branch
+// ---------------------------------------------------------------------------
+
+/**
+ * PATCH /api/kitchen is one endpoint carrying several actions with different
+ * trust levels: `authorize()` at the door asks only for `kitchen.read`, and
+ * each action then asks for its own key AFTER the body parse. That ordering is
+ * exactly why the matrix above cannot probe these - its empty bodies die in
+ * Zod before any guard is consulted - and exactly where "the door key quietly
+ * opens every branch" would hide if it regressed.
+ *
+ * So these two tests walk through the door properly: a well-formed body,
+ * FAKE_ID for every target. The route was read before they were written - all
+ * four per-action guards run before any lookup touches the ids - so a refusal
+ * is attributable to the guard alone and a regression would surface as a 404
+ * where a 403 belongs. Nothing real is addressed and nothing is written.
+ *
+ * These refusals carry a plain `error` string rather than the resolver's
+ * `not_permitted` code, because they come from the route's own branches - a
+ * second reason they need their own tests rather than a row in PROBES.
+ */
+
+async function kitchenPatch(
+  api: APIRequestContext,
+  body: Record<string, unknown>
+) {
+  return api.patch("/api/kitchen", { data: body });
+}
+
+test("the kitchen door key opens none of the kitchen's write actions", async ({
+  page,
+  restricted
+}) => {
+  const subject = await restrictedPrincipal(page);
+
+  const roleId = await createRole(page, `E2E Kitchen Door ${Date.now()}`, [
+    "kitchen.read"
+  ]);
+  pending.roleIds.push(roleId);
+  pending.assignmentIds.push(await assignRole(page, subject.principalId, roleId));
+
+  // Through the door, and the board's own hint flags admit everything that was
+  // withheld. These flags are what the kitchen UI renders its buttons from, so
+  // this line is also the server-side truth behind "the assign button is not
+  // drawn for this cook".
+  const board = await restricted.get("/api/kitchen");
+  expect(board.status(), "kitchen.read has to open the board itself").toBe(200);
+
+  const { permissions } = (await board.json()) as {
+    permissions: Record<string, boolean>;
+  };
+  expect(permissions).toEqual({
+    canAssignWorkers: false,
+    canUpdateKitchenStatus: false,
+    canAddKitchenEvents: false,
+    seesWholeBoard: false
+  });
+
+  // Every action, both halves of the board, each refused with its own wording
+  // - the proof that no branch is reachable on the strength of the door key.
+  const attempts: Array<{
+    body: Record<string, unknown>;
+    refusal: RegExp;
+  }> = [
+    {
+      body: {
+        action: "standalone-assign-worker",
+        kitchenEventId: FAKE_ID,
+        menuItemId: FAKE_ID,
+        assignedWorkerId: null
+      },
+      refusal: /permission to assign kitchen workers/
+    },
+    {
+      body: {
+        action: "standalone-status",
+        kitchenEventId: FAKE_ID,
+        menuItemId: FAKE_ID,
+        status: "COMPLETE"
+      },
+      refusal: /permission to update kitchen status/
+    },
+    {
+      body: {
+        action: "assign-worker",
+        eventId: FAKE_ID,
+        menuItemId: FAKE_ID,
+        assignedWorkerId: null
+      },
+      refusal: /permission to assign kitchen workers/
+    },
+    {
+      body: {
+        action: "status",
+        eventId: FAKE_ID,
+        menuItemId: FAKE_ID,
+        status: "COMPLETE"
+      },
+      refusal: /permission to update kitchen status/
+    },
+    {
+      body: {
+        action: "replace-menu-item",
+        eventId: FAKE_ID,
+        menuItemId: FAKE_ID,
+        replacementMenuItemId: FAKE_ID
+      },
+      refusal: /change what the kitchen cooks/
+    }
+  ];
+
+  for (const attempt of attempts) {
+    const response = await kitchenPatch(restricted, attempt.body);
+    const body = (await response.json()) as { error?: string };
+
+    expect(
+      response.status(),
+      `${attempt.body.action} while holding only kitchen.read must be refused`
+    ).toBe(403);
+    expect(
+      body.error,
+      `${attempt.body.action} was refused, but not by the guard this test is for`
+    ).toMatch(attempt.refusal);
+  }
+});
+
+test("a cook who may update status still cannot touch a dish that is not theirs", async ({
+  page,
+  restricted
+}) => {
+  const subject = await restrictedPrincipal(page);
+
+  /**
+   * `kitchen.status.update` without `kitchen.read.all`: production staff, not
+   * a supervisor. The restricted account has no kitchenWorker row either, so
+   * every dish on the board is someone else's - including a dish assigned to
+   * nobody, which the route treats as not-yours on purpose (claiming
+   * unassigned work is `kitchen.worker.assign`).
+   */
+  const roleId = await createRole(page, `E2E Kitchen Cook ${Date.now()}`, [
+    "kitchen.read",
+    "kitchen.status.update"
+  ]);
+  pending.roleIds.push(roleId);
+  pending.assignmentIds.push(await assignRole(page, subject.principalId, roleId));
+
+  const board = await restricted.get("/api/kitchen");
+  expect(board.status()).toBe(200);
+
+  const { permissions } = (await board.json()) as {
+    permissions: Record<string, boolean>;
+  };
+  // The key they hold is reported held; the whole-board key they lack is not.
+  expect(permissions.canUpdateKitchenStatus).toBe(true);
+  expect(permissions.seesWholeBoard).toBe(false);
+
+  /**
+   * The scoping refusal, and it must come BEFORE the existence lookup: the
+   * route answers "not assigned to you" for a dish that does not exist, the
+   * same words it uses for a colleague's dish, so a scoped cook cannot map the
+   * board by probing ids. A 404 here would mean the lookup ran first and that
+   * property is gone.
+   */
+  const response = await kitchenPatch(restricted, {
+    action: "standalone-status",
+    kitchenEventId: FAKE_ID,
+    menuItemId: FAKE_ID,
+    status: "COMPLETE"
+  });
+  const body = (await response.json()) as { error?: string };
+
+  expect(response.status()).toBe(403);
+  expect(body.error).toMatch(/not assigned to you/);
+});
 
 /**
  * The role nobody can hand out, including the person holding it.
