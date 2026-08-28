@@ -22,6 +22,37 @@ describe("calendar date helpers", () => {
     expect(grid[41].dateKey).toBe("2026-08-08");
   });
 
+  // July 2026 opens on a Wednesday, so each start day pulls a different number
+  // of days in from June: none for Wednesday itself, and the grid always keeps
+  // the 1st inside it.
+  it("starts the grid on the day Settings names", () => {
+    const saturdayGrid = buildMonthGrid(new Date(2026, 6, 1), "saturday");
+    expect(saturdayGrid[0].dateKey).toBe("2026-06-27");
+    expect(saturdayGrid[0].date.getDay()).toBe(6);
+    expect(saturdayGrid[4]).toMatchObject({
+      currentMonth: true,
+      dateKey: "2026-07-01"
+    });
+
+    const mondayGrid = buildMonthGrid(new Date(2026, 6, 1), "monday");
+    expect(mondayGrid[0].dateKey).toBe("2026-06-29");
+    expect(mondayGrid[0].date.getDay()).toBe(1);
+  });
+
+  // Every rotation has to reach the last day of the longest month, which is
+  // what makes 42 cells enough rather than only enough for Sunday.
+  it("covers the whole month from every start day", () => {
+    for (const weekStartsOn of ["sunday", "monday", "saturday"] as const) {
+      for (const month of [new Date(2026, 0, 1), new Date(2026, 7, 1)]) {
+        const grid = buildMonthGrid(month, weekStartsOn);
+        const daysInMonth = grid.filter((day) => day.currentMonth);
+        expect(daysInMonth).toHaveLength(31);
+        expect(daysInMonth[0].day).toBe(1);
+        expect(daysInMonth[30].day).toBe(31);
+      }
+    }
+  });
+
   it("moves safely between months when the destination is shorter", () => {
     expect(dateKey(moveDateByMonth(new Date(2026, 0, 31), 1))).toBe(
       "2026-02-28"
@@ -33,6 +64,14 @@ describe("calendar date helpers", () => {
 
   it("handles week and day navigation across month boundaries", () => {
     expect(dateKey(startOfWeek(new Date(2026, 6, 1)))).toBe("2026-06-28");
+    expect(dateKey(startOfWeek(new Date(2026, 6, 1), "saturday"))).toBe(
+      "2026-06-27"
+    );
+    // A Saturday is already the start of its own week, not six days into the
+    // previous one.
+    expect(dateKey(startOfWeek(new Date(2026, 6, 4), "saturday"))).toBe(
+      "2026-07-04"
+    );
     expect(dateKey(addDays(new Date(2026, 6, 31), 1))).toBe("2026-08-01");
   });
 

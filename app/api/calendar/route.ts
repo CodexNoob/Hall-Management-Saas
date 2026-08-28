@@ -10,6 +10,46 @@ const rangeSchema = z.object({
   endDate: z.string().date()
 });
 
+/**
+ * The two Settings > Calendar preferences the month grid draws itself from.
+ *
+ * They are written by /api/settings into `integrations.controlCenter.calendar`
+ * and read here rather than fetched separately, so the calendar does not render
+ * a Sunday-start grid for a moment before a second request tells it otherwise.
+ * Anything missing or malformed falls back to the shipped default: an
+ * organization that has never opened Settings still gets a working calendar.
+ */
+function calendarDisplayFromIntegrations(integrations: unknown) {
+  const calendar =
+    integrations &&
+    typeof integrations === "object" &&
+    "controlCenter" in integrations
+      ? (
+          (integrations as { controlCenter?: { calendar?: unknown } })
+            .controlCenter ?? {}
+        ).calendar
+      : undefined;
+
+  const weekStartsOn =
+    calendar && typeof calendar === "object"
+      ? (calendar as { weekStartsOn?: unknown }).weekStartsOn
+      : undefined;
+  const clickAnywhereToAdd =
+    calendar && typeof calendar === "object"
+      ? (calendar as { clickAnywhereToAdd?: unknown }).clickAnywhereToAdd
+      : undefined;
+
+  return {
+    weekStartsOn:
+      weekStartsOn === "monday" ||
+      weekStartsOn === "saturday" ||
+      weekStartsOn === "sunday"
+        ? weekStartsOn
+        : ("sunday" as const),
+    clickAnywhereToAdd: clickAnywhereToAdd === true
+  };
+}
+
 function dailyEventLimitFromIntegrations(integrations: unknown) {
   if (
     integrations &&
@@ -95,7 +135,8 @@ export async function GET(request: Request) {
       eventTypes,
       blockedDates,
       calendarSettings: {
-        dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations)
+        dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations),
+        ...calendarDisplayFromIntegrations(settings.integrations)
       }
     });
   } catch (error) {

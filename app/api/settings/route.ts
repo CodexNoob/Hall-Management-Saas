@@ -48,9 +48,14 @@ const settingsSchema = z.object({
       }),
       calendar: z.object({
         defaultView: z.enum(["month", "week", "agenda"]),
-        weekStartsOn: z.enum(["sunday", "monday"]),
+        weekStartsOn: z.enum(["sunday", "monday", "saturday"]),
         showHebrewDate: z.boolean(),
         showAvailability: z.boolean(),
+        // Defaulted, not required: `controlCenterFromIntegrations` falls back to
+        // the whole default block when this schema fails, so a field added
+        // without a default would discard every calendar and kitchen preference
+        // an organization had already saved.
+        clickAnywhereToAdd: z.boolean().default(false),
         holdExpirationHours: z.union([
           z.literal(24),
           z.literal(48),
@@ -102,6 +107,7 @@ const defaultControlCenter = {
     weekStartsOn: "sunday" as const,
     showHebrewDate: true,
     showAvailability: true,
+    clickAnywhereToAdd: false,
     holdExpirationHours: 48 as const,
     shortNoticeDays: 7 as const
   },
