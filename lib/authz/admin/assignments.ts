@@ -12,7 +12,11 @@ import {
   assertSubset,
   notFound
 } from "@/lib/authz/guards";
-import { loadActorFacts, rankOfPrincipal } from "@/lib/authz/admin/context";
+import {
+  PRIVILEGE_TRANSACTION_OPTIONS,
+  loadActorFacts,
+  rankOfPrincipal
+} from "@/lib/authz/admin/context";
 import { writeAudit } from "@/lib/authz/admin/audit";
 import { assertEpochAgainstOrganization } from "@/lib/authz/admin/roles";
 import type { ScopeType } from "@/lib/authz/types";
@@ -232,7 +236,7 @@ export async function createAssignment(
       source: "manual",
       createdAt: assignment.createdAt.toISOString()
     };
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 export async function revokeAssignment(
@@ -305,7 +309,7 @@ export async function revokeAssignment(
         scopeId: assignment.scopeId
       }
     });
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 /** Every assignment a principal holds, with the labels the UI renders. */

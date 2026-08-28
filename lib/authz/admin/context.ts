@@ -16,6 +16,35 @@ import type { AuthzContext } from "@/lib/authz/authorize";
  * can still hand it out.
  */
 
+/**
+ * The transaction budget every privilege write runs under.
+ *
+ * WHY THE DEFAULT IS NOT ENOUGH. Prisma allows an interactive transaction 5
+ * seconds, and these transactions spend that on about eight sequential round
+ * trips: the actor's facts, the epoch precondition, the subject, the role, the
+ * target's rank, the existing row, the write itself, and the audit entry. Every
+ * one of them is inside the transaction on purpose - `loadActorFacts` below
+ * explains why they have to be read at commit time rather than from a cache -
+ * and none of them can overlap, because an interactive transaction holds one
+ * connection and the driver serializes what it is given. Against a remote
+ * database that is roughly eight latencies end to end, which was overrunning
+ * five seconds under ordinary load and failing the commit with P2028: the
+ * caller saw a 500, and nothing was written.
+ *
+ * So the budget matches the work rather than the work being cut to fit the
+ * budget. Assigning a role is a rare, deliberate act by an administrator; it is
+ * better slow than half-applied, and the atomicity is the point.
+ *
+ * `maxWait` is how long a transaction may wait to START - to be handed a
+ * connection - and is aligned with the pool's own `connectionTimeoutMillis` in
+ * lib/prisma.ts so a busy pool produces one clear failure rather than two
+ * different ones at two different limits.
+ */
+export const PRIVILEGE_TRANSACTION_OPTIONS = {
+  timeout: 15_000,
+  maxWait: 10_000
+} as const;
+
 export type ActorFacts = {
   principalId: string;
   organizationId: string;

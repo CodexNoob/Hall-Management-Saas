@@ -13,7 +13,11 @@ import {
   assertSubset,
   notFound
 } from "@/lib/authz/guards";
-import { loadActorFacts, rankOfPrincipal } from "@/lib/authz/admin/context";
+import {
+  PRIVILEGE_TRANSACTION_OPTIONS,
+  loadActorFacts,
+  rankOfPrincipal
+} from "@/lib/authz/admin/context";
 import { diffPermissionSets, writeAudit } from "@/lib/authz/admin/audit";
 import { assertEpochAgainstOrganization } from "@/lib/authz/admin/roles";
 
@@ -180,7 +184,7 @@ export async function replaceOverrides(
     });
 
     return { grants: [...next.grants].sort(), denies: [...next.denies].sort() };
-  });
+  }, PRIVILEGE_TRANSACTION_OPTIONS);
 }
 
 async function readOverridesIn(
