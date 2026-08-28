@@ -83,7 +83,7 @@ test.beforeEach(async ({ page }) => {
 
   await page.goto("/dashboard/menu");
   await expect(
-    page.getByRole("button", { name: "Create new library item" }),
+    page.getByRole("button", { name: "Bulk upload menu items" }),
     "the mutation account needs canEditMenu to manage the menu"
   ).toBeVisible({ timeout: 30_000 });
 });

@@ -374,20 +374,15 @@ export function MenuPage() {
         title="Menu"
         subtitle="Menu library, packages, buffet, plated and add-ons."
         compactMobileActions
+        showSearch={false}
+        /* Bulk upload only. Creating an item or a package is done from the tab
+           that owns it - the library's own "New item" and the Packages
+           sidebar's "New" - so the topbar no longer duplicates either, and the
+           library's own search box is the one place the list is filtered from.
+           The fragment stays even when the button is gated away, or a slot that
+           went nullish would fall back to the topbar's default actions. */
         actionsSlot={
           <>
-            <button
-              aria-label="Create new library item"
-              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-black lg:[&_svg]:h-4 lg:[&_svg]:w-4"
-              onClick={() => setIsNewLibraryItemOpen(true)}
-              title="New library item"
-              type="button"
-            >
-              <LineIcon name="plus" />
-              <span className="hidden lg:inline">New library item</span>
-            </button>
-            {/* Only where a create button would also be: the import writes the
-                same rows `New library item` does, through the same permission. */}
             {canEditMenu ? (
               <button
                 aria-label="Bulk upload menu items"
@@ -400,16 +395,6 @@ export function MenuPage() {
                 <span className="hidden lg:inline">Bulk upload</span>
               </button>
             ) : null}
-            <button
-              aria-label="Create new package"
-              className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#1f4d73] hover:text-[#15344f] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-black lg:text-white lg:shadow-sm lg:[&_svg]:h-4 lg:[&_svg]:w-4"
-              onClick={() => setIsNewPackageOpen(true)}
-              title="New package"
-              type="button"
-            >
-              <LineIcon name="box" />
-              <span className="hidden lg:inline">New package</span>
-            </button>
           </>
         }
       />
