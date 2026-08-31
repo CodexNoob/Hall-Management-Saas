@@ -137,6 +137,14 @@ export type KitchenResponse = {
      */
     seesWholeBoard: boolean;
   };
+  /**
+   * Settings > Kitchen > Default view, carried by the board's own response.
+   *
+   * Here rather than in a settings request of its own because the view a visit
+   * opens on is not known at mount: a second round-trip would paint one range
+   * and then swap it under whoever was already reading it.
+   */
+  kitchenSettings: { defaultView: KitchenView };
 };
 
 /**
