@@ -43,8 +43,8 @@ export function AuthErrorView({ initial }: { initial: AuthCallbackParams }) {
     <main className="flex min-h-screen items-center justify-center overflow-hidden bg-[#F3F6FA] px-5 py-10 text-[#0F172A]">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(31,77,115,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(185,151,77,0.16),transparent_34%)]" />
       <section className="relative w-full max-w-[520px] rounded-[32px] border border-white/80 bg-white p-8 text-center shadow-[0_28px_80px_rgba(15,23,42,0.16)] sm:p-10">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-[#0B1930] shadow-xl shadow-[#0B1930]/20">
-          <AlertCircle className="h-8 w-8 text-[#D9B45F]" />
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#d8dde5]">
+          <AlertCircle className="h-8 w-8 text-[#0B1930]" strokeWidth={1.5} />
         </div>
 
         <p className="mt-6 text-xs font-black uppercase tracking-[0.28em] text-[#1F4D73]">
