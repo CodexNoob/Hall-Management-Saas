@@ -152,6 +152,70 @@ describe("event timeline route", () => {
     expect(call.data.workspaceData.timeline[0]).toHaveProperty("cue", "");
   });
 
+  // Confirming is what publishes the sheet to staff and ticks "Timeline ready",
+  // so it needs rows to publish. The card disables its own button, but the
+  // route is what makes it true for a request that skips the card.
+  it("refuses to confirm a timeline with no rows", async () => {
+    const request = new Request(`http://localhost/api/events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        timeline: [],
+        timelineConfirmed: true
+      })
+    });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ eventId })
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  // Confirming can arrive without rows beside it, and the stored sheet is then
+  // the one being confirmed - an event that never had one still has nothing.
+  it("refuses to confirm when the stored timeline is empty", async () => {
+    const request = new Request(`http://localhost/api/events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ timelineConfirmed: true })
+    });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ eventId })
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("confirms a stored timeline when no rows are sent with it", async () => {
+    mocks.prisma.event.findFirst.mockResolvedValue({
+      workspaceData: { menuConfirmed: true, timeline }
+    });
+
+    const request = new Request(`http://localhost/api/events/${eventId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ timelineConfirmed: true })
+    });
+
+    const response = await PATCH(request, {
+      params: Promise.resolve({ eventId })
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          workspaceData: {
+            menuConfirmed: true,
+            timeline,
+            timelineConfirmed: true
+          }
+        })
+      })
+    );
+  });
+
   it("confirms timeline rows and preserves existing workspace data", async () => {
     const request = new Request(`http://localhost/api/events/${eventId}`, {
       method: "PATCH",

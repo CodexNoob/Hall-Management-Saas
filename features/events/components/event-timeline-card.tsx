@@ -437,11 +437,17 @@ export function TimelineInstructions({
         <button
           className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45 @lg:text-sm"
           type="button"
-          disabled={isSaving || isConfirmed}
+          // An empty sheet cannot be confirmed: confirming is what tells staff
+          // this is the schedule to follow, and it also ticks "Timeline ready"
+          // on the readiness list, which would then be reporting a run sheet
+          // with nothing on it. The route refuses it too.
+          disabled={isSaving || isConfirmed || rows.length === 0}
           title={
             isConfirmed
               ? "This timeline is already confirmed."
-              : "Save this schedule and confirm it for staff"
+              : rows.length === 0
+                ? "Add at least one timeline instruction before confirming it."
+                : "Save this schedule and confirm it for staff"
           }
           onClick={() => void persist(true)}
         >
