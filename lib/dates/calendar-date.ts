@@ -54,7 +54,9 @@ export function dateKey(date: Date) {
 
 export function dateKeyFromIso(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  return match ? `${match[1]}-${match[2]}-${match[3]}` : dateKey(new Date(value));
+  return match
+    ? `${match[1]}-${match[2]}-${match[3]}`
+    : dateKey(new Date(value));
 }
 
 export function buildMonthGrid(
@@ -67,7 +69,9 @@ export function buildMonthGrid(
   return Array.from({ length: 42 }, (_, index) => {
     const date = addDays(gridStart, index);
     return {
-      currentMonth: date.getMonth() === monthStart.getMonth() && date.getFullYear() === monthStart.getFullYear(),
+      currentMonth:
+        date.getMonth() === monthStart.getMonth() &&
+        date.getFullYear() === monthStart.getFullYear(),
       date,
       dateKey: dateKey(date),
       day: date.getDate()
@@ -75,8 +79,29 @@ export function buildMonthGrid(
   });
 }
 
+/**
+ * The seven days of the week holding `date`, opening on the day Settings says
+ * a week starts on.
+ *
+ * Plain dates rather than `CalendarGridDay`, because a week view has no
+ * equivalent of the month grid's leading and trailing greyed-out days: every
+ * day it returns is in view, and every one of them is bookable.
+ */
+export function weekDates(date: Date, weekStartsOn: WeekStartsOn = "sunday") {
+  const weekStart = startOfWeek(date, weekStartsOn);
+  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
 export function moveDateByMonth(date: Date, amount: number) {
   const targetMonth = addMonths(date, amount);
-  const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0).getDate();
-  return new Date(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(date.getDate(), lastDay));
+  const lastDay = new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth() + 1,
+    0
+  ).getDate();
+  return new Date(
+    targetMonth.getFullYear(),
+    targetMonth.getMonth(),
+    Math.min(date.getDate(), lastDay)
+  );
 }

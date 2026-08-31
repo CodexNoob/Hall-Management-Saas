@@ -7,6 +7,11 @@ import {
 
 export type CalendarStatus = "confirmed" | "hold" | "school";
 
+/// Which of the three renderings of the same bookings the Calendar tab shows.
+/// Settings > Calendar > Default view picks the one a visit opens on; the
+/// switcher above the grid changes it for the rest of the visit.
+export type CalendarView = "month" | "week" | "agenda";
+
 export type CalendarBooking = {
   id: string;
   dateKey: string;
@@ -45,7 +50,10 @@ export type EventsResponse = {
   }>;
   calendarSettings?: {
     dailyEventLimit: number;
+    defaultView?: CalendarView;
     weekStartsOn?: WeekStartsOn;
+    showHebrewDate?: boolean;
+    showAvailability?: boolean;
     clickAnywhereToAdd?: boolean;
   };
 };

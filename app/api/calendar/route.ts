@@ -11,13 +11,18 @@ const rangeSchema = z.object({
 });
 
 /**
- * The two Settings > Calendar preferences the month grid draws itself from.
+ * The Settings > Calendar preferences the calendar draws itself from.
  *
  * They are written by /api/settings into `integrations.controlCenter.calendar`
  * and read here rather than fetched separately, so the calendar does not render
  * a Sunday-start grid for a moment before a second request tells it otherwise.
  * Anything missing or malformed falls back to the shipped default: an
  * organization that has never opened Settings still gets a working calendar.
+ *
+ * The two display toggles default to on and `clickAnywhereToAdd` to off, which
+ * is what /api/settings writes into a settings document it creates - reading a
+ * missing value as anything else would show an organization a calendar its own
+ * Settings page disagrees with.
  */
 function calendarDisplayFromIntegrations(integrations: unknown) {
   const calendar =
@@ -30,23 +35,28 @@ function calendarDisplayFromIntegrations(integrations: unknown) {
         ).calendar
       : undefined;
 
-  const weekStartsOn =
+  const preference = <Key extends string>(key: Key): unknown =>
     calendar && typeof calendar === "object"
-      ? (calendar as { weekStartsOn?: unknown }).weekStartsOn
-      : undefined;
-  const clickAnywhereToAdd =
-    calendar && typeof calendar === "object"
-      ? (calendar as { clickAnywhereToAdd?: unknown }).clickAnywhereToAdd
+      ? (calendar as Record<string, unknown>)[key]
       : undefined;
 
+  const weekStartsOn = preference("weekStartsOn");
+  const defaultView = preference("defaultView");
+
   return {
+    defaultView:
+      defaultView === "week" || defaultView === "agenda"
+        ? defaultView
+        : ("month" as const),
     weekStartsOn:
       weekStartsOn === "monday" ||
       weekStartsOn === "saturday" ||
       weekStartsOn === "sunday"
         ? weekStartsOn
         : ("sunday" as const),
-    clickAnywhereToAdd: clickAnywhereToAdd === true
+    showHebrewDate: preference("showHebrewDate") !== false,
+    showAvailability: preference("showAvailability") !== false,
+    clickAnywhereToAdd: preference("clickAnywhereToAdd") === true
   };
 }
 
