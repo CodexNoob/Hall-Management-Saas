@@ -234,6 +234,27 @@ export async function PATCH(
       shabbosSetup,
       ...eventChanges
     } = input;
+
+    // Confirming hands the sheet to staff and the kitchen as the thing to
+    // follow on the day, so there has to be a sheet. An empty one confirmed
+    // reports "Timeline ready" on the readiness list while saying nothing about
+    // what anybody is meant to do.
+    //
+    // Checked against the stored rows when the request carries none, because
+    // confirming and saving are separate calls and either one can arrive alone.
+    if (timelineConfirmed === true) {
+      const confirmedRows = timeline ?? previousWorkspace.timeline;
+
+      if (!Array.isArray(confirmedRows) || confirmedRows.length === 0) {
+        return NextResponse.json(
+          {
+            error: "Add at least one timeline instruction before confirming it."
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const workspaceData =
       timeline !== undefined ||
       timelineConfirmed !== undefined ||

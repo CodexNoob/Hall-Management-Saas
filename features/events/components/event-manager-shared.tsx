@@ -172,13 +172,6 @@ export const tabs = allTabs.filter(
 
 export type EventWorkspaceTab = (typeof allTabs)[number]["label"];
 
-export const timelineRows = [
-  ["03:00 PM", "Dining room setup begins", "Event"],
-  ["04:30 PM", "Kitchen starts hot service prep", "Kitchen"],
-  ["06:30 PM", "Guests arrive and first course begins", "Event"],
-  ["10:45 PM", "Cleanup instructions begin", "Event"]
-];
-
 /// The catalog, read from /api/menu to populate the selector drawer. Dishes and
 /// add-ons come back together because the menu tab offers both.
 export type EventMenuResponse = {
