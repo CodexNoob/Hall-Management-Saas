@@ -679,9 +679,14 @@ test.describe("event menu", () => {
         ).toBeHidden();
       }
       // The whole point of the source tag: the dish staff added by hand stays.
-      await expect(
-        removeLineButton(page, catalog.buffetB.id)
-      ).toBeVisible();
+      //
+      // Given the same budget as the assertions on either side of it. This one
+      // waits on the same removal and refetch they do, and the 5s default was
+      // the odd one out - tight enough that a loaded parallel run failed here
+      // while the removal itself had already come back 200.
+      await expect(removeLineButton(page, catalog.buffetB.id)).toBeVisible({
+        timeout: 20_000
+      });
 
       const withoutPackage = await getMenu(page, eventId);
       expect(withoutPackage.packageId).toBeNull();

@@ -161,6 +161,13 @@ test.beforeEach(async () => {
 test("creates an isolated event from the Calendar Book date form", async ({
   page
 }) => {
+  // Provisioning, then a candidate date per attempt - each one a save and a
+  // 20s race on the conflict alert - and a cancellation to hand the date back.
+  // The ±1 day skipped below is narrower than the hall's real setup-to-cleanup
+  // window, so dates this picks as free can still come back as conflicts, and
+  // each of those costs the full race. The default 60s was being spent before
+  // the last assertion could run.
+  test.setTimeout(180_000);
   const clientName = `E2E Booking ${Date.now()}`;
 
   try {
@@ -169,6 +176,15 @@ test("creates an isolated event from the Calendar Book date form", async ({
       await prepareOrganization(page);
     // The calendar already cached the pre-provisioning /api/events payload.
     await page.reload();
+
+    // Month view, explicitly. Which view the calendar opens on is an
+    // organization setting now, and this test walks candidate dates by month -
+    // on the week view the same control is labelled "Show next week" and the
+    // day cells below it are a different grid entirely.
+    await page
+      .getByRole("group", { name: "Calendar view" })
+      .getByRole("button", { name: "Month", exact: true })
+      .click();
 
     // The trial plan allows a single hall, so any date that already holds an
     // active booking would fail the hall-reservation conflict check. Pick the
@@ -280,9 +296,12 @@ test("creates an isolated event from the Calendar Book date form", async ({
       );
     }
 
+    // Bounded explicitly so a failure here reads as "the booking never
+    // appeared on the calendar". On the bare default this assertion was being
+    // cut off by the test budget instead, and reported itself as `undefined`.
     await expect(
       page.getByText(clientName, { exact: true }).first()
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15_000 });
   } finally {
     // In a `finally` rather than after the assertions: a run that fails partway
     // has usually created the booking already, and that is precisely the run
