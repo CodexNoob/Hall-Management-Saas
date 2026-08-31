@@ -484,10 +484,15 @@ export async function createBooking(
       const eventDate = new Date(
         `${window.startsAt.toISOString().slice(0, 10)}T00:00:00.000Z`
       );
+      // Scoped to the hall being booked. A range now closes one hall, so a
+      // closure on the room next door has nothing to say about this booking.
+      // `hallId: null` is the legacy reading - a range saved before the column
+      // existed closed the whole venue and still does.
       const blocked = await transaction.holidayBlockedDate.findFirst({
         where: {
           organizationId: actor.organizationId,
           isBlocked: true,
+          OR: [{ hallId: hall.id }, { hallId: null }],
           startDate: { lte: eventDate },
           endDate: { gte: eventDate }
         }

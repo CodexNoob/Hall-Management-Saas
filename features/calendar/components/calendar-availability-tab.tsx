@@ -18,9 +18,12 @@ export function AvailabilityView({
   days,
   endDate,
   endDateLabel,
+  halls,
+  onHallChange,
   onNewBooking,
   onRemoveDay,
   onRangeChange,
+  selectedHallId,
   showHebrewDate = true,
   startDate,
   startDateLabel,
@@ -28,12 +31,17 @@ export function AvailabilityView({
 }: {
   canManageBlockedDates: boolean;
   blockDateError: string | null;
+  /** Already scoped to `selectedHallId`, and empty until one is picked. */
   days: AvailabilityDay[];
   endDate: Date;
   endDateLabel: string;
+  halls: Array<{ id: string; name: string }>;
+  onHallChange: (hallId: string) => void;
   onNewBooking?: () => void;
   onRemoveDay: (dateKey: string) => void | Promise<void>;
   onRangeChange: (range: DateRange) => void;
+  /** "" until the reader chooses one, which is what gates the list below. */
+  selectedHallId: string;
   /** Settings > Calendar > Show Hebrew dates, which covers the whole tab. */
   showHebrewDate?: boolean;
   startDate: Date;
@@ -41,6 +49,7 @@ export function AvailabilityView({
   weekStartsOn?: WeekStartsOn;
 }) {
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
+  const selectedHall = halls.find((hall) => hall.id === selectedHallId);
 
   return (
     <section className="dashboard-panel-enter mx-auto max-w-[1800px] overflow-visible rounded-xl border border-[#d8dde5] bg-white">
@@ -51,8 +60,8 @@ export function AvailabilityView({
             <h1 className="text-sm font-black">Availability</h1>
           </div>
           <p className="mt-1 text-xs text-[#6a7483]">
-            Open the range picker, select the start date, then select the end
-            date from the same open calendar.
+            Choose a hall, then open the range picker, select the start date and
+            select the end date from the same open calendar.
           </p>
         </div>
 
@@ -72,11 +81,30 @@ export function AvailabilityView({
           <div>
             <h2 className="text-xl font-black">Availability Range</h2>
             <p className="text-xs font-bold text-[#617086]">
+              {selectedHall ? `${selectedHall.name} · ` : ""}
               {startDateLabel} to {endDateLabel}
             </p>
           </div>
 
-          <div className="grid gap-2 sm:grid-cols-[156px_156px_auto]">
+          <div className="grid gap-2 sm:grid-cols-[180px_156px_156px_auto]">
+            <label className="rounded-xl border border-[#b9c2cf] bg-white px-3 py-2">
+              <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                Hall
+              </span>
+              <select
+                className="mt-1 h-6 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-bold text-[#17202a] outline-none"
+                onChange={(event) => onHallChange(event.target.value)}
+                value={selectedHallId}
+              >
+                <option value="">Select a hall</option>
+                {halls.map((hall) => (
+                  <option key={hall.id} value={hall.id}>
+                    {hall.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
                 Start date
@@ -110,14 +138,31 @@ export function AvailabilityView({
           </div>
         </div>
 
-        <div className="mt-3 flex gap-3">
+        <div className="mt-3 flex flex-wrap gap-3">
           <StatusDot color="bg-[#178151]" label="Available" />
           <StatusDot color="bg-[#b66b00]" label="Hold" />
+          <StatusDot color="bg-[#94a1b1]" label="Full" />
         </div>
+
+        {!selectedHallId ? (
+          <div className="mt-3 rounded-xl border border-dashed border-[#c7d0dc] bg-[#fbfcfd] p-8 text-center">
+            <p className="text-sm font-black text-[#17202a]">
+              {halls.length === 0
+                ? "No bookable halls yet"
+                : "Choose a hall to see its availability"}
+            </p>
+            <p className="mt-2 text-xs text-[#6a7483]">
+              {halls.length === 0
+                ? "Add a bookable hall in Settings, then come back to read its open dates."
+                : "Every count on this tab - open slots, holds, blocked days - belongs to one hall, so there is nothing to show until you pick one."}
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-3 space-y-2">
           {days.map((availabilityDay) => {
             const isHold = availabilityDay.status === "hold";
+            const isFull = availabilityDay.status === "full";
             return (
               <article
                 className="dashboard-hover-card flex min-h-16 flex-col justify-center gap-3 rounded-xl border border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
@@ -141,9 +186,15 @@ export function AvailabilityView({
                       : `${availabilityDay.roomsAvailable} event slots available`}
                   </span>
                   <span
-                    className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${isHold ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]" : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"}`}
+                    className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${
+                      isHold
+                        ? "border-[#efcf98] bg-[#fff8ec] text-[#995700]"
+                        : isFull
+                          ? "border-[#d8dde5] bg-[#f4f6f9] text-[#617086]"
+                          : "border-[#b9ddcf] bg-[#effbf6] text-[#087047]"
+                    }`}
                   >
-                    {isHold ? "Hold" : "Available"}
+                    {isHold ? "Hold" : isFull ? "Full" : "Available"}
                   </span>
                   {canManageBlockedDates ? (
                     <button

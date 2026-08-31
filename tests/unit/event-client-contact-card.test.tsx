@@ -69,20 +69,10 @@ function eventFile(overrides: Partial<EventFile> = {}): EventFile {
   };
 }
 
-const coordinators = [
-  { id: "11111111-1111-4111-8111-111111111111", name: "Sarah Klein" }
-];
-
 function renderCard(event = eventFile()) {
   const onEventSaved = vi.fn().mockResolvedValue(undefined);
 
-  render(
-    <ClientContact
-      coordinators={coordinators}
-      event={event}
-      onEventSaved={onEventSaved}
-    />
-  );
+  render(<ClientContact event={event} onEventSaved={onEventSaved} />);
 
   return { onEventSaved };
 }
@@ -168,35 +158,20 @@ describe("ClientContact", () => {
     await waitFor(() => expect(savedBody()).toEqual({ email: null }));
   });
 
-  it("assigns a coordinator", async () => {
-    renderCard();
-
-    openRow("Edit coordinator");
-    typeInto("Coordinator", coordinators[0].id);
-    clickSave();
-
-    await waitFor(() =>
-      expect(savedBody()).toEqual({
-        coordinatorMembershipId: coordinators[0].id
-      })
-    );
-  });
-
-  it("hands the event back to nobody", async () => {
+  it("carries no coordinator row", () => {
     renderCard(
       eventFile({
         coordinator: "Sarah Klein",
-        coordinatorMembershipId: coordinators[0].id
+        coordinatorMembershipId: "11111111-1111-4111-8111-111111111111"
       })
     );
 
-    openRow("Edit coordinator");
-    typeInto("Coordinator", "");
-    clickSave();
-
-    await waitFor(() =>
-      expect(savedBody()).toEqual({ coordinatorMembershipId: null })
-    );
+    // The card is the phone and the email now. A coordinator is still stored on
+    // the event and still settable when a booking is created, but nothing on
+    // this card reads it or offers to change it.
+    expect(screen.queryByRole("button", { name: "Edit coordinator" })).toBeNull();
+    expect(screen.queryByText("Sarah Klein")).toBeNull();
+    expect(screen.queryByText("Unassigned")).toBeNull();
   });
 
   it("abandons an edit on Cancel without saving", () => {

@@ -51,6 +51,17 @@ type BookingFormFieldsProps = {
    * Unassigned, so the form does not need a special case for it.
    */
   coordinators: BookingLookupOption[];
+  /**
+   * Replaces the native date input, for a host that picks dates some other way.
+   * The event manager's panel passes a button that opens the availability list,
+   * because moving an existing event has to be refused on a held or full day
+   * and a date input cannot express that. The calendar's create dialog passes
+   * nothing and keeps the plain input.
+   *
+   * Given the field's own `id`, so whatever is rendered still answers to the
+   * "Date" label above it.
+   */
+  dateField?: (props: { id: string }) => ReactNode;
   errors: BookingFormErrors;
   eventTypes: BookingLookupOption[];
   extraEventTypeOption?: BookingLookupOption;
@@ -110,6 +121,7 @@ export function BookingFormFields({
   autoFocus = false,
   columns = 2,
   coordinators,
+  dateField,
   errors,
   eventTypes,
   extraEventTypeOption,
@@ -200,16 +212,20 @@ export function BookingFormFields({
       <div>
         <FieldLabel htmlFor={fieldId("date")}>Date</FieldLabel>
 
-        <input
-          aria-describedby={errors.eventDate ? errorId("date") : undefined}
-          aria-invalid={errors.eventDate ? true : undefined}
-          className={bookingControlClass}
-          id={fieldId("date")}
-          onChange={(event) => onChange("eventDate", event.target.value)}
-          required
-          type="date"
-          value={values.eventDate}
-        />
+        {dateField ? (
+          dateField({ id: fieldId("date") })
+        ) : (
+          <input
+            aria-describedby={errors.eventDate ? errorId("date") : undefined}
+            aria-invalid={errors.eventDate ? true : undefined}
+            className={bookingControlClass}
+            id={fieldId("date")}
+            onChange={(event) => onChange("eventDate", event.target.value)}
+            required
+            type="date"
+            value={values.eventDate}
+          />
+        )}
         {errors.eventDate ? (
           <FieldError id={errorId("date")}>{errors.eventDate}</FieldError>
         ) : null}

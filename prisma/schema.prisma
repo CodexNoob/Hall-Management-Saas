@@ -626,6 +626,9 @@ model Hall {
   events              Event[]
   bookingReservations BookingReservation[]
   hallMapPresets      HallMapPreset[]
+  /// Read side of `HolidayBlockedDate.hall`. Deleting a hall takes the ranges
+  /// that closed it with it - there is nothing left for them to close.
+  blockedDates        HolidayBlockedDate[]
 
   @@index([organizationId, isActive, isBookable])
   @@index([isActive, isBookable])
@@ -1323,6 +1326,14 @@ model EventMenuLine {
 model HolidayBlockedDate {
   id             String   @id @default(uuid()) @db.Uuid
   organizationId String   @map("organization_id") @db.Uuid
+  /// The hall this range closes. Every range added now names one, and the API
+  /// refuses a range without it.
+  ///
+  /// Nullable only because rows predate the column: a range saved before halls
+  /// were part of this closed the whole venue, and reading NULL as "every hall"
+  /// keeps those rows meaning exactly what they meant when they were saved.
+  /// Nothing writes NULL any more.
+  hallId         String?  @map("hall_id") @db.Uuid
   startDate      DateTime @map("start_date") @db.Date
   endDate        DateTime @map("end_date") @db.Date
   label          String
@@ -1332,8 +1343,10 @@ model HolidayBlockedDate {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  hall         Hall?        @relation(fields: [hallId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, startDate, endDate])
+  @@index([organizationId, hallId, startDate, endDate])
   @@index([startDate, endDate])
   @@index([isBlocked])
   @@map("holiday_blocked_dates")

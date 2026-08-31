@@ -207,11 +207,7 @@ export function EventWorkspace({
                 />
               </div>
               <aside className="space-y-3">
-                <ClientContact
-                  coordinators={coordinators}
-                  event={event}
-                  onEventSaved={onEventSaved}
-                />
+                <ClientContact event={event} onEventSaved={onEventSaved} />
                 <ReadinessPanel event={event} />
                 <ActivityPanel event={event} />
               </aside>

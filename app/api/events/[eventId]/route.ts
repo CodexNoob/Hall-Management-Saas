@@ -7,6 +7,11 @@ import { prisma } from "@/lib/prisma";
 import { countSchema } from "@/lib/validation/number";
 import { requiredPhoneSchema } from "@/lib/validation/phone";
 import { assertHallCapacity } from "@/features/bookings/services/booking.service";
+import {
+  dailyEventLimitFromIntegrations,
+  hallDayRefusal,
+  hallDayStatus
+} from "@/lib/bookings/hall-day-availability";
 
 const timelineItemSchema = z.object({
   id: z.string().min(1).max(100),
@@ -51,6 +56,20 @@ const countLabels = {
 type CountField = keyof typeof countLabels;
 
 const loggedCountFields = Object.keys(countLabels) as CountField[];
+
+/**
+ * Names the day a refused move was aimed at.
+ *
+ * Fixed to UTC because `Event.eventDate` is a bare date column, read back as
+ * midnight UTC: formatting it in the server's own zone would name the day
+ * before for anywhere west of Greenwich.
+ */
+const movedDateLabelFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: "UTC",
+  month: "long",
+  day: "numeric",
+  year: "numeric"
+});
 
 const updateEventSchema = z
   .object({
@@ -194,6 +213,10 @@ export async function PATCH(
     const current = await prisma.event.findFirst({
       where: { id, organizationId: actor.organizationId, deleted: false },
       select: {
+        // Read for the date-move check below: it has to know whether the date
+        // or the hall is actually moving, and which hall to measure.
+        eventDate: true,
+        hallId: true,
         workspaceData: true,
         couplesCount: true,
         menCount: true,
@@ -214,6 +237,89 @@ export async function PATCH(
 
     if (!current) {
       return NextResponse.json({ error: "Event not found." }, { status: 404 });
+    }
+
+    /*
+     * A move onto a day the hall cannot take.
+     *
+     * The event-details picker already offers only open days, but it decided
+     * that from a snapshot: a hold placed while the panel sat open would
+     * otherwise be overwritten by a save from a tab that never saw it. Checked
+     * here against the same rule the picker builds its list from.
+     *
+     * Only when the event is actually moving - the same reasoning as the
+     * capacity check below. An event that already shares its day with a hold is
+     * not asked to justify itself on a notes-only save, and gating every PATCH
+     * on that would leave such an event uneditable with no way to recover.
+     */
+    const targetHallId = input.hallId ?? current.hallId;
+    const movesToAnotherDay =
+      (input.eventDate !== undefined &&
+        input.eventDate.getTime() !== current.eventDate.getTime()) ||
+      targetHallId !== current.hallId;
+
+    if (movesToAnotherDay) {
+      const targetDate = input.eventDate ?? current.eventDate;
+      const [targetHall, settings, blockedDate, bookingsThatDay] =
+        await Promise.all([
+          prisma.hall.findFirst({
+            where: { id: targetHallId, organizationId: actor.organizationId },
+            select: { name: true, dailyEventLimit: true }
+          }),
+          prisma.organizationSetting.findUnique({
+            where: { organizationId: actor.organizationId },
+            select: { integrations: true }
+          }),
+          // Only ranges that close the hall this event is moving into. A null
+          // hall is a range saved before ranges named one, which closed the
+          // whole venue and still does.
+          prisma.holidayBlockedDate.findFirst({
+            where: {
+              organizationId: actor.organizationId,
+              isBlocked: true,
+              OR: [{ hallId: targetHallId }, { hallId: null }],
+              startDate: { lte: targetDate },
+              endDate: { gte: targetDate }
+            },
+            select: { id: true }
+          }),
+          // This event is excluded: it is the one being moved, and counting it
+          // where it already sits would refuse to leave it there.
+          prisma.event.findMany({
+            where: {
+              organizationId: actor.organizationId,
+              deleted: false,
+              id: { not: id },
+              hallId: targetHallId,
+              eventDate: targetDate,
+              bookingStatus: { in: ["TENTATIVE_HOLD", "CONFIRMED"] }
+            },
+            select: { bookingStatus: true }
+          })
+        ]);
+
+      const refusal = hallDayRefusal(
+        hallDayStatus({
+          isBlocked: Boolean(blockedDate),
+          holdCount: bookingsThatDay.filter(
+            (booking) => booking.bookingStatus === "TENTATIVE_HOLD"
+          ).length,
+          activeCount: bookingsThatDay.length,
+          dailyEventLimit:
+            targetHall?.dailyEventLimit ??
+            dailyEventLimitFromIntegrations(settings?.integrations)
+        }),
+        {
+          hallName: targetHall?.name ?? "This hall",
+          // The column is a bare date, so it is read back at UTC midnight -
+          // formatting it in the server's own zone would name the day before.
+          dateLabel: movedDateLabelFormatter.format(targetDate)
+        }
+      );
+
+      if (refusal) {
+        return NextResponse.json({ error: refusal }, { status: 409 });
+      }
     }
 
     if (input.menuItemIds !== undefined) {
