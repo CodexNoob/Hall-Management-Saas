@@ -184,7 +184,6 @@ describe("event information save payload", () => {
 
     expect(payload).toMatchObject({
       clientName: "Charles Duot",
-      phone: "+12125550123",
       eventDate: "2026-09-01",
       // Booked before the count modes existed, so it holds couples beside a
       // head count. Reopened it counts by head, and the couples it also carried
@@ -197,6 +196,21 @@ describe("event information save payload", () => {
       // 50 in the room, 4 of them children. The total survives the resave.
       menCount: 46
     });
+  });
+
+  it("sends nothing the Client contact card owns", () => {
+    // The panel holds these values - they arrive with the event and sit in its
+    // form state - but the card is the only thing that saves them. A panel that
+    // sent its copy would put a stale phone back over an edit made next to it,
+    // on a save of something else entirely.
+    const payload = toEventDetailsPayload(
+      parseValues(createBookingFormValues(event as never)),
+      event.timeInput
+    );
+
+    expect(payload).not.toHaveProperty("phone");
+    expect(payload).not.toHaveProperty("email");
+    expect(payload).not.toHaveProperty("coordinatorMembershipId");
   });
 
   it("carries the stored clock time onto a moved date", () => {

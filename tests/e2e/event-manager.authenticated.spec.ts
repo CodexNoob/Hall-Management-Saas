@@ -167,7 +167,6 @@ test("Event details save and persist edited fields", async ({ page }) => {
     savedPayload = payload;
     Object.assign(persistedResponse.events[0], {
       clientName: payload.clientName,
-      phone: payload.phone,
       couplesCount: payload.couplesCount,
       menCount: payload.menCount,
       ladiesCount: payload.ladiesCount,
@@ -210,7 +209,6 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await expect(page.getByRole("status")).toContainText("Event details saved");
   expect(savedPayload).toMatchObject({
     clientName: "Updated E2E Event",
-    phone: "+12125550123",
     eventTypeId: "44444444-4444-4444-8444-444444444444",
     hallId: "55555555-5555-4555-8555-555555555555",
     boysCount: 0,
@@ -223,6 +221,10 @@ test("Event details save and persist edited fields", async ({ page }) => {
     menCount: 370,
     notes: "Updated internal note."
   });
+  // The Client contact card owns the phone now, and saves it on its own. A
+  // panel that still sent its copy would put a stale number back over an edit
+  // made beside it.
+  expect(savedPayload).not.toHaveProperty("phone");
 
   await page.reload();
   // A reload is a fresh page with no ?eventId= on it, so the selection is gone
