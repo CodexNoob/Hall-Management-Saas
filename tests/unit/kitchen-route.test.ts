@@ -61,6 +61,10 @@ vi.mock("@/lib/prisma", () => ({
     kitchenNotification: {
       findMany: vi.fn()
     },
+    // The view the board opens itself on, read in the same `Promise.all` as the
+    // events. Leaving it off the mock threw before a single number was
+    // computed, which reads as an empty board rather than as a missing double.
+    organizationSetting: { findUnique: vi.fn() },
     $transaction: vi.fn()
   }
 }));
@@ -246,6 +250,11 @@ describe("kitchen dashboard route", () => {
     );
     vi.mocked(prisma.kitchenNotification.findMany).mockResolvedValue(
       [] as never
+    );
+    // No settings row: an organization that has never opened Settings gets the
+    // shipped default, which is the state these cases run in.
+    vi.mocked(prisma.organizationSetting.findUnique).mockResolvedValue(
+      null as never
     );
     vi.mocked(prisma.$transaction).mockImplementation((async (
       run: (transaction: typeof prisma) => unknown

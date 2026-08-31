@@ -148,7 +148,16 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
     );
 
     expect(
-      (await patch({ timeline: [], timelineConfirmed: true })).status
+      (
+        await patch({
+          // A row, not an empty sheet: confirming an empty timeline is refused
+          // on its own merits, which would say nothing about capacity.
+          timeline: [
+            { id: "row-1", time: "18:00", text: "Chuppah", type: "Event" }
+          ],
+          timelineConfirmed: true
+        })
+      ).status
     ).toBe(200);
     expect((await patch({ menuConfirmed: true })).status).toBe(200);
     expect((await patch({ notes: "Call the florist." })).status).toBe(200);
