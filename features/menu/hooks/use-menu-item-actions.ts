@@ -81,7 +81,9 @@ export function useMenuItemActions({
       // file input sends no path at all, which is what keeps the current picture.
       // Parsed before the upload: a bad counting rule should cost nothing, and
       // this throws for the dialog to render.
-      const services = toServiceRules(values.services);
+      const services = toServiceRules(values.services, {
+        allowBlankRule: true
+      });
       // Three states, and the update schema has a value for each: a path
       // replaces the picture, `null` drops the one that is stored, and
       // `undefined` is the untouched field that leaves it alone.

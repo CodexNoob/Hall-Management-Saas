@@ -23,6 +23,8 @@ export type KitchenEvent = {
   source?: "booking" | "standalone";
   category: string;
   title: string;
+  clientName?: string;
+  eventType?: string | null;
   status?: string;
   statusType?: "hold" | "kitchen";
   /// ISO, or null on an event nobody has given a start time.
@@ -74,6 +76,7 @@ export type KitchenResponse = {
     otherMeals: string[];
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
+    sheet: EventKitchenSheet;
   }>;
   kitchenEvents: Array<KitchenEvent & { dateKey: string }>;
   workers: Array<{ id: string; name: string; isStaff: boolean }>;

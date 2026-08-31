@@ -109,7 +109,12 @@ export function KitchenNotificationsDrawer({
           </div>
           <button
             aria-label="Close kitchen notifications"
-            className="flex h-11 w-11 items-center justify-center border border-[#44536a] text-3xl leading-none text-white hover:bg-white/10"
+            // Hover inverts rather than tinting. A translucent white wash over
+            // the navy header lightened the square to roughly the colour of the
+            // glyph on it, so the × faded out exactly when the pointer was on
+            // it. Setting both ends of the pair keeps the contrast whichever
+            // way round it is drawn.
+            className="flex h-11 w-11 items-center justify-center border border-[#44536a] text-3xl leading-none text-white transition hover:border-white hover:bg-white hover:text-[#061126]"
             onClick={onClose}
             type="button"
           >

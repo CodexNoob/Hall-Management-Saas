@@ -11,6 +11,7 @@ import {
   mealSchema,
   readPresentedMenu
 } from "@/features/events/server/event-menu-document";
+import { readStoredTimeline } from "@/features/events/validations/timeline.schema";
 import {
   assertInScope,
   authorize,
@@ -138,13 +139,20 @@ async function mirrorOntoEvent(
     eventId,
     eventMenuId,
     actorId,
-    packageColumns
+    packageColumns,
+    workspaceData
   }: {
     organizationId: string;
     eventId: string;
     eventMenuId: string;
     actorId: string;
     packageColumns: { packageId: string | null; packageName: string | null };
+    /**
+     * Written in the same statement as the package columns when the package
+     * brought a default timeline with it, so an event cannot end up naming the
+     * package without the schedule that came from it.
+     */
+    workspaceData?: Prisma.InputJsonObject;
   }
 ) {
   const lines = await transaction.eventMenuLine.findMany({
@@ -162,6 +170,7 @@ async function mirrorOntoEvent(
         .map((line) => line.addOnId)
         .filter((value): value is string => Boolean(value)),
       ...packageColumns,
+      ...(workspaceData ? { workspaceData } : {}),
       updatedById: actorId
     }
   });
@@ -208,7 +217,12 @@ export async function POST(
         organizationId: actor.organizationId,
         isActive: true
       },
-      select: { id: true, name: true, includedMenuItemIds: true }
+      select: {
+        id: true,
+        name: true,
+        includedMenuItemIds: true,
+        defaultTimeline: true
+      }
     });
 
     if (!eventPackage) {
@@ -319,6 +333,43 @@ export async function POST(
         });
       }
 
+      /*
+       * The package's saved schedule, copied onto an event that has none.
+       *
+       * Only onto an empty one. A timeline somebody has typed is the answer for
+       * that event, and a package applied afterwards - to add a forgotten dish,
+       * or because the package was swapped - must not throw it away. An event
+       * that already has rows simply keeps them.
+       *
+       * Read inside the transaction rather than from the row loaded above, so a
+       * timeline saved while this request was in flight still counts as present.
+       */
+      const packageTimeline = readStoredTimeline(eventPackage.defaultTimeline);
+      let workspaceData: Prisma.InputJsonObject | undefined;
+
+      if (packageTimeline.length > 0) {
+        const current = await transaction.event.findFirst({
+          where: { id, organizationId: actor.organizationId },
+          select: { workspaceData: true }
+        });
+        const previousWorkspace =
+          current?.workspaceData &&
+          typeof current.workspaceData === "object" &&
+          !Array.isArray(current.workspaceData)
+            ? (current.workspaceData as Record<string, unknown>)
+            : {};
+
+        if (readStoredTimeline(previousWorkspace.timeline).length === 0) {
+          workspaceData = {
+            ...previousWorkspace,
+            timeline: packageTimeline,
+            // A copied schedule is a starting point, not a decision. Confirming
+            // is what tells staff to follow it, and that stays theirs to do.
+            timelineConfirmed: false
+          } as Prisma.InputJsonObject;
+        }
+      }
+
       await mirrorOntoEvent(transaction, {
         organizationId: actor.organizationId,
         eventId: id,
@@ -327,7 +378,8 @@ export async function POST(
         packageColumns: {
           packageId: eventPackage.id,
           packageName: eventPackage.name
-        }
+        },
+        workspaceData
       });
 
       return gate;

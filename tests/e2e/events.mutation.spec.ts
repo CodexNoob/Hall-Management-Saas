@@ -261,12 +261,29 @@ test("creates an isolated event from the Calendar Book date form", async ({
       // centre of any day that already shows an event. Clicking the middle works
       // only on a day nothing has ever been booked on, which is not a property
       // this test can rely on.
+      /*
+       * Either label, because the cell carries whichever one the organization's
+       * settings ask for. Settings > Calendar > click anywhere to add decides
+       * whether a day cell books the date outright ("Book July 1, 2026") or only
+       * selects it ("Select July 1, 2026"), and this suite runs against a shared
+       * organization whose settings it does not own. Pinning the label made the
+       * test fail the moment somebody turned that toggle on, which says nothing
+       * about the booking flow it exists to cover.
+       */
       await page
-        .getByRole("button", { name: `Select ${bookingDateLabel}` })
+        .getByRole("button", {
+          name: new RegExp(`^(?:Book|Select) ${bookingDateLabel}$`)
+        })
         .click({ position: { x: 10, y: 6 } });
-      await page.getByRole("button", { name: "Book date" }).click();
 
       const dialog = page.getByRole("dialog", { name: "New booking" });
+
+      // Click-anywhere has already opened it; otherwise the selected-day panel
+      // below the grid is where the booking starts.
+      if (!(await dialog.isVisible())) {
+        await page.getByRole("button", { name: "Book date" }).click();
+      }
+
       await expect(dialog).toBeVisible();
       await expect(dialog.getByLabel("Date")).toHaveValue(bookingDateValue);
       await dialog.getByLabel("Client name").fill(clientName);

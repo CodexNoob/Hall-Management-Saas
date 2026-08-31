@@ -19,6 +19,7 @@ function createEvent(overrides: Partial<EventFile> = {}): EventFile {
     timeInput: "18:00",
     hallId: "hall-1",
     room: "Hall 1",
+    packageId: "",
     packageName: "Standard",
     guests: "370",
     children: "20",
@@ -79,6 +80,22 @@ describe("event readiness", () => {
       expect(ids).not.toContain("hall-map");
       expect(ids).not.toContain("dining-plan");
       expect(ids).not.toContain("billing");
+    }
+  });
+
+  it("does not ask about operations notes", () => {
+    // Removed from the checklist outright, not hidden behind a flag: notes are
+    // written when staff need instructions and left empty when they do not, so
+    // an unticked row said nothing about whether the event was ready.
+    const event = createEvent({ internalNotes: "" });
+
+    for (const scope of ["event", "print"] as const) {
+      const items = getScopedEventReadinessItems(event, scope);
+
+      expect(items.map((item) => item.id)).not.toContain("kitchen-packet");
+      expect(
+        items.map((item) => item.label)
+      ).not.toContain("Operations notes ready");
     }
   });
 

@@ -32,7 +32,8 @@ export function ServiceRuleFields({
   values,
   onChange,
   unitListId,
-  disabled = false
+  disabled = false,
+  required = true
 }: {
   /// What the style is called here - "Buffet", "Plated", or "Table" for a
   /// drink. Drives the aria-labels, so it is also how a test finds these.
@@ -44,6 +45,14 @@ export function ServiceRuleFields({
   /// options in the DOM twice.
   unitListId: string;
   disabled?: boolean;
+  /**
+   * Whether the browser blocks a submit while the rule is empty.
+   *
+   * Off for the menu library, where a dish may be catalogued before anyone has
+   * worked out how much of it to cook. On at the moment the rule is actually
+   * being asked for, where an empty answer is the thing being refused.
+   */
+  required?: boolean;
 }) {
   const controlClass =
     "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15 disabled:bg-[#f5f6f8] disabled:text-[#6a7483]";
@@ -56,7 +65,7 @@ export function ServiceRuleFields({
         disabled={disabled}
         inputMode="decimal"
         onChange={(event) => onChange({ quantity: event.target.value })}
-        required
+        required={required}
         value={values.quantity}
       />
       {/* Typed, not picked: the eight presets never covered every kitchen's
@@ -70,7 +79,7 @@ export function ServiceRuleFields({
         list={unitListId}
         maxLength={24}
         onChange={(event) => onChange({ unit: event.target.value })}
-        required
+        required={required}
         value={values.unit}
       />
       <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
@@ -83,7 +92,7 @@ export function ServiceRuleFields({
           disabled={disabled}
           inputMode="numeric"
           onChange={(event) => onChange({ per: event.target.value })}
-          required
+          required={required}
           value={values.per}
         />
       )}
