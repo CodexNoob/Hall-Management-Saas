@@ -197,14 +197,16 @@ test("creates an isolated event from the Calendar Book date form", async ({
     // The calendar already cached the pre-provisioning /api/events payload.
     await page.reload();
 
-    // Month view, explicitly. Which view the calendar opens on is an
-    // organization setting now, and this test walks candidate dates by month -
-    // on the week view the same control is labelled "Show next week" and the
-    // day cells below it are a different grid entirely.
-    await page
-      .getByRole("group", { name: "Calendar view" })
-      .getByRole("button", { name: "Month", exact: true })
-      .click();
+    // Month view, and there is no longer an in-page switcher to force it: which
+    // view the calendar opens on is Settings > Calendar > Default view, and the
+    // E2E organization never sets it, so it opens on the month. Assert that
+    // rather than assume it - this test walks candidate dates by month, and on
+    // the week view the same control is labelled "Show next week" and the day
+    // cells below it are a different grid entirely, which would fail further
+    // down in a way that says nothing about why.
+    await expect(
+      page.getByRole("heading", { name: "Month Calendar" })
+    ).toBeVisible();
 
     // The trial plan allows a single hall, so any date that already holds an
     // active booking would fail the hall-reservation conflict check. Pick the

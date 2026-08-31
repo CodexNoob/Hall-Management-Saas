@@ -31,6 +31,11 @@ type DashboardTopbarProps = {
   actionsSlot?: ReactNode;
   compactMobileActions?: boolean;
   showDefaultActions?: boolean;
+  /**
+   * Drops the Today notes button on its own, the way `showNewBookingAction`
+   * drops the booking one. `showDefaultActions` would take both with it.
+   */
+  showTodayNotesAction?: boolean;
   showNewBookingAction?: boolean;
   rightSlot?: ReactNode;
   showSearch?: boolean;
@@ -178,6 +183,7 @@ export function DashboardTopbar({
   actionsSlot,
   compactMobileActions = false,
   showDefaultActions = true,
+  showTodayNotesAction = true,
   showNewBookingAction = true,
   rightSlot,
   showSearch = true
@@ -408,24 +414,26 @@ export function DashboardTopbar({
                 {actionsSlot ??
                   (showDefaultActions ? (
                     <>
-                      <button
-                        aria-label="Open today notes"
-                        type="button"
-                        onClick={onTodayNotes}
-                        title="Today notes"
-                        className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#17202a] transition hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:rounded-xl xl:border xl:border-[#b9c2cf] xl:bg-white xl:px-4 xl:shadow-sm xl:hover:bg-[#eef4fa] 2xl:px-5"
-                        data-needs-revision={
-                          todayNotesNeedRevision || undefined
-                        }
-                      >
-                        <TopbarIcon
-                          className="h-6 w-6 xl:h-4 xl:w-4"
-                          name="notes"
-                        />
-                        <span className="relative z-1 hidden xl:inline">
-                          Today notes
-                        </span>
-                      </button>
+                      {showTodayNotesAction ? (
+                        <button
+                          aria-label="Open today notes"
+                          type="button"
+                          onClick={onTodayNotes}
+                          title="Today notes"
+                          className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#17202a] transition hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:rounded-xl xl:border xl:border-[#b9c2cf] xl:bg-white xl:px-4 xl:shadow-sm xl:hover:bg-[#eef4fa] 2xl:px-5"
+                          data-needs-revision={
+                            todayNotesNeedRevision || undefined
+                          }
+                        >
+                          <TopbarIcon
+                            className="h-6 w-6 xl:h-4 xl:w-4"
+                            name="notes"
+                          />
+                          <span className="relative z-1 hidden xl:inline">
+                            Today notes
+                          </span>
+                        </button>
+                      ) : null}
 
                       {showNewBookingAction ? (
                         <button

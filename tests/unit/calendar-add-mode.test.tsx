@@ -200,14 +200,13 @@ describe("Calendar default view", () => {
     ).toBeInTheDocument();
   });
 
-  it("lets the switcher override the saved default for the rest of the visit", async () => {
+  it("offers no in-page switcher, so the saved default is the whole story", async () => {
     await mountCalendar({ dailyEventLimit: 4, defaultView: "week" });
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Agenda" }));
-    });
-
-    expect(viewHeading("Agenda")).toBeInTheDocument();
+    expect(viewHeading("Week Calendar")).toBeInTheDocument();
+    for (const label of ["Month", "Week", "Agenda"]) {
+      expect(screen.queryByRole("button", { name: label })).toBeNull();
+    }
   });
 
   it("drops the Hebrew date from the grid when it is switched off", async () => {
