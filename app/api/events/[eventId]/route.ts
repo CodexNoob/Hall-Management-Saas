@@ -59,6 +59,19 @@ const updateEventSchema = z
     // Same parser the forms run, so a number cannot be accepted in the browser
     // and refused here.
     phone: requiredPhoneSchema({ label: "Phone number" }).optional(),
+    // Nullable where the phone is not: `Event.email` has always been optional,
+    // and clearing the box has to be a way of saying the client did not give
+    // one - otherwise an address typed by mistake can never be taken back off.
+    email: z
+      .string()
+      .trim()
+      .max(200)
+      .email("Enter a valid email address.")
+      .nullable()
+      .optional(),
+    // The membership, checked below against this organization. Nullable so an
+    // event can be handed back to nobody.
+    coordinatorMembershipId: z.string().uuid().nullable().optional(),
     eventType: z
       .string()
       .trim()
@@ -150,6 +163,32 @@ export async function PATCH(
         { error: "Selected event type was not found." },
         { status: 404 }
       );
+    }
+
+    // Proved to belong to this organization, the same way the hall and the
+    // event type are. A membership id is guessable in the sense that any uuid
+    // is, and without this an event could be assigned to somebody in another
+    // tenant - which would then read their name back out of the coordinator
+    // join on every load of this event.
+    //
+    // `null` skips the check on purpose: it is the un-assign, and there is
+    // nothing to prove about nobody.
+    if (input.coordinatorMembershipId) {
+      const membership = await prisma.organizationMembership.findFirst({
+        where: {
+          id: input.coordinatorMembershipId,
+          organizationId: actor.organizationId,
+          isActive: true
+        },
+        select: { id: true }
+      });
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Selected coordinator was not found." },
+          { status: 404 }
+        );
+      }
     }
 
     const current = await prisma.event.findFirst({

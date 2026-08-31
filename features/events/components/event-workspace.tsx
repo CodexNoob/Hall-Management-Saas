@@ -25,6 +25,7 @@ import {
   LineIcon,
   tabs,
   type EventFile,
+  type EventCoordinatorOption,
   type EventHallOption,
   type EventTypeOption,
   type EventWorkspaceTab
@@ -33,6 +34,7 @@ import {
 export function EventWorkspace({
   activeTab,
   event,
+  coordinators,
   eventTypes,
   halls,
   onEventSaved,
@@ -40,6 +42,7 @@ export function EventWorkspace({
 }: {
   activeTab: EventWorkspaceTab;
   event: EventFile;
+  coordinators: EventCoordinatorOption[];
   eventTypes: EventTypeOption[];
   halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
@@ -181,6 +184,7 @@ export function EventWorkspace({
               <div className="min-w-0 space-y-4">
                 <EventInformation
                   event={event}
+                  coordinators={coordinators}
                   eventTypes={eventTypes}
                   halls={halls}
                   onEventSaved={onEventSaved}
@@ -203,7 +207,11 @@ export function EventWorkspace({
                 />
               </div>
               <aside className="space-y-3">
-                <ClientContact event={event} />
+                <ClientContact
+                  coordinators={coordinators}
+                  event={event}
+                  onEventSaved={onEventSaved}
+                />
                 <ReadinessPanel event={event} />
                 <ActivityPanel event={event} />
               </aside>

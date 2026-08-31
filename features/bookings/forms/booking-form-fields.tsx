@@ -45,6 +45,12 @@ type BookingFormFieldsProps = {
   autoFocus?: boolean;
   /** Two for a dialog, three for a full-width panel. Fields are unchanged. */
   columns?: 2 | 3;
+  /**
+   * Staff this event can be assigned to. Empty is a legitimate answer - a fresh
+   * organization has only the person setting it up - and the field still offers
+   * Unassigned, so the form does not need a special case for it.
+   */
+  coordinators: BookingLookupOption[];
   errors: BookingFormErrors;
   eventTypes: BookingLookupOption[];
   extraEventTypeOption?: BookingLookupOption;
@@ -61,6 +67,13 @@ type BookingFormFieldsProps = {
    * spent on the number itself. `phoneCountry` still validates either way.
    */
   showPhoneCountry?: boolean;
+  /**
+   * Show phone, email and coordinator. Off for the event manager's panel, where
+   * the Client contact card beside it owns those three and edits them a row at
+   * a time. On for the calendar's dialog, which is creating the event and has
+   * no card to send anybody to yet.
+   */
+  showClientContact?: boolean;
   values: BookingFormValues;
 };
 
@@ -96,6 +109,7 @@ function FieldError({ children, id }: { children: string; id: string }) {
 export function BookingFormFields({
   autoFocus = false,
   columns = 2,
+  coordinators,
   errors,
   eventTypes,
   extraEventTypeOption,
@@ -106,6 +120,7 @@ export function BookingFormFields({
   renderEventTypeExtra,
   phoneCountry,
   showPhoneCountry = true,
+  showClientContact = true,
   values
 }: BookingFormFieldsProps) {
   const fieldId = (name: string) => `${idPrefix}-${name}`;
@@ -140,24 +155,47 @@ export function BookingFormFields({
         ) : null}
       </div>
 
-      <div>
-        <FieldLabel htmlFor={fieldId("phone")}>Phone</FieldLabel>
+      {showClientContact ? (
+        <>
+          <div>
+            <FieldLabel htmlFor={fieldId("phone")}>Phone</FieldLabel>
 
-        <PhoneField
-          country={phoneCountry}
-          countryClassName={bookingCountryClass}
-          id={fieldId("phone")}
-          inputClassName={`${bookingControlClass} min-w-0 flex-1`}
-          name="phone"
-          onChange={(value) => onChange("phone", value)}
-          onCountryChange={onPhoneCountryChange}
-          required
-          rowClassName="flex gap-2"
-          serverError={errors.phone}
-          showCountry={showPhoneCountry}
-          value={values.phone}
-        />
-      </div>
+            <PhoneField
+              country={phoneCountry}
+              countryClassName={bookingCountryClass}
+              id={fieldId("phone")}
+              inputClassName={`${bookingControlClass} min-w-0 flex-1`}
+              name="phone"
+              onChange={(value) => onChange("phone", value)}
+              onCountryChange={onPhoneCountryChange}
+              required
+              rowClassName="flex gap-2"
+              serverError={errors.phone}
+              showCountry={showPhoneCountry}
+              value={values.phone}
+            />
+          </div>
+
+          <div>
+            <FieldLabel htmlFor={fieldId("email")}>Email</FieldLabel>
+
+            <input
+              aria-describedby={errors.email ? errorId("email") : undefined}
+              aria-invalid={errors.email ? true : undefined}
+              className={bookingControlClass}
+              id={fieldId("email")}
+              inputMode="email"
+              onChange={(event) => onChange("email", event.target.value)}
+              placeholder="Optional"
+              type="email"
+              value={values.email}
+            />
+            {errors.email ? (
+              <FieldError id={errorId("email")}>{errors.email}</FieldError>
+            ) : null}
+          </div>
+        </>
+      ) : null}
 
       <div>
         <FieldLabel htmlFor={fieldId("date")}>Date</FieldLabel>
@@ -240,6 +278,45 @@ export function BookingFormFields({
         ) : null}
         {renderEventTypeExtra ? renderEventTypeExtra() : null}
       </div>
+
+      {showClientContact ? (
+        <div>
+          <FieldLabel htmlFor={fieldId("coordinator")}>Coordinator</FieldLabel>
+
+          {/*
+            Unassigned is the first option rather than a disabled placeholder:
+            an event with nobody on it is a state somebody has to be able to go
+            back to, not just the one it starts in.
+          */}
+          <select
+            aria-describedby={
+              errors.coordinatorMembershipId
+                ? errorId("coordinator")
+                : undefined
+            }
+            aria-invalid={errors.coordinatorMembershipId ? true : undefined}
+            className={bookingControlClass}
+            id={fieldId("coordinator")}
+            onChange={(event) =>
+              onChange("coordinatorMembershipId", event.target.value)
+            }
+            value={values.coordinatorMembershipId}
+          >
+            <option value="">Unassigned</option>
+
+            {coordinators.map((coordinator) => (
+              <option key={coordinator.id} value={coordinator.id}>
+                {coordinator.name}
+              </option>
+            ))}
+          </select>
+          {errors.coordinatorMembershipId ? (
+            <FieldError id={errorId("coordinator")}>
+              {errors.coordinatorMembershipId}
+            </FieldError>
+          ) : null}
+        </div>
+      ) : null}
 
       <div>
         <FieldLabel htmlFor={fieldId("count-mode")}>Count type</FieldLabel>

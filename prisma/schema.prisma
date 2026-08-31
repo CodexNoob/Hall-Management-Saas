@@ -160,12 +160,14 @@ model OrganizationMembership {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Composite, so a membership in organization X cannot name a principal that
   /// lives in organization Y. Structural rather than forbidden by a code path
   /// someone can forget to write.
-  principal    Principal    @relation(fields: [principalId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  principal         Principal    @relation(fields: [principalId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  /// The events this member is running. Read side of `Event.coordinator`.
+  coordinatedEvents Event[]      @relation("EventCoordinator")
 
   @@unique([organizationId, userId])
   /// Required by Prisma to express the composite one-to-one above; `principalId`
@@ -655,6 +657,10 @@ model Event {
   clientName              String    @map("client_name")
   phone                   String
   email                   String?
+  /// Who is running this event. A membership rather than a user, so an event
+  /// cannot name somebody with no seat in the organization that owns it, and
+  /// nullable because "Unassigned" is a real answer rather than a missing one.
+  coordinatorMembershipId String?   @map("coordinator_membership_id") @db.Uuid
   eventDate               DateTime  @map("event_date") @db.Date
   hallId                  String    @map("hall_id") @db.Uuid
   hallName                String?   @map("hall_name")
@@ -714,16 +720,19 @@ model Event {
   createdAt               DateTime  @default(now()) @map("created_at")
   updatedAt               DateTime  @updatedAt @map("updated_at")
 
-  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  client                Client?               @relation(fields: [clientId], references: [id], onDelete: SetNull)
-  hall                  Hall                  @relation(fields: [hallId], references: [id])
-  eventTypeSetting      EventType?            @relation(fields: [eventTypeId], references: [id])
-  package               EventPackage?         @relation(fields: [packageId], references: [id])
-  tablecloth            TableclothOption?     @relation(fields: [tableclothId], references: [id])
-  sharedMenuSourceEvent Event?                @relation("SharedMenuSource", fields: [sharedMenuSourceEventId], references: [id])
-  sharedMenuEvents      Event[]               @relation("SharedMenuSource")
-  createdBy             User?                 @relation("EventCreatedBy", fields: [createdById], references: [id])
-  updatedBy             User?                 @relation("EventUpdatedBy", fields: [updatedById], references: [id])
+  organization          Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client                Client?                 @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  hall                  Hall                    @relation(fields: [hallId], references: [id])
+  /// SetNull, not Cascade: taking somebody off the staff must not take the
+  /// events they were running with them. The booking stands, unassigned again.
+  coordinator           OrganizationMembership? @relation("EventCoordinator", fields: [coordinatorMembershipId], references: [id], onDelete: SetNull)
+  eventTypeSetting      EventType?              @relation(fields: [eventTypeId], references: [id])
+  package               EventPackage?           @relation(fields: [packageId], references: [id])
+  tablecloth            TableclothOption?       @relation(fields: [tableclothId], references: [id])
+  sharedMenuSourceEvent Event?                  @relation("SharedMenuSource", fields: [sharedMenuSourceEventId], references: [id])
+  sharedMenuEvents      Event[]                 @relation("SharedMenuSource")
+  createdBy             User?                   @relation("EventCreatedBy", fields: [createdById], references: [id])
+  updatedBy             User?                   @relation("EventUpdatedBy", fields: [updatedById], references: [id])
   kitchenItemStatuses   KitchenItemStatus[]
   kitchenNotifications  KitchenNotification[]
   eventMenus            EventMenu[]

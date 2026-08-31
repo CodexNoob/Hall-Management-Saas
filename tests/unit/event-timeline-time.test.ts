@@ -22,6 +22,8 @@ const event = {
   hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
   internalNotes: "Original note",
   phone: "+12125550123",
+  email: "charles@example.com",
+  coordinatorMembershipId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f608",
   status: "Confirmed",
   timeInput: "18:30"
 };
@@ -153,6 +155,8 @@ describe("event information booking form values", () => {
       clientName: "Charles Duot",
       // Stored as E.164, typed as the national part.
       phone: "(212) 555-0123",
+      email: "charles@example.com",
+      coordinatorMembershipId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f608",
       eventDate: "2026-09-01",
       hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
       eventTypeId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607",
@@ -180,7 +184,6 @@ describe("event information save payload", () => {
 
     expect(payload).toMatchObject({
       clientName: "Charles Duot",
-      phone: "+12125550123",
       eventDate: "2026-09-01",
       // Booked before the count modes existed, so it holds couples beside a
       // head count. Reopened it counts by head, and the couples it also carried
@@ -193,6 +196,21 @@ describe("event information save payload", () => {
       // 50 in the room, 4 of them children. The total survives the resave.
       menCount: 46
     });
+  });
+
+  it("sends nothing the Client contact card owns", () => {
+    // The panel holds these values - they arrive with the event and sit in its
+    // form state - but the card is the only thing that saves them. A panel that
+    // sent its copy would put a stale phone back over an edit made next to it,
+    // on a save of something else entirely.
+    const payload = toEventDetailsPayload(
+      parseValues(createBookingFormValues(event as never)),
+      event.timeInput
+    );
+
+    expect(payload).not.toHaveProperty("phone");
+    expect(payload).not.toHaveProperty("email");
+    expect(payload).not.toHaveProperty("coordinatorMembershipId");
   });
 
   it("carries the stored clock time onto a moved date", () => {

@@ -42,9 +42,12 @@ export type CountMode = "People" | "Couples";
 export type BookingFormValues = {
   clientName: string;
   phone: string;
+  email: string;
   eventDate: string;
   hallId: string;
   eventTypeId: string;
+  /** The organization membership running the event; "" is Unassigned. */
+  coordinatorMembershipId: string;
   countMode: CountMode;
   guests: string;
   couples: string;
@@ -57,9 +60,11 @@ export type BookingFormErrors = Partial<Record<keyof BookingFormValues, string>>
 export const emptyBookingFormValues: BookingFormValues = {
   clientName: "",
   phone: "",
+  email: "",
   eventDate: "",
   hallId: "",
   eventTypeId: "",
+  coordinatorMembershipId: "",
   countMode: "People",
   guests: "0",
   couples: "0",
@@ -152,64 +157,146 @@ export function liveCountErrors(values: BookingFormValues): BookingFormErrors {
 }
 
 /**
- * Built per submit rather than once at module scope: the phone country comes
- * from the picker next to the field, and the same digits are a valid number in
- * one country and impossible in another.
+ * Who to contact about the event, as three fields that travel together.
+ *
+ * Built per call rather than held at module scope: the phone country comes from
+ * the picker beside the field, and the same digits are a valid number in one
+ * country and impossible in another.
+ *
+ * Exported as the shape rather than as a schema because the Client contact card
+ * edits one row at a time and validates just that row - `[field].safeParse` -
+ * while the booking dialog spreads all three into the form it submits whole.
+ */
+export function clientContactFields({
+  country = DEFAULT_PHONE_COUNTRY
+}: { country?: CountryCode } = {}) {
+  return {
+    phone: requiredPhoneSchema({
+      label: "Phone number",
+      defaultCountry: country
+    }),
+    // Blank is an answer, not an omission: plenty of bookings are taken over
+    // the phone and never get one, and the card says "Email not provided"
+    // rather than pretending otherwise. `null` on the way out so clearing the
+    // box takes a wrong address back off the event.
+    email: z
+      .string()
+      .trim()
+      .max(200)
+      .refine(
+        (value) => value === "" || z.string().email().safeParse(value).success,
+        "Enter a valid email address."
+      )
+      .transform((value) => value || null),
+    // "" is Unassigned, which is a real state rather than a missing choice -
+    // an event can sit unclaimed for weeks. Anything else has to be a
+    // membership id, and the route proves it belongs to this organization
+    // before it is stored.
+    coordinatorMembershipId: z
+      .string()
+      .refine(
+        (value) => value === "" || z.string().uuid().safeParse(value).success,
+        "Select a coordinator."
+      )
+      .transform((value) => value || null)
+  };
+}
+
+/**
+ * The event itself: everything the booking form asks that is not contact
+ * details.
+ *
+ * Split out so the event manager's panel can parse with exactly this and
+ * nothing else. The contact fields are owned by the Client contact card now,
+ * and a schema that cannot see them is what stops the panel sending a stale
+ * copy back over an edit the card just made.
+ */
+function eventFields() {
+  return {
+    clientName: z
+      .string()
+      .trim()
+      .min(1, "Client name is required.")
+      .max(160, "Client name must be 160 characters or less."),
+    // `.date()` rather than a bare string: the date input can be cleared, and
+    // a typed-in partial date reaches us as text the route would reject.
+    eventDate: z
+      .string()
+      .min(1, "Date is required.")
+      .pipe(z.string().date("Enter a valid date.")),
+    hallId: z.string().uuid("Select a hall."),
+    eventTypeId: z.string().uuid("Select an event type."),
+    countMode: z.enum(["People", "Couples"]),
+    // The head count for the whole event, children included. Read only in
+    // `People` mode - in `Couples` mode the box is not on screen, and
+    // whatever it still holds is left alone so switching back restores it.
+    guests: countTextSchema("Guests"),
+    couples: countTextSchema("Couples"),
+    children: countTextSchema("Children"),
+    // 5000 because that is the tighter of the two routes this form posts to;
+    // a note that passes here is accepted by both.
+    notes: z
+      .string()
+      .trim()
+      .max(5000, "Notes must be 5000 characters or less.")
+  };
+}
+
+/** Shared by both forms below, because both carry the counts. */
+function refineCounts(
+  values: { countMode: CountMode; guests: number; children: number },
+  context: z.RefinementCtx
+) {
+  const message = guestsCoverIssue(
+    values.countMode,
+    values.guests,
+    values.children
+  );
+
+  if (message) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message,
+      path: ["guests"]
+    });
+  }
+}
+
+/**
+ * The whole booking, as the calendar's new-booking dialog submits it.
+ *
+ * Creating an event asks for the contact details in the same breath as the
+ * event, because there is no card to edit them on yet.
  */
 export function bookingFormSchema({
   country = DEFAULT_PHONE_COUNTRY
 }: { country?: CountryCode } = {}) {
   return z
-    .object({
-      clientName: z
-        .string()
-        .trim()
-        .min(1, "Client name is required.")
-        .max(160, "Client name must be 160 characters or less."),
-      phone: requiredPhoneSchema({
-        label: "Phone number",
-        defaultCountry: country
-      }),
-      // `.date()` rather than a bare string: the date input can be cleared, and
-      // a typed-in partial date reaches us as text the route would reject.
-      eventDate: z
-        .string()
-        .min(1, "Date is required.")
-        .pipe(z.string().date("Enter a valid date.")),
-      hallId: z.string().uuid("Select a hall."),
-      eventTypeId: z.string().uuid("Select an event type."),
-      countMode: z.enum(["People", "Couples"]),
-      // The head count for the whole event, children included. Read only in
-      // `People` mode - in `Couples` mode the box is not on screen, and
-      // whatever it still holds is left alone so switching back restores it.
-      guests: countTextSchema("Guests"),
-      couples: countTextSchema("Couples"),
-      children: countTextSchema("Children"),
-      // 5000 because that is the tighter of the two routes this form posts to;
-      // a note that passes here is accepted by both.
-      notes: z
-        .string()
-        .trim()
-        .max(5000, "Notes must be 5000 characters or less.")
-    })
-    .superRefine((values, context) => {
-      const message = guestsCoverIssue(
-        values.countMode,
-        values.guests,
-        values.children
-      );
+    .object({ ...eventFields(), ...clientContactFields({ country }) })
+    .superRefine(refineCounts);
+}
 
-      if (message) {
-        context.addIssue({
-          code: z.ZodIssueCode.custom,
-          message,
-          path: ["guests"]
-        });
-      }
-    });
+/**
+ * The event manager's Event information panel.
+ *
+ * Deliberately narrower than `bookingFormSchema`: the phone, email and
+ * coordinator belong to the Client contact card beside it. Zod drops the keys
+ * it does not know, so the panel can hold the full form values and still parse
+ * to something that cannot carry a contact field back to the route.
+ *
+ * That is also what makes an event with no stored phone editable. `Event.phone`
+ * is written as "" when a booking is taken without one, and a required phone the
+ * panel no longer shows would have made those events unsaveable with no field
+ * on screen to fix.
+ */
+export function eventDetailsFormSchema() {
+  return z.object(eventFields()).superRefine(refineCounts);
 }
 
 export type BookingFormInput = z.output<ReturnType<typeof bookingFormSchema>>;
+export type EventDetailsFormInput = z.output<
+  ReturnType<typeof eventDetailsFormSchema>
+>;
 
 /**
  * The errors an edit resolves.
@@ -235,7 +322,7 @@ export function fieldErrorPatch(
 
 /** First message per field, which is all a single-line error slot can show. */
 export function toFieldErrors(
-  error: z.ZodError<BookingFormValues>
+  error: z.ZodError<Partial<BookingFormValues>>
 ): BookingFormErrors {
   const fieldErrors = error.flatten().fieldErrors;
   const errors: BookingFormErrors = {};
@@ -263,7 +350,9 @@ export function toFieldErrors(
  * The count the mode does not use is not read at all. It may still hold a value
  * the user typed before switching, and that value is theirs to come back to.
  */
-export function toGuestCountPayload(data: BookingFormInput) {
+export function toGuestCountPayload(
+  data: BookingFormInput | EventDetailsFormInput
+) {
   const countedInCouples = data.countMode === "Couples";
 
   return {

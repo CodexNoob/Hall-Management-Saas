@@ -89,7 +89,11 @@ export function EventManagerPage() {
             event.kidsCount + event.boysCount + event.girlsCount
           ),
           couples: String(event.couplesCount),
-          coordinator: "Unassigned",
+          // "Unassigned" is the reading of no coordinator, not a placeholder
+          // standing in for one - which is all this was until the column
+          // existed.
+          coordinator: event.coordinator?.user.name ?? "Unassigned",
+          coordinatorMembershipId: event.coordinatorMembershipId ?? "",
           balance:
             event.paymentStatus === "Paid in Full" ? "Paid" : "See billing",
           status: event.eventStatus.toLowerCase().includes("confirm")
@@ -398,6 +402,7 @@ export function EventManagerPage() {
           {selectedEvent ? (
             <EventWorkspace
               activeTab={activeTab}
+              coordinators={eventsQuery.data?.coordinators ?? []}
               event={selectedEvent}
               eventTypes={eventsQuery.data?.eventTypes ?? []}
               halls={eventsQuery.data?.halls ?? []}

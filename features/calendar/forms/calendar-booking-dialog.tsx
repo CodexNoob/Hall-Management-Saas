@@ -27,9 +27,11 @@ const OTHER_EVENT_TYPE_ID = "calendar-other-event-type";
 type BookingPayload = {
   clientName: string;
   phone: string;
+  email?: string;
   eventDate: string;
   hallId: string;
   eventTypeId: string;
+  coordinatorMembershipId?: string;
   bookingStatus: "TENTATIVE_HOLD";
   eventStatus: "Hold";
   couplesCount: number;
@@ -47,6 +49,7 @@ type CalendarBookingDialogProps = {
   selectedDate: string;
   halls: BookingLookupOption[];
   eventTypes: BookingLookupOption[];
+  coordinators: BookingLookupOption[];
   onClose: () => void;
   onEventTypesChanged: () => void | Promise<void>;
   onSaved: () => void | Promise<void>;
@@ -73,6 +76,7 @@ export function CalendarBookingDialog({
   selectedDate,
   halls,
   eventTypes,
+  coordinators,
   onClose,
   onEventTypesChanged,
   onSaved
@@ -258,6 +262,9 @@ export function CalendarBookingDialog({
         bookingStatus: "TENTATIVE_HOLD",
         eventStatus: "Hold",
         ...toGuestCountPayload(parsed.data),
+        email: parsed.data.email ?? undefined,
+        coordinatorMembershipId:
+          parsed.data.coordinatorMembershipId ?? undefined,
         notes: parsed.data.notes || undefined,
         idempotencyKey: crypto.randomUUID()
       });
@@ -335,6 +342,7 @@ export function CalendarBookingDialog({
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
             <BookingFormFields
               autoFocus
+              coordinators={coordinators}
               errors={errors}
               eventTypes={availableEventTypes}
               extraEventTypeOption={

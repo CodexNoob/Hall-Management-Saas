@@ -169,7 +169,8 @@ export async function GET(request: Request) {
       new URL(request.url).searchParams.get("eventId") ?? "";
 
     await expireOrganizationHolds(actor.organizationId);
-    const [events, halls, eventTypes, packages, settings] = await Promise.all([
+    const [events, halls, eventTypes, packages, settings, coordinators] =
+      await Promise.all([
       prisma.event.findMany({
         where: {
           ...tenant(actor),
@@ -177,7 +178,12 @@ export async function GET(request: Request) {
           ...scoped(actor, "hall")
         },
         orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
-        include: { hall: true, package: true, client: true },
+        include: {
+          hall: true,
+          package: true,
+          client: true,
+          coordinator: { select: { id: true, user: { select: { name: true } } } }
+        },
         take: EVENT_LIST_LIMIT
       }),
       prisma.hall.findMany({
@@ -201,6 +207,20 @@ export async function GET(request: Request) {
         where: { ...tenant(actor) },
         update: {},
         create: { organizationId: actor.organizationId }
+      }),
+      // Assignable staff, served beside the halls and event types because they
+      // answer the same question the booking form asks. Reading them from
+      // /api/staff instead would put the coordinator field behind `staff.read`,
+      // and somebody allowed to edit an event should not need the staff
+      // directory open to say who is running it.
+      //
+      // Active memberships only: an inactive seat is somebody who has been
+      // taken off this organization, and offering them would be offering a name
+      // nobody can act as.
+      prisma.organizationMembership.findMany({
+        where: { ...tenant(actor), isActive: true },
+        select: { id: true, user: { select: { name: true } } },
+        orderBy: { user: { name: "asc" } }
       })
     ]);
 
@@ -217,7 +237,12 @@ export async function GET(request: Request) {
           // around what this actor is allowed to see.
           ...scoped(actor, "hall")
         },
-        include: { hall: true, package: true, client: true }
+        include: {
+          hall: true,
+          package: true,
+          client: true,
+          coordinator: { select: { id: true, user: { select: { name: true } } } }
+        }
       });
 
       if (requested) events.push(requested);
@@ -260,6 +285,10 @@ export async function GET(request: Request) {
       halls,
       eventTypes,
       packages,
+      coordinators: coordinators.map((membership) => ({
+        id: membership.id,
+        name: membership.user.name
+      })),
       calendarSettings: {
         dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations)
       }

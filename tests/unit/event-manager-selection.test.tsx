@@ -72,6 +72,8 @@ function eventRow(
     diningHallMapPreset: null,
     phone: "Not provided",
     email: null,
+    coordinatorMembershipId: null,
+    coordinator: null,
     workspaceData: null,
     menuItemIds: [],
     hall: { id: "hall-1", name: "Hall 1" },
@@ -83,7 +85,8 @@ function eventsResponse(events: EventsResponse["events"]): EventsResponse {
   return {
     events,
     halls: [{ id: "hall-1", name: "Hall 1" }],
-    eventTypes: []
+    eventTypes: [],
+    coordinators: []
   };
 }
 

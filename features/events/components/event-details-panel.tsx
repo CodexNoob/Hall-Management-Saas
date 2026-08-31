@@ -16,18 +16,20 @@ import {
 } from "@/lib/validation/phone";
 import { BookingFormFields } from "@/features/bookings/forms/booking-form-fields";
 import {
-  bookingFormSchema,
+  clientContactFields,
+  eventDetailsFormSchema,
   fieldErrorPatch,
   liveCountErrors,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
-  type BookingFormInput,
+  type EventDetailsFormInput,
   type BookingFormValues
 } from "@/features/bookings/validations/booking-form.schema";
 import {
   LineIcon,
   type EventFile,
+  type EventCoordinatorOption,
   type EventHallOption,
   type EventTypeOption,
   type IconName
@@ -56,20 +58,124 @@ export function Field({
   );
 }
 
-export function ClientContact({ event }: { event: EventFile }) {
+/** The three rows, and the column each one saves to. */
+type ContactField = "phone" | "email" | "coordinatorMembershipId";
+
+const contactRowClass =
+  "flex min-h-12 w-full items-center gap-3 rounded-lg border " +
+  "border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a]";
+
+const contactIconClass =
+  "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border " +
+  "border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]";
+
+const contactControlClass =
+  "h-9 w-full min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-2 " +
+  "text-sm font-bold text-[#17202a] outline-none focus:border-[#1f4d73] " +
+  "focus:ring-2 focus:ring-[#1f4d73]/15";
+
+/**
+ * Who to contact, edited a row at a time.
+ *
+ * One row is open at once and each saves on its own, which is why this holds a
+ * single `editing` field rather than a form: the card is a list of unrelated
+ * facts, and committing the email should not make somebody re-confirm a phone
+ * number they never touched.
+ *
+ * The event's own PATCH takes each of these, so there is no second route -
+ * `Event information` simply no longer sends them. That split is what keeps the
+ * two cards from overwriting one another.
+ */
+export function ClientContact({
+  coordinators,
+  event,
+  onEventSaved
+}: {
+  coordinators: EventCoordinatorOption[];
+  event: EventFile;
+  onEventSaved: () => Promise<unknown>;
+}) {
+  const [editing, setEditing] = useState<ContactField | null>(null);
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const phoneCountry = countryFromE164(event.phone) ?? DEFAULT_PHONE_COUNTRY;
+
+  // Whatever was half-typed belonged to the event that was open at the time.
+  useEffect(() => {
+    setEditing(null);
+    setError(null);
+  }, [event.id]);
+
+  function startEditing(field: ContactField, current: string) {
+    setEditing(field);
+    setDraft(current);
+    setError(null);
+  }
+
+  async function save(field: ContactField) {
+    // The booking form's own rules for these three, so a number the calendar
+    // would refuse cannot be typed in here instead.
+    const parsed = clientContactFields({ country: phoneCountry })[
+      field
+    ].safeParse(draft);
+
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? "That value is not valid.");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const response = await authenticatedFetch(`/api/events/${event.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: parsed.data })
+      });
+
+      if (!response.ok) throw await readApiError(response);
+
+      await onEventSaved();
+      setEditing(null);
+      setError(null);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Could not save."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   const rows = [
     {
-      icon: "phone",
+      field: "phone" as const,
+      icon: "phone" as IconName,
       label: event.phone || "Phone not provided",
-      href: event.phone ? `tel:${event.phone}` : undefined
+      href: event.phone ? `tel:${event.phone}` : undefined,
+      editLabel: "Edit phone",
+      // The national part, which is what the field is typed in - the same hop
+      // the booking form makes.
+      draftFrom: () => nationalFromE164(event.phone)
     },
     {
-      icon: "mail",
+      field: "email" as const,
+      icon: "mail" as IconName,
       label: event.email || "Email not provided",
-      href: event.email ? `mailto:${event.email}` : undefined
+      href: event.email ? `mailto:${event.email}` : undefined,
+      editLabel: "Edit email",
+      draftFrom: () => event.email
     },
-    { icon: "couples", label: event.coordinator, href: undefined }
-  ] satisfies Array<{ icon: IconName; label: string; href?: string }>;
+    {
+      field: "coordinatorMembershipId" as const,
+      icon: "couples" as IconName,
+      label: event.coordinator,
+      href: undefined,
+      editLabel: "Edit coordinator",
+      draftFrom: () => event.coordinatorMembershipId
+    }
+  ];
 
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white">
@@ -78,25 +184,125 @@ export function ClientContact({ event }: { event: EventFile }) {
         <h2 className="text-sm font-black text-[#17202a]">Client contact</h2>
       </header>
       <div className="space-y-3 p-3">
-        {rows.map((row) => (
-          <a
-            key={row.label}
-            className={`flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] ${row.href ? "hover:bg-[#eef4fa]" : "cursor-default"}`}
-            href={row.href}
-            aria-disabled={!row.href}
-            onClick={(clickEvent) => {
-              if (!row.href) clickEvent.preventDefault();
-            }}
-          >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#d8dde5] bg-[#fbfcfd] text-[#1f4d73]">
-              <LineIcon name={row.icon} />
-            </span>
-            <span className="min-w-0 flex-1 truncate">{row.label}</span>
-            {row.href ? (
-              <LineIcon name="chevron" className="h-4 w-4 text-[#17202a]" />
-            ) : null}
-          </a>
-        ))}
+        {rows.map((row) => {
+          if (editing === row.field) {
+            return (
+              <div className={contactRowClass} key={row.field}>
+                <span className={contactIconClass}>
+                  <LineIcon name={row.icon} />
+                </span>
+
+                <div className="min-w-0 flex-1 py-2">
+                  {row.field === "coordinatorMembershipId" ? (
+                    <select
+                      aria-label="Coordinator"
+                      autoFocus
+                      className={contactControlClass}
+                      disabled={isSaving}
+                      onChange={(changeEvent) =>
+                        setDraft(changeEvent.target.value)
+                      }
+                      value={draft}
+                    >
+                      <option value="">Unassigned</option>
+                      {coordinators.map((coordinator) => (
+                        <option key={coordinator.id} value={coordinator.id}>
+                          {coordinator.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      aria-label={row.field === "phone" ? "Phone" : "Email"}
+                      autoFocus
+                      className={contactControlClass}
+                      disabled={isSaving}
+                      inputMode={row.field === "phone" ? "tel" : "email"}
+                      onChange={(changeEvent) =>
+                        setDraft(changeEvent.target.value)
+                      }
+                      // Enter commits and Escape abandons, because a row this
+                      // small is faster to leave by keyboard than to aim at.
+                      onKeyDown={(keyEvent) => {
+                        if (keyEvent.key === "Enter") {
+                          keyEvent.preventDefault();
+                          void save(row.field);
+                        }
+                        if (keyEvent.key === "Escape") setEditing(null);
+                      }}
+                      placeholder={
+                        row.field === "email" ? "Optional" : undefined
+                      }
+                      type="text"
+                      value={draft}
+                    />
+                  )}
+                  {error ? (
+                    <p
+                      className="mt-1 text-[10px] font-bold text-[#c2410c]"
+                      role="alert"
+                    >
+                      {error}
+                    </p>
+                  ) : null}
+                </div>
+
+                <button
+                  aria-label="Save"
+                  className="shrink-0 rounded-md px-2 py-1 text-xs font-black text-[#1f4d73] hover:bg-[#eef4fa] disabled:opacity-45"
+                  disabled={isSaving}
+                  onClick={() => void save(row.field)}
+                  type="button"
+                >
+                  {isSaving ? "…" : "Save"}
+                </button>
+                <button
+                  aria-label="Cancel"
+                  className="shrink-0 rounded-md px-2 py-1 text-xs font-black text-[#6a7483] hover:bg-[#eef4fa] disabled:opacity-45"
+                  disabled={isSaving}
+                  onClick={() => setEditing(null)}
+                  type="button"
+                >
+                  Cancel
+                </button>
+              </div>
+            );
+          }
+
+          return (
+            <div className={contactRowClass} key={row.field}>
+              <span className={contactIconClass}>
+                <LineIcon name={row.icon} />
+              </span>
+
+              {/* Still a link, so the row keeps dialling and composing on a
+                  phone. The pencil beside it is what opens the editor, rather
+                  than the row itself - tapping a number should call it. */}
+              {row.href ? (
+                <a
+                  className="min-w-0 flex-1 truncate hover:underline"
+                  href={row.href}
+                >
+                  {row.label}
+                </a>
+              ) : (
+                <span className="min-w-0 flex-1 truncate">{row.label}</span>
+              )}
+
+              {/* Named per row rather than a bare "Edit": three identical
+                  buttons in one card are indistinguishable to anything reading
+                  by accessible name. The visible word stays short. */}
+              <button
+                aria-label={row.editLabel}
+                className="shrink-0 rounded-md px-2 py-1 text-xs font-black text-[#1f4d73] hover:bg-[#eef4fa]"
+                onClick={() => startEditing(row.field, row.draftFrom())}
+                type="button"
+              >
+                Edit
+              </button>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -232,9 +438,11 @@ export function createBookingFormValues(event: EventFile): BookingFormValues {
   return {
     clientName: event.clientName,
     phone: nationalFromE164(event.phone),
+    email: event.email,
     eventDate: event.dateInput,
     hallId: event.hallId,
     eventTypeId: event.eventTypeId,
+    coordinatorMembershipId: event.coordinatorMembershipId ?? "",
     countMode: countedInCouples ? "Couples" : "People",
     guests: countText(event.guests),
     couples: countText(event.couples),
@@ -252,12 +460,11 @@ export function createBookingFormValues(event: EventFile): BookingFormValues {
  * event is. Events with no time recorded simply keep having none.
  */
 export function toEventDetailsPayload(
-  data: BookingFormInput,
+  data: EventDetailsFormInput,
   storedTimeInput: string
 ) {
   return {
     clientName: data.clientName,
-    phone: data.phone,
     eventDate: data.eventDate,
     hallId: data.hallId,
     eventTypeId: data.eventTypeId,
@@ -279,11 +486,13 @@ const confirmableStatuses = ["INQUIRY", "TENTATIVE_HOLD"];
 type PanelFeedback = { tone: "success" | "error"; text: string };
 
 export function EventInformation({
+  coordinators,
   event,
   eventTypes,
   halls,
   onEventSaved
 }: {
+  coordinators: EventCoordinatorOption[];
   event: EventFile;
   eventTypes: EventTypeOption[];
   halls: EventHallOption[];
@@ -352,11 +561,11 @@ export function EventInformation({
   }
 
   async function submit(intent: "save" | "confirm") {
-    // The same schema the calendar's booking dialog submits through, so an
-    // event cannot be edited into a shape a new booking would be refused for.
-    const parsed = bookingFormSchema({ country: phoneCountry }).safeParse(
-      values
-    );
+    // The booking dialog's schema less the contact fields, which the Client
+    // contact card owns. Everything else is checked exactly as a new booking
+    // would be, so an event cannot be edited into a shape that would have been
+    // refused when it was created.
+    const parsed = eventDetailsFormSchema().safeParse(values);
 
     if (!parsed.success) {
       setErrors(toFieldErrors(parsed.error));
@@ -438,17 +647,18 @@ export function EventInformation({
         <BookingFormFields
           columns={3}
           errors={errors}
+          coordinators={coordinators}
           eventTypes={eventTypes}
           halls={halls}
           idPrefix="event-details"
           onChange={updateValue}
           onPhoneCountryChange={setPhoneCountry}
           phoneCountry={phoneCountry}
-          // No country picker here: this panel edits a number that was already
-          // saved with a country, so the picker only ever restated it - and the
-          // three-column grid makes this the tightest phone field in the app.
-          // An overseas number can still be typed in full, with its own "+".
-          showPhoneCountry={false}
+          // The phone, email and coordinator live on the Client contact card
+          // beside this one, which edits them a row at a time. Kept in one
+          // place rather than two: a panel still holding a stale phone would
+          // put it back over the card's edit on the next save of anything.
+          showClientContact={false}
           values={values}
         />
 

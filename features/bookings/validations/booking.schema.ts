@@ -23,6 +23,9 @@ export const createBookingSchema = z
     // validation would reject outright. Absent is now expressible.
     phone: phoneSchema({ label: "Phone number" }),
     email: z.string().trim().email().optional(),
+    // The membership running the event. Absent is Unassigned, which is what a
+    // booking taken at the calendar usually is until somebody picks it up.
+    coordinatorMembershipId: z.string().uuid().optional(),
     eventDate: z.string().date().optional(),
     startsAt: z.string().datetime({ offset: true }).optional(),
     endsAt: z.string().datetime({ offset: true }).optional(),

@@ -46,7 +46,10 @@ export type EventFile = {
   guests: string;
   children: string;
   couples: string;
+  /** The coordinator's name, or "Unassigned" - what the contact card reads. */
   coordinator: string;
+  /** The stored membership, which is what the form edits. "" is Unassigned. */
+  coordinatorMembershipId: string;
   balance: string;
   status: "Confirmed" | "Hold";
   paymentStatus: string;
@@ -88,6 +91,21 @@ export type EventHallOption = {
 };
 
 export type EventTypeOption = {
+  id: string;
+  name: string;
+};
+
+/**
+ * A staff member an event can be assigned to.
+ *
+ * `id` is the organization membership, not the user: coordinating happens
+ * inside one organization, and the membership is the row that says this person
+ * belongs to it. Served by `/api/events` beside the halls and event types
+ * rather than read from `/api/staff`, which is behind `staff.read` - somebody
+ * allowed to edit an event should not need the staff directory to say who is
+ * running it.
+ */
+export type EventCoordinatorOption = {
   id: string;
   name: string;
 };
@@ -141,12 +159,15 @@ export type EventsResponse = {
     } | null;
     phone: string;
     email: string | null;
+    coordinatorMembershipId: string | null;
+    coordinator: { id: string; user: { name: string } } | null;
     workspaceData: Record<string, unknown> | null;
     menuItemIds: string[];
     hall: { id: string; name: string };
   }>;
   halls: EventHallOption[];
   eventTypes: EventTypeOption[];
+  coordinators: EventCoordinatorOption[];
 };
 
 /// Every tab the workspace can render, including the ones the MVP withdraws.
