@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
   LineIcon,
-  timelineRows,
   type EventFile
 } from "@/features/events/components/event-manager-shared";
 
@@ -127,19 +126,20 @@ function toggleWhen(row: TimelineItem, anchor: string): Partial<TimelineItem> {
     : { cue: "", time: "" };
 }
 
+/**
+ * What the card opens on: the saved sheet, and otherwise nothing.
+ *
+ * A new booking starts empty rather than on a sample schedule. Prefilled rows
+ * read as a real timeline the moment the tab opens - they carry times and a
+ * Kitchen line staff would act on - so a manager who never touched the card
+ * could confirm somebody else's dinner service for their own event.
+ */
 function initialTimeline(event: EventFile): TimelineItem[] {
   const saved = event.workspaceData.timeline;
 
   if (Array.isArray(saved)) return sortTimelineRows(saved as TimelineItem[]);
 
-  return sortTimelineRows(
-    timelineRows.map(([time, text, type], index) => ({
-      id: `default-${index}`,
-      time,
-      text,
-      type: type as TimelineItem["type"]
-    }))
-  );
+  return [];
 }
 
 /**
@@ -310,6 +310,12 @@ export function TimelineInstructions({
       </header>
 
       <div className="space-y-3 p-3 @lg:p-4">
+        {rows.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-[#b9c2cf] px-3 py-4 text-center text-xs font-semibold text-[#64748b]">
+            No timeline instructions yet. Add a time for something that happens
+            at a set hour, or a cue for something that waits on another step.
+          </p>
+        ) : null}
         {rows.map((row) => (
           <div
             key={row.id}

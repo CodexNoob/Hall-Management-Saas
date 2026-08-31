@@ -193,9 +193,9 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await page
     .getByRole("textbox", { exact: true, name: "Notes" })
     .fill("Updated internal note.");
-  // Scoped to the role: the timeline rows expose aria-labels such as
-  // "Timeline time for Guests arrive and first course begins", so a bare
-  // getByLabel("Guests") is ambiguous. This is a textbox rather than a
+  // Scoped to the role: a timeline row exposes aria-labels naming its own
+  // instruction ("Timeline time for ..."), so a bare getByLabel("Guests") is
+  // ambiguous against any row a fixture saves. This is a textbox rather than a
   // spinbutton because the count fields moved off type="number" - that input
   // type hands JavaScript "" for anything it cannot parse, which is how
   // garbage used to be stored as a silent 0.
