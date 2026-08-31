@@ -26,16 +26,22 @@ test("authenticated state opens the workspace without logging in again", async (
   ).toBeVisible({ timeout: 45_000 });
 });
 
-// Every route here renders `DashboardTopbar` with both a search box and at
-// least one action button, which is what the assertion below measures. Kitchen
-// was in this list until it stopped using that topbar: it now draws its own
-// full-width `KitchenHeader` - an Open sidebar button, notifications and the
-// date as its h1. Events left it for the opposite reason: its topbar carries
-// neither a search box nor an action now that the event list owns the only
-// search. Both still appear in the smoke list at the foot of this file, which
-// opens them and checks they fit the viewport.
+// Every route here renders `DashboardTopbar` with at least one action button,
+// which is what the assertion below measures. Kitchen was in this list until it
+// stopped using that topbar: it now draws its own full-width `KitchenHeader` -
+// an Open sidebar button, notifications and the date as its h1. Events left it
+// for the opposite reason: its topbar carries neither a search box nor an
+// action now that the event list owns the only search. Both still appear in the
+// smoke list at the foot of this file, which opens them and checks they fit the
+// viewport.
+//
+// The search box is no longer measured. Menu is the last route in this list and
+// it passes `showSearch={false}` - its own library search is the one place the
+// list is filtered from - so there is no topbar search left to sit beside. The
+// action is named by its aria-label because that is all there is at 360px: the
+// button's "Bulk upload" text is `hidden lg:inline`.
 for (const [label, route, action] of [
-  ["Menu", "/dashboard/menu", "Create new package"]
+  ["Menu", "/dashboard/menu", "Bulk upload menu items"]
 ] as Array<[string, string, string]>) {
   test(`${label} keeps the topbar actions on the title line on a phone`, async ({
     page
@@ -51,26 +57,22 @@ for (const [label, route, action] of [
     // Scoped to the topbar: a page may carry a second h1 of its own.
     const topbar = page.locator(".dashboard-topbar-content");
     const title = topbar.getByRole("heading", { level: 1 });
-    const search = topbar.getByRole("button", { name: "Search", exact: true });
     const actionButton = topbar.getByRole("button", { name: action });
     await expect(title).toBeVisible();
-    await expect(search).toBeVisible();
     await expect(actionButton).toBeVisible();
 
-    const [titleBox, searchBox, actionBox] = await Promise.all([
+    const [titleBox, actionBox] = await Promise.all([
       title.boundingBox(),
-      search.boundingBox(),
       actionButton.boundingBox()
     ]);
-    if (!titleBox || !searchBox || !actionBox) {
+    if (!titleBox || !actionBox) {
       throw new Error("Topbar is not visible.");
     }
 
-    // Same row as each other, and level with the title rather than under it.
-    expect(Math.abs(searchBox.y - actionBox.y)).toBeLessThan(4);
-    expect(searchBox.y).toBeLessThan(titleBox.y + titleBox.height);
+    // Level with the title rather than under it.
+    expect(actionBox.y).toBeLessThan(titleBox.y + titleBox.height);
     // And clear of the title, so nothing overlaps at the narrowest width.
-    expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(searchBox.x);
+    expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(actionBox.x);
   });
 }
 
@@ -191,23 +193,23 @@ test("the kitchen board takes the whole screen until its own button asks for the
     )
     .toBe("256px");
 
+  // One control, two names: opening the sidebar renames it to Close sidebar,
+  // which is the whole point of it - Kitchen carries no duplicate X inside the
+  // panel, so this button has to be the way back out. Measured under the name it
+  // has now, because the locator that opened it no longer matches anything.
+  const closeButton = page.getByRole("button", { name: "Close sidebar" });
   const [sidebarBox, openBox] = await Promise.all([
     sidebar.boundingBox(),
-    openButton.boundingBox()
+    closeButton.boundingBox()
   ]);
   if (!sidebarBox || !openBox) {
-    throw new Error(
-      "The sidebar and its Open sidebar button must both be drawn."
-    );
+    throw new Error("The sidebar and its own toggle must both be drawn.");
   }
   expect(openBox.x).toBeGreaterThanOrEqual(sidebarBox.x + sidebarBox.width - 1);
 
-  // Kitchen has no duplicate X inside the panel. The header control remains
-  // visible beside it and becomes the way to close the sidebar.
   await expect(
     sidebar.getByRole("button", { name: "Close navigation" })
   ).toHaveCount(0);
-  const closeButton = page.getByRole("button", { name: "Close sidebar" });
   await closeButton.click();
   await expect(sidebar).toHaveClass(/-translate-x-full/);
   await expect(openButton).toBeVisible();
