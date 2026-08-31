@@ -131,6 +131,8 @@ export function KitchenDashboardPage() {
         source: "booking",
         category: event.hall.name,
         title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
+        clientName: event.clientName,
+        eventType: event.eventType,
         status: event.eventStatus,
         statusType: event.eventStatus.toLowerCase().includes("hold")
           ? "hold"
@@ -139,7 +141,8 @@ export function KitchenDashboardPage() {
         totalGuests: event.counts.totalGuests,
         menuStatus: event.menuStatus,
         otherMeals: event.otherMeals,
-        summary: event.summary
+        summary: event.summary,
+        sheet: event.sheet
       };
       if (
         !normalizedSearch ||
@@ -220,6 +223,12 @@ export function KitchenDashboardPage() {
         canUpdateKitchenStatus: false
       }
     : detailsPermissions;
+  const currentSelectedKitchenEvent = selectedKitchenEvent
+    ? (days
+        .flatMap((day) => day.events ?? [])
+        .find((event) => event.id === selectedKitchenEvent.id) ??
+      selectedKitchenEvent)
+    : null;
 
   const navigationStep =
     activeView === "today" ? 1 : activeView === "week" ? 7 : 28;
@@ -477,7 +486,7 @@ export function KitchenDashboardPage() {
       />
 
       <KitchenEventDetailsDialog
-        event={selectedKitchenEvent}
+        event={currentSelectedKitchenEvent}
         isSaving={kitchenMutation.isPending}
         onClose={() => setSelectedKitchenEvent(null)}
         onSaveItemAction={saveKitchenItemAction}

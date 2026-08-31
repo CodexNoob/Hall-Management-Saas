@@ -338,11 +338,7 @@ async function cleanUp(page: Page, eventId: string) {
  * Four weeks rather than the day view it lands on: the booking above is dated
  * days out, and the day view draws one date at a time.
  */
-async function openEventDialog(
-  page: Page,
-  eventId: string,
-  clientName: string
-) {
+async function openEventDialog(page: Page, clientName: string) {
   const board = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -374,20 +370,25 @@ async function openEventDialog(
     await nextBoard;
   }
 
-  // The sheet behind the dialog is a second request, and every control in it is
-  // absent until it lands.
-  const sheet = page.waitForResponse(
-    (response) =>
-      response.request().method() === "GET" &&
-      new URL(response.url()).pathname === `/api/events/${eventId}/kitchen`,
-    { timeout: 30_000 }
-  );
-
   await eventButton.click({ timeout: 30_000 });
-  await sheet;
 
   const dialog = page.getByRole("dialog", { name: clientName });
   await expect(dialog).toBeVisible();
+
+  /*
+   * Waits for the sheet to be on screen rather than for the request that used
+   * to fetch it.
+   *
+   * The board's payload now carries each event's sheet inline, and the dialog
+   * only falls back to `GET /api/events/[eventId]/kitchen` when it did not -
+   * see `kitchenQuery` in kitchen-event-details-dialog.tsx. Waiting on that
+   * response therefore hung for its full timeout on exactly the events where
+   * the board had done its job. What the callers actually need is for the dish
+   * cards to exist, which is true either way round.
+   */
+  await expect(
+    dialog.getByRole("button", { name: "Replace" }).first()
+  ).toBeVisible({ timeout: 30_000 });
 
   return dialog;
 }
@@ -428,7 +429,7 @@ test.describe("kitchen board dish replacement", () => {
       });
       expect(started.status()).toBe(200);
 
-      const dialog = await openEventDialog(page, eventId, clientName);
+      const dialog = await openEventDialog(page, clientName);
       // The card's own control rather than its name: the name also appears in
       // the assignment select's label, and a bare text lookup matches both.
       const replaceA = dialog.getByRole("button", {
@@ -517,7 +518,7 @@ test.describe("kitchen board dish replacement", () => {
     try {
       await seedMenu(page, eventId, [catalog.buffetA.id, catalog.buffetB.id]);
 
-      const dialog = await openEventDialog(page, eventId, clientName);
+      const dialog = await openEventDialog(page, clientName);
       await dialog
         .getByRole("button", { name: `Replace ${BUFFET_A}` })
         .click({ timeout: 20_000 });
