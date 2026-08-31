@@ -33,7 +33,8 @@ import {
   authorize,
   hasPermission,
   requireUserActor,
-  scoped
+  scoped,
+  tenant
 } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -57,6 +58,40 @@ const kitchenRangeSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a valid range start.")
   .optional();
+
+/**
+ * The Settings > Kitchen preference the board opens itself on.
+ *
+ * Written by /api/settings into `integrations.controlCenter.kitchen` and read
+ * here rather than fetched separately, so the board does not paint Today for a
+ * moment before a second request says the hall asked for the week.
+ *
+ * A missing or unrecognised value reads as "week", which is what /api/settings
+ * writes into a settings document it creates - reading it as anything else
+ * would open a board its own Settings page disagrees with.
+ */
+function kitchenBoardSettingsFromIntegrations(integrations: unknown) {
+  const kitchen =
+    integrations &&
+    typeof integrations === "object" &&
+    "controlCenter" in integrations
+      ? (
+          (integrations as { controlCenter?: { kitchen?: unknown } })
+            .controlCenter ?? {}
+        ).kitchen
+      : undefined;
+  const defaultView =
+    kitchen && typeof kitchen === "object"
+      ? (kitchen as { defaultView?: unknown }).defaultView
+      : undefined;
+
+  return {
+    defaultView:
+      defaultView === "today" || defaultView === "four-weeks"
+        ? defaultView
+        : ("week" as const)
+  };
+}
 
 /**
  * Progress, who is on a dish, and swapping one dish for another.
@@ -343,7 +378,7 @@ export async function GET(request: Request) {
     const end = new Date(start);
     end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-    const [events, standaloneEvents, workers] = await Promise.all([
+    const [events, standaloneEvents, workers, settings] = await Promise.all([
       prisma.event.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -383,7 +418,14 @@ export async function GET(request: Request) {
         },
         orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
       }),
-      loadKitchenStaffWorkers(actor.organizationId)
+      loadKitchenStaffWorkers(actor.organizationId),
+      // Read, never created: an organization that has never opened Settings has
+      // no row here and gets the shipped default, and a board that refetches
+      // every time a cook ticks a dish should not be writing on a GET.
+      prisma.organizationSetting.findUnique({
+        where: tenant(actor),
+        select: { integrations: true }
+      })
     ]);
     const currentWorkerId =
       workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
@@ -655,7 +697,10 @@ export async function GET(request: Request) {
         // the difference between "no work exists" and "none of it is yours" is
         // the whole point of scoping the sheet.
         seesWholeBoard: visibility.seesWholeBoard
-      }
+      },
+      kitchenSettings: kitchenBoardSettingsFromIntegrations(
+        settings?.integrations
+      )
     });
   } catch (error) {
     return createApiErrorResponse(error);

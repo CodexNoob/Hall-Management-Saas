@@ -41,13 +41,31 @@ import {
 } from "@/features/kitchen/components/kitchen-shared";
 export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
-  const [activeView, setActiveView] = useState<KitchenView>("today");
+  /*
+   * Null until the range tabs are used, and only then does it win.
+   *
+   * The view a visit opens on is Settings > Kitchen > Default view, which
+   * arrives with the board data rather than being known at mount. Holding an
+   * override instead of seeding state from the response is what lets the
+   * setting apply the moment it lands without an effect racing the first paint,
+   * and without the board undoing a tab the cook has just pressed.
+   */
+  const [activeViewOverride, setActiveViewOverride] =
+    useState<KitchenView | null>(null);
   const today = useMemo(() => startOfDay(new Date()), []);
   const [anchorDate, setAnchorDate] = useState(today);
-  const rangeStart =
-    activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+  // One window for all three views: it opens on the anchor's week and runs 28
+  // days, so Today, This Week and 4 Weeks all sit inside it. Measuring it per
+  // view is what would make the request depend on a setting that arrives in the
+  // response - refetching the board the moment that setting landed - and it
+  // also spares a refetch on every tab press.
+  const rangeStart = startOfWeek(anchorDate);
   const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}`;
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>(kitchenQueryUrl);
+  const activeView =
+    activeViewOverride ??
+    kitchenQuery.data?.kitchenSettings?.defaultView ??
+    "today";
   const kitchenMutation = useAuthenticatedMutation<
     KitchenItemActionInput,
     unknown
@@ -148,7 +166,11 @@ export function KitchenDashboardPage() {
       eventsByDate.set(event.dateKey, current);
     }
 
-    const start = activeView === "today" ? anchorDate : startOfWeek(anchorDate);
+    // The same 28 days the request covers, whichever view is on: Today reads
+    // the selected day out of them, This Week the first seven, 4 Weeks all of
+    // them. Building a different list per view is how a day could end up drawn
+    // from outside the range that was fetched.
+    const start = startOfWeek(anchorDate);
     const selectedDateKey = dateKey(anchorDate);
 
     return Array.from({ length: 28 }, (_, index) => {
@@ -171,14 +193,7 @@ export function KitchenDashboardPage() {
         events: eventsByDate.get(key)
       };
     });
-  }, [
-    activeView,
-    anchorDate,
-    kitchenQuery.data,
-    pageSearchQuery,
-    today,
-    workersOnly
-  ]);
+  }, [anchorDate, kitchenQuery.data, pageSearchQuery, today, workersOnly]);
 
   const canAddKitchenEvent =
     kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
@@ -223,7 +238,7 @@ export function KitchenDashboardPage() {
   }
 
   function changeView(view: KitchenView) {
-    setActiveView(view);
+    setActiveViewOverride(view);
     if (view === "today") setAnchorDate(today);
   }
 
