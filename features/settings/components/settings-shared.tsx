@@ -23,7 +23,12 @@ export type SettingsResponse = {
 
 export type ControlCenterSettings = {
   general: {
-    logoUrl: string;
+    /**
+     * Where the logo lives in the private organization-logos bucket, not a URL:
+     * it is rendered through a signed URL that rotates, so the path is the only
+     * part worth storing.
+     */
+    logoPath: string;
     contactEmail: string;
     dateFormat: "MMM d, yyyy" | "MM/dd/yyyy" | "dd/MM/yyyy";
     timeFormat: "12-hour" | "24-hour";
@@ -61,6 +66,7 @@ export type IconName =
   | "globe"
   | "eye"
   | "link"
+  | "upload"
   | "billing";
 
 export type ModalSettingsSection =
@@ -259,6 +265,12 @@ export function Icon({
       <>
         <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" />
         <path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M12 16V4M8 8l4-4 4 4" />
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </>
     ),
     billing: (

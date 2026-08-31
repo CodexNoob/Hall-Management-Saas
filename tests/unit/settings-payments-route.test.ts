@@ -170,7 +170,7 @@ describe("organization payment link settings", () => {
   it("persists validated control-center settings in the tenant settings document", async () => {
     const controlCenter = {
       general: {
-        logoUrl: "https://example.com/logo.png",
+        logoPath: `${organizationId}/branding/logo.png`,
         contactEmail: "office@example.com",
         dateFormat: "MMM d, yyyy",
         timeFormat: "12-hour"
@@ -218,7 +218,7 @@ describe("organization payment link settings", () => {
   it("keeps a saturday week start and an explicit click-anywhere choice", async () => {
     const controlCenter = {
       general: {
-        logoUrl: "",
+        logoPath: "",
         contactEmail: "",
         dateFormat: "MMM d, yyyy",
         timeFormat: "12-hour"
@@ -256,7 +256,7 @@ describe("organization payment link settings", () => {
     const response = await patch({
       controlCenter: {
         general: {
-          logoUrl: "",
+          logoPath: "",
           contactEmail: "not-an-email",
           dateFormat: "MMM d, yyyy",
           timeFormat: "12-hour"
@@ -264,6 +264,39 @@ describe("organization payment link settings", () => {
         calendar: {
           defaultView: "year",
           weekStartsOn: "monday",
+          showHebrewDate: true,
+          showAvailability: true,
+          holdExpirationHours: 48,
+          shortNoticeDays: 7
+        },
+        kitchen: {
+          defaultView: "today",
+          shortNoticeDays: 3,
+          notificationsEnabled: true,
+          requireMenuAcknowledgment: true
+        }
+      }
+    });
+
+    expect(response.status).toBe(400);
+    expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  // The browser uploads the logo to storage itself, so the path arrives from
+  // the client and this handler is the only thing that checks whose folder it
+  // names.
+  it("refuses a logo path outside the acting organization's folder", async () => {
+    const response = await patch({
+      controlCenter: {
+        general: {
+          logoPath: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/branding/logo.png",
+          contactEmail: "",
+          dateFormat: "MMM d, yyyy",
+          timeFormat: "12-hour"
+        },
+        calendar: {
+          defaultView: "month",
+          weekStartsOn: "sunday",
           showHebrewDate: true,
           showAvailability: true,
           holdExpirationHours: 48,
