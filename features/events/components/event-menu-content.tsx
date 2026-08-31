@@ -26,7 +26,8 @@ import {
 import { EventMenuSkeleton } from "@/features/events/components/event-menu-skeleton";
 import {
   LINE_MULTIPLIER_MAX,
-  LINE_MULTIPLIER_MIN
+  LINE_MULTIPLIER_MIN,
+  styleTakesMultiplier
 } from "@/features/menu/lib/menu-quantity";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import {
@@ -84,8 +85,8 @@ function CardQuantity({
   name: string;
   targetId: string;
   quantity: number;
-  /// Absent on a confirmed menu, which shows the count without offering to
-  /// change it.
+  /// Absent on a confirmed menu, and on a line whose style takes no quantity -
+  /// both show the count without offering to change it.
   onQuantityChange?: (next: number) => void;
 }) {
   const isMultiplied = quantity > 1;
@@ -165,7 +166,8 @@ function MenuDishCard({
   detail?: string | null;
   pictureUrl: string | null;
   quantity: number;
-  onQuantityChange: (next: number) => void;
+  /// Omitted for a line that takes no quantity - a plated dish or an add-on.
+  onQuantityChange?: (next: number) => void;
   onRemove: () => void;
   disabled?: boolean;
 }) {
@@ -1011,10 +1013,26 @@ export function EventMenuContent({
     );
   };
 
+  /**
+   * Which way a both-ways dish is served here.
+   *
+   * Answering "plated" takes any quantity back down to one serving. The stepper
+   * is not offered on that style, so a number left behind by the other answer
+   * would be one nothing on the tab could reach - still cooked, and no longer
+   * visible as a choice anyone made.
+   */
   const assignStyle = (line: EventMenuLine, serviceStyle: string) => {
     editLines((current) =>
       current.lines.map((candidate) =>
-        candidate.id === line.id ? { ...candidate, serviceStyle } : candidate
+        candidate.id === line.id
+          ? {
+              ...candidate,
+              serviceStyle,
+              quantityMultiplier: styleTakesMultiplier(serviceStyle)
+                ? candidate.quantityMultiplier
+                : LINE_MULTIPLIER_MIN
+            }
+          : candidate
       )
     );
   };
@@ -1401,7 +1419,16 @@ export function EventMenuContent({
                       // add-on is not multiplied into the event's totals, which
                       // nothing derives from these lines anyway.
                       quantity={line.quantityMultiplier}
-                      onQuantityChange={(next) => setQuantity(line, next)}
+                      // Buffet only - see `styleTakesMultiplier`. A line that
+                      // already carries a number is still shown it, read-only:
+                      // the kitchen sheet scales on that number whatever style
+                      // it sits under, so hiding it outright would put the
+                      // screen and the sheet at odds.
+                      onQuantityChange={
+                        styleTakesMultiplier(line.serviceStyle)
+                          ? (next) => setQuantity(line, next)
+                          : undefined
+                      }
                       onRemove={() => removeLine(line)}
                       disabled={!canEditMenu}
                     />

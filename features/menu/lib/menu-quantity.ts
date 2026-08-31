@@ -1,7 +1,8 @@
 import type {
   CountBasis,
   MenuItemServiceRule,
-  RoundingMode
+  RoundingMode,
+  ServiceStyle
 } from "@/features/menu/lib/service-style";
 
 /**
@@ -220,6 +221,29 @@ export function calculateStyleQuantity(
  */
 export const LINE_MULTIPLIER_MIN = 1;
 export const LINE_MULTIPLIER_MAX = 99;
+
+/**
+ * The one service style a multiplier is offered on.
+ *
+ * A buffet dish is the only line a hall genuinely orders more of: a second tray
+ * of brisket feeds the room a second time. Plated is one plate per head - "×2"
+ * there would send out a plate for a guest who is not seated - and a drink on
+ * the table is already counted per table, so the rule that says how many
+ * bottles it wants has said everything there is to say. An add-on has no
+ * counting rule at all, so there is nothing for a multiplier to multiply.
+ *
+ * A number and a rule that cannot both be right is worse than no number, which
+ * is why the stepper is withheld rather than shown and ignored.
+ */
+export const MULTIPLIED_STYLE: ServiceStyle = "Buffet";
+
+/**
+ * Whether a menu line's style takes a quantity. `null` - an add-on, or a dish
+ * still waiting to be told which way it is served - does not.
+ */
+export function styleTakesMultiplier(serviceStyle: string | null) {
+  return serviceStyle === MULTIPLIED_STYLE;
+}
 
 /** What one serving rounds to. `units` is that times the line's multiplier. */
 export type ScaledMenuQuantity = MenuQuantity & { perServingUnits: number };
