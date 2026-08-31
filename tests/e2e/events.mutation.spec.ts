@@ -158,17 +158,37 @@ test.beforeEach(async () => {
   );
 });
 
+/**
+ * The client name the calendar test booked under, handed to `afterEach`.
+ *
+ * Its cancellation cannot live in the test's own `finally`: a run that exceeds
+ * its budget is torn down before that block can finish its requests, so the
+ * booking it just made stays active and holds its date for good. Every timed-out
+ * run used to cost the organization another date, which made the next run walk
+ * further through conflicts and time out in its turn. `afterEach` is given its
+ * own budget and still runs after a timeout, which is the whole reason to put
+ * the cleanup there.
+ */
+let calendarBookingClientName: string | null = null;
+
+test.afterEach(async ({ page }) => {
+  if (!calendarBookingClientName) return;
+
+  const clientName = calendarBookingClientName;
+  calendarBookingClientName = null;
+  await cancelBooking(page, clientName);
+});
+
 test("creates an isolated event from the Calendar Book date form", async ({
   page
 }) => {
-  // Provisioning, then a candidate date per attempt - each one a save and a
-  // 20s race on the conflict alert - and a cancellation to hand the date back.
-  // The ±1 day skipped below is narrower than the hall's real setup-to-cleanup
-  // window, so dates this picks as free can still come back as conflicts, and
-  // each of those costs the full race. The default 60s was being spent before
-  // the last assertion could run.
-  test.setTimeout(180_000);
+  // Provisioning, then a save and a 20s race on the conflict alert per
+  // candidate date. One candidate is the normal case now that the search starts
+  // clear of the booked stretch, so this is headroom for a run that lands on a
+  // date something else already holds, not the usual cost.
+  test.setTimeout(120_000);
   const clientName = `E2E Booking ${Date.now()}`;
+  calendarBookingClientName = clientName;
 
   try {
     await page.goto("/dashboard/calendar");
@@ -189,7 +209,15 @@ test("creates an isolated event from the Calendar Book date form", async ({
     // The trial plan allows a single hall, so any date that already holds an
     // active booking would fail the hall-reservation conflict check. Pick the
     // first free date rather than a jittered one, so back-to-back runs stay
-    // green; the teardown below is what keeps the pool from draining.
+    // green.
+    //
+    // The search starts months out rather than the day after tomorrow. Every
+    // other fixture in this suite books within the coming fortnight, and each
+    // conflict here costs the full 20s race - enough of them and the test spends
+    // its whole budget discovering dates it cannot have. Out here the first
+    // candidate is normally free, so the loop below runs once. Which date the
+    // booking lands on is not what this test is about.
+    const SEARCH_START_OFFSET_DAYS = 120;
     const today = new Date();
     const unavailableDates = new Set(
       bookedDates.flatMap((date) =>
@@ -199,14 +227,14 @@ test("creates an isolated event from the Calendar Book date form", async ({
       )
     );
     const bookingCandidates = Array.from({ length: 30 }, (_, offset) =>
-      addDays(today, offset + 2)
+      addDays(today, offset + SEARCH_START_OFFSET_DAYS)
     ).filter(
       (candidate) => !unavailableDates.has(format(candidate, "yyyy-MM-dd"))
     );
 
     if (bookingCandidates.length === 0) {
       throw new Error(
-        "Every date in the next month already has an active booking in the E2E organization."
+        `Every date in the month from day ${SEARCH_START_OFFSET_DAYS} already has an active booking in the E2E organization.`
       );
     }
 
@@ -258,12 +286,21 @@ test("creates an isolated event from the Calendar Book date form", async ({
           response.request().method() === "POST" &&
           new URL(response.url()).pathname === "/api/events"
       );
-      const calendarRefreshed = page.waitForResponse(
-        (response) =>
-          response.request().method() === "GET" &&
-          new URL(response.url()).pathname === "/api/events" &&
-          response.ok()
-      ).catch(() => null);
+      // Bounded, because this one is allowed not to happen. The `.catch` below
+      // says as much - the calendar is free to repaint from its own cache
+      // rather than refetching - but an unbounded `waitForResponse` never
+      // rejects, so there was nothing for the catch to catch. It sat here
+      // spending the entire test budget, whatever the budget was, and the
+      // assertion that follows was left with no time to run.
+      const calendarRefreshed = page
+        .waitForResponse(
+          (response) =>
+            response.request().method() === "GET" &&
+            new URL(response.url()).pathname === "/api/events" &&
+            response.ok(),
+          { timeout: 15_000 }
+        )
+        .catch(() => null);
       await dialog.getByRole("button", { name: "Save booking" }).click();
       const savedResponse = await savedRequest;
 
@@ -306,6 +343,11 @@ test("creates an isolated event from the Calendar Book date form", async ({
     // In a `finally` rather than after the assertions: a run that fails partway
     // has usually created the booking already, and that is precisely the run
     // whose date would otherwise be lost for good.
+    //
+    // Cleared first so `afterEach` does not repeat the work on the normal path.
+    // It stays set, and does the cancelling itself, when a run exceeds its
+    // budget and never reaches this block at all.
+    calendarBookingClientName = null;
     await cancelBooking(page, clientName);
   }
 });
