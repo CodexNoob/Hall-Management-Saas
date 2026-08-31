@@ -30,6 +30,7 @@ export function CalendarSettingsView({
 }: {
   blockedDates: Array<{
     id: string;
+    hallId: string | null;
     startDate: string;
     endDate: string;
     label: string;
@@ -49,11 +50,15 @@ export function CalendarSettingsView({
   isMutatingBlockedDate: boolean;
   saveDailyEventLimitError: string | null;
   onSaveDailyEventLimit: (limit: number) => Promise<void>;
-  onAddBlockedRange: (range: DateRange) => Promise<void>;
+  onAddBlockedRange: (range: DateRange, hallId: string) => Promise<void>;
   onRemoveBlockedRange: (id: string) => Promise<void>;
   weekStartsOn?: WeekStartsOn;
 }) {
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
+  // Empty until one is chosen, which is what the Add button waits for: a range
+  // closes one hall, and there is no sensible hall to guess on the reader's
+  // behalf.
+  const [blockedHallId, setBlockedHallId] = useState("");
   const [dailyEventLimitDraft, setDailyEventLimitDraft] =
     useState(dailyEventLimit);
   const [blockedRangeDraft, setBlockedRangeDraft] = useState<DateRange>(() => ({
@@ -81,6 +86,12 @@ export function CalendarSettingsView({
     const isSingleBlockedDay = dateKey(startDate) === dateKey(endDate);
     return {
       id: range.id,
+      // A range with no hall predates the column and closes the whole venue.
+      // Named as such rather than left blank, so the list never implies a hall
+      // it does not have.
+      hallLabel:
+        hallAvailability.find((hall) => hall.id === range.hallId)?.name ??
+        "All halls",
       startLabel: rangeDateFormatter.format(startDate),
       endLabel: isSingleBlockedDay
         ? undefined
@@ -204,7 +215,25 @@ export function CalendarSettingsView({
                 </p>
               </div>
 
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[156px_156px_auto_auto]">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[180px_156px_156px_auto_auto]">
+                <label className="rounded-xl border border-[#b9c2cf] bg-white px-3 py-2">
+                  <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
+                    Hall
+                  </span>
+                  <select
+                    className="mt-1 h-5 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-black text-[#17202a] outline-none"
+                    disabled={!canUpdateSettings}
+                    onChange={(event) => setBlockedHallId(event.target.value)}
+                    value={blockedHallId}
+                  >
+                    <option value="">Select a hall</option>
+                    {hallAvailability.map((hall) => (
+                      <option key={hall.id} value={hall.id}>
+                        {hall.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
                     Start date
@@ -240,15 +269,31 @@ export function CalendarSettingsView({
                   />
                 </div>
                 <button
-                  className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
-                  disabled={!canUpdateSettings || isMutatingBlockedDate}
-                  onClick={() => void onAddBlockedRange(blockedRangeDraft)}
+                  className="h-9 self-center rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={
+                    !canUpdateSettings || isMutatingBlockedDate || !blockedHallId
+                  }
+                  onClick={() =>
+                    void onAddBlockedRange(blockedRangeDraft, blockedHallId)
+                  }
+                  title={
+                    blockedHallId
+                      ? undefined
+                      : "Choose the hall this range closes."
+                  }
                   type="button"
                 >
                   Add blocked range
                 </button>
               </div>
             </div>
+
+            {!blockedHallId ? (
+              <p className="mt-2 text-xs font-bold text-[#617086]">
+                Choose a hall to close. A range blocks the hall it names, not the
+                whole venue.
+              </p>
+            ) : null}
 
             <div className="mt-3 space-y-2">
               {blockedRanges.map((range) => (
@@ -267,6 +312,9 @@ export function CalendarSettingsView({
                       </strong>{" "}
                       <span className="text-xs text-[#617086]" dir="rtl">
                         {range.hebrewLabel}
+                      </span>
+                      <span className="block text-xs font-bold text-[#617086]">
+                        {range.hallLabel}
                       </span>
                     </p>
                   </div>

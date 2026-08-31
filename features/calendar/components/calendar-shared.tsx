@@ -4,6 +4,7 @@ import {
   weekStartDayIndex,
   type WeekStartsOn
 } from "@/lib/dates/calendar-date";
+import { type HallDayStatus } from "@/lib/bookings/hall-day-availability";
 
 export type CalendarStatus = "confirmed" | "hold" | "school";
 
@@ -17,6 +18,12 @@ export type CalendarBooking = {
   dateKey: string;
   title: string;
   hall: string;
+  /**
+   * The hall's id as well as its name, because the Availability tab scopes
+   * itself to one hall and a name is not an identity - two halls may be
+   * renamed into each other, and the day counts have to follow the row.
+   */
+  hallId: string;
   hallColor: string | null;
   type: string;
   packageName?: string;
@@ -45,6 +52,8 @@ export type EventsResponse = {
   coordinators: Array<{ id: string; name: string }>;
   blockedDates: Array<{
     id: string;
+    /** The hall the range closes; null only for rows that predate the column. */
+    hallId: string | null;
     startDate: string;
     endDate: string;
     label: string;
@@ -79,7 +88,13 @@ export type AvailabilityDay = {
   dayName: string;
   hebrewDate: string;
   roomsAvailable: number;
-  status: "available" | "hold";
+  /**
+   * Read for the one hall the tab is showing. `full` is reachable now that the
+   * count is per hall rather than summed across the venue: a hall with a daily
+   * limit of one is full the moment it has a booking, which the old venue-wide
+   * total would have hidden behind the rooms next door.
+   */
+  status: HallDayStatus;
 };
 
 export function CalendarIcon({

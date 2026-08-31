@@ -6,7 +6,19 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     event: {
       findFirst: vi.fn(),
+      // Read by the date-move check: the other active bookings already in the
+      // hall on the day an event is being moved to.
+      findMany: vi.fn(),
       update: vi.fn()
+    },
+    hall: {
+      findFirst: vi.fn()
+    },
+    holidayBlockedDate: {
+      findFirst: vi.fn()
+    },
+    organizationSetting: {
+      findUnique: vi.fn()
     },
     activityLog: {
       create: vi.fn()
@@ -28,6 +40,7 @@ describe("event timeline route", () => {
   const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const actorId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const hallId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const timeline = [
     {
       id: "timeline-1",
@@ -43,10 +56,24 @@ describe("event timeline route", () => {
       userId: actorId,
       organizationId
     }));
+    // The date and hall the event is already on. Every case below that sends an
+    // `eventDate` sends this one, so the date-move check sees no move and stays
+    // out of the way; the two cases that do move it override this.
     mocks.prisma.event.findFirst.mockResolvedValue({
+      eventDate: new Date("2026-09-01T00:00:00.000Z"),
+      hallId,
       workspaceData: {
         menuConfirmed: true
       }
+    });
+    mocks.prisma.event.findMany.mockResolvedValue([]);
+    mocks.prisma.hall.findFirst.mockResolvedValue({
+      name: "Ateres Akiva",
+      dailyEventLimit: 2
+    });
+    mocks.prisma.holidayBlockedDate.findFirst.mockResolvedValue(null);
+    mocks.prisma.organizationSetting.findUnique.mockResolvedValue({
+      integrations: {}
     });
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
     // The update runs inside an interactive transaction, so the callback gets
@@ -312,5 +339,84 @@ describe("event timeline route", () => {
         })
       })
     );
+  });
+
+  /**
+   * The event-details picker offers only days the hall can take, but it decides
+   * that from a snapshot. These cover the half that a stale tab cannot get past.
+   */
+  describe("moving an event to another day", () => {
+    function moveTo(eventDate: string) {
+      return PATCH(
+        new Request(`http://localhost/api/events/${eventId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ eventDate })
+        }),
+        { params: Promise.resolve({ eventId }) }
+      );
+    }
+
+    it("refuses a day the hall already has an event on hold", async () => {
+      mocks.prisma.event.findMany.mockResolvedValue([
+        { bookingStatus: "TENTATIVE_HOLD" }
+      ]);
+
+      const response = await moveTo("2026-09-08");
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringContaining("on hold in Ateres Akiva")
+      });
+      expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses a day the hall has no slots left on", async () => {
+      mocks.prisma.event.findMany.mockResolvedValue([
+        { bookingStatus: "CONFIRMED" },
+        { bookingStatus: "CONFIRMED" }
+      ]);
+
+      const response = await moveTo("2026-09-08");
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringContaining("no event slots left")
+      });
+    });
+
+    it("refuses a blocked date", async () => {
+      mocks.prisma.holidayBlockedDate.findFirst.mockResolvedValue({
+        id: "blocked-1"
+      });
+
+      const response = await moveTo("2026-09-08");
+
+      expect(response.status).toBe(409);
+      await expect(response.json()).resolves.toEqual({
+        error: expect.stringContaining("blocked date")
+      });
+    });
+
+    it("allows a day with room, and leaves the event out of its own count", async () => {
+      const response = await moveTo("2026-09-08");
+
+      expect(response.status).toBe(200);
+      expect(mocks.prisma.event.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: { not: eventId },
+            hallId,
+            eventDate: new Date("2026-09-08")
+          })
+        })
+      );
+    });
+
+    it("does not run the check when the date has not moved", async () => {
+      const response = await moveTo("2026-09-01");
+
+      expect(response.status).toBe(200);
+      expect(mocks.prisma.event.findMany).not.toHaveBeenCalled();
+    });
   });
 });

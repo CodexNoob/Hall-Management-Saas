@@ -14,7 +14,11 @@ import {
   countryFromE164,
   nationalFromE164
 } from "@/lib/validation/phone";
-import { BookingFormFields } from "@/features/bookings/forms/booking-form-fields";
+import {
+  BookingFormFields,
+  bookingControlClass
+} from "@/features/bookings/forms/booking-form-fields";
+import { EventDatePickerDialog } from "@/features/events/forms/event-date-picker-dialog";
 import {
   clientContactFields,
   eventDetailsFormSchema,
@@ -58,8 +62,8 @@ export function Field({
   );
 }
 
-/** The three rows, and the column each one saves to. */
-type ContactField = "phone" | "email" | "coordinatorMembershipId";
+/** The rows on the card, and the column each one saves to. */
+type ContactField = "phone" | "email";
 
 const contactRowClass =
   "flex min-h-12 w-full items-center gap-3 rounded-lg border " +
@@ -87,11 +91,9 @@ const contactControlClass =
  * two cards from overwriting one another.
  */
 export function ClientContact({
-  coordinators,
   event,
   onEventSaved
 }: {
-  coordinators: EventCoordinatorOption[];
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
@@ -166,14 +168,6 @@ export function ClientContact({
       href: event.email ? `mailto:${event.email}` : undefined,
       editLabel: "Edit email",
       draftFrom: () => event.email
-    },
-    {
-      field: "coordinatorMembershipId" as const,
-      icon: "couples" as IconName,
-      label: event.coordinator,
-      href: undefined,
-      editLabel: "Edit coordinator",
-      draftFrom: () => event.coordinatorMembershipId
     }
   ];
 
@@ -193,50 +187,28 @@ export function ClientContact({
                 </span>
 
                 <div className="min-w-0 flex-1 py-2">
-                  {row.field === "coordinatorMembershipId" ? (
-                    <select
-                      aria-label="Coordinator"
-                      autoFocus
-                      className={contactControlClass}
-                      disabled={isSaving}
-                      onChange={(changeEvent) =>
-                        setDraft(changeEvent.target.value)
+                  <input
+                    aria-label={row.field === "phone" ? "Phone" : "Email"}
+                    autoFocus
+                    className={contactControlClass}
+                    disabled={isSaving}
+                    inputMode={row.field === "phone" ? "tel" : "email"}
+                    onChange={(changeEvent) =>
+                      setDraft(changeEvent.target.value)
+                    }
+                    // Enter commits and Escape abandons, because a row this
+                    // small is faster to leave by keyboard than to aim at.
+                    onKeyDown={(keyEvent) => {
+                      if (keyEvent.key === "Enter") {
+                        keyEvent.preventDefault();
+                        void save(row.field);
                       }
-                      value={draft}
-                    >
-                      <option value="">Unassigned</option>
-                      {coordinators.map((coordinator) => (
-                        <option key={coordinator.id} value={coordinator.id}>
-                          {coordinator.name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      aria-label={row.field === "phone" ? "Phone" : "Email"}
-                      autoFocus
-                      className={contactControlClass}
-                      disabled={isSaving}
-                      inputMode={row.field === "phone" ? "tel" : "email"}
-                      onChange={(changeEvent) =>
-                        setDraft(changeEvent.target.value)
-                      }
-                      // Enter commits and Escape abandons, because a row this
-                      // small is faster to leave by keyboard than to aim at.
-                      onKeyDown={(keyEvent) => {
-                        if (keyEvent.key === "Enter") {
-                          keyEvent.preventDefault();
-                          void save(row.field);
-                        }
-                        if (keyEvent.key === "Escape") setEditing(null);
-                      }}
-                      placeholder={
-                        row.field === "email" ? "Optional" : undefined
-                      }
-                      type="text"
-                      value={draft}
-                    />
-                  )}
+                      if (keyEvent.key === "Escape") setEditing(null);
+                    }}
+                    placeholder={row.field === "email" ? "Optional" : undefined}
+                    type="text"
+                    value={draft}
+                  />
                   {error ? (
                     <p
                       className="mt-1 text-[10px] font-bold text-[#c2410c]"
@@ -483,6 +455,14 @@ export function toEventDetailsPayload(
 /** Booking states that can still be moved to confirmed. */
 const confirmableStatuses = ["INQUIRY", "TENTATIVE_HOLD"];
 
+/** The date on the closed field, in the words the picker's own rows use. */
+const eventDateLabelFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
+
 type PanelFeedback = { tone: "success" | "error"; text: string };
 
 export function EventInformation({
@@ -506,6 +486,7 @@ export function EventInformation({
     () => countryFromE164(event.phone) ?? DEFAULT_PHONE_COUNTRY
   );
   const [feedback, setFeedback] = useState<PanelFeedback | null>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<
     "save" | "confirm" | null
   >(null);
@@ -524,6 +505,14 @@ export function EventInformation({
 
   const canConfirm = confirmableStatuses.includes(event.bookingStatus);
   const isBusy = pendingIntent !== null;
+  // The hall the form currently names, not the one the event was saved under:
+  // changing the hall and the date in one edit has to be checked against where
+  // the event is going.
+  const selectedHallName =
+    halls.find((hall) => hall.id === values.hallId)?.name ?? "this hall";
+  const eventDateLabel = values.eventDate
+    ? eventDateLabelFormatter.format(new Date(`${values.eventDate}T00:00:00`))
+    : "Choose a date";
 
   function updateValue(field: keyof BookingFormValues, value: string) {
     const next = { ...values, [field]: value };
@@ -646,6 +635,27 @@ export function EventInformation({
       <div className="p-3">
         <BookingFormFields
           columns={3}
+          // A native date input would accept a day this hall cannot take and
+          // leave the refusal to the save. The list asks first.
+          dateField={({ id }) => (
+            <button
+              aria-describedby={
+                errors.eventDate ? "event-details-date-error" : undefined
+              }
+              className={`${bookingControlClass} flex items-center justify-between gap-2 text-left`}
+              id={id}
+              onClick={() => setIsDatePickerOpen(true)}
+              type="button"
+            >
+              <span className={values.eventDate ? "" : "text-[#6a7483]"}>
+                {eventDateLabel}
+              </span>
+              <LineIcon
+                className="h-4 w-4 shrink-0 text-[#516071]"
+                name="calendar"
+              />
+            </button>
+          )}
           errors={errors}
           coordinators={coordinators}
           eventTypes={eventTypes}
@@ -705,6 +715,21 @@ export function EventInformation({
           ) : null}
         </div>
       </div>
+
+      {/*
+        Inside the form on purpose: it is a fixed overlay, so it escapes this
+        panel's layout anyway, and keeping it here is what lets the date it
+        returns land straight in the form's own state.
+      */}
+      <EventDatePickerDialog
+        eventId={event.id}
+        hallId={values.hallId}
+        hallName={selectedHallName}
+        onClose={() => setIsDatePickerOpen(false)}
+        onSelect={(nextDateKey) => updateValue("eventDate", nextDateKey)}
+        open={isDatePickerOpen}
+        selectedDate={values.eventDate}
+      />
     </form>
   );
 }

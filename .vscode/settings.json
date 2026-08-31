@@ -3,5 +3,6 @@
   "files.associations": {
     "*.sql": "sql"
   },
-  "mssql.intelliSense.enableIntelliSense": false
+  "mssql.intelliSense.enableIntelliSense": false,
+  "mssql.intelliSense.enableErrorChecking": false
 }

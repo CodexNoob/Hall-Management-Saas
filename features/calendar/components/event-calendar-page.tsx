@@ -17,6 +17,7 @@ import {
   startOfMonth,
   weekDates
 } from "@/lib/dates/calendar-date";
+import { hallDayStatus } from "@/lib/bookings/hall-day-availability";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
@@ -42,13 +43,26 @@ import {
   type CalendarBooking,
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
+
+/** Hoisted out of the day loop, which builds one of these per day otherwise. */
+const availabilityDateFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  year: "numeric"
+});
+
+const availabilityDayNameFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "short"
+});
+
 export function EventCalendarPage() {
   const settingsMutation = useAuthenticatedMutation<
     { dailyEventLimit: number },
     unknown
   >("/api/settings", "PATCH");
   const createBlockedDateMutation = useAuthenticatedMutation<
-    { startDate: string; endDate: string; label: string },
+    { hallId: string; startDate: string; endDate: string; label: string },
     unknown
   >("/api/calendar/blocked-dates");
   const removeBlockedDateMutation = useAuthenticatedMutation<
@@ -59,6 +73,9 @@ export function EventCalendarPage() {
     "calendar" | "availability" | "settings"
   >("calendar");
   const today = useMemo(() => startOfDay(new Date()), []);
+  // Deliberately empty: the Availability tab shows nothing until a hall is
+  // chosen, because every number on it is a fact about one hall.
+  const [availabilityHallId, setAvailabilityHallId] = useState("");
   const [availabilityRange, setAvailabilityRange] = useState<DateRange>(() => {
     const startDate = startOfMonth(today);
     return {
@@ -125,16 +142,6 @@ export function EventCalendarPage() {
   );
   const dailyEventLimit =
     eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
-  const dailyHallCapacity = useMemo(() => {
-    const halls = eventsQuery.data?.halls ?? [];
-
-    if (halls.length === 0) return dailyEventLimit;
-
-    return halls.reduce(
-      (total, hall) => total + (hall.dailyEventLimit ?? dailyEventLimit),
-      0
-    );
-  }, [dailyEventLimit, eventsQuery.data?.halls]);
   const bookings = useMemo<CalendarBooking[]>(
     () =>
       (eventsQuery.data?.events ?? []).map((event) => {
@@ -146,6 +153,7 @@ export function EventCalendarPage() {
           dateKey: dateKeyFromIso(event.eventDate),
           title: event.clientName,
           hall: event.hall.name,
+          hallId: event.hall.id,
           hallColor: event.hall.color,
           type: event.eventType ?? "Event",
           packageName: event.packageName ?? undefined,
@@ -175,48 +183,72 @@ export function EventCalendarPage() {
 
     return days;
   }, [availabilityRange.endDate, availabilityRange.startDate]);
-  const liveAvailabilityDays = useMemo<AvailabilityDay[]>(
-    () =>
-      availabilityRangeDays
-        .map((day) => {
-          const currentDateKey = dateKey(day);
-          const dayBookings = bookings.filter(
-            (booking) => booking.dateKey === currentDateKey
-          );
-          return {
-            dateKey: currentDateKey,
-            dateLabel: new Intl.DateTimeFormat("en-US", {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-              year: "numeric"
-            }).format(day),
-            day: day.getDate(),
-            dayName: new Intl.DateTimeFormat("en-US", {
-              weekday: "short"
-            }).format(day),
-            hebrewDate: formatHebrewDateWithoutYear(day),
-            roomsAvailable: Math.max(0, dailyHallCapacity - dayBookings.length),
-            status: dayBookings.some((booking) => booking.status === "hold")
-              ? ("hold" as const)
-              : ("available" as const)
-          };
-        })
-        .filter(
-          (day) =>
-            !(eventsQuery.data?.blockedDates ?? []).some(
+  /*
+   * One hall's days, not the venue's.
+   *
+   * Empty until a hall is picked: "which days are free" has no answer across a
+   * venue whose halls have separate limits and separate holds, and the summed
+   * total the tab used to show could call a day available while the room the
+   * caller actually wanted was taken.
+   *
+   * Blocked days drop out of the list rather than appearing greyed: they are
+   * closed for every hall, so there is nothing hall-specific to say about them.
+   */
+  const liveAvailabilityDays = useMemo<AvailabilityDay[]>(() => {
+    if (!availabilityHallId) return [];
+
+    const hall = (eventsQuery.data?.halls ?? []).find(
+      (option) => option.id === availabilityHallId
+    );
+    const hallDailyEventLimit = hall?.dailyEventLimit ?? dailyEventLimit;
+    const hallBookings = bookings.filter(
+      (booking) => booking.hallId === availabilityHallId
+    );
+
+    return availabilityRangeDays
+      .map((day) => {
+        const currentDateKey = dateKey(day);
+        const dayBookings = hallBookings.filter(
+          (booking) => booking.dateKey === currentDateKey
+        );
+
+        return {
+          dateKey: currentDateKey,
+          dateLabel: availabilityDateFormatter.format(day),
+          day: day.getDate(),
+          dayName: availabilityDayNameFormatter.format(day),
+          hebrewDate: formatHebrewDateWithoutYear(day),
+          roomsAvailable: Math.max(
+            0,
+            hallDailyEventLimit - dayBookings.length
+          ),
+          status: hallDayStatus({
+            // Only the ranges that close this hall. A null hall is a range from
+            // before ranges named one, which closed the whole venue.
+            isBlocked: (eventsQuery.data?.blockedDates ?? []).some(
               (range) =>
-                day.dateKey >= dateKeyFromIso(range.startDate) &&
-                day.dateKey <= dateKeyFromIso(range.endDate)
-            )
-        ),
-    [
-      availabilityRangeDays,
-      bookings,
-      dailyHallCapacity,
-      eventsQuery.data?.blockedDates
-    ]
-  );
+                (range.hallId === null ||
+                  range.hallId === availabilityHallId) &&
+                currentDateKey >= dateKeyFromIso(range.startDate) &&
+                currentDateKey <= dateKeyFromIso(range.endDate)
+            ),
+            holdCount: dayBookings.filter(
+              (booking) => booking.status === "hold"
+            ).length,
+            activeCount: dayBookings.length,
+            dailyEventLimit: hallDailyEventLimit
+          })
+        };
+      })
+      .filter((day) => day.status !== "blocked");
+  }, [
+    availabilityHallId,
+    availabilityRangeDays,
+    bookings,
+    dailyEventLimit,
+    eventsQuery.data?.blockedDates,
+    eventsQuery.data?.halls
+  ]);
 
   const filteredBookings = useMemo(
     () =>
@@ -466,11 +498,20 @@ export function EventCalendarPage() {
             days={liveAvailabilityDays}
             endDate={availabilityRange.endDate}
             endDateLabel={availabilityEndDateLabel}
+            halls={(eventsQuery.data?.halls ?? []).map((hall) => ({
+              id: hall.id,
+              name: hall.name
+            }))}
+            onHallChange={setAvailabilityHallId}
             onNewBooking={
               canBookSelectedDate ? () => setIsNewBookingOpen(true) : undefined
             }
+            // Closes the hall the tab is currently reading, which is the only
+            // hall these rows describe. There is always one: the list does not
+            // render until a hall is picked.
             onRemoveDay={async (removedDateKey) => {
               await createBlockedDateMutation.mutate({
+                hallId: availabilityHallId,
                 startDate: removedDateKey,
                 endDate: removedDateKey,
                 label: `Blocked ${removedDateKey}`
@@ -478,6 +519,7 @@ export function EventCalendarPage() {
               await eventsQuery.refetch();
             }}
             onRangeChange={setAvailabilityRange}
+            selectedHallId={availabilityHallId}
             showHebrewDate={showHebrewDate}
             startDate={availabilityRange.startDate}
             startDateLabel={availabilityStartDateLabel}
@@ -501,10 +543,11 @@ export function EventCalendarPage() {
               await settingsMutation.mutate({ dailyEventLimit: nextLimit });
               await eventsQuery.refetch();
             }}
-            onAddBlockedRange={async (range) => {
+            onAddBlockedRange={async (range, hallId) => {
               const startDate = dateKey(range.startDate);
               const endDate = dateKey(range.endDate);
               await createBlockedDateMutation.mutate({
+                hallId,
                 startDate,
                 endDate,
                 label:

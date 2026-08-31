@@ -4,6 +4,7 @@ import { z } from "zod";
 import { authorize, scoped, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { dailyEventLimitFromIntegrations } from "@/lib/bookings/hall-day-availability";
 
 const rangeSchema = z.object({
   startDate: z.string().date(),
@@ -58,21 +59,6 @@ function calendarDisplayFromIntegrations(integrations: unknown) {
     showAvailability: preference("showAvailability") !== false,
     clickAnywhereToAdd: preference("clickAnywhereToAdd") === true
   };
-}
-
-function dailyEventLimitFromIntegrations(integrations: unknown) {
-  if (
-    integrations &&
-    typeof integrations === "object" &&
-    "calendar" in integrations
-  ) {
-    const calendar = (integrations as { calendar?: unknown }).calendar;
-    if (calendar && typeof calendar === "object") {
-      const value = (calendar as { dailyEventLimit?: unknown }).dailyEventLimit;
-      if (typeof value === "number" && Number.isFinite(value)) return value;
-    }
-  }
-  return 2;
 }
 
 export async function GET(request: Request) {
