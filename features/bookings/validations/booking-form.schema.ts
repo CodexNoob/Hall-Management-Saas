@@ -42,9 +42,12 @@ export type CountMode = "People" | "Couples";
 export type BookingFormValues = {
   clientName: string;
   phone: string;
+  email: string;
   eventDate: string;
   hallId: string;
   eventTypeId: string;
+  /** The organization membership running the event; "" is Unassigned. */
+  coordinatorMembershipId: string;
   countMode: CountMode;
   guests: string;
   couples: string;
@@ -57,9 +60,11 @@ export type BookingFormErrors = Partial<Record<keyof BookingFormValues, string>>
 export const emptyBookingFormValues: BookingFormValues = {
   clientName: "",
   phone: "",
+  email: "",
   eventDate: "",
   hallId: "",
   eventTypeId: "",
+  coordinatorMembershipId: "",
   countMode: "People",
   guests: "0",
   couples: "0",
@@ -170,6 +175,31 @@ export function bookingFormSchema({
         label: "Phone number",
         defaultCountry: country
       }),
+      // Blank is an answer, not an omission: plenty of bookings are taken over
+      // the phone and never get one, and the card says "Email not provided"
+      // rather than pretending otherwise. `null` on the way out so clearing the
+      // box takes a wrong address back off the event.
+      email: z
+        .string()
+        .trim()
+        .max(200)
+        .refine(
+          (value) => value === "" || z.string().email().safeParse(value).success,
+          "Enter a valid email address."
+        )
+        .transform((value) => value || null),
+      // "" is Unassigned, which is a real state rather than a missing choice -
+      // an event can sit unclaimed for weeks. Anything else has to be a
+      // membership id, and the route proves it belongs to this organization
+      // before it is stored.
+      coordinatorMembershipId: z
+        .string()
+        .refine(
+          (value) =>
+            value === "" || z.string().uuid().safeParse(value).success,
+          "Select a coordinator."
+        )
+        .transform((value) => value || null),
       // `.date()` rather than a bare string: the date input can be cleared, and
       // a typed-in partial date reaches us as text the route would reject.
       eventDate: z

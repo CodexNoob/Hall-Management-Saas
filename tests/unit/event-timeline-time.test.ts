@@ -22,6 +22,8 @@ const event = {
   hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
   internalNotes: "Original note",
   phone: "+12125550123",
+  email: "charles@example.com",
+  coordinatorMembershipId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f608",
   status: "Confirmed",
   timeInput: "18:30"
 };
@@ -153,6 +155,8 @@ describe("event information booking form values", () => {
       clientName: "Charles Duot",
       // Stored as E.164, typed as the national part.
       phone: "(212) 555-0123",
+      email: "charles@example.com",
+      coordinatorMembershipId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f608",
       eventDate: "2026-09-01",
       hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
       eventTypeId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607",

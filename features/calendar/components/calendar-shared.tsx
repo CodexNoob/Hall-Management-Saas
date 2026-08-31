@@ -41,6 +41,8 @@ export type EventsResponse = {
     dailyEventLimit?: number | null;
   }>;
   eventTypes: Array<{ id: string; name: string }>;
+  /** Staff a new booking can be assigned to. The id is the membership. */
+  coordinators: Array<{ id: string; name: string }>;
   blockedDates: Array<{
     id: string;
     startDate: string;

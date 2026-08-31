@@ -28,6 +28,7 @@ import {
 import {
   LineIcon,
   type EventFile,
+  type EventCoordinatorOption,
   type EventHallOption,
   type EventTypeOption,
   type IconName
@@ -232,9 +233,11 @@ export function createBookingFormValues(event: EventFile): BookingFormValues {
   return {
     clientName: event.clientName,
     phone: nationalFromE164(event.phone),
+    email: event.email,
     eventDate: event.dateInput,
     hallId: event.hallId,
     eventTypeId: event.eventTypeId,
+    coordinatorMembershipId: event.coordinatorMembershipId ?? "",
     countMode: countedInCouples ? "Couples" : "People",
     guests: countText(event.guests),
     couples: countText(event.couples),
@@ -258,9 +261,11 @@ export function toEventDetailsPayload(
   return {
     clientName: data.clientName,
     phone: data.phone,
+    email: data.email,
     eventDate: data.eventDate,
     hallId: data.hallId,
     eventTypeId: data.eventTypeId,
+    coordinatorMembershipId: data.coordinatorMembershipId,
     ...toGuestCountPayload(data),
     notes: data.notes,
     ...(storedTimeInput
@@ -279,11 +284,13 @@ const confirmableStatuses = ["INQUIRY", "TENTATIVE_HOLD"];
 type PanelFeedback = { tone: "success" | "error"; text: string };
 
 export function EventInformation({
+  coordinators,
   event,
   eventTypes,
   halls,
   onEventSaved
 }: {
+  coordinators: EventCoordinatorOption[];
   event: EventFile;
   eventTypes: EventTypeOption[];
   halls: EventHallOption[];
@@ -438,6 +445,7 @@ export function EventInformation({
         <BookingFormFields
           columns={3}
           errors={errors}
+          coordinators={coordinators}
           eventTypes={eventTypes}
           halls={halls}
           idPrefix="event-details"

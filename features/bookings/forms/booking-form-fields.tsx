@@ -45,6 +45,12 @@ type BookingFormFieldsProps = {
   autoFocus?: boolean;
   /** Two for a dialog, three for a full-width panel. Fields are unchanged. */
   columns?: 2 | 3;
+  /**
+   * Staff this event can be assigned to. Empty is a legitimate answer - a fresh
+   * organization has only the person setting it up - and the field still offers
+   * Unassigned, so the form does not need a special case for it.
+   */
+  coordinators: BookingLookupOption[];
   errors: BookingFormErrors;
   eventTypes: BookingLookupOption[];
   extraEventTypeOption?: BookingLookupOption;
@@ -96,6 +102,7 @@ function FieldError({ children, id }: { children: string; id: string }) {
 export function BookingFormFields({
   autoFocus = false,
   columns = 2,
+  coordinators,
   errors,
   eventTypes,
   extraEventTypeOption,
@@ -157,6 +164,25 @@ export function BookingFormFields({
           showCountry={showPhoneCountry}
           value={values.phone}
         />
+      </div>
+
+      <div>
+        <FieldLabel htmlFor={fieldId("email")}>Email</FieldLabel>
+
+        <input
+          aria-describedby={errors.email ? errorId("email") : undefined}
+          aria-invalid={errors.email ? true : undefined}
+          className={bookingControlClass}
+          id={fieldId("email")}
+          inputMode="email"
+          onChange={(event) => onChange("email", event.target.value)}
+          placeholder="Optional"
+          type="email"
+          value={values.email}
+        />
+        {errors.email ? (
+          <FieldError id={errorId("email")}>{errors.email}</FieldError>
+        ) : null}
       </div>
 
       <div>
@@ -239,6 +265,43 @@ export function BookingFormFields({
           </FieldError>
         ) : null}
         {renderEventTypeExtra ? renderEventTypeExtra() : null}
+      </div>
+
+      <div>
+        <FieldLabel htmlFor={fieldId("coordinator")}>Coordinator</FieldLabel>
+
+        {/*
+          Unassigned is the first option rather than a disabled placeholder: an
+          event with nobody on it is a state somebody has to be able to go back
+          to, not just the one it starts in.
+        */}
+        <select
+          aria-describedby={
+            errors.coordinatorMembershipId
+              ? errorId("coordinator")
+              : undefined
+          }
+          aria-invalid={errors.coordinatorMembershipId ? true : undefined}
+          className={bookingControlClass}
+          id={fieldId("coordinator")}
+          onChange={(event) =>
+            onChange("coordinatorMembershipId", event.target.value)
+          }
+          value={values.coordinatorMembershipId}
+        >
+          <option value="">Unassigned</option>
+
+          {coordinators.map((coordinator) => (
+            <option key={coordinator.id} value={coordinator.id}>
+              {coordinator.name}
+            </option>
+          ))}
+        </select>
+        {errors.coordinatorMembershipId ? (
+          <FieldError id={errorId("coordinator")}>
+            {errors.coordinatorMembershipId}
+          </FieldError>
+        ) : null}
       </div>
 
       <div>

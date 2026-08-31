@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
     menuItem: {
       count: vi.fn()
     },
+    organizationMembership: {
+      findFirst: vi.fn()
+    },
     activityLog: {
       create: vi.fn()
     },
@@ -31,6 +34,7 @@ import { PATCH } from "@/app/api/events/[eventId]/route";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const coordinatorMembershipId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 
 function patch(body: Record<string, unknown>) {
   return PATCH(
@@ -77,6 +81,9 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
     mocks.prisma.event.findFirst.mockResolvedValue(storedEvent());
     mocks.prisma.event.update.mockResolvedValue({ id: eventId });
     mocks.prisma.menuItem.count.mockResolvedValue(0);
+    mocks.prisma.organizationMembership.findFirst.mockResolvedValue({
+      id: coordinatorMembershipId
+    });
     // Interactive transactions run the callback against the same doubles, so
     // asserting on `event.update` covers the transactional path too.
     mocks.prisma.$transaction.mockImplementation((callback) =>
@@ -297,6 +304,86 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
 
       expect(response.status).toBe(500);
       expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("client contact", () => {
+    it("stores an email, and clears one that was entered by mistake", async () => {
+      await patch({ email: "client@example.com" });
+
+      expect(mocks.prisma.event.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: "client@example.com" })
+        })
+      );
+
+      vi.clearAllMocks();
+      mocks.prisma.event.findFirst.mockResolvedValue(storedEvent());
+      mocks.prisma.$transaction.mockImplementation((callback) =>
+        callback({
+          event: { update: mocks.prisma.event.update },
+          activityLog: { create: mocks.prisma.activityLog.create }
+        })
+      );
+
+      await patch({ email: null });
+
+      expect(mocks.prisma.event.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: null })
+        })
+      );
+    });
+
+    it("refuses an address that is not one, rather than storing it", async () => {
+      const response = await patch({ email: "not-an-address" });
+
+      expect(response.status).toBe(400);
+      expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it("assigns a coordinator from this organization", async () => {
+      await patch({ coordinatorMembershipId });
+
+      expect(
+        mocks.prisma.organizationMembership.findFirst
+      ).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ organizationId, isActive: true })
+        })
+      );
+      expect(mocks.prisma.event.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ coordinatorMembershipId })
+        })
+      );
+    });
+
+    it("refuses a coordinator from another organization", async () => {
+      // The tenant check is the whole point: without it an event could name
+      // somebody in another organization, whose name the coordinator join
+      // would then read back out on every load of this event.
+      mocks.prisma.organizationMembership.findFirst.mockResolvedValue(null);
+
+      const response = await patch({
+        coordinatorMembershipId: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+      });
+
+      expect(response.status).toBe(404);
+      expect(mocks.prisma.event.update).not.toHaveBeenCalled();
+    });
+
+    it("hands the event back to nobody without checking anybody", async () => {
+      await patch({ coordinatorMembershipId: null });
+
+      expect(
+        mocks.prisma.organizationMembership.findFirst
+      ).not.toHaveBeenCalled();
+      expect(mocks.prisma.event.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ coordinatorMembershipId: null })
+        })
+      );
     });
   });
 });

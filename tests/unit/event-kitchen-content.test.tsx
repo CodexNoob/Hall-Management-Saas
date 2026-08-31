@@ -49,6 +49,7 @@ function eventFile(id: string): EventFile {
     children: "12",
     couples: "40",
     coordinator: "Unassigned",
+    coordinatorMembershipId: "",
     balance: "See billing",
     status: "Hold",
     paymentStatus: "No invoice",

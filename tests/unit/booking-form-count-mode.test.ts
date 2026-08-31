@@ -11,9 +11,11 @@ import {
 const base = {
   clientName: "Sample",
   phone: "9179405780",
+  email: "",
   eventDate: "2026-08-27",
   hallId: "11111111-1111-4111-8111-111111111111",
   eventTypeId: "22222222-2222-4222-8222-222222222222",
+  coordinatorMembershipId: "",
   notes: ""
 };
 
@@ -153,6 +155,55 @@ describe("liveCountErrors", () => {
     if (parsed.success) return;
 
     expect(parsed.error.issues[0]?.message).toBe(liveCountErrors(values).guests);
+  });
+});
+
+describe("the client contact fields", () => {
+  function parse(overrides: Partial<BookingFormValues>) {
+    return bookingFormSchema().safeParse(form(overrides));
+  }
+
+  it("reads a blank email as no email rather than an error", () => {
+    const parsed = parse({ email: "" });
+
+    expect(parsed.success).toBe(true);
+
+    if (!parsed.success) return;
+
+    // null, not "": clearing the box has to take a wrong address back off the
+    // event, and an empty string would store one that is not an address.
+    expect(parsed.data.email).toBeNull();
+  });
+
+  it("refuses an address that is not one", () => {
+    const parsed = parse({ email: "not-an-address" });
+
+    expect(parsed.success).toBe(false);
+
+    if (parsed.success) return;
+
+    expect(parsed.error.issues[0]?.path).toEqual(["email"]);
+  });
+
+  it("reads an unassigned coordinator as nobody", () => {
+    const parsed = parse({ coordinatorMembershipId: "" });
+
+    expect(parsed.success).toBe(true);
+
+    if (!parsed.success) return;
+
+    expect(parsed.data.coordinatorMembershipId).toBeNull();
+  });
+
+  it("keeps a chosen coordinator", () => {
+    const membershipId = "33333333-3333-4333-8333-333333333333";
+    const parsed = parse({ coordinatorMembershipId: membershipId });
+
+    expect(parsed.success).toBe(true);
+
+    if (!parsed.success) return;
+
+    expect(parsed.data.coordinatorMembershipId).toBe(membershipId);
   });
 });
 

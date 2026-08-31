@@ -446,6 +446,18 @@ export async function createBooking(
             }
           })
         : null;
+      // Proved to be a seat in this organization, the same as the hall and the
+      // type above. Without it a booking could name somebody from another
+      // tenant, whose name the coordinator join would then read back out.
+      const coordinator = input.coordinatorMembershipId
+        ? await transaction.organizationMembership.findFirst({
+            where: {
+              id: input.coordinatorMembershipId,
+              organizationId: actor.organizationId,
+              isActive: true
+            }
+          })
+        : null;
 
       if (!hall || !hall.isActive || !hall.isBookable) {
         throw new BookingError("The selected hall is unavailable.");
@@ -466,6 +478,8 @@ export async function createBooking(
         throw new BookingError("The selected package does not exist.");
       if (input.clientId && !selectedClient)
         throw new BookingError("The selected client does not exist.");
+      if (input.coordinatorMembershipId && !coordinator)
+        throw new BookingError("The selected coordinator does not exist.");
 
       const eventDate = new Date(
         `${window.startsAt.toISOString().slice(0, 10)}T00:00:00.000Z`
@@ -599,6 +613,7 @@ export async function createBooking(
           // absent number is stored as empty here rather than as null.
           phone: input.phone ?? "",
           email: input.email,
+          coordinatorMembershipId: input.coordinatorMembershipId,
           eventDate,
           hallId: hall.id,
           hallName: hall.name,

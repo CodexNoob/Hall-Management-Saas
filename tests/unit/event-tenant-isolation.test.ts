@@ -12,6 +12,7 @@ vi.mock("@/lib/prisma", () => ({
     hall: { findMany: vi.fn() },
     eventType: { findMany: vi.fn() },
     eventPackage: { findMany: vi.fn() },
+    organizationMembership: { findMany: vi.fn() },
     organizationSetting: { upsert: vi.fn() },
     activityLog: { findMany: vi.fn() },
     $queryRaw: vi.fn()
@@ -46,6 +47,7 @@ describe("event tenant isolation", () => {
     vi.mocked(prisma.hall.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventType.findMany).mockResolvedValue([]);
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.organizationMembership.findMany).mockResolvedValue([]);
     vi.mocked(prisma.organizationSetting.upsert).mockResolvedValue({
       integrations: null
     } as never);
