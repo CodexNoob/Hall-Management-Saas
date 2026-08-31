@@ -40,9 +40,7 @@ function line(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     sortOrder: 0,
     isRetired: false,
     quantityMultiplier: 1,
-    quantities: [
-      { unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }
-    ],
+    quantities: [{ unit: "tray", units: 7, perServingUnits: 7, raw: 6.233333 }],
     unresolvedBases: [],
     countState: "Counted",
     status: null,
@@ -220,7 +218,7 @@ describe("kitchen dish card", () => {
     expect(screen.queryByText("Unassigned salad")).toBeNull();
   });
 
-  it("shows the dish picture when the kitchen sheet includes one", async () => {
+  it("keeps dish cards image-free when legacy sheet data includes a picture", async () => {
     vi.mocked(authenticatedFetch).mockResolvedValue({
       ok: true,
       status: 200,
@@ -247,10 +245,7 @@ describe("kitchen dish card", () => {
       expect(screen.getByText("Potato kugel")).toBeInTheDocument()
     );
 
-    expect(container.querySelector("img")).toHaveAttribute(
-      "src",
-      "https://storage.example/signed/kugel.jpg"
-    );
+    expect(container.querySelector("img")).toBeNull();
   });
 
   it("moves a dish from not started to pending on a click", async () => {
@@ -307,9 +302,9 @@ describe("kitchen dish card", () => {
     ).toBeInTheDocument();
   });
 
-  it("confirms a reset requested from the named control", async () => {
+  it("resets a pending dish only after double-click confirmation", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "PENDING" })]);
-    fireEvent.click(screen.getByRole("button", { name: /Reset status for/ }));
+    fireEvent.doubleClick(dishCard());
     expect(onSaveItemAction).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset dish status" }));
@@ -326,7 +321,7 @@ describe("kitchen dish card", () => {
   it("confirms before resetting a completed dish", async () => {
     const onSaveItemAction = await renderDialog([line({ status: "COMPLETE" })]);
 
-    fireEvent.click(screen.getByRole("button", { name: /Reset status for/ }));
+    fireEvent.doubleClick(dishCard());
     expect(onSaveItemAction).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reset dish status" }));

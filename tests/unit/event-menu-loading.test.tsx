@@ -43,6 +43,7 @@ function eventFile(id: string): EventFile {
     timeInput: "02:00",
     hallId: "hall-1",
     room: "E2E Hall",
+    packageId: "",
     packageName: "Not assigned",
     guests: "80",
     children: "0",

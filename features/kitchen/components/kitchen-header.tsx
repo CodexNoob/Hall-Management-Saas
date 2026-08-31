@@ -133,13 +133,13 @@ export function KitchenHeader({
 
             <button
               aria-label="Open kitchen notifications"
-              className="relative flex h-10 w-10 shrink-0 items-center justify-center border-2 border-[#ff5a36] bg-white text-[#061126] transition hover:bg-[#fff5f2] sm:h-11 sm:w-11"
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center border border-[#e4e4e4] bg-white text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:w-11"
               onClick={onTodayNotes}
               type="button"
             >
               <svg
                 aria-hidden="true"
-                className="h-5 w-5"
+                className={`h-5 w-5 ${notificationCount > 0 ? "text-[#ef2b2d]" : "text-[#061126]"}`}
                 fill="none"
                 stroke="currentColor"
                 strokeLinecap="round"

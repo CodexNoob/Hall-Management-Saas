@@ -83,6 +83,7 @@ export function EventManagerPage() {
             : "",
           hallId: event.hall.id,
           room: event.hall.name,
+          packageId: event.packageId ?? "",
           packageName: event.packageName ?? "Not assigned",
           guests: String(guestCount),
           children: String(

@@ -51,6 +51,7 @@ function eventRow(
     completedAt: null,
     version: 1,
     paymentStatus: null,
+    packageId: null,
     packageName: "Standard",
     couplesCount: 0,
     menCount: 10,

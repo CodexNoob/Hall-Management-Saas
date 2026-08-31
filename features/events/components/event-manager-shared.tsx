@@ -43,6 +43,12 @@ export type EventFile = {
   hallId: string;
   room: string;
   packageName: string;
+  /**
+   * The package row itself, or "" for an event on none. `packageName` carries a
+   * placeholder when there is no package, so it cannot answer "is this event on
+   * one" - which is what gates saving a timeline as the package's default.
+   */
+  packageId: string;
   guests: string;
   children: string;
   couples: string;
@@ -128,6 +134,7 @@ export type EventsResponse = {
     completedAt: string | null;
     version: number;
     paymentStatus: string | null;
+    packageId: string | null;
     packageName: string | null;
     couplesCount: number;
     menCount: number;

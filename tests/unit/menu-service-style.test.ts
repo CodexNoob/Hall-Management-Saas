@@ -201,6 +201,18 @@ describe("toServiceRules", () => {
       Buffet: { ...formValues.Buffet, ...patch }
     });
 
+    // A wholly blank rule is "not answered yet" rather than wrong, and the menu
+    // library asks to keep the dish without it. Half-filled still throws below:
+    // a typo is caught rather than dropped along with the style.
+    expect(
+      toServiceRules(buffet({ quantity: "", unit: "", per: "" }), {
+        allowBlankRule: true
+      })
+    ).toEqual([]);
+    expect(() =>
+      toServiceRules(buffet({ quantity: "" }), { allowBlankRule: true })
+    ).toThrow();
+
     expect(() => toServiceRules(buffet({ quantity: "" }))).toThrow();
     expect(() => toServiceRules(buffet({ quantity: "abc" }))).toThrow();
     expect(() => toServiceRules(buffet({ quantity: "0" }))).toThrow();

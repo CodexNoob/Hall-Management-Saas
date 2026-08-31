@@ -339,7 +339,10 @@ export function MenuPage() {
   const saveLibraryItem = async (values: NewLibraryItemFormValues) => {
     // Parsed first: a bad counting rule should not cost an upload, and this
     // throws for the dialog to render.
-    const services = toServiceRules(values.services);
+    // A ticked style with no rule yet is allowed here: the library is where a
+    // dish is catalogued, and the rule is asked for again the first time it
+    // goes on an event.
+    const services = toServiceRules(values.services, { allowBlankRule: true });
     // Upload before the row is created, so a failure anywhere in here leaves an
     // unreferenced object in the bucket rather than an item pointing at nothing.
     const picturePath = values.picture
@@ -650,7 +653,7 @@ export function MenuPage() {
                   {tickedCount > 0 ? <div className="h-16" /> : null}
                 </div>
               ) : (
-                <div className="flex min-h-[18rem] flex-col items-center justify-center px-6 py-10 text-center">
+                <div className="flex min-h-72 flex-col items-center justify-center px-6 py-10 text-center">
                   <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-[#d8dde5] bg-[#eef4fa] text-[#1f4d73]">
                     <LineIcon name="box" className="h-5 w-5" />
                   </span>

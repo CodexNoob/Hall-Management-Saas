@@ -174,6 +174,85 @@ describe("event menu package route", () => {
     expect(payload.menu.packageId).toBe(packageId);
   });
 
+  /**
+   * A package can carry the schedule it is normally run to. Applying it copies
+   * those rows onto an event that has none - and never over one that has.
+   */
+  describe("a package with a default timeline", () => {
+    const defaultTimeline = [
+      { id: "row-1", time: "03:00 PM", text: "Setup begins", type: "Event" }
+    ];
+
+    function packageWithDefault() {
+      vi.mocked(prisma.eventPackage.findFirst).mockResolvedValue({
+        id: packageId,
+        name: "Wedding Classic",
+        includedMenuItemIds: [buffetDishId, bothStylesDishId],
+        defaultTimeline
+      } as never);
+      vi.mocked(prisma.eventMenu.findUnique)
+        .mockResolvedValueOnce(menuHeader() as never)
+        .mockResolvedValueOnce(storedMenu() as never);
+    }
+
+    /** The event, read twice: once to load it, once inside the transaction. */
+    function eventTimeline(timeline: unknown) {
+      const row = {
+        id: eventId,
+        hallId,
+        workspaceData: timeline === null ? null : { timeline },
+        packageId: null
+      };
+
+      vi.mocked(prisma.event.findFirst).mockResolvedValue(row as never);
+    }
+
+    it("copies onto an event with no timeline, as an unconfirmed draft", async () => {
+      packageWithDefault();
+      eventTimeline(null);
+
+      const response = await POST(request("POST", { version: 2, packageId }), {
+        params
+      });
+
+      expect(response.status).toBe(200);
+      expect(prisma.event.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            packageId,
+            workspaceData: {
+              timeline: defaultTimeline,
+              // Copying a schedule is a starting point; confirming stays with
+              // whoever reads it.
+              timelineConfirmed: false
+            }
+          })
+        })
+      );
+    });
+
+    it("leaves a timeline somebody has already written alone", async () => {
+      packageWithDefault();
+      eventTimeline([
+        { id: "own-1", time: "05:00 PM", text: "Chuppah", type: "Event" }
+      ]);
+
+      const response = await POST(request("POST", { version: 2, packageId }), {
+        params
+      });
+
+      expect(response.status).toBe(200);
+      const [[call]] = vi.mocked(prisma.event.update).mock.calls;
+      expect(call).toEqual(
+        expect.objectContaining({
+          data: expect.not.objectContaining({
+            workspaceData: expect.anything()
+          })
+        })
+      );
+    });
+  });
+
   it("creates the menu when the package is the first thing on it", async () => {
     vi.mocked(prisma.eventMenu.findUnique)
       .mockResolvedValueOnce(null)

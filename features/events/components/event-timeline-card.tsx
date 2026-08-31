@@ -168,8 +168,12 @@ export function TimelineInstructions({
     "success"
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmingDefault, setIsConfirmingDefault] = useState(false);
 
   useEffect(() => setRows(initialTimeline(event)), [event]);
+
+  // A dialog left open belongs to the event that was open behind it.
+  useEffect(() => setIsConfirmingDefault(false), [event.id]);
 
   // Whatever the last save said is about the event that was open at the time,
   // so it is dropped when a different one is selected.
@@ -221,6 +225,53 @@ export function TimelineInstructions({
       setMessageType("error");
       setMessage(
         error instanceof Error ? error.message : "Could not save timeline."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  /**
+   * Writes the rows on screen onto the event's package.
+   *
+   * Deliberately the rows on screen rather than the stored ones: the dialog
+   * names how many are about to be saved, and it would be a strange button that
+   * saved something other than what the reader just counted. The event's own
+   * timeline is left alone - saving a default is not saving the event.
+   */
+  async function saveAsPackageDefault() {
+    const ordered = sortTimelineRows(rows);
+
+    setRows(ordered);
+    setIsSaving(true);
+    setIsConfirmingDefault(false);
+    setMessage("");
+
+    try {
+      const response = await authenticatedFetch(
+        `/api/events/${event.id}/timeline/package-default`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ timeline: ordered })
+        }
+      );
+      const result = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        throw new Error(result.error ?? "Could not save the package default.");
+      }
+
+      setMessageType("success");
+      setMessage(
+        `Saved. ${event.packageName} now starts from this schedule when it is added to an event that has none.`
+      );
+    } catch (error) {
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save the package default."
       );
     } finally {
       setIsSaving(false);
@@ -455,6 +506,32 @@ export function TimelineInstructions({
           Confirm timeline
         </button>
 
+        {/*
+          Only on an event that is on a package - there is nothing to save the
+          schedule onto otherwise. The dialog behind it is what makes this safe
+          to sit beside the two everyday buttons: it writes to the catalog, and
+          every future booking of the package starts from what it saves.
+        */}
+        {event.packageId ? (
+          <button
+            className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45 @lg:text-sm"
+            type="button"
+            disabled={isSaving || rows.length === 0}
+            title={
+              rows.length === 0
+                ? "Add at least one timeline instruction first."
+                : `Make this the schedule ${event.packageName} starts from`
+            }
+            onClick={() => {
+              setMessage("");
+              setIsConfirmingDefault(true);
+            }}
+          >
+            <LineIcon name="store" className="h-4 w-4" />
+            Save as package default
+          </button>
+        ) : null}
+
         {message ? (
           <div
             className={`flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-xs font-bold ${
@@ -472,6 +549,60 @@ export function TimelineInstructions({
           </div>
         ) : null}
       </div>
+
+      {isConfirmingDefault ? (
+        <div
+          className="fixed inset-0 z-100 flex items-center justify-center bg-[#17202a]/30 p-3"
+          onMouseDown={(clickEvent) => {
+            if (clickEvent.currentTarget === clickEvent.target) {
+              setIsConfirmingDefault(false);
+            }
+          }}
+        >
+          <section
+            aria-labelledby="timeline-package-default-title"
+            aria-modal="true"
+            className="w-full max-w-120 rounded-xl border border-[#d8dde5] bg-white p-4 shadow-2xl"
+            role="dialog"
+          >
+            <h2
+              className="text-base font-black text-[#17202a]"
+              id="timeline-package-default-title"
+            >
+              Save as the {event.packageName} default?
+            </h2>
+            <p className="mt-2 text-sm text-[#516071]">
+              These {rows.length} instructions become the schedule{" "}
+              <strong>{event.packageName}</strong> starts from. Adding the
+              package to an event that has no timeline yet will copy them onto
+              it, as a draft for staff to confirm.
+            </p>
+            <p className="mt-2 text-sm text-[#516071]">
+              An event that already has a timeline keeps its own - nothing
+              anybody has written is replaced. Any default this package already
+              carries is overwritten.
+            </p>
+
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
+                onClick={() => setIsConfirmingDefault(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
+                disabled={isSaving}
+                onClick={() => void saveAsPackageDefault()}
+                type="button"
+              >
+                Save as default
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   );
 }

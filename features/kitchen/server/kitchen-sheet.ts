@@ -250,7 +250,10 @@ export function presentKitchenLine(
     // reaches a screen which has not heard of multipliers must still say 14, not
     // 7. Under-cooking is the failure worth designing against.
     quantityMultiplier,
-    quantities: scaleMenuQuantities(result?.quantities ?? [], quantityMultiplier),
+    quantities: scaleMenuQuantities(
+      result?.quantities ?? [],
+      quantityMultiplier
+    ),
     unresolvedBases: result?.unresolved ?? [],
     countState,
     // Null and "no row at all" are the same answer - not started - which is why
@@ -301,10 +304,8 @@ export function summarize(
 /**
  * The whole sheet for one event.
  *
- * `signedUrlsByPath` is optional because the board does not draw thumbnails: it
- * shows a progress ratio per event, not a list of dishes, so making it sign
- * every picture in a four week window would be a storage round-trip per event
- * for URLs nobody renders. Absent, every line answers `pictureUrl: null`.
+ * `signedUrlsByPath` is optional because summary-only callers do not need
+ * storage URLs. Absent, every line answers `pictureUrl: null`.
  */
 export function buildKitchenSheet({
   event,

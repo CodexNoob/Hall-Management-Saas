@@ -597,7 +597,8 @@ export async function GET(request: Request) {
         menuStatus: sheet.menuStatus,
         otherMeals: sheet.otherMeals,
         counts: sheet.counts,
-        summary: sheet.summary
+        summary: sheet.summary,
+        sheet
       };
     });
 

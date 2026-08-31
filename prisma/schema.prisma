@@ -881,6 +881,14 @@ model EventPackage {
   memberPrice          Decimal? @map("member_price") @db.Decimal(12, 2)
   includedMenuItemIds  String[] @default([]) @map("included_menu_item_ids")
   includedDrinkItemIds String[] @default([]) @map("included_drink_item_ids")
+  /// The day-of schedule this package is normally run to, saved from an event
+  /// that already had it right. Applying the package to an event with no
+  /// timeline of its own copies these rows onto it as a draft.
+  ///
+  /// The same array `Event.workspaceData.timeline` holds, so the two are
+  /// interchangeable without a translation step. Null means the package has no
+  /// default, which is every package until somebody saves one.
+  defaultTimeline      Json?    @map("default_timeline")
   notes                String?
   isActive             Boolean  @default(true) @map("is_active")
   createdAt            DateTime @default(now()) @map("created_at")

@@ -36,6 +36,7 @@ function eventFile(overrides: Partial<EventFile> = {}): EventFile {
     timeInput: "18:30",
     hallId: "hall-1",
     room: "Main Hall",
+    packageId: "",
     packageName: "Gold dinner",
     guests: "187",
     children: "12",

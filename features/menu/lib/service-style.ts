@@ -367,21 +367,53 @@ function parseRequiredCount(raw: string, label: string) {
   );
 }
 
+/** Whether a ticked style may be saved with its rule left empty. */
+export type ServiceRuleOptions = {
+  /**
+   * Drops a ticked style whose rule has not been filled in, instead of
+   * refusing the save.
+   *
+   * On for the menu library, where cataloguing a dish and working out how much
+   * of it to cook are two different jobs and often two different people: the
+   * rule is asked for again the first time the dish goes on an event, and the
+   * answer is written back to the item then.
+   *
+   * Off everywhere else, and especially in the band that asks at that later
+   * moment - there, an empty rule is the whole thing being requested, and
+   * accepting it would put the question back where it came from.
+   */
+  allowBlankRule?: boolean;
+};
+
 /**
  * Turns the dialog's text back into rules to store. An unchecked style produces
  * nothing, which is how an item goes back to being library-only.
  *
  * Throws rather than coercing, the same way the page's `readPrice` does: the
  * dialog renders what it catches, and a silent `0` here would tell the kitchen
- * to cook nothing.
+ * to cook nothing. A rule left entirely blank is the one exception, and only
+ * when the caller asks for it - see `allowBlankRule`.
  */
 export function toServiceRules(
-  values: ServiceStyleFormValues
+  values: ServiceStyleFormValues,
+  { allowBlankRule = false }: ServiceRuleOptions = {}
 ): MenuItemServiceRule[] {
   return SERVICE_STYLES.flatMap((style) => {
     const entry = values[style];
 
     if (!entry.enabled) return [];
+
+    // Blank means "not answered yet", which is different from wrong. A rule
+    // half filled in still goes through the checks below, so a typo is caught
+    // rather than quietly dropped along with the style.
+    if (
+      allowBlankRule &&
+      entry.quantity.trim() === "" &&
+      entry.unit.trim() === "" &&
+      entry.per.trim() === ""
+    ) {
+      return [];
+    }
 
     const quantity = parseNumericInput(entry.quantity, ruleQuantitySchema);
 

@@ -10,8 +10,7 @@ import {
 } from "@/features/events/components/event-manager-shared";
 import {
   LineName,
-  LineQuantity,
-  LineStatus
+  LineQuantity
 } from "@/features/kitchen/components/kitchen-line-presentation";
 import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
 import {
@@ -129,6 +128,30 @@ function statusLabel(status: EventKitchenLine["status"]) {
   return "Not started";
 }
 
+/**
+ * What a dish card looks like at each step of the cook's loop.
+ *
+ * A card is the button that advances the dish, so where it has got to has to be
+ * legible without tapping it: the surface carries the answer at arm's length
+ * across a whole grid, and the label under the rule says it in words for anyone
+ * who cannot rely on the colour alone.
+ */
+const CARD_STATUS_TONE = {
+  COMPLETE: "border-[#b9ddcf] bg-[#effbf6]",
+  PENDING: "border-[#efcf98] bg-[#fff8ec]",
+  NONE: "border-[#cfd5dc] bg-[#f8f9fb]"
+} as const;
+
+const CARD_STATUS_TEXT = {
+  COMPLETE: "text-[#087047]",
+  PENDING: "text-[#995700]",
+  NONE: "text-[#6a7483]"
+} as const;
+
+function statusKey(status: EventKitchenLine["status"]) {
+  return status === "COMPLETE" || status === "PENDING" ? status : "NONE";
+}
+
 function StatTile({
   label,
   note,
@@ -186,14 +209,23 @@ function WorkflowStep({
   );
 }
 
-const CARD_TONE: Record<"COMPLETE" | "PENDING" | "NONE", string> = {
-  COMPLETE: "border-[#a5d5bd] bg-[#f2fbf6]",
-  PENDING: "border-[#e5c894] bg-[#fffaf1]",
-  NONE: "border-[#d8dde5] bg-white"
-};
-
 /** Wait briefly so the clicks preceding a double-click do not advance status. */
 const DOUBLE_CLICK_GRACE_MS = 220;
+const WORKER_TONES = [
+  "bg-[#7657df]",
+  "bg-[#e12b2b]",
+  "bg-[#2474dc]",
+  "bg-[#3f4e61]",
+  "bg-[#178151]"
+];
+
+function workerTone(name: string) {
+  const index = [...name].reduce(
+    (sum, letter) => sum + letter.charCodeAt(0),
+    0
+  );
+  return WORKER_TONES[index % WORKER_TONES.length];
+}
 
 /**
  * One dish, as a card the kitchen taps.
@@ -208,7 +240,6 @@ const DOUBLE_CLICK_GRACE_MS = 220;
  * same click.
  */
 function DishCard({
-  currentWorkerId,
   isSaving,
   line,
   onReplace,
@@ -217,7 +248,6 @@ function DishCard({
   canReplace = true,
   workers
 }: {
-  currentWorkerId?: string | null;
   isSaving: boolean;
   line: EventKitchenLine;
   onReplace: (line: EventKitchenLine) => void;
@@ -239,15 +269,7 @@ function DishCard({
   // An add-on line has no menu item id, and `KitchenItemStatus` is keyed by
   // one, so there is nowhere to record its progress.
   const menuItemId = line.menuItemId;
-  const assignedToCurrentWorker =
-    Boolean(currentWorkerId) && line.assignedWorkerId === currentWorkerId;
   const canTick = permissions.canUpdateKitchenStatus && Boolean(menuItemId);
-  const tone =
-    line.status === "COMPLETE"
-      ? CARD_TONE.COMPLETE
-      : line.status === "PENDING"
-        ? CARD_TONE.PENDING
-        : CARD_TONE.NONE;
 
   function advance() {
     if (!menuItemId || line.status === "COMPLETE") return;
@@ -291,60 +313,43 @@ function DishCard({
     <>
       {line.assignedWorkerName ? (
         <span
-          className={`mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-2.5 py-1 text-[10px] font-black ${
-            assignedToCurrentWorker
-              ? "bg-[#1f4d73] text-white"
-              : "bg-[#0f5132] text-white"
-          }`}
+          className={`-mx-3 -mt-3 mb-3 block truncate px-2.5 py-1 text-center text-[10px] font-black text-white ${workerTone(line.assignedWorkerName)}`}
         >
-          <span
-            aria-hidden="true"
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-white/70"
-          />
-          <span className="truncate">
-            {assignedToCurrentWorker
-              ? `Assigned to me · ${line.assignedWorkerName}`
-              : `Assigned · ${line.assignedWorkerName}`}
-          </span>
-        </span>
-      ) : (
-        <span className="mb-2 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-[#fff7ed] px-2.5 py-1 text-[10px] font-black text-[#c2410c]">
-          <span
-            aria-hidden="true"
-            className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#fb923c]"
-          />
-          <span className="truncate">Unassigned</span>
-        </span>
-      )}
-
-      {line.pictureUrl ? (
-        <span className="mb-3 block overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-          {/* Plain img, not next/image: these are short-lived signed storage URLs
-              and the card already names the dish for assistive tech. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt=""
-            className="h-28 w-full object-cover"
-            loading="lazy"
-            src={line.pictureUrl}
-          />
+          {line.assignedWorkerName}
         </span>
       ) : null}
 
-      <span className="block text-sm font-black leading-tight text-[#17202a]">
-        {line.name}
-      </span>
-
-      <span className="mt-2 block">
+      <span className="block text-base font-black leading-tight">
         <LineQuantity line={line} />
       </span>
 
-      <span className="mt-auto block pt-3">
-        <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-          {line.serviceStyle ?? "No style"}
-        </span>
-        <span className="mt-1 block">
-          <LineStatus status={line.status} />
+      <span className="mt-2 block text-sm font-black leading-tight text-[#17202a]">
+        {line.name}
+      </span>
+
+      <span className="mt-auto block border-t border-[#cfd5dc] pt-4">
+        {/*
+          The kitchen note, and only when there is one. This used to fall back
+          to the dish name, which printed it twice on every card that had no
+          note - saying nothing, and leaving anything looking the card up by
+          name with two matches instead of one.
+        */}
+        {line.notes ? (
+          <span className="block text-center text-[11px] font-bold leading-tight text-[#6a7483]">
+            {line.notes}
+          </span>
+        ) : null}
+
+        {/*
+          In words as well as in colour. The card is the control that advances
+          the dish, so a cook has to be able to read where it has got to without
+          tapping it to find out - and a wash of colour alone is not something
+          everyone can tell apart.
+        */}
+        <span
+          className={`block text-center text-[10px] font-black uppercase tracking-[0.08em] ${line.notes ? "mt-2" : ""} ${CARD_STATUS_TEXT[statusKey(line.status)]}`}
+        >
+          {statusLabel(line.status)}
         </span>
       </span>
     </>
@@ -355,7 +360,7 @@ function DishCard({
       {canTick ? (
         <button
           aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to request a reset.`}
-          className={`flex min-h-34 flex-1 flex-col rounded-xl border p-3 text-left shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${tone}`}
+          className={`flex min-h-41 flex-1 flex-col border p-3 text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${CARD_STATUS_TONE[statusKey(line.status)]}`}
           disabled={isSaving}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -365,18 +370,20 @@ function DishCard({
         </button>
       ) : (
         <div
-          className={`flex min-h-34 flex-1 flex-col rounded-xl border p-3 ${tone}`}
+          className={`flex min-h-41 flex-1 flex-col border p-3 ${CARD_STATUS_TONE[statusKey(line.status)]}`}
         >
           {body}
         </div>
       )}
 
-      {/* Both controls sit under the card rather than in it: the card body is
+      {/* These controls sit under the card rather than in it: the card body is
           itself the status button, and a control nested in a button is both
-          invalid markup and a second meaning for the same click. Stacked rather
-          than side by side because these cards are two to a row on a phone. */}
+          invalid markup and a second meaning for the same click. Status reset
+          deliberately has no visible control here; double-clicking the card
+          opens its confirmation. */}
       {menuItemId &&
-      (permissions.canAssignWorkers || permissions.canUpdateKitchenStatus) ? (
+      (permissions.canAssignWorkers ||
+        (permissions.canUpdateKitchenStatus && canReplace)) ? (
         <div className="mt-1 flex flex-col gap-1">
           {permissions.canAssignWorkers ? (
             <label className="block">
@@ -402,18 +409,6 @@ function DishCard({
                 ))}
               </select>
             </label>
-          ) : null}
-
-          {permissions.canUpdateKitchenStatus && line.status ? (
-            <button
-              aria-label={`Reset status for ${line.name}`}
-              className="h-9 w-full rounded-lg border border-[#e5c894] bg-[#fffaf1] px-2 text-xs font-black text-[#80500c] transition hover:border-[#c98b2e] hover:bg-[#fff4db] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={isSaving}
-              onClick={requestReset}
-              type="button"
-            >
-              Reset status
-            </button>
           ) : null}
 
           {permissions.canUpdateKitchenStatus && canReplace ? (
@@ -458,14 +453,12 @@ function KitchenEventDetails({
   workers
 }: DetailsProps) {
   const isStandalone = event.source === "standalone";
-  const hasSheet = isStandalone ? Boolean(event.sheet) : event.summary !== null;
+  const hasSheet = Boolean(event.sheet) || event.summary !== null;
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`,
-    hasSheet && !isStandalone
+    hasSheet && !event.sheet
   );
-  const sheet = isStandalone
-    ? (event.sheet ?? null)
-    : (kitchenQuery.data?.kitchen ?? null);
+  const sheet = event.sheet ?? kitchenQuery.data?.kitchen ?? null;
   const hold = event.statusType === "hold";
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(
@@ -489,6 +482,26 @@ function KitchenEventDetails({
 
     return true;
   });
+  const dishSections = [
+    {
+      id: "plated",
+      label: "Plated items",
+      dishes: visibleDishes.filter((line) => line.serviceStyle === "Plated")
+    },
+    {
+      id: "buffet",
+      label: "Buffet items",
+      dishes: visibleDishes.filter((line) => line.serviceStyle === "Buffet")
+    },
+    {
+      id: "other",
+      label: "Other items",
+      dishes: visibleDishes.filter(
+        (line) =>
+          line.serviceStyle !== "Plated" && line.serviceStyle !== "Buffet"
+      )
+    }
+  ].filter((section) => section.dishes.length > 0);
   // The dish the replace drawer was opened from, held by id so the drawer keeps
   // reading the refreshed sheet rather than the row as it was when it opened.
   const [replaceLineId, setReplaceLineId] = useState<string | null>(null);
@@ -569,21 +582,21 @@ function KitchenEventDetails({
         <section
           aria-labelledby="kitchen-event-details-title"
           aria-modal="true"
-          className="flex max-h-[calc(100dvh-48px)] w-full max-w-5xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
+          className="flex max-h-[calc(100dvh-32px)] w-full max-w-7xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
           role="dialog"
         >
-          <header className="flex shrink-0 items-start gap-3 border-b border-[#d8dde5] bg-white px-5 py-5">
+          <header className="flex shrink-0 items-center gap-3 border-b border-[#d8dde5] bg-white px-4 py-3">
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-black uppercase tracking-wide text-[#617086]">
+              <p className="hidden text-[11px] font-black uppercase tracking-wide text-[#617086]">
                 {event.category}
               </p>
               <h2
-                className="mt-1 truncate text-xl font-black text-[#111827]"
+                className="truncate text-lg font-black text-[#111827]"
                 id="kitchen-event-details-title"
               >
-                {event.title}
+                {event.eventType ?? event.title} · Full Details
               </h2>
-              <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
+              <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
                 <span>{event.totalGuests} portions</span>
                 <span aria-hidden="true">•</span>
                 <span>Serves {formatServeTime(event.startsAt)}</span>
@@ -594,17 +607,47 @@ function KitchenEventDetails({
 
             <button
               aria-label="Close kitchen event details"
-              className="flex h-10 w-10 shrink-0 items-center justify-center text-3xl leading-none text-[#111827] transition hover:bg-[#eef4fa]"
+              className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
               onClick={onClose}
               type="button"
             >
-              ×
+              × Close
             </button>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[#eef2f6] p-3 sm:p-5">
+          {/*
+            A flex row rather than a float, and no fixed heights on either side.
+            The aside used to be floated with `min-h-132` on it and on the dish
+            panel, which set both to 33rem no matter how little was on the sheet
+            and let the panel outgrow the aside on a long one - so the blue
+            column stopped short of the dishes beside it. Stretching one row
+            makes the two ends meet whatever the event holds.
+          */}
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-5 lg:flex lg:items-stretch">
+            <aside className="mb-4 border-l-8 border-[#2f80ed] bg-[#dceaff] px-5 py-10 lg:mb-0 lg:w-72 lg:shrink-0">
+              <p className="text-xs font-black uppercase tracking-[0.08em] text-[#516071]">
+                {event.category}
+              </p>
+              <h3 className="mt-5 text-3xl font-black leading-tight text-[#17202a]">
+                {event.clientName ?? event.title}
+              </h3>
+              <p className="mt-3 text-lg font-black text-[#17202a]">
+                {sheet?.counts.couples
+                  ? `${sheet.counts.couples} couples`
+                  : `${event.totalGuests} portions`}
+              </p>
+              <p className="mt-6 text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                {event.eventType ?? `${mealLabel(sheet?.meal ?? "Main")} meal`}
+              </p>
+              <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
+                Serves {formatServeTime(event.startsAt)}
+              </p>
+            </aside>
+
+            {/* The other half of the row: everything that is not the aside. */}
+            <div className="min-w-0 lg:flex-1">
             <div
-              className={`mb-3 flex min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+              className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
                 hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
               }`}
             >
@@ -623,8 +666,8 @@ function KitchenEventDetails({
               <span>{event.menuStatus}</span>
             </div>
 
-            <div className="overflow-hidden border border-[#d8dde5] bg-white">
-              <div className="grid grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+            <div className="h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
+              <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
                 <StatTile
                   label="Serves"
                   note={
@@ -667,7 +710,7 @@ function KitchenEventDetails({
               </div>
 
               {summary ? (
-                <div className="border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
+                <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
                   <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
                       Dish workflow
@@ -701,7 +744,7 @@ function KitchenEventDetails({
                   Main meal, and the tiles give no hint that there is more. */}
               {otherMeals.length > 0 ? (
                 <p
-                  className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                  className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
                   role="status"
                 >
                   {formatOtherMeals(otherMeals)}{" "}
@@ -712,7 +755,7 @@ function KitchenEventDetails({
 
               {summary && summary.needsAttention > 0 ? (
                 <p
-                  className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                  className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
                   role="status"
                 >
                   {summary.needsAttention} dish
@@ -732,7 +775,7 @@ function KitchenEventDetails({
                     isEmpty
                   />
                 </div>
-              ) : kitchenQuery.isLoading || kitchenQuery.error ? (
+              ) : !sheet && (kitchenQuery.isLoading || kitchenQuery.error) ? (
                 <div className="p-4">
                   <AsyncState
                     error={kitchenQuery.error}
@@ -757,7 +800,7 @@ function KitchenEventDetails({
                 </div>
               ) : (
                 <>
-                  <div className="border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+                  <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div>
                         <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
@@ -811,21 +854,42 @@ function KitchenEventDetails({
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-3 p-3 min-[420px]:grid-cols-2 sm:grid-cols-3 sm:px-4 xl:grid-cols-4">
-                      {visibleDishes.map((line) => (
-                        <DishCard
-                          canReplace={!isStandalone}
-                          currentWorkerId={currentWorkerId}
-                          isSaving={isSaving}
-                          key={line.id}
-                          line={line}
-                          onReplace={(replacing) =>
-                            setReplaceLineId(replacing.id)
-                          }
-                          onSaveItemAction={saveForEvent}
-                          permissions={permissions}
-                          workers={workers}
-                        />
+                    <div className="space-y-5 bg-[#dceaff] p-3 sm:p-4">
+                      {/*
+                        Plated first, then buffet, then anything with no style -
+                        the order `dishSections` is built in. The headings are
+                        shown rather than screen-reader-only because the two are
+                        cooked and served differently, and a single unbroken
+                        grid left a cook to work out which half was which.
+                      */}
+                      {dishSections.map((section) => (
+                        <section
+                          aria-labelledby={`kitchen-${section.id}`}
+                          key={section.id}
+                        >
+                          <h3
+                            className="mb-2.5 border-b border-[#c8daf2] pb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516071]"
+                            id={`kitchen-${section.id}`}
+                          >
+                            {section.label}
+                          </h3>
+                          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                            {section.dishes.map((line) => (
+                              <DishCard
+                                canReplace={!isStandalone}
+                                isSaving={isSaving}
+                                key={line.id}
+                                line={line}
+                                onReplace={(replacing) =>
+                                  setReplaceLineId(replacing.id)
+                                }
+                                onSaveItemAction={saveForEvent}
+                                permissions={permissions}
+                                workers={workers}
+                              />
+                            ))}
+                          </div>
+                        </section>
                       ))}
                     </div>
                   )}
@@ -852,7 +916,7 @@ function KitchenEventDetails({
                 </section>
               ) : null}
 
-              <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
+              <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
                 {permissions.canUpdateKitchenStatus ? (
                   <p>
                     Click a dish to move it on — not started, then pending, then
@@ -867,6 +931,7 @@ function KitchenEventDetails({
                     : " That tab is also where dishes are added and removed."}
                 </p>
               </footer>
+            </div>
             </div>
           </div>
         </section>

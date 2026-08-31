@@ -15,8 +15,7 @@ export type EventReadinessItem = {
     | "hall-map"
     | "timeline"
     | "dining-plan"
-    | "billing"
-    | "kitchen-packet";
+    | "billing";
   label: string;
   done: boolean;
   helper: string;
@@ -144,23 +143,6 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
       helper: isBillingReviewed(event)
         ? `Payment status: ${event.paymentStatus}.`
         : "Review invoice/payment status.",
-      scopes: ["event", "print"]
-    },
-    {
-      id: "kitchen-packet",
-      label: "Operations notes ready",
-      done:
-        hasValue(event.internalNotes) ||
-        hasValue(event.daveningNote) ||
-        hasValue(event.sideBoxes) ||
-        hasValue(event.shabbosSetup),
-      helper:
-        hasValue(event.internalNotes) ||
-        hasValue(event.daveningNote) ||
-        hasValue(event.sideBoxes) ||
-        hasValue(event.shabbosSetup)
-          ? "Internal operation notes are available."
-          : "Add operation notes if staff need instructions.",
       scopes: ["event", "print"]
     }
   ];

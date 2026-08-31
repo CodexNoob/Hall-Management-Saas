@@ -135,6 +135,26 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
   const [isPictureCleared, setIsPictureCleared] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /*
+   * Which styles have their counting rule open.
+   *
+   * Ticking a style used to unfold seven controls asking how much to cook,
+   * which is a kitchen question put to somebody who is still describing a dish -
+   * and it read as required even though it never was. The rule is asked for
+   * again the first time the dish goes on an event, so it starts folded away
+   * here and only opens for someone who came to answer it.
+   *
+   * An item being edited that already carries a rule opens with it shown: it is
+   * there to be corrected, and hiding a saved value behind a link is how it gets
+   * silently left behind.
+   */
+  const [openRuleStyles, setOpenRuleStyles] = useState<ServiceStyle[]>(() =>
+    SERVICE_STYLES.filter(
+      (style) =>
+        initialValues.services[style].enabled &&
+        initialValues.services[style].quantity.trim() !== ""
+    )
+  );
   const isEditing = Boolean(editValues);
   // A function rather than a computed object: the seeding effect depends on it,
   // and an object rebuilt every render would re-seed the form mid-typing.
@@ -339,7 +359,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                   arithmetic question while they were still thinking about a
                   dish. The event menu asks for it later, when it matters. */}
               <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
-                Leave both off if you are not sure yet. You will be asked for the rule the first time this dish goes on an event, and the answer is saved back here.
+                No counting rule needed here. You will be asked how much to cook the first time this dish goes on an event, and the answer is saved back to the item - add one now only if you already know it.
               </p>
               <div className="mt-2 grid gap-2">
                 {SERVICE_STYLES.map((style) => {
@@ -357,12 +377,32 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                       </label>
                       {entry.enabled ? (
                         <div className="mt-2">
-                          <ServiceRuleFields
-                            label={label}
-                            onChange={(patch) => updateService(style, patch)}
-                            unitListId={unitListId}
-                            values={entry}
-                          />
+                          {openRuleStyles.includes(style) ? (
+                            /* Optional even once open: cataloguing a dish and
+                               working out how much of it to cook are two
+                               different jobs, often two different people. A
+                               blank row saves the dish without the rule. */
+                            <ServiceRuleFields
+                              label={label}
+                              onChange={(patch) => updateService(style, patch)}
+                              required={false}
+                              unitListId={unitListId}
+                              values={entry}
+                            />
+                          ) : (
+                            <button
+                              className="text-[11px] font-black normal-case tracking-normal text-[#1f4d73] underline underline-offset-2 hover:text-[#15344f]"
+                              onClick={() =>
+                                setOpenRuleStyles((current) => [
+                                  ...current,
+                                  style
+                                ])
+                              }
+                              type="button"
+                            >
+                              Add a counting rule (optional)
+                            </button>
+                          )}
                         </div>
                       ) : null}
                     </div>

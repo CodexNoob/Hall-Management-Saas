@@ -12,19 +12,7 @@ import {
   hallDayRefusal,
   hallDayStatus
 } from "@/lib/bookings/hall-day-availability";
-
-const timelineItemSchema = z.object({
-  id: z.string().min(1).max(100),
-  // No longer required: a cue row is placed by what happens before it rather
-  // than by the clock, and sends this blank.
-  time: z.string().trim().max(20).optional(),
-  // Sent only by a cue row, and sent even when still empty - its presence is
-  // what marks the row as sequence-driven, so a cue the manager has not typed
-  // yet has to come back as a cue row rather than as a midnight time row.
-  cue: z.string().trim().max(200).optional(),
-  text: z.string().trim().min(1).max(500),
-  type: z.enum(["Event", "Kitchen", "Staff"])
-});
+import { timelineSchema } from "@/features/events/validations/timeline.schema";
 
 const countFields = [
   "couplesCount",
@@ -130,7 +118,7 @@ const updateEventSchema = z
     memberShulName: z.string().trim().max(200).nullable().optional(),
     sideBoxes: z.string().trim().max(5000).nullable().optional(),
     shabbosSetup: z.string().trim().max(5000).nullable().optional(),
-    timeline: z.array(timelineItemSchema).max(100).optional(),
+    timeline: timelineSchema.optional(),
     timelineConfirmed: z.boolean().optional(),
     menuConfirmed: z.boolean().optional(),
     menuItemIds: z.array(z.string().uuid()).max(500).optional()
