@@ -156,6 +156,9 @@ describe("event information booking form values", () => {
       eventDate: "2026-09-01",
       hallId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f601",
       eventTypeId: "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607",
+      // 50 is more than the 12 couples and 4 children account for, so this room
+      // was not counted in pairs and opens by head.
+      countMode: "People",
       guests: "50",
       couples: "12",
       children: "4",
@@ -169,7 +172,7 @@ describe("event information booking form values", () => {
 });
 
 describe("event information save payload", () => {
-  it("spreads the guest total across the count columns", () => {
+  it("resaves a head-counted event without losing anyone", () => {
     const payload = toEventDetailsPayload(
       parseValues(createBookingFormValues(event as never)),
       event.timeInput
@@ -179,13 +182,16 @@ describe("event information save payload", () => {
       clientName: "Charles Duot",
       phone: "+12125550123",
       eventDate: "2026-09-01",
-      couplesCount: 12,
+      // Booked before the count modes existed, so it holds couples beside a
+      // head count. Reopened it counts by head, and the couples it also carried
+      // fold into the total rather than being counted a second time.
+      couplesCount: 0,
       kidsCount: 4,
       boysCount: 0,
       girlsCount: 0,
       ladiesCount: 0,
-      // 50 guests less 12 couples (24 seats) and 4 children.
-      menCount: 22
+      // 50 in the room, 4 of them children. The total survives the resave.
+      menCount: 46
     });
   });
 

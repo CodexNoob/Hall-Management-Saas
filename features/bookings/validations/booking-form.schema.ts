@@ -19,7 +19,25 @@ import { DEFAULT_PHONE_COUNTRY, requiredPhoneSchema } from "@/lib/validation/pho
  * Client name, phone, date, hall and event type are required. Guests, couples
  * and children stay optional - blank means zero rather than an error - and
  * notes are free text.
+ *
+ * An event is counted one way or the other, never both: `countMode` says which,
+ * and the count it does not use is ignored rather than erased. See
+ * `CountMode`.
  */
+
+/**
+ * How the room is counted.
+ *
+ * `People` counts by head, `Couples` counts in pairs, and the two are not
+ * interchangeable - 110 couples is 220 people, but 220 people is not 110
+ * couples. Naming the mode is what lets the form ask for one number instead of
+ * two that have to agree.
+ *
+ * Same two words as the dining plan's `countType`, deliberately: an event
+ * counted in couples on the booking form is the same event counted in couples
+ * downstream, and two names for one idea would invite them to drift.
+ */
+export type CountMode = "People" | "Couples";
 
 export type BookingFormValues = {
   clientName: string;
@@ -27,6 +45,7 @@ export type BookingFormValues = {
   eventDate: string;
   hallId: string;
   eventTypeId: string;
+  countMode: CountMode;
   guests: string;
   couples: string;
   children: string;
@@ -41,6 +60,7 @@ export const emptyBookingFormValues: BookingFormValues = {
   eventDate: "",
   hallId: "",
   eventTypeId: "",
+  countMode: "People",
   guests: "0",
   couples: "0",
   children: "0",
@@ -108,9 +128,10 @@ export function bookingFormSchema({
         .pipe(z.string().date("Enter a valid date.")),
       hallId: z.string().uuid("Select a hall."),
       eventTypeId: z.string().uuid("Select an event type."),
-      // The head count for the whole event. Couples and children below are the
-      // parts of it the kitchen and dining rooms are counted separately by, the
-      // same way the event manager reads them back.
+      countMode: z.enum(["People", "Couples"]),
+      // The head count for the whole event, children included. Read only in
+      // `People` mode - in `Couples` mode the box is not on screen, and
+      // whatever it still holds is left alone so switching back restores it.
       guests: countTextSchema("Guests"),
       couples: countTextSchema("Couples"),
       children: countTextSchema("Children"),
@@ -122,16 +143,19 @@ export function bookingFormSchema({
         .max(5000, "Notes must be 5000 characters or less.")
     })
     .superRefine((values, context) => {
-      const parts = values.couples * 2 + values.children;
+      // Only `People` mode has a total to check. In `Couples` mode the total is
+      // the couples and children themselves, and the guests box is off screen -
+      // complaining about a number nobody can see would be unanswerable.
+      if (values.countMode !== "People") return;
 
-      // A total smaller than its own parts would be silently clamped on the way
-      // to the database, and the event would then open showing a guest count
-      // nobody typed. Only checked once a total is given: left blank, the total
-      // is simply the parts.
-      if (values.guests > 0 && values.guests < parts) {
+      // A total smaller than its own children would be silently clamped on the
+      // way to the database, and the event would then open showing a guest
+      // count nobody typed. Only checked once a total is given: left blank, the
+      // total is simply the children.
+      if (values.guests > 0 && values.guests < values.children) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Guests must be at least ${parts} to cover the couples and children entered.`,
+          message: `Guests must be at least ${values.children} to cover the children entered.`,
           path: ["guests"]
         });
       }
@@ -139,6 +163,28 @@ export function bookingFormSchema({
 }
 
 export type BookingFormInput = z.output<ReturnType<typeof bookingFormSchema>>;
+
+/**
+ * The errors an edit resolves.
+ *
+ * The edited field's own message goes, and so does the guests message whenever
+ * the children move or the mode changes - it is about how the counts relate, so
+ * fixing the children must not leave a complaint on screen that is no longer
+ * true, and switching to `Couples` retires it entirely.
+ */
+export function fieldErrorPatch(
+  field: keyof BookingFormValues
+): BookingFormErrors {
+  const patch: BookingFormErrors = {};
+
+  patch[field] = undefined;
+
+  if (field === "children" || field === "countMode") {
+    patch.guests = undefined;
+  }
+
+  return patch;
+}
 
 /** First message per field, which is all a single-line error slot can show. */
 export function toFieldErrors(
@@ -161,17 +207,24 @@ export function toFieldErrors(
 /**
  * The count columns a validated form maps onto.
  *
- * There is no total-guests column - the total is the sum of the parts - so
- * whatever the couples and children do not account for goes to the catch-all,
- * which is what makes the entered total read back unchanged.
+ * There is no total-guests column - the total is the sum of the parts - so the
+ * mode decides which parts are filled. `Couples` stores the pairs and puts
+ * nothing in the catch-all; `People` stores no pairs and lets the catch-all
+ * carry whatever the children do not account for, which is what makes an
+ * entered total read back unchanged.
+ *
+ * The count the mode does not use is not read at all. It may still hold a value
+ * the user typed before switching, and that value is theirs to come back to.
  */
 export function toGuestCountPayload(data: BookingFormInput) {
+  const countedInCouples = data.countMode === "Couples";
+
   return {
-    couplesCount: data.couples,
+    couplesCount: countedInCouples ? data.couples : 0,
     kidsCount: data.children,
     boysCount: 0,
     girlsCount: 0,
     ladiesCount: 0,
-    menCount: Math.max(data.guests - data.couples * 2 - data.children, 0)
+    menCount: countedInCouples ? 0 : Math.max(data.guests - data.children, 0)
   };
 }

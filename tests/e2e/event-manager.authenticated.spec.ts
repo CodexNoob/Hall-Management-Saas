@@ -193,6 +193,11 @@ test("Event details save and persist edited fields", async ({ page }) => {
   await page
     .getByRole("textbox", { exact: true, name: "Notes" })
     .fill("Updated internal note.");
+  // The fixture's 20 are 10 couples and nothing else, so the panel opens
+  // counting in pairs and there is no Guests box until the mode says heads.
+  await page
+    .getByRole("combobox", { exact: true, name: "Count type" })
+    .selectOption("People");
   // Scoped to the role: a timeline row exposes aria-labels naming its own
   // instruction ("Timeline time for ..."), so a bare getByLabel("Guests") is
   // ambiguous against any row a fixture saves. This is a textbox rather than a
@@ -211,10 +216,11 @@ test("Event details save and persist edited fields", async ({ page }) => {
     boysCount: 0,
     girlsCount: 0,
     ladiesCount: 0,
-    couplesCount: 10,
+    // Counted by head now, so the pairs the event used to be counted in are
+    // not stored a second time on top of the 370.
+    couplesCount: 0,
     kidsCount: 0,
-    // 370 guests less the 10 couples already recorded.
-    menCount: 350,
+    menCount: 370,
     notes: "Updated internal note."
   });
 
@@ -269,16 +275,18 @@ test("Event details prevent invalid guest count values before saving", async ({
   await page.goto("/dashboard/events");
   await openFixtureEvent(page);
   await page
+    .getByRole("combobox", { exact: true, name: "Count type" })
+    .selectOption("People");
+  await page
     .getByRole("textbox", { exact: true, name: "Children" })
     .fill("999");
   await page.getByRole("button", { name: "Save event details" }).click();
 
-  // The 20 guests on the fixture cannot cover 10 couples plus 999 children, and
-  // the shared booking schema says so rather than letting the total be clamped.
+  // Counted by head, the fixture's 20 in the room cannot contain 999 children,
+  // and the shared booking schema says so rather than letting the total be
+  // clamped.
   await expect(
-    page.getByText(
-      "Guests must be at least 1019 to cover the couples and children entered."
-    )
+    page.getByText("Guests must be at least 999 to cover the children entered.")
   ).toBeVisible();
   expect(patchRequests).toBe(0);
 });

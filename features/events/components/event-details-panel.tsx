@@ -17,6 +17,7 @@ import {
 import { BookingFormFields } from "@/features/bookings/forms/booking-form-fields";
 import {
   bookingFormSchema,
+  fieldErrorPatch,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
@@ -212,14 +213,28 @@ function countText(value: unknown) {
  * event is edited with exactly what created it. The phone arrives stored as
  * E.164 and goes back to the picker as its national part, which is what the
  * field is typed in.
+ *
+ * The count mode is read back out of the counts rather than stored beside them.
+ * An event whose total is exactly its couples and children had nothing counted
+ * by head, which is only true of one that was entered in `Couples`. Everything
+ * else - including an event booked before the modes existed, holding couples
+ * and a head count at once - opens in `People` showing its full total, so
+ * reopening one cannot quietly shed the part of the room the couples do not
+ * account for.
  */
 export function createBookingFormValues(event: EventFile): BookingFormValues {
+  const couples = Number(event.couples);
+  const countedInCouples =
+    couples > 0 &&
+    Number(event.guests) === couples * 2 + Number(event.children);
+
   return {
     clientName: event.clientName,
     phone: nationalFromE164(event.phone),
     eventDate: event.dateInput,
     hallId: event.hallId,
     eventTypeId: event.eventTypeId,
+    countMode: countedInCouples ? "Couples" : "People",
     guests: countText(event.guests),
     couples: countText(event.couples),
     children: countText(event.children),
@@ -302,15 +317,7 @@ export function EventInformation({
 
   function updateValue(field: keyof BookingFormValues, value: string) {
     setFeedback(null);
-    setErrors((current) => ({
-      ...current,
-      [field]: undefined,
-      // The guests message is about how the three counts relate, so editing
-      // either part has to clear it too.
-      ...(field === "couples" || field === "children"
-        ? { guests: undefined }
-        : {})
-    }));
+    setErrors((current) => ({ ...current, ...fieldErrorPatch(field) }));
     setValues((current) => ({ ...current, [field]: value }));
   }
 
