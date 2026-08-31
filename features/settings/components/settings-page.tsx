@@ -5,7 +5,10 @@ import { useEffect, useState, type RefObject } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQueryPrefix,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { LogoField } from "@/features/settings/components/logo-field";
@@ -41,6 +44,35 @@ type SettingsPageProps = {
   displayMode?: "page" | "modal";
   onClose?: () => void;
 };
+
+/**
+ * The screens that answer with a copy of a setting saved here.
+ *
+ * Saving writes `integrations.controlCenter`, but neither the calendar nor the
+ * kitchen board reads it from /api/settings: each carries its own copy in its
+ * own response, so that a visit does not paint one view for a moment before a
+ * second request tells it about another. The cost of that is here - the
+ * mutation ages /api/settings and nothing else, so those responses stayed
+ * cached for their two-minute stale window and the saved setting looked like it
+ * had not taken until the page was reloaded.
+ *
+ * Prefixes rather than urls, because both carry the range on screen in their
+ * query string. Aging is all this does: a response nobody is reading is
+ * refetched when something next asks for it.
+ */
+const CONTROL_CENTER_QUERY_PREFIXES = ["/api/calendar", "/api/kitchen"];
+
+/**
+ * `dailyEventLimit` is saved on its own, into its own `integrations.calendar`
+ * blob, and is read by the event list as well as by the calendar.
+ */
+const DAILY_EVENT_LIMIT_QUERY_PREFIXES = ["/api/calendar", "/api/events"];
+
+function refreshQueriesCarrying(prefixes: string[]) {
+  for (const prefix of prefixes) {
+    invalidateAuthenticatedQueryPrefix(prefix);
+  }
+}
 
 export function SettingsPage({
   closeButtonRef,
@@ -216,6 +248,7 @@ export function SettingsPage({
       setLogoFile(null);
       setIsLogoCleared(false);
       setSettingsMessage("Settings saved.");
+      refreshQueriesCarrying(CONTROL_CENTER_QUERY_PREFIXES);
       await settingsQuery.refetch();
     } catch (error) {
       setSettingsMessage(
@@ -654,7 +687,13 @@ export function SettingsPage({
                       if (!Number.isFinite(value) || value < 1 || value > 50)
                         return;
                       setDailyEventLimit(value);
-                      void settingsMutation.mutate({ dailyEventLimit: value });
+                      void settingsMutation
+                        .mutate({ dailyEventLimit: value })
+                        .then(() =>
+                          refreshQueriesCarrying(
+                            DAILY_EVENT_LIMIT_QUERY_PREFIXES
+                          )
+                        );
                     }}
                     onChange={(calendar) =>
                       setControlCenter((current) => ({ ...current, calendar }))
