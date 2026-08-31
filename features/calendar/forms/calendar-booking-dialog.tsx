@@ -11,6 +11,7 @@ import {
 import {
   bookingFormSchema,
   emptyBookingFormValues,
+  fieldErrorPatch,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
@@ -175,21 +176,9 @@ export function CalendarBookingDialog({
   const updateValue = (field: keyof BookingFormValues, value: string) => {
     resetError();
     eventTypeMutation.resetError();
-    setErrors((current) => ({
-      ...current,
-      [field]: undefined,
-      // The guests message is about how the three counts relate, so editing
-      // either part has to clear it too - otherwise fixing the couples leaves a
-      // complaint on screen that is no longer true.
-      ...(field === "couples" || field === "children"
-        ? { guests: undefined }
-        : {})
-    }));
+    setErrors((current) => ({ ...current, ...fieldErrorPatch(field) }));
 
-    setValues((current) => ({
-      ...current,
-      [field]: value
-    }));
+    setValues((current) => ({ ...current, [field]: value }));
 
     if (field === "eventTypeId" && value !== OTHER_EVENT_TYPE_ID) {
       setOtherEventTypeName("");

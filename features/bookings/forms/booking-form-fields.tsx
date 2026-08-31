@@ -242,40 +242,62 @@ export function BookingFormFields({
       </div>
 
       <div>
-        <FieldLabel htmlFor={fieldId("guests")}>Guests</FieldLabel>
+        <FieldLabel htmlFor={fieldId("count-mode")}>Count type</FieldLabel>
 
-        <input
-          aria-describedby={errors.guests ? errorId("guests") : undefined}
-          aria-invalid={errors.guests ? true : undefined}
+        <select
           className={bookingControlClass}
-          id={fieldId("guests")}
-          inputMode="decimal"
-          onChange={(event) => onChange("guests", event.target.value)}
-          type="text"
-          value={values.guests}
-        />
-        {errors.guests ? (
-          <FieldError id={errorId("guests")}>{errors.guests}</FieldError>
-        ) : null}
+          id={fieldId("count-mode")}
+          onChange={(event) => onChange("countMode", event.target.value)}
+          value={values.countMode}
+        >
+          <option value="People">People</option>
+          <option value="Couples">Couples</option>
+        </select>
       </div>
 
-      <div>
-        <FieldLabel htmlFor={fieldId("couples")}>Couples</FieldLabel>
+      {/*
+        One count box, never two. The mode names how this room is counted, and
+        the other box is hidden rather than cleared - whatever it holds is still
+        there if the mode is switched back, and nothing anybody typed is thrown
+        away on a change of mind.
+      */}
+      {values.countMode === "People" ? (
+        <div>
+          <FieldLabel htmlFor={fieldId("guests")}>Guests</FieldLabel>
 
-        <input
-          aria-describedby={errors.couples ? errorId("couples") : undefined}
-          aria-invalid={errors.couples ? true : undefined}
-          className={bookingControlClass}
-          id={fieldId("couples")}
-          inputMode="decimal"
-          onChange={(event) => onChange("couples", event.target.value)}
-          type="text"
-          value={values.couples}
-        />
-        {errors.couples ? (
-          <FieldError id={errorId("couples")}>{errors.couples}</FieldError>
-        ) : null}
-      </div>
+          <input
+            aria-describedby={errors.guests ? errorId("guests") : undefined}
+            aria-invalid={errors.guests ? true : undefined}
+            className={bookingControlClass}
+            id={fieldId("guests")}
+            inputMode="decimal"
+            onChange={(event) => onChange("guests", event.target.value)}
+            type="text"
+            value={values.guests}
+          />
+          {errors.guests ? (
+            <FieldError id={errorId("guests")}>{errors.guests}</FieldError>
+          ) : null}
+        </div>
+      ) : (
+        <div>
+          <FieldLabel htmlFor={fieldId("couples")}>Couples</FieldLabel>
+
+          <input
+            aria-describedby={errors.couples ? errorId("couples") : undefined}
+            aria-invalid={errors.couples ? true : undefined}
+            className={bookingControlClass}
+            id={fieldId("couples")}
+            inputMode="decimal"
+            onChange={(event) => onChange("couples", event.target.value)}
+            type="text"
+            value={values.couples}
+          />
+          {errors.couples ? (
+            <FieldError id={errorId("couples")}>{errors.couples}</FieldError>
+          ) : null}
+        </div>
+      )}
 
       <div>
         <FieldLabel htmlFor={fieldId("children")}>Children</FieldLabel>
