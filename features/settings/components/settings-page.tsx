@@ -25,10 +25,8 @@ import {
   PanelHeader,
   Toggle,
   integrations,
-  modalHubTitlesBySection,
   modalSettingsNavItems,
   secondaryButton,
-  settingsHubItems,
   type ControlCenterSettings,
   type ModalSettingsSection,
   type SettingsResponse
@@ -173,11 +171,6 @@ export function SettingsPage({
     visibleModalNavItems.find((item) => item.label === activeModalSection) ??
     visibleModalNavItems[0];
   const showAllSettingsContent = false;
-  const visibleSettingsHubItems = showAllSettingsContent
-    ? settingsHubItems
-    : settingsHubItems.filter((item) =>
-        (modalHubTitlesBySection[activeModalSection] ?? []).includes(item.title)
-      );
   const visibleIntegrations = integrations;
   const shouldShowIntegrations = false;
   const modalGridClass =
@@ -628,51 +621,6 @@ export function SettingsPage({
                 activeModalSection === "Integrations" ? (
                   <ComingSoonPanel section={activeModalSection} />
                 ) : null}
-                {(showAllSettingsContent ||
-                  visibleSettingsHubItems.length > 0) &&
-                activeModalSection !== "Halls" &&
-                activeModalSection !== "Calendar" &&
-                activeModalSection !== "Kitchen" &&
-                activeModalSection !== "Access" &&
-                activeModalSection !== "Billing" &&
-                activeModalSection !== "Branding" &&
-                activeModalSection !== "Integrations" ? (
-                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader
-                      title={isModal ? activeModalSection : "Settings Hub"}
-                    />
-
-                    <div
-                      className={`grid gap-3 p-4 ${
-                        isModal
-                          ? "lg:grid-cols-2"
-                          : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-                      }`}
-                    >
-                      {visibleSettingsHubItems.map((item) => (
-                        <article
-                          className="flex min-h-28 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
-                          key={item.title}
-                        >
-                          <Icon
-                            className="mt-0.5 h-5 w-5 shrink-0 text-[#536b83]"
-                            name={item.icon}
-                          />
-
-                          <span className="min-w-0 flex-1">
-                            <strong className="block text-[11px]">
-                              {item.title}
-                            </strong>
-                            <span className="mt-2 block text-[9px] leading-4 text-[#6a7483]">
-                              {item.description}
-                            </span>
-                          </span>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
                 <div
                   className={`grid gap-4 ${
                     isModal
