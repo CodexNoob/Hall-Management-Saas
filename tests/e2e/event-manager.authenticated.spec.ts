@@ -280,11 +280,17 @@ test("Event details prevent invalid guest count values before saving", async ({
   await page
     .getByRole("textbox", { exact: true, name: "Children" })
     .fill("999");
-  await page.getByRole("button", { name: "Save event details" }).click();
 
-  // Counted by head, the fixture's 20 in the room cannot contain 999 children,
-  // and the shared booking schema says so rather than letting the total be
-  // clamped.
+  // Counted by head, the fixture's 20 in the room cannot contain 999 children.
+  // Asserted before the save is attempted, on purpose: the counts answer for
+  // themselves as they are typed, and finding out at save time is the whole
+  // complaint this replaced.
+  await expect(
+    page.getByText("Guests must be at least 999 to cover the children entered.")
+  ).toBeVisible();
+
+  // And the message is not merely advisory - it still refuses the save.
+  await page.getByRole("button", { name: "Save event details" }).click();
   await expect(
     page.getByText("Guests must be at least 999 to cover the children entered.")
   ).toBeVisible();

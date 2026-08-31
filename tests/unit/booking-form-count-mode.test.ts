@@ -3,6 +3,7 @@ import {
   bookingFormSchema,
   emptyBookingFormValues,
   fieldErrorPatch,
+  liveCountErrors,
   toGuestCountPayload,
   type BookingFormValues
 } from "@/features/bookings/validations/booking-form.schema";
@@ -103,6 +104,55 @@ describe("counting by head", () => {
     if (parsed.success) return;
 
     expect(parsed.error.issues[0]?.path).toEqual(["guests"]);
+  });
+});
+
+describe("liveCountErrors", () => {
+  it("complains while the counts are still being typed, not on save", () => {
+    expect(
+      liveCountErrors(form({ countMode: "People", guests: "20", children: "999" }))
+    ).toEqual({
+      guests: "Guests must be at least 999 to cover the children entered."
+    });
+  });
+
+  it("takes the complaint back the moment it is answered", () => {
+    expect(
+      liveCountErrors(
+        form({ countMode: "People", guests: "1000", children: "999" })
+      )
+    ).toEqual({ guests: undefined });
+  });
+
+  it("says nothing about a total that is off screen", () => {
+    expect(
+      liveCountErrors(
+        form({ countMode: "Couples", guests: "20", children: "999" })
+      )
+    ).toEqual({ guests: undefined });
+  });
+
+  it("holds its tongue on a half-typed count", () => {
+    // `parseNumericInput` owns that message and says it on submit. Flashing an
+    // error at somebody mid-keystroke is not the same as being helpful.
+    expect(
+      liveCountErrors(form({ countMode: "People", guests: "abc", children: "5" }))
+    ).toEqual({ guests: undefined });
+  });
+
+  it("agrees with the schema it will be saved through", () => {
+    const values = form({
+      countMode: "People",
+      guests: "20",
+      children: "999"
+    });
+    const parsed = bookingFormSchema().safeParse(values);
+
+    expect(parsed.success).toBe(false);
+
+    if (parsed.success) return;
+
+    expect(parsed.error.issues[0]?.message).toBe(liveCountErrors(values).guests);
   });
 });
 
