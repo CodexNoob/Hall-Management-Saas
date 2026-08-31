@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
-import { TodayNotesDrawer } from "@/components/shared/today-notes-drawer";
 import { CalendarBookingDialog } from "@/features/calendar/forms/calendar-booking-dialog";
 import { type DateRange } from "@/features/calendar/forms/date-range-picker-dialog";
 import { AsyncState } from "@/components/ui/async-state";
@@ -20,7 +19,6 @@ import {
 } from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
-import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { AvailabilityView } from "@/features/calendar/components/calendar-availability-tab";
@@ -35,12 +33,13 @@ import { CalendarWeekView } from "@/features/calendar/components/calendar-week-v
 import {
   BuildingIcon,
   CalendarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   SettingsIcon,
   StatusDot,
   weekDayLabels,
   type AvailabilityDay,
   type CalendarBooking,
-  type CalendarView,
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
 export function EventCalendarPage() {
@@ -59,17 +58,6 @@ export function EventCalendarPage() {
   const [activeTab, setActiveTab] = useState<
     "calendar" | "availability" | "settings"
   >("calendar");
-  /*
-   * Null until the switcher is used, and only then does it win.
-   *
-   * The view a visit opens on is Settings > Calendar > Default view, which
-   * arrives with the calendar data rather than being known at mount. Holding an
-   * override instead of seeding state from the response is what lets the
-   * setting apply the moment it lands without an effect racing the first paint,
-   * and without the page silently reverting a switch the user just made.
-   */
-  const [calendarViewOverride, setCalendarViewOverride] =
-    useState<CalendarView | null>(null);
   const today = useMemo(() => startOfDay(new Date()), []);
   const [availabilityRange, setAvailabilityRange] = useState<DateRange>(() => {
     const startDate = startOfMonth(today);
@@ -81,12 +69,10 @@ export function EventCalendarPage() {
   const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(today));
   const [selectedDateValue, setSelectedDateValue] = useState(today);
   const selectedDate = dateKey(selectedDateValue);
-  const [searchQuery, setSearchQuery] = useDashboardPageSearch("Calendar");
   const [hallFilter, setHallFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
-  const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const canCreateEvent = useAccess("booking.create");
   const canUpdateSettings = useAccess("settings.update");
   // Bounded by the month rather than by the rendered grid, because the grid now
@@ -120,10 +106,15 @@ export function EventCalendarPage() {
     eventsQuery.data?.calendarSettings?.showHebrewDate ?? true;
   const showAvailability =
     eventsQuery.data?.calendarSettings?.showAvailability ?? true;
+  /*
+   * The only thing that picks the view now that the in-page switcher is gone:
+   * Settings > Calendar > Default view, which arrives with the calendar data
+   * rather than being known at mount. Reading it straight off the response,
+   * instead of seeding state from it, is what lets the setting apply the moment
+   * it lands without an effect racing the first paint.
+   */
   const calendarView =
-    calendarViewOverride ??
-    eventsQuery.data?.calendarSettings?.defaultView ??
-    "month";
+    eventsQuery.data?.calendarSettings?.defaultView ?? "month";
   const calendarGridDays = useMemo(
     () => buildMonthGrid(visibleMonth, weekStartsOn),
     [visibleMonth, weekStartsOn]
@@ -227,27 +218,20 @@ export function EventCalendarPage() {
     ]
   );
 
-  const filteredBookings = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+  const filteredBookings = useMemo(
+    () =>
+      bookings.filter((booking) => {
+        const matchesHall = hallFilter === "all" || booking.hall === hallFilter;
 
-    return bookings.filter((booking) => {
-      const matchesSearch =
-        !query ||
-        [booking.title, booking.hall, booking.type, booking.packageName ?? ""]
-          .join(" ")
-          .toLowerCase()
-          .includes(query);
+        const matchesStatus =
+          statusFilter === "all" || booking.status === statusFilter;
 
-      const matchesHall = hallFilter === "all" || booking.hall === hallFilter;
+        const matchesType = typeFilter === "all" || booking.type === typeFilter;
 
-      const matchesStatus =
-        statusFilter === "all" || booking.status === statusFilter;
-
-      const matchesType = typeFilter === "all" || booking.type === typeFilter;
-
-      return matchesSearch && matchesHall && matchesStatus && matchesType;
-    });
-  }, [bookings, hallFilter, searchQuery, statusFilter, typeFilter]);
+        return matchesHall && matchesStatus && matchesType;
+      }),
+    [bookings, hallFilter, statusFilter, typeFilter]
+  );
 
   const readDay = useMemo(
     () =>
@@ -402,13 +386,19 @@ export function EventCalendarPage() {
 
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
+      {/*
+        Search and Today notes are dropped here: the calendar has its own hall,
+        status and type filters below, and the day cells themselves are where a
+        booking is found. New booking stays.
+      */}
       <DashboardTopbar
         title="Calendar"
         subtitle="Review hall availability, bookings, holds, and fully booked dates."
         onNewBooking={
           canBookSelectedDate ? () => setIsNewBookingOpen(true) : undefined
         }
-        onTodayNotes={() => setIsTodayNotesOpen(true)}
+        showSearch={false}
+        showTodayNotesAction={false}
       />
 
       {/*
@@ -567,79 +557,51 @@ export function EventCalendarPage() {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <h2 className="text-xl font-black">{periodLabel}</h2>
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div
-                      aria-label="Calendar view"
-                      className="grid grid-cols-3 overflow-hidden rounded-lg border border-[#b9c2cf]"
-                      role="group"
+                  {/*
+                    Arrows rather than words, so the period controls stay a
+                    compact cluster at the end of the header instead of
+                    stretching across it on a narrow screen. The labels move to
+                    aria-label, which is what the tests and a screen reader read
+                    anyway.
+                  */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      aria-label={
+                        calendarView === "week"
+                          ? "Show previous week"
+                          : "Show previous month"
+                      }
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#b9c2cf] text-[#516071] hover:bg-[#eef4fa]"
+                      onClick={() => movePeriod(-1)}
+                      type="button"
                     >
-                      {(
-                        [
-                          ["month", "Month"],
-                          ["week", "Week"],
-                          ["agenda", "Agenda"]
-                        ] as const
-                      ).map(([view, label]) => (
-                        <button
-                          aria-pressed={calendarView === view}
-                          className={`h-9 border-r border-[#b9c2cf] px-3 text-xs font-black last:border-r-0 ${calendarView === view ? "bg-[#1f4d73] text-white" : "bg-white text-[#516071] hover:bg-[#eef4fa]"}`}
-                          key={view}
-                          onClick={() => setCalendarViewOverride(view)}
-                          type="button"
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
+                      <ChevronLeftIcon />
+                    </button>
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        aria-label={
-                          calendarView === "week"
-                            ? "Show previous week"
-                            : "Show previous month"
-                        }
-                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                        onClick={() => movePeriod(-1)}
-                        type="button"
-                      >
-                        Previous
-                      </button>
+                    <button
+                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                      onClick={goToToday}
+                      type="button"
+                    >
+                      Today
+                    </button>
 
-                      <button
-                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                        onClick={goToToday}
-                        type="button"
-                      >
-                        Today
-                      </button>
-
-                      <button
-                        aria-label={
-                          calendarView === "week"
-                            ? "Show next week"
-                            : "Show next month"
-                        }
-                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                        onClick={() => movePeriod(1)}
-                        type="button"
-                      >
-                        Next
-                      </button>
-                    </div>
+                    <button
+                      aria-label={
+                        calendarView === "week"
+                          ? "Show next week"
+                          : "Show next month"
+                      }
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#b9c2cf] text-[#516071] hover:bg-[#eef4fa]"
+                      onClick={() => movePeriod(1)}
+                      type="button"
+                    >
+                      <ChevronRightIcon />
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid gap-2 md:grid-cols-[minmax(190px,2fr)_repeat(3,minmax(120px,1fr))]">
-                  <input
-                    className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73]"
-                    name="calendarSearch"
-                    onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search calendar"
-                    type="search"
-                    value={searchQuery}
-                  />
-
+                <div className="grid gap-2 md:grid-cols-3">
                   <select
                     className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
                     name="calendarHallFilter"
@@ -685,7 +647,7 @@ export function EventCalendarPage() {
               {calendarView === "agenda" ? (
                 <CalendarAgendaView
                   days={agendaDays}
-                  emptyMessage={`Nothing is booked in ${monthLabel}${searchQuery.trim() || hallFilter !== "all" || statusFilter !== "all" || typeFilter !== "all" ? " that matches the current filters" : ""}.`}
+                  emptyMessage={`Nothing is booked in ${monthLabel}${hallFilter !== "all" || statusFilter !== "all" || typeFilter !== "all" ? " that matches the current filters" : ""}.`}
                   onBookDate={openBookingForDate}
                   onSelectDate={selectDate}
                   showAvailability={showAvailability}
@@ -943,10 +905,6 @@ export function EventCalendarPage() {
         }}
         open={isNewBookingOpen}
         selectedDate={selectedDate}
-      />
-      <TodayNotesDrawer
-        onClose={() => setIsTodayNotesOpen(false)}
-        open={isTodayNotesOpen}
       />
     </div>
   );

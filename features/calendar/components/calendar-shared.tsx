@@ -143,6 +143,48 @@ export function SettingsIcon({
   );
 }
 
+export function ChevronLeftIcon({
+  className = "h-4 w-4"
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.2"
+      viewBox="0 0 24 24"
+    >
+      <path d="m15 5-7 7 7 7" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({
+  className = "h-4 w-4"
+}: {
+  className?: string;
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2.2"
+      viewBox="0 0 24 24"
+    >
+      <path d="m9 5 7 7-7 7" />
+    </svg>
+  );
+}
+
 export function StatusDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-xs font-bold text-[#516071]">

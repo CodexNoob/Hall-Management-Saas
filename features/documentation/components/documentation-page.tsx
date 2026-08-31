@@ -228,7 +228,7 @@ export function DocumentationPage() {
 
             <div className="grid gap-6 p-5 sm:p-7 xl:grid-cols-[minmax(0,1fr)_320px]">
               <section>
-                <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.1em] text-[#1f4d73]">
+                <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[#1f4d73]">
                   <CheckCircle2 className="h-5 w-5" /> Instructions
                 </h3>
                 <ol className="mt-4 space-y-3">
