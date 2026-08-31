@@ -15,7 +15,8 @@ import {
   dateKey,
   dateKeyFromIso,
   startOfDay,
-  startOfMonth
+  startOfMonth,
+  weekDates
 } from "@/lib/dates/calendar-date";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
@@ -23,8 +24,14 @@ import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard
 import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 import { AvailabilityView } from "@/features/calendar/components/calendar-availability-tab";
+import { CalendarAgendaView } from "@/features/calendar/components/calendar-agenda-view";
+import {
+  createCalendarDayReader,
+  hasOpenAvailability
+} from "@/features/calendar/components/calendar-day-model";
 import { EventPill } from "@/features/calendar/components/calendar-event-pill";
 import { CalendarSettingsView } from "@/features/calendar/components/calendar-settings-tab";
+import { CalendarWeekView } from "@/features/calendar/components/calendar-week-view";
 import {
   BuildingIcon,
   CalendarIcon,
@@ -33,6 +40,7 @@ import {
   weekDayLabels,
   type AvailabilityDay,
   type CalendarBooking,
+  type CalendarView,
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
 export function EventCalendarPage() {
@@ -51,6 +59,17 @@ export function EventCalendarPage() {
   const [activeTab, setActiveTab] = useState<
     "calendar" | "availability" | "settings"
   >("calendar");
+  /*
+   * Null until the switcher is used, and only then does it win.
+   *
+   * The view a visit opens on is Settings > Calendar > Default view, which
+   * arrives with the calendar data rather than being known at mount. Holding an
+   * override instead of seeding state from the response is what lets the
+   * setting apply the moment it lands without an effect racing the first paint,
+   * and without the page silently reverting a switch the user just made.
+   */
+  const [calendarViewOverride, setCalendarViewOverride] =
+    useState<CalendarView | null>(null);
   const today = useMemo(() => startOfDay(new Date()), []);
   const [availabilityRange, setAvailabilityRange] = useState<DateRange>(() => {
     const startDate = startOfMonth(today);
@@ -97,6 +116,14 @@ export function EventCalendarPage() {
   // booking form instead. Off, a day click only selects the day.
   const clickAnywhereToAdd =
     eventsQuery.data?.calendarSettings?.clickAnywhereToAdd ?? false;
+  const showHebrewDate =
+    eventsQuery.data?.calendarSettings?.showHebrewDate ?? true;
+  const showAvailability =
+    eventsQuery.data?.calendarSettings?.showAvailability ?? true;
+  const calendarView =
+    calendarViewOverride ??
+    eventsQuery.data?.calendarSettings?.defaultView ??
+    "month";
   const calendarGridDays = useMemo(
     () => buildMonthGrid(visibleMonth, weekStartsOn),
     [visibleMonth, weekStartsOn]
@@ -222,6 +249,52 @@ export function EventCalendarPage() {
     });
   }, [bookings, hallFilter, searchQuery, statusFilter, typeFilter]);
 
+  const readDay = useMemo(
+    () =>
+      createCalendarDayReader({
+        bookings,
+        filteredBookings,
+        halls: eventsQuery.data?.halls ?? [],
+        blockedDates: eventsQuery.data?.blockedDates ?? [],
+        dailyEventLimit,
+        selectedDate,
+        todayKey: dateKey(today),
+        canCreateEvent
+      }),
+    [
+      bookings,
+      canCreateEvent,
+      dailyEventLimit,
+      eventsQuery.data?.blockedDates,
+      eventsQuery.data?.halls,
+      filteredBookings,
+      selectedDate,
+      today
+    ]
+  );
+  const monthDays = useMemo(
+    () =>
+      calendarGridDays.map((calendarDay) =>
+        readDay(calendarDay.date, calendarDay.currentMonth)
+      ),
+    [calendarGridDays, readDay]
+  );
+  // Anchored on the selected day rather than on the month, because a week is
+  // what the user steps through in this view - and `selectDate` keeps the month
+  // pointed at it, so the week always sits inside the range already fetched.
+  const weekDaysInView = useMemo(
+    () =>
+      weekDates(selectedDateValue, weekStartsOn).map((date) => readDay(date)),
+    [readDay, selectedDateValue, weekStartsOn]
+  );
+  const agendaDays = useMemo(
+    () =>
+      monthDays
+        .filter((day) => day.inView)
+        .sort((first, second) => first.dateKey.localeCompare(second.dateKey)),
+    [monthDays]
+  );
+
   const selectedBookings = useMemo(
     () => bookings.filter((booking) => booking.dateKey === selectedDate),
     [bookings, selectedDate]
@@ -259,6 +332,21 @@ export function EventCalendarPage() {
     month: "long",
     year: "numeric"
   }).format(visibleMonth);
+  const weekRangeLabel = `${new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric"
+  }).format(weekDaysInView[0].date)} – ${new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  }).format(weekDaysInView[6].date)}`;
+  const periodLabel = calendarView === "week" ? weekRangeLabel : monthLabel;
+  const calendarViewHeading =
+    calendarView === "week"
+      ? "Week Calendar"
+      : calendarView === "agenda"
+        ? "Agenda"
+        : "Month Calendar";
   const selectedDateLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -292,6 +380,19 @@ export function EventCalendarPage() {
     const nextMonth = addMonths(visibleMonth, amount);
     setVisibleMonth(nextMonth);
     setSelectedDateValue(nextMonth);
+  }
+
+  // One pair of arrows for all three views, stepping by whatever the view is
+  // measured in. Week steps through `selectDate`, which drags the visible month
+  // along with it - the calendar query is bounded by that month, so a week that
+  // crossed into the next one without it would ask the grid to draw bookings
+  // the page never fetched.
+  function movePeriod(amount: number) {
+    if (calendarView === "week") {
+      selectDate(addDays(selectedDateValue, 7 * amount));
+      return;
+    }
+    moveMonth(amount);
   }
 
   function goToToday() {
@@ -330,7 +431,7 @@ export function EventCalendarPage() {
             type="button"
           >
             <CalendarIcon className="hidden h-4 w-4 sm:block" />
-            Month Calendar
+            Calendar
           </button>
 
           <button
@@ -387,6 +488,7 @@ export function EventCalendarPage() {
               await eventsQuery.refetch();
             }}
             onRangeChange={setAvailabilityRange}
+            showHebrewDate={showHebrewDate}
             startDate={availabilityRange.startDate}
             startDateLabel={availabilityStartDateLabel}
             weekStartsOn={weekStartsOn}
@@ -436,13 +538,17 @@ export function EventCalendarPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <CalendarIcon />
-                    <h1 className="text-sm font-black">Month Calendar</h1>
+                    <h1 className="text-sm font-black">
+                      {calendarViewHeading}
+                    </h1>
                   </div>
 
                   <p className="mt-1 text-xs text-[#6a7483]">
-                    {clickAnywhereToAdd
-                      ? "Click any bookable day to start a booking on that date."
-                      : "Click a day to review the schedule, or + to book it."}
+                    {calendarView === "agenda"
+                      ? "Every booked day this month, in date order."
+                      : clickAnywhereToAdd
+                        ? "Click any bookable day to start a booking on that date."
+                        : "Click a day to review the schedule, or + to book it."}
                   </p>
                 </div>
 
@@ -451,39 +557,76 @@ export function EventCalendarPage() {
                   <StatusDot color="bg-[#b66b00]" label="Hold" />
                   <StatusDot color="bg-[#5649dd]" label="School" />
                   <StatusDot color="bg-[#aab5c3]" label="Fully booked" />
+                  {showAvailability ? (
+                    <StatusDot color="bg-[#087047]" label="Open slots" />
+                  ) : null}
                 </div>
               </div>
 
               <div className="flex flex-col gap-3 p-3">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <h2 className="text-xl font-black">{monthLabel}</h2>
+                  <h2 className="text-xl font-black">{periodLabel}</h2>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      aria-label="Show previous month"
-                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                      onClick={() => moveMonth(-1)}
-                      type="button"
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div
+                      aria-label="Calendar view"
+                      className="grid grid-cols-3 overflow-hidden rounded-lg border border-[#b9c2cf]"
+                      role="group"
                     >
-                      Previous
-                    </button>
+                      {(
+                        [
+                          ["month", "Month"],
+                          ["week", "Week"],
+                          ["agenda", "Agenda"]
+                        ] as const
+                      ).map(([view, label]) => (
+                        <button
+                          aria-pressed={calendarView === view}
+                          className={`h-9 border-r border-[#b9c2cf] px-3 text-xs font-black last:border-r-0 ${calendarView === view ? "bg-[#1f4d73] text-white" : "bg-white text-[#516071] hover:bg-[#eef4fa]"}`}
+                          key={view}
+                          onClick={() => setCalendarViewOverride(view)}
+                          type="button"
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
 
-                    <button
-                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                      onClick={goToToday}
-                      type="button"
-                    >
-                      Today
-                    </button>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        aria-label={
+                          calendarView === "week"
+                            ? "Show previous week"
+                            : "Show previous month"
+                        }
+                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                        onClick={() => movePeriod(-1)}
+                        type="button"
+                      >
+                        Previous
+                      </button>
 
-                    <button
-                      aria-label="Show next month"
-                      className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
-                      onClick={() => moveMonth(1)}
-                      type="button"
-                    >
-                      Next
-                    </button>
+                      <button
+                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                        onClick={goToToday}
+                        type="button"
+                      >
+                        Today
+                      </button>
+
+                      <button
+                        aria-label={
+                          calendarView === "week"
+                            ? "Show next week"
+                            : "Show next month"
+                        }
+                        className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black hover:bg-[#eef4fa]"
+                        onClick={() => movePeriod(1)}
+                        type="button"
+                      >
+                        Next
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -539,136 +682,129 @@ export function EventCalendarPage() {
                 </div>
               </div>
 
-              <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-3 pb-3">
-                <div className="min-w-212.5 overflow-hidden rounded-xl border border-[#d8dde5]">
-                  <div className="grid grid-cols-7 bg-[#fbfcfd]">
-                    {gridWeekDays.map((day) => (
-                      <div
-                        key={day}
-                        className="border-r border-[#d8dde5] py-3 text-center text-[10px] font-black tracking-wider text-[#6a7483] last:border-r-0"
-                      >
-                        {day}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-7">
-                    {calendarGridDays.map((calendarDay) => {
-                      const dayBookings = filteredBookings.filter(
-                        (booking) => booking.dateKey === calendarDay.dateKey
-                      );
-                      const allDayBookings = bookings.filter(
-                        (booking) => booking.dateKey === calendarDay.dateKey
-                      );
-                      const isSelected = calendarDay.dateKey === selectedDate;
-                      const isToday = calendarDay.dateKey === dateKey(today);
-                      const isBlocked = (
-                        eventsQuery.data?.blockedDates ?? []
-                      ).some(
-                        (range) =>
-                          calendarDay.dateKey >=
-                            dateKeyFromIso(range.startDate) &&
-                          calendarDay.dateKey <= dateKeyFromIso(range.endDate)
-                      );
-                      const fullyBooked =
-                        calendarDay.currentMonth &&
-                        (eventsQuery.data?.halls ?? []).length > 0 &&
-                        (eventsQuery.data?.halls ?? []).every((hall) => {
-                          const limit = hall.dailyEventLimit ?? dailyEventLimit;
-                          return (
-                            allDayBookings.filter(
-                              (booking) => booking.hall === hall.name
-                            ).length >= limit
-                          );
-                        });
-                      const dateLabel = new Intl.DateTimeFormat("en-US", {
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric"
-                      }).format(calendarDay.date);
-                      // The same three conditions either way: a day that cannot
-                      // take a booking has no + button, and books nothing when
-                      // the whole cell is the button instead.
-                      const canBookDay =
-                        calendarDay.currentMonth &&
-                        !fullyBooked &&
-                        !isBlocked &&
-                        canCreateEvent;
-                      const bookOnDayClick = clickAnywhereToAdd && canBookDay;
-
-                      return (
+              {calendarView === "agenda" ? (
+                <CalendarAgendaView
+                  days={agendaDays}
+                  emptyMessage={`Nothing is booked in ${monthLabel}${searchQuery.trim() || hallFilter !== "all" || statusFilter !== "all" || typeFilter !== "all" ? " that matches the current filters" : ""}.`}
+                  onBookDate={openBookingForDate}
+                  onSelectDate={selectDate}
+                  showAvailability={showAvailability}
+                  showHebrewDate={showHebrewDate}
+                />
+              ) : calendarView === "week" ? (
+                <CalendarWeekView
+                  clickAnywhereToAdd={clickAnywhereToAdd}
+                  days={weekDaysInView}
+                  onBookDate={openBookingForDate}
+                  onSelectDate={selectDate}
+                  showAvailability={showAvailability}
+                  showHebrewDate={showHebrewDate}
+                />
+              ) : (
+                <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-3 pb-3">
+                  <div className="min-w-212.5 overflow-hidden rounded-xl border border-[#d8dde5]">
+                    <div className="grid grid-cols-7 bg-[#fbfcfd]">
+                      {gridWeekDays.map((day) => (
                         <div
-                          key={calendarDay.dateKey}
-                          className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.currentMonth ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}
+                          key={day}
+                          className="border-r border-[#d8dde5] py-3 text-center text-[10px] font-black tracking-wider text-[#6a7483] last:border-r-0"
                         >
-                          <button
-                            aria-label={
-                              bookOnDayClick
-                                ? `Book ${dateLabel}`
-                                : `Select ${dateLabel}`
-                            }
-                            className="absolute inset-0 z-0"
-                            onClick={() =>
-                              bookOnDayClick
-                                ? openBookingForDate(calendarDay.date)
-                                : selectDate(calendarDay.date)
-                            }
-                            title={bookOnDayClick ? `Book ${dateLabel}` : undefined}
-                            type="button"
-                          />
-
-                          <div className="pointer-events-none relative z-1 grid grid-cols-[1fr_auto_1fr] items-start gap-2">
-                            <strong className="text-sm">
-                              {calendarDay.day}
-                            </strong>
-                            <span
-                              className="justify-self-center text-center text-[9px] font-semibold"
-                              dir="rtl"
-                            >
-                              {formatHebrewDateWithoutYear(calendarDay.date)}
-                            </span>
-                          </div>
-
-                          {canBookDay && !clickAnywhereToAdd ? (
-                            <button
-                              aria-label={`Book ${dateLabel}`}
-                              className="absolute right-2 top-2 z-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#b9c2cf] bg-white text-sm font-black leading-none text-[#1f4d73] shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus:outline-none focus:ring-2 focus:ring-[#a8ccec]"
-                              onClick={() =>
-                                openBookingForDate(calendarDay.date)
-                              }
-                              title={`Book ${dateLabel}`}
-                              type="button"
-                            >
-                              +
-                            </button>
-                          ) : null}
-
-                          <div className="relative z-1 mt-2 space-y-1">
-                            {dayBookings.map((booking) => (
-                              <EventPill
-                                booking={booking}
-                                key={booking.id}
-                                onSelect={() => selectDate(calendarDay.date)}
-                              />
-                            ))}
-                          </div>
-
-                          {fullyBooked ? (
-                            <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">
-                              Fully booked
-                            </span>
-                          ) : null}
-                          {isBlocked ? (
-                            <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#b42318]">
-                              Blocked
-                            </span>
-                          ) : null}
+                          {day}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7">
+                      {monthDays.map((calendarDay) => {
+                        const bookOnDayClick =
+                          clickAnywhereToAdd && calendarDay.canBook;
+                        const dateLabel = calendarDay.dateLabel;
+
+                        return (
+                          <div
+                            key={calendarDay.dateKey}
+                            className={`relative min-h-32 border-r border-t border-[#d8dde5] p-2 text-left transition nth-[7n]:border-r-0 ${calendarDay.inView ? "bg-white hover:bg-[#f8fbfd]" : "bg-[#f8f9fb] text-[#94a1b1] hover:bg-[#eef2f6]"} ${calendarDay.isToday ? "z-2 ring-3 ring-inset ring-[#1f4d73]" : calendarDay.isSelected ? "z-1 ring-2 ring-inset ring-[#a8ccec]" : ""}`}
+                          >
+                            <button
+                              aria-label={
+                                bookOnDayClick
+                                  ? `Book ${dateLabel}`
+                                  : `Select ${dateLabel}`
+                              }
+                              className="absolute inset-0 z-0"
+                              onClick={() =>
+                                bookOnDayClick
+                                  ? openBookingForDate(calendarDay.date)
+                                  : selectDate(calendarDay.date)
+                              }
+                              title={
+                                bookOnDayClick ? `Book ${dateLabel}` : undefined
+                              }
+                              type="button"
+                            />
+
+                            <div className="pointer-events-none relative z-1 grid grid-cols-[1fr_auto_1fr] items-start gap-2">
+                              <strong className="text-sm">
+                                {calendarDay.day}
+                              </strong>
+                              {showHebrewDate ? (
+                                <span
+                                  className="justify-self-center text-center text-[9px] font-semibold"
+                                  dir="rtl"
+                                >
+                                  {calendarDay.hebrewDate}
+                                </span>
+                              ) : null}
+                            </div>
+
+                            {calendarDay.canBook && !clickAnywhereToAdd ? (
+                              <button
+                                aria-label={`Book ${dateLabel}`}
+                                className="absolute right-2 top-2 z-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#b9c2cf] bg-white text-sm font-black leading-none text-[#1f4d73] shadow-sm transition hover:border-[#1f4d73] hover:bg-[#eef4fa] focus:outline-none focus:ring-2 focus:ring-[#a8ccec]"
+                                onClick={() =>
+                                  openBookingForDate(calendarDay.date)
+                                }
+                                title={`Book ${dateLabel}`}
+                                type="button"
+                              >
+                                +
+                              </button>
+                            ) : null}
+
+                            <div className="relative z-1 mt-2 space-y-1">
+                              {calendarDay.bookings.map((booking) => (
+                                <EventPill
+                                  booking={booking}
+                                  key={booking.id}
+                                  onSelect={() => selectDate(calendarDay.date)}
+                                />
+                              ))}
+                            </div>
+
+                            {calendarDay.fullyBooked ? (
+                              <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">
+                                Fully booked
+                              </span>
+                            ) : null}
+                            {calendarDay.isBlocked ? (
+                              <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#b42318]">
+                                Blocked
+                              </span>
+                            ) : null}
+                            {showAvailability &&
+                            !calendarDay.isBlocked &&
+                            hasOpenAvailability(calendarDay) ? (
+                              <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#087047]">
+                                {calendarDay.openSlots} open
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </section>
 
             <aside className="dashboard-panel-enter self-start overflow-hidden rounded-xl border border-[#d8dde5] bg-white">

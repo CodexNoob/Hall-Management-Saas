@@ -21,6 +21,7 @@ export function AvailabilityView({
   onNewBooking,
   onRemoveDay,
   onRangeChange,
+  showHebrewDate = true,
   startDate,
   startDateLabel,
   weekStartsOn
@@ -33,6 +34,8 @@ export function AvailabilityView({
   onNewBooking?: () => void;
   onRemoveDay: (dateKey: string) => void | Promise<void>;
   onRangeChange: (range: DateRange) => void;
+  /** Settings > Calendar > Show Hebrew dates, which covers the whole tab. */
+  showHebrewDate?: boolean;
   startDate: Date;
   startDateLabel: string;
   weekStartsOn?: WeekStartsOn;
@@ -124,9 +127,11 @@ export function AvailabilityView({
                   <h3 className="text-sm font-black">
                     {availabilityDay.dateLabel}
                   </h3>
-                  <p className="mt-1 text-xs text-[#617086]" dir="rtl">
-                    {availabilityDay.hebrewDate}
-                  </p>
+                  {showHebrewDate ? (
+                    <p className="mt-1 text-xs text-[#617086]" dir="rtl">
+                      {availabilityDay.hebrewDate}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
