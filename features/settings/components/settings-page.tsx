@@ -8,7 +8,12 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
+import { LogoField } from "@/features/settings/components/logo-field";
 import { ResetSettingsPanel } from "@/features/settings/components/reset-settings-panel";
+import {
+  getOrganizationLogoUrl,
+  uploadOrganizationLogo
+} from "@/features/settings/lib/upload-organization-logo";
 import {
   AccessSettingsPanel,
   BillingBasicsPanel,
@@ -25,10 +30,8 @@ import {
   PanelHeader,
   Toggle,
   integrations,
-  modalHubTitlesBySection,
   modalSettingsNavItems,
   secondaryButton,
-  settingsHubItems,
   type ControlCenterSettings,
   type ModalSettingsSection,
   type SettingsResponse
@@ -76,7 +79,7 @@ export function SettingsPage({
   const [organizationName, setOrganizationName] = useState("");
   const [controlCenter, setControlCenter] = useState<ControlCenterSettings>({
     general: {
-      logoUrl: "",
+      logoPath: "",
       contactEmail: "",
       dateFormat: "MMM d, yyyy",
       timeFormat: "12-hour"
@@ -98,6 +101,14 @@ export function SettingsPage({
     }
   });
   const [settingsMessage, setSettingsMessage] = useState("");
+  // The logo is picked here and uploaded on save, so an abandoned screen leaves
+  // nothing in the bucket. `isLogoCleared` is the third state the path alone
+  // cannot express: a stored logo the operator has asked to drop, which is not
+  // the same as never having had one.
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [isLogoCleared, setIsLogoCleared] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [storedLogoUrl, setStoredLogoUrl] = useState<string | null>(null);
   const [activeModalSection, setActiveModalSection] =
     useState<ModalSettingsSection>("General");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
@@ -119,8 +130,34 @@ export function SettingsPage({
     );
     setOrganizationName(settingsQuery.data.organization.name);
     setControlCenter(settingsQuery.data.settings.controlCenter);
+    // What the server says is now what is stored, so a pending pick or a
+    // pending removal has either been applied or was never saved.
+    setLogoFile(null);
+    setIsLogoCleared(false);
     setPaymentLink(settingsQuery.data.payments?.paymentLink ?? "");
   }, [settingsQuery.data]);
+
+  const logoPath = controlCenter.general.logoPath;
+
+  // The bucket is private, so the stored logo is only renderable through a
+  // signed URL. Signed on the client the way hall floor plans are: the
+  // tenant_storage_select policy already limits it to this organization's
+  // folder, and routing it through the API would buy nothing.
+  useEffect(() => {
+    if (!logoPath) {
+      setStoredLogoUrl(null);
+      return;
+    }
+
+    let isCurrent = true;
+    void getOrganizationLogoUrl(logoPath).then((url) => {
+      if (isCurrent) setStoredLogoUrl(url);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [logoPath]);
 
   const savePaymentLink = async () => {
     setPaymentMessage("");
@@ -152,7 +189,32 @@ export function SettingsPage({
   const saveControlCenter = async () => {
     setSettingsMessage("");
     try {
-      await settingsMutation.mutate({ organizationName, controlCenter });
+      // The picked file reaches the bucket here and not a moment earlier, so
+      // closing the panel without saving uploads nothing.
+      let nextLogoPath = controlCenter.general.logoPath;
+      if (logoFile) {
+        setIsUploadingLogo(true);
+        try {
+          nextLogoPath = await uploadOrganizationLogo(logoFile);
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      } else if (isLogoCleared) {
+        nextLogoPath = "";
+      }
+
+      const nextControlCenter: ControlCenterSettings = {
+        ...controlCenter,
+        general: { ...controlCenter.general, logoPath: nextLogoPath }
+      };
+
+      await settingsMutation.mutate({
+        organizationName,
+        controlCenter: nextControlCenter
+      });
+      setControlCenter(nextControlCenter);
+      setLogoFile(null);
+      setIsLogoCleared(false);
       setSettingsMessage("Settings saved.");
       await settingsQuery.refetch();
     } catch (error) {
@@ -173,11 +235,6 @@ export function SettingsPage({
     visibleModalNavItems.find((item) => item.label === activeModalSection) ??
     visibleModalNavItems[0];
   const showAllSettingsContent = false;
-  const visibleSettingsHubItems = showAllSettingsContent
-    ? settingsHubItems
-    : settingsHubItems.filter((item) =>
-        (modalHubTitlesBySection[activeModalSection] ?? []).includes(item.title)
-      );
   const visibleIntegrations = integrations;
   const shouldShowIntegrations = false;
   const modalGridClass =
@@ -350,25 +407,21 @@ export function SettingsPage({
                           value={organizationName}
                         />
                       </label>
-                      <label className="text-[10px] font-bold sm:col-span-2">
-                        Logo URL
-                        <input
-                          className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
-                          name="organizationLogoUrl"
-                          onChange={(event) =>
-                            setControlCenter((current) => ({
-                              ...current,
-                              general: {
-                                ...current.general,
-                                logoUrl: event.target.value
-                              }
-                            }))
-                          }
-                          placeholder="https://example.com/logo.png"
-                          type="url"
-                          value={controlCenter.general.logoUrl}
-                        />
-                      </label>
+                      <LogoField
+                        currentLogoUrl={storedLogoUrl}
+                        file={logoFile}
+                        isCleared={isLogoCleared}
+                        isDisabled={!canEditSettings || isUploadingLogo}
+                        onClearStored={() => setIsLogoCleared(true)}
+                        onRestoreStored={() => setIsLogoCleared(false)}
+                        onSelect={(picked) => {
+                          setLogoFile(picked);
+                          // Picking replaces the stored logo outright, so a
+                          // pending removal is no longer what the operator
+                          // asked for.
+                          if (picked) setIsLogoCleared(false);
+                        }}
+                      />
                       <label className="text-[10px] font-bold sm:col-span-2">
                         Contact email
                         <input
@@ -628,51 +681,6 @@ export function SettingsPage({
                 activeModalSection === "Integrations" ? (
                   <ComingSoonPanel section={activeModalSection} />
                 ) : null}
-                {(showAllSettingsContent ||
-                  visibleSettingsHubItems.length > 0) &&
-                activeModalSection !== "Halls" &&
-                activeModalSection !== "Calendar" &&
-                activeModalSection !== "Kitchen" &&
-                activeModalSection !== "Access" &&
-                activeModalSection !== "Billing" &&
-                activeModalSection !== "Branding" &&
-                activeModalSection !== "Integrations" ? (
-                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader
-                      title={isModal ? activeModalSection : "Settings Hub"}
-                    />
-
-                    <div
-                      className={`grid gap-3 p-4 ${
-                        isModal
-                          ? "lg:grid-cols-2"
-                          : "sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5"
-                      }`}
-                    >
-                      {visibleSettingsHubItems.map((item) => (
-                        <article
-                          className="flex min-h-28 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 text-left"
-                          key={item.title}
-                        >
-                          <Icon
-                            className="mt-0.5 h-5 w-5 shrink-0 text-[#536b83]"
-                            name={item.icon}
-                          />
-
-                          <span className="min-w-0 flex-1">
-                            <strong className="block text-[11px]">
-                              {item.title}
-                            </strong>
-                            <span className="mt-2 block text-[9px] leading-4 text-[#6a7483]">
-                              {item.description}
-                            </span>
-                          </span>
-                        </article>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
                 <div
                   className={`grid gap-4 ${
                     isModal
@@ -849,14 +857,17 @@ export function SettingsPage({
                       disabled={
                         !canEditSettings ||
                         settingsMutation.isPending ||
+                        isUploadingLogo ||
                         !organizationName.trim()
                       }
                       onClick={() => void saveControlCenter()}
                       type="button"
                     >
-                      {settingsMutation.isPending
-                        ? "Saving..."
-                        : "Save changes"}
+                      {isUploadingLogo
+                        ? "Uploading logo..."
+                        : settingsMutation.isPending
+                          ? "Saving..."
+                          : "Save changes"}
                     </button>
                   </div>
                 ) : null}

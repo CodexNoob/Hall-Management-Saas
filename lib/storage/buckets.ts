@@ -23,3 +23,10 @@ export const MENU_IMAGE_BUCKET = "menu-images";
  * org-id path prefix. Private; created by hand in the Supabase dashboard.
  */
 export const HALL_FLOOR_PLAN_BUCKET = "hall-floor-plans";
+
+/**
+ * The organization logo shown on the settings profile. Same shape and the same
+ * reasoning as the two above - browser-written, so a constant rather than an
+ * env variable; private, and created by hand in the Supabase dashboard.
+ */
+export const ORGANIZATION_LOGO_BUCKET = "organization-logos";

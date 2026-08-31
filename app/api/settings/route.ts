@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
+  discardOrganizationLogo,
+  readLogoPathError
+} from "@/features/settings/server/organization-logo";
+import {
   assertPermission,
   authorize,
   requireUserActor,
@@ -41,7 +45,11 @@ const settingsSchema = z.object({
   controlCenter: z
     .object({
       general: z.object({
-        logoUrl: z.union([z.literal(""), z.string().url()]).default(""),
+        // A storage path, not a URL: the logo lives in a private bucket and is
+        // read back through a short-lived signed URL. Defaulted so a settings
+        // document written before the uploader existed still parses - see the
+        // note on `clickAnywhereToAdd` below for what a missing default costs.
+        logoPath: z.string().trim().max(512).default(""),
         contactEmail: z.union([z.literal(""), z.string().email()]).default(""),
         dateFormat: z.enum(["MMM d, yyyy", "MM/dd/yyyy", "dd/MM/yyyy"]),
         timeFormat: z.enum(["12-hour", "24-hour"])
@@ -97,7 +105,7 @@ const settingsSchema = z.object({
 
 const defaultControlCenter = {
   general: {
-    logoUrl: "",
+    logoPath: "",
     contactEmail: "",
     dateFormat: "MMM d, yyyy" as const,
     timeFormat: "12-hour" as const
@@ -273,6 +281,17 @@ export async function PATCH(request: Request) {
     if (input.payments !== undefined) {
       await assertPermission(actor, "payment.record");
     }
+    // The browser writes the object to storage itself, so this is where a path
+    // pointing outside the caller's own folder gets refused.
+    if (input.controlCenter?.general.logoPath) {
+      const logoPathError = readLogoPathError(
+        actor.organizationId,
+        input.controlCenter.general.logoPath
+      );
+      if (logoPathError) {
+        return NextResponse.json({ error: logoPathError }, { status: 400 });
+      }
+    }
     const currentSettings = await prisma.organizationSetting.upsert({
       where: { ...tenant(actor) },
       update: {},
@@ -360,6 +379,22 @@ export async function PATCH(request: Request) {
         return { settings, notifications };
       }
     );
+
+    // After the write, and best effort: a logo replaced or removed leaves an
+    // object nothing points at, but a storage failure must not undo a save the
+    // caller has already been told nothing about.
+    if (input.controlCenter) {
+      const previousLogoPath = controlCenterFromIntegrations(
+        currentSettings.integrations
+      ).general.logoPath;
+      if (
+        previousLogoPath &&
+        previousLogoPath !== input.controlCenter.general.logoPath
+      ) {
+        await discardOrganizationLogo(actor.organizationId, previousLogoPath);
+      }
+    }
+
     const payments =
       input.payments !== undefined
         ? await prisma.paymentSetting.upsert({

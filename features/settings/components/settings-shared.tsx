@@ -23,7 +23,12 @@ export type SettingsResponse = {
 
 export type ControlCenterSettings = {
   general: {
-    logoUrl: string;
+    /**
+     * Where the logo lives in the private organization-logos bucket, not a URL:
+     * it is rendered through a signed URL that rotates, so the path is the only
+     * part worth storing.
+     */
+    logoPath: string;
     contactEmail: string;
     dateFormat: "MMM d, yyyy" | "MM/dd/yyyy" | "dd/MM/yyyy";
     timeFormat: "12-hour" | "24-hour";
@@ -61,13 +66,8 @@ export type IconName =
   | "globe"
   | "eye"
   | "link"
+  | "upload"
   | "billing";
-
-export type SettingsHubItem = {
-  title: string;
-  description: string;
-  icon: IconName;
-};
 
 export type ModalSettingsSection =
   | "General"
@@ -139,96 +139,6 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     label: "Reset",
     description: "Permanently clear events, menus, configuration or access.",
     icon: "gear"
-  }
-];
-
-export const modalHubTitlesBySection: Partial<
-  Record<ModalSettingsSection, string[]>
-> = {
-  General: ["Platform Settings"],
-  Halls: ["Halls"],
-  Calendar: ["Calendar Defaults"],
-  Kitchen: ["Kitchen Defaults", "Kitchen Workers", "Kitchen Alerts"],
-  Access: ["User Types", "User Access", "Feature Access"],
-  Billing: ["Billing Basics"],
-  Branding: ["PDF & Branding"]
-};
-
-export const settingsHubItems: SettingsHubItem[] = [
-  {
-    title: "Platform Settings",
-    description: "General settings, preferences, and system configuration.",
-    icon: "gear"
-  },
-  {
-    title: "Halls",
-    description: "Manage halls, rooms, capacity, and setup.",
-    icon: "hall"
-  },
-  {
-    title: "Calendar Defaults",
-    description: "Default view, Hebrew dates, availability markers, and holds.",
-    icon: "calendar"
-  },
-  {
-    title: "Event Types",
-    description: "Create booking categories such as weddings and conferences.",
-    icon: "calendar"
-  },
-  {
-    title: "Kitchen Defaults",
-    description: "Default kitchen view, assigned-only mode, and prep display.",
-    icon: "kitchen"
-  },
-  {
-    title: "Kitchen Workers",
-    description: "Manage who can be assigned to kitchen dishes.",
-    icon: "users"
-  },
-  {
-    title: "Kitchen Alerts",
-    description: "Short-notice alerts and required acknowledgments.",
-    icon: "mail"
-  },
-  {
-    title: "User Types",
-    description: "Create and manage user roles and types.",
-    icon: "users"
-  },
-  {
-    title: "User Access",
-    description: "Manage users and their access to the platform.",
-    icon: "access"
-  },
-  {
-    title: "Feature Access",
-    description: "Control access to platform features and modules.",
-    icon: "feature"
-  },
-  {
-    title: "Billing Basics",
-    description: "Currency, payment methods, and simple ledger defaults.",
-    icon: "billing"
-  },
-  {
-    title: "Payments & Gmail",
-    description: "Payment methods and Gmail integration settings.",
-    icon: "mail"
-  },
-  {
-    title: "Google Calendar",
-    description: "Sync events and availability with Google Calendar.",
-    icon: "calendar"
-  },
-  {
-    title: "PDF & Branding",
-    description: "Customize PDFs, invoices, and brand identity.",
-    icon: "file"
-  },
-  {
-    title: "Activity Logs",
-    description: "View system activity and audit logs.",
-    icon: "activity"
   }
 ];
 
@@ -355,6 +265,12 @@ export function Icon({
       <>
         <path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1" />
         <path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1" />
+      </>
+    ),
+    upload: (
+      <>
+        <path d="M12 16V4M8 8l4-4 4 4" />
+        <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
       </>
     ),
     billing: (

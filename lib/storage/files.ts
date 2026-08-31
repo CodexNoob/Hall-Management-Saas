@@ -1,6 +1,9 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { getEnv } from "@/lib/env";
-import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
+import {
+  MENU_IMAGE_BUCKET,
+  ORGANIZATION_LOGO_BUCKET
+} from "@/lib/storage/buckets";
 
 export type SignedFileUrlInput = {
   organizationId: string;
@@ -53,7 +56,8 @@ function assertAccessible(
     env.SUPABASE_STORAGE_BUCKET_FILES,
     env.SUPABASE_STORAGE_BUCKET_LAYOUTS,
     env.SUPABASE_STORAGE_BUCKET_PDFS,
-    MENU_IMAGE_BUCKET
+    MENU_IMAGE_BUCKET,
+    ORGANIZATION_LOGO_BUCKET
   ]);
   if (!allowedBuckets.has(bucket)) {
     throw new Error("Storage bucket is not allowed.");
