@@ -12,6 +12,7 @@ import {
   bookingFormSchema,
   emptyBookingFormValues,
   fieldErrorPatch,
+  liveCountErrors,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
@@ -174,11 +175,20 @@ export function CalendarBookingDialog({
   if (!open) return null;
 
   const updateValue = (field: keyof BookingFormValues, value: string) => {
+    const next = { ...values, [field]: value };
+
     resetError();
     eventTypeMutation.resetError();
-    setErrors((current) => ({ ...current, ...fieldErrorPatch(field) }));
+    // Checked against the form this keystroke produces, not the one it
+    // replaced: the counts have to answer for themselves as they are typed
+    // rather than holding their complaint until a save.
+    setErrors((current) => ({
+      ...current,
+      ...fieldErrorPatch(field),
+      ...liveCountErrors(next)
+    }));
 
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues(next);
 
     if (field === "eventTypeId" && value !== OTHER_EVENT_TYPE_ID) {
       setOtherEventTypeName("");

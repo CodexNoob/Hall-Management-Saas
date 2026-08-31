@@ -102,6 +102,56 @@ function countTextSchema(label: string) {
 }
 
 /**
+ * The one rule the counts can break, stated once.
+ *
+ * A total smaller than its own children would be silently clamped on the way to
+ * the database, and the event would then open showing a guest count nobody
+ * typed. Only checked once a total is given: left blank, the total is simply
+ * the children.
+ *
+ * Only `People` mode has a total to check. In `Couples` mode the total is the
+ * couples and children themselves, and the guests box is off screen -
+ * complaining about a number nobody can see would be unanswerable.
+ *
+ * Lives out here because the form has to answer it twice: the schema asks on
+ * submit, and the panels ask on every keystroke. One function so the message
+ * shown while typing is the same one that refuses the save.
+ */
+export function guestsCoverIssue(
+  countMode: CountMode,
+  guests: number,
+  children: number
+) {
+  if (countMode !== "People" || guests <= 0 || guests >= children) {
+    return undefined;
+  }
+
+  return `Guests must be at least ${children} to cover the children entered.`;
+}
+
+/**
+ * The count errors as they stand right now, for a form still being typed into.
+ *
+ * Returns the guests slot either way - a message when the counts disagree, and
+ * `undefined` the moment they stop, so a complaint clears itself as soon as it
+ * is answered instead of waiting for another save.
+ *
+ * Half-typed and mistyped counts are left alone: `parseNumericInput` owns that
+ * message and says it on submit, and second-guessing a number mid-keystroke
+ * would flash an error at somebody who is still typing it.
+ */
+export function liveCountErrors(values: BookingFormValues): BookingFormErrors {
+  const guests = Number(values.guests.trim());
+  const children = Number(values.children.trim());
+
+  if (!Number.isFinite(guests) || !Number.isFinite(children)) {
+    return { guests: undefined };
+  }
+
+  return { guests: guestsCoverIssue(values.countMode, guests, children) };
+}
+
+/**
  * Built per submit rather than once at module scope: the phone country comes
  * from the picker next to the field, and the same digits are a valid number in
  * one country and impossible in another.
@@ -143,19 +193,16 @@ export function bookingFormSchema({
         .max(5000, "Notes must be 5000 characters or less.")
     })
     .superRefine((values, context) => {
-      // Only `People` mode has a total to check. In `Couples` mode the total is
-      // the couples and children themselves, and the guests box is off screen -
-      // complaining about a number nobody can see would be unanswerable.
-      if (values.countMode !== "People") return;
+      const message = guestsCoverIssue(
+        values.countMode,
+        values.guests,
+        values.children
+      );
 
-      // A total smaller than its own children would be silently clamped on the
-      // way to the database, and the event would then open showing a guest
-      // count nobody typed. Only checked once a total is given: left blank, the
-      // total is simply the children.
-      if (values.guests > 0 && values.guests < values.children) {
+      if (message) {
         context.addIssue({
           code: z.ZodIssueCode.custom,
-          message: `Guests must be at least ${values.children} to cover the children entered.`,
+          message,
           path: ["guests"]
         });
       }

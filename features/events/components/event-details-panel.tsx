@@ -18,6 +18,7 @@ import { BookingFormFields } from "@/features/bookings/forms/booking-form-fields
 import {
   bookingFormSchema,
   fieldErrorPatch,
+  liveCountErrors,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
@@ -316,9 +317,18 @@ export function EventInformation({
   const isBusy = pendingIntent !== null;
 
   function updateValue(field: keyof BookingFormValues, value: string) {
+    const next = { ...values, [field]: value };
+
     setFeedback(null);
-    setErrors((current) => ({ ...current, ...fieldErrorPatch(field) }));
-    setValues((current) => ({ ...current, [field]: value }));
+    // Checked against the form this keystroke produces, not the one it
+    // replaced: the counts have to answer for themselves as they are typed
+    // rather than holding their complaint until a save.
+    setErrors((current) => ({
+      ...current,
+      ...fieldErrorPatch(field),
+      ...liveCountErrors(next)
+    }));
+    setValues(next);
   }
 
   async function transitionTo(
