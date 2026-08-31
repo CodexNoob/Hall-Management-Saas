@@ -8,18 +8,27 @@ type FeatureCard = {
   title: string;
   description: string;
   iconSrc: string;
+  comingSoon?: boolean;
 };
 
-function FeatureIcon({ src }: { src: string }) {
+function FeatureIcon({ src, muted }: { src: string; muted?: boolean }) {
   return (
     <div className="flex h-40 w-full shrink-0 items-center justify-center pt-6">
-      <span className="saas-feature-icon flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] p-5 transition-colors duration-300 group-hover:from-[#1f4d73] group-hover:to-[#0F172A] sm:h-28 sm:w-28">
+      <span
+        className={`saas-feature-icon flex h-24 w-24 items-center justify-center rounded-3xl p-5 transition-colors duration-300 sm:h-28 sm:w-28 ${
+          muted
+            ? "bg-linear-to-br from-[#F1F0EC] to-[#ECEFF3]"
+            : "bg-linear-to-br from-[#F7F4ED] to-[#eef4fa] group-hover:from-[#1f4d73] group-hover:to-[#0F172A]"
+        }`}
+      >
         <Image
           src={src}
           alt=""
           width={192}
           height={192}
-          className="h-16 w-16 object-contain transition duration-300 group-hover:scale-105 group-hover:brightness-0 group-hover:invert sm:h-20 sm:w-20"
+          className={`h-16 w-16 object-contain transition duration-300 sm:h-20 sm:w-20 ${
+            muted ? "opacity-40 grayscale" : "group-hover:scale-105 group-hover:brightness-0 group-hover:invert"
+          }`}
         />
       </span>
     </div>
@@ -49,20 +58,38 @@ function FeatureCardArticle({ feature, index }: { feature: FeatureCard; index: n
                   ? "saas-feature-delay-600"
                   : "saas-feature-delay-700";
 
+  const comingSoon = feature.comingSoon === true;
+
   return (
     <article
       ref={cardRef}
+      aria-disabled={comingSoon || undefined}
       className={`saas-feature-slide-reveal ${
         index % 2 === 0 ? "saas-feature-mobile-left" : "saas-feature-mobile-right"
-      } group flex min-h-80 flex-col items-center rounded-3xl border border-[#E5E0D6] bg-white p-6 text-center shadow-sm shadow-[#1f4d73]/5 transition duration-300 hover:-translate-y-1 hover:border-[#1f4d73] hover:shadow-xl hover:shadow-[#1f4d73]/10 ${
-        isCardVisible ? "is-visible" : ""
-      } ${delayClass}`}
+      } group relative flex min-h-80 flex-col items-center rounded-3xl border p-6 text-center shadow-sm transition duration-300 ${
+        comingSoon
+          ? "border-[#E8E5DE] bg-[#FAF9F7] shadow-[#0F172A]/3"
+          : "border-[#E5E0D6] bg-white shadow-[#1f4d73]/5 hover:-translate-y-1 hover:border-[#1f4d73] hover:shadow-xl hover:shadow-[#1f4d73]/10"
+      } ${isCardVisible ? "is-visible" : ""} ${delayClass}`}
     >
-      <FeatureIcon src={feature.iconSrc} />
-      <h3 className="mt-4 text-xl font-black leading-tight text-[#0F172A]">
+      {comingSoon ? (
+        <span className="absolute right-4 top-4 rounded-full border border-[#1f4d73]/20 bg-[#1f4d73]/8 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
+          Coming Soon
+        </span>
+      ) : null}
+      <FeatureIcon src={feature.iconSrc} muted={comingSoon} />
+      <h3
+        className={`mt-4 text-xl font-black leading-tight ${
+          comingSoon ? "text-[#94A3B8]" : "text-[#0F172A]"
+        }`}
+      >
         {feature.title}
       </h3>
-      <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">
+      <p
+        className={`mt-3 text-sm font-semibold leading-6 ${
+          comingSoon ? "text-[#A3AEBD]" : "text-[#64748B]"
+        }`}
+      >
         {feature.description}
       </p>
     </article>
@@ -93,22 +120,31 @@ const features: FeatureCard[] = [
   {
     title: "Dining & Seating Management",
     description: "Prepare dining layouts, place tables, manage seating counts, assign waiters, and save hall presets.",
-    iconSrc: "/images/features/Dining-Sitting-management.png"
+    iconSrc: "/images/features/Dining-Sitting-management.png",
+    comingSoon: true
   },
   {
     title: "Hall Room Map Editor",
     description: "Create reusable hall layouts with movable, resizable, and rotatable tables, dividers, and service areas.",
-    iconSrc: "/images/features/Hall-Room-Map.png"
+    iconSrc: "/images/features/Hall-Room-Map.png",
+    comingSoon: true
   },
   {
     title: "Billing & Invoicing",
     description: "Create invoices, line items, deposits, payment schedules, transactions, refunds, and outstanding balances.",
-    iconSrc: "/images/features/Billing-Invoicing.png"
+    iconSrc: "/images/features/Billing-Invoicing.png",
+    comingSoon: true
   },
   {
-    title: "Staff, Permissions & Files",
-    description: "Manage staff roles and access while organizing event documents, pictures, videos, and operational files.",
+    title: "Staff & Permissions",
+    description: "Manage staff records, assign roles, and control who can access each part of your venue workspace.",
     iconSrc: "/images/features/Staff-Permission-Files.png"
+  },
+  {
+    title: "Files & Documents",
+    description: "Organize event documents, pictures, videos, and operational files in one shared library.",
+    iconSrc: "/images/features/Staff-Permission-Files.png",
+    comingSoon: true
   }
 ];
 
@@ -135,7 +171,7 @@ export function FeaturesSection() {
           </p>
         </div>
 
-        <div className="mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-14 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {features.map((feature, index) => (
             <FeatureCardArticle feature={feature} index={index} key={feature.title} />
           ))}
