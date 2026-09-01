@@ -288,16 +288,11 @@ export function DashboardTopbar({
             }`}
           >
             <div className="order-1 flex min-h-9 min-w-0 shrink items-center pr-26 xl:order-0 xl:block xl:h-auto xl:grow xl:pr-0">
-              <div className="flex min-w-0 flex-col xl:flex-row xl:items-center xl:gap-3">
-                <h1 className="truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg xl:text-2xl">
+              <div className="flex min-w-0 items-center gap-2 xl:gap-3">
+                <h1 className="min-w-0 truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg xl:text-2xl">
                   {title}
                 </h1>
-                <span className="hidden xl:inline-flex">
-                  <DashboardTrialBadge />
-                </span>
-                <span className="mt-1 inline-flex xl:hidden">
-                  <DashboardTrialBadge />
-                </span>
+                <DashboardTrialBadge />
               </div>
               {subtitle ? (
                 <p className="mt-1 hidden truncate text-sm font-medium text-[#6a7483] xl:block">
