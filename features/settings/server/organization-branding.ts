@@ -5,7 +5,7 @@ import {
 } from "@/lib/storage/files";
 
 /**
- * Validates a client-supplied logo path against the acting organization.
+ * Validates a client-supplied branding path against the acting organization.
  *
  * Returns the message to answer with, or `null` when the path is acceptable.
  * The browser uploads to storage directly, so this is the only thing standing
@@ -13,40 +13,47 @@ import {
  *
  * Two messages rather than one: a wrong prefix is something an honest caller
  * can act on, while a traversal attempt is told only that the path is invalid.
+ * `subject` names which of the organization's images was refused - the settings
+ * payload carries more than one.
  */
-export function readLogoPathError(organizationId: string, logoPath: string) {
-  if (!logoPath.startsWith(`${organizationId}/`)) {
-    return "Logo path must begin with the active organization ID.";
+export function readBrandingPathError(
+  organizationId: string,
+  path: string,
+  subject: string
+) {
+  if (!path.startsWith(`${organizationId}/`)) {
+    return `${subject} path must begin with the active organization ID.`;
   }
 
-  if (!isOrgScopedStoragePath(organizationId, logoPath)) {
-    return "Invalid logo path.";
+  if (!isOrgScopedStoragePath(organizationId, path)) {
+    return `Invalid ${subject.toLowerCase()} path.`;
   }
 
   return null;
 }
 
 /**
- * Drops the stored object for a logo the settings document no longer points at.
+ * Drops the stored object for a branding image the settings document no longer
+ * points at.
  *
  * Best effort on purpose, the same as `discardMenuPicture`: an orphaned object
  * costs a few kilobytes, while rethrowing would cost the user a settings save
  * that already succeeded. Call it only after the write, so a failure leaves an
  * unreferenced object rather than a profile whose logo 404s.
  */
-export async function discardOrganizationLogo(
+export async function discardOrganizationBrandingImage(
   organizationId: string,
-  logoPath: string | null
+  path: string | null
 ) {
-  if (!logoPath) return;
+  if (!path) return;
 
   try {
     await deleteStorageFiles({
       organizationId,
       bucket: ORGANIZATION_LOGO_BUCKET,
-      paths: [logoPath]
+      paths: [path]
     });
   } catch (error) {
-    console.error("Failed to remove organization logo", error);
+    console.error("Failed to remove an organization branding image", error);
   }
 }

@@ -29,6 +29,20 @@ export type ControlCenterSettings = {
      * part worth storing.
      */
     logoPath: string;
+    /**
+     * What the client portal paints behind its header - the one part of Event
+     * Core a venue's own clients look at.
+     *
+     * `style` decides which of the two below is drawn, so switching back to a
+     * colour keeps the uploaded image rather than making the operator upload it
+     * again. `imagePath` is a storage path in the same private bucket as the
+     * logo, for the same reason.
+     */
+    portalHeader: {
+      style: "color" | "image";
+      color: string;
+      imagePath: string;
+    };
     contactEmail: string;
     dateFormat: "MMM d, yyyy" | "MM/dd/yyyy" | "dd/MM/yyyy";
     timeFormat: "12-hour" | "24-hour";

@@ -36,6 +36,10 @@ const addOnSignedUrl =
   "https://storage.example/signed/coffee-station.jpg?token=def";
 const logoPath = `${organizationId}/branding/logo.png`;
 const logoSignedUrl = "https://storage.example/signed/logo.png?token=ghi";
+const headerPath = `${organizationId}/branding/portal-header-1.jpg`;
+const headerSignedUrl =
+  "https://storage.example/signed/portal-header-1.jpg?token=jkl";
+const color = "#6d1f2c";
 const organizationWithLogo = {
   name: "Ateres Akiva",
   settings: { integrations: { controlCenter: { general: { logoPath } } } }
@@ -440,6 +444,70 @@ describe("client portal data", () => {
     expect(createSignedFileUrl).not.toHaveBeenCalled();
     expect(portal?.logoUrl).toBeNull();
     expect(portal?.venueName).toBe("Ateres Akiva");
+  });
+
+  it("paints the header in the colour the organization chose", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      name: "Ateres Akiva",
+      settings: {
+        integrations: {
+          controlCenter: {
+            general: { logoPath, portalHeader: { style: "color", color } }
+          }
+        }
+      }
+    } as never);
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(portal?.headerColor).toBe(color);
+    // The colour style is in force, so the background image is not signed even
+    // if a path from an earlier choice is still stored beside it.
+    expect(portal?.headerImageUrl).toBeNull();
+  });
+
+  it("falls back to the default header colour when none was chosen", async () => {
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    // What every organization that saved its settings before this was
+    // configurable holds: no `portalHeader` at all.
+    expect(portal?.headerColor).toBe("#1f4d73");
+    expect(portal?.headerImageUrl).toBeNull();
+  });
+
+  it("signs the header background when the image style is in force", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      name: "Ateres Akiva",
+      settings: {
+        integrations: {
+          controlCenter: {
+            general: {
+              logoPath,
+              portalHeader: { style: "image", color, imagePath: headerPath }
+            }
+          }
+        }
+      }
+    } as never);
+    vi.mocked(createSignedFileUrl).mockImplementation(async ({ path }) =>
+      path === headerPath ? headerSignedUrl : logoSignedUrl
+    );
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(createSignedFileUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId,
+        bucket: ORGANIZATION_LOGO_BUCKET,
+        path: headerPath
+      })
+    );
+    expect(portal?.headerImageUrl).toBe(headerSignedUrl);
+    expect(portal?.logoUrl).toBe(logoSignedUrl);
+    // The colour travels with the image: it is what sits behind one that has
+    // not loaded yet.
+    expect(portal?.headerColor).toBe(color);
+    expect(JSON.stringify(portal)).not.toContain(headerPath);
   });
 
   it("still serves the portal when the logo cannot be signed", async () => {

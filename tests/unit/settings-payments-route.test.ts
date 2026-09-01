@@ -34,6 +34,37 @@ import { authzContext } from "./authz-test-helpers";
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const actorId = "22222222-2222-4222-8222-222222222222";
 
+/** A control-center payload that differs only in its portal header. */
+function controlCenterWith(portalHeader: {
+  style: string;
+  color: string;
+  imagePath: string;
+}) {
+  return {
+    general: {
+      logoPath: "",
+      portalHeader,
+      contactEmail: "",
+      dateFormat: "MMM d, yyyy",
+      timeFormat: "12-hour"
+    },
+    calendar: {
+      defaultView: "month",
+      weekStartsOn: "sunday",
+      showHebrewDate: true,
+      showAvailability: true,
+      holdExpirationHours: 48,
+      shortNoticeDays: 7
+    },
+    kitchen: {
+      defaultView: "today",
+      shortNoticeDays: 3,
+      notificationsEnabled: true,
+      requireMenuAcknowledgment: true
+    }
+  };
+}
+
 function patch(body: unknown) {
   return PATCH(
     new Request("http://localhost/api/settings", {
@@ -198,15 +229,24 @@ describe("organization payment link settings", () => {
       expect.anything(),
       "settings.update"
     );
-    // `clickAnywhereToAdd` is written even though the body omitted it: it is
-    // defaulted rather than required precisely so a payload saved before the
-    // field existed still parses, and what parses is what gets stored back.
+    // `clickAnywhereToAdd` and `portalHeader` are written even though the body
+    // omitted them: they are defaulted rather than required precisely so a
+    // payload saved before either field existed still parses, and what parses
+    // is what gets stored back.
     expect(prisma.organizationSetting.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         update: expect.objectContaining({
           integrations: expect.objectContaining({
             controlCenter: {
               ...controlCenter,
+              general: {
+                ...controlCenter.general,
+                portalHeader: {
+                  style: "color",
+                  color: "#1f4d73",
+                  imagePath: ""
+                }
+              },
               calendar: { ...controlCenter.calendar, clickAnywhereToAdd: false }
             }
           })
@@ -215,10 +255,17 @@ describe("organization payment link settings", () => {
     );
   });
 
-  it("keeps a saturday week start and an explicit click-anywhere choice", async () => {
+  it("keeps a saturday week start, an explicit click-anywhere choice and a portal header", async () => {
     const controlCenter = {
       general: {
         logoPath: "",
+        // The client portal header an organization chose for itself: an image,
+        // with the colour it would fall back to kept beside it.
+        portalHeader: {
+          style: "image",
+          color: "#6d1f2c",
+          imagePath: `${organizationId}/branding/portal-header-1.jpg`
+        },
         contactEmail: "",
         dateFormat: "MMM d, yyyy",
         timeFormat: "12-hour"
@@ -309,6 +356,38 @@ describe("organization payment link settings", () => {
           requireMenuAcknowledgment: true
         }
       }
+    });
+
+    expect(response.status).toBe(400);
+    expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  // The header background is uploaded by the browser too, so it needs the same
+  // check as the logo - and had it not had one, the logo's check would have
+  // read as covering a payload it never looked at.
+  it("refuses a header image path outside the acting organization's folder", async () => {
+    const response = await patch({
+      controlCenter: controlCenterWith({
+        style: "image",
+        color: "#1f4d73",
+        imagePath:
+          "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb/branding/portal-header.jpg"
+      })
+    });
+
+    expect(response.status).toBe(400);
+    expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  // The colour is painted through an inline style on a public page, so what
+  // gets stored has to be a colour and nothing else.
+  it("refuses a header colour that is not a hex value", async () => {
+    const response = await patch({
+      controlCenter: controlCenterWith({
+        style: "color",
+        color: "red; background-image: url(https://evil.example/x.png)",
+        imagePath: ""
+      })
     });
 
     expect(response.status).toBe(400);
