@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { requestDashboardSidebarCollapse } from "@/components/layout/dashboard-sidebar-shared";
@@ -22,13 +23,22 @@ export function EventManagerPage() {
   // Plain state, not `useDashboardPageSearch`: the topbar no longer carries a
   // search box on this page, so nothing outside the event list can set it.
   const [pageSearchQuery, setPageSearchQuery] = useState("");
-  // Read once, on the way in: this decides the first selection only, so that a
-  // later click in the list is not snapped back to whatever the link said.
-  const [deepLinkEventId] = useState(() =>
-    typeof window === "undefined"
-      ? ""
-      : (new URLSearchParams(window.location.search).get("eventId") ?? "")
-  );
+  // Read through the router, not off `window.location`: on a client-side
+  // navigation Next writes the address bar from a commit-phase effect, which
+  // runs after this render, so reading the browser url here could still be
+  // looking at the page the user just left. That is how a calendar pill landed
+  // on this page with the right `?eventId=` in the address bar and nothing
+  // open. `useSearchParams` reads the router state the navigation is already
+  // rendering, so it has the id on the first render.
+  const urlEventId = useSearchParams().get("eventId") ?? "";
+  // Latched to the first id seen: this decides the first selection only, so
+  // that a later click in the list - or Clear - is not snapped back to whatever
+  // the link said.
+  const [deepLinkEventId, setDeepLinkEventId] = useState(urlEventId);
+
+  useEffect(() => {
+    setDeepLinkEventId((current) => current || urlEventId);
+  }, [urlEventId]);
   const eventsQuery = useAuthenticatedQuery<EventsResponse>(
     // The list is capped and ordered by start time, so an event can easily sit
     // outside it. Asking for it by id is what keeps a deep link honest.
@@ -143,12 +153,20 @@ export function EventManagerPage() {
   // finished or expired, its row was normally not even rendered to be
   // highlighted. Landing on an empty pane says what is true, that nothing is
   // open yet.
-  useEffect(() => {
-    if (!deepLinkEvent) return;
+  const hasOpenedDeepLinkRef = useRef(false);
 
+  useEffect(() => {
+    if (!deepLinkEvent || hasOpenedDeepLinkRef.current) return;
+
+    hasOpenedDeepLinkRef.current = true;
     // Only ever the first selection, so a later click in the list is not
     // snapped back to whatever the link said.
     setSelectedEventId((current) => current || deepLinkEvent.id);
+    // An event opened by a link fills the same pane as one opened by a click in
+    // the list, so it asks for the sidebar's width in the same way. Coming in
+    // from a calendar pill was the one way into the workspace that left the nav
+    // taking up room next to it.
+    requestDashboardSidebarCollapse();
   }, [deepLinkEvent]);
 
   if (eventsQuery.isLoading) {
@@ -374,8 +392,8 @@ export function EventManagerPage() {
                     setIsEventListExpanded(false);
                     // The workspace that just opened is the widest thing on the
                     // page, so give it the sidebar's width the way the list
-                    // gives it its own above. Deep links are left alone: nobody
-                    // expects a page to close the nav on them as it loads.
+                    // gives it its own above. An event opened by a link asks
+                    // for the same thing, from the effect that opens it.
                     requestDashboardSidebarCollapse();
                   }}
                   // Only what the open tab would actually ask for. Warming
