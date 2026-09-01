@@ -2,7 +2,7 @@
 
 import { FormEvent, useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2, UsersRound } from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useToast } from "@/components/ui/toast";
@@ -182,7 +182,7 @@ export function CreateOrganizationPage() {
           <header className="border-b border-[#e6eaf0] p-6 sm:p-8">
             <div className="flex items-start gap-4">
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#d8dde5] text-[#0B1930]">
-                <Building2 className="h-6 w-6" strokeWidth={1.5} />
+                <UsersRound className="h-6 w-6" strokeWidth={1.5} />
               </div>
               <div>
                 <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
