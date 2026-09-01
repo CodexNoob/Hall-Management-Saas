@@ -144,6 +144,17 @@ function PortalOptionCard({
 /** Below this a filter box costs more attention than the scan it saves. */
 const SEARCHABLE_FROM = 8;
 
+/**
+ * What the portal header shows for an organization that has not uploaded a logo
+ * in Settings > General.
+ *
+ * The white wordmark rather than the navy one the auth cards use: this header is
+ * dark, and it is the same file the dashboard's own dark sidebar shows for the
+ * same reason. A branded header beats an empty one, and the venue replaces it
+ * the moment it uploads its own.
+ */
+const EVENT_CORE_LOGO_SRC = "/images/branding/Footer-logo.png";
+
 function OptionSection({
   title,
   badge,
@@ -397,13 +408,48 @@ export function ClientPortalPreviewContent({
 
   return (
     <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white">
-      <header className="rounded-t-lg bg-[#1f4d73] p-4 text-white sm:p-6">
-        <h1 className="wrap-break-word text-xl font-black sm:text-2xl">
-          {portal.title}
-        </h1>
-        <p className="mt-2 text-sm font-semibold">
-          {portal.date} - {portal.time} - {portal.room}
-        </p>
+      {/* A column on a phone and a row from `sm` up: the logo is wide enough
+          that sitting it beside the title in a 360px viewport would leave the
+          event name breaking a word at a time. */}
+      <header className="flex flex-col gap-3 rounded-t-lg bg-[#1f4d73] p-4 text-white sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6">
+        <div className="min-w-0">
+          <h1 className="wrap-break-word text-xl font-black sm:text-2xl">
+            {portal.title}
+          </h1>
+          <p className="mt-2 text-sm font-semibold">
+            {portal.date} - {portal.time} - {portal.room}
+          </p>
+        </div>
+        {/* The image and nothing else - no plate, no border. It sits straight
+            on the header, so a logo with a transparent background reads as part
+            of it.
+
+            `order-first` puts it above the title while the header is a column,
+            which is how a client reads a letterhead; from `sm` up it takes its
+            place at the end of the row again.
+
+            Sized by height with the width left to follow, capped: that is what
+            keeps a square mark and a wide wordmark at the same visual weight
+            without either being cropped or stretched.
+
+            Plain <img> rather than next/image even for the fallback, which is a
+            local file the optimizer could handle: the venue's own logo is a
+            signed URL that expires in minutes, so the optimizer would never
+            serve a cache hit and its host would have to be listed in
+            remotePatterns - and one element for both keeps the two from drifting
+            apart in size. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          alt={
+            portal.logoUrl
+              ? portal.venueName
+                ? `${portal.venueName} logo`
+                : "Venue logo"
+              : "Event Core"
+          }
+          className="order-first h-12 w-auto max-w-36 shrink-0 self-start object-contain sm:order-0 sm:h-16 sm:max-w-44 sm:self-auto"
+          src={portal.logoUrl ?? EVENT_CORE_LOGO_SRC}
+        />
       </header>
       <div className="min-w-0 space-y-3 p-3 sm:p-4">
         <section className="min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-4">

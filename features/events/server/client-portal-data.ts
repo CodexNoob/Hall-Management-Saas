@@ -1,8 +1,11 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
-import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
-import { createSignedFileUrls } from "@/lib/storage/files";
+import {
+  MENU_IMAGE_BUCKET,
+  ORGANIZATION_LOGO_BUCKET
+} from "@/lib/storage/buckets";
+import { createSignedFileUrl, createSignedFileUrls } from "@/lib/storage/files";
 import { decimalToCents } from "@/lib/ui/format-money";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
 import type { ClientPortalLookup } from "@/features/events/types/client-portal";
@@ -45,6 +48,74 @@ function readMenuConfirmed(workspaceData: unknown) {
   );
 }
 
+/**
+ * The storage path of the logo uploaded in Settings > General, read straight
+ * out of `integrations.controlCenter.general.logoPath`.
+ *
+ * Narrow and local, the way /api/kitchen reads its own slice of the same
+ * document: importing the settings route's zod schema here would drag a
+ * request handler into the portal's data layer, and a settings document written
+ * before the uploader existed simply has no `general.logoPath` to find.
+ */
+function readLogoPath(integrations: unknown) {
+  const general =
+    integrations && typeof integrations === "object"
+      ? (integrations as { controlCenter?: { general?: unknown } })
+          .controlCenter?.general
+      : undefined;
+  const logoPath =
+    general && typeof general === "object"
+      ? (general as { logoPath?: unknown }).logoPath
+      : undefined;
+
+  return typeof logoPath === "string" && logoPath ? logoPath : null;
+}
+
+/**
+ * Every menu picture on the page in one call, or an empty map.
+ *
+ * Best effort: storage being unreachable should cost the pictures, not the
+ * portal, so a failure is logged and the cards fall back to their placeholder.
+ */
+async function signMenuPictures(organizationId: string, paths: string[]) {
+  if (paths.length === 0) return new Map<string, string>();
+
+  try {
+    return await createSignedFileUrls({
+      organizationId,
+      bucket: MENU_IMAGE_BUCKET,
+      paths
+    });
+  } catch (signingError) {
+    console.error("Failed to sign client portal menu pictures", signingError);
+    return new Map<string, string>();
+  }
+}
+
+/**
+ * The venue's logo, signed on its own because it lives in its own bucket -
+ * batching it with the menu pictures above is not possible, so the two run side
+ * by side instead.
+ *
+ * Best effort for the same reason, and for one more: a logo that cannot be
+ * signed - an object removed behind the settings document, a path saved before
+ * the current validation - must cost the header its picture and nothing else.
+ */
+async function signVenueLogo(organizationId: string, logoPath: string | null) {
+  if (!logoPath) return null;
+
+  try {
+    return await createSignedFileUrl({
+      organizationId,
+      bucket: ORGANIZATION_LOGO_BUCKET,
+      path: logoPath
+    });
+  } catch (signingError) {
+    console.error("Failed to sign the client portal venue logo", signingError);
+    return null;
+  }
+}
+
 export async function getClientPortalEvent(
   eventId: string
 ): Promise<ClientPortalLookup | null> {
@@ -78,7 +149,7 @@ export async function getClientPortalEvent(
 
   const { organizationId } = event;
 
-  const [packages, menuItems, tablecloths, addOns, invoices] =
+  const [packages, menuItems, tablecloths, addOns, invoices, organization] =
     await Promise.all([
       prisma.eventPackage.findMany({
         where: { organizationId, isActive: true },
@@ -133,6 +204,14 @@ export async function getClientPortalEvent(
       prisma.invoice.findMany({
         where: { eventId: event.id, organizationId, voidedAt: null },
         select: { totalCents: true, balanceDueCents: true, currency: true }
+      }),
+      // The venue's own name and logo, so the client can see whose portal this
+      // is. The settings row is joined rather than read separately: it exists
+      // only once /api/settings has been opened, and an organization that never
+      // saved its settings still has a name to show.
+      prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true, settings: { select: { integrations: true } } }
       })
     ]);
 
@@ -153,24 +232,19 @@ export async function getClientPortalEvent(
   // Signed rather than public because the bucket is private, and signed with
   // the service client even though the caller is anonymous: `organizationId`
   // comes off the event row, so these URLs can only ever address this tenant's
-  // own objects. Best effort - storage being unreachable should cost the
-  // pictures, not the portal.
-  let signedUrlsByPath = new Map<string, string>();
+  // own objects.
   const picturePaths = [...menuItems, ...visibleAddOns]
     .map((candidate) => candidate.picturePath)
     .filter((path): path is string => Boolean(path));
 
-  if (picturePaths.length > 0) {
-    try {
-      signedUrlsByPath = await createSignedFileUrls({
-        organizationId,
-        bucket: MENU_IMAGE_BUCKET,
-        paths: picturePaths
-      });
-    } catch (signingError) {
-      console.error("Failed to sign client portal menu pictures", signingError);
-    }
-  }
+  // Two buckets, so two calls - but nothing on the page waits for the other.
+  const [signedUrlsByPath, logoUrl] = await Promise.all([
+    signMenuPictures(organizationId, picturePaths),
+    signVenueLogo(
+      organizationId,
+      readLogoPath(organization?.settings?.integrations)
+    )
+  ]);
 
   // Null on a row that stores no picture, and also on one whose object went
   // missing between the database and the bucket: `createSignedFileUrls` omits
@@ -211,6 +285,11 @@ export async function getClientPortalEvent(
           }).format(event.startsAt)
         : "Time not set",
       room: event.hall.name,
+      // Empty only if the event outlived its organization row, which the
+      // foreign key does not allow - the fallback is here so a null lookup
+      // cannot take down the portal.
+      venueName: organization?.name ?? "",
+      logoUrl,
       status: event.eventStatus.toLowerCase().includes("confirm")
         ? "Confirmed"
         : "Hold",
