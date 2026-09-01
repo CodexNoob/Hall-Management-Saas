@@ -182,12 +182,8 @@ const kitchenStandaloneEventSchema = z
         menuItemIds: z.array(z.string().uuid()).default([]),
         saveToLibrary: z.boolean().default(false)
       })
-      .refine(
-        (quickMenu) =>
-          quickMenu.dishNames.length > 0 || quickMenu.menuItemIds.length > 0,
-        "Add at least one dish."
-      )
       .optional(),
+    addOnIds: z.array(z.string().uuid()).default([]),
     portions: z.coerce
       .number()
       .int("Portions must be a whole number.")
@@ -197,7 +193,15 @@ const kitchenStandaloneEventSchema = z
   .refine((input) => Boolean(input.menuId) !== Boolean(input.quickMenu), {
     message: "Choose an existing menu or create a new one.",
     path: ["menuId"]
-  });
+  })
+  .refine(
+    (input) =>
+      !input.quickMenu ||
+      input.quickMenu.dishNames.length > 0 ||
+      input.quickMenu.menuItemIds.length > 0 ||
+      input.addOnIds.length > 0,
+    { message: "Add at least one dish or add-on.", path: ["quickMenu"] }
+  );
 
 type StandaloneStatusRow = {
   menuItemId: string;
@@ -230,6 +234,8 @@ type StandaloneMenuItemRow = Prisma.MenuItemGetPayload<{
 function buildStandaloneKitchenSheet({
   menuItemIds,
   menuItemsById,
+  addOnIds,
+  addOnsById,
   portions,
   statuses,
   currentWorkerId,
@@ -237,6 +243,8 @@ function buildStandaloneKitchenSheet({
 }: {
   menuItemIds: string[];
   menuItemsById: Map<string, StandaloneMenuItemRow>;
+  addOnIds: string[];
+  addOnsById: Map<string, { id: string; name: string; isActive: boolean }>;
   portions: number;
   statuses: StandaloneStatusRow[];
   currentWorkerId?: string | null;
@@ -328,7 +336,35 @@ function buildStandaloneKitchenSheet({
     }
   );
 
-  const lines = visibleKitchenLines(allLines, visibility);
+  const addOnLines: EventKitchenLine[] = addOnIds.flatMap((addOnId, index) => {
+    const addOn = addOnsById.get(addOnId);
+    if (!addOn) return [];
+
+    return [{
+      id: `add-on:${addOn.id}:${index}`,
+      menuItemId: null,
+      addOnId: addOn.id,
+      kind: "AddOn",
+      itemKind: null,
+      name: addOn.name,
+      pictureUrl: null,
+      serviceStyle: null,
+      availableStyles: [],
+      notes: null,
+      sortOrder: allLines.length + index,
+      isRetired: !addOn.isActive,
+      quantityMultiplier: 1,
+      quantities: [],
+      unresolvedBases: [],
+      countState: "NotCounted",
+      status: null,
+      assignedWorkerId: null,
+      assignedWorkerName: null
+    }];
+  });
+
+  const lines = visibleKitchenLines([...allLines, ...addOnLines], visibility);
+  const dishLines = lines.filter((line) => line.kind === "Dish");
 
   return {
     meal: DEFAULT_MEAL,
@@ -338,11 +374,11 @@ function buildStandaloneKitchenSheet({
     counts: { ...counts, totalGuests: totalGuests(counts) },
     lines,
     summary: {
-      dishes: lines.length,
-      addOns: 0,
-      complete: lines.filter((line) => line.status === "COMPLETE").length,
-      pending: lines.filter((line) => line.status === "PENDING").length,
-      notStarted: lines.filter((line) => line.status === null).length,
+      dishes: dishLines.length,
+      addOns: lines.length - dishLines.length,
+      complete: dishLines.filter((line) => line.status === "COMPLETE").length,
+      pending: dishLines.filter((line) => line.status === "PENDING").length,
+      notStarted: dishLines.filter((line) => line.status === null).length,
       assigned: lines.filter((line) => Boolean(line.assignedWorkerId)).length,
       assignedToCurrentWorker: currentWorkerId
         ? lines.filter((line) => line.assignedWorkerId === currentWorkerId)
@@ -430,6 +466,7 @@ export async function GET(request: Request) {
           eventDate: true,
           portions: true,
           kitchenNote: true,
+          includedAddOnIds: true,
           menu: { select: { includedMenuItemIds: true } }
         },
         orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
@@ -468,6 +505,9 @@ export async function GET(request: Request) {
         standaloneEvents.flatMap((event) => event.menu.includedMenuItemIds)
       )
     ];
+    const standaloneAddOnIds = [
+      ...new Set(standaloneEvents.flatMap((event) => event.includedAddOnIds))
+    ];
     // Two queries for the whole window rather than two per event. The board
     // spans four weeks, so the per-event route's shape - which is the right one
     // for a single event - would be up to a hundred round-trips here.
@@ -476,6 +516,7 @@ export async function GET(request: Request) {
       otherMeals,
       statuses,
       standaloneMenuItems,
+      standaloneAddOns,
       standaloneStatuses
     ] = await Promise.all([
       prisma.eventMenu.findMany({
@@ -529,6 +570,13 @@ export async function GET(request: Request) {
           }
         }
       }),
+      prisma.addOn.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          id: { in: standaloneAddOnIds }
+        },
+        select: { id: true, name: true, isActive: true }
+      }),
       prisma.kitchenStandaloneItemStatus.findMany({
         where: {
           organizationId: actor.organizationId,
@@ -555,6 +603,9 @@ export async function GET(request: Request) {
     }
     const standaloneMenuItemsById = new Map(
       standaloneMenuItems.map((menuItem) => [menuItem.id, menuItem])
+    );
+    const standaloneAddOnsById = new Map(
+      standaloneAddOns.map((addOn) => [addOn.id, addOn])
     );
     const standaloneStatusesByEventId = new Map<
       string,
@@ -647,7 +698,7 @@ export async function GET(request: Request) {
     // production job rather than a booking - "cook this menu for this many
     // people" - so the menu is the one thing it genuinely needs, and a typed
     // name would tell the kitchen nothing about what to make.
-    const [menuOptions, libraryMenuItems] = await Promise.all([
+    const [menuOptions, libraryMenuItems, libraryAddOns] = await Promise.all([
       prisma.eventPackage.findMany({
         where: { organizationId: actor.organizationId, isActive: true },
         select: { id: true, name: true, includedMenuItemIds: true },
@@ -664,9 +715,18 @@ export async function GET(request: Request) {
           name: true,
           category: true,
           kind: true,
+          services: { select: { serviceStyle: true } },
           categoryRef: { select: { name: true } }
         },
         orderBy: [{ category: "asc" }, { name: "asc" }]
+      }),
+      prisma.addOn.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          isActive: true
+        },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" }
       })
     ]);
 
@@ -676,6 +736,8 @@ export async function GET(request: Request) {
         const sheet = buildStandaloneKitchenSheet({
           menuItemIds: event.menu.includedMenuItemIds,
           menuItemsById: standaloneMenuItemsById,
+          addOnIds: event.includedAddOnIds,
+          addOnsById: standaloneAddOnsById,
           portions: event.portions,
           statuses: standaloneStatusesByEventId.get(event.id) ?? [],
           currentWorkerId,
@@ -718,8 +780,12 @@ export async function GET(request: Request) {
         id: item.id,
         name: item.name,
         category: item.categoryRef?.name ?? item.category,
-        kind: item.kind
+        kind: item.kind,
+        serviceStyles: [
+          ...new Set(item.services.map((service) => service.serviceStyle))
+        ]
       })),
+      addOns: libraryAddOns,
       permissions: {
         canAssignWorkers,
         canUpdateKitchenStatus,
@@ -757,6 +823,22 @@ export async function POST(request: Request) {
     const eventDate = new Date(`${input.date}T00:00:00.000Z`);
 
     const kitchenEvent = await prisma.$transaction(async (transaction) => {
+      const uniqueAddOnIds = [...new Set(input.addOnIds)];
+      const selectedAddOns = uniqueAddOnIds.length
+        ? await transaction.addOn.findMany({
+            where: {
+              organizationId: actor.organizationId,
+              id: { in: uniqueAddOnIds },
+              isActive: true
+            },
+            select: { id: true }
+          })
+        : [];
+
+      if (selectedAddOns.length !== uniqueAddOnIds.length) {
+        throw new Error("One of the selected add-ons is unavailable.");
+      }
+
       let menu: { id: string; name: string };
 
       if (input.quickMenu) {
@@ -851,6 +933,7 @@ export async function POST(request: Request) {
           eventDate,
           portions: input.portions,
           kitchenNote: input.kitchenNote || null,
+          includedAddOnIds: uniqueAddOnIds,
           createdById: actor.userId
         },
         select: {

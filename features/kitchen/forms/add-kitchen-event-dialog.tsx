@@ -16,6 +16,7 @@ export type AddKitchenEventFormValues = {
   quickMenuName: string;
   quickMenuDishes: string;
   quickMenuItemIds: string[];
+  addOnIds: string[];
   saveQuickMenuToLibrary: boolean;
   portions: string;
   kitchenNote: string;
@@ -32,6 +33,12 @@ export type KitchenMenuItemOption = {
   name: string;
   category: string | null;
   kind: string;
+  serviceStyles: string[];
+};
+
+export type KitchenAddOnOption = {
+  id: string;
+  name: string;
 };
 
 type AddKitchenEventDialogProps = {
@@ -41,6 +48,7 @@ type AddKitchenEventDialogProps = {
   onClose: () => void;
   menus: KitchenMenuOption[];
   menuItems: KitchenMenuItemOption[];
+  addOns?: KitchenAddOnOption[];
   onSave: (values: AddKitchenEventFormValues) => void | Promise<void>;
 };
 
@@ -50,6 +58,7 @@ const initialValues: AddKitchenEventFormValues = {
   quickMenuName: "",
   quickMenuDishes: "",
   quickMenuItemIds: [],
+  addOnIds: [],
   saveQuickMenuToLibrary: false,
   portions: "",
   kitchenNote: ""
@@ -84,6 +93,7 @@ export function AddKitchenEventDialog({
   open,
   menus,
   menuItems,
+  addOns = [],
   onClose,
   onSave
 }: AddKitchenEventDialogProps) {
@@ -94,6 +104,7 @@ export function AddKitchenEventDialog({
   const firstInputRef = useRef<HTMLInputElement>(null);
   const [values, setValues] = useState(initialValues);
   const [selectedMenuItemIds, setSelectedMenuItemIds] = useState<string[]>([]);
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [portionsError, setPortionsError] = useState("");
   const [menuError, setMenuError] = useState("");
@@ -119,10 +130,21 @@ export function AddKitchenEventDialog({
       }),
     [menuItems]
   );
-  const foodOptions = useMemo(
+  const buffetOptions = useMemo(
     () =>
       menuItems.filter(
-        (item) => !drinkOptions.some((drink) => drink.id === item.id)
+        (item) =>
+          !drinkOptions.some((drink) => drink.id === item.id) &&
+          item.serviceStyles.includes("Buffet")
+      ),
+    [drinkOptions, menuItems]
+  );
+  const platedOptions = useMemo(
+    () =>
+      menuItems.filter(
+        (item) =>
+          !drinkOptions.some((drink) => drink.id === item.id) &&
+          item.serviceStyles.includes("Plated")
       ),
     [drinkOptions, menuItems]
   );
@@ -154,6 +176,7 @@ export function AddKitchenEventDialog({
   function resetForm() {
     setValues(initialValues);
     setSelectedMenuItemIds([]);
+    setSelectedAddOnIds([]);
     setSelectedTemplateId("");
     setPortionsError("");
     setMenuError("");
@@ -188,9 +211,13 @@ export function AddKitchenEventDialog({
       menuId: selectedTemplateId,
       menuName:
         menus.find((menu) => menu.id === selectedTemplateId)?.name ?? "",
-      quickMenuName: selectedQuickItems.length > 0 ? eventName : "",
+      quickMenuName:
+        selectedQuickItems.length > 0 || selectedAddOnIds.length > 0
+          ? eventName
+          : "",
       quickMenuDishes: "",
       quickMenuItemIds: selectedQuickItems.map((item) => item.id),
+      addOnIds: selectedAddOnIds,
       saveQuickMenuToLibrary: false,
       portions: values.portions.trim(),
       kitchenNote: values.kitchenNote.trim()
@@ -201,8 +228,12 @@ export function AddKitchenEventDialog({
       return;
     }
 
-    if (!selectedTemplateId && selectedQuickItems.length === 0) {
-      setMenuError("Choose food items, drinks, or a menu template.");
+    if (
+      !selectedTemplateId &&
+      selectedQuickItems.length === 0 &&
+      selectedAddOnIds.length === 0
+    ) {
+      setMenuError("Choose food items, drinks, add-ons, or a menu template.");
       return;
     }
 
@@ -249,7 +280,7 @@ export function AddKitchenEventDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="flex max-h-[calc(100dvh-48px)] w-full max-w-145 flex-col overflow-hidden border border-[#c7ced8] bg-white shadow-2xl shadow-black/35"
+        className="flex max-h-[calc(100dvh-48px)] w-full max-w-5xl flex-col overflow-hidden border border-[#c7ced8] bg-white shadow-2xl shadow-black/35"
         role="dialog"
       >
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-4">
@@ -343,36 +374,9 @@ export function AddKitchenEventDialog({
               </p>
             ) : null}
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <CheckboxList
-                items={foodOptions}
-                label="Food items"
-                maxHeightClass="max-h-52"
-                onToggle={(item) => {
-                  setMenuError("");
-                  setSubmitError("");
-                  setSelectedMenuItemIds((current) =>
-                    toggleInList(current, item)
-                  );
-                }}
-                selectedItems={selectedMenuItemIds}
-              />
-
-              <CheckboxList
-                items={drinkOptions}
-                label="Drinks"
-                onToggle={(item) => {
-                  setMenuError("");
-                  setSubmitError("");
-                  setSelectedMenuItemIds((current) =>
-                    toggleInList(current, item)
-                  );
-                }}
-                selectedItems={selectedMenuItemIds}
-              />
-
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <FieldLabel>Menu templates</FieldLabel>
+                <FieldLabel>Packages</FieldLabel>
                 <div className="mt-2 grid max-h-52 gap-2 overflow-y-auto pr-1 text-sm font-bold text-[#111827]">
                   {menus.length ? (
                     menus.map((menu) => (
@@ -395,11 +399,68 @@ export function AddKitchenEventDialog({
                     ))
                   ) : (
                     <p className="text-xs font-bold text-[#6b7280]">
-                      No menu templates yet.
+                      No saved packages yet.
                     </p>
                   )}
                 </div>
               </div>
+
+              <CheckboxList
+                items={buffetOptions}
+                label="Buffet Menu"
+                maxHeightClass="max-h-52"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedMenuItemIds((current) =>
+                    toggleInList(current, item)
+                  );
+                }}
+                selectedItems={selectedMenuItemIds}
+              />
+
+              <CheckboxList
+                items={platedOptions}
+                label="Plated Menu"
+                maxHeightClass="max-h-52"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedMenuItemIds((current) =>
+                    toggleInList(current, item)
+                  );
+                }}
+                selectedItems={selectedMenuItemIds}
+              />
+
+              <CheckboxList
+                items={drinkOptions}
+                label="Drink Menu"
+                maxHeightClass="max-h-52"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedMenuItemIds((current) =>
+                    toggleInList(current, item)
+                  );
+                }}
+                selectedItems={selectedMenuItemIds}
+              />
+
+              <CheckboxList
+                items={addOns}
+                label="Add-ons"
+                maxHeightClass="max-h-52"
+                onToggle={(item) => {
+                  setMenuError("");
+                  setSubmitError("");
+                  setSelectedAddOnIds((current) =>
+                    toggleInList(current, item)
+                  );
+                }}
+                selectedItems={selectedAddOnIds}
+              />
+
             </div>
 
             <div className="mt-4">
@@ -463,7 +524,7 @@ function CheckboxList({
   selectedItems,
   onToggle
 }: {
-  items: KitchenMenuItemOption[];
+  items: Array<{ id: string; name: string }>;
   label: string;
   maxHeightClass?: string;
   selectedItems: string[];

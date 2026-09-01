@@ -136,7 +136,10 @@ export type KitchenResponse = {
     name: string;
     category: string | null;
     kind: string;
+    serviceStyles: string[];
   }>;
+  /** Active add-ons available to a standalone event. */
+  addOns: Array<{ id: string; name: string }>;
   permissions: {
     canAssignWorkers: boolean;
     canUpdateKitchenStatus: boolean;

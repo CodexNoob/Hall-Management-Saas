@@ -12,9 +12,29 @@ const menuOptions = [
   { id: "menu-2", name: "Staff Meal", dishCount: 2 }
 ];
 const menuItemOptions = [
-  { id: "item-1", name: "Soup CHK", category: "Food", kind: "Food" },
-  { id: "item-2", name: "Apple juice", category: "Drinks", kind: "Drink" }
+  {
+    id: "item-1",
+    name: "Soup CHK",
+    category: "Food",
+    kind: "Food",
+    serviceStyles: ["Buffet"]
+  },
+  {
+    id: "item-2",
+    name: "Apple juice",
+    category: "Drinks",
+    kind: "Drink",
+    serviceStyles: ["Buffet"]
+  },
+  {
+    id: "item-3",
+    name: "Chicken plate",
+    category: "Main",
+    kind: "Food",
+    serviceStyles: ["Plated"]
+  }
 ];
+const addOnOptions = [{ id: "add-on-1", name: "Coffee station" }];
 
 function chooseMenuTemplate() {
   fireEvent.change(screen.getByLabelText("Event name *"), {
@@ -159,8 +179,60 @@ describe("AddKitchenEventDialog", () => {
       quickMenuName: "",
       quickMenuDishes: "",
       quickMenuItemIds: [],
+      addOnIds: [],
       saveQuickMenuToLibrary: false
     });
+  });
+
+  it("shows add-ons and includes selected add-ons in the saved event", () => {
+    const onSave = vi.fn();
+    render(
+      <AddKitchenEventDialog
+        addOns={addOnOptions}
+        canSave
+        date="Jan 1"
+        menuItems={menuItemOptions}
+        menus={menuOptions}
+        onClose={vi.fn()}
+        onSave={onSave}
+        open
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Event name *"), {
+      target: { value: "Staff lunch" }
+    });
+    fireEvent.click(screen.getByLabelText("Coffee station"));
+    fireEvent.change(screen.getByLabelText("Portions"), {
+      target: { value: "40" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quickMenuName: "Staff lunch",
+        quickMenuItemIds: [],
+        addOnIds: ["add-on-1"]
+      })
+    );
+  });
+
+  it("keeps the add-on selector scrollable when the list is long", () => {
+    render(
+      <AddKitchenEventDialog
+        addOns={addOnOptions}
+        canSave
+        date="Jan 1"
+        menuItems={menuItemOptions}
+        menus={menuOptions}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        open
+      />
+    );
+
+    expect(screen.getByLabelText("Coffee station").parentElement?.parentElement)
+      .toHaveClass("max-h-52", "overflow-y-auto");
   });
 
   it("asks only for a menu and a headcount, not booking details", () => {
@@ -184,6 +256,34 @@ describe("AddKitchenEventDialog", () => {
     for (const absent of [/client/i, /phone/i, /hall/i, /event type/i]) {
       expect(screen.queryByLabelText(absent)).toBeNull();
     }
+  });
+
+  it("organizes selections into the five Kitchen Event menu sections", () => {
+    render(
+      <AddKitchenEventDialog
+        addOns={addOnOptions}
+        canSave
+        date="Jan 1"
+        menuItems={menuItemOptions}
+        menus={menuOptions}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        open
+      />
+    );
+
+    for (const heading of [
+      "Packages",
+      "Buffet Menu",
+      "Plated Menu",
+      "Drink Menu",
+      "Add-ons"
+    ]) {
+      expect(screen.getByText(heading)).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText("Soup CHK")).toBeInTheDocument();
+    expect(screen.getByLabelText("Chicken plate")).toBeInTheDocument();
+    expect(screen.getByLabelText("Apple juice")).toBeInTheDocument();
   });
 
   it("will not save without a menu, because the kitchen would not know what to cook", () => {
@@ -287,9 +387,10 @@ describe("AddKitchenEventDialog", () => {
         portions: "40",
         kitchenNote: "",
         quickMenuName: "",
-        quickMenuDishes: "",
-        quickMenuItemIds: [],
-        saveQuickMenuToLibrary: false
+      quickMenuDishes: "",
+      quickMenuItemIds: [],
+      addOnIds: [],
+      saveQuickMenuToLibrary: false
       });
     });
   });

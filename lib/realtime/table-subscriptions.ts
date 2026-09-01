@@ -23,7 +23,20 @@ export const TABLE_ENDPOINTS: Record<string, readonly string[]> = {
   kitchen_item_statuses: ["/api/kitchen", "/api/events"],
   kitchen_workers: ["/api/kitchen"],
   kitchen_notifications: ["/api/kitchen"],
-  halls: ["/api/halls", "/api/events", "/api/dashboard", "/api/hall-maps"],
+  // A hand-added kitchen job and the progress against its dishes. Only the
+  // board draws them - there is no booking behind one, so no event, calendar or
+  // billing screen has anything to say about it.
+  kitchen_standalone_events: ["/api/kitchen"],
+  kitchen_standalone_item_statuses: ["/api/kitchen"],
+  // `/api/kitchen` because a card's category line is its hall's name, so a
+  // rename left every open board captioned with the old one.
+  halls: [
+    "/api/halls",
+    "/api/events",
+    "/api/dashboard",
+    "/api/hall-maps",
+    "/api/kitchen"
+  ],
   hall_map_presets: ["/api/hall-maps", "/api/dining"],
   hall_map_shape_library_items: ["/api/hall-map-shapes"],
   menu_items: ["/api/menu", "/api/events", "/api/kitchen"],

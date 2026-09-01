@@ -26,7 +26,7 @@ vi.mock("@/lib/prisma", () => ({
     event: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     eventMenu: { findMany: vi.fn() },
     // The menus a kitchen event can be raised against.
-    eventPackage: { findMany: vi.fn() },
+    eventPackage: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     // findMany twice, plus the writes: the board now reconciles Kitchen Staff
     // into the worker list on read.
     kitchenWorker: {
@@ -39,7 +39,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     organizationMembership: { findMany: vi.fn() },
     menuItem: { findMany: vi.fn(), findFirst: vi.fn() },
-    addOn: { findFirst: vi.fn() },
+    addOn: { findMany: vi.fn(), findFirst: vi.fn() },
     kitchenItemStatus: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -52,7 +52,11 @@ vi.mock("@/lib/prisma", () => ({
     // leaving them off the mock did not fail where they are used - it left
     // every later slot of the destructured array undefined and took the whole
     // board's numbers down with it.
-    kitchenStandaloneEvent: { findMany: vi.fn(), findFirst: vi.fn() },
+    kitchenStandaloneEvent: {
+      findMany: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn()
+    },
     kitchenStandaloneItemStatus: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -71,7 +75,7 @@ vi.mock("@/lib/prisma", () => ({
   }
 }));
 
-import { GET, PATCH } from "@/app/api/kitchen/route";
+import { GET, PATCH, POST } from "@/app/api/kitchen/route";
 import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
 import { loadKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
 import { assertInScope, authorize, hasPermission } from "@/lib/authz/authorize";
@@ -108,6 +112,14 @@ function request(body?: unknown) {
     method: body === undefined ? "GET" : "PATCH",
     headers: { "Content-Type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
+  });
+}
+
+function postRequest(body: unknown) {
+  return new Request("http://localhost/api/kitchen", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
   });
 }
 
@@ -208,6 +220,11 @@ async function readBoard(response: Response) {
       category: string | null;
       kind: string;
     }>;
+    addOns: Array<{ id: string; name: string }>;
+    kitchenEvents: Array<{
+      sheet: { lines: Array<Record<string, unknown>> };
+      summary: { dishes: number; addOns: number };
+    }>;
     permissions: Record<string, boolean>;
   };
 }
@@ -244,6 +261,7 @@ describe("kitchen dashboard route", () => {
       }
     ] as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.addOn.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.kitchenStandaloneEvent.findMany).mockResolvedValue(
       [] as never
     );
@@ -533,6 +551,7 @@ describe("kitchen dashboard route", () => {
               name: "Potato kugel",
               category: "Sides",
               kind: "Food",
+              services: [{ serviceStyle: "Buffet" }],
               categoryRef: null
             }
           ];
@@ -548,10 +567,60 @@ describe("kitchen dashboard route", () => {
           id: menuItemId,
           name: "Potato kugel",
           category: "Sides",
-          kind: "Food"
+          kind: "Food",
+          serviceStyles: ["Buffet"]
         }
       ]);
       expect(board.permissions).not.toHaveProperty("canEditMenu");
+    });
+
+    it("offers active add-ons and renders selected ones on standalone events", async () => {
+      const addOnId = "99999999-9999-4999-8999-999999999999";
+      vi.mocked(prisma.kitchenStandaloneEvent.findMany).mockResolvedValue([
+        {
+          id: "88888888-8888-4888-8888-888888888888",
+          menuId: "77777777-7777-4777-8777-777777777777",
+          menuName: "Coffee break",
+          eventDate: new Date("2026-08-20T00:00:00.000Z"),
+          portions: 40,
+          kitchenNote: null,
+          includedAddOnIds: [addOnId],
+          menu: { includedMenuItemIds: [] }
+        }
+      ] as never);
+      vi.mocked(prisma.addOn.findMany).mockImplementation((async ({
+        select
+      }: {
+        select?: Record<string, unknown>;
+      }) =>
+        select?.isActive
+          ? [{ id: addOnId, name: "Coffee station", isActive: true }]
+          : [{ id: addOnId, name: "Coffee station" }]) as never);
+
+      const board = await readBoard(await GET(request()));
+
+      expect(board.addOns).toEqual([
+        { id: addOnId, name: "Coffee station" }
+      ]);
+      expect(board.kitchenEvents[0].sheet.lines).toContainEqual(
+        expect.objectContaining({
+          addOnId,
+          kind: "AddOn",
+          name: "Coffee station"
+        })
+      );
+      expect(board.kitchenEvents[0].summary).toMatchObject({
+        dishes: 0,
+        addOns: 1
+      });
+      expect(prisma.addOn.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId,
+            isActive: true
+          })
+        })
+      );
     });
 
     it("does offer the menu list a kitchen event is raised against", async () => {
@@ -571,6 +640,49 @@ describe("kitchen dashboard route", () => {
   });
 
   describe("writes", () => {
+    it("validates and stores add-ons selected for a standalone event", async () => {
+      const packageId = "77777777-7777-4777-8777-777777777777";
+      const addOnId = "99999999-9999-4999-8999-999999999999";
+      vi.mocked(prisma.addOn.findMany).mockResolvedValue([
+        { id: addOnId }
+      ] as never);
+      vi.mocked(prisma.eventPackage.findFirst).mockResolvedValue({
+        id: packageId,
+        name: "Shabbos Lunch"
+      } as never);
+      vi.mocked(prisma.kitchenStandaloneEvent.create).mockResolvedValue({
+        id: "88888888-8888-4888-8888-888888888888",
+        menuName: "Shabbos Lunch",
+        eventDate: new Date("2099-08-20T00:00:00.000Z"),
+        portions: 40,
+        kitchenNote: null
+      } as never);
+
+      const response = await POST(
+        postRequest({
+          date: "2099-08-20",
+          menuId: packageId,
+          addOnIds: [addOnId],
+          portions: 40
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(prisma.addOn.findMany).toHaveBeenCalledWith({
+        where: {
+          organizationId,
+          id: { in: [addOnId] },
+          isActive: true
+        },
+        select: { id: true }
+      });
+      expect(prisma.kitchenStandaloneEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ includedAddOnIds: [addOnId] })
+        })
+      );
+    });
+
     it("refuses a status write against a booking that is no longer confirmed", async () => {
       // The event is gone from the board, but a tab left open still has its id.
       vi.mocked(prisma.event.findFirst).mockResolvedValue(null as never);

@@ -978,16 +978,17 @@ model KitchenWorker {
 /// It exists so the kitchen can cook a selected menu for a portion count, and
 /// so that card survives refreshes.
 model KitchenStandaloneEvent {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  menuId         String   @map("menu_id") @db.Uuid
-  menuName       String   @map("menu_name")
-  eventDate      DateTime @map("event_date") @db.Date
-  portions       Int
-  kitchenNote    String?  @map("kitchen_note")
-  createdById    String?  @map("created_by_id") @db.Uuid
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid()) @db.Uuid
+  organizationId   String   @map("organization_id") @db.Uuid
+  menuId           String   @map("menu_id") @db.Uuid
+  menuName         String   @map("menu_name")
+  eventDate        DateTime @map("event_date") @db.Date
+  portions         Int
+  kitchenNote      String?  @map("kitchen_note")
+  includedAddOnIds String[] @default([]) @map("included_add_on_ids")
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   organization Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   menu         EventPackage                  @relation(fields: [menuId], references: [id], onDelete: Restrict)

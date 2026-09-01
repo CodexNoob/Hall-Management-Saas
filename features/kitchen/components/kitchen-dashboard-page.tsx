@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AddKitchenEventDialog,
   type AddKitchenEventFormValues
@@ -53,8 +53,41 @@ export function KitchenDashboardPage() {
    */
   const [activeViewOverride, setActiveViewOverride] =
     useState<KitchenView | null>(null);
-  const today = useMemo(() => startOfDay(new Date()), []);
+  /*
+   * Which day it is, kept current while the board is open.
+   *
+   * This was worked out once at mount. A kitchen board is left up - on a wall,
+   * on a pass, through service - so at midnight it went on calling yesterday
+   * "Today", left yesterday's cards unmarked as past, and let a job be added to
+   * a date that had already gone.
+   *
+   * The identity is held steady while the date is unchanged, because the whole
+   * board is derived from it: returning a fresh object each minute would
+   * rebuild every day and card for nothing.
+   */
+  const [today, setToday] = useState(() => startOfDay(new Date()));
   const [anchorDate, setAnchorDate] = useState(today);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const current = startOfDay(new Date());
+
+      setToday((previous) => {
+        if (dateKey(previous) === dateKey(current)) return previous;
+
+        // A board nobody has navigated away from follows the date over. One
+        // parked on another week is left where it was put - the day rolling
+        // over is not a reason to move somebody off what they were reading.
+        setAnchorDate((anchor) =>
+          dateKey(anchor) === dateKey(previous) ? current : anchor
+        );
+
+        return current;
+      });
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, []);
   // One window for all three views: it opens on the anchor's week and runs 28
   // days, so Today, This Week and 4 Weeks all sit inside it. Measuring it per
   // view is what would make the request depend on a setting that arrives in the
@@ -81,6 +114,7 @@ export function KitchenDashboardPage() {
         menuItemIds: string[];
         saveToLibrary: boolean;
       };
+      addOnIds: string[];
       portions: number;
       kitchenNote?: string;
     },
@@ -304,10 +338,7 @@ export function KitchenDashboardPage() {
   async function addKitchenEvent(values: AddKitchenEventFormValues) {
     if (!canAddKitchenEvent) return;
 
-    const isQuickMenu = Boolean(
-      values.quickMenuName &&
-      (values.quickMenuDishes || values.quickMenuItemIds.length > 0)
-    );
+    const isQuickMenu = !values.menuId;
 
     await addKitchenEventMutation.mutate({
       date: kitchenEventDateKey,
@@ -324,6 +355,7 @@ export function KitchenDashboardPage() {
             }
           }
         : { menuId: values.menuId }),
+      addOnIds: values.addOnIds,
       portions: Number(values.portions),
       kitchenNote: values.kitchenNote || undefined
     });
@@ -588,6 +620,7 @@ export function KitchenDashboardPage() {
       </main>
 
       <AddKitchenEventDialog
+        addOns={kitchenQuery.data?.addOns ?? []}
         canSave={canAddKitchenEvent}
         date={kitchenEventDateKey}
         menuItems={kitchenQuery.data?.menuItems ?? []}
