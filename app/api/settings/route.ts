@@ -2,9 +2,9 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import {
-  discardOrganizationLogo,
-  readLogoPathError
-} from "@/features/settings/server/organization-logo";
+  discardOrganizationBrandingImage,
+  readBrandingPathError
+} from "@/features/settings/server/organization-branding";
 import {
   assertPermission,
   authorize,
@@ -13,6 +13,10 @@ import {
 } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import {
+  DEFAULT_PORTAL_HEADER_COLOR,
+  isPortalHeaderColor
+} from "@/lib/ui/portal-header-theme";
 import { countSchema } from "@/lib/validation/number";
 
 // The portal shows this link to clients, so an empty string is a meaningful
@@ -50,6 +54,26 @@ const settingsSchema = z.object({
         // document written before the uploader existed still parses - see the
         // note on `clickAnywhereToAdd` below for what a missing default costs.
         logoPath: z.string().trim().max(512).default(""),
+        // Defaulted as a whole and field by field: an organization that saved
+        // its settings before the portal header was configurable has no
+        // `portalHeader` at all, and this parse is what every read of the
+        // document goes through.
+        portalHeader: z
+          .object({
+            style: z.enum(["color", "image"]).default("color"),
+            // Six-digit hex only. It is dropped into an inline style on the
+            // portal, so what is stored has to be a colour and nothing else.
+            color: z
+              .string()
+              .trim()
+              .refine(
+                (value) => value === "" || isPortalHeaderColor(value),
+                "Header colour must be a hex value such as #1f4d73."
+              )
+              .default(DEFAULT_PORTAL_HEADER_COLOR),
+            imagePath: z.string().trim().max(512).default("")
+          })
+          .default({}),
         contactEmail: z.union([z.literal(""), z.string().email()]).default(""),
         dateFormat: z.enum(["MMM d, yyyy", "MM/dd/yyyy", "dd/MM/yyyy"]),
         timeFormat: z.enum(["12-hour", "24-hour"])
@@ -106,6 +130,11 @@ const settingsSchema = z.object({
 const defaultControlCenter = {
   general: {
     logoPath: "",
+    portalHeader: {
+      style: "color" as const,
+      color: DEFAULT_PORTAL_HEADER_COLOR,
+      imagePath: ""
+    },
     contactEmail: "",
     dateFormat: "MMM d, yyyy" as const,
     timeFormat: "12-hour" as const
@@ -281,15 +310,18 @@ export async function PATCH(request: Request) {
     if (input.payments !== undefined) {
       await assertPermission(actor, "payment.record");
     }
-    // The browser writes the object to storage itself, so this is where a path
-    // pointing outside the caller's own folder gets refused.
-    if (input.controlCenter?.general.logoPath) {
-      const logoPathError = readLogoPathError(
-        actor.organizationId,
-        input.controlCenter.general.logoPath
-      );
-      if (logoPathError) {
-        return NextResponse.json({ error: logoPathError }, { status: 400 });
+    // The browser writes the objects to storage itself, so this is where a path
+    // pointing outside the caller's own folder gets refused - for both of the
+    // branding images this payload can carry.
+    for (const [subject, path] of [
+      ["Logo", input.controlCenter?.general.logoPath],
+      ["Header image", input.controlCenter?.general.portalHeader.imagePath]
+    ] as const) {
+      const pathError = path
+        ? readBrandingPathError(actor.organizationId, path, subject)
+        : null;
+      if (pathError) {
+        return NextResponse.json({ error: pathError }, { status: 400 });
       }
     }
     const currentSettings = await prisma.organizationSetting.upsert({
@@ -380,18 +412,28 @@ export async function PATCH(request: Request) {
       }
     );
 
-    // After the write, and best effort: a logo replaced or removed leaves an
+    // After the write, and best effort: an image replaced or removed leaves an
     // object nothing points at, but a storage failure must not undo a save the
     // caller has already been told nothing about.
+    //
+    // Keyed on the path changing, not on which style is selected: an operator
+    // who switches the header back to a colour keeps the image they uploaded,
+    // so switching to it again costs them nothing.
     if (input.controlCenter) {
-      const previousLogoPath = controlCenterFromIntegrations(
+      const previous = controlCenterFromIntegrations(
         currentSettings.integrations
-      ).general.logoPath;
-      if (
-        previousLogoPath &&
-        previousLogoPath !== input.controlCenter.general.logoPath
-      ) {
-        await discardOrganizationLogo(actor.organizationId, previousLogoPath);
+      ).general;
+      const next = input.controlCenter.general;
+      for (const [previousPath, nextPath] of [
+        [previous.logoPath, next.logoPath],
+        [previous.portalHeader.imagePath, next.portalHeader.imagePath]
+      ]) {
+        if (previousPath && previousPath !== nextPath) {
+          await discardOrganizationBrandingImage(
+            actor.organizationId,
+            previousPath
+          );
+        }
       }
     }
 

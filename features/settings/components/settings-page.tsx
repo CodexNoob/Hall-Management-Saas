@@ -11,12 +11,14 @@ import {
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
-import { LogoField } from "@/features/settings/components/logo-field";
+import { LogoField } from "@/features/settings/components/branding-image-field";
+import { PortalHeaderPanel } from "@/features/settings/components/portal-header-panel";
 import { ResetSettingsPanel } from "@/features/settings/components/reset-settings-panel";
 import {
-  getOrganizationLogoUrl,
-  uploadOrganizationLogo
-} from "@/features/settings/lib/upload-organization-logo";
+  getOrganizationBrandingUrl,
+  uploadOrganizationLogo,
+  uploadPortalHeaderImage
+} from "@/features/settings/lib/upload-organization-branding";
 import {
   AccessSettingsPanel,
   BillingBasicsPanel,
@@ -25,6 +27,7 @@ import {
   KitchenSettingsPanel
 } from "@/features/settings/components/settings-control-center-panels";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
+import { DEFAULT_PORTAL_HEADER_COLOR } from "@/lib/ui/portal-header-theme";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
 
@@ -74,6 +77,37 @@ function refreshQueriesCarrying(prefixes: string[]) {
   }
 }
 
+/**
+ * A signed URL for a stored branding image, or null while there is none to
+ * sign.
+ *
+ * The bucket is private, so a stored image is only renderable through one.
+ * Signed on the client the way hall floor plans are: the tenant_storage_select
+ * policy already limits it to this organization's folder, and routing it
+ * through the API would buy nothing.
+ */
+function useSignedBrandingUrl(path: string) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!path) {
+      setSignedUrl(null);
+      return;
+    }
+
+    let isCurrent = true;
+    void getOrganizationBrandingUrl(path).then((url) => {
+      if (isCurrent) setSignedUrl(url);
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [path]);
+
+  return signedUrl;
+}
+
 export function SettingsPage({
   closeButtonRef,
   displayMode = "page",
@@ -112,6 +146,11 @@ export function SettingsPage({
   const [controlCenter, setControlCenter] = useState<ControlCenterSettings>({
     general: {
       logoPath: "",
+      portalHeader: {
+        style: "color",
+        color: DEFAULT_PORTAL_HEADER_COLOR,
+        imagePath: ""
+      },
       contactEmail: "",
       dateFormat: "MMM d, yyyy",
       timeFormat: "12-hour"
@@ -139,8 +178,11 @@ export function SettingsPage({
   // the same as never having had one.
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [isLogoCleared, setIsLogoCleared] = useState(false);
-  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [storedLogoUrl, setStoredLogoUrl] = useState<string | null>(null);
+  // The portal header background is picked on the same terms, and both upload
+  // in the same save.
+  const [headerImageFile, setHeaderImageFile] = useState<File | null>(null);
+  const [isHeaderImageCleared, setIsHeaderImageCleared] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeModalSection, setActiveModalSection] =
     useState<ModalSettingsSection>("General");
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
@@ -166,30 +208,15 @@ export function SettingsPage({
     // pending removal has either been applied or was never saved.
     setLogoFile(null);
     setIsLogoCleared(false);
+    setHeaderImageFile(null);
+    setIsHeaderImageCleared(false);
     setPaymentLink(settingsQuery.data.payments?.paymentLink ?? "");
   }, [settingsQuery.data]);
 
-  const logoPath = controlCenter.general.logoPath;
-
-  // The bucket is private, so the stored logo is only renderable through a
-  // signed URL. Signed on the client the way hall floor plans are: the
-  // tenant_storage_select policy already limits it to this organization's
-  // folder, and routing it through the API would buy nothing.
-  useEffect(() => {
-    if (!logoPath) {
-      setStoredLogoUrl(null);
-      return;
-    }
-
-    let isCurrent = true;
-    void getOrganizationLogoUrl(logoPath).then((url) => {
-      if (isCurrent) setStoredLogoUrl(url);
-    });
-
-    return () => {
-      isCurrent = false;
-    };
-  }, [logoPath]);
+  const storedLogoUrl = useSignedBrandingUrl(controlCenter.general.logoPath);
+  const storedHeaderImageUrl = useSignedBrandingUrl(
+    controlCenter.general.portalHeader.imagePath
+  );
 
   const savePaymentLink = async () => {
     setPaymentMessage("");
@@ -221,23 +248,39 @@ export function SettingsPage({
   const saveControlCenter = async () => {
     setSettingsMessage("");
     try {
-      // The picked file reaches the bucket here and not a moment earlier, so
+      // The picked files reach the bucket here and not a moment earlier, so
       // closing the panel without saving uploads nothing.
       let nextLogoPath = controlCenter.general.logoPath;
-      if (logoFile) {
-        setIsUploadingLogo(true);
+      let nextHeaderImagePath = controlCenter.general.portalHeader.imagePath;
+      if (logoFile || headerImageFile) {
+        setIsUploadingImage(true);
         try {
-          nextLogoPath = await uploadOrganizationLogo(logoFile);
+          // Together, so a save that changes both is one wait rather than two.
+          const [uploadedLogoPath, uploadedHeaderImagePath] =
+            await Promise.all([
+              logoFile ? uploadOrganizationLogo(logoFile) : null,
+              headerImageFile ? uploadPortalHeaderImage(headerImageFile) : null
+            ]);
+          nextLogoPath = uploadedLogoPath ?? nextLogoPath;
+          nextHeaderImagePath = uploadedHeaderImagePath ?? nextHeaderImagePath;
         } finally {
-          setIsUploadingLogo(false);
+          setIsUploadingImage(false);
         }
-      } else if (isLogoCleared) {
-        nextLogoPath = "";
       }
+
+      if (!logoFile && isLogoCleared) nextLogoPath = "";
+      if (!headerImageFile && isHeaderImageCleared) nextHeaderImagePath = "";
 
       const nextControlCenter: ControlCenterSettings = {
         ...controlCenter,
-        general: { ...controlCenter.general, logoPath: nextLogoPath }
+        general: {
+          ...controlCenter.general,
+          logoPath: nextLogoPath,
+          portalHeader: {
+            ...controlCenter.general.portalHeader,
+            imagePath: nextHeaderImagePath
+          }
+        }
       };
 
       await settingsMutation.mutate({
@@ -247,6 +290,8 @@ export function SettingsPage({
       setControlCenter(nextControlCenter);
       setLogoFile(null);
       setIsLogoCleared(false);
+      setHeaderImageFile(null);
+      setIsHeaderImageCleared(false);
       setSettingsMessage("Settings saved.");
       refreshQueriesCarrying(CONTROL_CENTER_QUERY_PREFIXES);
       await settingsQuery.refetch();
@@ -441,10 +486,10 @@ export function SettingsPage({
                         />
                       </label>
                       <LogoField
-                        currentLogoUrl={storedLogoUrl}
+                        currentUrl={storedLogoUrl}
                         file={logoFile}
                         isCleared={isLogoCleared}
-                        isDisabled={!canEditSettings || isUploadingLogo}
+                        isDisabled={!canEditSettings || isUploadingImage}
                         onClearStored={() => setIsLogoCleared(true)}
                         onRestoreStored={() => setIsLogoCleared(false)}
                         onSelect={(picked) => {
@@ -476,6 +521,33 @@ export function SettingsPage({
                       </label>
                     </div>
                   </section>
+                ) : null}
+
+                {showAllSettingsContent || activeModalSection === "General" ? (
+                  <PortalHeaderPanel
+                    canEdit={canEditSettings}
+                    imageFile={headerImageFile}
+                    imageUrl={storedHeaderImageUrl}
+                    isImageCleared={isHeaderImageCleared}
+                    isUploading={isUploadingImage}
+                    logoUrl={storedLogoUrl}
+                    onChange={(portalHeader) =>
+                      setControlCenter((current) => ({
+                        ...current,
+                        general: { ...current.general, portalHeader }
+                      }))
+                    }
+                    onImageClearStored={() => setIsHeaderImageCleared(true)}
+                    onImageRestoreStored={() => setIsHeaderImageCleared(false)}
+                    onImageSelect={(picked) => {
+                      setHeaderImageFile(picked);
+                      // Picking replaces the stored image outright, so a
+                      // pending removal is no longer what the operator asked
+                      // for.
+                      if (picked) setIsHeaderImageCleared(false);
+                    }}
+                    value={controlCenter.general.portalHeader}
+                  />
                 ) : null}
 
                 {showAllSettingsContent ||
@@ -896,14 +968,14 @@ export function SettingsPage({
                       disabled={
                         !canEditSettings ||
                         settingsMutation.isPending ||
-                        isUploadingLogo ||
+                        isUploadingImage ||
                         !organizationName.trim()
                       }
                       onClick={() => void saveControlCenter()}
                       type="button"
                     >
-                      {isUploadingLogo
-                        ? "Uploading logo..."
+                      {isUploadingImage
+                        ? "Uploading images..."
                         : settingsMutation.isPending
                           ? "Saving..."
                           : "Save changes"}

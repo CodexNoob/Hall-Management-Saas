@@ -7,6 +7,7 @@ import {
 } from "@/lib/storage/buckets";
 import { createSignedFileUrl, createSignedFileUrls } from "@/lib/storage/files";
 import { decimalToCents } from "@/lib/ui/format-money";
+import { resolvePortalHeaderColor } from "@/lib/ui/portal-header-theme";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
 import type { ClientPortalLookup } from "@/features/events/types/client-portal";
 
@@ -49,26 +50,43 @@ function readMenuConfirmed(workspaceData: unknown) {
 }
 
 /**
- * The storage path of the logo uploaded in Settings > General, read straight
- * out of `integrations.controlCenter.general.logoPath`.
+ * What the header needs out of `integrations.controlCenter.general`: the logo
+ * uploaded in Settings > General, and the background chosen beside it.
  *
  * Narrow and local, the way /api/kitchen reads its own slice of the same
  * document: importing the settings route's zod schema here would drag a
  * request handler into the portal's data layer, and a settings document written
- * before the uploader existed simply has no `general.logoPath` to find.
+ * before either field existed simply has neither to find.
  */
-function readLogoPath(integrations: unknown) {
+function readHeaderBranding(integrations: unknown) {
   const general =
     integrations && typeof integrations === "object"
       ? (integrations as { controlCenter?: { general?: unknown } })
           .controlCenter?.general
       : undefined;
-  const logoPath =
+  const generalRecord =
     general && typeof general === "object"
-      ? (general as { logoPath?: unknown }).logoPath
-      : undefined;
+      ? (general as {
+          logoPath?: unknown;
+          portalHeader?: {
+            style?: unknown;
+            color?: unknown;
+            imagePath?: unknown;
+          };
+        })
+      : {};
+  const portalHeader = generalRecord.portalHeader ?? {};
+  const readPath = (value: unknown) =>
+    typeof value === "string" && value ? value : null;
 
-  return typeof logoPath === "string" && logoPath ? logoPath : null;
+  return {
+    logoPath: readPath(generalRecord.logoPath),
+    // The colour is painted whatever the style is: it is what sits behind an
+    // image that has not finished loading, and what is left if signing it fails.
+    color: resolvePortalHeaderColor(portalHeader.color),
+    imagePath:
+      portalHeader.style === "image" ? readPath(portalHeader.imagePath) : null
+  };
 }
 
 /**
@@ -93,25 +111,29 @@ async function signMenuPictures(organizationId: string, paths: string[]) {
 }
 
 /**
- * The venue's logo, signed on its own because it lives in its own bucket -
- * batching it with the menu pictures above is not possible, so the two run side
- * by side instead.
+ * One of the venue's branding images, signed on its own because they live in
+ * their own bucket - batching them with the menu pictures above is not
+ * possible, so all of them run side by side instead.
  *
- * Best effort for the same reason, and for one more: a logo that cannot be
+ * Best effort for the same reason, and for one more: an image that cannot be
  * signed - an object removed behind the settings document, a path saved before
  * the current validation - must cost the header its picture and nothing else.
  */
-async function signVenueLogo(organizationId: string, logoPath: string | null) {
-  if (!logoPath) return null;
+async function signBrandingImage(
+  organizationId: string,
+  path: string | null,
+  subject: string
+) {
+  if (!path) return null;
 
   try {
     return await createSignedFileUrl({
       organizationId,
       bucket: ORGANIZATION_LOGO_BUCKET,
-      path: logoPath
+      path
     });
   } catch (signingError) {
-    console.error("Failed to sign the client portal venue logo", signingError);
+    console.error(`Failed to sign the client portal ${subject}`, signingError);
     return null;
   }
 }
@@ -237,12 +259,18 @@ export async function getClientPortalEvent(
     .map((candidate) => candidate.picturePath)
     .filter((path): path is string => Boolean(path));
 
-  // Two buckets, so two calls - but nothing on the page waits for the other.
-  const [signedUrlsByPath, logoUrl] = await Promise.all([
+  // Two buckets, so more than one call - but nothing on the page waits for
+  // another.
+  const headerBranding = readHeaderBranding(
+    organization?.settings?.integrations
+  );
+  const [signedUrlsByPath, logoUrl, headerImageUrl] = await Promise.all([
     signMenuPictures(organizationId, picturePaths),
-    signVenueLogo(
+    signBrandingImage(organizationId, headerBranding.logoPath, "venue logo"),
+    signBrandingImage(
       organizationId,
-      readLogoPath(organization?.settings?.integrations)
+      headerBranding.imagePath,
+      "header background"
     )
   ]);
 
@@ -290,6 +318,8 @@ export async function getClientPortalEvent(
       // cannot take down the portal.
       venueName: organization?.name ?? "",
       logoUrl,
+      headerColor: headerBranding.color,
+      headerImageUrl,
       status: event.eventStatus.toLowerCase().includes("confirm")
         ? "Confirmed"
         : "Hold",

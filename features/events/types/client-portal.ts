@@ -55,6 +55,14 @@ export type ClientPortalEvent = {
    * same as an option's `imageUrl` - render it now, never store it.
    */
   logoUrl: string | null;
+  /**
+   * The header background the organization chose in Settings > General, already
+   * resolved: a hex colour that is always safe to paint, and a signed URL for
+   * the background image when that is the style in force - null when it is not,
+   * so nothing downstream has to know the setting exists.
+   */
+  headerColor: string;
+  headerImageUrl: string | null;
   status: string;
   couples: string;
   children: string;

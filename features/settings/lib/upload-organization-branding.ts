@@ -12,6 +12,13 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 export const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 
 /**
+ * The portal header background gets more room than the logo: it is drawn across
+ * the full width of the portal, so it is the one branding image that really is
+ * a photograph.
+ */
+export const MAX_PORTAL_HEADER_BYTES = 5 * 1024 * 1024;
+
+/**
  * Keyed by content type rather than read off the file name, so an upload cannot
  * carry its own extension into the bucket.
  */
@@ -22,7 +29,7 @@ const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
 };
 
 /** For the picker's `accept`, which matches on extension as well as type. */
-export const LOGO_ACCEPT_ATTRIBUTE = [
+export const BRANDING_ACCEPT_ATTRIBUTE = [
   ...Object.keys(EXTENSION_BY_CONTENT_TYPE),
   ".jpg",
   ".jpeg",
@@ -30,25 +37,46 @@ export const LOGO_ACCEPT_ATTRIBUTE = [
   ".webp"
 ].join(",");
 
-export const LOGO_ACCEPTED_LABEL = "JPEG, PNG or WebP";
+export const BRANDING_ACCEPTED_LABEL = "JPEG, PNG or WebP";
 
 /**
- * Why a logo cannot be uploaded, or null when it can.
+ * Why a branding image cannot be uploaded, or null when it can.
  *
  * Split out of the upload so the picker can refuse a file the moment it is
  * chosen: the settings form has one Save for the whole General section, and a
  * file rejected there would surface as a failed save of everything else too.
+ *
+ * `subject` and `maxLabel` are in the message because the two pickers sit on
+ * the same screen: "The image must be smaller" would leave an operator looking
+ * for which of the two refused them.
  */
-export function describeUnacceptableLogo(file: File) {
+export function describeUnacceptableImage(
+  file: File,
+  { subject, maxBytes }: { subject: string; maxBytes: number }
+) {
   if (!EXTENSION_BY_CONTENT_TYPE[file.type]) {
-    return "The logo must be a JPEG, PNG or WebP image.";
+    return `The ${subject} must be a JPEG, PNG or WebP image.`;
   }
 
-  if (file.size > MAX_LOGO_BYTES) {
-    return "The logo must be 2 MB or smaller.";
+  if (file.size > maxBytes) {
+    return `The ${subject} must be ${Math.round(maxBytes / (1024 * 1024))} MB or smaller.`;
   }
 
   return null;
+}
+
+export function describeUnacceptableLogo(file: File) {
+  return describeUnacceptableImage(file, {
+    subject: "logo",
+    maxBytes: MAX_LOGO_BYTES
+  });
+}
+
+export function describeUnacceptablePortalHeaderImage(file: File) {
+  return describeUnacceptableImage(file, {
+    subject: "header image",
+    maxBytes: MAX_PORTAL_HEADER_BYTES
+  });
 }
 
 /**
@@ -60,12 +88,26 @@ export function describeUnacceptableLogo(file: File) {
  * organization the caller belongs to, and the browser client carries the cookie
  * session, so the write runs as `authenticated` and that policy applies. The
  * settings handler re-checks the prefix before it stores the path.
+ *
+ * One bucket for both the logo and the portal header image. A second bucket
+ * would have to be created by hand in the Supabase dashboard - nothing in this
+ * repo provisions storage.buckets - and both are the same thing to storage: an
+ * organization's own branding, private, addressed by an org-id prefix.
  */
-export async function uploadOrganizationLogo(file: File) {
+async function uploadBrandingImage(
+  file: File,
+  {
+    rejection,
+    namePrefix
+  }: {
+    rejection: string | null;
+    /** Distinguishes the two kinds inside the shared `branding/` folder. */
+    namePrefix: string;
+  }
+) {
   // Re-checked here and not only in the picker: this is the last line before
   // the bucket, and nothing stops another caller from arriving with a file the
   // picker never saw.
-  const rejection = describeUnacceptableLogo(file);
   if (rejection) {
     throw new Error(rejection);
   }
@@ -78,7 +120,7 @@ export async function uploadOrganizationLogo(file: File) {
   }
 
   // A fresh UUID per upload is what makes `upsert: false` safe.
-  const path = `${organizationId}/branding/${crypto.randomUUID()}.${extension}`;
+  const path = `${organizationId}/branding/${namePrefix}${crypto.randomUUID()}.${extension}`;
 
   const supabase = createSupabaseBrowserClient();
   const { error } = await supabase.storage
@@ -90,7 +132,7 @@ export async function uploadOrganizationLogo(file: File) {
     // to: "Bucket not found" is an operator's task, not a transient failure to
     // retry, and swallowing it hides which of the two this is.
     throw new Error(
-      `The logo could not be uploaded${error.message ? ` (${error.message})` : ""}.`,
+      `The image could not be uploaded${error.message ? ` (${error.message})` : ""}.`,
       { cause: error }
     );
   }
@@ -98,8 +140,22 @@ export async function uploadOrganizationLogo(file: File) {
   return path;
 }
 
-/** Short-lived signed URL for rendering the private logo. */
-export async function getOrganizationLogoUrl(path: string) {
+export async function uploadOrganizationLogo(file: File) {
+  return uploadBrandingImage(file, {
+    rejection: describeUnacceptableLogo(file),
+    namePrefix: ""
+  });
+}
+
+export async function uploadPortalHeaderImage(file: File) {
+  return uploadBrandingImage(file, {
+    rejection: describeUnacceptablePortalHeaderImage(file),
+    namePrefix: "portal-header-"
+  });
+}
+
+/** Short-lived signed URL for rendering a private branding image. */
+export async function getOrganizationBrandingUrl(path: string) {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase.storage
     .from(ORGANIZATION_LOGO_BUCKET)
