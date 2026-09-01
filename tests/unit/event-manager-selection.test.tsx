@@ -2,9 +2,17 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The page reads the deep link through the router rather than off
+// `window.location`, so the mock keeps the two separable: `routerSearch` is
+// what the router reports, and it is only seeded from the browser url when a
+// test has not said otherwise.
+let routerSearch: string | null = null;
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), prefetch: vi.fn(), replace: vi.fn() }),
-  usePathname: () => "/dashboard/events"
+  usePathname: () => "/dashboard/events",
+  useSearchParams: () =>
+    new URLSearchParams(routerSearch ?? window.location.search)
 }));
 
 vi.mock("@/lib/http/authenticated-fetch", () => ({
@@ -144,6 +152,7 @@ function collapseRequests() {
 describe("Event Manager selection", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    routerSearch = null;
     window.history.replaceState({}, "", "/dashboard/events");
     cacheTestSessionForStarterRole("event-manager");
     vi.mocked(authenticatedFetch).mockReset();
@@ -211,6 +220,26 @@ describe("Event Manager selection", () => {
   // A link that names an event is a selection the user did make.
   it("still opens an event named by a deep link", async () => {
     window.history.replaceState({}, "", "/dashboard/events?eventId=event-2");
+    respondWith(eventsResponse([eventRow("event-1"), eventRow("event-2")]));
+
+    await mount();
+
+    expect(workspace()).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Client event-2 Wedding" })
+    ).toBeInTheDocument();
+  });
+
+  // The case that produced the report: clicking a pill in the calendar pushed
+  // `/dashboard/event-manager?eventId=...`, but Next writes the address bar in a
+  // commit-phase effect that runs after this page renders. Reading
+  // `window.location` on the way in therefore saw the calendar's url and opened
+  // nothing - intermittently, since a navigation that suspends on the loading
+  // boundary mounts the page late enough for the browser url to have caught up.
+  it("opens a deep link the router knows about before the address bar does", async () => {
+    routerSearch = "?eventId=event-2";
+    // Still the page the click came from, as it is mid-navigation.
+    window.history.replaceState({}, "", "/dashboard/calendar");
     respondWith(eventsResponse([eventRow("event-1"), eventRow("event-2")]));
 
     await mount();
