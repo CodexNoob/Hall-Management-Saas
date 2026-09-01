@@ -453,9 +453,12 @@ export function toEventDetailsPayload(
 /** Booking states that can still be moved to confirmed. */
 const confirmableStatuses = ["INQUIRY", "TENTATIVE_HOLD"];
 
-/** The date on the closed field, in the words the picker's own rows use. */
+/**
+ * The date on the closed field. No weekday: the field is a third of a row
+ * wide, and "Thu, Aug 27, 2026" wraps onto a second line inside a fixed-height
+ * control. The picker itself still names the day it is opened on.
+ */
 const eventDateLabelFormatter = new Intl.DateTimeFormat("en-US", {
-  weekday: "short",
   month: "short",
   day: "numeric",
   year: "numeric"
@@ -643,7 +646,16 @@ export function EventInformation({
               onClick={() => setIsDatePickerOpen(true)}
               type="button"
             >
-              <span className={values.eventDate ? "" : "text-[#6a7483]"}>
+              {/*
+                The control's height is fixed, so a label that does not fit has
+                to be cut rather than wrapped - a second line spills out of the
+                box instead of pushing it taller.
+              */}
+              <span
+                className={`min-w-0 truncate ${
+                  values.eventDate ? "" : "text-[#6a7483]"
+                }`}
+              >
                 {eventDateLabel}
               </span>
               <LineIcon
