@@ -10,6 +10,7 @@ import {
   StatusDot,
   type AvailabilityDay
 } from "@/features/calendar/components/calendar-shared";
+import { AvailabilityDaysSkeleton } from "@/features/calendar/components/calendar-skeleton";
 import { type WeekStartsOn } from "@/lib/dates/calendar-date";
 
 export function AvailabilityView({
@@ -19,6 +20,7 @@ export function AvailabilityView({
   endDate,
   endDateLabel,
   halls,
+  isLoadingDays = false,
   onHallChange,
   onNewBooking,
   onRemoveDay,
@@ -36,6 +38,12 @@ export function AvailabilityView({
   endDate: Date;
   endDateLabel: string;
   halls: Array<{ id: string; name: string }>;
+  /**
+   * A newly picked range whose bookings are still on the way. The rows below
+   * become placeholders while the header - the hall select, the range picker -
+   * stays live, so a range chosen by mistake can be changed straight away.
+   */
+  isLoadingDays?: boolean;
   onHallChange: (hallId: string) => void;
   onNewBooking?: () => void;
   onRemoveDay: (dateKey: string) => void | Promise<void>;
@@ -144,6 +152,8 @@ export function AvailabilityView({
           <StatusDot color="bg-[#94a1b1]" label="Full" />
         </div>
 
+        {isLoadingDays && selectedHallId ? <AvailabilityDaysSkeleton /> : null}
+
         {!selectedHallId ? (
           <div className="mt-3 rounded-xl border border-dashed border-[#c7d0dc] bg-[#fbfcfd] p-8 text-center">
             <p className="text-sm font-black text-[#17202a]">
@@ -160,7 +170,7 @@ export function AvailabilityView({
         ) : null}
 
         <div className="mt-3 space-y-2">
-          {days.map((availabilityDay) => {
+          {(isLoadingDays ? [] : days).map((availabilityDay) => {
             const isHold = availabilityDay.status === "hold";
             const isFull = availabilityDay.status === "full";
             return (

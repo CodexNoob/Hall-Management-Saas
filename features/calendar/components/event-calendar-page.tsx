@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { formatHebrewDateWithoutYear } from "@/lib/dates/hebrew-date";
@@ -18,7 +18,10 @@ import {
   weekDates
 } from "@/lib/dates/calendar-date";
 import { hallDayStatus } from "@/lib/bookings/hall-day-availability";
-import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  prefetchAuthenticatedQuery,
+  useAuthenticatedQuery
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
@@ -30,6 +33,10 @@ import {
 } from "@/features/calendar/components/calendar-day-model";
 import { EventPill } from "@/features/calendar/components/calendar-event-pill";
 import { CalendarSettingsView } from "@/features/calendar/components/calendar-settings-tab";
+import {
+  CalendarBodySkeleton,
+  CalendarSelectedDaySkeleton
+} from "@/features/calendar/components/calendar-skeleton";
 import { CalendarWeekView } from "@/features/calendar/components/calendar-week-view";
 import {
   BuildingIcon,
@@ -55,6 +62,35 @@ const availabilityDateFormatter = new Intl.DateTimeFormat("en-US", {
 const availabilityDayNameFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short"
 });
+
+/**
+ * The url one period is read from.
+ *
+ * Bounded by the month rather than by the rendered grid, because the grid now
+ * depends on a setting this very query returns. A 42-cell grid always starts
+ * within six days before the 1st and ends within 41 days after it, whichever day
+ * the week is set to start on, so this covers every rotation and stays the same
+ * url when the setting arrives - no refetch, no flash of a grid drawn from a
+ * range that was measured for a different one.
+ *
+ * The Availability tab's range is folded in so both tabs read one request.
+ *
+ * A function rather than an inline expression so the periods either side can be
+ * addressed with it too: warming the exact url the arrows will ask for is what
+ * makes stepping through months land on the cache instead of a request.
+ */
+function calendarQueryUrlFor(month: Date, availabilityRange: DateRange) {
+  const monthStart = startOfMonth(month);
+  const dates = [
+    addDays(monthStart, -7),
+    addDays(monthStart, 42),
+    availabilityRange.startDate,
+    availabilityRange.endDate
+  ];
+  const times = dates.map((date) => date.getTime());
+
+  return `/api/calendar?startDate=${dateKey(new Date(Math.min(...times)))}&endDate=${dateKey(new Date(Math.max(...times)))}`;
+}
 
 export function EventCalendarPage() {
   const settingsMutation = useAuthenticatedMutation<
@@ -92,37 +128,66 @@ export function EventCalendarPage() {
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
   const canCreateEvent = useAccess("booking.create");
   const canUpdateSettings = useAccess("settings.update");
-  // Bounded by the month rather than by the rendered grid, because the grid now
-  // depends on a setting this very query returns. A 42-cell grid always starts
-  // within six days before the 1st and ends within 41 days after it, whichever
-  // day the week is set to start on, so this covers every rotation and stays
-  // the same URL when the setting arrives - no refetch, no flash of a grid
-  // drawn from a range that was measured for a different one.
-  const calendarQueryRange = useMemo(() => {
-    const monthStart = startOfMonth(visibleMonth);
-    const dates = [
-      addDays(monthStart, -7),
-      addDays(monthStart, 42),
-      availabilityRange.startDate,
-      availabilityRange.endDate
-    ];
-    return {
-      startDate: new Date(Math.min(...dates.map((date) => date.getTime()))),
-      endDate: new Date(Math.max(...dates.map((date) => date.getTime())))
-    };
-  }, [availabilityRange, visibleMonth]);
-  const calendarQueryUrl = `/api/calendar?startDate=${dateKey(calendarQueryRange.startDate)}&endDate=${dateKey(calendarQueryRange.endDate)}`;
+  const calendarQueryUrl = useMemo(
+    () => calendarQueryUrlFor(visibleMonth, availabilityRange),
+    [availabilityRange, visibleMonth]
+  );
   const eventsQuery = useAuthenticatedQuery<EventsResponse>(calendarQueryUrl);
-  const weekStartsOn =
-    eventsQuery.data?.calendarSettings?.weekStartsOn ?? "sunday";
+  /*
+   * The last response that landed, whichever period it was for.
+   *
+   * Only `events` is scoped to the period; the halls, the event types, the
+   * blocked ranges and the calendar settings come back identical every time. So
+   * a step into a month that is not cached yet can keep drawing the page's
+   * chrome - the filters, the arrows, the legend, the view it is in - from the
+   * previous response instead of tearing the page down to a spinner, and only
+   * the parts that actually show bookings wait.
+   */
+  const lastLoadedRef = useRef<EventsResponse | null>(null);
+
+  if (eventsQuery.data) lastLoadedRef.current = eventsQuery.data;
+
+  const calendarData = eventsQuery.data ?? lastLoadedRef.current;
+  const hasLoadedOnce = calendarData !== null;
+  // A period whose events are still on the way, with a page already on screen.
+  // The first load has no page to keep and still owns the whole main area.
+  const isPeriodLoading = eventsQuery.isLoading && hasLoadedOnce;
+  const periodError = hasLoadedOnce ? eventsQuery.error : null;
+  const weekStartsOn = calendarData?.calendarSettings?.weekStartsOn ?? "sunday";
   // Settings can drop the + button on each day and let the whole cell open the
   // booking form instead. Off, a day click only selects the day.
   const clickAnywhereToAdd =
-    eventsQuery.data?.calendarSettings?.clickAnywhereToAdd ?? false;
-  const showHebrewDate =
-    eventsQuery.data?.calendarSettings?.showHebrewDate ?? true;
+    calendarData?.calendarSettings?.clickAnywhereToAdd ?? false;
+  const showHebrewDate = calendarData?.calendarSettings?.showHebrewDate ?? true;
   const showAvailability =
-    eventsQuery.data?.calendarSettings?.showAvailability ?? true;
+    calendarData?.calendarSettings?.showAvailability ?? true;
+  /*
+   * The two periods the arrows lead to, warmed while this one is being read.
+   *
+   * Stepping a month is the one navigation on this page that changes the query
+   * url, and it is nearly always followed by another step in the same direction
+   * or straight back. Fetching both neighbours once the current period has
+   * landed turns those clicks into cache reads, which is the version of this
+   * with no loading state at all. Anything already fresh costs nothing.
+   */
+  const adjacentQueryUrls = useMemo(
+    () => [
+      calendarQueryUrlFor(addMonths(visibleMonth, -1), availabilityRange),
+      calendarQueryUrlFor(addMonths(visibleMonth, 1), availabilityRange)
+    ],
+    [availabilityRange, visibleMonth]
+  );
+  const isLoadingCalendar = eventsQuery.isLoading;
+
+  useEffect(() => {
+    // The period on screen goes first: a prefetch racing it would be competing
+    // for the connection with the request the reader is actually waiting on.
+    if (isLoadingCalendar) return;
+
+    for (const url of adjacentQueryUrls) {
+      void prefetchAuthenticatedQuery(url);
+    }
+  }, [adjacentQueryUrls, isLoadingCalendar]);
   /*
    * The only thing that picks the view now that the in-page switcher is gone:
    * Settings > Calendar > Default view, which arrives with the calendar data
@@ -130,8 +195,7 @@ export function EventCalendarPage() {
    * instead of seeding state from it, is what lets the setting apply the moment
    * it lands without an effect racing the first paint.
    */
-  const calendarView =
-    eventsQuery.data?.calendarSettings?.defaultView ?? "month";
+  const calendarView = calendarData?.calendarSettings?.defaultView ?? "month";
   const calendarGridDays = useMemo(
     () => buildMonthGrid(visibleMonth, weekStartsOn),
     [visibleMonth, weekStartsOn]
@@ -140,11 +204,10 @@ export function EventCalendarPage() {
     () => weekDayLabels(weekStartsOn),
     [weekStartsOn]
   );
-  const dailyEventLimit =
-    eventsQuery.data?.calendarSettings?.dailyEventLimit ?? 2;
+  const dailyEventLimit = calendarData?.calendarSettings?.dailyEventLimit ?? 2;
   const bookings = useMemo<CalendarBooking[]>(
     () =>
-      (eventsQuery.data?.events ?? []).map((event) => {
+      (calendarData?.events ?? []).map((event) => {
         const normalizedStatus = event.bookingStatus.toLowerCase();
         const isSchoolEvent = event.eventType?.toLowerCase().includes("school");
 
@@ -164,11 +227,11 @@ export function EventCalendarPage() {
               : "hold"
         };
       }),
-    [eventsQuery.data]
+    [calendarData]
   );
   const halls = useMemo(
-    () => (eventsQuery.data?.halls ?? []).map((hall) => hall.name),
-    [eventsQuery.data]
+    () => (calendarData?.halls ?? []).map((hall) => hall.name),
+    [calendarData]
   );
   const availabilityRangeDays = useMemo(() => {
     const days: Date[] = [];
@@ -197,7 +260,7 @@ export function EventCalendarPage() {
   const liveAvailabilityDays = useMemo<AvailabilityDay[]>(() => {
     if (!availabilityHallId) return [];
 
-    const hall = (eventsQuery.data?.halls ?? []).find(
+    const hall = (calendarData?.halls ?? []).find(
       (option) => option.id === availabilityHallId
     );
     const hallDailyEventLimit = hall?.dailyEventLimit ?? dailyEventLimit;
@@ -218,14 +281,11 @@ export function EventCalendarPage() {
           day: day.getDate(),
           dayName: availabilityDayNameFormatter.format(day),
           hebrewDate: formatHebrewDateWithoutYear(day),
-          roomsAvailable: Math.max(
-            0,
-            hallDailyEventLimit - dayBookings.length
-          ),
+          roomsAvailable: Math.max(0, hallDailyEventLimit - dayBookings.length),
           status: hallDayStatus({
             // Only the ranges that close this hall. A null hall is a range from
             // before ranges named one, which closed the whole venue.
-            isBlocked: (eventsQuery.data?.blockedDates ?? []).some(
+            isBlocked: (calendarData?.blockedDates ?? []).some(
               (range) =>
                 (range.hallId === null ||
                   range.hallId === availabilityHallId) &&
@@ -246,8 +306,8 @@ export function EventCalendarPage() {
     availabilityRangeDays,
     bookings,
     dailyEventLimit,
-    eventsQuery.data?.blockedDates,
-    eventsQuery.data?.halls
+    calendarData?.blockedDates,
+    calendarData?.halls
   ]);
 
   const filteredBookings = useMemo(
@@ -270,8 +330,8 @@ export function EventCalendarPage() {
       createCalendarDayReader({
         bookings,
         filteredBookings,
-        halls: eventsQuery.data?.halls ?? [],
-        blockedDates: eventsQuery.data?.blockedDates ?? [],
+        halls: calendarData?.halls ?? [],
+        blockedDates: calendarData?.blockedDates ?? [],
         dailyEventLimit,
         selectedDate,
         todayKey: dateKey(today),
@@ -281,8 +341,8 @@ export function EventCalendarPage() {
       bookings,
       canCreateEvent,
       dailyEventLimit,
-      eventsQuery.data?.blockedDates,
-      eventsQuery.data?.halls,
+      calendarData?.blockedDates,
+      calendarData?.halls,
       filteredBookings,
       selectedDate,
       today
@@ -317,7 +377,7 @@ export function EventCalendarPage() {
   );
   const hallAvailability = useMemo(
     () =>
-      (eventsQuery.data?.halls ?? []).map((hall) => {
+      (calendarData?.halls ?? []).map((hall) => {
         const limit = hall.dailyEventLimit ?? dailyEventLimit;
         const used = selectedBookings.filter(
           (booking) => booking.hall === hall.name
@@ -332,9 +392,9 @@ export function EventCalendarPage() {
           usesDefaultLimit: hall.dailyEventLimit === null
         };
       }),
-    [dailyEventLimit, eventsQuery.data?.halls, selectedBookings]
+    [dailyEventLimit, calendarData?.halls, selectedBookings]
   );
-  const selectedDateIsBlocked = (eventsQuery.data?.blockedDates ?? []).some(
+  const selectedDateIsBlocked = (calendarData?.blockedDates ?? []).some(
     (range) =>
       selectedDate >= dateKeyFromIso(range.startDate) &&
       selectedDate <= dateKeyFromIso(range.endDate)
@@ -488,7 +548,12 @@ export function EventCalendarPage() {
       </nav>
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
-        {eventsQuery.isLoading || eventsQuery.error ? (
+        {/*
+          Only the very first load owns the whole main area. Once there is a
+          page on screen, a period being fetched is the business of the panels
+          that draw bookings, not of the page around them.
+        */}
+        {!hasLoadedOnce ? (
           <div className="flex h-full min-h-80 items-center justify-center">
             <AsyncState
               error={eventsQuery.error}
@@ -501,9 +566,10 @@ export function EventCalendarPage() {
             blockDateError={createBlockedDateMutation.error}
             canManageBlockedDates={canUpdateSettings}
             days={liveAvailabilityDays}
+            isLoadingDays={isPeriodLoading}
             endDate={availabilityRange.endDate}
             endDateLabel={availabilityEndDateLabel}
-            halls={(eventsQuery.data?.halls ?? []).map((hall) => ({
+            halls={(calendarData?.halls ?? []).map((hall) => ({
               id: hall.id,
               name: hall.name
             }))}
@@ -535,7 +601,7 @@ export function EventCalendarPage() {
             blockedDateMutationError={
               createBlockedDateMutation.error ?? removeBlockedDateMutation.error
             }
-            blockedDates={eventsQuery.data?.blockedDates ?? []}
+            blockedDates={calendarData?.blockedDates ?? []}
             canUpdateSettings={canUpdateSettings}
             dailyEventLimit={dailyEventLimit}
             hallAvailability={hallAvailability}
@@ -683,7 +749,7 @@ export function EventCalendarPage() {
                     value={typeFilter}
                   >
                     <option value="all">All types</option>
-                    {(eventsQuery.data?.eventTypes ?? []).map((eventType) => (
+                    {(calendarData?.eventTypes ?? []).map((eventType) => (
                       <option key={eventType.id} value={eventType.name}>
                         {eventType.name}
                       </option>
@@ -692,7 +758,19 @@ export function EventCalendarPage() {
                 </div>
               </div>
 
-              {calendarView === "agenda" ? (
+              {isPeriodLoading ? (
+                <CalendarBodySkeleton
+                  view={calendarView}
+                  weekDayLabels={gridWeekDays}
+                />
+              ) : periodError ? (
+                <div className="px-3 pb-3">
+                  <AsyncState
+                    error={periodError}
+                    onRetry={eventsQuery.refetch}
+                  />
+                </div>
+              ) : calendarView === "agenda" ? (
                 <CalendarAgendaView
                   days={agendaDays}
                   emptyMessage={`Nothing is booked in ${monthLabel}${hallFilter !== "all" || statusFilter !== "all" || typeFilter !== "all" ? " that matches the current filters" : ""}.`}
@@ -826,9 +904,9 @@ export function EventCalendarPage() {
                   </div>
 
                   <p className="mt-1 text-xs text-[#6a7483]">
-                    {selectedBookings.length}{" "}
-                    {selectedBookings.length === 1 ? "booking" : "bookings"} on
-                    this date
+                    {isPeriodLoading
+                      ? "Counting bookings on this date…"
+                      : `${selectedBookings.length} ${selectedBookings.length === 1 ? "booking" : "bookings"} on this date`}
                   </p>
                 </div>
 
@@ -843,106 +921,111 @@ export function EventCalendarPage() {
                 ) : null}
               </div>
 
-              <div className="space-y-3 p-3">
-                {selectedBookings.map((booking) => (
-                  <article
-                    className="dashboard-hover-card rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3"
-                    key={booking.id}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5] bg-white text-[#1f4d73]">
-                        ✓
-                      </span>
+              {isPeriodLoading ? (
+                <CalendarSelectedDaySkeleton />
+              ) : (
+                <div className="space-y-3 p-3">
+                  {selectedBookings.map((booking) => (
+                    <article
+                      className="dashboard-hover-card rounded-xl border border-[#1f4d73] bg-[#eef4fa] p-3"
+                      key={booking.id}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#d8dde5] bg-white text-[#1f4d73]">
+                          ✓
+                        </span>
 
-                      <div className="min-w-0 flex-1">
-                        <strong className="block truncate text-sm">
-                          {booking.title}
-                        </strong>
+                        <div className="min-w-0 flex-1">
+                          <strong className="block truncate text-sm">
+                            {booking.title}
+                          </strong>
 
-                        <p className="mt-1 truncate text-xs text-[#6a7483]">
-                          {booking.hall} · {booking.type}
-                          {booking.packageName
-                            ? ` · ${booking.packageName}`
-                            : ""}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`rounded-full border bg-white px-2 py-1 text-[9px] font-black ${
-                          booking.status === "confirmed"
-                            ? "border-[#b9ddcf] text-[#178151]"
-                            : booking.status === "school"
-                              ? "border-[#c9c4fa] text-[#5649dd]"
-                              : "border-[#efcf98] text-[#995700]"
-                        }`}
-                      >
-                        {booking.status === "confirmed"
-                          ? "Confirmed"
-                          : booking.status === "school"
-                            ? "School"
-                            : "Hold"}
-                      </span>
-                    </div>
-                  </article>
-                ))}
-
-                <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
-                  <div className="border-b border-[#d8dde5] px-3 py-2">
-                    <h3 className="text-sm font-black">Hall availability</h3>
-                    <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
-                      {selectedDateLabel}. Limits come from each hall.
-                    </p>
-                  </div>
-
-                  <div className="divide-y divide-[#e5eaf0]">
-                    {hallAvailability.map((hall) => (
-                      <div
-                        className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2"
-                        key={hall.id}
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-black text-[#17202a]">
-                            {hall.name}
+                          <p className="mt-1 truncate text-xs text-[#6a7483]">
+                            {booking.hall} · {booking.type}
+                            {booking.packageName
+                              ? ` · ${booking.packageName}`
+                              : ""}
                           </p>
-                          {hall.usesDefaultLimit ? (
-                            <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
-                              Uses Calendar default
-                            </p>
-                          ) : null}
                         </div>
 
                         <span
-                          className={`rounded-full px-2 py-1 text-[9px] font-black ${
-                            hall.isFull
-                              ? "bg-[#fff0ed] text-[#b42318]"
-                              : "bg-[#e9f8f0] text-[#087047]"
+                          className={`rounded-full border bg-white px-2 py-1 text-[9px] font-black ${
+                            booking.status === "confirmed"
+                              ? "border-[#b9ddcf] text-[#178151]"
+                              : booking.status === "school"
+                                ? "border-[#c9c4fa] text-[#5649dd]"
+                                : "border-[#efcf98] text-[#995700]"
                           }`}
                         >
-                          {hall.isFull ? "Full" : "Available"}
-                        </span>
-
-                        <span className="text-xs font-black tabular-nums text-[#17202a]">
-                          {hall.used} / {hall.limit}
+                          {booking.status === "confirmed"
+                            ? "Confirmed"
+                            : booking.status === "school"
+                              ? "School"
+                              : "Hold"}
                         </span>
                       </div>
-                    ))}
+                    </article>
+                  ))}
 
-                    {hallAvailability.length === 0 ? (
-                      <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
-                        No bookable halls are saved yet. Add halls in Settings.
+                  <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
+                    <div className="border-b border-[#d8dde5] px-3 py-2">
+                      <h3 className="text-sm font-black">Hall availability</h3>
+                      <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
+                        {selectedDateLabel}. Limits come from each hall.
                       </p>
-                    ) : null}
-                  </div>
-                </section>
-              </div>
+                    </div>
+
+                    <div className="divide-y divide-[#e5eaf0]">
+                      {hallAvailability.map((hall) => (
+                        <div
+                          className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2"
+                          key={hall.id}
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-black text-[#17202a]">
+                              {hall.name}
+                            </p>
+                            {hall.usesDefaultLimit ? (
+                              <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
+                                Uses Calendar default
+                              </p>
+                            ) : null}
+                          </div>
+
+                          <span
+                            className={`rounded-full px-2 py-1 text-[9px] font-black ${
+                              hall.isFull
+                                ? "bg-[#fff0ed] text-[#b42318]"
+                                : "bg-[#e9f8f0] text-[#087047]"
+                            }`}
+                          >
+                            {hall.isFull ? "Full" : "Available"}
+                          </span>
+
+                          <span className="text-xs font-black tabular-nums text-[#17202a]">
+                            {hall.used} / {hall.limit}
+                          </span>
+                        </div>
+                      ))}
+
+                      {hallAvailability.length === 0 ? (
+                        <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
+                          No bookable halls are saved yet. Add halls in
+                          Settings.
+                        </p>
+                      ) : null}
+                    </div>
+                  </section>
+                </div>
+              )}
             </aside>
           </div>
         )}
       </main>
 
       <CalendarBookingDialog
-        eventTypes={eventsQuery.data?.eventTypes ?? []}
-        halls={eventsQuery.data?.halls ?? []}
+        eventTypes={calendarData?.eventTypes ?? []}
+        halls={calendarData?.halls ?? []}
         onClose={() => setIsNewBookingOpen(false)}
         onEventTypesChanged={async () => {
           await eventsQuery.refetch();
