@@ -364,6 +364,11 @@ const boardEventSelect = {
   eventStatus: true,
   startsAt: true,
   packageName: true,
+  // Carried so the dialog's Cancel event can name the version it read.
+  // PATCH /api/events/[eventId]/status takes `expectedVersion` and refuses a
+  // stale one, which is what stops two people cancelling past each other -
+  // without this the board would have to re-read the event to answer it.
+  version: true,
   hall: { select: { name: true } }
 } satisfies Prisma.EventSelect;
 
@@ -594,6 +599,7 @@ export async function GET(request: Request) {
         eventStatus: event.eventStatus,
         startsAt: event.startsAt,
         packageName: event.packageName,
+        version: event.version,
         hall: { name: event.hall.name },
         // Deliberately without `lines`. The card draws a ratio and a time; the
         // dish list is fetched per event by the details dialog, from the route

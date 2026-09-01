@@ -110,6 +110,17 @@ type DetailsProps = {
   isSaving: boolean;
   onClose: () => void;
   onSaveItemAction: (input: KitchenItemActionInput) => Promise<void>;
+  /**
+   * Cancels the booking behind this event. Absent for a caller that does not
+   * offer it - a standalone kitchen job is not a booking, and there is nothing
+   * to cancel.
+   *
+   * Cancelling rather than deleting: the event drops off the board and the
+   * calendar, and every record it carries - menu, counts, invoices, activity -
+   * stays where it is. Deleting would take those with it, and a past event is
+   * exactly the one most likely to be invoiced already.
+   */
+  onCancelEvent?: () => Promise<void>;
   permissions: KitchenPermissions;
   currentWorkerId?: string | null;
   workersOnly?: boolean;
@@ -447,12 +458,14 @@ function KitchenEventDetails({
   event,
   isSaving,
   onClose,
+  onCancelEvent,
   onSaveItemAction,
   permissions,
   currentWorkerId,
   workersOnly,
   workers
 }: DetailsProps) {
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
   const isStandalone = event.source === "standalone";
   const hasSheet = Boolean(event.sheet) || event.summary !== null;
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
@@ -630,15 +643,23 @@ function KitchenEventDetails({
             </button>
           </header>
 
-          {/*
-            A flex row rather than a float, and no fixed heights on either side.
-            The aside used to be floated with `min-h-132` on it and on the dish
-            panel, which set both to 33rem no matter how little was on the sheet
-            and let the panel outgrow the aside on a long one - so the blue
-            column stopped short of the dishes beside it. Stretching one row
-            makes the two ends meet whatever the event holds.
-          */}
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-5 lg:flex lg:items-stretch">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-5">
+            {/*
+              The row is in here rather than being the scroller itself.
+              A flex row, not a float: the aside used to be floated with
+              `min-h-132` on it and on the dish panel, which set both to 33rem
+              however little was on the sheet, and let the panel outgrow the
+              aside on a long one - so the blue column stopped short of the
+              dishes beside it.
+              Stretching only works against the height of the line, so the row
+              has to be the element that grows with the dishes. When the
+              scrolling element was itself the row, the aside stretched to the
+              height of the *window onto* the content instead: scroll past a
+              long sheet and the blue column ran out, leaving white beside the
+              add-ons. This wrapper has no height of its own, so the line is as
+              tall as the dishes and the aside follows it down.
+            */}
+            <div className="lg:flex lg:items-stretch">
             <aside className="mb-4 border-l-8 border-[#2f80ed] bg-[#dceaff] px-5 py-10 lg:mb-0 lg:w-72 lg:shrink-0">
               <p className="text-xs font-black uppercase tracking-[0.08em] text-[#516071]">
                 {event.category}
@@ -657,6 +678,25 @@ function KitchenEventDetails({
               <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
                 Serves {formatServeTime(event.startsAt)}
               </p>
+
+              {/*
+                Cancel, not delete. The booking leaves the board and the
+                calendar and everything it carries stays - menu, counts,
+                invoices, activity - which is what makes it safe to offer on an
+                event that has already happened and may already be invoiced.
+                The wording on the button is the client's; the dialog behind it
+                is where the distinction is spelled out.
+              */}
+              {onCancelEvent ? (
+                <button
+                  className="mt-8 h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45"
+                  disabled={isSaving}
+                  onClick={() => setIsConfirmingCancel(true)}
+                  type="button"
+                >
+                  Delete Event
+                </button>
+              ) : null}
             </aside>
 
             {/* The other half of the row: everything that is not the aside. */}
@@ -681,7 +721,16 @@ function KitchenEventDetails({
               <span>{event.menuStatus}</span>
             </div>
 
-            <div className="h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
+            {/*
+              `min-h-full`, not `h-full`. The panel sits in a row stretched to
+              the aside's height, and `overflow-hidden` is here to keep the
+              border square around its contents - so pinning it to exactly the
+              row height clipped whatever sat past it. On an event whose dish
+              list is shorter than the aside that meant the Add-ons section and
+              the footer were cut off the bottom. A minimum fills the row when
+              there is little to show and gets out of the way when there is more.
+            */}
+            <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
               <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
                 <StatTile
                   label="Serves"
@@ -948,6 +997,7 @@ function KitchenEventDetails({
               </footer>
             </div>
             </div>
+            </div>
           </div>
         </section>
       </div>
@@ -962,6 +1012,26 @@ function KitchenEventDetails({
           usedMenuItemIds={usedMenuItemIds}
         />
       ) : null}
+
+      {/*
+        Says what actually happens, because the button says "Delete". Somebody
+        reading it has to be able to tell that the records survive - and that
+        the cancellation itself does not come back.
+      */}
+      <ConfirmDialog
+        confirmLabel="Cancel this event"
+        description={`Cancel “${event.clientName ?? event.title}”? It leaves the kitchen board and the calendar, and everything it holds stays in the system - menu, guest counts, invoices and history. Cancelling cannot be undone from here.`}
+        fallbackErrorMessage="The event could not be cancelled. Please try again."
+        onClose={() => setIsConfirmingCancel(false)}
+        onConfirm={async () => {
+          await onCancelEvent?.();
+          setIsConfirmingCancel(false);
+          onClose();
+        }}
+        open={isConfirmingCancel}
+        pendingLabel="Cancelling…"
+        title="Cancel this event?"
+      />
     </>
   );
 }
