@@ -49,7 +49,14 @@ export type ClientPortalEvent = {
   /** Once the venue confirms the menu, the portal becomes read-only. */
   menuConfirmed: boolean;
   packages: ClientPortalOption[];
+  /** Food only. Drinks are the same model, asked as their own question below. */
   menuItems: ClientPortalOption[];
+  /**
+   * Menu items with `kind = "Drink"`. Selections from here go back in
+   * `menuItemIds` with the food - the split is how the portal asks, not a
+   * second kind of record.
+   */
+  drinks: ClientPortalOption[];
   tablecloths: ClientPortalOption[];
   addOns: ClientPortalOption[];
   totals: ClientPortalTotals | null;

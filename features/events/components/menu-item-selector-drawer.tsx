@@ -2,18 +2,27 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { MenuThumbnail } from "@/features/events/components/event-manager-shared";
+import { isDrinkKind } from "@/features/menu/lib/service-style";
 
 /**
- * The three things an event's menu is made of.
+ * The four things an event's menu is made of.
  *
  * This used to be seven hardcoded courses - Appetizer, Soup, Main and so on -
  * that a dish was filed under by matching its category text. The menu library
  * does not organise by course any more; it organises by how a dish is served,
  * with add-ons kept separate. The event menu now reads the same way.
+ *
+ * `Drink` is the one that is NOT a service style. Buffet and Plated name how a
+ * dish reaches the guest and are stored as `event_menu_lines.service_style`;
+ * Drink names what the item is, and a drink is still served one of those two
+ * ways underneath - which is why it is filed on the item's `kind` and why
+ * nothing here is ever written to that column. The CHECK behind it still only
+ * admits Buffet and Plated, and this section does not change that.
  */
 export const MENU_SECTIONS = [
   { id: "Buffet", label: "Buffet" },
   { id: "Plated", label: "Plated" },
+  { id: "Drink", label: "Drinks" },
   { id: "AddOn", label: "Add-ons" }
 ] as const;
 
@@ -23,6 +32,9 @@ export type MenuSelectorItem = {
   /// The menu item id for a dish, the add-on id for an add-on.
   id: string;
   kind: "Dish" | "AddOn";
+  /// Food or Drink for a dish, null on an add-on. Decides which section offers
+  /// it; `styles` below still decides how it is served.
+  itemKind: string | null;
   name: string;
   /// Which styles the dish has a counting rule for. Empty for an add-on.
   styles: string[];
@@ -54,18 +66,32 @@ export function sectionLabel(section: MenuSection) {
  * A dish that has a rule for the OTHER style is still filtered out. Potato
  * kugel with a buffet rule has been given an answer already, and showing it on
  * the plated tab would make both tabs the whole catalog.
+ *
+ * Drinks are taken out of that test entirely and answered by kind instead. A
+ * drink carries the same Buffet/Plated rules a dish does - it has to, because
+ * that is how the kitchen counts it - so leaving it in would have listed every
+ * bottle under Buffet and Plated, which is exactly the mixing the Drinks
+ * section exists to end.
  */
 export function itemsForSection(
   items: MenuSelectorItem[],
   section: MenuSection
 ) {
-  return section === "AddOn"
-    ? items.filter((item) => item.kind === "AddOn")
-    : items.filter(
-        (item) =>
-          item.kind === "Dish" &&
-          (item.styles.length === 0 || item.styles.includes(section))
-      );
+  if (section === "AddOn") {
+    return items.filter((item) => item.kind === "AddOn");
+  }
+
+  const dishes = items.filter((item) => item.kind === "Dish");
+
+  if (section === "Drink") {
+    return dishes.filter((item) => isDrinkKind(item.itemKind ?? ""));
+  }
+
+  return dishes.filter(
+    (item) =>
+      !isDrinkKind(item.itemKind ?? "") &&
+      (item.styles.length === 0 || item.styles.includes(section))
+  );
 }
 
 type MenuItemSelectorDrawerProps = {

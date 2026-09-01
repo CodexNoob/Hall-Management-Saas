@@ -13,6 +13,7 @@ import {
   LineQuantity
 } from "@/features/kitchen/components/kitchen-line-presentation";
 import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
+import { isDrinkKind } from "@/features/menu/lib/service-style";
 import {
   formatOtherMeals,
   formatServeTime,
@@ -482,21 +483,35 @@ function KitchenEventDetails({
 
     return true;
   });
+  // Drinks come out first, whichever style they carry. A bottle counted "two
+  // per table" is stored as Plated and would otherwise be filed among the
+  // plates - which is not what anyone pouring it is looking for.
+  const visibleDrinks = visibleDishes.filter((line) =>
+    isDrinkKind(line.itemKind ?? "")
+  );
+  const visibleFood = visibleDishes.filter(
+    (line) => !isDrinkKind(line.itemKind ?? "")
+  );
   const dishSections = [
     {
       id: "plated",
       label: "Plated items",
-      dishes: visibleDishes.filter((line) => line.serviceStyle === "Plated")
+      dishes: visibleFood.filter((line) => line.serviceStyle === "Plated")
     },
     {
       id: "buffet",
       label: "Buffet items",
-      dishes: visibleDishes.filter((line) => line.serviceStyle === "Buffet")
+      dishes: visibleFood.filter((line) => line.serviceStyle === "Buffet")
+    },
+    {
+      id: "drinks",
+      label: "Drinks",
+      dishes: visibleDrinks
     },
     {
       id: "other",
       label: "Other items",
-      dishes: visibleDishes.filter(
+      dishes: visibleFood.filter(
         (line) =>
           line.serviceStyle !== "Plated" && line.serviceStyle !== "Buffet"
       )

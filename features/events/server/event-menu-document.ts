@@ -106,6 +106,11 @@ function presentLine(line: MenuLineRow, pictureUrl: string | null) {
     menuItemId: line.menuItemId,
     addOnId: line.addOnId,
     kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
+    // Food or Drink, and null on an add-on. Decides which section of the event
+    // menu the line sits under - drinks get their own, the same way the library
+    // does it - while `serviceStyle` still says how it is served. The column was
+    // already selected here; it just never reached the client.
+    itemKind: line.menuItem?.kind ?? null,
     name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
     // Live, not snapshotted like the name. A picture is how staff recognise the
     // dish on the sheet; a stale one is worse than a renamed one, and the

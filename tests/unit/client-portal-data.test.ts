@@ -342,6 +342,57 @@ describe("client portal data", () => {
     expect(portal?.tablecloths[0].imageUrl).toBeNull();
   });
 
+  it("asks for drinks separately from the food, off one query", async () => {
+    vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
+      {
+        id: "dish-1",
+        name: "Brisket",
+        category: "Main",
+        kind: "Food",
+        picturePath: null
+      },
+      {
+        id: "drink-1",
+        name: "Grape juice",
+        category: "Drink",
+        kind: "Drink",
+        picturePath: null
+      }
+    ] as never);
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(portal?.menuItems.map((option) => option.name)).toEqual(["Brisket"]);
+    expect(portal?.drinks.map((option) => option.name)).toEqual([
+      "Grape juice"
+    ]);
+    // One read, split in the presenter - a second findMany for drinks would
+    // reread the same rows under a different where.
+    expect(prisma.menuItem.findMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries a drink's existing selection across the split", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      menuItemIds: ["drink-1"]
+    } as never);
+    vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
+      {
+        id: "drink-1",
+        name: "Grape juice",
+        category: "Drink",
+        kind: "Drink",
+        picturePath: null
+      }
+    ] as never);
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    // Both halves are menu items, so a drink the client already chose has to
+    // come back ticked - the split is how the portal asks, not what it stores.
+    expect(portal?.drinks[0].selected).toBe(true);
+  });
+
   it("marks the menu locked once staff confirmed it", async () => {
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       ...baseEvent,

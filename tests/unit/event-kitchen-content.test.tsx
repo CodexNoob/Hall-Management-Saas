@@ -83,6 +83,7 @@ function dishLine(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     menuItemId: "item-1",
     addOnId: null,
     kind: "Dish",
+    itemKind: "Food",
     name: "Braised short ribs",
     pictureUrl: null,
     serviceStyle: "Buffet",

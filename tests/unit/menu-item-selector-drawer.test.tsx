@@ -10,13 +10,39 @@ import {
 function dish(
   id: string,
   name: string,
+  styles: string[] = ["Buffet"],
+  itemKind = "Food"
+): MenuSelectorItem {
+  return {
+    id,
+    name,
+    kind: "Dish",
+    itemKind,
+    styles,
+    price: null,
+    pictureUrl: null
+  };
+}
+
+/** A drink carries the same styles a dish does; only its kind differs. */
+function drink(
+  id: string,
+  name: string,
   styles: string[] = ["Buffet"]
 ): MenuSelectorItem {
-  return { id, name, kind: "Dish", styles, price: null, pictureUrl: null };
+  return dish(id, name, styles, "Drink");
 }
 
 function addOn(id: string, name: string, price: number): MenuSelectorItem {
-  return { id, name, kind: "AddOn", styles: [], price, pictureUrl: null };
+  return {
+    id,
+    name,
+    kind: "AddOn",
+    itemKind: null,
+    styles: [],
+    price,
+    pictureUrl: null
+  };
 }
 
 const items = [
@@ -26,6 +52,10 @@ const items = [
   // Catalogued but never given a rule. Offered everywhere rather than hidden
   // everywhere, which is what it used to be.
   dish("d4", "Grilled salmon", []),
+  // A drink with a Buffet rule. It has to be counted like anything else, so it
+  // carries a style - and it must still stay out of the Buffet list.
+  drink("k1", "Grape juice", ["Buffet"]),
+  drink("k2", "Sparkling water", ["Plated"]),
   addOn("a1", "Viennese table", 850)
 ];
 
@@ -145,6 +175,32 @@ describe("MenuItemSelectorDrawer", () => {
     // been given an answer is filtered by it; only a dish with no answer at all
     // is offered on both.
     expect(screen.queryByRole("button", { name: /Potato kugel/ })).toBeNull();
+  });
+
+  it("keeps drinks out of the style tabs and lists them under Drinks", () => {
+    renderDrawer();
+
+    // A drink is counted like anything else, so it carries a Buffet rule. That
+    // rule is why it used to appear here, and why the section is filed on kind
+    // instead: the style says how it is served, not what it is.
+    expect(screen.queryByRole("button", { name: /Grape juice/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Plated" }));
+    expect(
+      screen.queryByRole("button", { name: /Sparkling water/ })
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Drinks" }));
+    // Both, whichever style each one is served in.
+    expect(
+      screen.getByRole("button", { name: /Grape juice/ })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Sparkling water/ })
+    ).toBeInTheDocument();
+    // And no food, however it is served.
+    expect(screen.queryByRole("button", { name: /Potato kugel/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Grilled salmon/ })).toBeNull();
   });
 
   it("offers a dish with no rule at all under every style", () => {

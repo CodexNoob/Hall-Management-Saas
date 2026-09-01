@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
 import { decimalToCents } from "@/lib/ui/format-money";
+import { isDrinkKind } from "@/features/menu/lib/service-style";
 import type { ClientPortalLookup } from "@/features/events/types/client-portal";
 
 export type {
@@ -98,7 +99,15 @@ export async function getClientPortalEvent(
         // in MENU_IMAGE_BUCKET by construction, and the client is handed a
         // signed URL rather than a location - the same contract GET /api/menu
         // holds for the staff grid.
-        select: { id: true, name: true, category: true, picturePath: true },
+        // `kind` splits the one query into the portal's two lists below; a
+        // second round trip for drinks would read the same rows again.
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          kind: true,
+          picturePath: true
+        },
         orderBy: { name: "asc" }
       }),
       prisma.tableclothOption.findMany({
@@ -227,14 +236,31 @@ export async function getClientPortalEvent(
           imageUrl: null,
           selected: candidate.id === event.packageId
         })),
-      menuItems: menuItems.map((candidate) => ({
-        id: candidate.id,
-        name: candidate.name,
-        description: candidate.category,
-        priceCents: null,
-        imageUrl: readImageUrl(candidate.picturePath),
-        selected: selectedMenuItemIds.has(candidate.id)
-      })),
+      // Split by kind rather than served as one list. A guest choosing food and
+      // a guest choosing what to drink are two questions, and the staff menu
+      // has asked them separately since drinks got their own tab. Both halves
+      // are still menu items, so a selection from either goes back in
+      // `menuItemIds` and nothing downstream has to learn a new id list.
+      menuItems: menuItems
+        .filter((candidate) => !isDrinkKind(candidate.kind))
+        .map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+          description: candidate.category,
+          priceCents: null,
+          imageUrl: readImageUrl(candidate.picturePath),
+          selected: selectedMenuItemIds.has(candidate.id)
+        })),
+      drinks: menuItems
+        .filter((candidate) => isDrinkKind(candidate.kind))
+        .map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+          description: candidate.category,
+          priceCents: null,
+          imageUrl: readImageUrl(candidate.picturePath),
+          selected: selectedMenuItemIds.has(candidate.id)
+        })),
       tablecloths: tablecloths.map((candidate) => ({
         id: candidate.id,
         name: candidate.name,

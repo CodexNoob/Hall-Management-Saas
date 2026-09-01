@@ -91,6 +91,7 @@ function menuDocument(dishNames: string[]): EventMenuDocument {
       menuItemId: `item-${name}`,
       addOnId: null,
       kind: "Dish" as const,
+      itemKind: "Food",
       name,
       pictureUrl: null,
       serviceStyle: "Buffet",

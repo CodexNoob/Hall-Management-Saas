@@ -270,6 +270,9 @@ export type EventMenuLine = {
   menuItemId: string | null;
   addOnId: string | null;
   kind: "Dish" | "AddOn";
+  /// Food or Drink for a dish, null on an add-on. Which section the line is
+  /// filed under; `serviceStyle` below is still how it is served.
+  itemKind: string | null;
   name: string;
   /// Signed per request and optional - a dish or add-on with no picture shows
   /// the placeholder instead. Read live from the catalog rather than frozen
@@ -348,6 +351,9 @@ export type EventKitchenLine = {
   menuItemId: string | null;
   addOnId: string | null;
   kind: "Dish" | "AddOn";
+  /// Food or Drink for a dish, null on an add-on. The sheet groups on it, since
+  /// a drink carries a Buffet or Plated rule just as a dish does.
+  itemKind: string | null;
   name: string;
   pictureUrl: string | null;
   serviceStyle: string | null;

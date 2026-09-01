@@ -318,6 +318,7 @@ export function ClientPortalPreviewContent({
 }) {
   const [packages, setPackages] = useState(portal.packages);
   const [menuItems, setMenuItems] = useState(portal.menuItems);
+  const [drinks, setDrinks] = useState(portal.drinks);
   const [tablecloths, setTablecloths] = useState(portal.tablecloths);
   const [addOns, setAddOns] = useState(portal.addOns);
   const [isSaving, setIsSaving] = useState(false);
@@ -328,6 +329,7 @@ export function ClientPortalPreviewContent({
   const hasOptions =
     packages.length > 0 ||
     menuItems.length > 0 ||
+    drinks.length > 0 ||
     tablecloths.length > 0 ||
     addOns.length > 0;
 
@@ -370,7 +372,9 @@ export function ClientPortalPreviewContent({
           body: JSON.stringify({
             packageId: selectedId(packages),
             tableclothId: selectedId(tablecloths),
-            menuItemIds: selectedIds(menuItems),
+            // One list, both questions: a drink is a menu item, so splitting
+            // the UI must not split what is stored.
+            menuItemIds: [...selectedIds(menuItems), ...selectedIds(drinks)],
             addOnIds: selectedIds(addOns)
           })
         }
@@ -447,6 +451,17 @@ export function ClientPortalPreviewContent({
               }
               options={menuItems}
               title="Menu selection"
+              type="checkbox"
+            />
+            <OptionSection
+              badge={locked ? undefined : "client selectable"}
+              disabled={locked}
+              group="drink"
+              onSelect={(option, checked) =>
+                setDrinks((current) => selectMany(current, option, checked))
+              }
+              options={drinks}
+              title="Drinks"
               type="checkbox"
             />
             <OptionSection

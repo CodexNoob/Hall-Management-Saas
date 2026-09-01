@@ -201,6 +201,7 @@ type StandaloneMenuItemRow = Prisma.MenuItemGetPayload<{
   select: {
     id: true;
     name: true;
+    kind: true;
     isActive: true;
     services: {
       select: {
@@ -278,6 +279,7 @@ function buildStandaloneKitchenSheet({
           menuItemId: menuItem.id,
           addOnId: null,
           kind: "Dish" as const,
+          itemKind: menuItem.kind,
           name: menuItem.name,
           pictureUrl: null,
           serviceStyle: style,
@@ -496,6 +498,8 @@ export async function GET(request: Request) {
         select: {
           id: true,
           name: true,
+          // Grouped on by the sheet, the same as an event's own lines.
+          kind: true,
           isActive: true,
           services: {
             select: {

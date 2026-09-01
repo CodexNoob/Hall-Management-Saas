@@ -90,6 +90,7 @@ function dishLine(
     menuItemId,
     addOnId: null,
     kind: "Dish",
+    itemKind: "Food",
     name,
     pictureUrl: null,
     serviceStyle: "Buffet",
