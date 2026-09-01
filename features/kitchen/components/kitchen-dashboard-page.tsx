@@ -114,6 +114,7 @@ export function KitchenDashboardPage() {
         menuItemIds: string[];
         saveToLibrary: boolean;
       };
+      addOnIds: string[];
       portions: number;
       kitchenNote?: string;
     },
@@ -337,10 +338,7 @@ export function KitchenDashboardPage() {
   async function addKitchenEvent(values: AddKitchenEventFormValues) {
     if (!canAddKitchenEvent) return;
 
-    const isQuickMenu = Boolean(
-      values.quickMenuName &&
-      (values.quickMenuDishes || values.quickMenuItemIds.length > 0)
-    );
+    const isQuickMenu = !values.menuId;
 
     await addKitchenEventMutation.mutate({
       date: kitchenEventDateKey,
@@ -357,6 +355,7 @@ export function KitchenDashboardPage() {
             }
           }
         : { menuId: values.menuId }),
+      addOnIds: values.addOnIds,
       portions: Number(values.portions),
       kitchenNote: values.kitchenNote || undefined
     });
@@ -621,6 +620,7 @@ export function KitchenDashboardPage() {
       </main>
 
       <AddKitchenEventDialog
+        addOns={kitchenQuery.data?.addOns ?? []}
         canSave={canAddKitchenEvent}
         date={kitchenEventDateKey}
         menuItems={kitchenQuery.data?.menuItems ?? []}
