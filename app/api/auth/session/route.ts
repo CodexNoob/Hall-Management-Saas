@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getBearerToken, resolveSupabaseUser } from "@/lib/auth/identity";
 import { parseSupabaseProfile } from "@/lib/auth/supabase-profile";
 import { ensureProvisionedUser } from "@/lib/auth/provisioning";
-import {
-  serializeAuthSession,
-  widestScope
-} from "@/lib/auth/session-context";
+import { serializeAuthSession, widestScope } from "@/lib/auth/session-context";
 import { effectiveAccessByPrincipal } from "@/lib/authz/decide";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { AuthorizationError } from "@/lib/auth/errors";
@@ -29,10 +26,31 @@ import type { PermissionKey } from "@/lib/authz/catalog";
  */
 export async function POST(request: NextRequest) {
   try {
+    // A PER-PAGE-LOAD READ, NOT AN ACTION.
+    //
+    // Every other limiter in this app guards something a person does on
+    // purpose - an import, an invite, a checkout - so a tight allowance over a
+    // long window is right: nobody legitimately invites ten people a minute.
+    // This endpoint is the opposite. It is what `fetchAuthSession` calls on
+    // every cold dashboard load whose 5-minute client cache has lapsed, so its
+    // traffic scales with how many people are looking at the dashboard rather
+    // than with anything they chose to do.
+    //
+    // The bucket is keyed by IP (lib/security/rate-limit.ts), and a venue's
+    // staff all share one. At 30 per 10 minutes an office of more than about
+    // fifteen locked ITSELF out - "Too many requests" in place of the whole
+    // dashboard, for ten minutes, with no action to point at. The window is a
+    // minute now for the same reason: a burst that does trip this recovers
+    // while somebody is still looking at the retry button, instead of poisoning
+    // the next ten minutes.
+    //
+    // Still a real flood guard. A request only reaches here with a bearer token
+    // that costs a Supabase user lookup to verify, and 2/second per address
+    // caps that regardless of how many tabs are asking.
     const limited = await enforceRateLimit(request, {
       scope: "auth-session",
-      limit: 30,
-      windowMs: 10 * 60 * 1000
+      limit: 120,
+      windowMs: 60_000
     });
     if (limited) return limited;
 

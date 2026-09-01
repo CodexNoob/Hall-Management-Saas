@@ -254,27 +254,43 @@ test("creates an isolated event from the Calendar Book date form", async ({
         visibleMonth = addMonths(visibleMonth, 1);
       }
 
-      // Near the top-left corner, not the middle. The select button is a
-      // full-cell backdrop at z-0; the day-number header above it is
-      // `pointer-events-none` and falls through, but the list of event pills is
-      // deliberately clickable - each one opens its booking - so it covers the
-      // centre of any day that already shows an event. Clicking the middle works
-      // only on a day nothing has ever been booked on, which is not a property
-      // this test can rely on.
       /*
-       * Either label, because the cell carries whichever one the organization's
-       * settings ask for. Settings > Calendar > click anywhere to add decides
-       * whether a day cell books the date outright ("Book July 1, 2026") or only
-       * selects it ("Select July 1, 2026"), and this suite runs against a shared
-       * organization whose settings it does not own. Pinning the label made the
-       * test fail the moment somebody turned that toggle on, which says nothing
-       * about the booking flow it exists to cover.
+       * Which control a day cell offers is Settings > Calendar > click anywhere
+       * to add, and this suite runs against a shared organization whose settings
+       * it does not own - so the toggle is read off the cell rather than pinned.
+       * With it on, the backdrop itself books ("Book July 1, 2026"). With it off
+       * the backdrop only selects ("Select July 1, 2026") and a bookable day
+       * carries a separate "+" button, labelled "Book July 1, 2026", in its
+       * top-right corner.
+       *
+       * A `^(?:Book|Select) …$` regex covered both settings until that "+" was
+       * added, and then matched BOTH controls in one cell and failed strict
+       * mode. The Book label is the unambiguous one either way: exactly one
+       * control carries it, and it is the one that opens the dialog.
        */
-      await page
-        .getByRole("button", {
-          name: new RegExp(`^(?:Book|Select) ${bookingDateLabel}$`)
-        })
-        .click({ position: { x: 10, y: 6 } });
+      const bookControl = page.getByRole("button", {
+        exact: true,
+        name: `Book ${bookingDateLabel}`
+      });
+
+      if ((await bookControl.count()) > 0) {
+        // The "+" is 24px square and sits above the pills at z-2, so it takes an
+        // ordinary centred click.
+        await bookControl.click();
+      } else {
+        // Nothing here books outright, so select the day and let the panel below
+        // the grid open the form. Near the top-left corner, not the middle: the
+        // backdrop is a full-cell button at z-0 and the day-number header above
+        // it is `pointer-events-none` and falls through, but the event pills are
+        // deliberately clickable - each one opens its own booking - so they
+        // cover the centre of any day that already shows an event.
+        await page
+          .getByRole("button", {
+            exact: true,
+            name: `Select ${bookingDateLabel}`
+          })
+          .click({ position: { x: 10, y: 6 } });
+      }
 
       const dialog = page.getByRole("dialog", { name: "New booking" });
 
@@ -327,12 +343,12 @@ test("creates an isolated event from the Calendar Book date form", async ({
         hasText: /already reserved during this setup-to-cleanup window/i
       });
       const outcome = await Promise.race([
-        dialog.waitFor({ state: "hidden", timeout: 20_000 }).then(
-          () => "booked" as const
-        ),
-        conflict.waitFor({ state: "visible", timeout: 20_000 }).then(
-          () => "conflict" as const
-        )
+        dialog
+          .waitFor({ state: "hidden", timeout: 20_000 })
+          .then(() => "booked" as const),
+        conflict
+          .waitFor({ state: "visible", timeout: 20_000 })
+          .then(() => "conflict" as const)
       ]);
 
       if (outcome === "booked") {
