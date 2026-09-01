@@ -35,6 +35,7 @@ function line(overrides: Partial<EventMenuLine> = {}): EventMenuLine {
     menuItemId: itemId,
     addOnId: null,
     kind: "Dish",
+    itemKind: "Food",
     name: "Grilled salmon",
     pictureUrl: null,
     serviceStyle: "Buffet",

@@ -17,6 +17,7 @@ import { MENU_SECTIONS } from "@/features/events/components/menu-item-selector-d
 const PLACEHOLDER_CARDS: Record<string, number> = {
   Buffet: 4,
   Plated: 2,
+  Drink: 2,
   AddOn: 2
 };
 

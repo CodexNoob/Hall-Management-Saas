@@ -91,6 +91,10 @@ export const kitchenLineSelect = {
   menuItem: {
     select: {
       name: true,
+      // Food or Drink. The sheet groups on it so bottles are not filed among
+      // the trays: a drink carries a Buffet or Plated rule like anything else,
+      // which is exactly why the style alone cannot tell them apart.
+      kind: true,
       isActive: true,
       // Signed by the caller and handed over as a URL. The bucket is never
       // selected and the path never reaches the client, the same rule the menu
@@ -237,6 +241,7 @@ export function presentKitchenLine(
     menuItemId: line.menuItemId,
     addOnId: line.addOnId,
     kind: isAddOn ? ("AddOn" as const) : ("Dish" as const),
+    itemKind: line.menuItem?.kind ?? null,
     name: line.itemName ?? line.menuItem?.name ?? line.addOn?.name ?? "",
     pictureUrl,
     serviceStyle: line.serviceStyle,

@@ -9,6 +9,7 @@ export type IconName =
   | "chevron"
   | "dollar"
   | "document"
+  | "drink"
   | "filter"
   | "plus"
   | "trash"
@@ -53,6 +54,12 @@ export function LineIcon({
         <path d="M9 8h6M9 12h6M9 16h4" />
       </>
     ),
+    drink: (
+      <>
+        <path d="M5 3h14l-1.6 7.2a5.5 5.5 0 0 1-10.8 0Z" />
+        <path d="M12 16v5M8.5 21h7" />
+      </>
+    ),
     filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
     plus: <path d="M12 5v14M5 12h14" />,
     trash: (
@@ -77,6 +84,10 @@ export const tabs = [
   { label: "Packages", icon: "box" },
   { label: "Buffet Menu", icon: "document" },
   { label: "Plated Menu", icon: "document" },
+  // A view over the same catalog the library tab renders, filtered on `kind`
+  // rather than on service style - which is what keeps a drink out of the food
+  // library without giving it a table of its own.
+  { label: "Drink Menu", icon: "drink" },
   { label: "Add-ons", icon: "dollar" }
 ] satisfies Array<{ label: string; icon: IconName }>;
 

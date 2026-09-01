@@ -41,6 +41,7 @@ function line(overrides: Partial<EventKitchenLine> = {}): EventKitchenLine {
     menuItemId: "item-1",
     addOnId: null,
     kind: "Dish",
+    itemKind: "Food",
     name: "Potato kugel",
     pictureUrl: null,
     serviceStyle: "Buffet",

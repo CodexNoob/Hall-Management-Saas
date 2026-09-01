@@ -9,6 +9,10 @@ import {
   type MenuSelectorItem
 } from "@/features/events/components/menu-item-selector-drawer";
 import {
+  isDrinkKind,
+  serviceStyleLabel
+} from "@/features/menu/lib/service-style";
+import {
   invalidateAuthenticatedQuery,
   setAuthenticatedQueryData,
   useAuthenticatedQuery
@@ -50,6 +54,28 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 /** The id a line points at, which is what the drawer matches against. */
 function targetId(line: EventMenuLine) {
   return line.menuItemId ?? line.addOnId ?? "";
+}
+
+/**
+ * Which section of the menu a line is drawn under.
+ *
+ * Module scope on purpose: the grid memoises on `lines` alone, and a predicate
+ * rebuilt each render would either have to join those deps and defeat the memo
+ * or be read before its own definition. It is a pure function of the line and
+ * the section, so it needs neither.
+ *
+ * Drinks are claimed by kind before either style test, which is what keeps a
+ * bottle carrying a Buffet rule out of the Buffet grid. The line keeps its
+ * stored `serviceStyle` regardless - that is how the kitchen counts it, and
+ * this decides only where it is shown.
+ */
+function isInSection(line: EventMenuLine, section: MenuSection) {
+  if (section === "AddOn") return line.kind === "AddOn";
+  if (line.kind !== "Dish") return false;
+
+  return section === "Drink"
+    ? isDrinkKind(line.itemKind ?? "")
+    : !isDrinkKind(line.itemKind ?? "") && line.serviceStyle === section;
 }
 
 /**
@@ -362,6 +388,9 @@ export function EventMenuContent({
         .map((item) => ({
           id: item.id,
           kind: "Dish" as const,
+          // Food or Drink, which is what puts it under the Drinks section
+          // rather than under the style its rules name.
+          itemKind: item.kind,
           name: item.name,
           styles: [
             ...new Set((item.services ?? []).map((s) => s.serviceStyle))
@@ -374,6 +403,7 @@ export function EventMenuContent({
         .map((addOn) => ({
           id: addOn.id,
           kind: "AddOn" as const,
+          itemKind: null,
           name: addOn.name,
           styles: [],
           price: addOn.price === null ? null : Number(addOn.price),
@@ -405,6 +435,9 @@ export function EventMenuContent({
           {
             id: item.id,
             name: item.name,
+            // Carried through so a package that includes a drink drops it into
+            // the Drinks section rather than under the style its rule names.
+            itemKind: item.kind,
             styles: [
               ...new Set((item.services ?? []).map((s) => s.serviceStyle))
             ]
@@ -462,16 +495,20 @@ export function EventMenuContent({
     [lines]
   );
 
-  /** Buffet, Plated, Add-ons - plus the dishes still waiting for an answer. */
+  /**
+   * Buffet, Plated, Drinks, Add-ons - plus the dishes still waiting for an
+   * answer.
+   *
+   * Drinks are claimed by kind before the style tests run, so a bottle with a
+   * Buffet rule lands under Drinks rather than in both places or the wrong one.
+   * The line keeps its stored style either way; this only decides where it is
+   * drawn.
+   */
   const sections = useMemo(
     () =>
       MENU_SECTIONS.map((section) => ({
         ...section,
-        lines: lines.filter((line) =>
-          section.id === "AddOn"
-            ? line.kind === "AddOn"
-            : line.kind === "Dish" && line.serviceStyle === section.id
-        )
+        lines: lines.filter((line) => isInSection(line, section.id))
       })),
     [lines]
   );
@@ -876,6 +913,7 @@ export function EventMenuContent({
         menuItemId: item.id,
         addOnId: null,
         kind: "Dish" as const,
+        itemKind: item.itemKind,
         name: item.name,
         pictureUrl: null,
         // A dish served exactly one way needs no decision; one with a rule for
@@ -966,12 +1004,23 @@ export function EventMenuContent({
         menuItemId: item.kind === "Dish" ? item.id : null,
         addOnId: item.kind === "AddOn" ? item.id : null,
         kind: item.kind,
+        itemKind: item.itemKind,
         name: item.name,
         // Carried over from the drawer so the thumbnail is there straight away
         // rather than appearing when the save comes back.
         pictureUrl: item.pictureUrl,
-        // The tab it was picked under is the style it is served in here.
-        serviceStyle: section === "AddOn" ? null : section,
+        // The tab it was picked under is the style it is served in here - which
+        // holds for Buffet and Plated, and cannot for Drinks: that section is
+        // the item's kind, not a style, and "Drink" is not a value the column
+        // accepts. A drink falls back to the rule it carries, exactly as an
+        // applied package does: one style is the answer, two is a question the
+        // band below asks.
+        serviceStyle:
+          section === "AddOn"
+            ? null
+            : section === "Drink"
+              ? (item.styles.length === 1 ? item.styles[0] : null)
+              : section,
         availableStyles: item.styles,
         price: item.price,
         notes: null,
@@ -1001,15 +1050,19 @@ export function EventMenuContent({
     );
   };
 
+  // Shares `isInSection` with the grid above: whatever a section draws is what
+  // clearing it takes away, so Drinks cannot leave a bottle behind under a
+  // heading it was never listed in.
   const clearSection = (section: MenuSection) => {
     editLines(
-      (current) =>
-        current.lines.filter((line) =>
-          section === "AddOn"
-            ? line.kind !== "AddOn"
-            : !(line.kind === "Dish" && line.serviceStyle === section)
-        ),
-      `${section === "AddOn" ? "Add-ons" : `${section} dishes`} cleared.`
+      (current) => current.lines.filter((line) => !isInSection(line, section)),
+      `${
+        section === "AddOn"
+          ? "Add-ons"
+          : section === "Drink"
+            ? "Drinks"
+            : `${section} dishes`
+      } cleared.`
     );
   };
 
@@ -1364,7 +1417,10 @@ export function EventMenuContent({
                             onClick={() => assignStyle(line, style)}
                             type="button"
                           >
-                            {style}
+                            {/* "Table" rather than "Plated" on a drink. The
+                                stored value is still the style - only the word
+                                the operator is asked to pick changes. */}
+                            {serviceStyleLabel(style, line.itemKind ?? "Food")}
                           </button>
                         ))}
                         <button
@@ -1406,7 +1462,18 @@ export function EventMenuContent({
                   {section.lines.map((line) => (
                     <MenuDishCard
                       key={line.id}
-                      badge={section.id === "AddOn" ? "ADD-ON" : section.label}
+                      // A drink's badge says how it is served rather than
+                      // repeating the heading it already sits under - "Buffet"
+                      // or "Table" is the part the heading does not tell you.
+                      badge={
+                        section.id === "AddOn"
+                          ? "ADD-ON"
+                          : section.id === "Drink"
+                            ? (line.serviceStyle
+                                ? serviceStyleLabel(line.serviceStyle, "Drink")
+                                : "DRINK")
+                            : section.label
+                      }
                       name={line.name}
                       targetId={targetId(line)}
                       pictureUrl={line.pictureUrl}

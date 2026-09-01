@@ -25,6 +25,7 @@ import {
   ROUNDING_MODES,
   serviceFormDefaults,
   toServiceRules,
+  type MenuItemKind,
   type ServiceRuleFormValues,
   type ServiceStyle,
   type ServiceStyleFormValues
@@ -71,6 +72,12 @@ type BulkUploadDialogProps = {
    * produce buffet items, not a library nobody asked for.
    */
   defaultServiceStyle?: ServiceStyle;
+  /**
+   * What a blank "Food or Drink" column means, for the same reason as above: an
+   * import started from Drink Menu should produce drinks, not a food library
+   * the operator then has to reclassify row by row.
+   */
+  defaultKind?: MenuItemKind;
   /** The catalog as it stands, so the review step can flag repeats. */
   existingNames: string[];
 };
@@ -343,6 +350,7 @@ function ServiceRuleFields({
 }
 
 export function BulkUploadDialog({
+  defaultKind,
   defaultServiceStyle,
   existingNames,
   onClose,
@@ -438,7 +446,10 @@ export function BulkUploadDialog({
     }
 
     try {
-      const parsed = parseMenuCsv(await file.text(), { existingNames });
+      const parsed = parseMenuCsv(await file.text(), {
+        defaultKind,
+        existingNames
+      });
 
       setFileName(file.name);
       setResult(parsed);

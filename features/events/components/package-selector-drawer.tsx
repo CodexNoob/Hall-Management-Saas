@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
+import { serviceStyleLabel } from "@/features/menu/lib/service-style";
 
 /**
  * Picking the package an event is served from.
@@ -17,6 +18,9 @@ import { LineIcon } from "@/features/events/components/event-manager-shared";
 export type PackageSelectorItem = {
   id: string;
   name: string;
+  /// Food or Drink, so a package that includes a drink previews it as one and
+  /// lands it in the menu's Drinks section rather than under a style heading.
+  itemKind: string | null;
   /// Styles the dish has a counting rule for. One means it lands there; two
   /// means the event has to answer; none means the kitchen has no rule to run.
   styles: string[];
@@ -41,7 +45,11 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 
 /** What the dish's rules say this line will be when the package is applied. */
 function styleLabel(item: PackageSelectorItem) {
-  if (item.styles.length === 1) return item.styles[0];
+  // "Table" rather than "Plated" when the item is a drink - the preview should
+  // read the way the menu it is about to land on will.
+  if (item.styles.length === 1) {
+    return serviceStyleLabel(item.styles[0], item.itemKind ?? "Food");
+  }
   if (item.styles.length > 1) return "Needs a style";
 
   return "No service rule";

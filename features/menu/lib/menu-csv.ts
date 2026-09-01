@@ -336,8 +336,8 @@ function readKosherType(raw: string) {
   return { ok: true as const, value: match };
 }
 
-function readKind(raw: string) {
-  if (!raw) return { ok: true as const, value: "Food" as MenuItemKind };
+function readKind(raw: string, fallback: MenuItemKind) {
+  if (!raw) return { ok: true as const, value: fallback };
 
   const match = MENU_ITEM_KINDS.find(
     (kind) => kind.toLowerCase() === raw.toLowerCase()
@@ -359,10 +359,17 @@ function readKind(raw: string) {
  * `existingNames` are the dishes already in the catalog. `menu_items` has no
  * unique index on name, so a second upload of the same sheet would quietly
  * double the menu; matching here is what lets the dialog offer to skip them.
+ *
+ * `defaultKind` is what a blank "Food or Drink" cell means, so an import started
+ * from the Drink Menu tab produces drinks - the same reasoning that gives the
+ * dialog its `defaultServiceStyle`. A cell that names a kind still wins.
  */
 export function parseMenuCsv(
   text: string,
-  { existingNames = [] }: { existingNames?: readonly string[] } = {}
+  {
+    existingNames = [],
+    defaultKind = "Food"
+  }: { existingNames?: readonly string[]; defaultKind?: MenuItemKind } = {}
 ): MenuCsvParseResult {
   const table = parseCsv(text).filter((row) => !isBlankRow(row));
   const headerPresent = table.length > 0 && isHeaderRow(table[0]);
@@ -385,7 +392,7 @@ export function parseMenuCsv(
       const line = index + headerOffset;
       const name = readCell(row, 0);
       const kosher = readKosherType(readCell(row, 2));
-      const kind = readKind(readCell(row, 5));
+      const kind = readKind(readCell(row, 5), defaultKind);
 
       const parsed: MenuCsvRow = {
         line,
