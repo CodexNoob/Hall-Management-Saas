@@ -43,6 +43,18 @@ export type ClientPortalEvent = {
   date: string;
   time: string;
   room: string;
+  /**
+   * The organization the event belongs to, by name. The portal is the only page
+   * a client ever sees, so the venue has to name itself somewhere - and it is
+   * what the logo below is announced as to a screen reader.
+   */
+  venueName: string;
+  /**
+   * A signed URL for the logo uploaded in Settings > General, or null when the
+   * organization has not uploaded one. Minted per request and short-lived, the
+   * same as an option's `imageUrl` - render it now, never store it.
+   */
+  logoUrl: string | null;
   status: string;
   couples: string;
   children: string;

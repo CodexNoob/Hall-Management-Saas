@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/storage/files", () => ({ createSignedFileUrls: vi.fn() }));
+vi.mock("@/lib/storage/files", () => ({
+  createSignedFileUrl: vi.fn(),
+  createSignedFileUrls: vi.fn()
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     event: { findFirst: vi.fn() },
@@ -9,14 +12,18 @@ vi.mock("@/lib/prisma", () => ({
     menuItem: { findMany: vi.fn() },
     tableclothOption: { findMany: vi.fn() },
     addOn: { findMany: vi.fn() },
-    invoice: { findMany: vi.fn() }
+    invoice: { findMany: vi.fn() },
+    organization: { findUnique: vi.fn() }
   }
 }));
 
 import { getClientPortalEvent } from "@/features/events/server/client-portal-data";
 import { prisma } from "@/lib/prisma";
-import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
-import { createSignedFileUrls } from "@/lib/storage/files";
+import {
+  MENU_IMAGE_BUCKET,
+  ORGANIZATION_LOGO_BUCKET
+} from "@/lib/storage/buckets";
+import { createSignedFileUrl, createSignedFileUrls } from "@/lib/storage/files";
 
 const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -27,6 +34,12 @@ const signedUrl = "https://storage.example/signed/brisket.jpg?token=abc";
 const addOnPicturePath = `${organizationId}/menu/coffee-station.jpg`;
 const addOnSignedUrl =
   "https://storage.example/signed/coffee-station.jpg?token=def";
+const logoPath = `${organizationId}/branding/logo.png`;
+const logoSignedUrl = "https://storage.example/signed/logo.png?token=ghi";
+const organizationWithLogo = {
+  name: "Ateres Akiva",
+  settings: { integrations: { controlCenter: { general: { logoPath } } } }
+};
 
 const baseEvent = {
   id: eventId,
@@ -60,6 +73,10 @@ describe("client portal data", () => {
     vi.mocked(prisma.tableclothOption.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.invoice.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue(
+      organizationWithLogo as never
+    );
+    vi.mocked(createSignedFileUrl).mockResolvedValue(logoSignedUrl);
     vi.mocked(createSignedFileUrls).mockResolvedValue(
       new Map([
         [dishPicturePath, signedUrl],
@@ -391,6 +408,55 @@ describe("client portal data", () => {
     // Both halves are menu items, so a drink the client already chose has to
     // come back ticked - the split is how the portal asks, not what it stores.
     expect(portal?.drinks[0].selected).toBe(true);
+  });
+
+  it("signs the venue logo from the organization's own settings", async () => {
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(createSignedFileUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId,
+        bucket: ORGANIZATION_LOGO_BUCKET,
+        path: logoPath
+      })
+    );
+    expect(portal?.logoUrl).toBe(logoSignedUrl);
+    expect(portal?.venueName).toBe("Ateres Akiva");
+    // The stored path is the one value that would let an anonymous visitor
+    // address the object directly, so only the signed URL travels.
+    expect(JSON.stringify(portal)).not.toContain(logoPath);
+  });
+
+  it("reports no logo for an organization that never uploaded one", async () => {
+    vi.mocked(prisma.organization.findUnique).mockResolvedValue({
+      name: "Ateres Akiva",
+      // What a settings document written before the uploader existed looks
+      // like: a control center with no `general.logoPath` at all.
+      settings: { integrations: { controlCenter: { calendar: {} } } }
+    } as never);
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(createSignedFileUrl).not.toHaveBeenCalled();
+    expect(portal?.logoUrl).toBeNull();
+    expect(portal?.venueName).toBe("Ateres Akiva");
+  });
+
+  it("still serves the portal when the logo cannot be signed", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(createSignedFileUrl).mockRejectedValue(
+      new Error("storage unreachable")
+    );
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    // A logo whose object went missing costs the header its picture, not the
+    // client's ability to open the portal.
+    expect(portal?.logoUrl).toBeNull();
+    expect(portal?.title).toContain("Charles");
+    expect(logged).toHaveBeenCalled();
+
+    logged.mockRestore();
   });
 
   it("marks the menu locked once staff confirmed it", async () => {
