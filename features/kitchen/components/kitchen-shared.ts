@@ -40,6 +40,9 @@ export type KitchenEvent = {
   summary: EventKitchenSheet["summary"] | null;
   kitchenNote?: string | null;
   sheet?: EventKitchenSheet;
+  /// The booking's row version, for the optimistic check on a cancel. Absent on
+  /// a standalone kitchen job, which is not a booking and has no version.
+  version?: number;
 };
 
 export type KitchenDay = {
@@ -71,6 +74,7 @@ export type KitchenResponse = {
     eventStatus: string;
     startsAt: string | null;
     packageName: string | null;
+    version: number;
     hall: { name: string };
     menuStatus: string;
     otherMeals: string[];

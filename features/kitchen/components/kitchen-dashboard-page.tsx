@@ -142,7 +142,8 @@ export function KitchenDashboardPage() {
         menuStatus: event.menuStatus,
         otherMeals: event.otherMeals,
         summary: event.summary,
-        sheet: event.sheet
+        sheet: event.sheet,
+        version: event.version
       };
       if (
         !normalizedSearch ||
@@ -380,6 +381,39 @@ export function KitchenDashboardPage() {
     await kitchenQuery.refetch();
   }
 
+  /**
+   * Cancels the booking behind a card, through the same lifecycle route the
+   * event workspace uses.
+   *
+   * Cancelled, not deleted: the booking leaves this board and the calendar and
+   * keeps every record attached to it. `expectedVersion` is the version the
+   * board read, so a booking somebody else has changed in the meantime is
+   * refused rather than overwritten - the dialog surfaces the refusal.
+   */
+  async function cancelEvent(kitchenEvent: KitchenEvent) {
+    const response = await authenticatedFetch(
+      `/api/events/${kitchenEvent.id}/status`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "CANCELLED",
+          expectedVersion: kitchenEvent.version
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      throw new Error(payload?.error ?? "Could not cancel this event.");
+    }
+
+    await kitchenQuery.refetch();
+  }
+
   return (
     <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#a8a8a6] text-[#061126]">
       <div className="shrink-0 overflow-x-hidden">
@@ -488,6 +522,16 @@ export function KitchenDashboardPage() {
       <KitchenEventDetailsDialog
         event={currentSelectedKitchenEvent}
         isSaving={kitchenMutation.isPending}
+        onCancelEvent={
+          // Bookings only, and only when the board sent the version the status
+          // route checks against. A standalone kitchen job is not a booking:
+          // there is no reservation to release and nothing to cancel.
+          currentSelectedKitchenEvent &&
+          currentSelectedKitchenEvent.source !== "standalone" &&
+          currentSelectedKitchenEvent.version !== undefined
+            ? () => cancelEvent(currentSelectedKitchenEvent)
+            : undefined
+        }
         onClose={() => setSelectedKitchenEvent(null)}
         onSaveItemAction={saveKitchenItemAction}
         permissions={selectedEventPermissions}
