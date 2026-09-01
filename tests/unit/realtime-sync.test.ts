@@ -62,6 +62,21 @@ describe("realtime publication migration", () => {
     "utf8"
   );
 
+  /**
+   * Every migration that adds to the publication, the first one included.
+   *
+   * New tables get a new migration rather than being appended to the original:
+   * a shared database has already applied that one, and rewriting an applied
+   * migration makes `prisma migrate deploy` refuse for everybody. So the
+   * published set is the union of all of them, not the contents of the first.
+   */
+  const publicationSql = readdirSync(MIGRATIONS, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(MIGRATIONS, entry.name, "migration.sql"))
+    .filter((file) => existsSync(file))
+    .map((file) => readFileSync(file, "utf8"))
+    .filter((contents) => contents.includes("supabase_realtime"));
+
   /** Every table a migration after the publication one has since dropped. */
   const droppedTables = new Set(
     readdirSync(MIGRATIONS, { withFileTypes: true })
@@ -89,8 +104,15 @@ describe("realtime publication migration", () => {
     // from every publication when it is dropped - so a name still listed here
     // for a table that no longer exists is not a gap in coverage, and demanding
     // the client keep subscribing to it would be the actual mistake.
-    const published = [...sql.matchAll(/^\s*'([a-z_]+)',?$/gm)]
-      .map((match) => match[1])
+    const published = [
+      ...new Set(
+        publicationSql.flatMap((contents) =>
+          [...contents.matchAll(/^\s*'([a-z_]+)',?$/gm)].map(
+            (match) => match[1]
+          )
+        )
+      )
+    ]
       .filter((table) => !droppedTables.has(table))
       .sort();
 
