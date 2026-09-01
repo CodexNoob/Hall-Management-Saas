@@ -35,7 +35,6 @@ function eventFile(activityLogs: EventFile["activityLogs"]): EventFile {
     children: "12",
     couples: "40",
     coordinator: "Unassigned",
-    coordinatorMembershipId: "",
     balance: "See billing",
     status: "Hold",
     paymentStatus: "No invoice",

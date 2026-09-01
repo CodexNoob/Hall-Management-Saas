@@ -46,8 +46,6 @@ export type BookingFormValues = {
   eventDate: string;
   hallId: string;
   eventTypeId: string;
-  /** The organization membership running the event; "" is Unassigned. */
-  coordinatorMembershipId: string;
   countMode: CountMode;
   guests: string;
   couples: string;
@@ -64,7 +62,6 @@ export const emptyBookingFormValues: BookingFormValues = {
   eventDate: "",
   hallId: "",
   eventTypeId: "",
-  coordinatorMembershipId: "",
   countMode: "People",
   guests: "0",
   couples: "0",
@@ -157,7 +154,7 @@ export function liveCountErrors(values: BookingFormValues): BookingFormErrors {
 }
 
 /**
- * Who to contact about the event, as three fields that travel together.
+ * Who to contact about the event, as two fields that travel together.
  *
  * Built per call rather than held at module scope: the phone country comes from
  * the picker beside the field, and the same digits are a valid number in one
@@ -165,7 +162,7 @@ export function liveCountErrors(values: BookingFormValues): BookingFormErrors {
  *
  * Exported as the shape rather than as a schema because the Client contact card
  * edits one row at a time and validates just that row - `[field].safeParse` -
- * while the booking dialog spreads all three into the form it submits whole.
+ * while the booking dialog spreads both into the form it submits whole.
  */
 export function clientContactFields({
   country = DEFAULT_PHONE_COUNTRY
@@ -186,17 +183,6 @@ export function clientContactFields({
       .refine(
         (value) => value === "" || z.string().email().safeParse(value).success,
         "Enter a valid email address."
-      )
-      .transform((value) => value || null),
-    // "" is Unassigned, which is a real state rather than a missing choice -
-    // an event can sit unclaimed for weeks. Anything else has to be a
-    // membership id, and the route proves it belongs to this organization
-    // before it is stored.
-    coordinatorMembershipId: z
-      .string()
-      .refine(
-        (value) => value === "" || z.string().uuid().safeParse(value).success,
-        "Select a coordinator."
       )
       .transform((value) => value || null)
   };
@@ -279,10 +265,10 @@ export function bookingFormSchema({
 /**
  * The event manager's Event information panel.
  *
- * Deliberately narrower than `bookingFormSchema`: the phone, email and
- * coordinator belong to the Client contact card beside it. Zod drops the keys
- * it does not know, so the panel can hold the full form values and still parse
- * to something that cannot carry a contact field back to the route.
+ * Deliberately narrower than `bookingFormSchema`: the phone and email belong to
+ * the Client contact card beside it. Zod drops the keys it does not know, so
+ * the panel can hold the full form values and still parse to something that
+ * cannot carry a contact field back to the route.
  *
  * That is also what makes an event with no stored phone editable. `Event.phone`
  * is written as "" when a booking is taken without one, and a required phone the

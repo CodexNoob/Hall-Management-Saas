@@ -33,7 +33,6 @@ import {
 import {
   LineIcon,
   type EventFile,
-  type EventCoordinatorOption,
   type EventHallOption,
   type EventTypeOption,
   type IconName
@@ -414,7 +413,6 @@ export function createBookingFormValues(event: EventFile): BookingFormValues {
     eventDate: event.dateInput,
     hallId: event.hallId,
     eventTypeId: event.eventTypeId,
-    coordinatorMembershipId: event.coordinatorMembershipId ?? "",
     countMode: countedInCouples ? "Couples" : "People",
     guests: countText(event.guests),
     couples: countText(event.couples),
@@ -466,13 +464,11 @@ const eventDateLabelFormatter = new Intl.DateTimeFormat("en-US", {
 type PanelFeedback = { tone: "success" | "error"; text: string };
 
 export function EventInformation({
-  coordinators,
   event,
   eventTypes,
   halls,
   onEventSaved
 }: {
-  coordinators: EventCoordinatorOption[];
   event: EventFile;
   eventTypes: EventTypeOption[];
   halls: EventHallOption[];
@@ -657,17 +653,16 @@ export function EventInformation({
             </button>
           )}
           errors={errors}
-          coordinators={coordinators}
           eventTypes={eventTypes}
           halls={halls}
           idPrefix="event-details"
           onChange={updateValue}
           onPhoneCountryChange={setPhoneCountry}
           phoneCountry={phoneCountry}
-          // The phone, email and coordinator live on the Client contact card
-          // beside this one, which edits them a row at a time. Kept in one
-          // place rather than two: a panel still holding a stale phone would
-          // put it back over the card's edit on the next save of anything.
+          // The phone and email live on the Client contact card beside this
+          // one, which edits them a row at a time. Kept in one place rather
+          // than two: a panel still holding a stale phone would put it back
+          // over the card's edit on the next save of anything.
           showClientContact={false}
           values={values}
         />

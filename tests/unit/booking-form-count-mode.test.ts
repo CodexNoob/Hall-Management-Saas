@@ -15,7 +15,6 @@ const base = {
   eventDate: "2026-08-27",
   hallId: "11111111-1111-4111-8111-111111111111",
   eventTypeId: "22222222-2222-4222-8222-222222222222",
-  coordinatorMembershipId: "",
   notes: ""
 };
 
@@ -183,27 +182,6 @@ describe("the client contact fields", () => {
     if (parsed.success) return;
 
     expect(parsed.error.issues[0]?.path).toEqual(["email"]);
-  });
-
-  it("reads an unassigned coordinator as nobody", () => {
-    const parsed = parse({ coordinatorMembershipId: "" });
-
-    expect(parsed.success).toBe(true);
-
-    if (!parsed.success) return;
-
-    expect(parsed.data.coordinatorMembershipId).toBeNull();
-  });
-
-  it("keeps a chosen coordinator", () => {
-    const membershipId = "33333333-3333-4333-8333-333333333333";
-    const parsed = parse({ coordinatorMembershipId: membershipId });
-
-    expect(parsed.success).toBe(true);
-
-    if (!parsed.success) return;
-
-    expect(parsed.data.coordinatorMembershipId).toBe(membershipId);
   });
 });
 

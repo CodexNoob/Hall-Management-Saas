@@ -25,7 +25,6 @@ function createEvent(overrides: Partial<EventFile> = {}): EventFile {
     children: "20",
     couples: "10",
     coordinator: "Unassigned",
-    coordinatorMembershipId: "",
     balance: "See billing",
     status: "Confirmed",
     paymentStatus: "Paid in Full",
