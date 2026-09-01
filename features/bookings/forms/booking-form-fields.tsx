@@ -46,12 +46,6 @@ type BookingFormFieldsProps = {
   /** Two for a dialog, three for a full-width panel. Fields are unchanged. */
   columns?: 2 | 3;
   /**
-   * Staff this event can be assigned to. Empty is a legitimate answer - a fresh
-   * organization has only the person setting it up - and the field still offers
-   * Unassigned, so the form does not need a special case for it.
-   */
-  coordinators: BookingLookupOption[];
-  /**
    * Replaces the native date input, for a host that picks dates some other way.
    * The event manager's panel passes a button that opens the availability list,
    * because moving an existing event has to be refused on a held or full day
@@ -79,10 +73,10 @@ type BookingFormFieldsProps = {
    */
   showPhoneCountry?: boolean;
   /**
-   * Show phone, email and coordinator. Off for the event manager's panel, where
-   * the Client contact card beside it owns those three and edits them a row at
-   * a time. On for the calendar's dialog, which is creating the event and has
-   * no card to send anybody to yet.
+   * Show phone and email. Off for the event manager's panel, where the Client
+   * contact card beside it owns both and edits them a row at a time. On for the
+   * calendar's dialog, which is creating the event and has no card to send
+   * anybody to yet.
    */
   showClientContact?: boolean;
   values: BookingFormValues;
@@ -120,7 +114,6 @@ function FieldError({ children, id }: { children: string; id: string }) {
 export function BookingFormFields({
   autoFocus = false,
   columns = 2,
-  coordinators,
   dateField,
   errors,
   eventTypes,
@@ -294,45 +287,6 @@ export function BookingFormFields({
         ) : null}
         {renderEventTypeExtra ? renderEventTypeExtra() : null}
       </div>
-
-      {showClientContact ? (
-        <div>
-          <FieldLabel htmlFor={fieldId("coordinator")}>Coordinator</FieldLabel>
-
-          {/*
-            Unassigned is the first option rather than a disabled placeholder:
-            an event with nobody on it is a state somebody has to be able to go
-            back to, not just the one it starts in.
-          */}
-          <select
-            aria-describedby={
-              errors.coordinatorMembershipId
-                ? errorId("coordinator")
-                : undefined
-            }
-            aria-invalid={errors.coordinatorMembershipId ? true : undefined}
-            className={bookingControlClass}
-            id={fieldId("coordinator")}
-            onChange={(event) =>
-              onChange("coordinatorMembershipId", event.target.value)
-            }
-            value={values.coordinatorMembershipId}
-          >
-            <option value="">Unassigned</option>
-
-            {coordinators.map((coordinator) => (
-              <option key={coordinator.id} value={coordinator.id}>
-                {coordinator.name}
-              </option>
-            ))}
-          </select>
-          {errors.coordinatorMembershipId ? (
-            <FieldError id={errorId("coordinator")}>
-              {errors.coordinatorMembershipId}
-            </FieldError>
-          ) : null}
-        </div>
-      ) : null}
 
       <div>
         <FieldLabel htmlFor={fieldId("count-mode")}>Count type</FieldLabel>

@@ -52,10 +52,12 @@ export type EventFile = {
   guests: string;
   children: string;
   couples: string;
-  /** The coordinator's name, or "Unassigned" - what the contact card reads. */
+  /**
+   * The coordinator's name, or "Unassigned" - read-only now, shown on the event
+   * list row. Nothing in the UI assigns one: the booking form's picker is gone,
+   * and the column is still written by the API for the events that have one.
+   */
   coordinator: string;
-  /** The stored membership, which is what the form edits. "" is Unassigned. */
-  coordinatorMembershipId: string;
   balance: string;
   status: "Confirmed" | "Hold";
   paymentStatus: string;

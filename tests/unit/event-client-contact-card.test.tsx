@@ -14,7 +14,7 @@ import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
  * Who to contact, edited a row at a time.
  *
  * The card used to be a read-only list: a phone that could only be changed from
- * the form above it, and an email and coordinator that could not be set at all.
+ * the form above it, and an email that could not be set at all.
  * Each row saves on its own now, which is why these tests care as much about
  * what a save carries as about what it stores - a row that sent its neighbours
  * along would put stale values back over their edits.
@@ -42,7 +42,6 @@ function eventFile(overrides: Partial<EventFile> = {}): EventFile {
     children: "12",
     couples: "40",
     coordinator: "Unassigned",
-    coordinatorMembershipId: "",
     balance: "See billing",
     status: "Hold",
     paymentStatus: "No invoice",
@@ -160,15 +159,10 @@ describe("ClientContact", () => {
   });
 
   it("carries no coordinator row", () => {
-    renderCard(
-      eventFile({
-        coordinator: "Sarah Klein",
-        coordinatorMembershipId: "11111111-1111-4111-8111-111111111111"
-      })
-    );
+    renderCard(eventFile({ coordinator: "Sarah Klein" }));
 
-    // The card is the phone and the email now. A coordinator is still stored on
-    // the event and still settable when a booking is created, but nothing on
+    // The card is the phone and the email now. A coordinator may still be
+    // stored on the event from before the picker was retired, but nothing on
     // this card reads it or offers to change it.
     expect(screen.queryByRole("button", { name: "Edit coordinator" })).toBeNull();
     expect(screen.queryByText("Sarah Klein")).toBeNull();

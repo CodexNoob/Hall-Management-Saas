@@ -936,7 +936,6 @@ export function EventCalendarPage() {
       </main>
 
       <CalendarBookingDialog
-        coordinators={eventsQuery.data?.coordinators ?? []}
         eventTypes={eventsQuery.data?.eventTypes ?? []}
         halls={eventsQuery.data?.halls ?? []}
         onClose={() => setIsNewBookingOpen(false)}
