@@ -17,6 +17,10 @@ import {
   NewAddOnDialog,
   type NewAddOnValues
 } from "@/features/menu/forms/new-addon-dialog";
+import {
+  NewItemMenuPicker,
+  type NewItemMenuChoice
+} from "@/features/menu/forms/new-item-menu-picker";
 import { BulkUploadDialog } from "@/features/menu/forms/bulk-upload-dialog";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
@@ -72,6 +76,21 @@ function readPrice(raw: string, label: string) {
   );
 }
 
+/**
+ * Which tab lists an item created with this answer.
+ *
+ * Drinks are listed by kind, so one goes to the Drink Menu whether or not it
+ * carries a rule yet. A dish goes to the tab for the style it was given, and a
+ * dish given none stays in the library it was catalogued into.
+ */
+function menuTabForChoice({ kind, serviceStyle }: NewItemMenuChoice) {
+  if (kind === "Drink") return "Drink Menu";
+  if (serviceStyle === "Buffet") return "Buffet Menu";
+  if (serviceStyle === "Plated") return "Plated Menu";
+
+  return "Menu Library";
+}
+
 export function MenuPage() {
   const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
   const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
@@ -96,6 +115,13 @@ export function MenuPage() {
   const [isEditingPackage, setIsEditingPackage] = useState(false);
   const [isNewAddOnOpen, setIsNewAddOnOpen] = useState(false);
   const [isNewLibraryItemOpen, setIsNewLibraryItemOpen] = useState(false);
+  // The library tab's two-step create: the picker asks which menu, and the
+  // answer is what the form then opens as. Null everywhere else - the Buffet,
+  // Plated and Drink tabs are their own answer and open the form directly.
+  const [isMenuPickerOpen, setIsMenuPickerOpen] = useState(false);
+  const [newItemChoice, setNewItemChoice] = useState<NewItemMenuChoice | null>(
+    null
+  );
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const allMenuItems = useMemo<MenuLibraryItem[]>(() => {
     const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
@@ -185,6 +211,28 @@ export function MenuPage() {
   const isDrinkMenu = activeTab === "Drink Menu";
   const ruleMode = isPlatedMenu ? "plated" : "buffet";
   const serviceStyle: ServiceStyle = isPlatedMenu ? "Plated" : "Buffet";
+  /**
+   * What a create opens as - the picker's answer on the library tab, the tab's
+   * own answer everywhere else. Both settle it, so the form asks neither
+   * question and opens as a buffet, plated or drink form outright.
+   *
+   * "Food" on the service tabs is not merely a default: `servedItems` drops
+   * drinks, so a drink saved from the Buffet Menu used to appear on no tab at
+   * all - not the one it was added from, and not the Drink Menu it was never
+   * created on.
+   */
+  const createDefaults: NewItemMenuChoice =
+    newItemChoice ??
+    (isDrinkMenu
+      ? { kind: "Drink", serviceStyle: null }
+      : isRuleMenu
+        ? { kind: "Food", serviceStyle }
+        : { kind: "Food", serviceStyle: null });
+  /** Opens the create flow the tab uses: the picker, or the form itself. */
+  const startCreate = () => {
+    if (isRuleMenu || isDrinkMenu) setIsNewLibraryItemOpen(true);
+    else setIsMenuPickerOpen(true);
+  };
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
   // Menu Library and Drink Menu are one screen over two halves of one catalog:
   // an item shows under exactly whichever of them matches its kind, so a drink
@@ -470,11 +518,16 @@ export function MenuPage() {
     });
     await menuQuery.refetch();
     setSelectedCategory(values.category);
-    // Stay on the tab the item was added from. Jumping to the library is what
-    // made "Add buffet item" look like it had created the wrong thing, and a
-    // drink would land somewhere it is not even listed.
-    if (!isRuleMenu && !isDrinkMenu) setActiveTab("Menu Library");
+    // Land where the item actually went.
+    //
+    // On a service tab that is the tab you are already on - jumping to the
+    // library is what made "Add buffet item" look like it had created the wrong
+    // thing. From the library picker it is the menu you picked, for the same
+    // reason in reverse: choosing Drink Menu and staying on a tab that does not
+    // list drinks is the same disappearance, one step later.
+    setActiveTab(menuTabForChoice(createDefaults));
     setIsNewLibraryItemOpen(false);
+    setNewItemChoice(null);
   };
 
   return (
@@ -557,28 +610,37 @@ export function MenuPage() {
         onSave={saveAddOn}
         open={isNewAddOnOpen}
       />
+      {/* Step one of the library tab's create. The service tabs skip it: they
+          have already said which menu, which is the only thing it asks. */}
+      <NewItemMenuPicker
+        onChoose={(choice) => {
+          setNewItemChoice(choice);
+          setIsMenuPickerOpen(false);
+          setIsNewLibraryItemOpen(true);
+        }}
+        onClose={() => setIsMenuPickerOpen(false)}
+        open={isMenuPickerOpen}
+      />
       {/* One dialog for both flows: `initialValues` is what makes it an edit,
           and the save handler follows it. */}
       <NewLibraryItemDialog
         // Signed by GET /api/menu, the same URL the card draws - so the form
         // shows the picture the operator clicked on rather than an empty slot.
         currentPictureUrl={libraryItemActions.editingItem?.pictureUrl}
-        // A create started from a service tab is already that kind of item.
-        defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
-        // And one started from the Drink Menu opens as a drink, on the bottle
-        // defaults rather than the plate ones.
-        //
-        // "Food" on the service tabs is not just a default either: `servedItems`
-        // drops drinks, so a drink saved from the Buffet Menu appeared on no tab
-        // at all - not the one it was added from, not the Drink Menu, which
-        // lists by kind but was never where it was created.
-        defaultKind={isDrinkMenu ? "Drink" : isRuleMenu ? "Food" : undefined}
+        // Both settled before the form opens - see `createDefaults`. A drink
+        // opens on the bottle defaults rather than the plate ones, and a buffet
+        // item opens as a buffet item rather than asking which it is.
+        defaultServiceStyle={createDefaults.serviceStyle ?? undefined}
+        defaultKind={createDefaults.kind}
         initialValues={libraryItemActions.editingValues}
         // The confirmation below sits on top of this form; while it is up, an
         // Escape belongs to it and must not take the edit down with it.
         isDismissBlocked={Boolean(libraryItemActions.removingItem)}
         onClose={() => {
           setIsNewLibraryItemOpen(false);
+          // Cleared with the form, so the next create asks again rather than
+          // silently reusing the menu picked for the one that was abandoned.
+          setNewItemChoice(null);
           libraryItemActions.cancelEdit();
         }}
         // Only for an editor opened on a real item, and only for someone allowed
@@ -834,7 +896,7 @@ export function MenuPage() {
                 </div>
                 <button
                   className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
-                  onClick={() => setIsNewLibraryItemOpen(true)}
+                  onClick={startCreate}
                   type="button"
                 >
                   Add {ruleMode} item
@@ -934,9 +996,7 @@ export function MenuPage() {
                   </div>
                   <button
                     className="inline-flex h-8 shrink-0 items-center justify-center self-end rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white hover:bg-[#15344f] sm:self-auto"
-                    onClick={() => {
-                      setIsNewLibraryItemOpen(true);
-                    }}
+                    onClick={startCreate}
                     type="button"
                   >
                     {isDrinkMenu ? "New drink" : "New item"}
@@ -1050,9 +1110,7 @@ export function MenuPage() {
                           pictureUrl={item.pictureUrl}
                         />
                       ))}
-                      <AddItemCard
-                        onClick={() => setIsNewLibraryItemOpen(true)}
-                      />
+                      <AddItemCard onClick={startCreate} />
                     </div>
                   </div>
                 ) : (
@@ -1067,7 +1125,7 @@ export function MenuPage() {
                         pictureUrl={item.pictureUrl}
                       />
                     ))}
-                    <AddItemCard onClick={() => setIsNewLibraryItemOpen(true)} />
+                    <AddItemCard onClick={startCreate} />
                   </div>
                 )}
               </div>
