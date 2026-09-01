@@ -52,6 +52,18 @@ function readKind(kind: string): MenuItemKind {
 }
 
 /**
+ * Which half of the catalog an item is filed under.
+ *
+ * The Menu Library and Drink Menu tabs split on this, so it goes through
+ * `readKind` rather than comparing the raw column: an unrecognised kind reads as
+ * Food and stays on the food tabs, instead of falling out of both and leaving an
+ * item that exists in the database but appears on no screen.
+ */
+export function isDrinkKind(kind: string) {
+  return readKind(kind) === "Drink";
+}
+
+/**
  * What a style is CALLED, which depends on what is being served.
  *
  * "Plated" and "Table" are one channel under two vocabularies - either way the

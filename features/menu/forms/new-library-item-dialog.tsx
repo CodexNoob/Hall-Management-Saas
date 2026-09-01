@@ -10,6 +10,7 @@ import {
 import {
   MENU_ITEM_KINDS,
   SERVICE_STYLES,
+  isDrinkKind,
   serviceFormDefaults,
   serviceStyleLabel,
   type ServiceRuleFormValues,
@@ -76,6 +77,16 @@ type NewLibraryItemDialogProps = {
    */
   defaultServiceStyle?: string;
   /**
+   * Food or Drink for a create, so "New drink" opens on the bottles-per-table
+   * defaults rather than the plated ones. Ignored for an edit, which seeds from
+   * the row itself.
+   *
+   * The select stays enabled either way: switching kind mid-create is a real
+   * decision, and it behaves like the category field - the item saves and simply
+   * belongs to the other tab.
+   */
+  defaultKind?: string;
+  /**
    * Suppresses Escape and the backdrop click while something sits on top of
    * this form - the remove confirmation, which is the only thing that does.
    * Without it a single Escape dismisses both, and the operator loses the edit
@@ -120,7 +131,7 @@ function LibraryIcon() {
   );
 }
 
-export function NewLibraryItemDialog({ initialValues: editValues, currentPictureUrl, defaultServiceStyle, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
+export function NewLibraryItemDialog({ initialValues: editValues, currentPictureUrl, defaultServiceStyle, defaultKind, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
   const titleId = useId();
   // One list for both style blocks - the suggestions are the same, and a
   // per-style copy would only duplicate eight options in the DOM.
@@ -159,9 +170,12 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
   // A function rather than a computed object: the seeding effect depends on it,
   // and an object rebuilt every render would re-seed the form mid-typing.
   const buildCreateValues = useCallback((): LibraryItemSeedValues => {
+    // The kind the tab implies, so "New drink" seeds the drink defaults - a
+    // bottle per table rather than the plate per guest a food item starts on.
+    const kind = defaultKind ?? initialValues.kind;
     // "Add buffet item" opens a form that is already a buffet item - the style
     // it was opened from starts checked, and nothing else does.
-    const defaults = serviceFormDefaults(initialValues.kind);
+    const defaults = serviceFormDefaults(kind);
     const services = Object.fromEntries(
       SERVICE_STYLES.map((style) => [
         style,
@@ -169,8 +183,8 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
       ])
     ) as ServiceStyleFormValues;
 
-    return { ...initialValues, services };
-  }, [defaultServiceStyle]);
+    return { ...initialValues, kind, services };
+  }, [defaultKind, defaultServiceStyle]);
 
   // Shared with the remove confirmation that opens on top of this form, so
   // closing both at once cannot leave the page unscrollable.
@@ -306,7 +320,9 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
             <LibraryIcon />
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? "Edit library item" : "Library item"}</h2>
+            {/* Follows the select rather than the tab it was opened from, so
+                switching Food -&gt; Drink renames the form it is switching. */}
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrinkKind(values.kind) ? "drink" : "library"} item` : `${isDrinkKind(values.kind) ? "Drink" : "Library"} item`}</h2>
           </div>
           <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
         </header>

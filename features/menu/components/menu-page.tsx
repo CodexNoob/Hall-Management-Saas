@@ -49,6 +49,7 @@ import {
   DEFAULT_SEGMENT,
   findRuleForStyle,
   formatServiceRule,
+  isDrinkKind,
   readServiceRules,
   servesStyle,
   toServiceRules,
@@ -165,17 +166,32 @@ export function MenuPage() {
         error={menuQuery.error}
         isLoading={menuQuery.isLoading}
         onRetry={menuQuery.refetch}
-        subtitle="Menu library, packages, buffet, plated and add-ons."
+        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
         title="Menu"
       />
     );
   }
 
+  // Which tab is open, resolved before the lists below because two of them now
+  // depend on it. `isRuleMenu` covers the two service tabs, which share a pane.
+  const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
+  const isPlatedMenu = activeTab === "Plated Menu";
+  const isDrinkMenu = activeTab === "Drink Menu";
+  const ruleMode = isPlatedMenu ? "plated" : "buffet";
+  const serviceStyle: ServiceStyle = isPlatedMenu ? "Plated" : "Buffet";
   const normalizedSearch = pageSearchQuery.trim().toLowerCase();
+  // Menu Library and Drink Menu are one screen over two halves of one catalog:
+  // an item shows under exactly whichever of them matches its kind, so a drink
+  // is managed in one place instead of sitting in a food library it has nothing
+  // to do with. Split here rather than in the grid, so the category filter and
+  // the search below only ever see the half that is on screen.
+  const kindFilteredItems = allMenuItems.filter(
+    (item) => isDrinkKind(item.kind) === isDrinkMenu
+  );
   const visibleItems = (
     selectedCategory === "All"
-      ? allMenuItems
-      : allMenuItems.filter((item) => item.category === selectedCategory)
+      ? kindFilteredItems
+      : kindFilteredItems.filter((item) => item.category === selectedCategory)
   ).filter(
     (item) =>
       !normalizedSearch ||
@@ -195,12 +211,14 @@ export function MenuPage() {
         .toLowerCase()
         .includes(normalizedSearch)
   );
+  // Drawn from the half of the catalog that is on screen, so the Drink Menu
+  // filter does not offer courses no drink is ever filed under.
   const categoryNames = [
     "All",
     ...Array.from(
       new Set([
         ...(menuQuery.data?.categories ?? []).map((category) => category.name),
-        ...allMenuItems.map((item) => item.category)
+        ...kindFilteredItems.map((item) => item.category)
       ])
     )
   ];
@@ -249,10 +267,6 @@ export function MenuPage() {
 
     packageSelection.clear();
   };
-  const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
-  const isPlatedMenu = activeTab === "Plated Menu";
-  const ruleMode = isPlatedMenu ? "plated" : "buffet";
-  const serviceStyle: ServiceStyle = isPlatedMenu ? "Plated" : "Buffet";
   // The service tabs are views over the same catalog the library tab renders,
   // not lists of their own. A dish served both ways carries a rule for each and
   // shows under both tabs without being stored twice.
@@ -262,6 +276,11 @@ export function MenuPage() {
   // for the same style, and flattening would render it twice.
   const servedItems = allMenuItems
     .filter((item) => servesStyle(item.services, serviceStyle))
+    // Drinks keep their rules - the kitchen sheet still counts bottles per
+    // table - but they are read off the Drink Menu tab, which is the one place
+    // they are managed. Leaving them here would list them under a food heading
+    // and, on Plated, under a word that is not even the one they use.
+    .filter((item) => !isDrinkKind(item.kind))
     .filter(
       (item) =>
         !normalizedSearch ||
@@ -366,8 +385,9 @@ export function MenuPage() {
     await menuQuery.refetch();
     setSelectedCategory(values.category);
     // Stay on the tab the item was added from. Jumping to the library is what
-    // made "Add buffet item" look like it had created the wrong thing.
-    if (!isRuleMenu) setActiveTab("Menu Library");
+    // made "Add buffet item" look like it had created the wrong thing, and a
+    // drink would land somewhere it is not even listed.
+    if (!isRuleMenu && !isDrinkMenu) setActiveTab("Menu Library");
     setIsNewLibraryItemOpen(false);
   };
 
@@ -375,7 +395,7 @@ export function MenuPage() {
     <div className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         title="Menu"
-        subtitle="Menu library, packages, buffet, plated and add-ons."
+        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
         compactMobileActions
         showSearch={false}
         /* Bulk upload only. Creating an item or a package is done from the tab
@@ -415,6 +435,12 @@ export function MenuPage() {
               type="button"
               onClick={(event) => {
                 setActiveTab(tab.label);
+                // The category list is drawn from the half of the catalog the
+                // open tab owns, so a filter carried across from the other one
+                // can name a category nothing here is filed under - an empty
+                // grid under a selection the dropdown cannot even show. Only on
+                // a click: a create still jumps to the category it saved into.
+                setSelectedCategory("All");
                 centerMobileTab(event.currentTarget);
               }}
             >
@@ -449,6 +475,9 @@ export function MenuPage() {
         currentPictureUrl={libraryItemActions.editingItem?.pictureUrl}
         // A create started from a service tab is already that kind of item.
         defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
+        // And one started from the Drink Menu opens as a drink, on the bottle
+        // defaults rather than the plate ones.
+        defaultKind={isDrinkMenu ? "Drink" : undefined}
         initialValues={libraryItemActions.editingValues}
         // The confirmation below sits on top of this form; while it is up, an
         // Escape belongs to it and must not take the edit down with it.
@@ -476,6 +505,7 @@ export function MenuPage() {
           a file uploaded from the Buffet tab should land on the buffet, not in
           a library the operator then has to open dish by dish. */}
       <BulkUploadDialog
+        defaultKind={isDrinkMenu ? "Drink" : undefined}
         defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
         existingNames={allMenuItems.map((item) => item.name)}
         onClose={() => setIsBulkUploadOpen(false)}
@@ -783,6 +813,10 @@ export function MenuPage() {
             </div>
           </section>
         ) : (
+          // Menu Library and Drink Menu, which are the same screen twice: one
+          // grid of clickable cards over `visibleItems`, which is already the
+          // half of the catalog this tab owns. Only the wording differs, so
+          // they share a branch rather than duplicating the pane.
           <div className="grid h-auto min-h-0 min-w-0 items-start gap-3 xl:h-full">
             <section className="flex h-auto min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white xl:h-full">
               <div className="flex min-h-0 flex-1 flex-col">
@@ -790,15 +824,17 @@ export function MenuPage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <LineIcon
-                        name="document"
+                        name={isDrinkMenu ? "drink" : "document"}
                         className="h-4 w-4 text-[#17202a]"
                       />
                       <h1 className="text-sm font-black text-[#17202a]">
-                        Menu Library
+                        {isDrinkMenu ? "Drink Menu" : "Menu Library"}
                       </h1>
                     </div>
                     <p className="mt-1 text-xs text-[#6a7483]">
-                      Base food items only. No rules, no prices, no hall usage.
+                      {isDrinkMenu
+                        ? "Drinks only. Serving rules are set on the item; price stays on the package."
+                        : "Base food items only. No rules, no prices, no hall usage."}
                     </p>
                   </div>
                   <button
@@ -808,7 +844,7 @@ export function MenuPage() {
                     }}
                     type="button"
                   >
-                    New item
+                    {isDrinkMenu ? "New drink" : "New item"}
                   </button>
                 </header>
 
@@ -820,7 +856,9 @@ export function MenuPage() {
                       onChange={(event) =>
                         setPageSearchQuery(event.target.value)
                       }
-                      placeholder="Search menu items"
+                      placeholder={
+                        isDrinkMenu ? "Search drinks" : "Search menu items"
+                      }
                       type="search"
                       value={pageSearchQuery}
                     />
