@@ -28,6 +28,23 @@ export type ServiceStyle = (typeof SERVICE_STYLES)[number];
 
 export const serviceStyleSchema = z.enum(SERVICE_STYLES);
 
+/**
+ * A style arriving as loose text - a prop, a tab the dialog was opened from -
+ * narrowed to one this module knows.
+ *
+ * Unlike `readKind` there is no fallback, because "no style" is a real answer
+ * rather than a broken one: the library tab creates a dish that is catalogued
+ * and not yet served. Defaulting an unrecognised value to `Buffet` would put
+ * that dish on a service tab nobody asked to add it to.
+ */
+export function readServiceStyle(
+  value: string | null | undefined
+): ServiceStyle | null {
+  const parsed = serviceStyleSchema.safeParse(value);
+
+  return parsed.success ? parsed.data : null;
+}
+
 /** Which side of the business an item belongs to. The master spec's usage_type. */
 export const BUSINESS_SEGMENTS = ["School", "Simcha", "Both"] as const;
 
