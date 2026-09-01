@@ -222,6 +222,10 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
 
   if (!open) return null;
 
+  // Follows the select, not the tab: switching Food -> Drink mid-create has to
+  // re-word the block the switch is about.
+  const isDrink = isDrinkKind(values.kind);
+
   // Narrowed to the text fields so `services`, which is not a string, cannot be
   // passed here by accident.
   type TextField = Exclude<keyof LibraryItemSeedValues, "services">;
@@ -322,7 +326,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
             <LibraryIcon />
             {/* Follows the select rather than the tab it was opened from, so
                 switching Food -&gt; Drink renames the form it is switching. */}
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrinkKind(values.kind) ? "drink" : "library"} item` : `${isDrinkKind(values.kind) ? "Drink" : "Library"} item`}</h2>
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrink ? "drink" : "library"} item` : `${isDrink ? "Drink" : "Library"} item`}</h2>
           </div>
           <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
         </header>
@@ -366,8 +370,16 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               <legend className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
                 Served as
               </legend>
+              {/* Two sentences, because the two kinds answer differently. A
+                  dish IS routed by this - Buffet Menu and Plated Menu are the
+                  styles - but a drink stays on the Drink Menu whichever way it
+                  is served, and telling it that this decides "which tabs list
+                  it" was simply false. What it decides for a drink is how much
+                  to put out, and which group of the Drink Menu it sits in. */}
               <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
-                Decides which service tabs list it, and how much to cook for each. Price stays on the package.
+                {isDrink
+                  ? "Drinks stay on the Drink Menu either way. This sets how much to put out - by table, or by guests for a self-serve station - and which group of that tab it sits under."
+                  : "Decides which service tabs list it, and how much to cook for each. Price stays on the package."}
               </p>
               {/* The escape hatch, said out loud. Leaving both off has always
                   saved a catalogued-but-unserved dish, but the form read as if
@@ -375,7 +387,10 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                   arithmetic question while they were still thinking about a
                   dish. The event menu asks for it later, when it matters. */}
               <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
-                No counting rule needed here. You will be asked how much to cook the first time this dish goes on an event, and the answer is saved back to the item - add one now only if you already know it.
+                No counting rule needed here. You will be asked how much to{" "}
+                {isDrink ? "pour" : "cook"} the first time this{" "}
+                {isDrink ? "drink" : "dish"} goes on an event, and the answer is
+                saved back to the item - add one now only if you already know it.
               </p>
               <div className="mt-2 grid gap-2">
                 {SERVICE_STYLES.map((style) => {

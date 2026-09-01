@@ -47,11 +47,13 @@ import {
 } from "@/features/menu/components/menu-shared";
 import {
   DEFAULT_SEGMENT,
+  SERVICE_STYLES,
   findRuleForStyle,
   formatServiceRule,
   isDrinkKind,
   readServiceRules,
   servesStyle,
+  serviceStyleLabel,
   toServiceRules,
   type ServiceStyle
 } from "@/features/menu/lib/service-style";
@@ -81,6 +83,10 @@ export function MenuPage() {
   >("/api/menu");
   const [activeTab, setActiveTab] = useState("Menu Library");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  // Which way of serving the Drink Menu is filtered to. Its own state rather
+  // than a second `activeTab`, because it only means anything on that one tab
+  // and must not survive a jump to Packages and back.
+  const [drinkView, setDrinkView] = useState("All");
   // By id, not by name: two packages may share a name, and renaming one would
   // otherwise deselect it mid-edit.
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
@@ -286,6 +292,86 @@ export function MenuPage() {
         !normalizedSearch ||
         `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
     );
+  /**
+   * The Drink Menu, split by how each drink is served.
+   *
+   * This is the tab's whole answer to "I ticked Buffet - where did it go?". On
+   * the food tabs the style IS the tab, so the answer is obvious; drinks stay on
+   * one tab whichever way they are served, and without these groups the tick
+   * changed nothing anyone could see.
+   *
+   * A drink served both ways appears in both groups, exactly as a dish with two
+   * rules shows under both Buffet Menu and Plated Menu. It is one row with two
+   * rules, not two drinks.
+   */
+  const rulelessDrinks = visibleItems.filter(
+    (item) => item.services.length === 0
+  );
+  const drinkViews = [
+    {
+      id: "All",
+      label: "All",
+      hint: "Every drink, however it is served.",
+      items: visibleItems
+    },
+    {
+      id: "Buffet",
+      label: "Buffet",
+      hint: "A drinks station guests help themselves from. Counted per guests.",
+      items: visibleItems.filter((item) => servesStyle(item.services, "Buffet"))
+    },
+    {
+      // "Table" to the operator, `Plated` in the column - the same rename
+      // `serviceStyleLabel` does everywhere else a drink's style is shown.
+      id: "Table",
+      label: "Table",
+      hint: "Bottles set out on each table. Counted per table.",
+      items: visibleItems.filter((item) => servesStyle(item.services, "Plated"))
+    },
+    // Only when there is something in it. A permanently visible "No rule yet"
+    // reads as a chore the venue is failing at; a drink without a rule is a
+    // normal state, and the event asks for the number when it matters.
+    ...(rulelessDrinks.length > 0
+      ? [
+          {
+            id: "NoRule",
+            label: "No rule yet",
+            hint: "Still available to put on an event, which is where the rule gets asked for.",
+            items: rulelessDrinks
+          }
+        ]
+      : [])
+  ];
+  // Falls back rather than trusting the state: answering the last outstanding
+  // rule removes the tab the operator is standing on, and a dangling id would
+  // leave an empty grid with nothing highlighted above it.
+  const activeDrinkView =
+    drinkViews.find((view) => view.id === drinkView) ?? drinkViews[0];
+
+  /** The rule line under a drink's name, for whichever tab is open. */
+  const describeDrink = (item: MenuLibraryItem) => {
+    if (activeDrinkView.id === "NoRule" || item.services.length === 0) {
+      return "Not counted yet";
+    }
+
+    if (activeDrinkView.id === "Buffet" || activeDrinkView.id === "Table") {
+      const style = activeDrinkView.id === "Buffet" ? "Buffet" : "Plated";
+
+      return formatServiceRule(findRuleForStyle(item.services, style));
+    }
+
+    // On All, a drink served both ways has two rules and one line to say them
+    // in. Naming the ways beats truncating the numbers - the numbers are one
+    // click away, on the tab for the way you care about.
+    const styles = SERVICE_STYLES.filter((style) =>
+      servesStyle(item.services, style)
+    );
+
+    return styles.length > 1
+      ? styles.map((style) => serviceStyleLabel(style, "Drink")).join(" and ")
+      : formatServiceRule(findRuleForStyle(item.services, styles[0]));
+  };
+
   const toRuleCard = (item: MenuLibraryItem) => ({
     id: item.id,
     name: item.name,
@@ -441,6 +527,10 @@ export function MenuPage() {
                 // grid under a selection the dropdown cannot even show. Only on
                 // a click: a create still jumps to the category it saved into.
                 setSelectedCategory("All");
+                // Same reasoning one level down: coming back to Drinks should
+                // show the whole list, not whichever way of serving was last
+                // being looked at.
+                setDrinkView("All");
                 centerMobileTab(event.currentTarget);
               }}
             >
@@ -883,19 +973,98 @@ export function MenuPage() {
                     removing is a button inside it. The three-dot menu that used
                     to sit in the corner held those same two entries behind a
                     28px target that was the hardest thing on a phone to hit. */}
-                <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
-                  {visibleItems.map((item) => (
-                    <MenuItemCard
-                      key={item.id}
-                      category={item.category}
-                      isSelectDisabled={!canEditMenu}
-                      name={item.name}
-                      onSelect={() => libraryItemActions.startEdit(item.id)}
-                      pictureUrl={item.pictureUrl}
-                    />
-                  ))}
-                  <AddItemCard onClick={() => setIsNewLibraryItemOpen(true)} />
-                </div>
+                {isDrinkMenu ? (
+                  /* A strip of its own, unlike the library beside it, because
+                     "Buffet or Table?" is the one question this tab asks that
+                     has nowhere else to be answered. On the food tabs the
+                     choice IS the tab, so it needs no control; here both
+                     answers live on one tab, and without this ticking either
+                     one appeared to do nothing at all.
+
+                     Pills rather than the underline the tab strip above uses:
+                     two underlined rows stacked read as one confused nav, and
+                     these filter what is already on a tab rather than moving
+                     between tabs. */
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <div className="shrink-0 border-b border-[#d8dde5] px-3 py-2">
+                      <div
+                        aria-label="Filter drinks by how they are served"
+                        className="scrollbar-none flex flex-nowrap gap-2 overflow-x-auto"
+                        role="tablist"
+                      >
+                        {drinkViews.map((view) => {
+                          const isActive = activeDrinkView.id === view.id;
+
+                          return (
+                            <button
+                              aria-selected={isActive}
+                              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-black ${
+                                isActive
+                                  ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                                  : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                              }`}
+                              key={view.id}
+                              onClick={(event) => {
+                                setDrinkView(view.id);
+                                centerMobileTab(event.currentTarget);
+                              }}
+                              role="tab"
+                              type="button"
+                            >
+                              {view.label}
+                              <span
+                                className={`rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+                                  isActive
+                                    ? "bg-white/20 text-white"
+                                    : "bg-[#eef4fa] text-[#1f4d73]"
+                                }`}
+                              >
+                                {view.items.length}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-[#6a7483]">
+                        {activeDrinkView.hint}
+                      </p>
+                    </div>
+
+                    <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+                      {activeDrinkView.items.map((item) => (
+                        <MenuItemCard
+                          key={item.id}
+                          category={item.category}
+                          // The numbers, on the card. Choosing a style used to
+                          // leave nothing on screen to show for it; this is
+                          // what it bought you.
+                          detail={describeDrink(item)}
+                          isSelectDisabled={!canEditMenu}
+                          name={item.name}
+                          onSelect={() => libraryItemActions.startEdit(item.id)}
+                          pictureUrl={item.pictureUrl}
+                        />
+                      ))}
+                      <AddItemCard
+                        onClick={() => setIsNewLibraryItemOpen(true)}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid min-h-0 flex-1 grid-cols-3 gap-2 overflow-y-auto p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
+                    {visibleItems.map((item) => (
+                      <MenuItemCard
+                        key={item.id}
+                        category={item.category}
+                        isSelectDisabled={!canEditMenu}
+                        name={item.name}
+                        onSelect={() => libraryItemActions.startEdit(item.id)}
+                        pictureUrl={item.pictureUrl}
+                      />
+                    ))}
+                    <AddItemCard onClick={() => setIsNewLibraryItemOpen(true)} />
+                  </div>
+                )}
               </div>
             </section>
           </div>

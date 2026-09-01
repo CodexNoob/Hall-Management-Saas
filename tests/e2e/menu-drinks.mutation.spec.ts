@@ -191,6 +191,23 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
       "the signed URL has to be fetchable, not just present"
     );
 
+    // The tick has somewhere to show for itself. Ticking Table used to change
+    // nothing visible on this tab, which is what made the choice feel like it
+    // went nowhere. Now the numbers are on the card...
+    //
+    // Loose on the trailing plural: `formatServiceRule` writes "1 tables"
+    // today, and pinning that would make a wording fix look like a regression.
+    await expect(card.getByText(/2 bottle per 1 table/)).toBeVisible();
+
+    // ...and the sub-tabs are the answer to "where did it go": under Table,
+    // and provably not under Buffet. `role="tab"` separates these pills from
+    // the "Buffet Menu" button in the strip above them.
+    await page.getByRole("tab", { name: /^Table/ }).click();
+    await expect(itemCard(page, name)).toBeVisible();
+
+    await page.getByRole("tab", { name: /^Buffet/ }).click();
+    await expect(itemCard(page, name)).toBeHidden();
+
     // --- and again from a cold page ----------------------------------------
     // The thumbnail above could have come from state the save left behind. This
     // proves the path reached the column and is signed fresh on every read.

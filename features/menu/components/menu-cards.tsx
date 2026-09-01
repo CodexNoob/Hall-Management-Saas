@@ -9,6 +9,7 @@ import { LineIcon } from "@/features/menu/components/menu-shared";
 export function MenuItemCard({
   actions = [],
   category,
+  detail = null,
   isSelectDisabled = false,
   isTicked = false,
   name,
@@ -27,6 +28,15 @@ export function MenuItemCard({
    */
   actions?: ActionsMenuItem[];
   category: string;
+  /**
+   * A second line under the name. The Drink Menu puts the counting rule here -
+   * "2 bottles per table" - because that tab groups by how a drink is served
+   * and the card is the only place the actual numbers can be read.
+   *
+   * Deliberately not on the library grid: a food card says what a dish IS, and
+   * how much of it to cook is a kitchen question that tab does not ask.
+   */
+  detail?: string | null;
   /**
    * Set when the viewer may not edit the item. The card still reads, but stops
    * offering a form that could not save. Ignored without `onSelect`.
@@ -108,8 +118,19 @@ export function MenuItemCard({
           {category}
         </span>
       </div>
-      <div className="flex h-16 min-w-0 items-center justify-center rounded-b-lg border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
-        <span className="line-clamp-3 wrap-break-word">{name}</span>
+      <div className="flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-b-lg border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
+        {/* One line shorter when a detail sits under it, so the footer keeps
+            the height every other card in the grid has. */}
+        <span
+          className={`wrap-break-word ${detail ? "line-clamp-2" : "line-clamp-3"}`}
+        >
+          {name}
+        </span>
+        {detail ? (
+          <span className="line-clamp-1 w-full text-[9px] font-bold leading-3 text-[#6a7483] sm:text-[11px]">
+            {detail}
+          </span>
+        ) : null}
       </div>
     </>
   );
