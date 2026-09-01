@@ -8,10 +8,7 @@ import {
   type EventKitchenLine,
   type EventKitchenResponse
 } from "@/features/events/components/event-manager-shared";
-import {
-  LineName,
-  LineQuantity
-} from "@/features/kitchen/components/kitchen-line-presentation";
+import { LineQuantity } from "@/features/kitchen/components/kitchen-line-presentation";
 import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
 import {
@@ -66,6 +63,12 @@ export type KitchenItemActionInput =
       replacementMenuItemId: string;
     }
   | {
+      action: "replace-add-on";
+      eventId: string;
+      addOnId: string;
+      replacementAddOnId: string;
+    }
+  | {
       action: "standalone-status";
       kitchenEventId: string;
       menuItemId: string;
@@ -100,6 +103,11 @@ type LineActionInput =
       action: "replace-menu-item";
       menuItemId: string;
       replacementMenuItemId: string;
+    }
+  | {
+      action: "replace-add-on";
+      addOnId: string;
+      replacementAddOnId: string;
     };
 
 type KitchenPermissions = KitchenResponse["permissions"];
@@ -111,16 +119,16 @@ type DetailsProps = {
   onClose: () => void;
   onSaveItemAction: (input: KitchenItemActionInput) => Promise<void>;
   /**
-   * Cancels the booking behind this event. Absent for a caller that does not
-   * offer it - a standalone kitchen job is not a booking, and there is nothing
-   * to cancel.
+   * Takes this event off the board. Absent when the caller does not offer it -
+   * without the permission, or on an event it cannot act on.
    *
-   * Cancelling rather than deleting: the event drops off the board and the
-   * calendar, and every record it carries - menu, counts, invoices, activity -
-   * stays where it is. Deleting would take those with it, and a past event is
-   * exactly the one most likely to be invoiced already.
+   * What that means depends on what the event is, and the confirmation says so:
+   * a booking is cancelled, keeping its menu, counts, invoices and activity,
+   * because those are owed to a client and to the books; a standalone kitchen
+   * job is deleted outright, because nothing is owed - it is a note to the
+   * kitchen with no client, no invoice and no place on the calendar.
    */
-  onCancelEvent?: () => Promise<void>;
+  onRemoveEvent?: () => Promise<void>;
   permissions: KitchenPermissions;
   currentWorkerId?: string | null;
   workersOnly?: boolean;
@@ -281,6 +289,7 @@ function DishCard({
   // An add-on line has no menu item id, and `KitchenItemStatus` is keyed by
   // one, so there is nowhere to record its progress.
   const menuItemId = line.menuItemId;
+  const replaceableId = line.menuItemId ?? line.addOnId;
   const canTick = permissions.canUpdateKitchenStatus && Boolean(menuItemId);
 
   function advance() {
@@ -393,11 +402,11 @@ function DishCard({
           invalid markup and a second meaning for the same click. Status reset
           deliberately has no visible control here; double-clicking the card
           opens its confirmation. */}
-      {menuItemId &&
+      {replaceableId &&
       (permissions.canAssignWorkers ||
         (permissions.canUpdateKitchenStatus && canReplace)) ? (
         <div className="mt-1 flex flex-col gap-1">
-          {permissions.canAssignWorkers ? (
+          {permissions.canAssignWorkers && menuItemId ? (
             <label className="block">
               <span className="sr-only">Assign a worker to {line.name}</span>
               <select
@@ -458,7 +467,7 @@ function KitchenEventDetails({
   event,
   isSaving,
   onClose,
-  onCancelEvent,
+  onRemoveEvent,
   onSaveItemAction,
   permissions,
   currentWorkerId,
@@ -534,11 +543,11 @@ function KitchenEventDetails({
   // reading the refreshed sheet rather than the row as it was when it opened.
   const [replaceLineId, setReplaceLineId] = useState<string | null>(null);
   const replaceLine =
-    allDishes.find((line) => line.id === replaceLineId) ?? null;
+    (sheet?.lines ?? []).find((line) => line.id === replaceLineId) ?? null;
   // A dish appears once per menu, so the ones already here cannot go on again.
   const usedMenuItemIds = new Set(
     (sheet?.lines ?? [])
-      .map((line) => line.menuItemId)
+      .map((line) => line.menuItemId ?? line.addOnId)
       .filter((value): value is string => Boolean(value))
   );
   // The board already carries this event's summary, from the same builder the
@@ -593,13 +602,22 @@ function KitchenEventDetails({
    * else has since saved it - are the ones the person needs to read.
    */
   async function replaceDish(replacementMenuItemId: string) {
-    const menuItemId = replaceLine?.menuItemId;
+    if (!replaceLine) return;
 
-    if (!menuItemId) return;
+    if (replaceLine.kind === "AddOn" && replaceLine.addOnId) {
+      await saveForEvent({
+        action: "replace-add-on",
+        addOnId: replaceLine.addOnId,
+        replacementAddOnId: replacementMenuItemId
+      });
+      return;
+    }
+
+    if (!replaceLine.menuItemId) return;
 
     await saveForEvent({
       action: "replace-menu-item",
-      menuItemId,
+      menuItemId: replaceLine.menuItemId,
       replacementMenuItemId
     });
   }
@@ -660,26 +678,27 @@ function KitchenEventDetails({
               tall as the dishes and the aside follows it down.
             */}
             <div className="lg:flex lg:items-stretch">
-            <aside className="mb-4 border-l-8 border-[#2f80ed] bg-[#dceaff] px-5 py-10 lg:mb-0 lg:w-72 lg:shrink-0">
-              <p className="text-xs font-black uppercase tracking-[0.08em] text-[#516071]">
-                {event.category}
-              </p>
-              <h3 className="mt-5 text-3xl font-black leading-tight text-[#17202a]">
-                {event.clientName ?? event.title}
-              </h3>
-              <p className="mt-3 text-lg font-black text-[#17202a]">
-                {sheet?.counts.couples
-                  ? `${sheet.counts.couples} couples`
-                  : `${event.totalGuests} portions`}
-              </p>
-              <p className="mt-6 text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                {event.eventType ?? `${mealLabel(sheet?.meal ?? "Main")} meal`}
-              </p>
-              <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
-                Serves {formatServeTime(event.startsAt)}
-              </p>
+              <aside className="mb-4 border-l-8 border-[#2f80ed] bg-[#dceaff] px-5 py-10 lg:mb-0 lg:w-72 lg:shrink-0">
+                <p className="text-xs font-black uppercase tracking-[0.08em] text-[#516071]">
+                  {event.category}
+                </p>
+                <h3 className="mt-5 text-3xl font-black leading-tight text-[#17202a]">
+                  {event.clientName ?? event.title}
+                </h3>
+                <p className="mt-3 text-lg font-black text-[#17202a]">
+                  {sheet?.counts.couples
+                    ? `${sheet.counts.couples} couples`
+                    : `${event.totalGuests} portions`}
+                </p>
+                <p className="mt-6 text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                  {event.eventType ??
+                    `${mealLabel(sheet?.meal ?? "Main")} meal`}
+                </p>
+                <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
+                  Serves {formatServeTime(event.startsAt)}
+                </p>
 
-              {/*
+                {/*
                 Cancel, not delete. The booking leaves the board and the
                 calendar and everything it carries stays - menu, counts,
                 invoices, activity - which is what makes it safe to offer on an
@@ -687,41 +706,42 @@ function KitchenEventDetails({
                 The wording on the button is the client's; the dialog behind it
                 is where the distinction is spelled out.
               */}
-              {onCancelEvent ? (
-                <button
-                  className="mt-8 h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={isSaving}
-                  onClick={() => setIsConfirmingCancel(true)}
-                  type="button"
+                {onRemoveEvent ? (
+                  <button
+                    className="mt-8 h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={isSaving}
+                    onClick={() => setIsConfirmingCancel(true)}
+                    type="button"
+                  >
+                    Delete Event
+                  </button>
+                ) : null}
+              </aside>
+
+              {/* The other half of the row: everything that is not the aside. */}
+              <div className="min-w-0 lg:flex-1">
+                <div
+                  className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+                    hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
+                  }`}
                 >
-                  Delete Event
-                </button>
-              ) : null}
-            </aside>
+                  {event.past ? <span>Past event</span> : null}
+                  {event.past ? (
+                    <span className="text-white/70" aria-hidden="true">
+                      •
+                    </span>
+                  ) : null}
+                  <span>
+                    {event.status ??
+                      (hold ? "On hold - not confirmed" : "Kitchen")}
+                  </span>
+                  <span className="text-white/70" aria-hidden="true">
+                    •
+                  </span>
+                  <span>{event.menuStatus}</span>
+                </div>
 
-            {/* The other half of the row: everything that is not the aside. */}
-            <div className="min-w-0 lg:flex-1">
-            <div
-              className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
-                hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
-              }`}
-            >
-              {event.past ? <span>Past event</span> : null}
-              {event.past ? (
-                <span className="text-white/70" aria-hidden="true">
-                  •
-                </span>
-              ) : null}
-              <span>
-                {event.status ?? (hold ? "On hold - not confirmed" : "Kitchen")}
-              </span>
-              <span className="text-white/70" aria-hidden="true">
-                •
-              </span>
-              <span>{event.menuStatus}</span>
-            </div>
-
-            {/*
+                {/*
               `min-h-full`, not `h-full`. The panel sits in a row stretched to
               the aside's height, and `overflow-hidden` is here to keep the
               border square around its contents - so pinning it to exactly the
@@ -730,273 +750,292 @@ function KitchenEventDetails({
               the footer were cut off the bottom. A minimum fills the row when
               there is little to show and gets out of the way when there is more.
             */}
-            <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
-              <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
-                <StatTile
-                  label="Serves"
-                  note={
-                    event.startsAt ? "Event start time" : "No start time set"
-                  }
-                  tone="blue"
-                  value={formatServeTime(event.startsAt)}
-                />
-                <StatTile
-                  label="Portions"
-                  note={
-                    sheet && sheet.counts.waiters > 0
-                      ? `${sheet.counts.waiters} waiters not counted`
-                      : "Guests, waiters excluded"
-                  }
-                  value={event.totalGuests}
-                />
-                <StatTile
-                  label="Prepared"
-                  note={
-                    summary
-                      ? `${summary.pending} pending · ${summary.notStarted} not started`
-                      : "No menu behind this event"
-                  }
-                  value={
-                    summary ? `${summary.complete}/${summary.dishes}` : "—"
-                  }
-                />
-                <StatTile
-                  label="Needs attention"
-                  note={
-                    !summary
-                      ? "Nothing to count"
-                      : summary.needsAttention === 0
-                        ? "Every dish has a quantity"
-                        : "Dishes with no quantity to cook to"
-                  }
-                  value={summary ? summary.needsAttention : "—"}
-                />
-              </div>
-
-              {summary ? (
-                <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                      Dish workflow
-                    </h3>
-                    <p className="text-xs font-semibold text-[#64748b]">
-                      Tap a dish card to move it forward
-                    </p>
-                  </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <WorkflowStep
-                      label="Not started"
-                      tone="none"
-                      value={summary.notStarted}
+                <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
+                  <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+                    <StatTile
+                      label="Serves"
+                      note={
+                        event.startsAt
+                          ? "Event start time"
+                          : "No start time set"
+                      }
+                      tone="blue"
+                      value={formatServeTime(event.startsAt)}
                     />
-                    <WorkflowStep
-                      label="Pending / In prep"
-                      tone="pending"
-                      value={summary.pending}
+                    <StatTile
+                      label="Portions"
+                      note={
+                        sheet && sheet.counts.waiters > 0
+                          ? `${sheet.counts.waiters} waiters not counted`
+                          : "Guests, waiters excluded"
+                      }
+                      value={event.totalGuests}
                     />
-                    <WorkflowStep
-                      label="Complete / Ready"
-                      tone="complete"
-                      value={summary.complete}
+                    <StatTile
+                      label="Prepared"
+                      note={
+                        summary
+                          ? `${summary.pending} pending · ${summary.notStarted} not started`
+                          : "No menu behind this event"
+                      }
+                      value={
+                        summary ? `${summary.complete}/${summary.dishes}` : "—"
+                      }
+                    />
+                    <StatTile
+                      label="Needs attention"
+                      note={
+                        !summary
+                          ? "Nothing to count"
+                          : summary.needsAttention === 0
+                            ? "Every dish has a quantity"
+                            : "Dishes with no quantity to cook to"
+                      }
+                      value={summary ? summary.needsAttention : "—"}
                     />
                   </div>
-                </div>
-              ) : null}
 
-              {/* Before the counting problems, because this one is about work
-                  that is not on this sheet at all: every number above is the
-                  Main meal, and the tiles give no hint that there is more. */}
-              {otherMeals.length > 0 ? (
-                <p
-                  className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
-                  role="status"
-                >
-                  {formatOtherMeals(otherMeals)}{" "}
-                  {otherMeals.length === 1 ? "is" : "are"} not shown here. This
-                  sheet is the {mealLabel(sheet?.meal ?? "Main")} meal only.
-                </p>
-              ) : null}
-
-              {summary && summary.needsAttention > 0 ? (
-                <p
-                  className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
-                  role="status"
-                >
-                  {summary.needsAttention} dish
-                  {summary.needsAttention === 1 ? "" : "es"} cannot be counted
-                  yet.
-                  {summary.unresolvedBases.includes("Tables")
-                    ? " Draw the dining plan so per-table rules have a table count."
-                    : " Set a service style on the Menu tab, or a counting rule in the menu library."}
-                </p>
-              ) : null}
-
-              {!hasSheet ? (
-                <div className="p-4">
-                  <AsyncState
-                    emptyMessage="This kitchen event does not have any dishes to track yet."
-                    emptyTitle="No production sheet"
-                    isEmpty
-                  />
-                </div>
-              ) : !sheet && (kitchenQuery.isLoading || kitchenQuery.error) ? (
-                <div className="p-4">
-                  <AsyncState
-                    error={kitchenQuery.error}
-                    isLoading={kitchenQuery.isLoading}
-                    onRetry={() => void kitchenQuery.refetch()}
-                  />
-                </div>
-              ) : allDishes.length === 0 ? (
-                <div className="p-4">
-                  <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
-                    <p className="text-sm font-black text-[#111827]">
-                      {workersOnly
-                        ? "No assigned dishes on this menu yet"
-                        : "No dishes on this menu yet"}
-                    </p>
-                    <p className="mt-3 text-xs text-[#64748b]">
-                      {workersOnly
-                        ? "Assign a worker to a dish to make it appear in this filtered view."
-                        : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
+                  {summary ? (
+                    <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
+                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                         <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                          Worker ownership
+                          Dish workflow
                         </h3>
-                        <p className="mt-1 text-xs text-[#64748b]">
-                          {assignedToMeCount} assigned to me · {unassignedCount}{" "}
-                          unassigned · {allDishes.length} total dishes
+                        <p className="text-xs font-semibold text-[#64748b]">
+                          Tap a dish card to move it forward
                         </p>
                       </div>
-                      <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
-                        {[
-                          { id: "all", label: "All dishes" },
-                          {
-                            id: "mine",
-                            label: currentWorkerId
-                              ? "My assigned"
-                              : "Assigned dishes"
-                          },
-                          { id: "unassigned", label: "Unassigned" }
-                        ].map((item) => (
-                          <button
-                            className={`h-9 border px-3 text-xs font-black transition ${
-                              assignmentFilter === item.id
-                                ? "border-[#1f4d73] bg-[#1f4d73] text-white"
-                                : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
-                            }`}
-                            key={item.id}
-                            onClick={() =>
-                              setAssignmentFilter(item.id as AssignmentFilter)
-                            }
-                            type="button"
-                          >
-                            {item.label}
-                          </button>
-                        ))}
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <WorkflowStep
+                          label="Not started"
+                          tone="none"
+                          value={summary.notStarted}
+                        />
+                        <WorkflowStep
+                          label="Pending / In prep"
+                          tone="pending"
+                          value={summary.pending}
+                        />
+                        <WorkflowStep
+                          label="Complete / Ready"
+                          tone="complete"
+                          value={summary.complete}
+                        />
                       </div>
                     </div>
-                  </div>
+                  ) : null}
 
-                  {visibleDishes.length === 0 ? (
+                  {/* Before the counting problems, because this one is about work
+                  that is not on this sheet at all: every number above is the
+                  Main meal, and the tiles give no hint that there is more. */}
+                  {otherMeals.length > 0 ? (
+                    <p
+                      className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                      role="status"
+                    >
+                      {formatOtherMeals(otherMeals)}{" "}
+                      {otherMeals.length === 1 ? "is" : "are"} not shown here.
+                      This sheet is the {mealLabel(sheet?.meal ?? "Main")} meal
+                      only.
+                    </p>
+                  ) : null}
+
+                  {summary && summary.needsAttention > 0 ? (
+                    <p
+                      className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                      role="status"
+                    >
+                      {summary.needsAttention} dish
+                      {summary.needsAttention === 1 ? "" : "es"} cannot be
+                      counted yet.
+                      {summary.unresolvedBases.includes("Tables")
+                        ? " Draw the dining plan so per-table rules have a table count."
+                        : " Set a service style on the Menu tab, or a counting rule in the menu library."}
+                    </p>
+                  ) : null}
+
+                  {!hasSheet ? (
+                    <div className="p-4">
+                      <AsyncState
+                        emptyMessage="This kitchen event does not have any dishes to track yet."
+                        emptyTitle="No production sheet"
+                        isEmpty
+                      />
+                    </div>
+                  ) : !sheet &&
+                    (kitchenQuery.isLoading || kitchenQuery.error) ? (
+                    <div className="p-4">
+                      <AsyncState
+                        error={kitchenQuery.error}
+                        isLoading={kitchenQuery.isLoading}
+                        onRetry={() => void kitchenQuery.refetch()}
+                      />
+                    </div>
+                  ) : allDishes.length === 0 ? (
                     <div className="p-4">
                       <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
                         <p className="text-sm font-black text-[#111827]">
-                          No dishes in this filter
+                          {workersOnly
+                            ? "No assigned dishes on this menu yet"
+                            : "No dishes on this menu yet"}
                         </p>
                         <p className="mt-3 text-xs text-[#64748b]">
-                          Choose another ownership filter or assign workers to
-                          the dish cards below.
+                          {workersOnly
+                            ? "Assign a worker to a dish to make it appear in this filtered view."
+                            : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-5 bg-[#dceaff] p-3 sm:p-4">
-                      {/*
+                    <>
+                      <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                              Worker ownership
+                            </h3>
+                            <p className="mt-1 text-xs text-[#64748b]">
+                              {assignedToMeCount} assigned to me ·{" "}
+                              {unassignedCount} unassigned · {allDishes.length}{" "}
+                              total dishes
+                            </p>
+                          </div>
+                          <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
+                            {[
+                              { id: "all", label: "All dishes" },
+                              {
+                                id: "mine",
+                                label: currentWorkerId
+                                  ? "My assigned"
+                                  : "Assigned dishes"
+                              },
+                              { id: "unassigned", label: "Unassigned" }
+                            ].map((item) => (
+                              <button
+                                className={`h-9 border px-3 text-xs font-black transition ${
+                                  assignmentFilter === item.id
+                                    ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                                }`}
+                                key={item.id}
+                                onClick={() =>
+                                  setAssignmentFilter(
+                                    item.id as AssignmentFilter
+                                  )
+                                }
+                                type="button"
+                              >
+                                {item.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {visibleDishes.length === 0 ? (
+                        <div className="p-4">
+                          <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
+                            <p className="text-sm font-black text-[#111827]">
+                              No dishes in this filter
+                            </p>
+                            <p className="mt-3 text-xs text-[#64748b]">
+                              Choose another ownership filter or assign workers
+                              to the dish cards below.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-5 bg-[#dceaff] p-3 sm:p-4">
+                          {/*
                         Plated first, then buffet, then anything with no style -
                         the order `dishSections` is built in. The headings are
                         shown rather than screen-reader-only because the two are
                         cooked and served differently, and a single unbroken
                         grid left a cook to work out which half was which.
                       */}
-                      {dishSections.map((section) => (
-                        <section
-                          aria-labelledby={`kitchen-${section.id}`}
-                          key={section.id}
-                        >
-                          <h3
-                            className="mb-2.5 border-b border-[#c8daf2] pb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516071]"
-                            id={`kitchen-${section.id}`}
-                          >
-                            {section.label}
-                          </h3>
-                          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                            {section.dishes.map((line) => (
-                              <DishCard
-                                canReplace={!isStandalone}
-                                isSaving={isSaving}
-                                key={line.id}
-                                line={line}
-                                onReplace={(replacing) =>
-                                  setReplaceLineId(replacing.id)
-                                }
-                                onSaveItemAction={saveForEvent}
-                                permissions={permissions}
-                                workers={workers}
-                              />
-                            ))}
-                          </div>
-                        </section>
-                      ))}
-                    </div>
+                          {dishSections.map((section) => (
+                            <section
+                              aria-labelledby={`kitchen-${section.id}`}
+                              key={section.id}
+                            >
+                              <h3
+                                className="mb-2.5 border-b border-[#c8daf2] pb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516071]"
+                                id={`kitchen-${section.id}`}
+                              >
+                                {section.label}
+                              </h3>
+                              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                                {section.dishes.map((line) => (
+                                  <DishCard
+                                    canReplace={!isStandalone}
+                                    isSaving={isSaving}
+                                    key={line.id}
+                                    line={line}
+                                    onReplace={(replacing) =>
+                                      setReplaceLineId(replacing.id)
+                                    }
+                                    onSaveItemAction={saveForEvent}
+                                    permissions={permissions}
+                                    workers={workers}
+                                  />
+                                ))}
+                              </div>
+                            </section>
+                          ))}
+                        </div>
+                      )}
+                    </>
                   )}
-                </>
-              )}
 
-              {addOns.length > 0 ? (
-                <section className="border-t border-[#d8dde5] px-3 py-3 sm:px-4">
-                  <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                    Add-ons
-                  </h3>
-                  {/* Statusless on purpose: KitchenItemStatus is keyed by menu
+                  {addOns.length > 0 ? (
+                    <section className="border-t border-[#c8daf2] bg-[#dceaff] px-3 py-3 sm:px-4">
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                        Add-ons
+                      </h3>
+                      {/* Statusless on purpose: KitchenItemStatus is keyed by menu
                     item, so an add-on line has nowhere to record one. */}
-                  <ul className="mt-2 grid gap-2 sm:grid-cols-2">
-                    {addOns.map((line) => (
-                      <li
-                        className="flex min-w-0 items-center gap-2.5 rounded-lg border border-[#d8dde5] bg-white px-3 py-2"
-                        key={line.id}
-                      >
-                        <LineName line={line} />
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
+                      <ul className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                        {addOns.map((line) => (
+                          <li className="min-w-0" key={line.id}>
+                            <DishCard
+                              canReplace={!isStandalone}
+                              isSaving={isSaving}
+                              line={line}
+                              onReplace={(replacing) =>
+                                setReplaceLineId(replacing.id)
+                              }
+                              onSaveItemAction={saveForEvent}
+                              permissions={permissions}
+                              workers={workers}
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
 
-              <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
-                {permissions.canUpdateKitchenStatus ? (
-                  <p>
-                    Click a dish to move it on — not started, then pending, then
-                    complete. Double-click to put it back to not started.
-                  </p>
-                ) : null}
-                <p className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}>
-                  Quantities come from the counting rules on the event&rsquo;s
-                  Menu tab.
-                  {permissions.canUpdateKitchenStatus
-                    ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
-                    : " That tab is also where dishes are added and removed."}
-                </p>
-              </footer>
-            </div>
-            </div>
+                  <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
+                    {permissions.canUpdateKitchenStatus ? (
+                      <p>
+                        Click a dish to move it on — not started, then pending,
+                        then complete. Double-click to put it back to not
+                        started.
+                      </p>
+                    ) : null}
+                    <p
+                      className={
+                        permissions.canUpdateKitchenStatus ? "mt-1" : ""
+                      }
+                    >
+                      Quantities come from the counting rules on the
+                      event&rsquo;s Menu tab.
+                      {permissions.canUpdateKitchenStatus
+                        ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
+                        : " That tab is also where dishes are added and removed."}
+                    </p>
+                  </footer>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -1019,18 +1058,30 @@ function KitchenEventDetails({
         the cancellation itself does not come back.
       */}
       <ConfirmDialog
-        confirmLabel="Cancel this event"
-        description={`Cancel “${event.clientName ?? event.title}”? It leaves the kitchen board and the calendar, and everything it holds stays in the system - menu, guest counts, invoices and history. Cancelling cannot be undone from here.`}
-        fallbackErrorMessage="The event could not be cancelled. Please try again."
+        confirmLabel={
+          isStandalone ? "Delete this kitchen event" : "Cancel this event"
+        }
+        description={
+          isStandalone
+            ? `Delete “${event.title}”? A kitchen event belongs to no booking, so this removes it outright, along with any progress recorded against its dishes. It cannot be undone.`
+            : `Cancel “${event.clientName ?? event.title}”? It leaves the kitchen board and the calendar, and everything it holds stays in the system - menu, guest counts, invoices and history. Cancelling cannot be undone from here.`
+        }
+        fallbackErrorMessage={
+          isStandalone
+            ? "The kitchen event could not be deleted. Please try again."
+            : "The event could not be cancelled. Please try again."
+        }
         onClose={() => setIsConfirmingCancel(false)}
         onConfirm={async () => {
-          await onCancelEvent?.();
+          await onRemoveEvent?.();
           setIsConfirmingCancel(false);
           onClose();
         }}
         open={isConfirmingCancel}
-        pendingLabel="Cancelling…"
-        title="Cancel this event?"
+        pendingLabel={isStandalone ? "Deleting…" : "Cancelling…"}
+        title={
+          isStandalone ? "Delete this kitchen event?" : "Cancel this event?"
+        }
       />
     </>
   );

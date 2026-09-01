@@ -2,6 +2,7 @@ import "server-only";
 
 import { resolveReplacementStyle } from "@/features/kitchen/components/kitchen-shared";
 import { DEFAULT_MEAL } from "@/features/kitchen/server/kitchen-sheet";
+import { isDrinkKind } from "@/features/menu/lib/service-style";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -33,6 +34,7 @@ export type ReplaceKitchenDishResult =
   | { outcome: "line-not-found" }
   /// The dish going on is not in this organization's library, or is retired.
   | { outcome: "replacement-not-found" }
+  | { outcome: "incompatible-section" }
   | { outcome: "already-on-menu"; name: string }
   /// Somebody else saved this menu first.
   | { outcome: "conflict" };
@@ -57,6 +59,7 @@ export async function replaceKitchenDish({
     select: {
       id: true,
       name: true,
+      kind: true,
       services: { select: { serviceStyle: true } }
     }
   });
@@ -86,7 +89,8 @@ export async function replaceKitchenDish({
         id: true,
         menuItemId: true,
         serviceStyle: true,
-        itemName: true
+        itemName: true,
+        menuItem: { select: { kind: true } }
       }
     });
 
@@ -97,6 +101,19 @@ export async function replaceKitchenDish({
     if (swapLines.some((entry) => entry.menuItemId === replacement.id)) {
       return { outcome: "already-on-menu" as const, name: replacement.name };
     }
+
+    const originalIsDrink = isDrinkKind(line.menuItem?.kind ?? "");
+    const replacementIsDrink = isDrinkKind(replacement.kind);
+    const keepsSection = originalIsDrink
+      ? replacementIsDrink
+      : !replacementIsDrink &&
+        (line.serviceStyle !== "Buffet" && line.serviceStyle !== "Plated"
+          ? true
+          : replacement.services.some(
+              (service) => service.serviceStyle === line.serviceStyle
+            ));
+
+    if (!keepsSection) return { outcome: "incompatible-section" as const };
 
     const serviceStyle = resolveReplacementStyle(
       line.serviceStyle,
@@ -198,6 +215,89 @@ export async function replaceKitchenDish({
       outcome: "replaced" as const,
       name: replacement.name,
       serviceStyle
+    };
+  });
+}
+
+/** Replaces an add-on with another active add-on from the same tenant. */
+export async function replaceKitchenAddOn({
+  actorId,
+  organizationId,
+  eventId,
+  addOnId,
+  replacementAddOnId
+}: {
+  actorId: string;
+  organizationId: string;
+  eventId: string;
+  addOnId: string;
+  replacementAddOnId: string;
+}): Promise<ReplaceKitchenDishResult> {
+  const replacement = await prisma.addOn.findFirst({
+    where: { id: replacementAddOnId, organizationId, isActive: true },
+    select: { id: true, name: true }
+  });
+
+  if (!replacement) return { outcome: "replacement-not-found" };
+
+  return prisma.$transaction(async (transaction) => {
+    const menu = await transaction.eventMenu.findUnique({
+      where: { eventId_meal: { eventId, meal: DEFAULT_MEAL } },
+      select: { id: true, version: true }
+    });
+    if (!menu) return { outcome: "line-not-found" as const };
+
+    const swapLines = await transaction.eventMenuLine.findMany({
+      where: {
+        eventMenuId: menu.id,
+        addOnId: { in: [addOnId, replacementAddOnId] }
+      },
+      select: { id: true, addOnId: true, itemName: true }
+    });
+    const line = swapLines.find((entry) => entry.addOnId === addOnId);
+    if (!line) return { outcome: "line-not-found" as const };
+    if (swapLines.some((entry) => entry.addOnId === replacement.id)) {
+      return { outcome: "already-on-menu" as const, name: replacement.name };
+    }
+
+    const bumped = await transaction.eventMenu.updateMany({
+      where: { id: menu.id, version: menu.version },
+      data: { version: { increment: 1 } }
+    });
+    if (bumped.count === 0) return { outcome: "conflict" as const };
+
+    await transaction.eventMenuLine.update({
+      where: { id: line.id },
+      data: {
+        addOnId: replacement.id,
+        itemName: line.itemName === null ? null : replacement.name,
+        notes: null,
+        addedById: actorId
+      }
+    });
+
+    const remaining = await transaction.eventMenuLine.findMany({
+      where: { eventMenuId: menu.id },
+      select: { addOnId: true }
+    });
+    await transaction.event.update({
+      where: { id: eventId, organizationId },
+      data: {
+        addOnIds: [
+          ...new Set(
+            remaining
+              .map((entry) => entry.addOnId)
+              .filter((value): value is string => Boolean(value))
+          )
+        ],
+        updatedById: actorId
+      }
+    });
+
+    return {
+      outcome: "replaced" as const,
+      name: replacement.name,
+      serviceStyle: null
     };
   });
 }

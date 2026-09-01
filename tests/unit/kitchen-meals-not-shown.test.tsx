@@ -179,6 +179,7 @@ describe("the meals a kitchen surface is not showing", () => {
             canAssignWorkers: true,
             canUpdateKitchenStatus: true,
             canAddKitchenEvents: true,
+            canCancelEvents: true,
             seesWholeBoard: true
           }}
           workers={[]}
@@ -212,6 +213,7 @@ describe("the meals a kitchen surface is not showing", () => {
             canAssignWorkers: true,
             canUpdateKitchenStatus: true,
             canAddKitchenEvents: true,
+            canCancelEvents: true,
             seesWholeBoard: true
           }}
           workers={[]}

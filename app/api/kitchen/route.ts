@@ -1,7 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
+import {
+  replaceKitchenAddOn,
+  replaceKitchenDish
+} from "@/features/kitchen/server/kitchen-dish-replacement";
 import {
   boardStatusSelect,
   buildKitchenSheet,
@@ -134,6 +137,12 @@ const kitchenMutationSchema = z.discriminatedUnion("action", [
     /// The dish going on in its place. Dishes only: a line is either a dish or
     /// an add-on, and an add-on carries neither a style nor a status.
     replacementMenuItemId: z.string().uuid()
+  }),
+  z.object({
+    action: z.literal("replace-add-on"),
+    eventId: z.string().uuid(),
+    addOnId: z.string().uuid(),
+    replacementAddOnId: z.string().uuid()
   })
 ]);
 
@@ -447,7 +456,7 @@ export async function GET(request: Request) {
     // Not in the batch above, because it needs the answer that batch produces:
     // the feed is scoped to the events this caller is cooking on, and asking
     // before the roster row exists would scope a brand new cook to nothing.
-    const notifications = await listKitchenNotifications(
+    const notificationFeed = await listKitchenNotifications(
       actor.organizationId,
       visibility
     );
@@ -612,17 +621,27 @@ export async function GET(request: Request) {
       };
     });
 
-    // The board is gated on `kitchen.read`; what the board lets you DO is three
+    // The board is gated on `kitchen.read`; what the board lets you DO is four
     // further questions, each asked of the resolver rather than inferred from
     // one "is this an administrator" flag. The client renders buttons from these
     // - and the PATCH handler below re-asks every one of them, because a hidden
     // button is a courtesy and the 403 is the control.
-    const [canAssignWorkers, canUpdateKitchenStatus, canAddKitchenEvents] =
-      await Promise.all([
-        hasPermission(actor, "kitchen.worker.assign"),
-        hasPermission(actor, "kitchen.status.update"),
-        hasPermission(actor, "kitchen.event.create")
-      ]);
+    //
+    // `event.status.update` is not a kitchen permission and is deliberately not
+    // one: cancelling ends a booking for the whole business, so it is the
+    // booking lifecycle's own permission that decides it, asked here only so the
+    // board can avoid offering a cook a button that will refuse them.
+    const [
+      canAssignWorkers,
+      canUpdateKitchenStatus,
+      canAddKitchenEvents,
+      canCancelEvents
+    ] = await Promise.all([
+      hasPermission(actor, "kitchen.worker.assign"),
+      hasPermission(actor, "kitchen.status.update"),
+      hasPermission(actor, "kitchen.event.create"),
+      hasPermission(actor, "event.status.update")
+    ]);
 
     // The menus a kitchen event can be raised against. A kitchen event is a
     // production job rather than a booking - "cook this menu for this many
@@ -686,7 +705,10 @@ export async function GET(request: Request) {
       }),
       workers: workers.map(({ id, name, isStaff }) => ({ id, name, isStaff })),
       currentWorkerId,
-      notifications,
+      notifications: notificationFeed.notifications,
+      // Whether the feed was cut short, so the drawer can say so rather than
+      // letting a full-looking list stand for the whole history.
+      notificationsHasMore: notificationFeed.hasMore,
       menus: menuOptions.map((menu) => ({
         id: menu.id,
         name: menu.name,
@@ -702,6 +724,7 @@ export async function GET(request: Request) {
         canAssignWorkers,
         canUpdateKitchenStatus,
         canAddKitchenEvents,
+        canCancelEvents,
         // Not a capability - a description of what was just sent. The board uses
         // it to word an empty day honestly: "nothing scheduled" is false for a
         // cook whose colleagues are cooking eight dishes they cannot see, and
@@ -855,6 +878,52 @@ export async function POST(request: Request) {
         kitchenNote: kitchenEvent.kitchenNote
       }
     });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+}
+
+/**
+ * Removes a standalone kitchen job.
+ *
+ * A genuine delete, unlike a booking - which is cancelled, because its records
+ * are owed to a client and to the books. Nothing is owed here: a standalone job
+ * is a note to the kitchen saying "cook this menu for this many people", with no
+ * client, no invoice and no place on the calendar. Cancelling one would leave a
+ * row nobody can read and nothing can act on.
+ *
+ * Gated on `kitchen.event.create`, the permission that adds one. Whoever may put
+ * a job on the board may take it back off; splitting the two would leave a
+ * kitchen able to create work it cannot withdraw.
+ *
+ * The item statuses go with it through the foreign key's cascade, so a job that
+ * was half cooked leaves nothing behind.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const actor = await authorize(request, "kitchen.event.create");
+    // A query parameter rather than a body: a DELETE carrying one is accepted
+    // unevenly by proxies, and there is a single id to carry.
+    const kitchenEventId = z
+      .string()
+      .uuid("Choose a kitchen event to remove.")
+      .parse(new URL(request.url).searchParams.get("kitchenEventId"));
+
+    // deleteMany, not delete: the organization travels in the filter, so a job
+    // belonging to another tenant matches nothing and reports back as not found
+    // rather than being removed.
+    const removed = await prisma.kitchenStandaloneEvent.deleteMany({
+      where: { id: kitchenEventId, organizationId: actor.organizationId }
+    });
+
+    if (removed.count === 0) {
+      return NextResponse.json(
+        { error: "That kitchen event was not found." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ deleted: true });
   } catch (error) {
     return createApiErrorResponse(error);
   }
@@ -1127,7 +1196,11 @@ export async function PATCH(request: Request) {
     // is a different dish. Whoever runs the board runs the production; asking
     // for `canCreateBooking` here - what the Menu tab requires - would hand the
     // swap to everyone except the kitchen it exists for.
-    if (input.action === "replace-menu-item" && !canUpdateKitchenStatus) {
+    if (
+      (input.action === "replace-menu-item" ||
+        input.action === "replace-add-on") &&
+      !canUpdateKitchenStatus
+    ) {
       return NextResponse.json(
         {
           error: "You do not have permission to change what the kitchen cooks."
@@ -1149,16 +1222,8 @@ export async function PATCH(request: Request) {
       },
       select: { id: true, hallId: true, eventDate: true }
     });
-    const menuItem = await prisma.menuItem.findFirst({
-      where: { id: input.menuItemId, organizationId: actor.organizationId },
-      select: { id: true, name: true }
-    });
-
-    if (!event || !menuItem) {
-      return NextResponse.json(
-        { error: "Event or menu item not found." },
-        { status: 404 }
-      );
+    if (!event) {
+      return NextResponse.json({ error: "Event not found." }, { status: 404 });
     }
 
     // Scoping the GET alone would be half the fix: an event id is all it takes
@@ -1172,6 +1237,67 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { error: "Past kitchen events are read-only." },
         { status: 409 }
+      );
+    }
+
+    if (input.action === "replace-add-on") {
+      const addOn = await prisma.addOn.findFirst({
+        where: { id: input.addOnId, organizationId: actor.organizationId },
+        select: { id: true, name: true }
+      });
+      if (!addOn) {
+        return NextResponse.json(
+          { error: "Event or add-on not found." },
+          { status: 404 }
+        );
+      }
+
+      const result = await replaceKitchenAddOn({
+        actorId: requireUserActor(actor),
+        organizationId: actor.organizationId,
+        eventId: event.id,
+        addOnId: addOn.id,
+        replacementAddOnId: input.replacementAddOnId
+      });
+      if (result.outcome === "replaced") {
+        return NextResponse.json({
+          replaced: { from: addOn.name, to: result.name, serviceStyle: null }
+        });
+      }
+      if (result.outcome === "already-on-menu") {
+        return NextResponse.json(
+          { error: `${result.name} is already on this menu.` },
+          { status: 409 }
+        );
+      }
+      if (result.outcome === "conflict") {
+        return NextResponse.json(
+          {
+            error:
+              "This menu changed somewhere else while you were looking at it. Reload the board and try again."
+          },
+          { status: 409 }
+        );
+      }
+      return NextResponse.json(
+        {
+          error:
+            result.outcome === "line-not-found"
+              ? `${addOn.name} is not on this event's menu any more. Reload the board.`
+              : "That add-on is no longer in the menu library."
+        },
+        { status: 404 }
+      );
+    }
+
+    const menuItem = await prisma.menuItem.findFirst({
+      where: { id: input.menuItemId, organizationId: actor.organizationId },
+      select: { id: true, name: true }
+    });
+    if (!menuItem) {
+      return NextResponse.json(
+        { error: "Event or menu item not found." },
+        { status: 404 }
       );
     }
 
@@ -1209,6 +1335,13 @@ export async function PATCH(request: Request) {
             error:
               "This menu changed somewhere else while you were looking at it. Reload the board and try again."
           },
+          { status: 409 }
+        );
+      }
+
+      if (result.outcome === "incompatible-section") {
+        return NextResponse.json(
+          { error: "Choose a replacement from the same menu section." },
           { status: 409 }
         );
       }

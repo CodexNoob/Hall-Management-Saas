@@ -16,6 +16,7 @@ import {
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import {
   invalidateAuthenticatedQuery,
+  invalidateAuthenticatedQueryPrefix,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -93,6 +94,10 @@ export function KitchenDashboardPage() {
   );
   const [selectedKitchenEvent, setSelectedKitchenEvent] =
     useState<KitchenEvent | null>(null);
+  // The cancel goes through its own fetch rather than `kitchenMutation`, so it
+  // needs its own pending flag - without one the dialog stayed fully live while
+  // the booking was being ended.
+  const [isCancellingEvent, setIsCancellingEvent] = useState(false);
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
   const [acknowledgingNotificationId, setAcknowledgingNotificationId] =
     useState<string | null>(null);
@@ -103,9 +108,18 @@ export function KitchenDashboardPage() {
     null
   );
 
-  const days = useMemo<KitchenDay[]>(() => {
+  /*
+   * The board's days, and every event on it keyed by id.
+   *
+   * The index is built before the filters rather than read back out of `days`
+   * afterwards, because `days` is what search and workers-only have already
+   * narrowed. An open dialog looks its event up here, so typing in the search
+   * box while it is open no longer leaves it frozen on the copy it opened with.
+   */
+  const { days, eventsById } = useMemo(() => {
     const normalizedSearch = pageSearchQuery.trim().toLowerCase();
     const eventsByDate = new Map<string, KitchenEvent[]>();
+    const eventsById = new Map<string, KitchenEvent>();
     const todayKey = dateKey(today);
     const currentWorkerId = kitchenQuery.data?.currentWorkerId ?? null;
     const visibleAssignedCount = (
@@ -114,10 +128,23 @@ export function KitchenDashboardPage() {
       currentWorkerId
         ? (summary?.assignedToCurrentWorker ?? 0)
         : (summary?.assigned ?? 0);
+    /*
+     * One matcher for both kinds of card.
+     *
+     * The search used to be applied to bookings only, so narrowing the board
+     * left every hand-added kitchen job sitting there - a search that hides
+     * some of what does not match and none of the rest reads as a broken
+     * search rather than a filtered board.
+     */
+    const matchesSearch = (fields: Array<string | null | undefined>) =>
+      !normalizedSearch ||
+      fields
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch);
 
     for (const event of kitchenQuery.data?.events ?? []) {
-      if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
-
       const key = dateKeyFromIso(event.eventDate);
       const current = eventsByDate.get(key) ?? [];
       // `totalGuests` arrives worked out. The browser used to sum the head
@@ -145,17 +172,18 @@ export function KitchenDashboardPage() {
         sheet: event.sheet,
         version: event.version
       };
+
+      eventsById.set(kitchenEvent.id, kitchenEvent);
+
+      if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
+
       if (
-        !normalizedSearch ||
-        [
+        matchesSearch([
           kitchenEvent.title,
           kitchenEvent.category,
-          event.packageName ?? "",
+          event.packageName,
           kitchenEvent.status
-        ]
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedSearch)
+        ])
       ) {
         current.push(kitchenEvent);
       }
@@ -163,10 +191,27 @@ export function KitchenDashboardPage() {
     }
 
     for (const event of kitchenQuery.data?.kitchenEvents ?? []) {
+      const standaloneEvent = { ...event, past: event.dateKey < todayKey };
+
+      eventsById.set(standaloneEvent.id, standaloneEvent);
+
       if (workersOnly && visibleAssignedCount(event.summary) === 0) continue;
 
       const current = eventsByDate.get(event.dateKey) ?? [];
-      current.push({ ...event, past: event.dateKey < todayKey });
+
+      // The kitchen note as well as the name: a standalone job is often
+      // identified by what it is for rather than by what the menu is called.
+      if (
+        matchesSearch([
+          event.title,
+          event.category,
+          event.kitchenNote,
+          event.menuStatus
+        ])
+      ) {
+        current.push(standaloneEvent);
+      }
+
       eventsByDate.set(event.dateKey, current);
     }
 
@@ -177,7 +222,7 @@ export function KitchenDashboardPage() {
     const start = startOfWeek(anchorDate);
     const selectedDateKey = dateKey(anchorDate);
 
-    return Array.from({ length: 28 }, (_, index) => {
+    const days: KitchenDay[] = Array.from({ length: 28 }, (_, index) => {
       const date = addDays(start, index);
       const key = dateKey(date);
       const isSelectedDate = key === selectedDateKey;
@@ -197,6 +242,8 @@ export function KitchenDashboardPage() {
         events: eventsByDate.get(key)
       };
     });
+
+    return { days, eventsById };
   }, [anchorDate, kitchenQuery.data, pageSearchQuery, today, workersOnly]);
 
   const canAddKitchenEvent =
@@ -215,6 +262,7 @@ export function KitchenDashboardPage() {
     canAddKitchenEvents: false,
     canAssignWorkers: false,
     canUpdateKitchenStatus: false,
+    canCancelEvents: false,
     seesWholeBoard: true
   };
   const selectedEventPermissions = selectedKitchenEvent?.past
@@ -225,10 +273,7 @@ export function KitchenDashboardPage() {
       }
     : detailsPermissions;
   const currentSelectedKitchenEvent = selectedKitchenEvent
-    ? (days
-        .flatMap((day) => day.events ?? [])
-        .find((event) => event.id === selectedKitchenEvent.id) ??
-      selectedKitchenEvent)
+    ? (eventsById.get(selectedKitchenEvent.id) ?? selectedKitchenEvent)
     : null;
 
   const navigationStep =
@@ -374,7 +419,10 @@ export function KitchenDashboardPage() {
     // event workspace's Menu tab reads through a route of its own - and answers
     // from cache for two minutes, so without this it would go on offering the
     // dish the kitchen has just taken off.
-    if (input.action === "replace-menu-item") {
+    if (
+      input.action === "replace-menu-item" ||
+      input.action === "replace-add-on"
+    ) {
       invalidateAuthenticatedQuery(`/api/events/${input.eventId}/menu`);
     }
 
@@ -390,7 +438,48 @@ export function KitchenDashboardPage() {
    * board read, so a booking somebody else has changed in the meantime is
    * refused rather than overwritten - the dialog surfaces the refusal.
    */
-  async function cancelEvent(kitchenEvent: KitchenEvent) {
+  /**
+   * Takes an event off the board, by whichever route its kind allows.
+   *
+   * A booking is cancelled and keeps everything it carries. A standalone
+   * kitchen job is deleted: it has no client, no invoice and no calendar
+   * entry, so there is nothing a cancellation would preserve and nothing left
+   * for the row to mean.
+   */
+  async function removeEvent(kitchenEvent: KitchenEvent) {
+    setIsCancellingEvent(true);
+
+    try {
+      if (kitchenEvent.source === "standalone") {
+        await sendStandaloneDelete(kitchenEvent);
+      } else {
+        await sendCancel(kitchenEvent);
+      }
+    } finally {
+      setIsCancellingEvent(false);
+    }
+  }
+
+  async function sendStandaloneDelete(kitchenEvent: KitchenEvent) {
+    const response = await authenticatedFetch(
+      `/api/kitchen?kitchenEventId=${encodeURIComponent(kitchenEvent.id)}`,
+      { method: "DELETE" }
+    );
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+
+      throw new Error(payload?.error ?? "Could not delete this kitchen event.");
+    }
+
+    // Only the board holds these: a standalone job appears on no other screen,
+    // so there is nothing else to invalidate.
+    await kitchenQuery.refetch();
+  }
+
+  async function sendCancel(kitchenEvent: KitchenEvent) {
     const response = await authenticatedFetch(
       `/api/events/${kitchenEvent.id}/status`,
       {
@@ -410,6 +499,21 @@ export function KitchenDashboardPage() {
 
       throw new Error(payload?.error ?? "Could not cancel this event.");
     }
+
+    /*
+     * A cancellation is not only the kitchen's news.
+     *
+     * The booking leaves the calendar's grid and availability, the event list
+     * and the dashboard's schedule as well, and each of those answers from
+     * cache for two minutes - so refetching this board alone would leave the
+     * cancelled event sitting on every other screen until something happened to
+     * reload it. By prefix, because the calendar and dashboard carry their date
+     * range in the query string and this has no way to know which range anybody
+     * is looking at.
+     */
+    invalidateAuthenticatedQueryPrefix("/api/calendar");
+    invalidateAuthenticatedQueryPrefix("/api/events");
+    invalidateAuthenticatedQueryPrefix("/api/dashboard");
 
     await kitchenQuery.refetch();
   }
@@ -497,6 +601,9 @@ export function KitchenDashboardPage() {
         acknowledgmentError={acknowledgmentError}
         acknowledgingId={acknowledgingNotificationId}
         bulkAction={notificationBulkAction}
+        hasMoreNotifications={
+          kitchenQuery.data?.notificationsHasMore ?? false
+        }
         // The same signal the server scopes the feed and gates the bulk
         // endpoints on: a cook is sent only the notifications for events they
         // are cooking on, so the drawer is shaped for that rather than for a
@@ -521,15 +628,26 @@ export function KitchenDashboardPage() {
 
       <KitchenEventDetailsDialog
         event={currentSelectedKitchenEvent}
-        isSaving={kitchenMutation.isPending}
-        onCancelEvent={
-          // Bookings only, and only when the board sent the version the status
-          // route checks against. A standalone kitchen job is not a booking:
-          // there is no reservation to release and nothing to cancel.
-          currentSelectedKitchenEvent &&
-          currentSelectedKitchenEvent.source !== "standalone" &&
-          currentSelectedKitchenEvent.version !== undefined
-            ? () => cancelEvent(currentSelectedKitchenEvent)
+        isSaving={kitchenMutation.isPending || isCancellingEvent}
+        onRemoveEvent={
+          /*
+           * Two different permissions, because these are two different acts.
+           *
+           * Cancelling a booking ends it for the whole business, so it asks the
+           * booking lifecycle's own `event.status.update` - and needs the
+           * version, because the status route refuses a write that cannot name
+           * one. Deleting a standalone job only takes work off this board, so
+           * whoever may add one may remove it.
+           */
+          currentSelectedKitchenEvent
+            ? currentSelectedKitchenEvent.source === "standalone"
+              ? canAddKitchenEvent
+                ? () => removeEvent(currentSelectedKitchenEvent)
+                : undefined
+              : detailsPermissions.canCancelEvents &&
+                  currentSelectedKitchenEvent.version !== undefined
+                ? () => removeEvent(currentSelectedKitchenEvent)
+                : undefined
             : undefined
         }
         onClose={() => setSelectedKitchenEvent(null)}

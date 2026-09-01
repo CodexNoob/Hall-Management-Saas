@@ -1,9 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { KitchenResponse } from "@/features/kitchen/components/kitchen-shared";
 
 type KitchenNotification = KitchenResponse["notifications"][number];
+
+type NotificationFilter = "all" | "unacknowledged" | "acknowledged";
+
+const NOTIFICATION_FILTERS: Array<{
+  id: NotificationFilter;
+  label: string;
+}> = [
+  { id: "all", label: "All" },
+  { id: "unacknowledged", label: "Needs action" },
+  { id: "acknowledged", label: "Acknowledged" }
+];
+
+function matchesFilter(
+  notification: KitchenNotification,
+  filter: NotificationFilter
+) {
+  if (filter === "acknowledged") return notification.acknowledged;
+  if (filter === "unacknowledged") return !notification.acknowledged;
+
+  return true;
+}
 
 function BellIcon() {
   return (
@@ -69,12 +91,15 @@ type KitchenNotificationsDrawerProps = {
   onClearNotifications: () => void | Promise<void>;
   acknowledgingId?: string | null;
   bulkAction?: "acknowledge-all" | "clear" | null;
+  /** Whether older notifications exist beyond the ones in `notifications`. */
+  hasMoreNotifications?: boolean;
 };
 
 export function KitchenNotificationsDrawer({
   acknowledgmentError = null,
   acknowledgingId = null,
   bulkAction = null,
+  hasMoreNotifications = false,
   notifications,
   open,
   seesWholeKitchen = false,
@@ -84,6 +109,13 @@ export function KitchenNotificationsDrawer({
   onClose
 }: KitchenNotificationsDrawerProps) {
   const hasUnacknowledged = notifications.some((item) => !item.acknowledged);
+  const [isConfirmingClear, setIsConfirmingClear] = useState(false);
+  const [filter, setFilter] = useState<NotificationFilter>("all");
+  const countFor = (id: NotificationFilter) =>
+    notifications.filter((item) => matchesFilter(item, id)).length;
+  const visibleNotifications = notifications.filter((item) =>
+    matchesFilter(item, filter)
+  );
 
   if (!open) return null;
 
@@ -137,21 +169,45 @@ export function KitchenNotificationsDrawer({
             <button
               className="h-9 border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={notifications.length === 0 || bulkAction !== null}
-              onClick={() => {
-                if (
-                  window.confirm(
-                    "Clear all kitchen notifications? This cannot be undone."
-                  )
-                ) {
-                  void onClearNotifications();
-                }
-              }}
+              onClick={() => setIsConfirmingClear(true)}
               type="button"
             >
               {bulkAction === "clear" ? "Clearing..." : "Clear notifications"}
             </button>
           </div>
         ) : null}
+
+        {/*
+          A filter for everyone, cooks included. "What has the kitchen already
+          signed off" is a question somebody asks on purpose - about their own
+          work, or about the shift's - and answering it by scrolling one
+          chronological list looking for green chips is not an answer.
+        */}
+        <div
+          aria-label="Notification filter"
+          className="flex shrink-0 gap-2 border-b border-[#e2e8f0] px-5 py-3"
+          role="group"
+        >
+          {NOTIFICATION_FILTERS.map(({ id, label }) => {
+            const isActive = filter === id;
+
+            return (
+              <button
+                aria-pressed={isActive}
+                className={`h-9 border px-3 text-xs font-black transition ${
+                  isActive
+                    ? "border-[#061126] bg-[#061126] text-white"
+                    : "border-[#cbd5e1] bg-white text-[#334155] hover:bg-[#f1f5f9]"
+                }`}
+                key={id}
+                onClick={() => setFilter(id)}
+                type="button"
+              >
+                {label} ({countFor(id)})
+              </button>
+            );
+          })}
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {acknowledgmentError ? (
@@ -163,9 +219,9 @@ export function KitchenNotificationsDrawer({
             </p>
           ) : null}
 
-          {notifications.length ? (
+          {visibleNotifications.length ? (
             <div className="grid gap-3">
-              {notifications.map((notification) => (
+              {visibleNotifications.map((notification) => (
                 <NotificationCard
                   acknowledging={acknowledgingId === notification.id}
                   key={notification.id}
@@ -174,6 +230,20 @@ export function KitchenNotificationsDrawer({
                   seesWholeKitchen={seesWholeKitchen}
                 />
               ))}
+            </div>
+          ) : filter !== "all" ? (
+            /* An empty filter is not an empty feed, and saying "no kitchen
+               notifications" while a hundred sit one tab away would be a lie
+               about the state of the kitchen. */
+            <div className="border border-[#d8dde5] bg-[#f8fafc] px-4 py-8 text-center text-sm font-bold text-[#64748b]">
+              {filter === "acknowledged"
+                ? "Nothing has been acknowledged yet."
+                : "Nothing is waiting to be acknowledged."}
+              <span className="mt-1 block font-semibold text-[#94a3b8]">
+                {notifications.length} notification
+                {notifications.length === 1 ? "" : "s"} in all - choose All to
+                see them.
+              </span>
             </div>
           ) : (
             /* Two different facts. "None" is true for a supervisor, who is sent
@@ -194,8 +264,43 @@ export function KitchenNotificationsDrawer({
               )}
             </div>
           )}
+
+          {/*
+            The feed is capped, and a cap nobody is told about reads as "that is
+            everything" - which is exactly the wrong thing to believe about a
+            list of changes somebody is checking they have not missed.
+          */}
+          {hasMoreNotifications ? (
+            <p className="mt-3 border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2 text-center text-xs font-bold text-[#64748b]">
+              Showing the {notifications.length} most recent. Older
+              notifications are not listed here.
+            </p>
+          ) : null}
         </div>
       </aside>
+
+      {/*
+        A styled confirmation rather than the browser's, which every other
+        destructive action here already uses: this deletes the organization's
+        whole feed, including the audit trail behind each acknowledgment, and a
+        one-line native prompt is a thin thing to stand in front of that.
+      */}
+      <ConfirmDialog
+        // Not "Clear notifications", which is the toolbar button behind it:
+        // two controls a click apart reading the same is how somebody confirms
+        // something they thought they were opening.
+        confirmLabel="Clear all notifications"
+        description={`Clear all ${notifications.length} kitchen notifications? This deletes them for everyone in the organization, along with the record of who acknowledged what. It cannot be undone.`}
+        fallbackErrorMessage="The notifications could not be cleared. Please try again."
+        onClose={() => setIsConfirmingClear(false)}
+        onConfirm={async () => {
+          await onClearNotifications();
+          setIsConfirmingClear(false);
+        }}
+        open={isConfirmingClear}
+        pendingLabel="Clearing…"
+        title="Clear every notification?"
+      />
     </div>
   );
 }

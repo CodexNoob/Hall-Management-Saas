@@ -454,6 +454,14 @@ export type EventKitchenNotification = {
 export type EventKitchenResponse = {
   kitchen: EventKitchenSheet;
   notifications: EventKitchenNotification[];
+  /**
+   * Whether this event has older change notifications than the ones sent.
+   *
+   * The list is capped, and a capped list reported as a total is a wrong
+   * number rather than a small one - "20 notifications sent" on a booking that
+   * has had thirty. The panel says so when this is set.
+   */
+  notificationsHasMore?: boolean;
 };
 
 /**

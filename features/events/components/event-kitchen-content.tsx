@@ -211,16 +211,30 @@ function KitchenSheet({
 }
 
 function KitchenAcknowledgments({
+  hasMore = false,
   notifications
 }: {
+  /** Whether older notifications exist beyond the ones handed in. */
+  hasMore?: boolean;
   notifications: EventKitchenNotification[];
 }) {
   const acknowledgedNotifications = notifications.filter(
     (item) => item.acknowledged
   );
-  const latestAcknowledgment = [...acknowledgedNotifications]
-    .reverse()
-    .find((item) => item.acknowledgedBy);
+  /*
+   * The feed arrives newest first, so the first acknowledged row in it is the
+   * most recent one - this used to reverse the list before looking, and so
+   * reported the OLDEST acknowledgment under a line that says "Last by".
+   *
+   * Ordered by when the change was raised rather than by when it was signed
+   * off, because `acknowledgedAt` reaches the browser already formatted for
+   * display and cannot be sorted on. In practice they agree: a change is
+   * acknowledged after it is raised, and the kitchen works through them in the
+   * order they arrive.
+   */
+  const latestAcknowledgment = acknowledgedNotifications.find(
+    (item) => item.acknowledgedBy
+  );
 
   if (notifications.length === 0) {
     return (
@@ -247,10 +261,19 @@ function KitchenAcknowledgments({
           <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
             Kitchen acknowledgments
           </h3>
+          {/*
+            "Showing the most recent" when the list is cut, rather than
+            "N sent" - the second is not a smaller number than the truth, it is
+            a different one, and this line is read to judge whether the kitchen
+            is on top of an event's changes.
+          */}
           <p className="mt-1 text-xs leading-5 text-[#526173]">
-            {notifications.length} notification
-            {notifications.length === 1 ? "" : "s"} sent ·{" "}
-            {acknowledgedNotifications.length} acknowledged
+            {hasMore
+              ? `Showing the ${notifications.length} most recent`
+              : `${notifications.length} notification${
+                  notifications.length === 1 ? "" : "s"
+                } sent`}{" "}
+            · {acknowledgedNotifications.length} acknowledged
             {latestAcknowledgment?.acknowledgedBy
               ? ` · Last by ${latestAcknowledgment.acknowledgedBy}${
                   latestAcknowledgment.acknowledgedAt
@@ -259,6 +282,11 @@ function KitchenAcknowledgments({
                 }`
               : ""}
           </p>
+          {hasMore ? (
+            <p className="mt-1 text-xs leading-5 text-[#6a7483]">
+              Older change notifications for this event are not listed here.
+            </p>
+          ) : null}
         </div>
         <Badge
           tone={
@@ -424,7 +452,10 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       )}
 
       {!kitchenQuery.isLoading && !kitchenQuery.error ? (
-        <KitchenAcknowledgments notifications={notifications} />
+        <KitchenAcknowledgments
+          hasMore={kitchenQuery.data?.notificationsHasMore ?? false}
+          notifications={notifications}
+        />
       ) : null}
 
       <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">

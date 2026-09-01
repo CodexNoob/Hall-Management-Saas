@@ -100,6 +100,7 @@ const library = {
       id: "item-1",
       name: "Potato kugel",
       isActive: true,
+      kind: "Food",
       services: [{ serviceStyle: "Buffet" }],
       pictureUrl: "https://example.test/kugel.jpg"
     },
@@ -107,6 +108,7 @@ const library = {
       id: "item-2",
       name: "Roast chicken",
       isActive: true,
+      kind: "Food",
       services: [{ serviceStyle: "Buffet" }],
       pictureUrl: "https://example.test/chicken.jpg"
     },
@@ -114,6 +116,7 @@ const library = {
       id: "item-3",
       name: "Poached salmon",
       isActive: true,
+      kind: "Food",
       services: [{ serviceStyle: "Plated" }],
       pictureUrl: null
     },
@@ -121,11 +124,43 @@ const library = {
       id: "item-4",
       name: "Discontinued trifle",
       isActive: false,
+      kind: "Food",
+      services: [{ serviceStyle: "Buffet" }],
+      pictureUrl: null
+    },
+    {
+      id: "item-5",
+      name: "Sparkling water",
+      isActive: true,
+      kind: "Drink",
+      services: [{ serviceStyle: "Plated" }],
+      pictureUrl: null
+    },
+    {
+      id: "item-6",
+      name: "Fruit punch",
+      isActive: true,
+      kind: "Drink",
       services: [{ serviceStyle: "Buffet" }],
       pictureUrl: null
     }
   ],
-  addOns: [],
+  addOns: [
+    {
+      id: "addon-1",
+      name: "Coffee station",
+      price: 100,
+      isActive: true,
+      pictureUrl: null
+    },
+    {
+      id: "addon-2",
+      name: "Dessert station",
+      price: 150,
+      isActive: true,
+      pictureUrl: null
+    }
+  ],
   packages: [],
   categories: []
 };
@@ -146,6 +181,7 @@ const allPermissions = {
   canAssignWorkers: true,
   canUpdateKitchenStatus: true,
   canAddKitchenEvents: true,
+  canCancelEvents: true,
   seesWholeBoard: true
 };
 
@@ -156,7 +192,7 @@ const allPermissions = {
  * unscoped search for a dish name can find the card rather than the option.
  */
 function drawer() {
-  return within(screen.getByRole("dialog", { name: "Replace a dish" }));
+  return within(screen.getByRole("dialog", { name: /^Replace / }));
 }
 
 /** Answers each url with its own payload; the drawer reads a second one. */
@@ -174,7 +210,8 @@ async function openDrawer(
   {
     menuStatus = "Draft" as EventKitchenSheet["menuStatus"],
     onSaveItemAction = vi.fn().mockResolvedValue(undefined),
-    permissions = allPermissions
+    permissions = allPermissions,
+    expectedOption = "Roast chicken"
   } = {}
 ) {
   serve(sheet(lines, menuStatus));
@@ -191,15 +228,16 @@ async function openDrawer(
   );
 
   await waitFor(() =>
-    expect(screen.getByLabelText("Replace Potato kugel")).toBeInTheDocument()
+    expect(
+      screen.getByLabelText(`Replace ${lines[0]?.name}`)
+    ).toBeInTheDocument()
   );
 
-  fireEvent.click(screen.getByLabelText("Replace Potato kugel"));
+  fireEvent.click(screen.getByLabelText(`Replace ${lines[0]?.name}`));
 
-  // A dish no test puts on the sheet, so this waits for the library to land
-  // rather than for a name the dialog underneath might also be showing.
+  // A dish no test puts on the sheet, so this waits for the library to land.
   await waitFor(() =>
-    expect(drawer().getByText("Poached salmon")).toBeInTheDocument()
+    expect(drawer().getByText(expectedOption)).toBeInTheDocument()
   );
 
   return onSaveItemAction;
@@ -226,9 +264,7 @@ describe("replacing a dish from the kitchen board", () => {
     // Buffet is what the line already is, and the replacement has a rule for
     // it, so the swap does not quietly change how the food reaches the table.
     expect(drawer().getByText("Will be served buffet")).toBeInTheDocument();
-    // Plated only: there is no buffet rule to inherit, and one style needs no
-    // decision, so this lands plated.
-    expect(drawer().getByText("Will be served plated")).toBeInTheDocument();
+    expect(drawer().queryByText("Poached salmon")).not.toBeInTheDocument();
   });
 
   it("does not offer a retired dish, or the dish being replaced", async () => {
@@ -238,6 +274,68 @@ describe("replacing a dish from the kitchen board", () => {
     // Named once, on the card it was opened from - not again as something to
     // swap itself for.
     expect(screen.getAllByText("Potato kugel")).toHaveLength(2);
+  });
+
+  it("offers plated food only for a plated item", async () => {
+    await openDrawer([line({ serviceStyle: "Plated" })], {
+      expectedOption: "Poached salmon"
+    });
+
+    expect(drawer().getByText("Poached salmon")).toBeInTheDocument();
+    expect(drawer().queryByText("Roast chicken")).not.toBeInTheDocument();
+    expect(drawer().queryByText("Sparkling water")).not.toBeInTheDocument();
+  });
+
+  it("offers drinks only when replacing a drink", async () => {
+    await openDrawer(
+      [
+        line({
+          menuItemId: "item-5",
+          itemKind: "Drink",
+          name: "Sparkling water",
+          serviceStyle: "Plated"
+        })
+      ],
+      { expectedOption: "Fruit punch" }
+    );
+
+    expect(drawer().getByText("Fruit punch")).toBeInTheDocument();
+    expect(drawer().queryByText("Poached salmon")).not.toBeInTheDocument();
+  });
+
+  it("offers add-ons only when replacing an add-on", async () => {
+    const onSaveItemAction = await openDrawer(
+      [
+        line({
+          id: "addon-line",
+          menuItemId: null,
+          addOnId: "addon-1",
+          kind: "AddOn",
+          itemKind: null,
+          name: "Coffee station",
+          serviceStyle: null,
+          availableStyles: [],
+          countState: "NotCounted",
+          quantities: []
+        })
+      ],
+      { expectedOption: "Dessert station" }
+    );
+
+    expect(drawer().getByText("Dessert station")).toBeInTheDocument();
+    expect(drawer().queryByText("Roast chicken")).not.toBeInTheDocument();
+
+    fireEvent.click(drawer().getByRole("button", { name: /Dessert station/ }));
+    fireEvent.click(drawer().getByRole("button", { name: "Replace add-on" }));
+
+    await waitFor(() =>
+      expect(onSaveItemAction).toHaveBeenCalledWith({
+        action: "replace-add-on",
+        eventId,
+        addOnId: "addon-1",
+        replacementAddOnId: "addon-2"
+      })
+    );
   });
 
   it("names both ends of the swap before it writes anything", async () => {

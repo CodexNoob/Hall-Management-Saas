@@ -10,6 +10,7 @@ import {
 } from "@/features/events/components/event-manager-shared";
 import { LineQuantity } from "@/features/kitchen/components/kitchen-line-presentation";
 import { resolveReplacementStyle } from "@/features/kitchen/components/kitchen-shared";
+import { isDrinkKind } from "@/features/menu/lib/service-style";
 
 /**
  * Swapping one dish for another, from the board.
@@ -35,10 +36,20 @@ type ReplacementOption = {
   /// Already on this event's menu, so it cannot go on twice - a dish appears
   /// once per menu, and the database will not hold a second line for it.
   isOnMenu: boolean;
+  kind: "dish" | "add-on";
 };
+
+function replacementGroup(line: EventKitchenLine) {
+  if (line.kind === "AddOn") return "add-on" as const;
+  if (isDrinkKind(line.itemKind ?? "")) return "drink" as const;
+  if (line.serviceStyle === "Plated") return "plated" as const;
+  if (line.serviceStyle === "Buffet") return "buffet" as const;
+  return "other" as const;
+}
 
 function styleNote(option: ReplacementOption) {
   if (option.isOnMenu) return "Already on this menu";
+  if (option.kind === "add-on") return "Add-on";
   if (option.landsAs) return `Will be served ${option.landsAs.toLowerCase()}`;
   if (option.styles.length > 1) {
     return "Served both ways - needs a style set on the Menu tab";
@@ -71,6 +82,7 @@ export function KitchenReplaceDishDrawer({
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const group = replacementGroup(line);
 
   useEffect(() => {
     const handleKeyDown = (keyEvent: KeyboardEvent) => {
@@ -89,6 +101,20 @@ export function KitchenReplaceDishDrawer({
 
   const options = useMemo<ReplacementOption[]>(() => {
     const query = search.trim().toLowerCase();
+    if (group === "add-on") {
+      return (libraryQuery.data?.addOns ?? [])
+        .filter((item) => item.isActive && item.id !== line.addOnId)
+        .filter((item) => !query || item.name.toLowerCase().includes(query))
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          pictureUrl: item.pictureUrl,
+          styles: [],
+          landsAs: null,
+          isOnMenu: usedMenuItemIds.has(item.id),
+          kind: "add-on"
+        }));
+    }
 
     return (
       (libraryQuery.data?.items ?? [])
@@ -96,6 +122,17 @@ export function KitchenReplaceDishDrawer({
         // offered for anything new, which is the rule the event's own menu drawer
         // follows - and the rule the server enforces on this write.
         .filter((item) => item.isActive && item.id !== line.menuItemId)
+        .filter((item) => {
+          if (group === "drink") return isDrinkKind(item.kind);
+          if (isDrinkKind(item.kind)) return false;
+          if (group === "plated" || group === "buffet") {
+            const expected = group === "plated" ? "Plated" : "Buffet";
+            return (item.services ?? []).some(
+              (service) => service.serviceStyle === expected
+            );
+          }
+          return true;
+        })
         .filter((item) => !query || item.name.toLowerCase().includes(query))
         .map((item) => {
           const styles = [
@@ -110,12 +147,15 @@ export function KitchenReplaceDishDrawer({
             pictureUrl: item.pictureUrl,
             styles,
             landsAs: resolveReplacementStyle(line.serviceStyle, styles),
-            isOnMenu: usedMenuItemIds.has(item.id)
+            isOnMenu: usedMenuItemIds.has(item.id),
+            kind: "dish"
           };
         })
     );
   }, [
     libraryQuery.data,
+    line.addOnId,
+    group,
     line.menuItemId,
     line.serviceStyle,
     search,
@@ -163,10 +203,10 @@ export function KitchenReplaceDishDrawer({
               className="truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Replace a dish
+              Replace {line.kind === "AddOn" ? "an add-on" : "a dish"}
             </h2>
             <p className="mt-0.5 text-xs text-[#6a7483]">
-              Pick what the kitchen is cooking instead.
+              Pick another item from the same menu section.
             </p>
           </div>
 
@@ -239,7 +279,7 @@ export function KitchenReplaceDishDrawer({
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
               {search.trim()
                 ? `Nothing in the menu library matches "${search.trim()}".`
-                : "There is no other dish in the menu library to swap this one for."}
+                : "There is no other item in this section to swap this one for."}
             </p>
           ) : (
             <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
@@ -307,7 +347,8 @@ export function KitchenReplaceDishDrawer({
               </>
             ) : (
               <span className="font-semibold text-[#6a7483]">
-                Pick the dish going on instead.
+                Pick the {line.kind === "AddOn" ? "add-on" : "dish"} going on
+                instead.
               </span>
             )}
           </div>
@@ -326,7 +367,9 @@ export function KitchenReplaceDishDrawer({
               onClick={() => void replace()}
               type="button"
             >
-              {isSaving ? "Replacing…" : "Replace dish"}
+              {isSaving
+                ? "Replacing…"
+                : `Replace ${line.kind === "AddOn" ? "add-on" : "dish"}`}
             </button>
           </div>
         </footer>

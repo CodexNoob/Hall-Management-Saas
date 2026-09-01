@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { KitchenNotificationsDrawer } from "@/features/kitchen/components/kitchen-notifications-drawer";
 
@@ -23,6 +23,91 @@ const cookNotification = {
     items: [{ name: "Roast chicken", type: "Dish", serviceStyle: "Plated" }]
   }
 };
+
+/**
+ * The acknowledged list.
+ *
+ * "What has the kitchen already signed off" is a question asked on purpose, and
+ * scrolling one chronological feed looking for green chips is not an answer to
+ * it - so the drawer filters, and says how many are in each state.
+ */
+describe("KitchenNotificationsDrawer filter", () => {
+  const acknowledged = {
+    ...cookNotification,
+    id: "notification-2",
+    event: "Bar Mitzvah",
+    acknowledged: true,
+    acknowledgedBy: "charlesjohnduot",
+    acknowledgedAt: "8/28/2026, 9:10:13 PM"
+  };
+
+  function renderBoth() {
+    render(
+      <KitchenNotificationsDrawer
+        seesWholeKitchen
+        notifications={[cookNotification, acknowledged]}
+        onAcknowledge={vi.fn()}
+        onAcknowledgeAll={vi.fn()}
+        onClearNotifications={vi.fn()}
+        onClose={vi.fn()}
+        open
+      />
+    );
+  }
+
+  it("counts each state on its own tab", () => {
+    renderBoth();
+
+    expect(screen.getByRole("button", { name: "All (2)" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Needs action (1)" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Acknowledged (1)" })
+    ).toBeInTheDocument();
+  });
+
+  it("lists only what has been acknowledged, with who and when", () => {
+    renderBoth();
+
+    fireEvent.click(screen.getByRole("button", { name: "Acknowledged (1)" }));
+
+    // The chip on the card, not the filter button - that one reads
+    // "Acknowledged (1)" and so does not match exactly.
+    expect(screen.getByText("Acknowledged")).toBeInTheDocument();
+    expect(screen.queryByText("Unacknowledged")).toBeNull();
+    // Who signed it off and when, which is the point of asking for this list.
+    expect(
+      screen.getByText(/charlesjohnduot — 8\/28\/2026, 9:10:13 PM/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Waiting for kitchen acknowledgment")
+    ).toBeNull();
+  });
+
+  it("says an empty filter is not an empty feed", () => {
+    render(
+      <KitchenNotificationsDrawer
+        seesWholeKitchen
+        notifications={[cookNotification]}
+        onAcknowledge={vi.fn()}
+        onAcknowledgeAll={vi.fn()}
+        onClearNotifications={vi.fn()}
+        onClose={vi.fn()}
+        open
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Acknowledged (0)" }));
+
+    expect(
+      screen.getByText("Nothing has been acknowledged yet.")
+    ).toBeInTheDocument();
+    // Saying "no kitchen notifications" while one sits a tab away would be a
+    // lie about the state of the kitchen.
+    expect(screen.getByText(/1 notification in all/)).toBeInTheDocument();
+  });
+});
 
 describe("KitchenNotificationsDrawer", () => {
   it("shows an acknowledgment failure inside the drawer", () => {
@@ -265,12 +350,13 @@ describe("KitchenNotificationsDrawer", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("confirms before clearing notifications", () => {
-    const onClearNotifications = vi.fn();
-    const confirm = vi
-      .spyOn(window, "confirm")
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
+  /**
+   * The confirmation is the product's own dialog now, not the browser's. It
+   * names what goes - the whole organization's feed, and the record of who
+   * acknowledged what - which a one-line native prompt had no room to say.
+   */
+  it("confirms before clearing notifications", async () => {
+    const onClearNotifications = vi.fn().mockResolvedValue(undefined);
     render(
       <KitchenNotificationsDrawer
         seesWholeKitchen
@@ -297,11 +383,57 @@ describe("KitchenNotificationsDrawer", () => {
       />
     );
 
-    const clear = screen.getByRole("button", { name: "Clear notifications" });
-    fireEvent.click(clear);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear notifications" })
+    );
+    // Opening the dialog writes nothing.
     expect(onClearNotifications).not.toHaveBeenCalled();
-    fireEvent.click(clear);
+    expect(
+      screen.getByText(/along with the record of who acknowledged what/)
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: "Clear all notifications" })
+      );
+    });
+
     expect(onClearNotifications).toHaveBeenCalledOnce();
-    confirm.mockRestore();
+  });
+
+  it("says when the feed has been cut short", () => {
+    render(
+      <KitchenNotificationsDrawer
+        hasMoreNotifications
+        seesWholeKitchen
+        notifications={[
+          {
+            id: "notification-1",
+            title: "Menu Changed",
+            description: "The menu changed.",
+            event: "Wedding",
+            hall: "Main Hall",
+            date: "Aug 28, 2026",
+            oldValue: "Old",
+            newValue: "New",
+            by: "Manager",
+            when: "Today",
+            acknowledged: true
+          }
+        ]}
+        onAcknowledge={vi.fn()}
+        onAcknowledgeAll={vi.fn()}
+        onClearNotifications={vi.fn()}
+        onClose={vi.fn()}
+        open
+      />
+    );
+
+    // A full-looking list with nothing marking the cut reads as the whole
+    // history, which is the wrong thing to believe when checking what you
+    // missed.
+    expect(
+      screen.getByText(/Older\s+notifications are not listed here/)
+    ).toBeInTheDocument();
   });
 });

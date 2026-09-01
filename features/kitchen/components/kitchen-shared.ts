@@ -120,6 +120,14 @@ export type KitchenResponse = {
       otherItemCount?: number;
     };
   }>;
+  /**
+   * Whether older notifications exist beyond the ones sent.
+   *
+   * The feed is capped, and the drawer says so when it is - a full-looking list
+   * with nothing to mark the cut reads as the whole history, which is the wrong
+   * thing to believe about a list somebody is checking for what they missed.
+   */
+  notificationsHasMore?: boolean;
   /** Menus a kitchen event can be raised against. */
   menus: Array<{ id: string; name: string; dishCount: number }>;
   /** Individual saved menu items that can be used for a one-off kitchen event. */
@@ -133,6 +141,16 @@ export type KitchenResponse = {
     canAssignWorkers: boolean;
     canUpdateKitchenStatus: boolean;
     canAddKitchenEvents: boolean;
+    /**
+     * Whether the caller may end a booking, which is `event.status.update`
+     * rather than any kitchen permission - cancelling one takes it off the
+     * calendar and out of everyone's week, not just the kitchen's.
+     *
+     * Read only to decide whether the details dialog offers the button. The
+     * status route asks the same question again and answers a caller who lacks
+     * it with a 403.
+     */
+    canCancelEvents: boolean;
     /**
      * Whether this response holds the whole kitchen or only the caller's own
      * dishes.

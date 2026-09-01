@@ -218,6 +218,101 @@ describe("event kitchen tab", () => {
     });
   });
 
+  /**
+   * The acknowledgments summary reports the most recent sign-off.
+   *
+   * The feed arrives newest first. This used to reverse it before looking for
+   * one, so the line reading "Last by" named the OLDEST acknowledgment on the
+   * event - on a long-running booking, a name from weeks before the change the
+   * reader was actually asking about.
+   */
+  it("names the most recent acknowledgment, not the first", async () => {
+    const finishLoad = defer("/api/events/event-1/kitchen");
+
+    await mount(<EventKitchenContent event={eventFile("event-1")} />);
+
+    await finishLoad({
+      kitchen: sheet([dishLine()]),
+      notifications: [
+        {
+          id: "newest",
+          title: "Menu Changed",
+          description: "The menu changed again.",
+          event: "Wedding",
+          hall: "Main Hall",
+          date: "Sep 1, 2026",
+          oldValue: "Old",
+          newValue: "New",
+          by: "Manager",
+          when: "9/1/2026, 10:00:00 AM",
+          acknowledged: true,
+          acknowledgedBy: "Rivka",
+          acknowledgedAt: "9/1/2026, 10:30:00 AM"
+        },
+        {
+          id: "oldest",
+          title: "Menu Changed",
+          description: "The menu changed.",
+          event: "Wedding",
+          hall: "Main Hall",
+          date: "Aug 20, 2026",
+          oldValue: "Old",
+          newValue: "New",
+          by: "Manager",
+          when: "8/20/2026, 10:00:00 AM",
+          acknowledged: true,
+          acknowledgedBy: "Shimon",
+          acknowledgedAt: "8/20/2026, 10:30:00 AM"
+        }
+      ]
+    });
+
+    expect(screen.getByText(/Last by Rivka/)).toBeInTheDocument();
+    expect(screen.queryByText(/Last by Shimon/)).toBeNull();
+    expect(screen.getByText("2/2 acknowledged")).toBeInTheDocument();
+    // Nothing withheld, so the line counts rather than hedging.
+    expect(screen.getByText(/2 notifications sent/)).toBeInTheDocument();
+  });
+
+  /**
+   * The per-event list is capped. Reporting a capped list as a total is not a
+   * smaller number than the truth, it is a different one - and this line is
+   * read to judge whether the kitchen is on top of an event's changes.
+   */
+  it("says when older notifications are being withheld", async () => {
+    const finishLoad = defer("/api/events/event-1/kitchen");
+
+    await mount(<EventKitchenContent event={eventFile("event-1")} />);
+
+    await finishLoad({
+      kitchen: sheet([dishLine()]),
+      notificationsHasMore: true,
+      notifications: [
+        {
+          id: "newest",
+          title: "Menu Changed",
+          description: "The menu changed again.",
+          event: "Wedding",
+          hall: "Main Hall",
+          date: "Sep 1, 2026",
+          oldValue: "Old",
+          newValue: "New",
+          by: "Manager",
+          when: "9/1/2026, 10:00:00 AM",
+          acknowledged: false
+        }
+      ]
+    });
+
+    expect(screen.getByText(/Showing the 1 most recent/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Older change notifications for this event are not listed here."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/1 notification sent/)).toBeNull();
+  });
+
   it("draws the sheet's shape, not an empty sheet, while the first load is in the air", async () => {
     const finishLoad = defer("/api/events/event-1/kitchen");
 

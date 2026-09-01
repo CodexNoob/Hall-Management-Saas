@@ -4,6 +4,18 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { KitchenVisibility } from "@/features/kitchen/server/kitchen-visibility";
 
+/**
+ * What `valueToText` returns for a value that is not there.
+ *
+ * Named rather than written out at each comparison. Seven of those comparisons
+ * had been saved through a Latin-1 round trip at some point and were testing
+ * against the mojibake form of this dash, so every one of them was dead: a
+ * nameless item was never dropped from a change list, and a dish with no
+ * service style was drawn with a dash where the style should be. One constant
+ * cannot drift away from itself.
+ */
+const NO_VALUE = "—";
+
 const SHORT_NOTICE_DAYS = 5;
 
 const dateFormat = new Intl.DateTimeFormat("en-US", {
@@ -24,21 +36,21 @@ const dateTimeFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 const valueToText = (value: Prisma.JsonValue | null | undefined): string => {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "string") return value || "—";
+  if (value === null || value === undefined) return NO_VALUE;
+  if (typeof value === "string") return value || NO_VALUE;
   if (typeof value === "number" || typeof value === "boolean") {
     return String(value);
   }
-  if (Array.isArray(value)) return value.map(valueToText).join(", ") || "—";
+  if (Array.isArray(value)) return value.map(valueToText).join(", ") || NO_VALUE;
 
   const record = value as Record<string, Prisma.JsonValue>;
   if ("status" in record || "items" in record) {
     const status = valueToText(record.status);
     const meal = valueToText(record.meal);
     const headline =
-      status !== "â€”"
-        ? `${status}${meal !== "â€”" ? ` menu (${meal})` : " menu"}`
-        : meal !== "â€”"
+      status !== NO_VALUE
+        ? `${status}${meal !== NO_VALUE ? ` menu (${meal})` : " menu"}`
+        : meal !== NO_VALUE
           ? `${meal} menu`
           : null;
     const items = Array.isArray(record.items)
@@ -53,8 +65,8 @@ const valueToText = (value: Prisma.JsonValue | null | undefined): string => {
             const type = valueToText(item.type);
             const serviceStyle = valueToText(item.serviceStyle);
 
-            return `- ${name}${type !== "â€”" ? ` (${type})` : ""}${
-              serviceStyle !== "â€”" && serviceStyle !== "None"
+            return `- ${name}${type !== NO_VALUE ? ` (${type})` : ""}${
+              serviceStyle !== NO_VALUE && serviceStyle !== "None"
                 ? ` - ${serviceStyle}`
                 : ""
             }`;
@@ -116,7 +128,7 @@ const parseChangeSummary = (
 
     const item = entry as Record<string, Prisma.JsonValue>;
     const name = valueToText(item.item);
-    if (name === "â€”") return [];
+    if (name === NO_VALUE) return [];
 
     const serviceStyle = valueToText(item.serviceStyle);
 
@@ -125,7 +137,7 @@ const parseChangeSummary = (
         name,
         type: valueToText(item.type),
         serviceStyle:
-          serviceStyle === "â€”" || serviceStyle === "None"
+          serviceStyle === NO_VALUE || serviceStyle === "None"
             ? null
             : serviceStyle
       }
@@ -212,10 +224,10 @@ export function presentKitchenNotification(
     title,
     description: notification.message,
     event: eventTitle,
-    hall: notification.hallOrRoom ?? "—",
+    hall: notification.hallOrRoom ?? NO_VALUE,
     date: notification.eventDate
       ? dateFormat.format(notification.eventDate)
-      : "—",
+      : NO_VALUE,
     oldValue: valueToText(notification.oldValue),
     newValue: valueToText(notification.newValue),
     by: changedBy,
@@ -332,6 +344,16 @@ export function narrowNotificationToOwnDishes(
   };
 }
 
+/**
+ * How many notifications the feed carries at once.
+ *
+ * A cap rather than paging, because the drawer is a "what changed while I was
+ * away" list rather than an archive. One row beyond it is read on purpose, so
+ * the answer to "is this everything" is a fact rather than a guess made from
+ * the list happening to be exactly full.
+ */
+export const KITCHEN_NOTIFICATION_LIMIT = 50;
+
 export async function listKitchenNotifications(
   organizationId: string,
   visibility: KitchenVisibility
@@ -340,16 +362,21 @@ export async function listKitchenNotifications(
     organizationId,
     visibility
   );
-  if (!audience) return [];
+  if (!audience) return { notifications: [], hasMore: false };
 
   const rows = await prisma.kitchenNotification.findMany({
     where: { organizationId, ...audience.where },
     orderBy: { createdAt: "desc" },
     select: kitchenNotificationSelect,
-    take: 50
+    take: KITCHEN_NOTIFICATION_LIMIT + 1
   });
 
-  return rows.map((row) => presentForAudience(row, audience));
+  return {
+    notifications: rows
+      .slice(0, KITCHEN_NOTIFICATION_LIMIT)
+      .map((row) => presentForAudience(row, audience)),
+    hasMore: rows.length > KITCHEN_NOTIFICATION_LIMIT
+  };
 }
 
 function presentForAudience(
@@ -374,6 +401,16 @@ function presentForAudience(
  * question - a cook who is on no dish of this event is told about none of its
  * changes, exactly as the board withholds the card itself.
  */
+/**
+ * How many of one event's notifications the Kitchen tab carries.
+ *
+ * Lower than the board's feed because this is one event's history rather than
+ * the organization's, and read one row beyond for the same reason: a panel that
+ * says "20 notifications sent" while a booking has had thirty is not reporting
+ * a smaller number, it is reporting a wrong one.
+ */
+export const KITCHEN_EVENT_NOTIFICATION_LIMIT = 20;
+
 export async function listKitchenNotificationsForEvent({
   eventId,
   organizationId,
@@ -387,16 +424,21 @@ export async function listKitchenNotificationsForEvent({
     organizationId,
     visibility
   );
-  if (!audience) return [];
+  if (!audience) return { notifications: [], hasMore: false };
 
   const rows = await prisma.kitchenNotification.findMany({
     where: { eventId, organizationId, ...audience.where },
     orderBy: { createdAt: "desc" },
     select: kitchenNotificationSelect,
-    take: 20
+    take: KITCHEN_EVENT_NOTIFICATION_LIMIT + 1
   });
 
-  return rows.map((row) => presentForAudience(row, audience));
+  return {
+    notifications: rows
+      .slice(0, KITCHEN_EVENT_NOTIFICATION_LIMIT)
+      .map((row) => presentForAudience(row, audience)),
+    hasMore: rows.length > KITCHEN_EVENT_NOTIFICATION_LIMIT
+  };
 }
 
 export async function createMenuChangedKitchenNotification({
@@ -468,7 +510,7 @@ export async function createShortNoticeKitchenNotification({
       hallOrRoom,
       eventType,
       message: `New event booked with short notice (within ${SHORT_NOTICE_DAYS} days): ${eventType ?? "event"} on ${eventDate.toISOString().slice(0, 10)}`,
-      oldValue: "—",
+      oldValue: NO_VALUE,
       newValue: `${eventDate.toISOString().slice(0, 10)} (${daysAway} days away)`,
       changedById
     }
