@@ -11,6 +11,7 @@ import {
   MENU_ITEM_KINDS,
   SERVICE_STYLES,
   isDrinkKind,
+  readServiceStyle,
   serviceFormDefaults,
   serviceStyleLabel,
   type ServiceRuleFormValues,
@@ -72,18 +73,34 @@ type NewLibraryItemDialogProps = {
    */
   currentPictureUrl?: string | null;
   /**
-   * What a create starts on, so "Add buffet item" opens a form that is already
-   * a buffet item. Ignored for an edit, which seeds from the row itself.
+   * The style a create is FOR, not merely what it starts on.
+   *
+   * "Add buffet item" is opened from the Buffet Menu, so the form is a buffet
+   * form: the style is ticked, and the Buffet/Plated choice is not offered at
+   * all. Asking it again on that tab was a question the tab had already
+   * answered, and answering it the other way created an item the tab it was
+   * added from does not list.
+   *
+   * Absent means the choice IS the operator's - the picker on the library tab
+   * passes what they chose, and a dish catalogued without a style passes
+   * nothing. Ignored for an edit, which seeds from the row itself and keeps
+   * both blocks: a dish served two ways has to stay editable from either tab.
    */
   defaultServiceStyle?: string;
   /**
-   * Food or Drink for a create, so "New drink" opens on the bottles-per-table
-   * defaults rather than the plated ones. Ignored for an edit, which seeds from
-   * the row itself.
+   * Food or Drink for a create - and, when set, the answer rather than a
+   * starting point: the select is not rendered at all.
    *
-   * The select stays enabled either way: switching kind mid-create is a real
-   * decision, and it behaves like the category field - the item saves and simply
-   * belongs to the other tab.
+   * Every entry point that passes this has already settled it. The Drink Menu
+   * makes drinks, the service tabs make dishes, and the library picker makes
+   * whichever the operator clicked. Asking again on those screens was a
+   * question with a visibly correct answer already showing, and the wrong one
+   * saved an item the tab it was added from does not list - a drink created
+   * from the Buffet Menu lands on neither.
+   *
+   * Ignored for an edit, which seeds from the row and keeps the select:
+   * re-filing a mis-kinded item is the one case that needs the question, and
+   * the only way to move one between the library and the Drink Menu.
    */
   defaultKind?: string;
   /**
@@ -225,6 +242,21 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
   // Follows the select, not the tab: switching Food -> Drink mid-create has to
   // re-word the block the switch is about.
   const isDrink = isDrinkKind(values.kind);
+  /*
+   * The one style this form is about, or null when it is about the choice.
+   *
+   * Never set for an edit. The styles are stored per dish, not per tab, so an
+   * item opened from the Buffet Menu may well carry a plated rule too - hiding
+   * that block would leave a saved rule on screen nowhere, editable from
+   * neither tab.
+   */
+  // Where the create was started from settles the kind, so the select is only
+  // rendered where it is still a real question - see `defaultKind`.
+  const isKindImplied = !isEditing && Boolean(defaultKind);
+  const scopedStyle = isEditing ? null : readServiceStyle(defaultServiceStyle);
+  const scopedLabel = scopedStyle
+    ? serviceStyleLabel(scopedStyle, values.kind)
+    : null;
 
   // Narrowed to the text fields so `services`, which is not a string, cannot be
   // passed here by accident.
@@ -276,6 +308,35 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
     }));
   };
 
+  /**
+   * One style's counting rule: the controls, or the link that unfolds them.
+   *
+   * Shared by both shapes of the fieldset below - the ticked list and the
+   * single scoped style - so the fold and the "optional" wording cannot drift
+   * apart between the two.
+   */
+  const renderRuleControls = (style: ServiceStyle, label: string) =>
+    openRuleStyles.includes(style) ? (
+      /* Optional even once open: cataloguing a dish and working out how much
+         of it to cook are two different jobs, often two different people. A
+         blank row saves the dish without the rule. */
+      <ServiceRuleFields
+        label={label}
+        onChange={(patch) => updateService(style, patch)}
+        required={false}
+        unitListId={unitListId}
+        values={values.services[style]}
+      />
+    ) : (
+      <button
+        className="text-[11px] font-black normal-case tracking-normal text-[#1f4d73] underline underline-offset-2 hover:text-[#15344f]"
+        onClick={() => setOpenRuleStyles((current) => [...current, style])}
+        type="button"
+      >
+        Add a counting rule (optional)
+      </button>
+    );
+
   const resetForm = () => {
     setValues(buildCreateValues());
     setPicture(null);
@@ -324,9 +385,11 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div className="flex items-center gap-3">
             <LibraryIcon />
-            {/* Follows the select rather than the tab it was opened from, so
-                switching Food -&gt; Drink renames the form it is switching. */}
-            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrink ? "drink" : "library"} item` : `${isDrink ? "Drink" : "Library"} item`}</h2>
+            {/* Names what is being made, which for a scoped create is the
+                style - "Buffet item", opened from the Buffet Menu. Otherwise
+                it follows the select rather than the tab it was opened from,
+                so switching Food -&gt; Drink renames the form it is switching. */}
+            <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrink ? "drink" : "library"} item` : scopedLabel ? `${scopedLabel} item` : `${isDrink ? "Drink" : "Library"} item`}</h2>
           </div>
           <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
         </header>
@@ -353,93 +416,92 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               Allergies
               <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
             </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Food or drink
-              <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
-                {MENU_ITEM_KINDS.map((kind) => (
-                  <option key={kind}>{kind}</option>
-                ))}
-              </select>
-            </label>
-            {/* One block per style, each with its own rule. Ticking neither
-                leaves the dish catalogued but not served - which is what the
-                old "Library" option meant, without a value standing in for it.
-                Ticking both is how one dish carries a tray rule for the buffet
-                and a plate rule for the plated menu at the same time. */}
+            {/* Absent wherever the screen the create came from already said
+                which this is. Still here for an edit, where it is the one way
+                a mis-filed item crosses between the library and the drinks. */}
+            {isKindImplied ? null : (
+              <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                Food or drink
+                <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
+                  {MENU_ITEM_KINDS.map((kind) => (
+                    <option key={kind}>{kind}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            {/* Two shapes, one fieldset.
+                Scoped, the style is settled and only its rule is asked for.
+                Unscoped, one block per style: ticking neither leaves the dish
+                catalogued but not served - which is what the old "Library"
+                option meant, without a value standing in for it - and ticking
+                both is how one dish carries a tray rule for the buffet and a
+                plate rule for the plated menu at the same time. */}
             <fieldset className="sm:col-span-2">
               <legend className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                Served as
+                {scopedLabel ? `${scopedLabel} rule` : "Served as"}
               </legend>
-              {/* Two sentences, because the two kinds answer differently. A
-                  dish IS routed by this - Buffet Menu and Plated Menu are the
-                  styles - but a drink stays on the Drink Menu whichever way it
-                  is served, and telling it that this decides "which tabs list
-                  it" was simply false. What it decides for a drink is how much
-                  to put out, and which group of the Drink Menu it sits in. */}
-              <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
-                {isDrink
-                  ? "Drinks stay on the Drink Menu either way. This sets how much to put out - by table, or by guests for a self-serve station - and which group of that tab it sits under."
-                  : "Decides which service tabs list it, and how much to cook for each. Price stays on the package."}
-              </p>
-              {/* The escape hatch, said out loud. Leaving both off has always
-                  saved a catalogued-but-unserved dish, but the form read as if
-                  the rule were required - so operators answered a kitchen
-                  arithmetic question while they were still thinking about a
-                  dish. The event menu asks for it later, when it matters. */}
+              {scopedLabel ? (
+                /* Said, not asked. The tab already decided this, so the line
+                   confirms where the item is going rather than offering a
+                   choice whose other answer files it somewhere the operator
+                   cannot see from where they are standing. */
+                <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
+                  Served {scopedLabel.toLowerCase()}, and listed on that menu.
+                  Price stays on the package.
+                </p>
+              ) : (
+                /* Two sentences, because the two kinds answer differently. A
+                   dish IS routed by this - Buffet Menu and Plated Menu are the
+                   styles - but a drink stays on the Drink Menu whichever way it
+                   is served, and telling it that this decides "which tabs list
+                   it" was simply false. What it decides for a drink is how much
+                   to put out, and which group of the Drink Menu it sits in. */
+                <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
+                  {isDrink
+                    ? "Drinks stay on the Drink Menu either way. This sets how much to put out - by table, or by guests for a self-serve station - and which group of that tab it sits under."
+                    : "Decides which service tabs list it, and how much to cook for each. Price stays on the package."}
+                </p>
+              )}
+              {/* The escape hatch, said out loud. Leaving the rule blank has
+                  always saved a dish without one, but the form read as if it
+                  were required - so operators answered a kitchen arithmetic
+                  question while they were still thinking about a dish. The
+                  event menu asks for it later, when it matters. */}
               <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
                 No counting rule needed here. You will be asked how much to{" "}
                 {isDrink ? "pour" : "cook"} the first time this{" "}
                 {isDrink ? "drink" : "dish"} goes on an event, and the answer is
                 saved back to the item - add one now only if you already know it.
               </p>
-              <div className="mt-2 grid gap-2">
-                {SERVICE_STYLES.map((style) => {
-                  const entry = values.services[style];
-                  // A drink is served at the table, not plated. Only the word
-                  // changes - `style` is still what gets stored, and it stays
-                  // the field name so a form key never shifts under a rename.
-                  const label = serviceStyleLabel(style, values.kind);
+              {scopedStyle && scopedLabel ? (
+                <div className="mt-2 rounded-lg border border-[#d8dde5] p-2">
+                  {renderRuleControls(scopedStyle, scopedLabel)}
+                </div>
+              ) : (
+                <div className="mt-2 grid gap-2">
+                  {SERVICE_STYLES.map((style) => {
+                    const entry = values.services[style];
+                    // A drink is served at the table, not plated. Only the word
+                    // changes - `style` is still what gets stored, and it stays
+                    // the field name so a form key never shifts under a rename.
+                    const label = serviceStyleLabel(style, values.kind);
 
-                  return (
-                    <div className="rounded-lg border border-[#d8dde5] p-2" key={style}>
-                      <label className="flex items-center gap-2 text-xs font-black normal-case tracking-normal text-[#17202a]">
-                        <input checked={entry.enabled} className="h-4 w-4" name={`serves${style}`} onChange={(event) => updateService(style, { enabled: event.target.checked })} type="checkbox" />
-                        {label}
-                      </label>
-                      {entry.enabled ? (
-                        <div className="mt-2">
-                          {openRuleStyles.includes(style) ? (
-                            /* Optional even once open: cataloguing a dish and
-                               working out how much of it to cook are two
-                               different jobs, often two different people. A
-                               blank row saves the dish without the rule. */
-                            <ServiceRuleFields
-                              label={label}
-                              onChange={(patch) => updateService(style, patch)}
-                              required={false}
-                              unitListId={unitListId}
-                              values={entry}
-                            />
-                          ) : (
-                            <button
-                              className="text-[11px] font-black normal-case tracking-normal text-[#1f4d73] underline underline-offset-2 hover:text-[#15344f]"
-                              onClick={() =>
-                                setOpenRuleStyles((current) => [
-                                  ...current,
-                                  style
-                                ])
-                              }
-                              type="button"
-                            >
-                              Add a counting rule (optional)
-                            </button>
-                          )}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
+                    return (
+                      <div className="rounded-lg border border-[#d8dde5] p-2" key={style}>
+                        <label className="flex items-center gap-2 text-xs font-black normal-case tracking-normal text-[#17202a]">
+                          <input checked={entry.enabled} className="h-4 w-4" name={`serves${style}`} onChange={(event) => updateService(style, { enabled: event.target.checked })} type="checkbox" />
+                          {label}
+                        </label>
+                        {entry.enabled ? (
+                          <div className="mt-2">
+                            {renderRuleControls(style, label)}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <CountingUnitsDatalist id={unitListId} />
             </fieldset>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">

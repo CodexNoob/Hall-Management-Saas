@@ -196,6 +196,16 @@ test("adds, updates and removes a library item from the grid", async ({
 
   await page.getByRole("button", { name: "New item", exact: true }).click();
 
+  // The library tab is the one screen that has not already said which menu the
+  // item is for, so it asks before opening the form. "Library only" is this
+  // suite's subject: a dish catalogued without a service style.
+  const menuPicker = page.getByRole("dialog", {
+    name: "Which menu?",
+    exact: true
+  });
+  await expect(menuPicker).toBeVisible();
+  await menuPicker.getByRole("button", { name: "Library only" }).click();
+
   const createDialog = page.getByRole("dialog", {
     name: "Library item",
     exact: true

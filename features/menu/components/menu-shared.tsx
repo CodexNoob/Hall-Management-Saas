@@ -11,8 +11,10 @@ export type IconName =
   | "document"
   | "drink"
   | "filter"
+  | "plate"
   | "plus"
   | "trash"
+  | "tray"
   | "upload";
 
 export function LineIcon({
@@ -61,11 +63,28 @@ export function LineIcon({
       </>
     ),
     filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
+    // Two silhouettes rather than two variations on a dome: a covered plate and
+    // a covered chafing dish are the same shape at 16px, and these two sit side
+    // by side in the picker where telling them apart is the whole job.
+    plate: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3.25" />
+      </>
+    ),
     plus: <path d="M12 5v14M5 12h14" />,
     trash: (
       <>
         <path d="M4 7h16M10 4h4M6 7l1 13h10l1-13" />
         <path d="M10 11v6M14 11v6" />
+      </>
+    ),
+    // A chafing dish, steam and all - the thing guests queue at, rather than a
+    // dome that would read as the plated one beside it.
+    tray: (
+      <>
+        <path d="M3 13h18l-2 6H5Z" />
+        <path d="M8 9c0-1.2 1-1.2 1-2.4S8 5.4 8 4.2M12 9c0-1.2 1-1.2 1-2.4S12 5.4 12 4.2M16 9c0-1.2 1-1.2 1-2.4S16 5.4 16 4.2" />
       </>
     ),
     upload: (
