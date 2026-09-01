@@ -13,6 +13,7 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
 // The swap itself is tested against its own module; here the question is only
 // whether the route reaches it and what it answers with.
 vi.mock("@/features/kitchen/server/kitchen-dish-replacement", () => ({
+  replaceKitchenAddOn: vi.fn(),
   replaceKitchenDish: vi.fn()
 }));
 // Reconciling Kitchen Staff into the worker list is its own module with its own
@@ -38,6 +39,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     organizationMembership: { findMany: vi.fn() },
     menuItem: { findMany: vi.fn(), findFirst: vi.fn() },
+    addOn: { findFirst: vi.fn() },
     kitchenItemStatus: {
       findMany: vi.fn(),
       findUnique: vi.fn(),

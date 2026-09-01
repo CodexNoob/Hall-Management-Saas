@@ -55,16 +55,15 @@ describe("kitchen notification scoping", () => {
   });
 
   it("sends the whole organization's feed to an unrestricted caller", async () => {
-    const notifications = await listKitchenNotifications(
-      organizationId,
-      WHOLE_KITCHEN
-    );
+    const feed = await listKitchenNotifications(organizationId, WHOLE_KITCHEN);
 
     expect(prisma.kitchenItemStatus.findMany).not.toHaveBeenCalled();
     expect(prisma.kitchenNotification.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { organizationId } })
     );
-    expect(notifications).toHaveLength(1);
+    expect(feed.notifications).toHaveLength(1);
+    // One row short of the cap, so there is nothing older being withheld.
+    expect(feed.hasMore).toBe(false);
   });
 
   it("restricts a cook to the events they are assigned a dish on", async () => {
@@ -97,7 +96,7 @@ describe("kitchen notification scoping", () => {
         seesWholeBoard: false,
         workerId
       })
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({ notifications: [], hasMore: false });
     expect(prisma.kitchenNotification.findMany).not.toHaveBeenCalled();
   });
 
@@ -109,7 +108,7 @@ describe("kitchen notification scoping", () => {
         seesWholeBoard: false,
         workerId: null
       })
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({ notifications: [], hasMore: false });
     expect(prisma.kitchenItemStatus.findMany).not.toHaveBeenCalled();
     expect(prisma.kitchenNotification.findMany).not.toHaveBeenCalled();
   });
@@ -141,7 +140,7 @@ describe("kitchen notification scoping", () => {
         ])
       ] as never);
 
-      const [notification] = await listKitchenNotifications(organizationId, {
+      const { notifications: [notification] } = await listKitchenNotifications(organizationId, {
         seesWholeBoard: false,
         workerId
       });
@@ -162,7 +161,7 @@ describe("kitchen notification scoping", () => {
         ])
       ] as never);
 
-      const [notification] = await listKitchenNotifications(organizationId, {
+      const { notifications: [notification] } = await listKitchenNotifications(organizationId, {
         seesWholeBoard: false,
         workerId
       });
@@ -181,7 +180,7 @@ describe("kitchen notification scoping", () => {
         ])
       ] as never);
 
-      const [notification] = await listKitchenNotifications(
+      const { notifications: [notification] } = await listKitchenNotifications(
         organizationId,
         WHOLE_KITCHEN
       );
@@ -202,7 +201,7 @@ describe("kitchen notification scoping", () => {
         organizationId,
         visibility: { seesWholeBoard: false, workerId }
       })
-    ).resolves.toEqual([]);
+    ).resolves.toEqual({ notifications: [], hasMore: false });
     expect(prisma.kitchenNotification.findMany).not.toHaveBeenCalled();
   });
 });

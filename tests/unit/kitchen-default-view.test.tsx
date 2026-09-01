@@ -42,6 +42,7 @@ function respondWith(kitchenSettings: { defaultView: KitchenView } | null) {
             canAssignWorkers: true,
             canUpdateKitchenStatus: true,
             canAddKitchenEvents: true,
+            canCancelEvents: true,
             seesWholeBoard: true
           },
           ...(kitchenSettings ? { kitchenSettings } : {})

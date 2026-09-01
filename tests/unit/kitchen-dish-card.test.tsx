@@ -101,6 +101,7 @@ const allPermissions = {
   canAssignWorkers: true,
   canUpdateKitchenStatus: true,
   canAddKitchenEvents: true,
+  canCancelEvents: true,
   seesWholeBoard: true
 };
 

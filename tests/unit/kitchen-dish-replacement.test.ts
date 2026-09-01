@@ -4,6 +4,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     menuItem: { findFirst: vi.fn() },
+    addOn: { findFirst: vi.fn() },
     eventMenu: { findUnique: vi.fn(), updateMany: vi.fn() },
     eventMenuLine: { update: vi.fn(), findMany: vi.fn() },
     event: { update: vi.fn() },
@@ -16,7 +17,10 @@ vi.mock("@/lib/prisma", () => ({
   }
 }));
 
-import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";
+import {
+  replaceKitchenAddOn,
+  replaceKitchenDish
+} from "@/features/kitchen/server/kitchen-dish-replacement";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -36,11 +40,14 @@ const actorId = "22222222-2222-4222-8222-222222222222";
 const menuItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const replacementMenuItemId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const workerId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+const addOnId = "12121212-1212-4121-8121-121212121212";
+const replacementAddOnId = "34343434-3434-4343-8343-343434343434";
 
-function replacement(styles: string[], name = "Roast chicken") {
+function replacement(styles: string[], name = "Roast chicken", kind = "Food") {
   return {
     id: replacementMenuItemId,
     name,
+    kind,
     services: styles.map((serviceStyle) => ({ serviceStyle }))
   };
 }
@@ -54,14 +61,21 @@ function menu({
     id: "menu-1",
     version: 4,
     lines: [
-      { id: "line-1", menuItemId, serviceStyle, itemName },
+      {
+        id: "line-1",
+        menuItemId,
+        serviceStyle,
+        itemName,
+        menuItem: { kind: "Food" }
+      },
       ...(alsoCarriesReplacement
         ? [
             {
               id: "line-2",
               menuItemId: replacementMenuItemId,
               serviceStyle: "Buffet",
-              itemName: null
+              itemName: null,
+              menuItem: { kind: "Food" }
             }
           ]
         : [])
@@ -172,14 +186,15 @@ describe("replacing a dish on the kitchen board", () => {
     expect(lineWrite()).toMatchObject({ notes: null });
   });
 
-  it("takes the only style the replacement has when the old one does not apply", async () => {
+  it("refuses a replacement from a different service section", async () => {
     vi.mocked(prisma.menuItem.findFirst).mockResolvedValue(
       replacement(["Plated"]) as never
     );
 
-    await swap();
+    const result = await swap();
 
-    expect(lineWrite()).toMatchObject({ serviceStyle: "Plated" });
+    expect(result).toEqual({ outcome: "incompatible-section" });
+    expect(prisma.eventMenuLine.update).not.toHaveBeenCalled();
   });
 
   it("leaves the style unanswered rather than guessing between two", async () => {
@@ -309,5 +324,47 @@ describe("replacing a dish on the kitchen board", () => {
       isActive: true
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("replaces an add-on and rebuilds the add-on mirror", async () => {
+    vi.mocked(prisma.addOn.findFirst).mockResolvedValue({
+      id: replacementAddOnId,
+      name: "Dessert station"
+    } as never);
+    vi.mocked(prisma.eventMenuLine.findMany)
+      .mockResolvedValueOnce([
+        { id: "addon-line", addOnId, itemName: null }
+      ] as never)
+      .mockResolvedValueOnce([
+        { addOnId: replacementAddOnId },
+        { addOnId: "56565656-5656-4565-8565-565656565656" }
+      ] as never);
+
+    const result = await replaceKitchenAddOn({
+      actorId,
+      organizationId,
+      eventId,
+      addOnId,
+      replacementAddOnId
+    });
+
+    expect(result).toEqual({
+      outcome: "replaced",
+      name: "Dessert station",
+      serviceStyle: null
+    });
+    expect(prisma.eventMenuLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "addon-line" },
+        data: expect.objectContaining({ addOnId: replacementAddOnId })
+      })
+    );
+    expect(prisma.event.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          addOnIds: [replacementAddOnId, "56565656-5656-4565-8565-565656565656"]
+        })
+      })
+    );
   });
 });

@@ -147,7 +147,10 @@ export async function GET(
         visibility,
         signedUrlsByPath
       }),
-      notifications
+      notifications: notifications.notifications,
+      // Whether this event has older change notifications than the ones sent,
+      // so the panel can say so rather than reporting a count that is short.
+      notificationsHasMore: notifications.hasMore
     });
   } catch (error) {
     return createApiErrorResponse(error);
