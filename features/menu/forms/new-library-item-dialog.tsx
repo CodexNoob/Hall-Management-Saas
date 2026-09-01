@@ -88,13 +88,19 @@ type NewLibraryItemDialogProps = {
    */
   defaultServiceStyle?: string;
   /**
-   * Food or Drink for a create, so "New drink" opens on the bottles-per-table
-   * defaults rather than the plated ones. Ignored for an edit, which seeds from
-   * the row itself.
+   * Food or Drink for a create - and, when set, the answer rather than a
+   * starting point: the select is not rendered at all.
    *
-   * The select stays enabled either way: switching kind mid-create is a real
-   * decision, and it behaves like the category field - the item saves and simply
-   * belongs to the other tab.
+   * Every entry point that passes this has already settled it. The Drink Menu
+   * makes drinks, the service tabs make dishes, and the library picker makes
+   * whichever the operator clicked. Asking again on those screens was a
+   * question with a visibly correct answer already showing, and the wrong one
+   * saved an item the tab it was added from does not list - a drink created
+   * from the Buffet Menu lands on neither.
+   *
+   * Ignored for an edit, which seeds from the row and keeps the select:
+   * re-filing a mis-kinded item is the one case that needs the question, and
+   * the only way to move one between the library and the Drink Menu.
    */
   defaultKind?: string;
   /**
@@ -244,6 +250,9 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
    * that block would leave a saved rule on screen nowhere, editable from
    * neither tab.
    */
+  // Where the create was started from settles the kind, so the select is only
+  // rendered where it is still a real question - see `defaultKind`.
+  const isKindImplied = !isEditing && Boolean(defaultKind);
   const scopedStyle = isEditing ? null : readServiceStyle(defaultServiceStyle);
   const scopedLabel = scopedStyle
     ? serviceStyleLabel(scopedStyle, values.kind)
@@ -407,14 +416,19 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               Allergies
               <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
             </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Food or drink
-              <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
-                {MENU_ITEM_KINDS.map((kind) => (
-                  <option key={kind}>{kind}</option>
-                ))}
-              </select>
-            </label>
+            {/* Absent wherever the screen the create came from already said
+                which this is. Still here for an edit, where it is the one way
+                a mis-filed item crosses between the library and the drinks. */}
+            {isKindImplied ? null : (
+              <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                Food or drink
+                <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
+                  {MENU_ITEM_KINDS.map((kind) => (
+                    <option key={kind}>{kind}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             {/* Two shapes, one fieldset.
                 Scoped, the style is settled and only its rule is asked for.
                 Unscoped, one block per style: ticking neither leaves the dish

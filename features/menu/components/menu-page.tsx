@@ -567,7 +567,12 @@ export function MenuPage() {
         defaultServiceStyle={isRuleMenu ? serviceStyle : undefined}
         // And one started from the Drink Menu opens as a drink, on the bottle
         // defaults rather than the plate ones.
-        defaultKind={isDrinkMenu ? "Drink" : undefined}
+        //
+        // "Food" on the service tabs is not just a default either: `servedItems`
+        // drops drinks, so a drink saved from the Buffet Menu appeared on no tab
+        // at all - not the one it was added from, not the Drink Menu, which
+        // lists by kind but was never where it was created.
+        defaultKind={isDrinkMenu ? "Drink" : isRuleMenu ? "Food" : undefined}
         initialValues={libraryItemActions.editingValues}
         // The confirmation below sits on top of this form; while it is up, an
         // Escape belongs to it and must not take the edit down with it.

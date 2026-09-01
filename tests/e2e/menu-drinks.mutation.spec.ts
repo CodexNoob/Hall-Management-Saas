@@ -145,9 +145,9 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
     const dialog = page.getByRole("dialog", { name: "Drink item", exact: true });
     await expect(dialog).toBeVisible();
 
-    // The tab seeds the kind, which is what makes the rest of the form a drink's
-    // form rather than a dish's.
-    await expect(dialog.getByLabel("Food or drink")).toHaveValue("Drink");
+    // The tab settles the kind rather than seeding it: opened from the Drink
+    // Menu, the form does not ask a question this tab has already answered.
+    await expect(dialog.getByLabel("Food or drink")).toBeHidden();
     // "Table", not "Plated": a drink is put on the table, not plated. Only the
     // word changes - `Plated` is still what gets stored.
     await expect(
