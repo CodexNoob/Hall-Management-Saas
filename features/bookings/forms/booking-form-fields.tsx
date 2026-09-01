@@ -62,6 +62,13 @@ type BookingFormFieldsProps = {
   halls: BookingLookupOption[];
   /** Keeps ids unique when more than one booking form is on a page. */
   idPrefix: string;
+  /**
+   * Earliest date the native input will offer, as `YYYY-MM-DD`. The create
+   * dialog passes today, so the picker cannot walk back into days the event
+   * could never be held on. Ignored when `dateField` replaces the input, and
+   * the schema still has to refuse a date typed in by hand.
+   */
+  minDate?: string;
   onChange: (field: keyof BookingFormValues, value: string) => void;
   onPhoneCountryChange: (country: CountryCode) => void;
   renderEventTypeExtra?: () => ReactNode;
@@ -120,6 +127,7 @@ export function BookingFormFields({
   extraEventTypeOption,
   halls,
   idPrefix,
+  minDate,
   onChange,
   onPhoneCountryChange,
   renderEventTypeExtra,
@@ -213,6 +221,7 @@ export function BookingFormFields({
             aria-invalid={errors.eventDate ? true : undefined}
             className={bookingControlClass}
             id={fieldId("date")}
+            min={minDate}
             onChange={(event) => onChange("eventDate", event.target.value)}
             required
             type="date"

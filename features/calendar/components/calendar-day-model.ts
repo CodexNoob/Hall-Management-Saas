@@ -24,6 +24,8 @@ export type CalendarDayMeta = {
   totalBookings: number;
   isSelected: boolean;
   isToday: boolean;
+  /** Before today. Today itself is not past - an event can still be booked on it. */
+  isPast: boolean;
   isBlocked: boolean;
   fullyBooked: boolean;
   /** Bookings the day could still take across every bookable hall. */
@@ -83,6 +85,8 @@ export function createCalendarDayReader({
             0
           );
     const fullyBooked = inView && halls.length > 0 && openSlots === 0;
+    // Both keys are `YYYY-MM-DD`, so this compares as text.
+    const isPast = key < todayKey;
 
     return {
       date,
@@ -95,12 +99,16 @@ export function createCalendarDayReader({
       totalBookings: dayBookings.length,
       isSelected: key === selectedDate,
       isToday: key === todayKey,
+      isPast,
       isBlocked,
       fullyBooked,
       openSlots,
-      // The same three conditions everywhere: a day that cannot take a booking
+      // The same four conditions everywhere: a day that cannot take a booking
       // has no + button, and books nothing when the whole cell is the button.
-      canBook: inView && !fullyBooked && !isBlocked && canCreateEvent
+      // A day that has already been and gone is one of them - an event cannot
+      // be held on it, so offering to book it only invites a mistake.
+      canBook:
+        inView && !isPast && !fullyBooked && !isBlocked && canCreateEvent
     };
   };
 }

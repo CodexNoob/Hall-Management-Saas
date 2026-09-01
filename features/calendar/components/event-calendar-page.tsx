@@ -339,8 +339,13 @@ export function EventCalendarPage() {
       selectedDate >= dateKeyFromIso(range.startDate) &&
       selectedDate <= dateKeyFromIso(range.endDate)
   );
+  // A past day can still be selected - the schedule that ran on it is worth
+  // reading - but nothing new is booked onto it, so the buttons that open the
+  // form go away with the day's + button.
+  const selectedDateIsPast = selectedDate < dateKey(today);
   const canBookSelectedDate =
     canCreateEvent &&
+    !selectedDateIsPast &&
     !selectedDateIsBlocked &&
     hallAvailability.some((hall) => !hall.isFull);
 

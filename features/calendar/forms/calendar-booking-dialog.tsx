@@ -10,9 +10,11 @@ import {
 } from "@/features/bookings/forms/booking-form-fields";
 import {
   bookingFormSchema,
+  earliestBookableDate,
   emptyBookingFormValues,
   fieldErrorPatch,
   liveCountErrors,
+  pastDateIssue,
   toFieldErrors,
   toGuestCountPayload,
   type BookingFormErrors,
@@ -175,6 +177,10 @@ export function CalendarBookingDialog({
 
   if (!open) return null;
 
+  // Read on every render rather than pinned when the dialog mounted: a form
+  // left open across midnight must not still be offering yesterday.
+  const earliestDate = earliestBookableDate();
+
   const updateValue = (field: keyof BookingFormValues, value: string) => {
     const next = { ...values, [field]: value };
 
@@ -186,7 +192,13 @@ export function CalendarBookingDialog({
     setErrors((current) => ({
       ...current,
       ...fieldErrorPatch(field),
-      ...liveCountErrors(next)
+      ...liveCountErrors(next),
+      // The input's `min` stops the picker walking back, but a date can still
+      // be typed straight into it, so the complaint is made as it is typed
+      // rather than held until the save.
+      ...(field === "eventDate"
+        ? { eventDate: pastDateIssue(next.eventDate, earliestDate) }
+        : {})
     }));
 
     setValues(next);
@@ -214,7 +226,10 @@ export function CalendarBookingDialog({
     // Validate the entire booking before persisting a new lookup value. The
     // temporary UUID satisfies the field shape without creating an orphaned
     // event type when another booking field is invalid.
-    const parsed = bookingFormSchema({ country: phoneCountry }).safeParse({
+    const parsed = bookingFormSchema({
+      country: phoneCountry,
+      earliestDate
+    }).safeParse({
       ...values,
       eventTypeId: isNewEventType ? crypto.randomUUID() : eventTypeId
     });
@@ -346,6 +361,7 @@ export function CalendarBookingDialog({
               }
               halls={halls}
               idPrefix="calendar"
+              minDate={earliestDate}
               onChange={updateValue}
               onPhoneCountryChange={setPhoneCountry}
               phoneCountry={phoneCountry}

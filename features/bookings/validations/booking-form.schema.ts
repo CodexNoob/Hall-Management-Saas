@@ -1,6 +1,7 @@
 import type { CountryCode } from "libphonenumber-js";
 import { z } from "zod";
 
+import { dateKey } from "@/lib/dates/calendar-date";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
 import { DEFAULT_PHONE_COUNTRY, requiredPhoneSchema } from "@/lib/validation/phone";
 
@@ -153,6 +154,27 @@ export function liveCountErrors(values: BookingFormValues): BookingFormErrors {
   return { guests: guestsCoverIssue(values.countMode, guests, children) };
 }
 
+/** Today as `YYYY-MM-DD`, which is the earliest date a new booking may take. */
+export function earliestBookableDate() {
+  return dateKey(new Date());
+}
+
+/**
+ * The one thing a create form can get wrong about a date that an edit form
+ * cannot: a day that has already been and gone.
+ *
+ * Only asked on the way in. An event that has already happened keeps the date
+ * it happened on, and a rule that refused it would make every past event
+ * unsaveable the moment somebody opened it to correct a guest count.
+ *
+ * Both values are `YYYY-MM-DD`, so this compares as text.
+ */
+export function pastDateIssue(eventDate: string, earliestDate: string) {
+  if (!eventDate || eventDate >= earliestDate) return undefined;
+
+  return "The event date cannot be in the past.";
+}
+
 /**
  * Who to contact about the event, as two fields that travel together.
  *
@@ -253,13 +275,32 @@ function refineCounts(
  *
  * Creating an event asks for the contact details in the same breath as the
  * event, because there is no card to edit them on yet.
+ *
+ * `earliestDate` is the day the booking may not start before - the dialog
+ * passes today. Left out, the date is only checked for being a date: the schema
+ * stays a pure function of its input, so a caller reading a stored event back
+ * through it is not refused for having been booked last month.
  */
 export function bookingFormSchema({
-  country = DEFAULT_PHONE_COUNTRY
-}: { country?: CountryCode } = {}) {
+  country = DEFAULT_PHONE_COUNTRY,
+  earliestDate
+}: { country?: CountryCode; earliestDate?: string } = {}) {
   return z
     .object({ ...eventFields(), ...clientContactFields({ country }) })
-    .superRefine(refineCounts);
+    .superRefine(refineCounts)
+    .superRefine((values, context) => {
+      const message = earliestDate
+        ? pastDateIssue(values.eventDate, earliestDate)
+        : undefined;
+
+      if (message) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message,
+          path: ["eventDate"]
+        });
+      }
+    });
 }
 
 /**
