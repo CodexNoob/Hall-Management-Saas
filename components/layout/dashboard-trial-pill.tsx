@@ -136,24 +136,30 @@ export function DashboardTrialBadge() {
 
   return (
     <>
-      <div className="relative inline-flex w-fit lg:mt-1" ref={trialCardRef}>
+      <div className="relative inline-flex w-fit shrink-0" ref={trialCardRef}>
         <button
           aria-expanded={isTrialCardOpen}
           aria-haspopup="dialog"
-          className="inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-[#F1C86A] bg-[#FFF8E8] px-2 py-1 text-[11px] font-black leading-none text-[#8A5700] shadow-[0_8px_24px_rgba(185,151,77,0.12)] transition hover:bg-[#FFF4D7] focus:outline-none focus:ring-2 focus:ring-[#F1C86A]/70 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:leading-none"
+          aria-label={`Trial - ${trial.label}`}
+          className="inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-[#dfe4ea] bg-[#f5f6f8] px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[#6a7483] transition hover:border-[#c9d1da] hover:bg-[#eef0f4] hover:text-[#4a5563] focus:outline-none focus:ring-2 focus:ring-[#b9c2cf]/60 sm:gap-1.5 sm:px-2 sm:py-1 sm:text-xs sm:leading-none"
           onClick={() => setIsTrialCardOpen((current) => !current)}
           type="button"
         >
-          <Crown className="h-3.5 w-3.5 shrink-0 text-[#D99A00]" strokeWidth={2.5} />
+          <Crown className="h-3 w-3 shrink-0 text-[#a9b2c0] sm:h-3.5 sm:w-3.5" strokeWidth={2} />
           <span>Trial</span>
-          <span className="hidden h-1 w-1 rounded-full bg-[#D99A00] min-[380px]:inline-flex" />
-          <span className="sm:hidden">{trial.compactLabel}</span>
+          {/* The title row keeps only ~176px between the mobile menu inset and
+              the absolutely positioned action cluster, so the day count is
+              dropped below 440px and the full wording waits until sm. */}
+          <span className="hidden h-1 w-1 rounded-full bg-[#b9c2cf] min-[440px]:inline-flex" />
+          <span className="hidden min-[440px]:inline sm:hidden">
+            {trial.compactLabel}
+          </span>
           <span className="hidden sm:inline">{trial.label}</span>
         </button>
 
         {isTrialCardOpen ? (
           <div
-            className="absolute left-1/2 top-[calc(100%+0.55rem)] z-70 w-48 -translate-x-1/2 rounded-xl border border-[#D8DDE5] bg-white p-3 text-[#061126] opacity-100 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition duration-150"
+            className="absolute left-0 top-[calc(100%+0.55rem)] z-70 w-48 rounded-xl border border-[#D8DDE5] bg-white p-3 text-[#061126] opacity-100 shadow-[0_18px_36px_rgba(0,0,0,0.22)] transition duration-150 sm:left-1/2 sm:-translate-x-1/2"
             role="dialog"
           >
             <div className="flex items-start gap-3">
