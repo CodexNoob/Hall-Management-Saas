@@ -93,9 +93,26 @@ describe("Calendar add mode and week start", () => {
     await mountCalendar({ dailyEventLimit: 4 });
 
     expect(weekdayHeadings()[0]).toBe("SUN");
-    expect(screen.getAllByLabelText(/^Book July \d+, 2026$/).length).toBe(31);
+    // The 15th to the 31st: a day that has already been and gone cannot take a
+    // booking, so the first half of the month carries no + button.
+    expect(screen.getAllByLabelText(/^Book July \d+, 2026$/).length).toBe(17);
     // The cell behind the + button only selects the day.
     expect(screen.getByLabelText("Select July 20, 2026")).toBeInTheDocument();
+  });
+
+  it("offers no + on a day that has already passed", async () => {
+    await mountCalendar({ dailyEventLimit: 4 });
+
+    expect(screen.queryByLabelText("Book July 14, 2026")).toBeNull();
+    expect(screen.getByLabelText("Select July 14, 2026")).toBeInTheDocument();
+    // Today itself is still bookable - an event can be taken for tonight.
+    expect(screen.getByLabelText("Book July 15, 2026")).toBeInTheDocument();
+  });
+
+  it("still only selects a past day when click-anywhere is on", async () => {
+    await mountCalendar({ dailyEventLimit: 4, clickAnywhereToAdd: true });
+
+    expect(screen.getByLabelText("Select July 14, 2026")).toBeInTheDocument();
   });
 
   it("starts the week on Saturday when Settings says so", async () => {
@@ -177,6 +194,8 @@ describe("Calendar default view", () => {
     expect(screen.getByText("Jul 12 – Jul 18, 2026")).toBeInTheDocument();
     expect(screen.getByLabelText("Show previous week")).toBeInTheDocument();
     expect(screen.getByLabelText("Book July 18, 2026")).toBeInTheDocument();
+    // The days of this week that are already behind us are read-only.
+    expect(screen.getByLabelText("Select July 12, 2026")).toBeInTheDocument();
     // A week reaching into the next month still books every day it shows.
     expect(screen.queryByLabelText("Book July 31, 2026")).toBeNull();
   });

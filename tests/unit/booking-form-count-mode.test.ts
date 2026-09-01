@@ -185,6 +185,34 @@ describe("the client contact fields", () => {
   });
 });
 
+describe("the event date", () => {
+  it("refuses a day that has already been and gone", () => {
+    const parsed = bookingFormSchema({ earliestDate: "2026-08-28" }).safeParse(
+      form({ eventDate: "2026-08-27" })
+    );
+
+    expect(parsed.success).toBe(false);
+
+    if (parsed.success) return;
+
+    expect(parsed.error.issues[0]?.path).toEqual(["eventDate"]);
+  });
+
+  it("takes today itself, which can still hold an event tonight", () => {
+    const parsed = bookingFormSchema({ earliestDate: "2026-08-27" }).safeParse(
+      form()
+    );
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("says nothing about the date when no floor is given", () => {
+    // A stored event read back through this schema has whatever date it was
+    // held on, and being in the past is not an error to correct.
+    expect(bookingFormSchema().safeParse(form()).success).toBe(true);
+  });
+});
+
 describe("fieldErrorPatch", () => {
   it("retires the guests complaint when the children or the mode move", () => {
     expect(fieldErrorPatch("children")).toMatchObject({
