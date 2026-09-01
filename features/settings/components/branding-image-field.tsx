@@ -145,8 +145,17 @@ export function BrandingImageField({
           visually hidden behind buttons of its own, and a label around them
           would open the picker twice on one click. */}
       <span className="text-[10px] font-bold text-[#17202a]">{label}</span>
+      {/* `relative` is load-bearing, not decoration. The file input below is
+          `sr-only`, which is `position: absolute` - so with no positioned
+          ancestor its containing block is the initial one, and the settings
+          pane's `overflow-y: auto` cannot clip it. It then sat at its static
+          position in DOCUMENT space, roughly 100px below the fold, and stretched
+          the page past `h-dvh`: a second scrollbar down the whole dashboard, and
+          a band of dead space under a shell that is supposed to be exactly one
+          viewport tall. Positioning this box brings the input back inside the
+          pane that scrolls. */}
       <div
-        className={`mt-1 rounded-xl border-2 border-dashed p-3 transition ${
+        className={`relative mt-1 rounded-xl border-2 border-dashed p-3 transition ${
           isDraggingOver
             ? "border-[#1f4d73] bg-[#eef4fa]"
             : rejection

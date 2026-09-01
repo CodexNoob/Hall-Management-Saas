@@ -256,11 +256,12 @@ export function SettingsPage({
         setIsUploadingImage(true);
         try {
           // Together, so a save that changes both is one wait rather than two.
-          const [uploadedLogoPath, uploadedHeaderImagePath] =
-            await Promise.all([
+          const [uploadedLogoPath, uploadedHeaderImagePath] = await Promise.all(
+            [
               logoFile ? uploadOrganizationLogo(logoFile) : null,
               headerImageFile ? uploadPortalHeaderImage(headerImageFile) : null
-            ]);
+            ]
+          );
           nextLogoPath = uploadedLogoPath ?? nextLogoPath;
           nextHeaderImagePath = uploadedHeaderImagePath ?? nextHeaderImagePath;
         } finally {
@@ -315,6 +316,25 @@ export function SettingsPage({
   const showAllSettingsContent = false;
   const visibleIntegrations = integrations;
   const shouldShowIntegrations = false;
+  /**
+   * Whether the secondary card grid below the section panels holds anything.
+   *
+   * It is gated as a whole because a grid with no children is not free: it still
+   * takes a row in the `grid gap-4` around it, so an empty one added 16px of
+   * blank page under every section that does not fill it - which, with
+   * `showAllSettingsContent` and `shouldShowIntegrations` both pinned false, is
+   * every section except Billing. That doubled the gap above the Save changes
+   * bar and read as a stray empty container at the foot of General.
+   *
+   * Spelled out as the same disjunction the cards themselves use rather than
+   * `activeModalSection === "Billing"`, so a card that comes back when one of
+   * those flags is flipped brings its container back with it.
+   */
+  const hasSecondaryCards =
+    showAllSettingsContent ||
+    shouldShowIntegrations ||
+    ((showAllSettingsContent || activeModalSection === "Billing") &&
+      canManagePayments);
   const modalGridClass =
     activeModalSection === "Access"
       ? "max-w-full lg:grid-cols-2"
@@ -792,165 +812,170 @@ export function SettingsPage({
                 activeModalSection === "Integrations" ? (
                   <ComingSoonPanel section={activeModalSection} />
                 ) : null}
-                <div
-                  className={`grid gap-4 ${
-                    isModal
-                      ? activeModalSection === "Billing" ||
-                        activeModalSection === "Branding" ||
-                        activeModalSection === "Integrations"
-                        ? "grid-cols-1"
-                        : "sm:grid-cols-2"
-                      : "sm:grid-cols-2 xl:grid-cols-4"
-                  }`}
-                >
-                  {showAllSettingsContent ? (
-                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                      <PanelHeader title="Branding Preview" icon="eye" />
+                {hasSecondaryCards ? (
+                  <div
+                    className={`grid gap-4 ${
+                      isModal
+                        ? activeModalSection === "Billing" ||
+                          activeModalSection === "Branding" ||
+                          activeModalSection === "Integrations"
+                          ? "grid-cols-1"
+                          : "sm:grid-cols-2"
+                        : "sm:grid-cols-2 xl:grid-cols-4"
+                    }`}
+                  >
+                    {showAllSettingsContent ? (
+                      <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                        <PanelHeader title="Branding Preview" icon="eye" />
 
-                      <div className="flex flex-1 flex-col justify-between p-4">
-                        <Image
-                          alt="Hall Management SaaS"
-                          className="h-16 w-auto object-contain"
-                          height={408}
-                          src="/images/branding/hms-logo-header.png"
-                          unoptimized
-                          width={612}
-                        />
+                        <div className="flex flex-1 flex-col justify-between p-4">
+                          <Image
+                            alt="Hall Management SaaS"
+                            className="h-16 w-auto object-contain"
+                            height={408}
+                            src="/images/branding/hms-logo-header.png"
+                            unoptimized
+                            width={612}
+                          />
 
-                        <button
-                          className={`${secondaryButton} mt-4 w-full`}
-                          onClick={() => setActiveModalSection("Branding")}
-                          type="button"
-                        >
-                          Customize Branding
-                        </button>
-                      </div>
-                    </section>
-                  ) : null}
-
-                  {shouldShowIntegrations ? (
-                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                      <PanelHeader
-                        title={
-                          isModal && activeModalSection !== "Integrations"
-                            ? `${activeModalSection} Status`
-                            : "Integrations Status"
-                        }
-                        icon="link"
-                      />
-
-                      <div className="flex flex-1 flex-col justify-center space-y-4 p-4">
-                        {visibleIntegrations.map((integration) => (
-                          <div
-                            className="flex items-center gap-3"
-                            key={integration.name}
+                          <button
+                            className={`${secondaryButton} mt-4 w-full`}
+                            onClick={() => setActiveModalSection("Branding")}
+                            type="button"
                           >
-                            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa] p-1">
-                              <Image
-                                alt=""
-                                className="h-5 w-5 object-contain"
-                                height={20}
-                                src={integration.image}
-                                width={20}
-                              />
-                            </span>
+                            Customize Branding
+                          </button>
+                        </div>
+                      </section>
+                    ) : null}
 
-                            <span className="min-w-0 flex-1 wrap-break-word text-[11px] font-bold">
-                              {integration.name}
-                            </span>
-
-                            <span className="shrink-0 rounded-full border border-[#a9dfc9] bg-[#effaf5] px-2 py-1 text-[9px] font-black text-[#147653]">
-                              Connected
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  ) : null}
-
-                  {(showAllSettingsContent ||
-                    activeModalSection === "Billing") &&
-                  canManagePayments ? (
-                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                      <PanelHeader title="Client Payment Link" icon="billing" />
-
-                      <div className="flex flex-1 flex-col space-y-3 p-4">
-                        <label
-                          className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#516174]"
-                          htmlFor="organization-payment-link"
-                        >
-                          Payment link
-                        </label>
-                        <input
-                          className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
-                          id="organization-payment-link"
-                          name="paymentLink"
-                          onChange={(changeEvent) =>
-                            setPaymentLink(changeEvent.target.value)
+                    {shouldShowIntegrations ? (
+                      <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                        <PanelHeader
+                          title={
+                            isModal && activeModalSection !== "Integrations"
+                              ? `${activeModalSection} Status`
+                              : "Integrations Status"
                           }
-                          placeholder="https://secure.example.com/your-venue"
-                          type="url"
-                          value={paymentLink}
+                          icon="link"
                         />
-                        <p className="text-[10px] text-[#6a7483]">
-                          Where the Pay balance button on your client portal
-                          sends clients. Leave this empty to hide that button.
-                        </p>
-                        <button
-                          className={`${secondaryButton} w-full`}
-                          disabled={settingsMutation.isPending}
-                          onClick={savePaymentLink}
-                          type="button"
-                        >
-                          {settingsMutation.isPending
-                            ? "Saving..."
-                            : "Save Payment Link"}
-                        </button>
-                        {paymentMessage ? (
-                          <p
-                            className="text-[10px] font-bold text-[#516174]"
-                            role="status"
+
+                        <div className="flex flex-1 flex-col justify-center space-y-4 p-4">
+                          {visibleIntegrations.map((integration) => (
+                            <div
+                              className="flex items-center gap-3"
+                              key={integration.name}
+                            >
+                              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#eef4fa] p-1">
+                                <Image
+                                  alt=""
+                                  className="h-5 w-5 object-contain"
+                                  height={20}
+                                  src={integration.image}
+                                  width={20}
+                                />
+                              </span>
+
+                              <span className="min-w-0 flex-1 wrap-break-word text-[11px] font-bold">
+                                {integration.name}
+                              </span>
+
+                              <span className="shrink-0 rounded-full border border-[#a9dfc9] bg-[#effaf5] px-2 py-1 text-[9px] font-black text-[#147653]">
+                                Connected
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ) : null}
+
+                    {(showAllSettingsContent ||
+                      activeModalSection === "Billing") &&
+                    canManagePayments ? (
+                      <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                        <PanelHeader
+                          title="Client Payment Link"
+                          icon="billing"
+                        />
+
+                        <div className="flex flex-1 flex-col space-y-3 p-4">
+                          <label
+                            className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#516174]"
+                            htmlFor="organization-payment-link"
                           >
-                            {paymentMessage}
+                            Payment link
+                          </label>
+                          <input
+                            className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
+                            id="organization-payment-link"
+                            name="paymentLink"
+                            onChange={(changeEvent) =>
+                              setPaymentLink(changeEvent.target.value)
+                            }
+                            placeholder="https://secure.example.com/your-venue"
+                            type="url"
+                            value={paymentLink}
+                          />
+                          <p className="text-[10px] text-[#6a7483]">
+                            Where the Pay balance button on your client portal
+                            sends clients. Leave this empty to hide that button.
                           </p>
-                        ) : null}
-                      </div>
-                    </section>
-                  ) : null}
-
-                  {showAllSettingsContent ? (
-                    <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                      <PanelHeader title="Billing Cycle" icon="billing" />
-
-                      <dl className="flex-1 space-y-4 p-4 text-[10px]">
-                        <div className="flex justify-between gap-3">
-                          <dt>Current plan</dt>
-                          <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">
-                            Professional
-                          </dd>
+                          <button
+                            className={`${secondaryButton} w-full`}
+                            disabled={settingsMutation.isPending}
+                            onClick={savePaymentLink}
+                            type="button"
+                          >
+                            {settingsMutation.isPending
+                              ? "Saving..."
+                              : "Save Payment Link"}
+                          </button>
+                          {paymentMessage ? (
+                            <p
+                              className="text-[10px] font-bold text-[#516174]"
+                              role="status"
+                            >
+                              {paymentMessage}
+                            </p>
+                          ) : null}
                         </div>
-                        <div className="flex justify-between gap-3">
-                          <dt>Billing cycle</dt>
-                          <dd className="font-bold">Monthly</dd>
-                        </div>
-                        <div className="flex justify-between gap-3">
-                          <dt>Next billing date</dt>
-                          <dd className="font-bold">Aug 8, 2026</dd>
-                        </div>
-                      </dl>
+                      </section>
+                    ) : null}
 
-                      <div className="px-4 pb-4">
-                        <button
-                          className={`${secondaryButton} w-full`}
-                          onClick={() => setIsUpgradeOpen(true)}
-                          type="button"
-                        >
-                          Manage Subscription
-                        </button>
-                      </div>
-                    </section>
-                  ) : null}
-                </div>
+                    {showAllSettingsContent ? (
+                      <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+                        <PanelHeader title="Billing Cycle" icon="billing" />
+
+                        <dl className="flex-1 space-y-4 p-4 text-[10px]">
+                          <div className="flex justify-between gap-3">
+                            <dt>Current plan</dt>
+                            <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">
+                              Professional
+                            </dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt>Billing cycle</dt>
+                            <dd className="font-bold">Monthly</dd>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <dt>Next billing date</dt>
+                            <dd className="font-bold">Aug 8, 2026</dd>
+                          </div>
+                        </dl>
+
+                        <div className="px-4 pb-4">
+                          <button
+                            className={`${secondaryButton} w-full`}
+                            onClick={() => setIsUpgradeOpen(true)}
+                            type="button"
+                          >
+                            Manage Subscription
+                          </button>
+                        </div>
+                      </section>
+                    ) : null}
+                  </div>
+                ) : null}
                 {activeModalSection === "General" ||
                 activeModalSection === "Calendar" ||
                 activeModalSection === "Kitchen" ? (
