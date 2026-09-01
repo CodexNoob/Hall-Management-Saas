@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
@@ -153,12 +153,20 @@ export function EventManagerPage() {
   // finished or expired, its row was normally not even rendered to be
   // highlighted. Landing on an empty pane says what is true, that nothing is
   // open yet.
-  useEffect(() => {
-    if (!deepLinkEvent) return;
+  const hasOpenedDeepLinkRef = useRef(false);
 
+  useEffect(() => {
+    if (!deepLinkEvent || hasOpenedDeepLinkRef.current) return;
+
+    hasOpenedDeepLinkRef.current = true;
     // Only ever the first selection, so a later click in the list is not
     // snapped back to whatever the link said.
     setSelectedEventId((current) => current || deepLinkEvent.id);
+    // An event opened by a link fills the same pane as one opened by a click in
+    // the list, so it asks for the sidebar's width in the same way. Coming in
+    // from a calendar pill was the one way into the workspace that left the nav
+    // taking up room next to it.
+    requestDashboardSidebarCollapse();
   }, [deepLinkEvent]);
 
   if (eventsQuery.isLoading) {
@@ -384,8 +392,8 @@ export function EventManagerPage() {
                     setIsEventListExpanded(false);
                     // The workspace that just opened is the widest thing on the
                     // page, so give it the sidebar's width the way the list
-                    // gives it its own above. Deep links are left alone: nobody
-                    // expects a page to close the nav on them as it loads.
+                    // gives it its own above. An event opened by a link asks
+                    // for the same thing, from the effect that opens it.
                     requestDashboardSidebarCollapse();
                   }}
                   // Only what the open tab would actually ask for. Warming

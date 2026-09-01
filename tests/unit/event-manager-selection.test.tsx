@@ -19,7 +19,10 @@ vi.mock("@/lib/http/authenticated-fetch", () => ({
   authenticatedFetch: vi.fn()
 }));
 
-import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  clearAuthenticatedQueryCache,
+  setAuthenticatedQueryData
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { EventManagerPage } from "@/features/events/components/event-manager-page";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import type { EventsResponse } from "@/features/events/components/event-manager-shared";
@@ -288,7 +291,9 @@ describe("Event Manager selection", () => {
     expect(requests).toEqual([]);
   });
 
-  it("does not collapse the sidebar for a deep link", async () => {
+  // However the workspace was opened, it is the widest pane on the page: a
+  // calendar pill used to be the one way in that left the nav beside it.
+  it("collapses the sidebar for a deep link too", async () => {
     setViewport(1440);
     window.history.replaceState({}, "", "/dashboard/events?eventId=event-1");
     respondWith(eventsResponse([eventRow("event-1")]));
@@ -297,7 +302,33 @@ describe("Event Manager selection", () => {
     await mount();
 
     expect(workspace()).toBeInTheDocument();
-    expect(requests).toEqual([]);
+    expect(requests).toEqual([true]);
+  });
+
+  // The link opens one event, once: a later write to the cache hands the effect
+  // a new event object, and that must not shut a sidebar the user has since
+  // reopened.
+  it("asks once for a deep link, not again when the event is rewritten", async () => {
+    setViewport(1440);
+    window.history.replaceState({}, "", "/dashboard/events?eventId=event-1");
+    const payload = eventsResponse([eventRow("event-1")]);
+    respondWith(payload);
+    const requests = collapseRequests();
+
+    await mount();
+
+    expect(requests).toEqual([true]);
+
+    // What saving in the workspace does: the same event, a new object.
+    await act(async () => {
+      setAuthenticatedQueryData(
+        "/api/events?eventId=event-1",
+        eventsResponse([eventRow("event-1")])
+      );
+    });
+
+    expect(workspace()).toBeInTheDocument();
+    expect(requests).toEqual([true]);
   });
 
   it("goes back to the empty pane when the filters are cleared", async () => {
