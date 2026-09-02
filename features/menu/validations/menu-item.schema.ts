@@ -27,6 +27,10 @@ export const menuItemFieldsSchema = z.object({
   // second rule for the same style and basis impossible anyway.
   services: z.array(serviceRuleSchema).max(2).optional(),
   kosherType: z.enum(["Milchig", "Fleishig", "Parve"]).optional(),
+  // Only the drink form asks this - it is what stands where that form's category
+  // and kashrut selects used to be - so an omitted key is the ordinary case for
+  // a dish rather than a caller forgetting a field.
+  containsAlcohol: z.boolean().optional(),
   allergens: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   notes: z.string().trim().optional(),
   // A storage path, never a bucket and never a URL. The bucket is decided
@@ -40,9 +44,14 @@ export const menuItemFieldsSchema = z.object({
  * `picturePath` widens to nullable here and only here: on create there is
  * nothing to clear, while on update an explicit `null` means "drop the picture"
  * and an omitted key means "leave whatever is stored".
+ *
+ * `containsAlcohol` widens for the same reason and with the same reading: an
+ * item re-filed from a drink to a dish sends `null` to unsay an answer that no
+ * longer has a question behind it.
  */
 export const menuItemUpdateSchema = menuItemFieldsSchema.partial().extend({
-  picturePath: z.string().trim().min(1).nullable().optional()
+  picturePath: z.string().trim().min(1).nullable().optional(),
+  containsAlcohol: z.boolean().nullable().optional()
 });
 
 export type MenuItemUpdateInput = z.infer<typeof menuItemUpdateSchema>;

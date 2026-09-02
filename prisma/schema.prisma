@@ -788,33 +788,41 @@ model BookingReservation {
 }
 
 model MenuItem {
-  id             String   @id @default(uuid()) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  name           String
+  id              String   @id @default(uuid()) @db.Uuid
+  organizationId  String   @map("organization_id") @db.Uuid
+  name            String
   /// Superseded by `categoryId`, which points at the `MenuCategory` row the
   /// course tabs are built from. Left in place written-but-unread for one
   /// release the way `countingRules` was, because every branch shares one
   /// database and dropping it would break whatever another branch is running.
-  category       String?
-  categoryId     String?  @map("category_id") @db.Uuid
+  category        String?
+  categoryId      String?  @map("category_id") @db.Uuid
   /// Which side of the business the dish belongs to: School, Simcha or Both.
   /// Not the service style - that is one `MenuItemService` row per style.
-  usageType      String   @map("usage_type")
-  kind           String   @default("Food")
-  kosherType     String?  @map("kosher_type")
+  usageType       String   @map("usage_type")
+  kind            String   @default("Food")
+  kosherType      String?  @map("kosher_type")
+  /// Whether a drink contains alcohol - the one thing worth knowing about a
+  /// drink at a glance, and what the drink form asks instead of the category
+  /// and kashrut questions, which are food vocabulary.
+  ///
+  /// Nullable rather than defaulted to false, for the reason `kosherType` is: a
+  /// dish is never asked, and NULL says the question was not put rather than
+  /// asserting an answer on its behalf.
+  containsAlcohol Boolean? @map("contains_alcohol")
   /// Superseded by `MenuItemService`, which holds the rule as columns Postgres
   /// can check. Left in place unread for one release as a safety net; nothing
   /// reads it and the next phase drops it.
-  countingRules  Json?    @map("counting_rules")
+  countingRules   Json?    @map("counting_rules")
   /// Labels, not references - a text array is the right shape here, unlike the
   /// id arrays elsewhere in this schema that stand in for real relationships.
-  allergens      String[] @default([])
-  notes          String?
-  pictureBucket  String?  @map("picture_bucket")
-  picturePath    String?  @map("picture_path")
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
+  allergens       String[] @default([])
+  notes           String?
+  pictureBucket   String?  @map("picture_bucket")
+  picturePath     String?  @map("picture_path")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   organization                  Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   categoryRef                   MenuCategory?                 @relation(fields: [categoryId], references: [id], onDelete: SetNull)

@@ -19,6 +19,12 @@ export type MenuItemChanges = {
    */
   services?: MenuItemServiceRule[];
   kosherType?: string;
+  /**
+   * `null` unsays it, which is what an item re-filed from a drink to a dish
+   * sends: only the drink form asks this, so a dish carrying an answer would be
+   * holding one from a question it no longer gets put. Omitted leaves it alone.
+   */
+  containsAlcohol?: boolean | null;
   allergens?: string[];
   notes?: string;
   /** `null` clears the stored picture; omitted leaves it as it is. */

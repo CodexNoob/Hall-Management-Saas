@@ -31,6 +31,7 @@ type MenuPayload = {
     id: string;
     name: string;
     kind: string;
+    containsAlcohol: boolean | null;
     pictureUrl: string | null;
   }>;
 };
@@ -57,9 +58,9 @@ async function findItem(page: Page, name: string) {
 /**
  * Seeds a food item straight through the API.
  *
- * Used by the kind-switch test, where the starting item is a fixture rather than
- * the subject - building it through the form would make a create failure look
- * like an update failure.
+ * Used by the test below, where the starting item is a fixture rather than the
+ * subject - building it through the form would make a create failure look like
+ * an editor failure.
  */
 async function createFoodItem(page: Page, name: string) {
   const response = await page.request.post("/api/menu", {
@@ -145,9 +146,19 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
     const dialog = page.getByRole("dialog", { name: "Drink item", exact: true });
     await expect(dialog).toBeVisible();
 
-    // The tab settles the kind rather than seeding it: opened from the Drink
-    // Menu, the form does not ask a question this tab has already answered.
+    // The tab settles the kind rather than seeding it, and nothing in the form
+    // reopens it: the kind decides which questions get asked, so it cannot also
+    // be one of them.
     await expect(dialog.getByLabel("Food or drink")).toBeHidden();
+    // Which questions, exactly. A course and a kashrut type are food
+    // vocabulary - a bottle of wine is not an appetizer - so the drink form asks
+    // the one thing anyone scans a drinks list for instead.
+    await expect(dialog.getByLabel("Category")).toBeHidden();
+    await expect(dialog.getByLabel("Kashrut type")).toBeHidden();
+    const alcoholSwitch = dialog.getByRole("switch", {
+      name: "Contains alcohol"
+    });
+    await expect(alcoholSwitch).not.toBeChecked();
     // "Table", not "Plated": a drink is put on the table, not plated. Only the
     // word changes - `Plated` is still what gets stored.
     await expect(
@@ -155,6 +166,8 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
     ).toBeVisible();
 
     await dialog.getByLabel("Item name").fill(name);
+    await alcoholSwitch.click();
+    await expect(alcoholSwitch).toBeChecked();
     await dialog.getByRole("checkbox", { name: "Table", exact: true }).check();
     await dialog
       .getByRole("button", { name: "Add a counting rule (optional)" })
@@ -185,6 +198,10 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
 
     const card = itemCard(page, name);
     await expect(card).toBeVisible({ timeout: 20_000 });
+    // The switch has somewhere to show for itself. Drinks all file under one
+    // category now that the form stopped asking for one, so the pill carries
+    // the answer an operator actually scans for.
+    await expect(card.getByText("Alcohol", { exact: true })).toBeVisible();
     // alt="" makes the thumbnail decorative, so it has no img role to look up.
     await expectDecodedThumbnail(
       card.locator("img"),
@@ -236,6 +253,7 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
     const saved = await findItem(page, name);
     itemId = saved?.id;
     expect(saved?.kind).toBe("Drink");
+    expect(saved?.containsAlcohol).toBe(true);
     expect(saved?.pictureUrl).toEqual(expect.stringContaining("token="));
     expect(saved).not.toHaveProperty("picturePath");
     expect(saved).not.toHaveProperty("pictureBucket");
@@ -246,10 +264,19 @@ test("creates a drink with a picture and keeps it off the food tabs", async ({
   }
 });
 
-test("moves an item between the library and the drink tab when its kind changes", async ({
-  page
-}) => {
-  const name = `E2E Kind Switch ${Date.now()}`;
+/**
+ * The editor used to carry a "Food or drink" select, which was how a mis-filed
+ * item crossed between the two tabs. It is gone, and this is the assertion that
+ * replaced the one covering that crossing.
+ *
+ * The kind decides which questions the form asks - a dish is asked for a course
+ * and a kashrut type, a drink for whether it contains alcohol - so offering to
+ * change it mid-edit offered to swap the questions under someone halfway
+ * through answering them, and to carry a dish's answers onto a drink that was
+ * never asked them. A mis-filed item is remade on the tab it belongs to.
+ */
+test("does not offer to turn a dish into a drink", async ({ page }) => {
+  const name = `E2E Fixed Kind ${Date.now()}`;
   const itemId = await createFoodItem(page, name);
 
   try {
@@ -264,29 +291,14 @@ test("moves an item between the library and the drink tab when its kind changes"
     const editDialog = page.getByRole("dialog", { name: "Edit library item" });
     await expect(editDialog).toBeVisible();
 
-    await editDialog
-      .getByLabel("Food or drink")
-      .selectOption({ label: "Drink" });
-    // The heading follows the select, so the form renames itself before it is
-    // saved rather than after - which means the locator has to be taken again.
-    // `editDialog` is bound by the old accessible name and stops matching here.
-    const drinkDialog = page.getByRole("dialog", { name: "Edit drink item" });
-    await expect(drinkDialog).toBeVisible();
-
-    const updated = page.waitForResponse(
-      (response) =>
-        response.url().includes("/api/menu/items/") &&
-        response.request().method() === "PATCH"
-    );
-    await drinkDialog.getByRole("button", { name: "Save changes" }).click();
-    expect((await updated).status()).toBe(200);
-    await expect(drinkDialog).toBeHidden({ timeout: 20_000 });
-
-    // Gone from the library it was created in...
-    await expect(itemCard(page, name)).toBeHidden({ timeout: 20_000 });
-    // ...and on the drink tab instead, which is the whole point of the split.
-    await openDrinkTab(page);
-    await expect(itemCard(page, name)).toBeVisible({ timeout: 20_000 });
+    await expect(editDialog.getByLabel("Food or drink")).toBeHidden();
+    // The other half of the same rule: a dish keeps the two questions the drink
+    // form gave up, and is never asked the one it took in exchange.
+    await expect(editDialog.getByLabel("Category")).toBeVisible();
+    await expect(editDialog.getByLabel("Kashrut type")).toBeVisible();
+    await expect(
+      editDialog.getByRole("switch", { name: "Contains alcohol" })
+    ).toBeHidden();
   } finally {
     await deleteItem(page, itemId);
   }

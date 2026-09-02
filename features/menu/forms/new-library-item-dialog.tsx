@@ -8,7 +8,6 @@ import {
   ServiceRuleFields
 } from "@/features/menu/components/service-rule-fields";
 import {
-  MENU_ITEM_KINDS,
   SERVICE_STYLES,
   isDrinkKind,
   readServiceStyle,
@@ -24,6 +23,16 @@ export type NewLibraryItemFormValues = {
   category: string;
   kind: string;
   kashrutType: string;
+  /**
+   * Whether a drink contains alcohol.
+   *
+   * Asked only on the drink form, where it stands in place of the category and
+   * kashrut selects: a course and a kashrut type are food vocabulary, and the
+   * thing anyone actually needs to know about a bottle at a glance is whether it
+   * is alcoholic. Carried on a dish's values too - the form holds one shape -
+   * but the callers do not send it for one.
+   */
+  containsAlcohol: boolean;
   /** Comma separated; the page splits it into the `text[]` column. */
   allergies: string;
   description: string;
@@ -88,19 +97,19 @@ type NewLibraryItemDialogProps = {
    */
   defaultServiceStyle?: string;
   /**
-   * Food or Drink for a create - and, when set, the answer rather than a
-   * starting point: the select is not rendered at all.
+   * Food or Drink for a create - the answer, not a starting point. The form
+   * never asks: the screen the create came from has already settled it, and the
+   * Drink Menu making a dish is not a thing anyone means to do.
    *
-   * Every entry point that passes this has already settled it. The Drink Menu
-   * makes drinks, the service tabs make dishes, and the library picker makes
-   * whichever the operator clicked. Asking again on those screens was a
-   * question with a visibly correct answer already showing, and the wrong one
-   * saved an item the tab it was added from does not list - a drink created
-   * from the Buffet Menu lands on neither.
+   * Nor does an edit ask. The kind decides which form you get - a dish is asked
+   * for a course and a kashrut type, a drink for whether it contains alcohol -
+   * so offering to change it mid-edit offered to swap the questions under
+   * someone halfway through answering them, and to carry a dish's answers onto a
+   * drink that was never asked. An item filed under the wrong one is remade on
+   * the tab it belongs to, which is one action rather than a form that has to
+   * hold both shapes at once.
    *
-   * Ignored for an edit, which seeds from the row and keeps the select:
-   * re-filing a mis-kinded item is the one case that needs the question, and
-   * the only way to move one between the library and the Drink Menu.
+   * Ignored for an edit, which takes the kind from the row itself.
    */
   defaultKind?: string;
   /**
@@ -131,10 +140,22 @@ const initialValues: LibraryItemSeedValues = {
   category: "Main",
   kind: "Food",
   kashrutType: "Parve",
+  containsAlcohol: false,
   allergies: "",
   description: "",
   services: serviceFormDefaults("Food")
 };
+
+/**
+ * What a drink is filed under, since the drink form no longer asks.
+ *
+ * Something has to fill the column: the category drives the tab's filter and
+ * the pill on the card, and a drink left on the food default would sit under
+ * "Main" on a tab where the field it came from is not even rendered. "Drink" is
+ * already one of the options the select offers, so nothing new appears in the
+ * filter as a result.
+ */
+const DRINK_CATEGORY = "Drink";
 
 const controlClass =
   "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
@@ -200,7 +221,15 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
       ])
     ) as ServiceStyleFormValues;
 
-    return { ...initialValues, kind, services };
+    return {
+      ...initialValues,
+      kind,
+      // Filed by the kind rather than left on the food default - see
+      // `DRINK_CATEGORY`. The select this would otherwise be typed into is not
+      // rendered for a drink.
+      category: isDrinkKind(kind) ? DRINK_CATEGORY : initialValues.category,
+      services
+    };
   }, [defaultKind, defaultServiceStyle]);
 
   // Shared with the remove confirmation that opens on top of this form, so
@@ -239,8 +268,15 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
 
   if (!open) return null;
 
-  // Follows the select, not the tab: switching Food -> Drink mid-create has to
-  // re-word the block the switch is about.
+  /*
+   * Which of the two forms this is: a drink is asked whether it contains
+   * alcohol, a dish for a course and a kashrut type, and the service block is
+   * worded differently for each.
+   *
+   * Read off the values rather than the tab, because an edit has no tab behind
+   * it - it opens from a card, seeded with the row's own kind. Fixed for the
+   * life of the dialog either way: nothing in here changes it any more.
+   */
   const isDrink = isDrinkKind(values.kind);
   /*
    * The one style this form is about, or null when it is about the choice.
@@ -250,49 +286,20 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
    * that block would leave a saved rule on screen nowhere, editable from
    * neither tab.
    */
-  // Where the create was started from settles the kind, so the select is only
-  // rendered where it is still a real question - see `defaultKind`.
-  const isKindImplied = !isEditing && Boolean(defaultKind);
   const scopedStyle = isEditing ? null : readServiceStyle(defaultServiceStyle);
   const scopedLabel = scopedStyle
     ? serviceStyleLabel(scopedStyle, values.kind)
     : null;
 
-  // Narrowed to the text fields so `services`, which is not a string, cannot be
-  // passed here by accident.
-  type TextField = Exclude<keyof LibraryItemSeedValues, "services">;
+  // Narrowed to the text fields so `services` and the alcohol switch, neither of
+  // which is a string, cannot be passed here by accident.
+  type TextField = Exclude<
+    keyof LibraryItemSeedValues,
+    "services" | "containsAlcohol"
+  >;
 
   const updateValue = (field: TextField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
-  };
-
-  /**
-   * Switching Food <-> Drink re-seeds the styles that are still switched off,
-   * so a drink opens on bottles per table rather than the plated "1 plate per 1
-   * guest" it used to inherit.
-   *
-   * Enabled blocks are left exactly as typed. Their numbers are on screen, and
-   * rewriting what someone is looking at is worse than a default that no longer
-   * matches the kind - the disabled ones are invisible, so re-seeding those
-   * costs nothing and is what makes the new defaults actually reachable.
-   */
-  const updateKind = (kind: string) => {
-    setValues((current) => {
-      const defaults = serviceFormDefaults(kind);
-
-      return {
-        ...current,
-        kind,
-        services: Object.fromEntries(
-          SERVICE_STYLES.map((style) => [
-            style,
-            current.services[style].enabled
-              ? current.services[style]
-              : { ...defaults[style] }
-          ])
-        ) as ServiceStyleFormValues
-      };
-    });
   };
 
   const updateService = (
@@ -387,8 +394,8 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
             <LibraryIcon />
             {/* Names what is being made, which for a scoped create is the
                 style - "Buffet item", opened from the Buffet Menu. Otherwise
-                it follows the select rather than the tab it was opened from,
-                so switching Food -&gt; Drink renames the form it is switching. */}
+                it is the kind, which an edit takes from the row rather than
+                from the tab the card happened to be clicked on. */}
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrink ? "drink" : "library"} item` : scopedLabel ? `${scopedLabel} item` : `${isDrink ? "Drink" : "Library"} item`}</h2>
           </div>
           <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
@@ -400,35 +407,72 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               Item name
               <input className={`${controlClass} mt-1`} name="libraryItemName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Category
-              <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
-                <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
-              </select>
-            </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Kashrut type
-              <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
-                <option>Parve</option><option>Fleishig</option><option>Milchig</option>
-              </select>
-            </label>
+            {/* A drink is asked one question where a dish is asked two, and it
+                is not either of theirs. A course is food vocabulary - a bottle
+                of wine is not an appetizer - and a kashrut type is a label
+                nobody scans a drinks list for. Whether it is alcoholic is the
+                one thing they do.
+
+                A drink's category is still stored, just not typed: see
+                `DRINK_CATEGORY`. Its kashrut type is neither asked nor written -
+                the callers stop sending the field for a drink, so an item
+                re-filed as one keeps whatever it already had rather than being
+                given an answer it was never asked for. */}
+            {isDrink ? (
+              <div className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                Alcohol
+                {/* The whole row is the switch, not the 36px track at the end of
+                    it: this sits three columns from the edge of a phone, and the
+                    track alone is the hardest part of the field to hit. */}
+                <button
+                  aria-checked={values.containsAlcohol}
+                  className="mt-1 flex h-9 w-full items-center justify-between gap-3 rounded-lg border border-[#b9c2cf] bg-white px-3 text-left outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                  name="containsAlcohol"
+                  onClick={() =>
+                    setValues((current) => ({
+                      ...current,
+                      containsAlcohol: !current.containsAlcohol
+                    }))
+                  }
+                  role="switch"
+                  type="button"
+                >
+                  <span className="text-xs font-black normal-case tracking-normal text-[#17202a]">
+                    Contains alcohol
+                  </span>
+                  <span
+                    className={`relative h-5 w-9 shrink-0 rounded-full transition ${values.containsAlcohol ? "bg-[#1f4d73]" : "bg-[#b9c2cf]"}`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${values.containsAlcohol ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                  Category
+                  <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
+                    <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
+                  </select>
+                </label>
+                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                  Kashrut type
+                  <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
+                    <option>Parve</option><option>Fleishig</option><option>Milchig</option>
+                  </select>
+                </label>
+              </>
+            )}
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Allergies
               <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
             </label>
-            {/* Absent wherever the screen the create came from already said
-                which this is. Still here for an edit, where it is the one way
-                a mis-filed item crosses between the library and the drinks. */}
-            {isKindImplied ? null : (
-              <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                Food or drink
-                <select className={`${controlClass} mt-1`} name="kind" onChange={(event) => updateKind(event.target.value)} value={values.kind}>
-                  {MENU_ITEM_KINDS.map((kind) => (
-                    <option key={kind}>{kind}</option>
-                  ))}
-                </select>
-              </label>
-            )}
+            {/* The "Food or drink" select used to sit here, on an edit and on a
+                create the picker had not already answered. It is gone from
+                both - see `defaultKind`. The kind chooses which questions this
+                form asks, so it cannot also be one of them. */}
             {/* Two shapes, one fieldset.
                 Scoped, the style is settled and only its rule is asked for.
                 Unscoped, one block per style: ticking neither leaves the dish
