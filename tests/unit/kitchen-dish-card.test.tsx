@@ -7,7 +7,10 @@ vi.mock("@/lib/http/authenticated-fetch", () => ({
   authenticatedFetch: vi.fn()
 }));
 
-import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  clearAuthenticatedQueryCache,
+  setAuthenticatedQueryData
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import type {
   EventKitchenLine,
   EventKitchenResponse,
@@ -254,7 +257,13 @@ describe("kitchen dish card", () => {
     const onSaveItemAction = await renderDialog([line()]);
 
     fireEvent.click(dishCard());
+
+    expect(dishCard()).toHaveAccessibleName(/Not started/);
+    expect(onSaveItemAction).not.toHaveBeenCalled();
+
     settleClick();
+
+    expect(dishCard()).toHaveAccessibleName(/Pending/);
 
     expect(onSaveItemAction).toHaveBeenCalledTimes(1);
     expect(onSaveItemAction).toHaveBeenCalledWith({
@@ -276,6 +285,31 @@ describe("kitchen dish card", () => {
     );
   });
 
+  it("does not flicker back to an older status while complete is saving", async () => {
+    await renderDialog([line({ status: "PENDING" })]);
+
+    fireEvent.click(dishCard());
+    settleClick();
+
+    expect(dishCard()).toHaveAccessibleName(/Complete/);
+
+    act(() => {
+      setAuthenticatedQueryData(`/api/events/${boardEvent.id}/kitchen`, {
+        kitchen: sheet([line({ status: null })])
+      });
+    });
+
+    expect(dishCard()).toHaveAccessibleName(/Complete/);
+
+    act(() => {
+      setAuthenticatedQueryData(`/api/events/${boardEvent.id}/kitchen`, {
+        kitchen: sheet([line({ status: "COMPLETE" })])
+      });
+    });
+
+    expect(dishCard()).toHaveAccessibleName(/Complete/);
+  });
+
   it("stops at complete rather than cycling back round", async () => {
     // Reset is a separate action. A click that wrapped complete to not started
     // would undo finished work by mis-tap.
@@ -294,6 +328,7 @@ describe("kitchen dish card", () => {
     // Browsers deliver two click events before dblclick. Neither delayed click
     // may advance the dish while the confirmation is opening.
     fireEvent.click(card);
+    expect(dishCard()).toHaveAccessibleName(/Pending/);
     fireEvent.click(card);
     fireEvent.doubleClick(card);
     settleClick();
@@ -302,6 +337,23 @@ describe("kitchen dish card", () => {
     expect(
       screen.getByRole("alertdialog", { name: "Reset dish status?" })
     ).toBeInTheDocument();
+  });
+
+  it("explains that a not-started dish cannot be reset", async () => {
+    const onSaveItemAction = await renderDialog([line()]);
+    const card = dishCard();
+
+    fireEvent.click(card);
+    expect(dishCard()).toHaveAccessibleName(/Not started/);
+    fireEvent.click(card);
+    fireEvent.doubleClick(card);
+    settleClick();
+
+    expect(
+      screen.getByRole("dialog", { name: "Dish not started yet" })
+    ).toBeInTheDocument();
+    expect(dishCard()).toHaveAccessibleName(/Not started/);
+    expect(onSaveItemAction).not.toHaveBeenCalled();
   });
 
   it("resets a pending dish only after double-click confirmation", async () => {
@@ -313,6 +365,29 @@ describe("kitchen dish card", () => {
 
     await waitFor(() =>
       expect(onSaveItemAction).toHaveBeenCalledWith({
+        action: "reset-status",
+        eventId: boardEvent.id,
+        menuItemId: "item-1"
+      })
+    );
+  });
+
+  it("offers reset while an optimistic pending status awaits server data", async () => {
+    const onSaveItemAction = await renderDialog([line()]);
+
+    fireEvent.click(dishCard());
+    settleClick();
+    expect(dishCard()).toHaveAccessibleName(/Pending/);
+
+    fireEvent.doubleClick(dishCard());
+    expect(
+      screen.getByRole("alertdialog", { name: "Reset dish status?" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset dish status" }));
+
+    await waitFor(() =>
+      expect(onSaveItemAction).toHaveBeenLastCalledWith({
         action: "reset-status",
         eventId: boardEvent.id,
         menuItemId: "item-1"

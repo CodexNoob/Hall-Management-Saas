@@ -213,7 +213,7 @@ export const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
  * product; this is the indigo the calendar already marks school dates with.
  */
 export function kitchenDayTone(day: KitchenDay) {
-  if (day.today || day.selected) {
+  if (day.today) {
     return {
       outline: "ring-2 ring-inset ring-[#1f4d73]",
       header: "border-[#cddff0] bg-[#eef4fa]",

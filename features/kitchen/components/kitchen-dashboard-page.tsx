@@ -733,7 +733,7 @@ export function KitchenDashboardPage() {
       />
 
       <KitchenEventDetailsDialog
-        chromeless={activeView === "week"}
+        chromeless={activeView === "week" || activeView === "four-weeks"}
         event={currentSelectedKitchenEvent}
         isSaving={kitchenMutation.isPending || isCancellingEvent}
         onRemoveEvent={
