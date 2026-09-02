@@ -226,18 +226,21 @@ export function LoginCard() {
               className="h-auto w-64 max-w-full object-contain"
             />
           ) : (
-            // The logo is dark navy artwork, so it needs a light plate to stay
-            // legible against the navy panel.
+            // The white wordmark straight on the navy, which is the pairing
+            // PORTAL_HEADER_FALLBACK_LOGO already makes for a dark ground. The
+            // navy artwork used to sit here on a white plate to stay legible,
+            // and that plate read as a card floating on the panel rather than
+            // as branding.
             <Link
               href="/"
               aria-label="Back to Event Core home"
-              className="inline-flex rounded-2xl bg-white px-5 py-3 shadow-xl shadow-black/25 transition hover:brightness-105"
+              className="inline-flex transition hover:opacity-80"
             >
               <Image
-                src="/images/branding/hms-logo-header.png"
+                src="/images/branding/Footer-logo.png"
                 alt="Hall Management SaaS"
-                width={612}
-                height={408}
+                width={565}
+                height={185}
                 priority
                 unoptimized
                 className="h-auto w-44 max-w-full object-contain"
