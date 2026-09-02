@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AsyncState } from "@/components/ui/async-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
@@ -129,6 +129,18 @@ type DetailsProps = {
    * kitchen with no client, no invoice and no place on the calendar.
    */
   onRemoveEvent?: () => Promise<void>;
+  /**
+   * Draws the panel in place rather than over the page.
+   *
+   * The board uses it: the day's production is the point of that screen, so it
+   * is on the screen rather than behind a card somebody has to click to find
+   * out what is being cooked.
+   */
+  inline?: boolean;
+  /** A fixed-size, clipped week-column preview. */
+  preview?: boolean;
+  /** Week-view popup styled as the blue production sheet reference. */
+  chromeless?: boolean;
   permissions: KitchenPermissions;
   currentWorkerId?: string | null;
   workersOnly?: boolean;
@@ -266,6 +278,8 @@ function DishCard({
   onSaveItemAction,
   permissions,
   canReplace = true,
+  compact = false,
+  preview = false,
   workers
 }: {
   isSaving: boolean;
@@ -274,6 +288,17 @@ function DishCard({
   onSaveItemAction: (input: LineActionInput) => Promise<void>;
   permissions: KitchenPermissions;
   canReplace?: boolean;
+  /**
+   * Shorter cards, for the board where every event is on screen at once.
+   *
+   * A dialog shows one event and can spend the height; the day view stacks
+   * them, so a card tall enough to be comfortable on its own turns three
+   * events into a page of scrolling. Same content either way - this only
+   * takes out the slack.
+   */
+  compact?: boolean;
+  /** Extra-short fixed-width card inside a cropped week preview. */
+  preview?: boolean;
   workers: KitchenResponse["workers"];
 }) {
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -330,25 +355,36 @@ function DishCard({
     requestReset();
   }
 
+  // The card's own padding, so the worker ribbon can bleed back out to the
+  // card's edge by exactly as much as the card pulls it in.
+  const cardPadding = preview ? "p-1.5" : compact ? "p-2.5" : "p-3";
+  const cardHeight = preview ? "min-h-16" : compact ? "min-h-32" : "min-h-41";
+
   const body = (
     <>
       {line.assignedWorkerName ? (
         <span
-          className={`-mx-3 -mt-3 mb-3 block truncate px-2.5 py-1 text-center text-[10px] font-black text-white ${workerTone(line.assignedWorkerName)}`}
+          className={`${preview ? "-mx-1.5 -mt-1.5 mb-1" : compact ? "-mx-2.5 -mt-2.5 mb-2" : "-mx-3 -mt-3 mb-3"} block truncate px-2 py-0.5 text-center text-[9px] font-black text-white ${workerTone(line.assignedWorkerName)}`}
         >
           {line.assignedWorkerName}
         </span>
       ) : null}
 
-      <span className="block text-base font-black leading-tight">
+      <span
+        className={`block font-black leading-tight ${preview ? "text-xs" : "text-base"}`}
+      >
         <LineQuantity line={line} />
       </span>
 
-      <span className="mt-2 block text-sm font-black leading-tight text-[#17202a]">
+      <span
+        className={`block font-black leading-tight text-[#17202a] ${preview ? "mt-0.5 text-xs" : compact ? "mt-1 text-sm" : "mt-2 text-sm"}`}
+      >
         {line.name}
       </span>
 
-      <span className="mt-auto block border-t border-[#cfd5dc] pt-4">
+      <span
+        className={`mt-auto block border-t border-[#cfd5dc] ${compact ? "pt-2" : "pt-4"}`}
+      >
         {/*
           The kitchen note, and only when there is one. This used to fall back
           to the dish name, which printed it twice on every card that had no
@@ -377,11 +413,13 @@ function DishCard({
   );
 
   return (
-    <article className="flex min-w-0 flex-col">
+    <article
+      className={`flex min-w-0 flex-col ${preview ? "w-20 shrink-0" : ""}`}
+    >
       {canTick ? (
         <button
           aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to request a reset.`}
-          className={`flex min-h-41 flex-1 flex-col border p-3 text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${CARD_STATUS_TONE[statusKey(line.status)]}`}
+          className={`flex flex-1 flex-col border text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${cardHeight} ${cardPadding} ${CARD_STATUS_TONE[statusKey(line.status)]}`}
           disabled={isSaving}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -391,7 +429,7 @@ function DishCard({
         </button>
       ) : (
         <div
-          className={`flex min-h-41 flex-1 flex-col border p-3 ${CARD_STATUS_TONE[statusKey(line.status)]}`}
+          className={`flex flex-1 flex-col border ${cardHeight} ${cardPadding} ${CARD_STATUS_TONE[statusKey(line.status)]}`}
         >
           {body}
         </div>
@@ -410,7 +448,7 @@ function DishCard({
             <label className="block">
               <span className="sr-only">Assign a worker to {line.name}</span>
               <select
-                className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50"
+                className={`w-full rounded-lg border border-[#b9c2cf] bg-white px-2 font-black text-[#17202a] transition hover:border-[#1f4d73] disabled:opacity-50 ${preview ? "h-5 text-[9px]" : compact ? "h-8 text-xs" : "h-9 text-xs"}`}
                 disabled={isSaving}
                 name={`assignedWorker-${menuItemId}`}
                 onChange={(changeEvent) =>
@@ -435,7 +473,7 @@ function DishCard({
           {permissions.canUpdateKitchenStatus && canReplace ? (
             <button
               aria-label={`Replace ${line.name}`}
-              className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
+              className={`w-full rounded-lg border border-[#b9c2cf] bg-white px-2 font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50 ${preview ? "h-5 text-[9px]" : compact ? "h-8 text-xs" : "h-9 text-xs"}`}
               disabled={isSaving}
               onClick={() => onReplace(line)}
               type="button"
@@ -466,6 +504,9 @@ function DishCard({
 function KitchenEventDetails({
   event,
   isSaving,
+  inline = false,
+  preview = false,
+  chromeless = false,
   onClose,
   onRemoveEvent,
   onSaveItemAction,
@@ -474,8 +515,11 @@ function KitchenEventDetails({
   workersOnly,
   workers
 }: DetailsProps) {
+  const titleId = useId();
+  const asideTitleId = useId();
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
   const isStandalone = event.source === "standalone";
+  const embedded = inline || preview;
   const hasSheet = Boolean(event.sheet) || event.summary !== null;
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`,
@@ -559,6 +603,17 @@ function KitchenEventDetails({
   // notice is on the first frame rather than appearing once the sheet lands.
   const otherMeals = sheet?.otherMeals ?? event.otherMeals;
 
+  useEffect(() => {
+    if (embedded) return;
+
+    function closeOnEscape(keyEvent: KeyboardEvent) {
+      if (keyEvent.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [embedded, onClose]);
+
   /** The board's PATCH wants the event id on every action; the rows do not. */
   async function saveForEvent(input: LineActionInput) {
     if (isStandalone) {
@@ -622,46 +677,73 @@ function KitchenEventDetails({
     });
   }
 
-  return (
+  /*
+   * The same body, in one of two shells.
+   *
+   * Inline is how the board draws an event now: the production for the day is
+   * the point of the screen, so it is on the screen - not behind a card that
+   * has to be clicked to find out what is being cooked. The dialog shell is
+   * kept for the places that still open one event over the top of something
+   * else, and both share every piece of state below, so the two cannot drift
+   * into behaving differently.
+   */
+  const shellClass = embedded
+    ? "flex w-full flex-col overflow-hidden border border-[#d8dde5] bg-white"
+    : chromeless
+      ? "flex max-h-[calc(100dvh-32px)] w-full max-w-5xl flex-col overflow-hidden border-4 border-white bg-[#dceaff] shadow-2xl shadow-[#07162d]/25"
+      : "flex max-h-[calc(100dvh-32px)] w-full max-w-7xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25";
+
+  const body = (
     <>
-      <div className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm">
-        <section
-          aria-labelledby="kitchen-event-details-title"
-          aria-modal="true"
-          className="flex max-h-[calc(100dvh-32px)] w-full max-w-7xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25"
-          role="dialog"
-        >
-          <header className="flex shrink-0 items-center gap-3 border-b border-[#d8dde5] bg-white px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="hidden text-[11px] font-black uppercase tracking-wide text-[#617086]">
-                {event.category}
-              </p>
-              <h2
-                className="truncate text-lg font-black text-[#111827]"
-                id="kitchen-event-details-title"
-              >
-                {event.eventType ?? event.title} · Full Details
-              </h2>
-              <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
-                <span>{event.totalGuests} portions</span>
-                <span aria-hidden="true">•</span>
-                <span>Serves {formatServeTime(event.startsAt)}</span>
-                <span aria-hidden="true">•</span>
-                <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
-              </p>
-            </div>
-
-            <button
-              aria-label="Close kitchen event details"
-              className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
-              onClick={onClose}
-              type="button"
+      <section
+        // Inline, the blue column's own client name is the heading: the title
+        // bar is gone with the dialog it belonged to, but the section still
+        // has to be announced as something.
+        aria-labelledby={embedded || chromeless ? asideTitleId : titleId}
+        aria-modal={embedded ? undefined : "true"}
+        className={shellClass}
+        role={embedded ? undefined : "dialog"}
+      >
+        {/*
+          A bar naming the event, above a column already naming the event, is
+          one title too many once the panel is the page rather than something
+          opened over it.
+        */}
+        {embedded || chromeless ? null : (
+        <header className="flex shrink-0 items-center gap-3 border-b border-[#d8dde5] bg-white px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <p className="hidden text-[11px] font-black uppercase tracking-wide text-[#617086]">
+              {event.category}
+            </p>
+            <h2
+              className="truncate text-lg font-black text-[#111827]"
+              id={titleId}
             >
-              × Close
-            </button>
-          </header>
+              {event.eventType ?? event.title} · Full Details
+            </h2>
+            <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
+              <span>{event.totalGuests} portions</span>
+              <span aria-hidden="true">•</span>
+              <span>Serves {formatServeTime(event.startsAt)}</span>
+              <span aria-hidden="true">•</span>
+              <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
+            </p>
+          </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-white p-4 sm:p-5">
+          <button
+            aria-label="Close kitchen event details"
+            className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
+            onClick={onClose}
+            type="button"
+          >
+            × Close
+          </button>
+        </header>
+        )}
+
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto ${chromeless ? "bg-[#dceaff]" : "bg-white"} ${embedded || chromeless ? "" : "p-4 sm:p-5"}`}
+          >
             {/*
               The row is in here rather than being the scroller itself.
               A flex row, not a float: the aside used to be floated with
@@ -677,20 +759,46 @@ function KitchenEventDetails({
               add-ons. This wrapper has no height of its own, so the line is as
               tall as the dishes and the aside follows it down.
             */}
-            <div className="lg:flex lg:items-stretch">
-              <aside className="mb-4 border-l-8 border-[#2f80ed] bg-[#dceaff] px-5 py-10 lg:mb-0 lg:w-72 lg:shrink-0">
-                <p className="text-xs font-black uppercase tracking-[0.08em] text-[#516071]">
+            <div className={preview ? "flex items-stretch" : "lg:flex lg:items-stretch"}>
+              {/*
+                The blue column is the panel's floor: it is taller than a short
+                dish list, so its padding sets how much room one event takes on
+                a board showing all of them. Roomy in the dialog, close-cropped
+                inline.
+              */}
+              <aside
+                className={`border-l-8 border-[#2f80ed] bg-[#dceaff] lg:mb-0 lg:shrink-0 ${
+                  preview
+                    ? "relative mb-0 w-20 min-w-0 shrink-0 overflow-hidden border-r border-[#c8daf2] px-2 py-2 pb-8"
+                    : embedded
+                    ? // A share of the panel rather than a fixed 15rem: the
+                      // same panel is the width of the board in the day view
+                      // and a seventh of it in a week column, and 15rem does
+                      // not fit in a seventh. The cap keeps it from sprawling
+                      // when there is room.
+                      "mb-3 px-4 py-4 lg:w-1/3 lg:max-w-60"
+                    : "mb-4 px-5 py-10 lg:w-72"
+                }`}
+              >
+                <p className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#516071]`}>
                   {event.category}
                 </p>
-                <h3 className="mt-5 text-3xl font-black leading-tight text-[#17202a]">
+                <h3
+                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 max-h-11 overflow-hidden text-[10px] [overflow-wrap:anywhere]" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
+                  id={asideTitleId}
+                >
                   {event.clientName ?? event.title}
                 </h3>
-                <p className="mt-3 text-lg font-black text-[#17202a]">
+                <p
+                  className={`font-black text-[#17202a] ${preview ? "mt-1 text-[10px]" : embedded ? "mt-1 text-sm" : "mt-3 text-lg"}`}
+                >
                   {sheet?.counts.couples
                     ? `${sheet.counts.couples} couples`
                     : `${event.totalGuests} portions`}
                 </p>
-                <p className="mt-6 text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                <p
+                  className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#6a7483] ${embedded ? "mt-2" : "mt-6"}`}
+                >
                   {event.eventType ??
                     `${mealLabel(sheet?.meal ?? "Main")} meal`}
                 </p>
@@ -708,7 +816,7 @@ function KitchenEventDetails({
               */}
                 {onRemoveEvent ? (
                   <button
-                    className="mt-8 h-9 rounded-lg border border-[#efb5ad] bg-white px-4 text-xs font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45"
+                    className={`rounded-lg border border-[#efb5ad] bg-white font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45 ${preview ? "absolute inset-x-2 bottom-2 h-5 truncate px-1 text-[8px]" : embedded ? "mt-3 h-8 px-4 text-xs" : "mt-8 h-9 px-4 text-xs"}`}
                     disabled={isSaving}
                     onClick={() => setIsConfirmingCancel(true)}
                     type="button"
@@ -718,8 +826,16 @@ function KitchenEventDetails({
                 ) : null}
               </aside>
 
-              {/* The other half of the row: everything that is not the aside. */}
-              <div className="min-w-0 lg:flex-1">
+              {/*
+                The other half of the row: everything that is not the aside.
+
+                A container, so the dish grid counts columns against the space
+                it actually has instead of against the window. The same panel
+                is drawn at the full width of the board and at a seventh of it
+                in a week column - a viewport breakpoint says "wide screen" in
+                both, and would put five columns of dishes in 7rem.
+              */}
+              <div className="@container min-w-0 lg:flex-1">
                 <div
                   className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
                     hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
@@ -945,7 +1061,9 @@ function KitchenEventDetails({
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-5 bg-[#dceaff] p-3 sm:p-4">
+                        <div
+                          className={`bg-[#dceaff] ${embedded ? "space-y-3 p-3" : "space-y-5 p-3 sm:p-4"}`}
+                        >
                           {/*
                         Plated first, then buffet, then anything with no style -
                         the order `dishSections` is built in. The headings are
@@ -955,19 +1073,20 @@ function KitchenEventDetails({
                       */}
                           {dishSections.map((section) => (
                             <section
-                              aria-labelledby={`kitchen-${section.id}`}
+                              aria-labelledby={`kitchen-${event.id}-${section.id}`}
                               key={section.id}
                             >
                               <h3
-                                className="mb-2.5 border-b border-[#c8daf2] pb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#516071]"
-                                id={`kitchen-${section.id}`}
+                                className={`border-b border-[#c8daf2] font-black uppercase tracking-[0.08em] text-[#516071] ${preview ? "mb-1 pb-1 text-[9px]" : embedded ? "mb-2 pb-1.5 text-[11px]" : "mb-2.5 pb-2 text-[11px]"}`}
+                                id={`kitchen-${event.id}-${section.id}`}
                               >
                                 {section.label}
                               </h3>
-                              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                              <div className={preview ? "flex w-max gap-2.5" : "grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"}>
                                 {section.dishes.map((line) => (
                                   <DishCard
                                     canReplace={!isStandalone}
+                                    compact={embedded}
                                     isSaving={isSaving}
                                     key={line.id}
                                     line={line}
@@ -976,6 +1095,7 @@ function KitchenEventDetails({
                                     }
                                     onSaveItemAction={saveForEvent}
                                     permissions={permissions}
+                                    preview={preview}
                                     workers={workers}
                                   />
                                 ))}
@@ -994,11 +1114,12 @@ function KitchenEventDetails({
                       </h3>
                       {/* Statusless on purpose: KitchenItemStatus is keyed by menu
                     item, so an add-on line has nowhere to record one. */}
-                      <ul className="mt-2 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                      <ul className={preview ? "mt-2 flex w-max gap-2.5" : "mt-2 grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"}>
                         {addOns.map((line) => (
                           <li className="min-w-0" key={line.id}>
                             <DishCard
                               canReplace={!isStandalone}
+                              compact={embedded}
                               isSaving={isSaving}
                               line={line}
                               onReplace={(replacing) =>
@@ -1006,6 +1127,7 @@ function KitchenEventDetails({
                               }
                               onSaveItemAction={saveForEvent}
                               permissions={permissions}
+                              preview={preview}
                               workers={workers}
                             />
                           </li>
@@ -1038,8 +1160,7 @@ function KitchenEventDetails({
               </div>
             </div>
           </div>
-        </section>
-      </div>
+      </section>
 
       {replaceLine ? (
         <KitchenReplaceDishDrawer
@@ -1084,6 +1205,54 @@ function KitchenEventDetails({
         }
       />
     </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <div
+      className="dashboard-drawer-backdrop fixed inset-0 z-100 flex items-center justify-center bg-[#07162d]/45 p-3 backdrop-blur-sm"
+      onMouseDown={(mouseEvent) => {
+        if (mouseEvent.currentTarget === mouseEvent.target) onClose();
+      }}
+    >
+      {body}
+    </div>
+  );
+}
+
+/**
+ * One event's production, drawn where it sits on the board.
+ *
+ * No backdrop, no close button and no modal role: this is the page rather than
+ * something over it, so a cook reads the day's dishes without opening anything.
+ */
+export function KitchenEventPanel(props: DetailsProps) {
+  return <KitchenEventDetails {...props} inline key={props.event.id} />;
+}
+
+/**
+ * The week keeps every preview inside one day column. Its production panel is
+ * deliberately wider than that column and clipped by this frame, matching a
+ * paper schedule continuing behind the next day; the full popup is the place
+ * to see and operate on every item.
+ */
+export function KitchenEventPreview({
+  onOpen,
+  ...props
+}: DetailsProps & { onOpen: () => void }) {
+  return (
+    <div className="relative h-36 w-full overflow-hidden bg-[#dceaff]">
+      <div aria-hidden="true" className="min-w-150 pointer-events-none" inert>
+        <KitchenEventDetails {...props} preview key={props.event.id} />
+      </div>
+      <button
+        aria-label={`Open ${props.event.clientName ?? props.event.title} kitchen event`}
+        className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#1f4d73]"
+        onClick={onOpen}
+        type="button"
+      />
+    </div>
   );
 }
 
