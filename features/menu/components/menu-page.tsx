@@ -977,7 +977,11 @@ export function MenuPage() {
               </button>
             </header>
 
-            <div className="grid min-h-0 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-[repeat(2,325px)] xl:overflow-y-auto">
+            {/* Column count, not column width: the two fixed 325px tracks this
+                used to lay out stopped at ~660px, so on a wide screen the tab
+                drew half a panel of cards and half a panel of nothing. It now
+                gains columns the way every other tab's grid does. */}
+            <div className="grid min-h-0 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 xl:overflow-y-auto">
               {visibleAddOns.map((item) => (
                 <AddOnCard
                   // By id, not name: two add-ons may share a name, and a

@@ -284,44 +284,61 @@ export function AddOnCard({
   tag: string;
 }) {
   return (
-    <article className="flex min-h-25 min-w-0 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-[0_1px_2px_rgba(23,32,42,0.04)]">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="relative flex h-18 w-18 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8dde5] bg-[#fbfcfd]">
-          {pictureUrl ? (
-            // Plain <img> and alt="", for the reasons spelled out on
-            // MenuItemCard: a signed URL that rotates faster than the optimizer
-            // could ever cache it, beside a name this card already renders.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              src={pictureUrl}
-            />
-          ) : (
-            // The thumbnail is too small for the tile the grid cards draw, so
-            // this one is just the icon on the same tinted ground.
-            <>
-              <span className="absolute inset-0 bg-linear-to-br from-[#f6fafd] to-[#e7eef6]" />
-              <LineIcon
-                name="fork"
-                className="relative h-6 w-6 text-[#1f4d73]"
-              />
-            </>
-          )}
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-black text-[#17202a]">{name}</h3>
-          <p className="mt-1 max-w-full text-xs leading-4 text-[#516174] sm:max-w-48">
+    // Top-aligned rather than centred: the cards stretch to the tallest in
+    // their row, and centring left a one-line add-on's name floating in the
+    // middle of a box sized by the two-line one beside it.
+    <article className="flex min-w-0 items-start gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-[0_1px_2px_rgba(23,32,42,0.04)]">
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#dbe3ec] bg-[#fbfcfd]">
+        {pictureUrl ? (
+          // Plain <img> and alt="", for the reasons spelled out on
+          // MenuItemCard: a signed URL that rotates faster than the optimizer
+          // could ever cache it, beside a name this card already renders.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover"
+            src={pictureUrl}
+          />
+        ) : (
+          // The thumbnail is too small for the tile the grid cards draw, so
+          // this one is just the icon on the same tinted ground.
+          <>
+            <span className="absolute inset-0 bg-linear-to-br from-[#f6fafd] to-[#e7eef6]" />
+            <LineIcon name="fork" className="relative h-6 w-6 text-[#1f4d73]" />
+          </>
+        )}
+      </div>
+      {/* `flex-1 min-w-0` so a long name wraps inside the card instead of
+          pushing the pills past its edge - these columns are narrow now that
+          the grid fills the panel rather than stopping at two. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <h3
+          className="line-clamp-2 wrap-break-word text-sm font-black leading-4 text-[#17202a]"
+          // Clamped, so a long name is only readable in full on hover.
+          title={name}
+        >
+          {name}
+        </h3>
+        {/* Nothing at all when there is no description, rather than an empty
+            line holding the pills away from the name. */}
+        {description ? (
+          <p className="mt-1 line-clamp-2 wrap-break-word text-xs leading-4 text-[#516174]">
             {description}
           </p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#1f4d73]">
-              {price}
-            </span>
-            <span className="rounded-full border border-[#b9c2cf] bg-[#eef4fa] px-2 py-1 text-[10px] font-black text-[#17202a]">
-              {tag}
-            </span>
-          </div>
+        ) : null}
+        {/* Pushed to the bottom of whatever height the row settled on, so the
+            prices read along one line across the row instead of stepping with
+            each card's description. */}
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-2">
+          {/* The price is what an add-on is for, so it is the filled chip and
+              the pricing mode beside it is the outlined one. Two chips in the
+              same tint read as two equal facts. */}
+          <span className="rounded-full bg-[#1f4d73] px-2 py-1 text-[10px] font-black leading-none text-white">
+            {price}
+          </span>
+          <span className="rounded-full border border-[#b9c2cf] bg-white px-2 py-1 text-[10px] font-black leading-none text-[#17202a]">
+            {tag}
+          </span>
         </div>
       </div>
     </article>
