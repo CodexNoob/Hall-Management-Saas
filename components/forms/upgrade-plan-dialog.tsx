@@ -105,7 +105,7 @@ export function UpgradePlanDialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-[#17202a]/40 p-3 backdrop-blur-[1px] sm:p-5"
+      className="fixed inset-0 z-9999 flex items-center justify-center overflow-y-auto bg-[#17202a]/40 p-3 backdrop-blur-[1px] sm:p-5"
       onMouseDown={(event) => {
         if (event.currentTarget === event.target && !forceSelection) onClose();
       }}
