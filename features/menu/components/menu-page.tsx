@@ -198,6 +198,8 @@ export function MenuPage() {
         error={menuQuery.error}
         isLoading={menuQuery.isLoading}
         onRetry={menuQuery.refetch}
+        showDefaultActions={false}
+        showSearch={false}
         subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
         title="Menu"
       />
