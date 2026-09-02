@@ -291,9 +291,18 @@ export function CreateOrganizationPage() {
                   onChange={(event) => updatePlan(event.target.value)}
                   value={form.plan}
                 >
+                  {/* Shown but not selectable while a plan is not on sale.
+                      Dropping them would hide where the product is going from
+                      somebody deciding whether to start; leaving them pickable
+                      would record an intent nobody can act on. */}
                   {planOptions.map((plan) => (
-                    <option key={plan.id} value={plan.id}>
+                    <option
+                      disabled={plan.comingSoon}
+                      key={plan.id}
+                      value={plan.id}
+                    >
                       {getPlanPriceLabel(plan.id)}
+                      {plan.comingSoon ? " (coming soon)" : ""}
                     </option>
                   ))}
                 </select>

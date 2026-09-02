@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { stripeRequest } from "@/features/billing/services/stripe.service";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { isPurchasablePlan } from "@/lib/subscription/plans";
 import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 const schema = z.object({
@@ -28,6 +29,18 @@ export async function POST(request: Request) {
 
     const actor = await authorize(request, "settings.update");
     const { planId } = schema.parse(await request.json());
+
+    // The dialog offers no button for a plan that is not on sale yet, but the
+    // id travels in a request body - so the rule is enforced where it counts
+    // rather than only where it is drawn. A Stripe session for a plan nobody
+    // may be put on would charge somebody for it.
+    if (!isPurchasablePlan(planId)) {
+      return NextResponse.json(
+        { error: "That plan is not available yet." },
+        { status: 409 }
+      );
+    }
+
     const priceId = process.env[priceVariables[planId]];
     if (!priceId) {
       return NextResponse.json(
