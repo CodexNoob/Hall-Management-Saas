@@ -1028,10 +1028,14 @@ test("the kitchen door key opens none of the kitchen's write actions", async ({
   const { permissions } = (await board.json()) as {
     permissions: Record<string, boolean>;
   };
+  // `canCancelEvents` is here too even though cancelling is not a PATCH action
+  // on this route: the board asks `event.status.update` so it can withhold the
+  // button, and a door key must not answer that question either.
   expect(permissions).toEqual({
     canAssignWorkers: false,
     canUpdateKitchenStatus: false,
     canAddKitchenEvents: false,
+    canCancelEvents: false,
     seesWholeBoard: false
   });
 
