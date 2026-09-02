@@ -37,8 +37,7 @@ import { moneySchema, parseNumericInput } from "@/lib/validation/number";
 import {
   AddItemCard,
   AddOnCard,
-  MenuItemCard,
-  MenuRuleCard
+  MenuItemCard
 } from "@/features/menu/components/menu-cards";
 import { PackageIncludedItems } from "@/features/menu/components/package-included-items";
 import { PackageItemPicker } from "@/features/menu/components/package-item-picker";
@@ -919,24 +918,39 @@ export function MenuPage() {
                     : `No items are served ${ruleMode} yet. Add one here, or open a library item and set its service style.`}
                 </p>
               ) : (
-                // Ungrouped, on both tabs: the cards sit in one wrapping row
-                // rather than under section headers. Plated used to group by
-                // category, which spent a full panel per course to hold one or
-                // two cards - the same list reads faster as a plain grid.
-                <div className="grid grid-cols-3 gap-2 p-3 sm:flex sm:flex-wrap sm:gap-3">
+                // Ungrouped, on both tabs: the cards sit in one grid rather
+                // than under section headers. Plated used to group by category,
+                // which spent a full panel per course to hold one or two cards
+                // - the same list reads faster as a plain grid.
+                //
+                // The library's card and the library's columns, because a dish
+                // is the same thing on either screen: a service tab is a view
+                // over the catalog, not a list of its own, so a card that
+                // looked different here read as a different kind of record.
+                <div className="grid grid-cols-3 gap-2 p-3 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 2xl:grid-cols-6">
                   {servedItems.map((item) => {
                     const card = toRuleCard(item);
 
                     return (
-                      <MenuRuleCard
+                      <MenuItemCard
                         key={card.id}
-                        badge={card.badge}
+                        category={card.badge}
+                        // The rule for this tab, where the library card carries
+                        // a drink's - the line under the name is what the card
+                        // has that the item's name does not say.
+                        detail={card.rule}
+                        isSelectDisabled={!canEditMenu}
                         name={card.name}
+                        // The same editor the library grid opens, on the same
+                        // row: these tabs used to be read-only, so changing a
+                        // rule meant finding the dish again in the library.
+                        // Removing lives inside that dialog too.
+                        onSelect={() => libraryItemActions.startEdit(card.id)}
                         pictureUrl={card.pictureUrl}
-                        rule={card.rule}
                       />
                     );
                   })}
+                  <AddItemCard onClick={startCreate} />
                 </div>
               )}
             </div>
@@ -1123,6 +1137,9 @@ export function MenuPage() {
                           isSelectDisabled={!canEditMenu}
                           name={item.name}
                           onSelect={() => libraryItemActions.startEdit(item.id)}
+                          // Cutlery over a list of bottles reads as the wrong
+                          // tab; a pictureless drink gets a glass instead.
+                          pictureIcon="drink"
                           pictureUrl={item.pictureUrl}
                         />
                       ))}

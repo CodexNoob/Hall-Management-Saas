@@ -118,7 +118,7 @@ function CardQuantity({
   const isMultiplied = quantity > 1;
   const tone = isMultiplied
     ? "border-[#f0d9a8] bg-[#fdf8ec] text-[#8a6414]"
-    : "border-[#d8dde5] text-[#17202a]";
+    : "border-[#d8dde5] bg-white text-[#17202a]";
 
   if (!onQuantityChange) {
     // A locked menu still has to say what was ordered - but only when there is
@@ -137,14 +137,21 @@ function CardQuantity({
 
   const step = (delta: number) => onQuantityChange(quantity + delta);
 
+  // Raised rather than outlined: at this size a hairline border alone reads as
+  // a label with two characters beside it, not as something to press.
+  const stepClass =
+    "flex h-5 w-5 items-center justify-center rounded-full text-base leading-none transition-colors hover:bg-black/[0.07] active:bg-black/10 disabled:opacity-25 disabled:hover:bg-transparent sm:h-6 sm:w-6";
+
   return (
-    <span className={`flex items-center rounded-full border ${tone}`}>
+    <span
+      className={`inline-flex items-center rounded-full border shadow-[0_1px_2px_rgba(23,32,42,0.06)] ${tone}`}
+    >
       {/* Disabled at one rather than removing the line: the × on the picture is
           removal, and a stepper that deletes on the last press is a surprise
           nobody asked for. */}
       <button
         aria-label={`Decrease ${name} quantity`}
-        className="flex h-5 w-5 items-center justify-center rounded-full text-base leading-none hover:bg-black/5 disabled:opacity-30 disabled:hover:bg-transparent sm:h-6 sm:w-6"
+        className={stepClass}
         data-testid={`event-menu-quantity-decrease-${targetId}`}
         disabled={quantity <= LINE_MULTIPLIER_MIN}
         onClick={() => step(-1)}
@@ -162,7 +169,7 @@ function CardQuantity({
       </span>
       <button
         aria-label={`Increase ${name} quantity`}
-        className="flex h-5 w-5 items-center justify-center rounded-full text-base leading-none hover:bg-black/5 disabled:opacity-30 disabled:hover:bg-transparent sm:h-6 sm:w-6"
+        className={stepClass}
         data-testid={`event-menu-quantity-increase-${targetId}`}
         disabled={quantity >= LINE_MULTIPLIER_MAX}
         onClick={() => step(1)}
@@ -198,16 +205,16 @@ function MenuDishCard({
   disabled?: boolean;
 }) {
   return (
-    <div className="relative flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:h-40 lg:h-44">
+    <div className="dashboard-hover-card group relative flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] sm:h-40 lg:h-44">
       {!disabled ? (
         <button
           aria-label={`Remove ${name}`}
-          className="absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/85 text-lg leading-none text-[#6a7483] hover:bg-[#fff4f2] hover:text-[#c3291b]"
+          className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#e2e7ee] bg-white/90 text-[#6a7483] shadow-[0_1px_3px_rgba(23,32,42,0.12)] backdrop-blur-sm transition-colors hover:border-[#f0c4bd] hover:bg-[#fff4f2] hover:text-[#c3291b]"
           data-testid={`event-menu-remove-${targetId}`}
           onClick={onRemove}
           type="button"
         >
-          <span aria-hidden="true">×</span>
+          <LineIcon name="close" className="h-3 w-3" />
         </button>
       ) : null}
       <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
@@ -219,27 +226,44 @@ function MenuDishCard({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt=""
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.06]"
               src={pictureUrl}
             />
-            <span className="absolute left-1.5 top-1.5 truncate rounded-full bg-white/90 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-normal text-[#1f4d73] sm:text-[9px]">
-              {badge}
-            </span>
+            {/* A pale pill on a pale photograph is unreadable, so the top of
+                the picture is darkened just enough to seat the badge. */}
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-8 bg-linear-to-b from-black/20 to-transparent" />
           </>
         ) : (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] sm:h-16 sm:w-16 lg:h-18 lg:w-18">
-            <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#d8dde5] bg-white px-0.5 text-center text-[6px] font-black uppercase leading-2 tracking-normal text-[#1f4d73] sm:h-10 sm:w-10 sm:text-[7px] sm:leading-2.5 lg:h-11 lg:w-11 lg:px-1 lg:text-[8px] lg:leading-3 lg:tracking-[0.03em]">
-              {badge}
+          // A missing picture is drawn as a deliberate tile rather than as an
+          // outline of the picture that is not there: the old nested rings read
+          // as a card still loading, and the badge word set inside them was
+          // down at six pixels to fit.
+          <>
+            <span className="absolute inset-0 bg-linear-to-br from-[#f6fafd] to-[#e7eef6]" />
+            <span className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[#dbe3ec] bg-white text-[#1f4d73] shadow-[0_1px_3px_rgba(23,32,42,0.06)] sm:h-14 sm:w-14 sm:rounded-2xl">
+              <LineIcon name="fork" className="h-5 w-5 sm:h-6 sm:w-6" />
             </span>
-          </div>
+          </>
         )}
+        {/* One badge treatment for both states - with a picture and without,
+            the section a line belongs to is read in the same corner. */}
+        <span className="absolute left-1.5 top-1.5 max-w-[calc(100%-2.25rem)] truncate rounded-full bg-white/92 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-normal text-[#1f4d73] ring-1 ring-inset ring-black/5 backdrop-blur-sm sm:text-[9px]">
+          {badge}
+        </span>
       </div>
       {/* Taller than the name alone needs, to seat the stepper under it. The
           height comes out of the picture above rather than out of the card, so
-          the grid and the skeleton are unchanged - keep the two in step if this
-          moves again. */}
-      <div className="flex h-14 flex-col items-center justify-center gap-1 border-t border-[#d8dde5] px-1 sm:h-16 sm:px-2">
-        <h3 className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm">
+          the grid is unchanged - keep `EventMenuSkeleton` in step if this moves
+          again. The third step is for `lg`, where the name is `text-sm`: two
+          lines of it plus the stepper do not fit the `sm` footer, which is what
+          pushed the control against the card's bottom edge. */}
+      <div className="flex h-14 flex-col items-center justify-center gap-1 border-t border-[#d8dde5] px-1 sm:h-16 sm:gap-1.5 sm:px-2 lg:h-20">
+        <h3
+          className="line-clamp-2 wrap-break-word text-center text-[9px] font-black leading-3 text-[#17202a] sm:text-xs sm:leading-4 lg:text-sm lg:leading-5"
+          // The name clamps at two lines, so a long one is only readable in
+          // full on hover.
+          title={name}
+        >
           {name}
         </h3>
         {/* The count and the price share a row. The price is per serving and
@@ -280,7 +304,7 @@ function AddMenuCard({
 }) {
   return (
     <button
-      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-65 sm:h-40 lg:h-44"
+      className="dashboard-hover-card flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-65 sm:h-40 lg:h-44"
       onClick={onClick}
       disabled={disabled}
       type="button"
