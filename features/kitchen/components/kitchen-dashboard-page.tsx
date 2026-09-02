@@ -25,6 +25,8 @@ import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { FourWeeksView } from "@/features/kitchen/components/kitchen-four-week-view";
 import {
   KitchenEventDetailsDialog,
+  KitchenEventPanel,
+  KitchenEventPreview,
   type KitchenItemActionInput
 } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
@@ -299,13 +301,23 @@ export function KitchenDashboardPage() {
     canCancelEvents: false,
     seesWholeBoard: true
   };
-  const selectedEventPermissions = selectedKitchenEvent?.past
-    ? {
-        ...detailsPermissions,
-        canAssignWorkers: false,
-        canUpdateKitchenStatus: false
-      }
-    : detailsPermissions;
+  /**
+   * What may be done to one event, as opposed to what this cook may do at all.
+   *
+   * A day that has already been cooked is a record: claiming a dish or moving
+   * it back to pending would rewrite history rather than describe work. Asked
+   * per event now that the day view draws every event at once, where the
+   * finished and the upcoming sit on the same screen.
+   */
+  function permissionsFor(kitchenEvent: KitchenEvent) {
+    return kitchenEvent.past
+      ? {
+          ...detailsPermissions,
+          canAssignWorkers: false,
+          canUpdateKitchenStatus: false
+        }
+      : detailsPermissions;
+  }
   const currentSelectedKitchenEvent = selectedKitchenEvent
     ? (eventsById.get(selectedKitchenEvent.id) ?? selectedKitchenEvent)
     : null;
@@ -492,6 +504,67 @@ export function KitchenDashboardPage() {
     }
   }
 
+  /**
+   * The remove action for one event, or nothing when it may not be removed.
+   *
+   * Two different permissions, because these are two different acts. Cancelling
+   * a booking ends it for the whole business, so it asks the booking
+   * lifecycle's own `event.status.update` - and needs the version, because the
+   * status route refuses a write that cannot name one. Deleting a standalone
+   * job only takes work off this board, so whoever may add one may remove it.
+   */
+  function removeEventHandlerFor(kitchenEvent: KitchenEvent) {
+    if (kitchenEvent.source === "standalone") {
+      return canAddKitchenEvent ? () => removeEvent(kitchenEvent) : undefined;
+    }
+
+    return detailsPermissions.canCancelEvents &&
+      kitchenEvent.version !== undefined
+      ? () => removeEvent(kitchenEvent)
+      : undefined;
+  }
+
+  /**
+   * One event, drawn where it sits on the board.
+   *
+   * Both the day view and the week columns render this, with the same wiring
+   * the dialog gets: the panel is the view now, so ticking a dish, assigning a
+   * worker or removing the event has to work from it rather than be a preview
+   * of controls that live somewhere else.
+   */
+  function renderEventPanel(kitchenEvent: KitchenEvent) {
+    return (
+      <KitchenEventPanel
+        currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
+        event={kitchenEvent}
+        isSaving={kitchenMutation.isPending || isCancellingEvent}
+        onClose={() => setSelectedKitchenEvent(null)}
+        onRemoveEvent={removeEventHandlerFor(kitchenEvent)}
+        onSaveItemAction={saveKitchenItemAction}
+        permissions={permissionsFor(kitchenEvent)}
+        workers={kitchenQuery.data?.workers ?? []}
+        workersOnly={workersOnly}
+      />
+    );
+  }
+
+  function renderEventPreview(kitchenEvent: KitchenEvent) {
+    return (
+      <KitchenEventPreview
+        currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
+        event={kitchenEvent}
+        isSaving={kitchenMutation.isPending || isCancellingEvent}
+        onClose={() => setSelectedKitchenEvent(null)}
+        onOpen={() => setSelectedKitchenEvent(kitchenEvent)}
+        onRemoveEvent={removeEventHandlerFor(kitchenEvent)}
+        onSaveItemAction={saveKitchenItemAction}
+        permissions={permissionsFor(kitchenEvent)}
+        workers={kitchenQuery.data?.workers ?? []}
+        workersOnly={workersOnly}
+      />
+    );
+  }
+
   async function sendStandaloneDelete(kitchenEvent: KitchenEvent) {
     const response = await authenticatedFetch(
       `/api/kitchen?kitchenEventId=${encodeURIComponent(kitchenEvent.id)}`,
@@ -598,7 +671,7 @@ export function KitchenDashboardPage() {
           ) : activeView === "today" ? (
             <TodayView
               day={days.find((day) => day.selected) ?? days[0]}
-              onSelectEvent={setSelectedKitchenEvent}
+              renderEvent={renderEventPanel}
               seesWholeBoard={seesWholeBoard}
             />
           ) : activeView === "week" ? (
@@ -606,7 +679,7 @@ export function KitchenDashboardPage() {
               canAddKitchenEvent={canAddKitchenEvent}
               days={days.slice(0, 7)}
               onAddKitchenEvent={openAddKitchenEvent}
-              onSelectEvent={setSelectedKitchenEvent}
+              renderEvent={renderEventPreview}
             />
           ) : (
             <FourWeeksView
@@ -660,32 +733,21 @@ export function KitchenDashboardPage() {
       />
 
       <KitchenEventDetailsDialog
+        chromeless={activeView === "week"}
         event={currentSelectedKitchenEvent}
         isSaving={kitchenMutation.isPending || isCancellingEvent}
         onRemoveEvent={
-          /*
-           * Two different permissions, because these are two different acts.
-           *
-           * Cancelling a booking ends it for the whole business, so it asks the
-           * booking lifecycle's own `event.status.update` - and needs the
-           * version, because the status route refuses a write that cannot name
-           * one. Deleting a standalone job only takes work off this board, so
-           * whoever may add one may remove it.
-           */
           currentSelectedKitchenEvent
-            ? currentSelectedKitchenEvent.source === "standalone"
-              ? canAddKitchenEvent
-                ? () => removeEvent(currentSelectedKitchenEvent)
-                : undefined
-              : detailsPermissions.canCancelEvents &&
-                  currentSelectedKitchenEvent.version !== undefined
-                ? () => removeEvent(currentSelectedKitchenEvent)
-                : undefined
+            ? removeEventHandlerFor(currentSelectedKitchenEvent)
             : undefined
         }
         onClose={() => setSelectedKitchenEvent(null)}
         onSaveItemAction={saveKitchenItemAction}
-        permissions={selectedEventPermissions}
+        permissions={
+          currentSelectedKitchenEvent
+            ? permissionsFor(currentSelectedKitchenEvent)
+            : detailsPermissions
+        }
         workersOnly={workersOnly}
         currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
         workers={kitchenQuery.data?.workers ?? []}

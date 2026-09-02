@@ -1,6 +1,6 @@
 "use client";
 
-import { KitchenEventCard } from "@/features/kitchen/components/kitchen-event-card";
+import type { ReactNode } from "react";
 import {
   type KitchenDay,
   type KitchenEvent
@@ -8,11 +8,20 @@ import {
 
 export function TodayView({
   day,
-  onSelectEvent,
+  renderEvent,
   seesWholeBoard = true
 }: {
   day: KitchenDay;
-  onSelectEvent: (event: KitchenEvent) => void;
+  /**
+   * Draws one event's whole production panel, in place.
+   *
+   * The day view used to list cards that opened a dialog, so what the kitchen
+   * is cooking today - the one thing this screen is for - was behind a click.
+   * The panel is the view now, and the board hands it down rather than this
+   * file reaching for it, so the two do not both have to know how an event is
+   * wired to its actions.
+   */
+  renderEvent: (event: KitchenEvent) => ReactNode;
   /**
    * False when the server sent only this cook's own dishes.
    *
@@ -26,13 +35,12 @@ export function TodayView({
   return (
     <section className="dashboard-panel-enter min-h-0 flex-1">
       {day.events?.length ? (
-        <div className="grid gap-3 bg-white p-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        // One column: each panel is a full sheet with its own aside and dish
+        // grid, so two side by side would squeeze both into unreadability on
+        // anything short of a very wide screen.
+        <div className="space-y-3 bg-white p-3">
           {day.events.map((event) => (
-            <KitchenEventCard
-              event={event}
-              key={event.id}
-              onSelect={onSelectEvent}
-            />
+            <div key={event.id}>{renderEvent(event)}</div>
           ))}
         </div>
       ) : (
