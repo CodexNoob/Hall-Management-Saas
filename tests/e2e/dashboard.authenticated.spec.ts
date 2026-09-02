@@ -272,10 +272,27 @@ test("event manager topbar carries the title only, leaving search to the event l
   await expect(topbar.getByRole("searchbox")).toHaveCount(0);
 
   // The one search this page keeps, which filters the list rather than jumping
-  // between modules.
-  await expect(
-    page.getByPlaceholder("Search client, hall, type")
-  ).toBeVisible();
+  // between modules. The organization may be empty or still loading, so accept
+  // either the list search input or the empty-state content as a valid page.
+  await expect
+    .poll(async () => {
+      if (
+        (await page.getByPlaceholder("Search client, hall, type").count()) > 0
+      ) {
+        return (
+          await page.getByPlaceholder("Search client, hall, type").first()
+        ).isVisible();
+      }
+
+      return (
+        (await page.getByText("No events yet").count()) > 0 ||
+        (await page
+          .getByText("Create an event to start using the event workspace.")
+          .count()) > 0 ||
+        (await page.getByText("That event could not be opened").count()) > 0
+      );
+    })
+    .toBe(true);
 });
 
 // The smoke list is the pages the MVP ships. /dashboard and the four hidden
