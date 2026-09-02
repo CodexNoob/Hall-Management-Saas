@@ -11,6 +11,7 @@ export type IconName =
   | "document"
   | "drink"
   | "filter"
+  | "fork"
   | "plate"
   | "plus"
   | "trash"
@@ -63,6 +64,10 @@ export function LineIcon({
       </>
     ),
     filter: <path d="M4 5h16l-6 7v5l-4 2v-7Z" />,
+    // Cover for a dish with no picture. The same fork and knife the event
+    // manager's menu cards draw, so an item without a photograph looks like
+    // itself on both screens.
+    fork: <path d="M4 3v7a3 3 0 0 0 6 0V3M7 3v18M18 3v18M18 3c2 2 3 4 3 7v2h-3" />,
     // Two silhouettes rather than two variations on a dome: a covered plate and
     // a covered chafing dish are the same shape at 16px, and these two sit side
     // by side in the picker where telling them apart is the whole job.

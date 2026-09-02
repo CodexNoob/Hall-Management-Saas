@@ -4,7 +4,28 @@ import {
   ActionsMenu,
   type ActionsMenuItem
 } from "@/components/ui/actions-menu";
-import { LineIcon } from "@/features/menu/components/menu-shared";
+import {
+  LineIcon,
+  type IconName
+} from "@/features/menu/components/menu-shared";
+
+/**
+ * What a card draws where a picture would be.
+ *
+ * A tile rather than the ring inside a ring these cards used to show: two thin
+ * grey circles read as a thumbnail still loading, and the grids they sit in are
+ * mostly pictureless, so the whole page looked half-arrived.
+ */
+function PicturePlaceholder({ icon }: { icon: IconName }) {
+  return (
+    <>
+      <span className="absolute inset-0 bg-linear-to-br from-[#f6fafd] to-[#e7eef6]" />
+      <span className="relative flex h-14 w-14 items-center justify-center rounded-xl border border-[#dbe3ec] bg-white text-[#1f4d73] shadow-[0_1px_3px_rgba(23,32,42,0.06)] sm:h-18 sm:w-18 sm:rounded-2xl">
+        <LineIcon name={icon} className="h-6 w-6 sm:h-7 sm:w-7" />
+      </span>
+    </>
+  );
+}
 
 export function MenuItemCard({
   actions = [],
@@ -16,6 +37,7 @@ export function MenuItemCard({
   onSelect,
   onToggleTick,
   pendingLabel = null,
+  pictureIcon = "fork",
   pictureUrl
 }: {
   /**
@@ -70,6 +92,12 @@ export function MenuItemCard({
    * happening.
    */
   pendingLabel?: string | null;
+  /**
+   * What to draw in place of a missing picture. Defaults to the fork and knife,
+   * which is right for every food grid; the Drink Menu passes a glass, because
+   * cutlery over a list of bottles is worse than no icon at all.
+   */
+  pictureIcon?: IconName;
   pictureUrl?: string | null;
 }) {
   const isPending = Boolean(pendingLabel);
@@ -85,31 +113,35 @@ export function MenuItemCard({
   // duplicated down two branches of the return.
   const body = (
     <>
-      <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-lg bg-[#fbfcfd]">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-xl bg-[#fbfcfd]">
         {pictureUrl ? (
-          // Plain <img>, not next/image: the signed URL carries a token that
-          // rotates every few minutes, so the optimizer would never serve a
-          // cache hit and its host would have to be added to remotePatterns.
-          // alt="" because the name is already rendered below - announcing it
-          // twice is worse than treating the thumbnail as decorative.
-          // Absolute, not in flow: a flex item defaults to min-height:auto,
-          // so an image left in the flow stretches this slot to its intrinsic
-          // height and pushes the name out of the card's fixed h-50.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            src={pictureUrl}
-          />
+          <>
+            {/* Plain <img>, not next/image: the signed URL carries a token that
+                rotates every few minutes, so the optimizer would never serve a
+                cache hit and its host would have to be added to remotePatterns.
+                alt="" because the name is already rendered below - announcing
+                it twice is worse than treating the thumbnail as decorative.
+                Absolute, not in flow: a flex item defaults to min-height:auto,
+                so an image left in the flow stretches this slot to its
+                intrinsic height and pushes the name out of the card's fixed
+                h-50. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+              src={pictureUrl}
+            />
+            {/* The pill above is white on whatever the photograph happens to
+                be, so the top of it is darkened enough to seat one. */}
+            <span className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-linear-to-b from-black/20 to-transparent" />
+          </>
         ) : (
-          <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-            <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
-          </span>
+          <PicturePlaceholder icon={pictureIcon} />
         )}
         {/* The pill gives up its right edge when there is a menu to sit
             beside, rather than running underneath it. */}
         <span
-          className={`absolute left-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:px-2 sm:text-[10px] ${
+          className={`absolute left-1.5 top-2 truncate rounded-full bg-white/92 px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] ring-1 ring-inset ring-black/5 backdrop-blur-sm sm:left-3 sm:right-auto sm:top-3 sm:px-2 sm:text-[10px] ${
             hasCornerControl
               ? "right-9 sm:max-w-[calc(100%-4rem)]"
               : "right-1.5 sm:max-w-[calc(100%-1.5rem)]"
@@ -118,11 +150,13 @@ export function MenuItemCard({
           {category}
         </span>
       </div>
-      <div className="flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-b-lg border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
+      <div className="flex h-16 min-w-0 flex-col items-center justify-center gap-0.5 rounded-b-xl border-t border-[#d8dde5] px-1.5 text-center text-[10px] font-black leading-3 text-[#17202a] sm:h-12 sm:px-3 sm:text-sm sm:leading-4">
         {/* One line shorter when a detail sits under it, so the footer keeps
             the height every other card in the grid has. */}
         <span
           className={`wrap-break-word ${detail ? "line-clamp-2" : "line-clamp-3"}`}
+          // Clamped, so a long name is only readable in full on hover.
+          title={name}
         >
           {name}
         </span>
@@ -141,13 +175,13 @@ export function MenuItemCard({
     // open dropdown.
     <article
       aria-busy={isPending || undefined}
-      className={`relative flex h-50 rounded-lg border bg-white ${
+      className={`group relative flex h-50 rounded-xl border bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] ${
         isTicked
           ? "border-[#1f4d73] ring-2 ring-[#1f4d73]/25"
           : "border-[#d8dde5]"
       } ${isPending ? "opacity-60" : ""} ${
         isSelectable || (isTickable && !isPending)
-          ? "transition hover:border-[#1f4d73]"
+          ? "dashboard-hover-card cursor-pointer"
           : ""
       }`}
     >
@@ -160,7 +194,7 @@ export function MenuItemCard({
         <button
           aria-label={`Select ${name}`}
           aria-pressed={isTicked}
-          className="flex min-w-0 w-full flex-col rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
+          className="flex min-w-0 w-full flex-col rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
           disabled={isSelectDisabled || isPending}
           onClick={onToggleTick}
           type="button"
@@ -173,7 +207,7 @@ export function MenuItemCard({
         // are already rendered inside it.
         <button
           aria-label={`Edit ${name}`}
-          className="flex min-w-0 w-full flex-col rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
+          className="flex min-w-0 w-full flex-col rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/40 disabled:cursor-not-allowed"
           disabled={isSelectDisabled || isPending}
           onClick={onSelect}
           type="button"
@@ -221,7 +255,7 @@ export function MenuItemCard({
 export function AddItemCard({ onClick }: { onClick: () => void }) {
   return (
     <button
-      className="flex h-50 overflow-hidden rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] text-[#17202a]"
+      className="dashboard-hover-card flex h-50 overflow-hidden rounded-xl border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa]"
       onClick={onClick}
       type="button"
     >
@@ -258,24 +292,26 @@ export function MenuRuleCard({
   pictureUrl?: string | null;
 }) {
   return (
-    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:w-38">
+    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] sm:w-38">
       <div className="flex min-w-0 w-full flex-col">
         <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
           {pictureUrl ? (
-            // Plain <img> for the same reason MenuItemCard uses one: the URL is
-            // signed and rotates, so the optimizer would never get a cache hit.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              src={pictureUrl}
-            />
+            <>
+              {/* Plain <img> for the same reason MenuItemCard uses one: the URL
+                  is signed and rotates, so the optimizer would never get a
+                  cache hit. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                src={pictureUrl}
+              />
+              <span className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-linear-to-b from-black/20 to-transparent" />
+            </>
           ) : (
-            <span className="mt-7 flex h-12 w-12 items-center justify-center rounded-full border border-[#b9c2cf] text-[#b9c2cf] sm:mt-0 sm:h-18 sm:w-18">
-              <span className="flex h-7 w-7 rounded-full border border-[#b9c2cf] sm:h-10 sm:w-10" />
-            </span>
+            <PicturePlaceholder icon="fork" />
           )}
-          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
+          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white/92 px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] ring-1 ring-inset ring-black/5 backdrop-blur-sm sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
             {badge}
           </span>
         </div>
@@ -306,9 +342,9 @@ export function AddOnCard({
   tag: string;
 }) {
   return (
-    <article className="flex min-h-25 min-w-0 rounded-lg border border-[#d8dde5] bg-white p-3">
+    <article className="flex min-h-25 min-w-0 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-[0_1px_2px_rgba(23,32,42,0.04)]">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="relative flex h-18 w-18 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd]">
+        <div className="relative flex h-18 w-18 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d8dde5] bg-[#fbfcfd]">
           {pictureUrl ? (
             // Plain <img> and alt="", for the reasons spelled out on
             // MenuItemCard: a signed URL that rotates faster than the optimizer
@@ -320,7 +356,15 @@ export function AddOnCard({
               src={pictureUrl}
             />
           ) : (
-            <span className="flex h-10 w-10 rounded-full border border-[#b9c2cf]" />
+            // The thumbnail is too small for the tile the grid cards draw, so
+            // this one is just the icon on the same tinted ground.
+            <>
+              <span className="absolute inset-0 bg-linear-to-br from-[#f6fafd] to-[#e7eef6]" />
+              <LineIcon
+                name="fork"
+                className="relative h-6 w-6 text-[#1f4d73]"
+              />
+            </>
           )}
         </div>
         <div className="min-w-0">

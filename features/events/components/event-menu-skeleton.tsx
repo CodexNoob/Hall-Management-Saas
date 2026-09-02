@@ -23,14 +23,16 @@ const PLACEHOLDER_CARDS: Record<string, number> = {
 
 function MenuCardSkeleton() {
   return (
-    <div className="flex h-28 min-w-0 flex-col overflow-hidden rounded-lg border border-[#d8dde5] bg-white sm:h-40 lg:h-44">
+    <div className="flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] sm:h-40 lg:h-44">
       <div className="flex flex-1 items-center justify-center bg-[#fbfcfd]">
-        <Skeleton className="h-12 w-12 rounded-full sm:h-16 sm:w-16 lg:h-18 lg:w-18" />
+        {/* The rounded tile the real card draws when a line has no picture. */}
+        <Skeleton className="h-11 w-11 rounded-xl sm:h-14 sm:w-14 sm:rounded-2xl" />
       </div>
       {/* Two rows, the same two the real card's footer has: the name, and the
           quantity stepper under it. Kept in step with `MenuDishCard` - a
-          skeleton a row short is a panel that jumps when the menu lands. */}
-      <div className="flex h-14 flex-col items-center justify-center gap-1.5 border-t border-[#d8dde5] px-1 sm:h-16 sm:px-2">
+          skeleton a row short is a panel that jumps when the menu lands, and
+          the `lg` step is where the real footer grows for a two-line name. */}
+      <div className="flex h-14 flex-col items-center justify-center gap-1.5 border-t border-[#d8dde5] px-1 sm:h-16 sm:px-2 lg:h-20">
         <Skeleton className="h-2 w-4/5 sm:h-2.5" />
         <Skeleton className="h-5 w-14 rounded-full sm:h-6 sm:w-16" />
       </div>

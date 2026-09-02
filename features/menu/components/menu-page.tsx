@@ -1123,6 +1123,9 @@ export function MenuPage() {
                           isSelectDisabled={!canEditMenu}
                           name={item.name}
                           onSelect={() => libraryItemActions.startEdit(item.id)}
+                          // Cutlery over a list of bottles reads as the wrong
+                          // tab; a pictureless drink gets a glass instead.
+                          pictureIcon="drink"
                           pictureUrl={item.pictureUrl}
                         />
                       ))}
