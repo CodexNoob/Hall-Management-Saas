@@ -10,6 +10,17 @@ type PricingPlan = {
   features: string[];
   buttonLabel: string;
   highlighted?: boolean;
+  /** What the badge over a highlighted card says. Defaults to Most Popular. */
+  badgeLabel?: string;
+  /**
+   * A plan that cannot be bought yet.
+   *
+   * Listed rather than hidden, because the ladder is the point: a venue picking
+   * Starter should be able to see what it grows into. The card says so plainly
+   * and offers no way to sign up for it - a Get Started that leads to a plan
+   * nobody can be put on is worse than no button.
+   */
+  comingSoon?: boolean;
 };
 
 const plans: PricingPlan[] = [
@@ -19,7 +30,12 @@ const plans: PricingPlan[] = [
     price: "$149",
     billingNote: "Billed annually",
     features: ["Up to 2 Halls", "Unlimited Bookings", "Calendar & Scheduling", "Client Management", "Invoicing & Payments", "Email Support"],
-    buttonLabel: "Get Started"
+    buttonLabel: "Get Started",
+    // The emphasis moves here with the only plan anyone can buy, and the badge
+    // says why: "Most Popular" over the sole available plan would be a boast
+    // about a field of one.
+    highlighted: true,
+    badgeLabel: "Available Now"
   },
   {
     name: "Professional",
@@ -27,8 +43,8 @@ const plans: PricingPlan[] = [
     price: "$299",
     billingNote: "Billed annually",
     features: ["Up to 10 Halls", "All Starter Features", "Staff Management", "Reports & Analytics", "PDF Contracts", "Priority Support"],
-    buttonLabel: "Get Started",
-    highlighted: true
+    buttonLabel: "Coming Soon",
+    comingSoon: true
   },
   {
     name: "Enterprise",
@@ -36,7 +52,8 @@ const plans: PricingPlan[] = [
     price: "$599",
     billingNote: "Billed annually",
     features: ["Unlimited Halls", "All Professional Features", "Advanced Analytics", "API Access", "Dedicated Account Manager", "24/7 Premium Support"],
-    buttonLabel: "Get Started"
+    buttonLabel: "Coming Soon",
+    comingSoon: true
   }
 ];
 
@@ -84,24 +101,46 @@ export function PricingSection() {
                 planIndex === 0 ? "from-left" : planIndex === 1 ? "from-bottom" : "from-right"
               } ${planIndex === 0 ? "saas-slide-delay-120" : planIndex === 1 ? "saas-slide-delay-260" : "saas-slide-delay-400"} ${
                 isPricingCardsVisible ? "is-visible" : ""
-              } group relative flex flex-col rounded-3xl bg-white p-6 ${
-                plan.highlighted
-                  ? "is-recommended border border-[#1f4d73] shadow-2xl shadow-[#1f4d73]/18 lg:-mt-4"
-                  : "border border-[#E5E0D6] shadow-sm shadow-[#1f4d73]/5 hover:border-[#1f4d73] hover:shadow-2xl hover:shadow-[#1f4d73]/12"
+              } group relative flex flex-col rounded-3xl p-6 ${
+                plan.comingSoon
+                  ? "border border-[#E8E5DE] bg-[#FAF9F7] shadow-sm shadow-[#0F172A]/3"
+                  : plan.highlighted
+                    ? "is-recommended border border-[#1f4d73] bg-white shadow-2xl shadow-[#1f4d73]/18 lg:-mt-4"
+                    : "border border-[#E5E0D6] bg-white shadow-sm shadow-[#1f4d73]/5 hover:border-[#1f4d73] hover:shadow-2xl hover:shadow-[#1f4d73]/12"
               }`}
             >
               {plan.highlighted ? (
                 <div className="saas-popular-badge absolute left-5 right-5 top-0 -translate-y-1/2 rounded-full bg-linear-to-r from-[#1f4d73] to-[#0F172A] px-4 py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white shadow-lg shadow-[#0F172A]/25">
-                  Most Popular
+                  {plan.badgeLabel ?? "Most Popular"}
                 </div>
               ) : null}
 
+              {/* The same chip the features section uses for the same promise,
+                  so the two read as one product rather than two conventions. */}
+              {plan.comingSoon ? (
+                <span className="absolute right-5 top-5 rounded-full border border-[#1f4d73]/20 bg-[#1f4d73]/8 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
+                  Coming Soon
+                </span>
+              ) : null}
+
               <div className={plan.highlighted ? "pt-5" : ""}>
-                <h3 className="text-xl font-black text-[#0F172A]">{plan.name}</h3>
+                <h3
+                  className={`text-xl font-black ${
+                    plan.comingSoon ? "text-[#94A3B8]" : "text-[#0F172A]"
+                  }`}
+                >
+                  {plan.name}
+                </h3>
                 <p className="mt-2 text-sm font-semibold text-[#64748B]">{plan.description}</p>
 
                 <div className="mt-7 flex items-end gap-2">
-                  <p className="text-5xl font-black tracking-tight text-[#0F172A]">{plan.price}</p>
+                  <p
+                    className={`text-5xl font-black tracking-tight ${
+                      plan.comingSoon ? "text-[#94A3B8]" : "text-[#0F172A]"
+                    }`}
+                  >
+                    {plan.price}
+                  </p>
                   <p className="pb-2 text-sm font-bold text-[#64748B]">/month</p>
                 </div>
                 <p className="mt-1 text-sm text-[#64748B]">{plan.billingNote}</p>
@@ -111,7 +150,9 @@ export function PricingSection() {
                 {plan.features.map((feature, featureIndex) => (
                   <li
                     key={feature}
-                    className={`saas-fade-reveal flex gap-3 text-sm font-semibold leading-6 text-[#1E293B] ${isPricingCardsVisible ? "is-visible" : ""} ${
+                    className={`saas-fade-reveal flex gap-3 text-sm font-semibold leading-6 ${
+                      plan.comingSoon ? "text-[#94A3B8]" : "text-[#1E293B]"
+                    } ${isPricingCardsVisible ? "is-visible" : ""} ${
                       featureIndex === 0
                         ? "saas-delay-520"
                         : featureIndex === 1
@@ -131,16 +172,26 @@ export function PricingSection() {
                 ))}
               </ul>
 
-              <a
-                className={`saas-pricing-button mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl text-sm font-black transition duration-300 ${
-                  plan.highlighted
-                    ? "bg-[#1f4d73] text-white shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
-                    : "border border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#1f4d73] hover:bg-[#F7F4ED] hover:brightness-105"
-                }`}
-                href={plan.name === "Enterprise" ? "#pricing" : "/signup"}
-              >
-                {plan.buttonLabel}
-              </a>
+              {/* Not a link, and not a disabled <a> either: an anchor with no
+                  destination is still focusable and still reads as something to
+                  press. A plan nobody can be put on gets a label, not a
+                  control. */}
+              {plan.comingSoon ? (
+                <p className="mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl border border-dashed border-[#CBD5E1] bg-white/60 text-sm font-black text-[#94A3B8]">
+                  {plan.buttonLabel}
+                </p>
+              ) : (
+                <a
+                  className={`saas-pricing-button mt-8 inline-flex h-12 w-full items-center justify-center rounded-xl text-sm font-black transition duration-300 ${
+                    plan.highlighted
+                      ? "bg-[#1f4d73] text-white shadow-lg shadow-[#0F172A]/15 hover:bg-[#15344f]"
+                      : "border border-[#E5E0D6] bg-white text-[#0F172A] hover:border-[#1f4d73] hover:bg-[#F7F4ED] hover:brightness-105"
+                  }`}
+                  href="/signup"
+                >
+                  {plan.buttonLabel}
+                </a>
+              )}
             </article>
           ))}
         </div>

@@ -152,27 +152,43 @@ export function UpgradePlanDialog({
         <div className="grid gap-5 p-4 md:grid-cols-3 sm:p-6">
           {subscriptionPlans.map((plan) => (
             <article
-              className={`relative flex min-h-126 flex-col rounded-3xl bg-white px-6 pb-6 pt-7 shadow-sm ${
-                plan.popular
-                  ? "border border-[#1f4d73] shadow-md shadow-[#17202a]/10"
-                  : "border border-[#d8dde5]"
+              className={`relative flex min-h-126 flex-col rounded-3xl px-6 pb-6 pt-7 shadow-sm ${
+                plan.comingSoon
+                  ? "border border-[#e2e5ea] bg-[#fafafa]"
+                  : plan.popular
+                    ? "border border-[#1f4d73] bg-white shadow-md shadow-[#17202a]/10"
+                    : "border border-[#d8dde5] bg-white"
               }`}
               key={plan.name}
             >
               {plan.popular ? (
                 <span className="absolute -left-px -right-px -top-4 rounded-full bg-[linear-gradient(90deg,#1f4d73_0%,#061126_100%)] px-3 py-2 text-center text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-md">
-                  Most Popular
+                  Available Now
                 </span>
               ) : null}
 
-              <h3 className="text-2xl font-black text-[#17202a]">
+              {plan.comingSoon ? (
+                <span className="absolute right-5 top-5 rounded-full border border-[#1f4d73]/20 bg-[#1f4d73]/8 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
+                  Coming Soon
+                </span>
+              ) : null}
+
+              <h3
+                className={`text-2xl font-black ${
+                  plan.comingSoon ? "text-[#94a1b1]" : "text-[#17202a]"
+                }`}
+              >
                 {plan.name}
               </h3>
               <p className="mt-2 text-sm font-bold text-[#6a7483]">
                 {plan.description}
               </p>
 
-              <p className="mt-8 text-[#17202a]">
+              <p
+                className={`mt-8 ${
+                  plan.comingSoon ? "text-[#94a1b1]" : "text-[#17202a]"
+                }`}
+              >
                 <strong className="text-5xl font-black tracking-tight">
                   {plan.price}
                 </strong>
@@ -182,7 +198,11 @@ export function UpgradePlanDialog({
               </p>
               <p className="mt-1 text-sm text-[#6a7483]">{plan.billingLabel}</p>
 
-              <ul className="mt-8 space-y-4 text-sm font-bold text-[#17202a]">
+              <ul
+                className={`mt-8 space-y-4 text-sm font-bold ${
+                  plan.comingSoon ? "text-[#94a1b1]" : "text-[#17202a]"
+                }`}
+              >
                 {plan.features.map((feature) => (
                   <li className="flex items-center gap-2" key={feature}>
                     <CheckIcon />
@@ -191,18 +211,27 @@ export function UpgradePlanDialog({
                 ))}
               </ul>
 
-              <button
-                className={`mt-auto h-12 rounded-xl border text-sm font-black transition ${
-                  plan.popular
-                    ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md hover:bg-[#15344f]"
-                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
-                }`}
-                type="button"
-                disabled={Boolean(pendingPlan)}
-                onClick={() => void choosePlan(plan.id)}
-              >
-                {pendingPlan === plan.id ? "Opening checkout…" : "Get Started"}
-              </button>
+              {/* A label, not a disabled button. A control that cannot be used
+                  in any state is not disabled, it is absent - and a disabled
+                  button still invites the click that does nothing. */}
+              {plan.comingSoon ? (
+                <p className="mt-auto flex h-12 items-center justify-center rounded-xl border border-dashed border-[#cbd5e1] bg-white/60 text-sm font-black text-[#94a1b1]">
+                  Coming Soon
+                </p>
+              ) : (
+                <button
+                  className={`mt-auto h-12 rounded-xl border text-sm font-black transition ${
+                    plan.popular
+                      ? "border-[#1f4d73] bg-[#1f4d73] text-white shadow-md hover:bg-[#15344f]"
+                      : "border-[#b9c2cf] bg-white text-[#17202a] hover:border-[#1f4d73]/60 hover:bg-[#eef4fa]"
+                  }`}
+                  type="button"
+                  disabled={Boolean(pendingPlan)}
+                  onClick={() => void choosePlan(plan.id)}
+                >
+                  {pendingPlan === plan.id ? "Opening checkout…" : "Get Started"}
+                </button>
+              )}
             </article>
           ))}
           {errorMessage ? (

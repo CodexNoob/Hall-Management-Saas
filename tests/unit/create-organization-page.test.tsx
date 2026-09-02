@@ -95,7 +95,14 @@ describe("CreateOrganizationPage", () => {
     expect(screen.getByLabelText("Your full name")).toHaveValue("carldelfin25");
   });
 
-  it("offers the free trial plus every paid plan, defaulting to the free trial", () => {
+  /**
+   * The plans that are not on sale yet are listed but cannot be chosen.
+   *
+   * Dropping them would hide where the product is going from somebody deciding
+   * whether to start at all; leaving them selectable would record an intended
+   * plan nobody can be put on.
+   */
+  it("offers the free trial and Starter, and shows the rest as coming soon", () => {
     cachePendingOwner();
     renderPage();
 
@@ -104,16 +111,17 @@ describe("CreateOrganizationPage", () => {
     expect(plan).toHaveValue("free_trial");
     expect(
       screen.getByRole("option", { name: "Free Trial - $0/month" })
-    ).toBeInTheDocument();
+    ).toBeEnabled();
     expect(
       screen.getByRole("option", { name: "Starter - $149/month" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "Professional - $299/month" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "Enterprise - $599/month" })
-    ).toBeInTheDocument();
+    ).toBeEnabled();
+
+    for (const name of [
+      "Professional - $299/month (coming soon)",
+      "Enterprise - $599/month (coming soon)"
+    ]) {
+      expect(screen.getByRole("option", { name })).toBeDisabled();
+    }
   });
 
   it("submits the entered details and lands on the dashboard", async () => {

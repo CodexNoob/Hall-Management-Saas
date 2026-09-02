@@ -25,6 +25,16 @@ export type SubscriptionPlan = {
   features: string[];
   limits: SubscriptionPlanLimits;
   popular?: boolean;
+  /**
+   * A plan that is published but cannot be bought yet.
+   *
+   * Kept in the list rather than removed, because the ladder is what a venue
+   * on Starter is choosing against - and because the limits below are what the
+   * entitlement checks read, so deleting the row would change more than the
+   * price page. `isPurchasablePlan` is what decides whether anyone can be put
+   * on it, and both the dialog and the checkout route ask it.
+   */
+  comingSoon?: boolean;
 };
 
 export const subscriptionPlans: SubscriptionPlan[] = [
@@ -48,7 +58,10 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       eventsPerMonth: null,
       storageGb: 25,
       invoicesPerMonth: null
-    }
+    },
+    // The only plan anyone can be put on today, so it carries the emphasis the
+    // Professional card used to.
+    popular: true
   },
   {
     id: "professional",
@@ -71,7 +84,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       storageGb: 100,
       invoicesPerMonth: null
     },
-    popular: true
+    comingSoon: true
   },
   {
     id: "enterprise",
@@ -93,7 +106,8 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       eventsPerMonth: null,
       storageGb: null,
       invoicesPerMonth: null
-    }
+    },
+    comingSoon: true
   }
 ];
 
@@ -127,4 +141,21 @@ export function getSubscriptionPlan(planId: string | null | undefined) {
   if (!planId) return null;
 
   return subscriptionPlansById[planId as SubscriptionPlanId] ?? null;
+}
+
+/**
+ * Whether anyone can be put on a plan right now.
+ *
+ * Asked in two places on purpose: the upgrade dialog, so it offers no button
+ * for a plan nobody can buy, and the Stripe checkout route, because the plan id
+ * travels in a request body and a hidden button is a courtesy rather than a
+ * control. An unknown id is not purchasable either - the safe direction.
+ *
+ * `free_trial` is not purchasable and never was: an organization is put on it
+ * by signing up, not by paying for it.
+ */
+export function isPurchasablePlan(planId: string | null | undefined) {
+  const plan = getSubscriptionPlan(planId);
+
+  return Boolean(plan) && plan?.id !== "free_trial" && !plan?.comingSoon;
 }
