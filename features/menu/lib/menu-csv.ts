@@ -42,6 +42,24 @@ export const KOSHER_TYPES = ["Milchig", "Fleishig", "Parve"] as const;
 export type KosherType = (typeof KOSHER_TYPES)[number];
 
 /**
+ * The categories `NewLibraryItemDialog` offers, for the xlsx template's
+ * dropdown to offer the same ones.
+ *
+ * A suggestion rather than a rule: the column is free text on purpose, and
+ * `parseMenuCsv` stores whatever it is given. A hall with a "Kiddush" course
+ * keeps it.
+ */
+export const MENU_CATEGORY_OPTIONS = [
+  "Appetizer",
+  "Soup",
+  "Main",
+  "Side",
+  "Drink",
+  "Dessert",
+  "More"
+] as const;
+
+/**
  * What a hand-typed kashrut cell may say.
  *
  * The same three synonyms the `20260817140000_add_menu_item_services` migration

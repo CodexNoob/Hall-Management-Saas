@@ -118,6 +118,11 @@ test("shows the sheet layout before asking for a file", async ({ page }) => {
   await expect(
     dialog.getByRole("button", { name: "Download template CSV" })
   ).toBeVisible();
+  // The sheet with the dropdowns, offered beside the plain one: the columns
+  // with a closed set of values are the ones a hand-typed CSV gets wrong.
+  await expect(
+    dialog.getByRole("button", { name: "Download template xlsx" })
+  ).toBeVisible();
 
   await dialog.getByRole("button", { name: "My sheet is ready" }).click();
   await expect(dialog.getByLabel("CSV file")).toBeVisible();
