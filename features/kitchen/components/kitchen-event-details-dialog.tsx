@@ -769,7 +769,7 @@ function KitchenEventDetails({
               <aside
                 className={`border-l-8 border-[#2f80ed] bg-[#dceaff] lg:mb-0 lg:shrink-0 ${
                   preview
-                    ? "relative mb-0 w-20 min-w-0 shrink-0 overflow-hidden border-r border-[#c8daf2] px-2 py-2 pb-8"
+                    ? "relative mb-0 w-24 min-w-0 shrink-0 overflow-hidden border-r border-[#c8daf2] px-2 py-2 pb-8"
                     : embedded
                     ? // A share of the panel rather than a fixed 15rem: the
                       // same panel is the width of the board in the day view
@@ -784,7 +784,7 @@ function KitchenEventDetails({
                   {event.category}
                 </p>
                 <h3
-                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 max-h-11 overflow-hidden text-[10px] [overflow-wrap:anywhere]" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
+                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 line-clamp-4 text-[9px] [overflow-wrap:break-word]" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
                   id={asideTitleId}
                 >
                   {event.clientName ?? event.title}
