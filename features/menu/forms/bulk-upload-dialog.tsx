@@ -18,6 +18,10 @@ import {
   type MenuCsvRow
 } from "@/features/menu/lib/menu-csv";
 import {
+  MENU_XLSX_MIME,
+  buildMenuXlsxTemplate
+} from "@/features/menu/lib/menu-xlsx";
+import {
   COUNT_BASES,
   COUNT_BASIS_LABELS,
   COUNTING_UNITS,
@@ -422,17 +426,33 @@ export function BulkUploadDialog({
     onClose();
   };
 
-  const downloadTemplate = () => {
-    const blob = new Blob([buildMenuCsvTemplate()], {
-      type: "text/csv;charset=utf-8;"
-    });
+  const download = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = "event-core-menu-template.csv";
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadCsvTemplate = () => {
+    download(
+      new Blob([buildMenuCsvTemplate()], { type: "text/csv;charset=utf-8;" }),
+      "event-core-menu-template.csv"
+    );
+  };
+
+  /**
+   * The same sheet with the closed columns as dropdowns, built in the browser -
+   * a static file in `public/` would be one more copy of the column order to
+   * keep in step with the parser, and this one cannot drift.
+   */
+  const downloadXlsxTemplate = () => {
+    download(
+      new Blob([buildMenuXlsxTemplate()], { type: MENU_XLSX_MIME }),
+      "event-core-menu-template.xlsx"
+    );
   };
 
   const readFile = async (file: File) => {
@@ -645,13 +665,28 @@ export function BulkUploadDialog({
                   importing. Up to {MAX_MENU_CSV_ROWS} rows per upload.
                 </p>
 
-                <button
-                  className="justify-self-start rounded-lg border border-[#b9c2cf] bg-white px-4 py-2 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
-                  onClick={downloadTemplate}
-                  type="button"
-                >
-                  Download template CSV
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="rounded-lg border border-[#b9c2cf] bg-white px-4 py-2 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
+                    onClick={downloadCsvTemplate}
+                    type="button"
+                  >
+                    Download template CSV
+                  </button>
+                  <button
+                    className="rounded-lg border border-[#1f4d73] bg-white px-4 py-2 text-xs font-black text-[#1f4d73] hover:bg-[#eef4fa]"
+                    onClick={downloadXlsxTemplate}
+                    type="button"
+                  >
+                    Download template xlsx
+                  </button>
+                </div>
+
+                <p className="text-xs text-[#617086]">
+                  The xlsx has the columns ready with dropdowns for Category,
+                  Kashrut Type and Food or Drink — fill it in, then save it as
+                  CSV to upload.
+                </p>
               </div>
             ) : null}
 
