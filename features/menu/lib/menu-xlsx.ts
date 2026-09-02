@@ -7,11 +7,15 @@
  * row 47. This one ships the accepted values as Excel data validation, so the
  * closed columns are picked rather than typed.
  *
- * Both templates read `MENU_CSV_COLUMNS` for their order and the same sample
- * rows for their contents, so the two downloads cannot describe different
- * sheets. What the parser accepts is still the CSV contract: this file is
- * filled in, then saved as CSV, which is why the values below are the ones
- * `parseMenuCsv` already understands.
+ * Both templates read `MENU_CSV_COLUMNS` for their order, so the two downloads
+ * cannot describe different sheets. What the parser accepts is still the CSV
+ * contract: this file is filled in, then saved as CSV, which is why the values
+ * below are the ones `parseMenuCsv` already understands.
+ *
+ * Ships the header row and nothing else. The guide beside the download already
+ * shows what a filled row looks like, and a sample dish left in the sheet is a
+ * dish imported into somebody's menu - the operator types over row 2 rather
+ * than remembering to delete it.
  *
  * Written by hand rather than with a spreadsheet library: the whole workbook is
  * six small XML parts, and `buildZip` is what puts them in a container.
@@ -23,8 +27,7 @@ import {
   KOSHER_TYPES,
   MAX_MENU_CSV_ROWS,
   MENU_CATEGORY_OPTIONS,
-  MENU_CSV_COLUMNS,
-  MENU_CSV_SAMPLE_ROWS
+  MENU_CSV_COLUMNS
 } from "@/features/menu/lib/menu-csv";
 import { MENU_ITEM_KINDS } from "@/features/menu/lib/service-style";
 import { buildZip } from "@/lib/utilities/zip";
@@ -133,10 +136,7 @@ function validationXml({ field, prompt, strict, values }: ColumnValidation) {
 
 function sheetXml() {
   const headers = MENU_CSV_COLUMNS.map((column) => column.header);
-  const rows = [
-    rowXml(1, headers, HEADER_STYLE),
-    ...MENU_CSV_SAMPLE_ROWS.map((row, index) => rowXml(index + 2, row, 0))
-  ].join("");
+  const rows = rowXml(1, headers, HEADER_STYLE);
 
   const columns = COLUMN_WIDTHS.map(
     (width, index) =>
@@ -150,7 +150,7 @@ function sheetXml() {
     `${XML_DECLARATION}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
     // The cells that hold something, not the rows the dropdowns reach - a
     // dimension of 501 rows would open the file scrolled over empty space.
-    `<dimension ref="A1:${lastLetter}${MENU_CSV_SAMPLE_ROWS.length + 1}"/>` +
+    `<dimension ref="A1:${lastLetter}1"/>` +
     // The header stays put while the operator types their hundredth dish.
     `<sheetViews><sheetView tabSelected="1" workbookViewId="0">` +
     `<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>` +
