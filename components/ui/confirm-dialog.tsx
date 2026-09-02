@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { readApiErrorDetails } from "@/lib/http/api-request-error";
 import { useScrollLock } from "@/lib/ui/use-scroll-lock";
 
@@ -9,11 +10,12 @@ type ConfirmDialogProps = {
   title: string;
   description: string;
   confirmLabel: string;
-  pendingLabel: string;
+  pendingLabel?: string;
+  mode?: "confirm" | "notice";
   /** Used only when the rejection carries no message of its own. */
   fallbackErrorMessage?: string;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm?: () => Promise<void>;
 };
 
 /**
@@ -36,6 +38,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   pendingLabel,
+  mode = "confirm",
   fallbackErrorMessage = "The action could not be completed. Please try again.",
   onClose,
   onConfirm
@@ -76,9 +79,11 @@ export function ConfirmDialog({
     };
   }, [onClose, open]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   async function confirm() {
+    if (!onConfirm) return;
+
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
@@ -99,7 +104,7 @@ export function ConfirmDialog({
     }
   }
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-110 flex items-center justify-center bg-[#17202a]/45 p-4 backdrop-blur-[1px]"
       onMouseDown={(event) => {
@@ -111,7 +116,7 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         aria-modal="true"
         className="w-full max-w-md overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-2xl"
-        role="alertdialog"
+        role={mode === "notice" ? "dialog" : "alertdialog"}
       >
         <div className="p-5 sm:p-6">
           <h2 className="text-xl font-black text-[#17202a]" id={titleId}>
@@ -146,25 +151,29 @@ export function ConfirmDialog({
         </div>
 
         <footer className="flex justify-end gap-3 border-t border-[#d8dde5] bg-[#f8f9fb] px-5 py-4">
+          {mode === "confirm" ? (
+            <button
+              className="h-10 rounded-lg border border-[#c7d0dc] bg-white px-4 text-sm font-bold text-[#233144] transition hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={isSubmitting}
+              onClick={onClose}
+              ref={cancelButtonRef}
+              type="button"
+            >
+              Cancel
+            </button>
+          ) : null}
           <button
-            className="h-10 rounded-lg border border-[#c7d0dc] bg-white px-4 text-sm font-bold text-[#233144] transition hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-60"
+            className={`h-10 rounded-lg px-4 text-sm font-black text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${mode === "notice" ? "bg-[#1f4d73] hover:bg-[#173a57]" : "bg-[#b42318] hover:bg-[#951b12]"}`}
             disabled={isSubmitting}
-            onClick={onClose}
-            ref={cancelButtonRef}
-            type="button"
-          >
-            Cancel
-          </button>
-          <button
-            className="h-10 rounded-lg bg-[#b42318] px-4 text-sm font-black text-white transition hover:bg-[#951b12] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={isSubmitting}
-            onClick={() => void confirm()}
+            onClick={mode === "notice" ? onClose : () => void confirm()}
+            ref={mode === "notice" ? cancelButtonRef : undefined}
             type="button"
           >
             {isSubmitting ? pendingLabel : confirmLabel}
           </button>
         </footer>
       </section>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -18,7 +18,7 @@ export function FourWeekDay({
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
 }) {
-  const highlighted = day.today || day.selected;
+  const highlighted = day.today;
 
   return (
     <section

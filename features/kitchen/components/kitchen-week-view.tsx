@@ -18,7 +18,7 @@ export function WeekDayColumn({
   onAddKitchenEvent: (dateKey: string) => void;
   renderEvent: (event: KitchenEvent) => ReactNode;
 }) {
-  const highlighted = day.today || day.selected;
+  const highlighted = day.today;
 
   return (
     <section
@@ -64,9 +64,13 @@ export function WeekDayColumn({
         </div>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+      <div className="min-h-0 min-w-0 flex-1 space-y-2 overflow-x-hidden overflow-y-auto p-2">
         {day.events?.length ? (
-          day.events.map((event) => <div key={event.id}>{renderEvent(event)}</div>)
+          day.events.map((event) => (
+            <div className="min-w-0 overflow-hidden" key={event.id}>
+              {renderEvent(event)}
+            </div>
+          ))
         ) : (
           <p className="px-1 py-4 text-sm font-black text-[#64748b]">
             No events

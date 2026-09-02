@@ -302,7 +302,29 @@ function DishCard({
   workers: KitchenResponse["workers"];
 }) {
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [showingNotStartedNotice, setShowingNotStartedNotice] = useState(false);
+  const [resetStatus, setResetStatus] = useState<"PENDING" | "COMPLETE" | null>(
+    null
+  );
+  const [visibleStatus, setVisibleStatus] = useState(line.status);
+  const optimisticStatus = useRef<"PENDING" | "COMPLETE" | null>(null);
   const pendingClick = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingClickStartStatus = useRef<EventKitchenLine["status"]>(null);
+
+  useEffect(() => {
+    // A revalidation started by the previous write can arrive while the next
+    // click is being saved. Ignore that older snapshot until the server returns
+    // the exact state this card is currently showing.
+    if (
+      optimisticStatus.current !== null &&
+      line.status !== optimisticStatus.current
+    ) {
+      return;
+    }
+
+    optimisticStatus.current = null;
+    setVisibleStatus(line.status);
+  }, [line.status]);
 
   useEffect(
     () => () => {
@@ -317,39 +339,67 @@ function DishCard({
   const replaceableId = line.menuItemId ?? line.addOnId;
   const canTick = permissions.canUpdateKitchenStatus && Boolean(menuItemId);
 
-  function advance() {
-    if (!menuItemId || line.status === "COMPLETE") return;
-
-    void onSaveItemAction({
-      action: "status",
-      menuItemId,
-      status: nextStatus(line.status)
-    });
-  }
-
   async function reset() {
-    if (!menuItemId || !line.status) return;
+    if (!menuItemId) return;
     await onSaveItemAction({ action: "reset-status", menuItemId });
   }
 
   function requestReset() {
-    if (!line.status) return;
+    if (!visibleStatus) return;
+    setResetStatus(visibleStatus);
     setConfirmingReset(true);
   }
 
+  function closeResetConfirmation() {
+    setConfirmingReset(false);
+    setResetStatus(null);
+  }
+
   function handleClick() {
-    if (pendingClick.current) return;
+    if (pendingClick.current || !menuItemId || visibleStatus === "COMPLETE") {
+      return;
+    }
+
+    const previousStatus = visibleStatus;
+    const status = nextStatus(previousStatus);
+
+    pendingClickStartStatus.current = previousStatus;
+
+    // Hold the paint through the double-click window. Browsers deliver the
+    // first ordinary click before they identify a double-click; changing the
+    // status here would make either reset path flash through the next state.
 
     pendingClick.current = setTimeout(() => {
       pendingClick.current = null;
-      advance();
+      pendingClickStartStatus.current = null;
+      optimisticStatus.current = status;
+      setVisibleStatus(status);
+      void onSaveItemAction({ action: "status", menuItemId, status }).catch(
+        () => {
+          optimisticStatus.current = null;
+          setVisibleStatus(previousStatus);
+        }
+      );
     }, DOUBLE_CLICK_GRACE_MS);
   }
 
   function handleDoubleClick() {
+    if (!menuItemId) return;
+
     if (pendingClick.current) {
+      const statusBeforeClicks = pendingClickStartStatus.current;
       clearTimeout(pendingClick.current);
       pendingClick.current = null;
+      pendingClickStartStatus.current = null;
+
+      if (statusBeforeClicks === null) {
+        optimisticStatus.current = null;
+        setVisibleStatus(line.status);
+        setShowingNotStartedNotice(true);
+        return;
+      }
+
+      optimisticStatus.current = null;
     }
 
     requestReset();
@@ -404,9 +454,9 @@ function DishCard({
           everyone can tell apart.
         */}
         <span
-          className={`block text-center text-[10px] font-black uppercase tracking-[0.08em] ${line.notes ? "mt-2" : ""} ${CARD_STATUS_TEXT[statusKey(line.status)]}`}
+          className={`block text-center text-[10px] font-black uppercase tracking-[0.08em] ${line.notes ? "mt-2" : ""} ${CARD_STATUS_TEXT[statusKey(visibleStatus)]}`}
         >
-          {statusLabel(line.status)}
+          {statusLabel(visibleStatus)}
         </span>
       </span>
     </>
@@ -418,8 +468,8 @@ function DishCard({
     >
       {canTick ? (
         <button
-          aria-label={`${line.name} — ${statusLabel(line.status)}. Click to move on, double-click to request a reset.`}
-          className={`flex flex-1 flex-col border text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${cardHeight} ${cardPadding} ${CARD_STATUS_TONE[statusKey(line.status)]}`}
+          aria-label={`${line.name} — ${statusLabel(visibleStatus)}. Click to move on, double-click to request a reset.`}
+          className={`flex flex-1 flex-col border text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${cardHeight} ${cardPadding} ${CARD_STATUS_TONE[statusKey(visibleStatus)]}`}
           disabled={isSaving}
           onClick={handleClick}
           onDoubleClick={handleDoubleClick}
@@ -486,16 +536,26 @@ function DishCard({
 
       <ConfirmDialog
         confirmLabel="Reset dish status"
-        description={`Reset “${line.name}” from ${statusLabel(line.status)} to Not started? This removes its recorded progress.`}
+        description={`Reset “${line.name}” from ${statusLabel(resetStatus ?? visibleStatus)} to Not started? This removes its recorded progress.`}
         fallbackErrorMessage="The dish status could not be reset. Please try again."
-        onClose={() => setConfirmingReset(false)}
+        onClose={closeResetConfirmation}
         onConfirm={async () => {
           await reset();
-          setConfirmingReset(false);
+          optimisticStatus.current = null;
+          setVisibleStatus(null);
+          closeResetConfirmation();
         }}
         open={confirmingReset}
         pendingLabel="Resetting…"
         title="Reset dish status?"
+      />
+      <ConfirmDialog
+        confirmLabel="Close"
+        description={`“${line.name}” is still Not started, so there is no recorded progress to reset. Click the dish once to mark it Pending.`}
+        mode="notice"
+        onClose={() => setShowingNotStartedNotice(false)}
+        open={showingNotStartedNotice}
+        title="Dish not started yet"
       />
     </article>
   );
@@ -784,7 +844,7 @@ function KitchenEventDetails({
                   {event.category}
                 </p>
                 <h3
-                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 line-clamp-4 text-[9px] [overflow-wrap:break-word]" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
+                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 line-clamp-4 text-[9px] wrap-break-word" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
                   id={asideTitleId}
                 >
                   {event.clientName ?? event.title}
@@ -1248,7 +1308,7 @@ export function KitchenEventPreview({
       </div>
       <button
         aria-label={`Open ${props.event.clientName ?? props.event.title} kitchen event`}
-        className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#1f4d73]"
+        className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1f4d73]"
         onClick={onOpen}
         type="button"
       />

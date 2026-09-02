@@ -42,7 +42,7 @@ export function KitchenEventCard({
   if (compact) {
     return (
       <button
-        className={`flex w-full min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[11px] font-black transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] ${
+        className={`flex w-full min-w-0 items-center gap-1.5 border px-2 py-1.5 text-left text-[11px] font-black transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] ${
           hold
             ? "border-[#e5c894] bg-[#fffaf1] text-[#8a6414] hover:border-[#b66b00]"
             : "border-[#c9d2de] bg-white text-[#17202a] hover:border-[#1f4d73] hover:bg-[#eef4fa]"
