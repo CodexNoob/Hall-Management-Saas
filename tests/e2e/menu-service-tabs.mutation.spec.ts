@@ -12,10 +12,12 @@ import { expect, test, type Locator, type Page, type Response } from "@playwrigh
  * has answered the Buffet/Plated question, so the form does not ask it again.
  *
  * The update and the removal are driven from the Menu Library, deliberately.
- * `MenuRuleCard` is not a button - the service tabs are read-only views - so the
- * library grid is the only way into an item that is served, and that is the path
- * an operator actually has. A test that edited through the API instead would
- * pass on the day that path disappeared.
+ * The service tabs now open the same editor from their own cards, but the
+ * library grid is the screen every item is reachable from whatever it is served
+ * as - so driving the write from there proves the path an operator has for any
+ * item, not only for one that happens to be on the tab in front of them. A test
+ * that edited through the API instead would pass on the day that path
+ * disappeared.
  */
 
 type MenuPayload = {

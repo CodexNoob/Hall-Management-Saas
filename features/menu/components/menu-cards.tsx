@@ -51,12 +51,13 @@ export function MenuItemCard({
   actions?: ActionsMenuItem[];
   category: string;
   /**
-   * A second line under the name. The Drink Menu puts the counting rule here -
-   * "2 bottles per table" - because that tab groups by how a drink is served
-   * and the card is the only place the actual numbers can be read.
+   * A second line under the name. The Drink Menu and the two service tabs put
+   * the counting rule here - "2 bottles per table", "1 plate per guest" -
+   * because those tabs are about how an item is served, and the card is the
+   * only place the actual numbers can be read.
    *
-   * Deliberately not on the library grid: a food card says what a dish IS, and
-   * how much of it to cook is a kitchen question that tab does not ask.
+   * Deliberately not on the library grid: a food card there says what a dish
+   * IS, and how much of it to cook is a kitchen question that tab does not ask.
    */
   detail?: string | null;
   /**
@@ -266,61 +267,6 @@ export function AddItemCard({ onClick }: { onClick: () => void }) {
         </div>
       </div>
     </button>
-  );
-}
-
-/**
- * A dish as a service tab shows it: what it is, and how much of it to cook.
- *
- * No price. A dish is not sold on its own - a package or an add-on is - and
- * the `$0.00` that used to sit here came from a hardcoded string, not a column.
- */
-export function MenuRuleCard({
-  badge,
-  name,
-  rule,
-  pictureUrl
-}: {
-  /** Kosher type, which is what an operator actually needs at a glance. */
-  badge: string;
-  name: string;
-  rule: string;
-  pictureUrl?: string | null;
-}) {
-  return (
-    <article className="flex h-50 w-full min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] sm:w-38">
-      <div className="flex min-w-0 w-full flex-col">
-        <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#fbfcfd]">
-          {pictureUrl ? (
-            <>
-              {/* Plain <img> for the same reason MenuItemCard uses one: the URL
-                  is signed and rotates, so the optimizer would never get a
-                  cache hit. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt=""
-                className="absolute inset-0 h-full w-full object-cover"
-                src={pictureUrl}
-              />
-              <span className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-linear-to-b from-black/20 to-transparent" />
-            </>
-          ) : (
-            <PicturePlaceholder icon="fork" />
-          )}
-          <span className="absolute left-1.5 right-1.5 top-2 truncate rounded-full bg-white/92 px-1.5 py-1 text-center text-[8px] font-black text-[#17202a] ring-1 ring-inset ring-black/5 backdrop-blur-sm sm:left-3 sm:right-auto sm:top-3 sm:max-w-[calc(100%-1.5rem)] sm:px-2 sm:text-[10px]">
-            {badge}
-          </span>
-        </div>
-        <div className="flex h-24 min-w-0 flex-col items-center justify-center overflow-hidden border-t border-[#d8dde5] px-1.5 text-center sm:h-16 sm:px-2">
-          <p className="line-clamp-2 w-full wrap-break-word text-[10px] font-black leading-3 text-[#17202a] sm:text-sm sm:leading-4">
-            {name}
-          </p>
-          <p className="mt-1 line-clamp-2 w-full wrap-break-word text-[9px] leading-3 text-[#6a7483] sm:text-xs sm:leading-4">
-            {rule}
-          </p>
-        </div>
-      </div>
-    </article>
   );
 }
 
