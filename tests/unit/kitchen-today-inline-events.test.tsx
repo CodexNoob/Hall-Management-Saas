@@ -174,8 +174,8 @@ describe("Week kitchen event previews", () => {
     );
     expect(screen.getByText("Baked apples")).toHaveClass("text-xs");
     expect(screen.getByText("Feferkorn Week")).toHaveClass(
-      "overflow-hidden",
-      "[overflow-wrap:anywhere]"
+      "line-clamp-4",
+      "[overflow-wrap:break-word]"
     );
     expect(screen.getByText("Delete Event")).toHaveClass("absolute", "bottom-2");
 
