@@ -36,6 +36,7 @@ function libraryItem(id: string, name: string, category = "Mains"): MenuLibraryI
     kind: "Dish",
     services: [],
     kosherType: "Parve",
+    containsAlcohol: null,
     allergens: [],
     notes: null,
     pictureUrl: null

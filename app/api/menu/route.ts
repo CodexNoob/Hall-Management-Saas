@@ -170,6 +170,7 @@ export async function POST(request: Request) {
           usageType: input.usageType,
           kind: input.kind,
           kosherType: input.kosherType,
+          containsAlcohol: input.containsAlcohol,
           allergens: input.allergens ?? [],
           notes: input.notes,
           picturePath: input.picturePath,

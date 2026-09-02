@@ -122,6 +122,8 @@ export type MenuResponse = {
     // with `readServiceRules` rather than asserted into shape.
     services: unknown;
     kosherType: string | null;
+    /** Null on a dish, which is never asked - see `MenuLibraryItem`. */
+    containsAlcohol: boolean | null;
     allergens: string[];
     notes: string | null;
     // Signed by GET /api/menu; the raw bucket and path never reach the client.
@@ -163,6 +165,16 @@ export type MenuLibraryItem = {
    */
   services: MenuItemServiceRule[];
   kosherType: string | null;
+  /**
+   * Whether a drink contains alcohol.
+   *
+   * Null for a dish, and for any drink saved before the switch existed: the
+   * drink form asks it in place of the category and kashrut selects, and a food
+   * item is never put the question. Read as "not alcoholic" wherever a badge
+   * needs an answer - the distinction that matters on a drinks list is which
+   * ones ARE.
+   */
+  containsAlcohol: boolean | null;
   allergens: string[];
   notes: string | null;
   pictureUrl: string | null;

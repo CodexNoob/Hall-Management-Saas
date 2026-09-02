@@ -8,6 +8,7 @@ import type {
 } from "@/features/menu/forms/new-library-item-dialog";
 import { formatAllergens, parseAllergens } from "@/features/menu/lib/allergens";
 import {
+  isDrinkKind,
   readServiceStyleFormValues,
   toServiceRules
 } from "@/features/menu/lib/service-style";
@@ -63,6 +64,10 @@ export function useMenuItemActions({
         category: editingItem.category,
         kind: editingItem.kind,
         kashrutType: editingItem.kosherType ?? "Parve",
+        // Null - a drink saved before the switch existed, or a dish that was
+        // never asked - opens with it off, which is what an unanswered "does
+        // this contain alcohol" means to everyone reading the list.
+        containsAlcohol: editingItem.containsAlcohol ?? false,
         allergies: formatAllergens(editingItem.allergens),
         description: editingItem.notes ?? "",
         services: readServiceStyleFormValues(
@@ -76,6 +81,9 @@ export function useMenuItemActions({
     async (values: NewLibraryItemFormValues) => {
       if (!editingItemId) return;
 
+      // Which pair of questions the form actually asked - see the fields it
+      // swaps below.
+      const isDrink = isDrinkKind(values.kind);
       // Same order as a create: upload first, so a failure leaves an unused
       // object in the bucket rather than a row pointing at nothing. An untouched
       // file input sends no path at all, which is what keeps the current picture.
@@ -105,7 +113,16 @@ export function useMenuItemActions({
         // library-only by clearing its rules, the way an explicit `null` used to
         // clear the single rule.
         services,
-        kosherType: values.kashrutType,
+        // Omitted for a drink rather than sent as the seeded "Parve": the drink
+        // form does not show the select, so anything written from here would be
+        // this hook's answer and not the operator's. An omitted key leaves the
+        // stored value alone, which is what an item re-filed as a drink should
+        // keep.
+        kosherType: isDrink ? undefined : values.kashrutType,
+        // The mirror image, and `null` rather than omitted: a drink turned back
+        // into a dish has to unsay this, or the food card keeps an alcohol badge
+        // from a question its form no longer asks.
+        containsAlcohol: isDrink ? values.containsAlcohol : null,
         allergens: parseAllergens(values.allergies),
         notes: values.description,
         picturePath

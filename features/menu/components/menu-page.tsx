@@ -132,6 +132,7 @@ export function MenuPage() {
       kind: item.kind,
       services: readServiceRules(item.services),
       kosherType: item.kosherType,
+      containsAlcohol: item.containsAlcohol ?? null,
       allergens: item.allergens ?? [],
       notes: item.notes,
       pictureUrl: item.pictureUrl
@@ -496,6 +497,10 @@ export function MenuPage() {
     // dish is catalogued, and the rule is asked for again the first time it
     // goes on an event.
     const services = toServiceRules(values.services, { allowBlankRule: true });
+    // Which pair of questions the form asked - the drink form swaps the course
+    // and kashrut selects for the alcohol switch, so only one of the two ever
+    // has an answer worth writing.
+    const isDrink = isDrinkKind(values.kind);
     // Upload before the row is created, so a failure anywhere in here leaves an
     // unreferenced object in the bucket rather than an item pointing at nothing.
     const picturePath = values.picture
@@ -511,7 +516,11 @@ export function MenuPage() {
       usageType: DEFAULT_SEGMENT,
       kind: values.kind,
       services,
-      kosherType: values.kashrutType,
+      // Not sent for a drink, whose form does not ask it: a column left null is
+      // an unanswered question, while "Parve" written from the form's own seed
+      // would be an answer nobody gave.
+      kosherType: isDrink ? undefined : values.kashrutType,
+      containsAlcohol: isDrink ? values.containsAlcohol : undefined,
       allergens: parseAllergens(values.allergies),
       notes: values.description,
       picturePath
@@ -1099,7 +1108,14 @@ export function MenuPage() {
                       {activeDrinkView.items.map((item) => (
                         <MenuItemCard
                           key={item.id}
-                          category={item.category}
+                          // The switch, on the card. Drinks are all filed under
+                          // one category now that their form stopped asking for
+                          // one, so the pill had nothing left to say - and the
+                          // answer it carries instead is the one an operator
+                          // scans a drinks list for. Only when it is true: a
+                          // "Non-alcoholic" pill on every juice is noise, and
+                          // the pill is how you spot the ones that are not.
+                          category={item.containsAlcohol ? "Alcohol" : item.category}
                           // The numbers, on the card. Choosing a style used to
                           // leave nothing on screen to show for it; this is
                           // what it bought you.

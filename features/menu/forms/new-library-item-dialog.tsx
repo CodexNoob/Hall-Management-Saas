@@ -24,6 +24,16 @@ export type NewLibraryItemFormValues = {
   category: string;
   kind: string;
   kashrutType: string;
+  /**
+   * Whether a drink contains alcohol.
+   *
+   * Asked only on the drink form, where it stands in place of the category and
+   * kashrut selects: a course and a kashrut type are food vocabulary, and the
+   * thing anyone actually needs to know about a bottle at a glance is whether it
+   * is alcoholic. Carried on a dish's values too - the form holds one shape -
+   * but the callers do not send it for one.
+   */
+  containsAlcohol: boolean;
   /** Comma separated; the page splits it into the `text[]` column. */
   allergies: string;
   description: string;
@@ -131,10 +141,22 @@ const initialValues: LibraryItemSeedValues = {
   category: "Main",
   kind: "Food",
   kashrutType: "Parve",
+  containsAlcohol: false,
   allergies: "",
   description: "",
   services: serviceFormDefaults("Food")
 };
+
+/**
+ * What a drink is filed under, since the drink form no longer asks.
+ *
+ * Something has to fill the column: the category drives the tab's filter and
+ * the pill on the card, and a drink left on the food default would sit under
+ * "Main" on a tab where the field it came from is not even rendered. "Drink" is
+ * already one of the options the select offers, so nothing new appears in the
+ * filter as a result.
+ */
+const DRINK_CATEGORY = "Drink";
 
 const controlClass =
   "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15";
@@ -200,7 +222,15 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
       ])
     ) as ServiceStyleFormValues;
 
-    return { ...initialValues, kind, services };
+    return {
+      ...initialValues,
+      kind,
+      // Filed by the kind rather than left on the food default - see
+      // `DRINK_CATEGORY`. The select this would otherwise be typed into is not
+      // rendered for a drink.
+      category: isDrinkKind(kind) ? DRINK_CATEGORY : initialValues.category,
+      services
+    };
   }, [defaultKind, defaultServiceStyle]);
 
   // Shared with the remove confirmation that opens on top of this form, so
@@ -258,9 +288,12 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
     ? serviceStyleLabel(scopedStyle, values.kind)
     : null;
 
-  // Narrowed to the text fields so `services`, which is not a string, cannot be
-  // passed here by accident.
-  type TextField = Exclude<keyof LibraryItemSeedValues, "services">;
+  // Narrowed to the text fields so `services` and the alcohol switch, neither of
+  // which is a string, cannot be passed here by accident.
+  type TextField = Exclude<
+    keyof LibraryItemSeedValues,
+    "services" | "containsAlcohol"
+  >;
 
   const updateValue = (field: TextField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -283,6 +316,12 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
       return {
         ...current,
         kind,
+        // Re-filed with the switch, because the category select leaves with it:
+        // a dish turned into a drink would otherwise keep "Main" as the pill on
+        // a tab where the field that set it is no longer on screen to correct.
+        // The other direction leaves it alone - the select comes back showing
+        // "Drink", which is a visible answer the operator can change.
+        category: isDrinkKind(kind) ? DRINK_CATEGORY : current.category,
         services: Object.fromEntries(
           SERVICE_STYLES.map((style) => [
             style,
@@ -400,18 +439,64 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               Item name
               <input className={`${controlClass} mt-1`} name="libraryItemName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Category
-              <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
-                <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
-              </select>
-            </label>
-            <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Kashrut type
-              <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
-                <option>Parve</option><option>Fleishig</option><option>Milchig</option>
-              </select>
-            </label>
+            {/* A drink is asked one question where a dish is asked two, and it
+                is not either of theirs. A course is food vocabulary - a bottle
+                of wine is not an appetizer - and a kashrut type is a label
+                nobody scans a drinks list for. Whether it is alcoholic is the
+                one thing they do.
+
+                A drink's category is still stored, just not typed: see
+                `DRINK_CATEGORY`. Its kashrut type is neither asked nor written -
+                the callers stop sending the field for a drink, so an item
+                re-filed as one keeps whatever it already had rather than being
+                given an answer it was never asked for. */}
+            {isDrink ? (
+              <div className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                Alcohol
+                {/* The whole row is the switch, not the 36px track at the end of
+                    it: this sits three columns from the edge of a phone, and the
+                    track alone is the hardest part of the field to hit. */}
+                <button
+                  aria-checked={values.containsAlcohol}
+                  className="mt-1 flex h-9 w-full items-center justify-between gap-3 rounded-lg border border-[#b9c2cf] bg-white px-3 text-left outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
+                  name="containsAlcohol"
+                  onClick={() =>
+                    setValues((current) => ({
+                      ...current,
+                      containsAlcohol: !current.containsAlcohol
+                    }))
+                  }
+                  role="switch"
+                  type="button"
+                >
+                  <span className="text-xs font-black normal-case tracking-normal text-[#17202a]">
+                    Contains alcohol
+                  </span>
+                  <span
+                    className={`relative h-5 w-9 shrink-0 rounded-full transition ${values.containsAlcohol ? "bg-[#1f4d73]" : "bg-[#b9c2cf]"}`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${values.containsAlcohol ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                  Category
+                  <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
+                    <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
+                  </select>
+                </label>
+                <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
+                  Kashrut type
+                  <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
+                    <option>Parve</option><option>Fleishig</option><option>Milchig</option>
+                  </select>
+                </label>
+              </>
+            )}
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
               Allergies
               <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
