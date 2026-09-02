@@ -1,4 +1,10 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type Response
+} from "@playwright/test";
 
 /**
  * Covers the Drink Menu tab, which is a view over `menu_items` filtered on
@@ -56,23 +62,18 @@ async function findItem(page: Page, name: string) {
 }
 
 /**
- * Seeds a food item straight through the API.
+ * Seeds an item straight through the API.
  *
- * Used by the test below, where the starting item is a fixture rather than the
+ * Used by the tests below, where the starting item is a fixture rather than the
  * subject - building it through the form would make a create failure look like
  * an editor failure.
  */
-async function createFoodItem(page: Page, name: string) {
+async function createItem(
+  page: Page,
+  fields: Record<string, unknown> & { name: string }
+) {
   const response = await page.request.post("/api/menu", {
-    data: {
-      resource: "item",
-      name,
-      category: "Main",
-      // The business segment, not a service style.
-      usageType: "Both",
-      kind: "Food",
-      kosherType: "Parve"
-    }
+    data: { resource: "item", ...fields }
   });
 
   if (response.status() !== 201) {
@@ -83,6 +84,48 @@ async function createFoodItem(page: Page, name: string) {
 
   const payload = (await response.json()) as { item: { id: string } };
   return payload.item.id;
+}
+
+function createFoodItem(page: Page, name: string) {
+  return createItem(page, {
+    name,
+    category: "Main",
+    // The business segment, not a service style.
+    usageType: "Both",
+    kind: "Food",
+    kosherType: "Parve"
+  });
+}
+
+/**
+ * A drink that is already served, which is what the editor test needs: the rule
+ * has to exist before anything can prove the form opens on it rather than on the
+ * defaults.
+ *
+ * `Plated` is the stored value behind the word "Table" - see service-style.ts -
+ * so this is two bottles per table, written the way the column holds it.
+ */
+function createDrinkItem(page: Page, name: string) {
+  return createItem(page, {
+    name,
+    // Not asked by the drink form, which files every drink under this one -
+    // seeded here so the fixture matches what the form would have written.
+    category: "Drink",
+    usageType: "Both",
+    kind: "Drink",
+    containsAlcohol: false,
+    services: [
+      {
+        serviceStyle: "Plated",
+        quantity: 2,
+        unit: "bottle",
+        per: 1,
+        perBasis: "Tables",
+        rounding: "Up",
+        minimumUnits: null
+      }
+    ]
+  });
 }
 
 async function deleteItem(page: Page, itemId: string | undefined) {
@@ -103,6 +146,12 @@ async function openDrinkTab(page: Page) {
   await expect(page.getByRole("button", { name: "New drink" })).toBeVisible({
     timeout: 20_000
   });
+}
+
+function itemResponse(method: string) {
+  return (response: Response) =>
+    response.url().includes("/api/menu/items/") &&
+    response.request().method() === method;
 }
 
 async function expectDecodedThumbnail(thumbnail: Locator, message: string) {
@@ -299,6 +348,132 @@ test("does not offer to turn a dish into a drink", async ({ page }) => {
     await expect(
       editDialog.getByRole("switch", { name: "Contains alcohol" })
     ).toBeHidden();
+  } finally {
+    await deleteItem(page, itemId);
+  }
+});
+
+/**
+ * The other two thirds of a drink's lifecycle. The suite above creates one and
+ * cleans it up through the API; this drives the update and the removal through
+ * the card and the editor, which is the only path an operator has.
+ *
+ * The fixture is seeded with a rule on purpose: what breaks silently in an
+ * editor is the seeding, and a form that opened on the defaults would rewrite a
+ * rule nobody touched while every visible thing about the save looked right.
+ */
+test("renames a drink, corrects its rule, and removes it from the tab", async ({
+  page
+}) => {
+  const stamp = Date.now();
+  const name = `E2E Drink A${stamp}`;
+  // Deliberately not built by suffixing the first: `hasText` matches
+  // substrings, so "E2E Drink A123 updated" would still satisfy a lookup for the
+  // old name and the rename assertion would pass without a rename happening.
+  const renamedName = `E2E Drink B${stamp}`;
+  const itemId = await createDrinkItem(page, name);
+
+  try {
+    // The grid rendered before the fixture existed and its query cache lives as
+    // long as the page does.
+    await page.reload();
+    await openDrinkTab(page);
+
+    const card = itemCard(page, name);
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    // Loose on the trailing plural, as above: `formatServiceRule` writes
+    // "1 tables" today and pinning that would make a wording fix look like a
+    // regression.
+    await expect(card.getByText(/2 bottle per 1 table/)).toBeVisible();
+    // Nothing to declare yet - the pill carries the category until there is.
+    await expect(card.getByText("Alcohol", { exact: true })).toBeHidden();
+
+    // --- update -------------------------------------------------------------
+    await card.getByRole("button", { name: `Edit ${name}` }).click();
+
+    const editDialog = page.getByRole("dialog", { name: "Edit drink item" });
+    await expect(editDialog).toBeVisible();
+    await expect(editDialog.getByLabel("Item name")).toHaveValue(name);
+
+    const alcoholSwitch = editDialog.getByRole("switch", {
+      name: "Contains alcohol"
+    });
+    await expect(alcoholSwitch).not.toBeChecked();
+    // "Table", not "Plated", on an edit as well as on a create: the vocabulary
+    // follows the item's kind, and this dialog reads that off the row rather
+    // than off the tab the card was clicked on.
+    await expect(
+      editDialog.getByRole("checkbox", { name: "Table", exact: true })
+    ).toBeChecked();
+    await expect(
+      editDialog.getByRole("checkbox", { name: "Buffet", exact: true })
+    ).not.toBeChecked();
+
+    // The rule the fixture was saved with, not the defaults a create opens on -
+    // which is the assertion this whole test is built around.
+    //
+    // Folded, and safe to assume so only because of the reload above: the fold
+    // is `useState` on a dialog that is never unmounted, so it carries whatever
+    // the last dialog on this page had open. Nothing has opened one since.
+    await editDialog
+      .getByRole("button", { name: "Add a counting rule (optional)" })
+      .click();
+    await expect(editDialog.getByLabel("Table quantity")).toHaveValue("2");
+    await expect(editDialog.getByLabel("Table unit")).toHaveValue("bottle");
+    await expect(editDialog.getByLabel("Table per basis")).toHaveValue("Tables");
+
+    await editDialog.getByLabel("Item name").fill(renamedName);
+    await editDialog.getByLabel("Table quantity").fill("3");
+    await alcoholSwitch.click();
+    await expect(alcoholSwitch).toBeChecked();
+
+    const updated = page.waitForResponse(itemResponse("PATCH"));
+    await editDialog.getByRole("button", { name: "Save changes" }).click();
+    expect((await updated).status()).toBe(200);
+    await expect(editDialog).toBeHidden({ timeout: 20_000 });
+
+    // All three changes have somewhere to show for themselves on the card, and
+    // the card is still on this tab: an edit that filed the drink away from the
+    // one screen it is managed on reads as a delete.
+    const renamedCard = itemCard(page, renamedName);
+    await expect(renamedCard).toBeVisible({ timeout: 20_000 });
+    await expect(renamedCard.getByText(/3 bottle per 1 table/)).toBeVisible();
+    await expect(
+      renamedCard.getByText("Alcohol", { exact: true })
+    ).toBeVisible();
+    await expect(itemCard(page, name)).toBeHidden();
+
+    // --- remove -------------------------------------------------------------
+    await renamedCard
+      .getByRole("button", { name: `Edit ${renamedName}` })
+      .click();
+
+    const removalEditor = page.getByRole("dialog", { name: "Edit drink item" });
+    await expect(removalEditor).toBeVisible();
+    await removalEditor.getByRole("button", { name: "Remove item" }).click();
+
+    // The same confirmation the library grid puts in front of a delete: a drink
+    // is a menu item, so it goes out the way every other one does.
+    const confirmDialog = page.getByRole("alertdialog", {
+      name: "Remove menu item"
+    });
+    await expect(confirmDialog).toBeVisible();
+    await expect(confirmDialog.getByText(renamedName)).toBeVisible();
+
+    const removed = page.waitForResponse(itemResponse("DELETE"));
+    await confirmDialog
+      .getByRole("button", { name: "Remove from library" })
+      .click();
+    expect((await removed).status()).toBe(200);
+
+    await expect(confirmDialog).toBeHidden({ timeout: 20_000 });
+    // The editor the removal was started from goes with it: leaving it up would
+    // be a form pointing at a row that no longer exists.
+    await expect(removalEditor).toBeHidden({ timeout: 20_000 });
+    await expect(itemCard(page, renamedName)).toBeHidden({ timeout: 20_000 });
+    // And the row is actually gone, not merely filtered off the tab by the
+    // change that was saved a moment earlier.
+    expect(await findItem(page, renamedName)).toBeUndefined();
   } finally {
     await deleteItem(page, itemId);
   }
