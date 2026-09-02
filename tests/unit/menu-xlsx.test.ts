@@ -117,11 +117,15 @@ describe("buildMenuXlsxTemplate", () => {
     );
   });
 
-  it("ships the same sample rows the guide and the CSV template show", () => {
-    for (const row of MENU_CSV_SAMPLE_ROWS) {
-      for (const value of row) {
-        if (value) expect(sheet).toContain(`>${value}<`);
-      }
+  it("ships the header row and nothing else", () => {
+    // A sample dish left in the sheet is a sample dish imported into a real
+    // menu: the operator types over row 2 rather than deleting it first.
+    expect(
+      [...sheet.matchAll(/<row r="(\d+)"/g)].map((match) => match[1])
+    ).toEqual(["1"]);
+
+    for (const value of MENU_CSV_SAMPLE_ROWS.flat()) {
+      if (value) expect(sheet).not.toContain(`>${value}<`);
     }
   });
 
