@@ -115,26 +115,22 @@ export function MenuItemCard({
     <>
       <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-t-xl bg-[#fbfcfd]">
         {pictureUrl ? (
-          <>
-            {/* Plain <img>, not next/image: the signed URL carries a token that
-                rotates every few minutes, so the optimizer would never serve a
-                cache hit and its host would have to be added to remotePatterns.
-                alt="" because the name is already rendered below - announcing
-                it twice is worse than treating the thumbnail as decorative.
-                Absolute, not in flow: a flex item defaults to min-height:auto,
-                so an image left in the flow stretches this slot to its
-                intrinsic height and pushes the name out of the card's fixed
-                h-50. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-              src={pictureUrl}
-            />
-            {/* The pill above is white on whatever the photograph happens to
-                be, so the top of it is darkened enough to seat one. */}
-            <span className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-linear-to-b from-black/20 to-transparent" />
-          </>
+          /* Plain <img>, not next/image: the signed URL carries a token that
+             rotates every few minutes, so the optimizer would never serve a
+             cache hit and its host would have to be added to remotePatterns.
+             alt="" because the name is already rendered below - announcing it
+             twice is worse than treating the thumbnail as decorative.
+             Absolute, not in flow: a flex item defaults to min-height:auto, so
+             an image left in the flow stretches this slot to its intrinsic
+             height and pushes the name out of the card's fixed h-50.
+             No scrim over the top: the pill carries its own opaque backing, and
+             a gradient band read as a shadow across the picture. */
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            src={pictureUrl}
+          />
         ) : (
           <PicturePlaceholder icon={pictureIcon} />
         )}
