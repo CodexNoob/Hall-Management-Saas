@@ -24,11 +24,11 @@ import { ArrowLoginIcon, EmailIcon, EyeIcon, LockIcon, ShieldIcon } from "@/feat
 
 function SignUpIllustration() {
   return (
-    <div className="relative mt-10 min-h-75 lg:mt-12">
+    <div className="relative mt-8 h-52 lg:mt-10 xl:h-56">
       <div className="absolute bottom-0 left-2 h-48 w-48 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
       <div className="absolute right-2 top-4 h-44 w-44 rounded-full bg-[#1f4d73]/75 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-107.5">
+      <div className="relative mx-auto w-full max-w-107.5 origin-top scale-[0.85]">
         <div className="relative mx-auto h-60 w-[88%] rotate-[-4deg] overflow-hidden rounded-4xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="flex h-11 items-center justify-between border-b border-[#E5E0D6] bg-[#FFFFFF] px-5">
             <div className="flex gap-2">
@@ -77,19 +77,19 @@ function SignUpIllustration() {
           </div>
         </div>
 
-        <div className="absolute -left-3 bottom-16 w-34 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#1f4d73]/15 backdrop-blur">
+        <div className="absolute -left-6 bottom-2 w-34 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#1f4d73]/15 backdrop-blur">
           <p className="text-xs font-black text-[#64748B]">Next Booking</p>
           <p className="mt-2 text-sm font-black text-[#0F172A]">Wedding Event</p>
           <p className="mt-1 text-xs font-bold text-[#64748B]">May 22, 2026</p>
         </div>
 
-        <div className="absolute -right-2 top-24 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
+        <div className="absolute -right-2 top-32 w-36 rounded-3xl border border-white/80 bg-white/90 p-4 shadow-xl shadow-[#0F172A]/15 backdrop-blur">
           <p className="text-xs font-black text-[#64748B]">Revenue</p>
           <p className="mt-2 text-lg font-black text-[#0F172A]">$125,000</p>
           <p className="mt-1 text-xs font-black text-[#16a34a]">+16.5%</p>
         </div>
 
-        <div className="absolute bottom-0 right-16 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
+        <div className="absolute bottom-1 left-30 flex h-16 w-16 items-center justify-center rounded-3xl bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
           <ShieldIcon />
         </div>
       </div>
@@ -257,14 +257,14 @@ export function SignUpCard() {
           : "grid min-h-dvh w-full min-w-0 lg:grid-cols-2"
       }
     >
+<<<<<<< HEAD
       <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-16"}`}>
         <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-md rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+=======
+      <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-8 text-white lg:flex lg:flex-col lg:justify-center xl:p-10 2xl:p-14"}`}>
+        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+>>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
         <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
-        <div className="pointer-events-none absolute bottom-16 left-10 hidden grid-cols-8 gap-3 opacity-25 sm:grid">
-          {Array.from({ length: 48 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-white" />
-          ))}
-        </div>
         <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-white opacity-8" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
         </svg>
@@ -286,35 +286,40 @@ export function SignUpCard() {
               aria-label="Back to Event Core home"
               className="inline-flex transition hover:opacity-80"
             >
-              <Image src="/images/branding/Footer-logo.png" alt="Hall Management SaaS" width={565} height={185} priority unoptimized className="h-auto w-44 max-w-full object-contain" />
+              <Image src="/images/branding/Footer-logo.png" alt="Hall Management SaaS" width={565} height={185} priority unoptimized className="h-auto w-40 max-w-full object-contain" />
             </Link>
 
-            <p className="mt-10 text-base font-black text-[#8fc0e8]">
+            <p className="mt-8 text-sm font-black text-[#8fc0e8]">
               Welcome! <span aria-hidden="true">&#128075;</span>
             </p>
-            <h1 className="mt-5 max-w-md text-4xl font-black leading-[1.12] tracking-tight text-white xl:text-5xl">
+            <h1 className="mt-3 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-white xl:text-4xl">
               Create your account
             </h1>
+<<<<<<< HEAD
             <p className="mt-5 max-w-md text-base leading-8 text-white/75 sm:text-lg">
               Event Core is in private beta. Start with your email and a password, and we&apos;ll reach out as soon as your access is approved.
+=======
+            <p className="mt-4 max-w-md text-base leading-7 text-white/75">
+              Start with your email and a password. You&apos;ll name your organization and choose a plan right after you confirm your inbox.
+>>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
             </p>
           </div>
 
           <SignUpIllustration />
 
-          <div className="mt-10 flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/25">
-              <ShieldIcon className="h-7 w-7 text-white" />
+          <div className="mt-8 flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/12 ring-1 ring-white/25">
+              <ShieldIcon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <p className="font-black text-white">Your data is secure with us.</p>
-              <p className="mt-1 text-sm font-medium text-white/70">We use industry-standard encryption and best security practices.</p>
+              <p className="text-sm font-black text-white">Your data is secure with us.</p>
+              <p className="mt-1 text-xs font-medium text-white/70">We use industry-standard encryption and best security practices.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-4 sm:p-5" : "order-2 flex items-center justify-center px-5 py-10 sm:px-10 sm:py-14 lg:px-16"}`}>
+      <div className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-4 sm:p-5" : "order-2 flex items-center justify-center px-5 py-8 sm:px-10 lg:px-14 2xl:px-16"}`}>
         <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
           {isDesktopApp ? (
             <Image
@@ -332,7 +337,7 @@ export function SignUpCard() {
             <Link
               href="/"
               aria-label="Back to Event Core home"
-              className="mb-8 inline-flex w-fit lg:hidden"
+              className="mb-6 inline-flex w-fit lg:hidden"
             >
               <Image
                 src="/images/branding/hms-logo-header.png"
@@ -345,23 +350,28 @@ export function SignUpCard() {
               />
             </Link>
           )}
+<<<<<<< HEAD
           <h2 className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Request beta access</h2>
           {/* Was "Step 1 of 2 - organization details come next". They do not
               come next any more: nothing is provisioned until the request is
               approved, and promising the setup form strands somebody on a 403. */}
           <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Event Core is in private beta. Create your account and we&apos;ll be in touch once it is approved.</p>
+=======
+          <h2 className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
+          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
+>>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
 
-          <form className={isDesktopApp ? "mt-3" : "mt-8"} onSubmit={submit}>
-            <label className={`${isDesktopApp ? "text-sm" : "text-base"} block font-bold text-[#0F172A]`} htmlFor="signupEmail">
+          <form className={isDesktopApp ? "mt-3" : "mt-6"} onSubmit={submit}>
+            <label className="block text-sm font-bold text-[#0F172A]" htmlFor="signupEmail">
               Email Address
             </label>
-            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-11"}`}>
               <EmailIcon />
               <input
                 id="signupEmail"
                 name="email"
                 autoComplete="email"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your email address"
                 type="email"
                 value={form.email}
@@ -369,16 +379,16 @@ export function SignUpCard() {
               />
             </div>
 
-            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-base"} block font-bold text-[#0F172A]`} htmlFor="signupPassword">
+            <label className={`${isDesktopApp ? "mt-2.5 text-sm" : "mt-5 text-sm"} block font-bold text-[#0F172A]`} htmlFor="signupPassword">
               Password
             </label>
-            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-14"}`}>
+            <div className={`login-field mt-1.5 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-9" : "h-11"}`}>
               <LockIcon />
               <input
                 id="signupPassword"
                 name="newPassword"
                 autoComplete="new-password"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Create a password"
                 type={showPassword ? "text" : "password"}
                 value={form.password}
@@ -388,7 +398,7 @@ export function SignUpCard() {
                 <EyeIcon isVisible={showPassword} />
               </button>
             </div>
-            <p className={`${isDesktopApp ? "mt-1.5 text-xs" : "mt-2 text-sm"} font-medium text-[#64748B]`}>
+            <p className={`${isDesktopApp ? "mt-1.5 text-xs" : "mt-2 text-xs"} font-medium text-[#64748B]`}>
               {PASSWORD_RULES_HINT}
             </p>
 
@@ -399,7 +409,7 @@ export function SignUpCard() {
             ) : null}
 
             <button
-              className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-3 h-10 text-sm" : "mt-7 h-16 text-lg"}`}
+              className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-3 h-10 text-sm" : "mt-6 h-12 text-base"}`}
               type="submit"
               disabled={isSubmitting}
             >
@@ -407,15 +417,15 @@ export function SignUpCard() {
               {isSubmitting ? "Creating account..." : "Create account"}
             </button>
 
-            <AuthDivider className={isDesktopApp ? "my-4" : "my-7"} />
+            <AuthDivider className={isDesktopApp ? "my-4" : "my-6"} />
 
             <AuthSocialButtons
-              isCompact={isDesktopApp}
+              size={isDesktopApp ? "sm" : "md"}
               oauthProvider={oauthProvider}
               onProviderClick={signUpWithProvider}
             />
 
-            <p className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-5 text-sm leading-6"} text-center font-medium text-[#64748B]`}>
+            <p className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-4 text-xs leading-5"} text-center font-medium text-[#64748B]`}>
               By creating an account you agree to the{" "}
               <Link className="font-bold text-[#1f4d73] transition hover:text-[#15344f]" href="#terms">
                 Terms &amp; Privacy Policy
@@ -423,7 +433,7 @@ export function SignUpCard() {
               .
             </p>
 
-            <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-7 text-base"} text-center text-[#64748B]`}>
+            <p className={`${isDesktopApp ? "mt-3 text-xs" : "mt-4 text-sm"} text-center text-[#64748B]`}>
               Already have an account?{" "}
               <Link className="font-bold text-[#1f4d73] transition hover:text-[#1f4d73]" href={isDesktopApp ? "/login?desktop=1" : "/login"}>
                 Login

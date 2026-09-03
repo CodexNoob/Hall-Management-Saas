@@ -41,12 +41,16 @@ import {
 } from "@/features/auth/components/auth-social-buttons";
 
 function DashboardIllustration() {
+  // Scaled rather than re-laid-out. The composition is a dozen absolutely
+  // positioned plates whose offsets are tuned to each other, and the panel has
+  // to clear a 720px-tall laptop without the page scrolling - so the outer box
+  // states the height the layout gets and the inner one shrinks to fit it.
   return (
-    <div className="relative mt-10 min-h-75 overflow-hidden lg:mt-12">
+    <div className="relative mt-8 h-52 lg:mt-10 xl:h-56">
       <div className="absolute bottom-0 left-2 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
       <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-107.5">
+      <div className="relative mx-auto w-full max-w-107.5 origin-top scale-90">
         <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] bg-[#FFFFFF] px-4">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
@@ -247,7 +251,7 @@ export function LoginCard() {
       }
     >
       <div
-        className={`relative overflow-hidden ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 lg:order-1" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-16"}`}
+        className={`relative overflow-hidden ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8 lg:order-1" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-8 text-white lg:flex lg:flex-col lg:justify-center xl:p-10 2xl:p-14"}`}
       >
         {isDesktopApp ? (
           <>
@@ -298,23 +302,23 @@ export function LoginCard() {
                 height={185}
                 priority
                 unoptimized
-                className="h-auto w-44 max-w-full object-contain"
+                className="h-auto w-40 max-w-full object-contain"
               />
             </Link>
           )}
 
           <p
-            className={`mt-10 text-base font-black ${isDesktopApp ? "text-[#1f4d73]" : "text-[#8fc0e8]"}`}
+            className={`font-black ${isDesktopApp ? "mt-10 text-base text-[#1f4d73]" : "mt-8 text-sm text-[#8fc0e8]"}`}
           >
             Welcome Back!
           </p>
           <h1
-            className={`max-w-md font-black leading-[1.12] tracking-tight ${isDesktopApp ? "mt-4 text-4xl text-[#0F172A]" : "mt-5 text-4xl text-white xl:text-5xl"}`}
+            className={`max-w-md font-black leading-[1.12] tracking-tight ${isDesktopApp ? "mt-4 text-4xl text-[#0F172A]" : "mt-3 text-3xl text-white xl:text-4xl"}`}
           >
             Login to your account
           </h1>
           <p
-            className={`mt-5 max-w-md text-base leading-8 sm:text-lg ${isDesktopApp ? "text-[#64748B]" : "text-white/75"}`}
+            className={`max-w-md ${isDesktopApp ? "mt-5 text-base leading-8 text-[#64748B] sm:text-lg" : "mt-4 text-base leading-7 text-white/75"}`}
           >
             Access your dashboard to manage bookings, events, payments, and hall
             operations all in one place.
@@ -322,24 +326,26 @@ export function LoginCard() {
 
           {isDesktopApp ? null : <DashboardIllustration />}
 
-          <div className="mt-10 flex items-center gap-4">
+          <div
+            className={`flex items-center gap-4 ${isDesktopApp ? "mt-10" : "mt-8"}`}
+          >
             <div
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full ${isDesktopApp ? "bg-white/80 shadow-lg shadow-[#1f4d73]/10" : "bg-white/12 ring-1 ring-white/25"}`}
+              className={`flex shrink-0 items-center justify-center rounded-full ${isDesktopApp ? "h-14 w-14 bg-white/80 shadow-lg shadow-[#1f4d73]/10" : "h-12 w-12 bg-white/12 ring-1 ring-white/25"}`}
             >
               <ShieldIcon
                 className={
-                  isDesktopApp ? "h-7 w-7 text-[#1f4d73]" : "h-7 w-7 text-white"
+                  isDesktopApp ? "h-7 w-7 text-[#1f4d73]" : "h-6 w-6 text-white"
                 }
               />
             </div>
             <div>
               <p
-                className={`font-black ${isDesktopApp ? "text-[#0F172A]" : "text-white"}`}
+                className={`font-black ${isDesktopApp ? "text-[#0F172A]" : "text-sm text-white"}`}
               >
                 Your data is secure with us.
               </p>
               <p
-                className={`mt-1 text-sm font-medium ${isDesktopApp ? "text-[#64748B]" : "text-white/70"}`}
+                className={`mt-1 font-medium ${isDesktopApp ? "text-sm text-[#64748B]" : "text-xs text-white/70"}`}
               >
                 We use industry-standard encryption.
               </p>
@@ -349,7 +355,7 @@ export function LoginCard() {
       </div>
 
       <div
-        className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-8 lg:order-2" : "order-2 flex items-center justify-center px-5 py-10 sm:px-10 sm:py-14 lg:px-16"}`}
+        className={`box-border w-full min-w-0 bg-white ${isDesktopApp ? "desktop-auth-form-panel order-1 p-8 lg:order-2" : "order-2 flex items-center justify-center px-5 py-8 sm:px-10 lg:px-14 2xl:px-16"}`}
       >
         <div
           className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}
@@ -360,7 +366,7 @@ export function LoginCard() {
             <Link
               href="/"
               aria-label="Back to Event Core home"
-              className="mb-8 inline-flex w-fit lg:hidden"
+              className="mb-6 inline-flex w-fit lg:hidden"
             >
               <Image
                 src="/images/branding/hms-logo-header.png"
@@ -374,35 +380,35 @@ export function LoginCard() {
             </Link>
           )}
           <h2
-            className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}
+            className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}
           >
             Employee Login
           </h2>
           <p
-            className={`${isDesktopApp ? "mt-2 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}
+            className={`${isDesktopApp ? "mt-2 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}
           >
             Use your organization account to continue.
           </p>
 
           <form
-            className={isDesktopApp ? "mt-4" : "mt-10"}
+            className={isDesktopApp ? "mt-4" : "mt-6"}
             onSubmit={submit}
           >
             <label
-              className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`}
+              className="text-sm font-bold text-[#0F172A]"
               htmlFor="email"
             >
               Email Address
             </label>
             <div
-              className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}
+              className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-11"}`}
             >
               <EmailIcon />
               <input
                 id="email"
                 name="email"
                 autoComplete="email"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your email address"
                 type="email"
                 value={email}
@@ -414,20 +420,20 @@ export function LoginCard() {
             </div>
 
             <label
-              className={`${isDesktopApp ? "mt-4 text-sm" : "mt-7 text-base"} block font-bold text-[#0F172A]`}
+              className={`${isDesktopApp ? "mt-4 text-sm" : "mt-5 text-sm"} block font-bold text-[#0F172A]`}
               htmlFor="password"
             >
               Password
             </label>
             <div
-              className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}
+              className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-11"}`}
             >
               <LockIcon />
               <input
                 id="password"
                 name="password"
                 autoComplete="current-password"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
                 placeholder="Enter your password"
                 type={showPassword ? "text" : "password"}
                 value={password}
@@ -447,7 +453,7 @@ export function LoginCard() {
             </div>
 
             <div
-              className={`${isDesktopApp ? "mt-3 text-sm" : "mt-6 text-base"} flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4`}
+              className={`${isDesktopApp ? "mt-3 text-sm" : "mt-4 text-sm"} flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4`}
             >
               <label
                 className="flex cursor-pointer items-center gap-3 font-medium text-[#64748B]"
@@ -455,7 +461,7 @@ export function LoginCard() {
               >
                 <input
                   id="remember"
-                  className="login-checkbox h-5 w-5 border border-[#E5E0D6] accent-[#1f4d73]"
+                  className="login-checkbox h-4 w-4 border border-[#E5E0D6] accent-[#1f4d73]"
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(event) => setRememberMe(event.target.checked)}
@@ -481,7 +487,7 @@ export function LoginCard() {
             ) : null}
 
             <button
-              className={`${isDesktopApp ? "mt-5" : "mt-8"} login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-11 text-sm" : "h-16 text-lg"}`}
+              className={`${isDesktopApp ? "mt-5" : "mt-6"} login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-11 text-sm" : "h-12 text-base"}`}
               type="submit"
               disabled={isSubmitting}
             >
@@ -490,18 +496,18 @@ export function LoginCard() {
             </button>
 
             <AuthDivider
-              className={isDesktopApp ? "my-5" : "my-10"}
+              className={isDesktopApp ? "my-5" : "my-6"}
             />
 
             <AuthSocialButtons
-              isCompact={isDesktopApp}
+              size={isDesktopApp ? "sm" : "md"}
               oauthProvider={oauthProvider}
               onProviderClick={signInWithProvider}
             />
 
             {isDesktopApp ? (
               <div className="mt-3 shrink-0 rounded-xl border border-[#E5E0D6] bg-[#F7F4ED] p-3 text-center text-xs">
-                <p className="font-bold text-[#0F172A]">
+                <p className="text-sm font-bold text-[#0F172A]">
                   Joining an existing organization?
                 </p>
                 <p className="mt-1 leading-5 text-[#64748B]">
@@ -510,11 +516,11 @@ export function LoginCard() {
                 </p>
               </div>
             ) : (
-              <div className="mt-9 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4 text-center">
+              <div className="mt-6 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-3 text-center">
                 <p className="font-bold text-[#0F172A]">
                   Joining an existing organization?
                 </p>
-                <p className="mt-1 text-sm leading-6 text-[#64748B]">
+                <p className="mt-1 text-xs leading-5 text-[#64748B]">
                   Ask your administrator for an invitation, then open the secure
                   link sent to your email.
                 </p>
@@ -522,7 +528,7 @@ export function LoginCard() {
             )}
 
             {!isDesktopApp ? (
-              <p className="mt-5 text-center text-base text-[#64748B]">
+              <p className="mt-4 text-center text-sm text-[#64748B]">
                 Opening a new hall organization?{" "}
                 <Link
                   className="font-bold text-[#1f4d73] transition hover:text-[#15344f]"
