@@ -45,8 +45,9 @@ vi.mock("@/lib/logging/logger", async (importOriginal) => {
   };
 });
 
-import { getRequestId } from "@/lib/logging/context";
+import { bindActor, getRequestId, log } from "@/lib/logging/context";
 import { withRoute } from "@/lib/http/with-route";
+import { AuthorizationError } from "@/lib/auth/errors";
 
 beforeEach(() => {
   logLines.length = 0;
@@ -257,5 +258,98 @@ describe("withRoute and the context argument", () => {
     await expect(
       handler(new Request("http://localhost/api/halls"))
     ).resolves.toBeInstanceOf(Response);
+  });
+});
+
+describe("withRoute and the bound actor", () => {
+  // `resolveActor` calls `bindActor` for real; these stand in for it so the
+  // assertion is about the scope rather than about mocking the whole authz
+  // stack. What matters is that the binding survives into the error path.
+  const actor = {
+    organizationId: "org-1",
+    userId: "11111111-2222-3333-4444-555555555555",
+    principalId: "principal-1"
+  };
+
+  it("tags every line emitted after the bind", async () => {
+    const handler = withRoute("GET /api/events", async () => {
+      bindActor(actor);
+      log.info({ eventCount: 3 }, "events_listed");
+      return ok();
+    });
+
+    await handler(new Request("http://localhost/api/events"));
+
+    const line = logLines.find((entry) => entry.includes("events_listed"));
+    const parsed = JSON.parse(line as string);
+
+    expect(parsed.organizationId).toBe("org-1");
+    expect(parsed.principalId).toBe("principal-1");
+  });
+
+  it("tags the completion line too, though the bind happened mid-request", async () => {
+    const handler = withRoute("GET /api/events", async () => {
+      bindActor(actor);
+      return ok();
+    });
+
+    await handler(new Request("http://localhost/api/events"));
+
+    const line = logLines.find((entry) => entry.includes("request_completed"));
+
+    expect(JSON.parse(line as string).organizationId).toBe("org-1");
+  });
+
+  it("tags a denial, which is the line the binding exists for", async () => {
+    // `authorize()` binds at resolution and throws afterwards, so the denial
+    // has to name the tenant it was refused to. A denial logged without one
+    // says that somebody was refused, not who.
+    const handler = withRoute("GET /api/access/roles", async () => {
+      bindActor(actor);
+      throw new AuthorizationError(403, "Not permitted.", "not_permitted");
+    });
+
+    const response = await handler(
+      new Request("http://localhost/api/access/roles")
+    );
+
+    expect(response.status).toBe(403);
+
+    const line = logLines.find((entry) =>
+      entry.includes("handled_route_error")
+    );
+    const parsed = JSON.parse(line as string);
+
+    expect(parsed.organizationId).toBe("org-1");
+    expect(parsed.kind).toBe("AuthorizationError");
+  });
+
+  it("never puts the actor's email on a line", async () => {
+    const handler = withRoute("GET /api/events", async () => {
+      // Not part of the bind signature at all - this is the belt to that
+      // braces, asserting the redact list catches it if one is ever added.
+      log.info({ userEmail: "someone@example.com" }, "events_listed");
+      return ok();
+    });
+
+    await handler(new Request("http://localhost/api/events"));
+
+    expect(logLines.join("")).not.toContain("someone@example.com");
+  });
+
+  it("does not leak one request's actor into the next", async () => {
+    const bound = withRoute("GET /api/events", async () => {
+      bindActor(actor);
+      return ok();
+    });
+    const unbound = withRoute("GET /api/health", async () => ok());
+
+    await bound(new Request("http://localhost/api/events"));
+    logLines.length = 0;
+    await unbound(new Request("http://localhost/api/health"));
+
+    const line = logLines.find((entry) => entry.includes("request_completed"));
+
+    expect(JSON.parse(line as string).organizationId).toBeUndefined();
   });
 });
