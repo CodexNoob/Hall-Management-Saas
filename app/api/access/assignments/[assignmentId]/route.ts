@@ -5,6 +5,7 @@ import { revokeAssignment } from "@/lib/authz/admin/assignments";
 import { readEpoch } from "@/lib/authz/admin/roles";
 import { parseEpochPrecondition } from "@/lib/authz/guards";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Revoking one assignment, addressed by its own id.
@@ -14,26 +15,29 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
  * nesting would put redundant identity in the URL and still leave the scope
  * ambiguous.
  */
-export async function DELETE(
+export const DELETE = withRoute(
+  "DELETE /api/access/assignments/[assignmentId]",
+  async (
   request: Request,
-  context: { params: Promise<{ assignmentId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "role.assign");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const { assignmentId } = await context.params;
+    context: { params: Promise<{ assignmentId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "role.assign");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const { assignmentId } = await context.params;
 
-    await revokeAssignment(
-      actor,
-      z.string().uuid().parse(assignmentId),
-      expectedEpoch
-    );
+      await revokeAssignment(
+        actor,
+        z.string().uuid().parse(assignmentId),
+        expectedEpoch
+      );
 
-    return NextResponse.json({
-      ok: true,
-      epoch: await readEpoch(actor.organizationId)
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        ok: true,
+        epoch: await readEpoch(actor.organizationId)
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

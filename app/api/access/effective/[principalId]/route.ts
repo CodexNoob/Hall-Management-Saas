@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authorize } from "@/lib/authz/authorize";
 import { effectiveReport } from "@/lib/authz/admin/effective";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * The resolver's own answer, with provenance per key.
@@ -13,22 +14,25 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
  * - which is exactly the moment somebody decides it is easier to give the person
  * Owner and move on.
  */
-export async function GET(
+export const GET = withRoute(
+  "GET /api/access/effective/[principalId]",
+  async (
   request: Request,
-  context: { params: Promise<{ principalId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "role.read");
-    const { principalId } = await context.params;
+    context: { params: Promise<{ principalId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "role.read");
+      const { principalId } = await context.params;
 
-    return NextResponse.json({
-      data: await effectiveReport(
-        actor.organizationId,
-        z.string().uuid().parse(principalId)
-      ),
-      epoch: actor.epoch
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        data: await effectiveReport(
+          actor.organizationId,
+          z.string().uuid().parse(principalId)
+        ),
+        epoch: actor.epoch
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

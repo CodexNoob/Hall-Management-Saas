@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { setStaffActive } from "@/features/administration/server/staff-route-handlers";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Revoke, or restore, one person's access to this organization.
@@ -9,22 +10,25 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
  * somebody is the same act with the same guards and the same audit shape, and
  * splitting it in two is how one half acquires a check the other lacks.
  */
-export async function POST(
+export const POST = withRoute(
+  "POST /api/staff/[principalId]/deactivate",
+  async (
   request: Request,
-  context: { params: Promise<{ principalId: string }> }
-) {
-  try {
-    const { principalId } = await context.params;
-    const body = (await request.json().catch(() => ({}))) as {
-      isActive?: unknown;
-    };
+    context: { params: Promise<{ principalId: string }> }
+  ) => {
+    try {
+      const { principalId } = await context.params;
+      const body = (await request.json().catch(() => ({}))) as {
+        isActive?: unknown;
+      };
 
-    return await setStaffActive(
-      request,
-      z.string().uuid().parse(principalId),
-      body.isActive === true
-    );
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return await setStaffActive(
+        request,
+        z.string().uuid().parse(principalId),
+        body.isActive === true
+      );
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

@@ -17,6 +17,21 @@ import { getCachedAuthSession } from "@/lib/auth/client";
  * error at the call site instead of a 401 that each of the ~73 callers would
  * have to interpret for itself.
  */
+/**
+ * Shaped to survive `withRoute`'s inbound filter, which accepts
+ * `[A-Za-z0-9-]{8,64}` and discards anything else.
+ *
+ * `crypto.randomUUID` is unavailable outside a secure context, and a browser on
+ * a plain-http preview host would otherwise throw on every request. The fallback
+ * is not cryptographically anything - it does not need to be. It is a label on
+ * one request, and the server refuses to trust it for anything else.
+ */
+function newRequestId() {
+  if (typeof crypto?.randomUUID === "function") return crypto.randomUUID();
+
+  return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export async function authenticatedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
@@ -30,6 +45,15 @@ export async function authenticatedFetch(
 
   const headers = new Headers(init.headers);
   const activeOrganizationId = getCachedAuthSession()?.activeOrganizationId;
+
+  // Minted here rather than left to the server, so the id exists even when the
+  // response never arrives. A request that times out or dies in the network is
+  // exactly the one a customer reports, and `withRoute` will have logged this
+  // same id server-side if it landed at all. A caller that set its own is left
+  // alone - the retry helpers reuse one deliberately.
+  if (!headers.has("x-request-id")) {
+    headers.set("x-request-id", newRequestId());
+  }
 
   // Still sent, and still wins over the cookie on the server. An explicit
   // header is unambiguous where the cookie is ambient, and removing it in the

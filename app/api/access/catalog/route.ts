@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/authz/authorize";
 import { groupedPermissionCatalog } from "@/lib/authz/catalog";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * The permission catalog, grouped and sorted.
@@ -15,15 +16,18 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
  * to each other by a test, and reading the file avoids a query on a screen that
  * already makes several.
  */
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "role.read");
+export const GET = withRoute(
+  "GET /api/access/catalog",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "role.read");
 
-    return NextResponse.json({
-      groups: groupedPermissionCatalog(),
-      epoch: actor.epoch
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        groups: groupedPermissionCatalog(),
+        epoch: actor.epoch
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

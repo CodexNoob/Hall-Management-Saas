@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { recordPaymentWithAudit } from "@/features/billing/services/record-payment.service";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { centsSchema } from "@/lib/validation/number";
+import { withRoute } from "@/lib/http/with-route";
 
 const confirmationSchema = z.object({
   invoiceId: z.string().uuid().optional(),
@@ -16,20 +17,23 @@ const confirmationSchema = z.object({
   note: z.string().optional()
 });
 
-export async function POST(
+export const POST = withRoute(
+  "POST /api/events/[eventId]/payments",
+  async (
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "payment.record");
-    const { eventId: rawEventId } = await params;
-    const eventId = z.string().uuid().parse(rawEventId);
-    const input = confirmationSchema.parse(await request.json());
+    { params }: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "payment.record");
+      const { eventId: rawEventId } = await params;
+      const eventId = z.string().uuid().parse(rawEventId);
+      const input = confirmationSchema.parse(await request.json());
 
-    const result = await recordPaymentWithAudit(actor, { eventId, ...input });
+      const result = await recordPaymentWithAudit(actor, { eventId, ...input });
 
-    return NextResponse.json(result, { status: 201 });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json(result, { status: 201 });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

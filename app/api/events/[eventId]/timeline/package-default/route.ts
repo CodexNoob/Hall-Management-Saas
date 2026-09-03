@@ -6,6 +6,7 @@ import { timelineSchema } from "@/features/events/validations/timeline.schema";
 import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Saves one event's day-of schedule onto the package that event is on, as the
@@ -31,57 +32,60 @@ const saveDefaultSchema = z.object({
   timeline: timelineSchema.min(1, "Add at least one timeline instruction.")
 });
 
-export async function POST(
+export const POST = withRoute(
+  "POST /api/events/[eventId]/timeline/package-default",
+  async (
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "menu.update");
-    const { eventId } = await params;
-    const id = z.string().uuid().parse(eventId);
-    const input = saveDefaultSchema.parse(await request.json());
+    { params }: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "menu.update");
+      const { eventId } = await params;
+      const id = z.string().uuid().parse(eventId);
+      const input = saveDefaultSchema.parse(await request.json());
 
-    const event = await prisma.event.findFirst({
-      where: { id, organizationId: actor.organizationId, deleted: false },
-      select: { hallId: true, packageId: true, packageName: true }
-    });
+      const event = await prisma.event.findFirst({
+        where: { id, organizationId: actor.organizationId, deleted: false },
+        select: { hallId: true, packageId: true, packageName: true }
+      });
 
-    if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      if (!event) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      }
+
+      assertInScope(actor, "hall", event.hallId);
+
+      if (!event.packageId) {
+        return NextResponse.json(
+          {
+            error:
+              "This event is not on a package. Add one from the Menu tab first."
+          },
+          { status: 400 }
+        );
+      }
+
+      // updateMany rather than update: it carries the organization in the filter,
+      // so a package belonging to another tenant matches nothing and reports back
+      // as not found instead of being written to.
+      const saved = await prisma.eventPackage.updateMany({
+        where: { id: event.packageId, organizationId: actor.organizationId },
+        data: { defaultTimeline: input.timeline as Prisma.InputJsonValue }
+      });
+
+      if (saved.count === 0) {
+        return NextResponse.json(
+          { error: "That package was not found." },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        packageName: event.packageName,
+        rows: input.timeline.length
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    assertInScope(actor, "hall", event.hallId);
-
-    if (!event.packageId) {
-      return NextResponse.json(
-        {
-          error:
-            "This event is not on a package. Add one from the Menu tab first."
-        },
-        { status: 400 }
-      );
-    }
-
-    // updateMany rather than update: it carries the organization in the filter,
-    // so a package belonging to another tenant matches nothing and reports back
-    // as not found instead of being written to.
-    const saved = await prisma.eventPackage.updateMany({
-      where: { id: event.packageId, organizationId: actor.organizationId },
-      data: { defaultTimeline: input.timeline as Prisma.InputJsonValue }
-    });
-
-    if (saved.count === 0) {
-      return NextResponse.json(
-        { error: "That package was not found." },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      packageName: event.packageName,
-      rows: input.timeline.length
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

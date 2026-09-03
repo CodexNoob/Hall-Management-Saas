@@ -30,6 +30,11 @@ rules are non-negotiable and apply to every change:
 - **`LOG_LEVEL` belongs to Prisma.** Setting it to `debug` prints every SQL
   statement with its bound parameters, which is tenant data. The application
   logger reads `APP_LOG_LEVEL`. Never merge the two.
+- **Every new `app/api` route handler is wrapped in `withRoute`**, with the route
+  PATTERN as its first argument: `export const POST = withRoute("POST /api/events", async (request) => { ... })`.
+  An unwrapped route logs with no request id, no route and no tenant, and its
+  response carries no `x-request-id` for a customer to quote. Keep the route's
+  own `try/catch` — the wrapper's is only a net for what escapes one.
 - **When you add a server-side code path that can fail, degrade, or take a
   decision worth reconstructing later, add the log line in the same change.**
   Retrofitting observability is the work this system exists to stop repeating.

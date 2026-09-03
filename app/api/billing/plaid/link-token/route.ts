@@ -2,58 +2,62 @@ import { NextResponse } from "next/server";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
+import { withRoute } from "@/lib/http/with-route";
 
-export async function POST(request: Request) {
-  try {
-    const actor = await authorize(request, "bank.connect");
-    const config = getPlaidRuntimeConfig();
+export const POST = withRoute(
+  "POST /api/billing/plaid/link-token",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "bank.connect");
+      const config = getPlaidRuntimeConfig();
 
-    if (!config.enabled) {
-      return NextResponse.json(
-        {
-          error:
-            "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
+      if (!config.enabled) {
+        return NextResponse.json(
+          {
+            error:
+              "Plaid is not configured yet. Add PLAID_CLIENT_ID and PLAID_SECRET to enable live connections."
+          },
+          { status: 503 }
+        );
+      }
+
+      const response = await fetch(`${config.baseUrl}/link/token/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
         },
-        { status: 503 }
-      );
+        body: JSON.stringify({
+          client_id: config.clientId,
+          secret: config.secret,
+          user: { client_user_id: actor.userId },
+          client_name: "Event Core",
+          products: ["transactions"],
+          country_codes: ["US"],
+          language: "en",
+          webhook: process.env.PLAID_WEBHOOK_URL ?? undefined,
+          redirect_uri: process.env.NEXT_PUBLIC_APP_URL
+        })
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok) {
+        return NextResponse.json(
+          {
+            error:
+              payload?.error_message ?? "Unable to create a Plaid link token."
+          },
+          { status: 502 }
+        );
+      }
+
+      return NextResponse.json({
+        linkToken: payload.link_token,
+        mode: config.mode,
+        organizationId: actor.organizationId
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    const response = await fetch(`${config.baseUrl}/link/token/create`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        client_id: config.clientId,
-        secret: config.secret,
-        user: { client_user_id: actor.userId },
-        client_name: "Event Core",
-        products: ["transactions"],
-        country_codes: ["US"],
-        language: "en",
-        webhook: process.env.PLAID_WEBHOOK_URL ?? undefined,
-        redirect_uri: process.env.NEXT_PUBLIC_APP_URL
-      })
-    });
-
-    const payload = await response.json();
-
-    if (!response.ok) {
-      return NextResponse.json(
-        {
-          error:
-            payload?.error_message ?? "Unable to create a Plaid link token."
-        },
-        { status: 502 }
-      );
-    }
-
-    return NextResponse.json({
-      linkToken: payload.link_token,
-      mode: config.mode,
-      organizationId: actor.organizationId
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

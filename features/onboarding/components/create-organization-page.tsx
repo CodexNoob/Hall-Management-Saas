@@ -6,6 +6,7 @@ import { Loader2, UsersRound } from "lucide-react";
 import type { CountryCode } from "libphonenumber-js";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useToast } from "@/components/ui/toast";
+import { readApiErrorRequestId } from "@/lib/http/api-request-error";
 import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
 import {
   clearCachedAuthSession,
@@ -89,9 +90,11 @@ export function CreateOrganizationPage() {
     setError("");
   };
 
-  const fail = (message: string) => {
+  // `requestId` is empty for the client-side validation failures above, which
+  // never reached a route and so have nothing to correlate.
+  const fail = (message: string, requestId = "") => {
     setError(message);
-    toast.error(message, { title: "Setup failed" });
+    toast.error(message, { title: "Setup failed", requestId });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -148,7 +151,8 @@ export function CreateOrganizationPage() {
       fail(
         mutationError instanceof Error
           ? mutationError.message
-          : "Unable to create your organization. Please try again."
+          : "Unable to create your organization. Please try again.",
+        readApiErrorRequestId(mutationError)
       );
     }
   };

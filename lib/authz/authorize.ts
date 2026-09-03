@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { AuthorizationError } from "@/lib/auth/errors";
+import { bindActor } from "@/lib/logging/context";
 import { getBearerToken, resolveAuthIdentity } from "@/lib/auth/identity";
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/supabase/cookie-policy";
 import type { PermissionKey } from "@/lib/authz/catalog";
@@ -349,6 +350,19 @@ async function resolveUserActor(
  * - and both become the same principal. The other two never do: a capability
  * link is the grant (one event, read-mostly, never a principal), and a platform
  * callback is not a tenant actor at all.
+ *
+ * This is also where the acting principal is bound onto the log scope, so every
+ * line emitted for the rest of the request carries the tenant.
+ *
+ * Binding HERE rather than in `toContext()` is deliberate, and it is the whole
+ * reason the binding is worth having: `authorize()` throws on a denial before it
+ * ever builds a context, so a `toContext()` binding would tag every request
+ * except the denied ones - and "who was refused" is the question the logs get
+ * asked. Resolution is the last point common to both outcomes and to both
+ * `authorize()` and `authorizeMember()`.
+ *
+ * A caller who is not a principal at all still throws out of the resolvers
+ * below, unbound and correctly so: there is no tenant to name.
  */
 export async function resolveActor(
   request?: Request,
@@ -357,12 +371,21 @@ export async function resolveActor(
   const requestedOrganizationId =
     request?.headers.get("x-organization-id")?.trim() || null;
   const bearer = request ? getBearerToken(request) : null;
+  const principal =
+    bearer?.startsWith(SERVICE_TOKEN_PREFIX)
+      ? await resolveServiceActor(bearer, requestedOrganizationId, now)
+      : await resolveUserActor(request, requestedOrganizationId);
 
-  if (bearer?.startsWith(SERVICE_TOKEN_PREFIX)) {
-    return resolveServiceActor(bearer, requestedOrganizationId, now);
-  }
+  // A no-op outside a request scope, so a cron or a seed script is unaffected.
+  // `userEmail` is deliberately not passed: it is personal data, it is on the
+  // redact list, and the two ids are the debugging axis.
+  bindActor({
+    organizationId: principal.organizationId,
+    userId: principal.userId,
+    principalId: principal.principalId
+  });
 
-  return resolveUserActor(request, requestedOrganizationId);
+  return principal;
 }
 
 // ---------------------------------------------------------------------------

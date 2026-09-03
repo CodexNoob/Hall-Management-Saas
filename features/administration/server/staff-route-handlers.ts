@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
 import { getEnv } from "@/lib/env";
@@ -97,7 +98,14 @@ function inviteStaff(inviteEmails: string[]) {
   );
 }
 
-export async function GET(request: Request) {
+/**
+ * `app/api/staff/route.ts` is a one-line re-export of the two consts below, so
+ * the `withRoute` wrapping happens here rather than at the route file: leaving
+ * the route a PURE re-export is what keeps it recognisable as one, both to a
+ * reader and to `tests/unit/authz-route-coverage.test.ts`, which follows a
+ * re-export into this module instead of demanding a guard it cannot see.
+ */
+async function listStaff(request: Request) {
   try {
     const actor = await authorize(request, "staff.read");
 
@@ -163,7 +171,9 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export const GET = withRoute("GET /api/staff", listStaff);
+
+async function createStaffInvitations(request: Request) {
   try {
     const limited = await enforceRateLimit(request, {
       scope: "staff-invite",
@@ -336,6 +346,8 @@ export async function POST(request: Request) {
     return createApiErrorResponse(error);
   }
 }
+
+export const POST = withRoute("POST /api/staff", createStaffInvitations);
 
 /**
  * Name, phone, department, title.

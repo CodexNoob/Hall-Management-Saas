@@ -5,6 +5,7 @@ import { discardOrphanedKitchenStatuses } from "@/features/events/server/event-m
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Client-facing menu selections for the public portal at /client/[eventId].
@@ -39,275 +40,278 @@ function unknownSelection(label: string) {
   );
 }
 
-export async function POST(
+export const POST = withRoute(
+  "POST /api/client-portal/[eventId]/selections",
+  async (
   request: Request,
-  context: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    const limited = await enforceRateLimit(request, {
-      scope: "client-portal-selections",
-      limit: 20,
-      windowMs: 60_000
-    });
+    context: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      const limited = await enforceRateLimit(request, {
+        scope: "client-portal-selections",
+        limit: 20,
+        windowMs: 60_000
+      });
 
-    if (limited) return limited;
+      if (limited) return limited;
 
-    const { eventId } = await context.params;
-    const parsedEventId = eventIdSchema.safeParse(eventId);
+      const { eventId } = await context.params;
+      const parsedEventId = eventIdSchema.safeParse(eventId);
 
-    if (!parsedEventId.success) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    const event = await prisma.event.findFirst({
-      where: { id: parsedEventId.data, deleted: false },
-      select: {
-        id: true,
-        organizationId: true,
-        packageId: true,
-        tableclothId: true,
-        menuItemIds: true,
-        addOnIds: true,
-        workspaceData: true
+      if (!parsedEventId.success) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
       }
-    });
 
-    if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    const workspaceData = event.workspaceData;
-    const menuConfirmed =
-      typeof workspaceData === "object" &&
-      workspaceData !== null &&
-      (workspaceData as { menuConfirmed?: unknown }).menuConfirmed === true;
-
-    if (menuConfirmed) {
-      return NextResponse.json(
-        {
-          error:
-            "This menu has been confirmed by the venue and can no longer be changed here."
-        },
-        { status: 409 }
-      );
-    }
-
-    const input = selectionsSchema.parse(await request.json());
-    const { organizationId } = event;
-
-    // Every id below is verified against this organization's active records.
-    // The names come back from the same lookup so the denormalised
-    // Event.packageName / tableclothName columns stay in step.
-    let selectedPackage: { name: string } | null = null;
-    let selectedTablecloth: { name: string } | null = null;
-
-    if (input.packageId) {
-      selectedPackage = await prisma.eventPackage.findFirst({
-        where: { id: input.packageId, organizationId, isActive: true },
-        select: { name: true }
-      });
-
-      if (!selectedPackage) return unknownSelection("package");
-    }
-
-    if (input.tableclothId) {
-      selectedTablecloth = await prisma.tableclothOption.findFirst({
-        where: { id: input.tableclothId, organizationId, isActive: true },
-        select: { name: true }
-      });
-
-      if (!selectedTablecloth) return unknownSelection("tablecloth option");
-    }
-
-    if (input.menuItemIds?.length) {
-      const owned = await prisma.menuItem.count({
-        where: {
-          id: { in: input.menuItemIds },
-          organizationId,
-          isActive: true
-        }
-      });
-
-      if (owned !== new Set(input.menuItemIds).size) {
-        return unknownSelection("menu item");
-      }
-    }
-
-    if (input.addOnIds?.length) {
-      const owned = await prisma.addOn.count({
-        where: { id: { in: input.addOnIds }, organizationId, isActive: true }
-      });
-
-      if (owned !== new Set(input.addOnIds).size) {
-        return unknownSelection("add-on");
-      }
-    }
-
-    const updated = await prisma.$transaction(async (transaction) => {
-      const next = await transaction.event.update({
-        where: { id: event.id, organizationId },
-        data: {
-          ...(input.packageId !== undefined
-            ? {
-                packageId: input.packageId,
-                packageName: selectedPackage?.name ?? null
-              }
-            : {}),
-          ...(input.tableclothId !== undefined
-            ? {
-                tableclothId: input.tableclothId,
-                tableclothName: selectedTablecloth?.name ?? null
-              }
-            : {}),
-          ...(input.menuItemIds !== undefined
-            ? { menuItemIds: input.menuItemIds }
-            : {}),
-          ...(input.addOnIds !== undefined ? { addOnIds: input.addOnIds } : {})
-        },
+      const event = await prisma.event.findFirst({
+        where: { id: parsedEventId.data, deleted: false },
         select: {
           id: true,
+          organizationId: true,
           packageId: true,
           tableclothId: true,
           menuItemIds: true,
-          addOnIds: true
+          addOnIds: true,
+          workspaceData: true
         }
       });
 
-      // The event menu is a document now, so the client's picks have to land on
-      // it as lines and not only in the mirrored id array - otherwise staff open
-      // the menu tab and cannot see what the client chose.
-      //
-      // `ClientSubmitted` is exactly the middle state the status column exists
-      // for: the client has answered, staff have not signed it off yet. A
-      // confirmed menu never reaches here; the guard above already refused it.
-      if (input.menuItemIds !== undefined || input.addOnIds !== undefined) {
-        // Whichever list this request did not carry keeps what the event
-        // already had, or replacing the lines would wipe the other half.
-        const menuItemIds = [
-          ...new Set(input.menuItemIds ?? event.menuItemIds)
-        ];
-        const addOnIds = [...new Set(input.addOnIds ?? event.addOnIds)];
-
-        const menu = await transaction.eventMenu.upsert({
-          where: { eventId_meal: { eventId: event.id, meal: "Main" } },
-          create: {
-            organizationId,
-            eventId: event.id,
-            meal: "Main",
-            status: "ClientSubmitted",
-            version: 1
-          },
-          update: { status: "ClientSubmitted", version: { increment: 1 } },
-          select: { id: true }
-        });
-
-        // A dish served exactly one way needs no decision; one that carries
-        // both a Buffet and a Plated rule is left unset for staff to answer,
-        // because the portal never asked the client and guessing would put the
-        // wrong quantity rule in front of the kitchen.
-        const stylesByMenuItemId = new Map(
-          (
-            await transaction.menuItem.findMany({
-              where: { id: { in: menuItemIds }, organizationId },
-              select: { id: true, services: { select: { serviceStyle: true } } }
-            })
-          ).map((item) => [
-            item.id,
-            [...new Set(item.services.map((service) => service.serviceStyle))]
-          ])
-        );
-
-        // The portal replaces the whole line set from two id arrays, and its
-        // body cannot carry a quantity - the client is never asked one. So a
-        // decision staff made about a line the client is keeping has to be read
-        // off the row before it is deleted and put back on the row replacing it.
-        // Without this, a client tapping Save on selections they did not change
-        // silently undoes "2x the brisket", and nothing anywhere says so.
-        //
-        // A dish the client genuinely drops takes its multiplier with it: it is
-        // not in the recreated set at all, which is the same rule its style and
-        // its notes already follow.
-        const carriedByTarget = new Map(
-          (
-            await transaction.eventMenuLine.findMany({
-              where: { eventMenuId: menu.id },
-              select: {
-                menuItemId: true,
-                addOnId: true,
-                quantityMultiplier: true
-              }
-            })
-          ).map((line) => [
-            line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
-            line.quantityMultiplier
-          ])
-        );
-
-        await transaction.eventMenuLine.deleteMany({
-          where: { eventMenuId: menu.id }
-        });
-        await transaction.eventMenuLine.createMany({
-          data: [
-            ...menuItemIds.map((menuItemId, index) => {
-              const styles = stylesByMenuItemId.get(menuItemId) ?? [];
-
-              return {
-                organizationId,
-                eventMenuId: menu.id,
-                menuItemId,
-                serviceStyle: styles.length === 1 ? styles[0] : null,
-                sortOrder: index,
-                quantityMultiplier: carriedByTarget.get(`dish:${menuItemId}`) ?? 1,
-                // Recorded rather than assumed: a line staff added and a line
-                // the client picked are not the same thing when they disagree.
-                source: "ClientPortal"
-              };
-            }),
-            ...addOnIds.map((addOnId, index) => ({
-              organizationId,
-              eventMenuId: menu.id,
-              addOnId,
-              sortOrder: menuItemIds.length + index,
-              quantityMultiplier: carriedByTarget.get(`addon:${addOnId}`) ?? 1,
-              source: "ClientPortal"
-            }))
-          ]
-        });
-
-        // A client dropping a dish removes it as surely as staff doing it, so
-        // the kitchen rows behind it go too.
-        await discardOrphanedKitchenStatuses(transaction, {
-          organizationId,
-          eventId: event.id
-        });
+      if (!event) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
       }
 
-      await transaction.activityLog.create({
-        data: {
-          organizationId,
-          eventId: event.id,
-          actionType: "Client Portal Selection Updated",
-          message: "The client updated their selections from the event portal.",
-          oldValue: {
-            packageId: event.packageId,
-            tableclothId: event.tableclothId,
-            menuItemIds: event.menuItemIds,
-            addOnIds: event.addOnIds
+      const workspaceData = event.workspaceData;
+      const menuConfirmed =
+        typeof workspaceData === "object" &&
+        workspaceData !== null &&
+        (workspaceData as { menuConfirmed?: unknown }).menuConfirmed === true;
+
+      if (menuConfirmed) {
+        return NextResponse.json(
+          {
+            error:
+              "This menu has been confirmed by the venue and can no longer be changed here."
           },
-          newValue: {
-            packageId: next.packageId,
-            tableclothId: next.tableclothId,
-            menuItemIds: next.menuItemIds,
-            addOnIds: next.addOnIds
+          { status: 409 }
+        );
+      }
+
+      const input = selectionsSchema.parse(await request.json());
+      const { organizationId } = event;
+
+      // Every id below is verified against this organization's active records.
+      // The names come back from the same lookup so the denormalised
+      // Event.packageName / tableclothName columns stay in step.
+      let selectedPackage: { name: string } | null = null;
+      let selectedTablecloth: { name: string } | null = null;
+
+      if (input.packageId) {
+        selectedPackage = await prisma.eventPackage.findFirst({
+          where: { id: input.packageId, organizationId, isActive: true },
+          select: { name: true }
+        });
+
+        if (!selectedPackage) return unknownSelection("package");
+      }
+
+      if (input.tableclothId) {
+        selectedTablecloth = await prisma.tableclothOption.findFirst({
+          where: { id: input.tableclothId, organizationId, isActive: true },
+          select: { name: true }
+        });
+
+        if (!selectedTablecloth) return unknownSelection("tablecloth option");
+      }
+
+      if (input.menuItemIds?.length) {
+        const owned = await prisma.menuItem.count({
+          where: {
+            id: { in: input.menuItemIds },
+            organizationId,
+            isActive: true
           }
+        });
+
+        if (owned !== new Set(input.menuItemIds).size) {
+          return unknownSelection("menu item");
         }
+      }
+
+      if (input.addOnIds?.length) {
+        const owned = await prisma.addOn.count({
+          where: { id: { in: input.addOnIds }, organizationId, isActive: true }
+        });
+
+        if (owned !== new Set(input.addOnIds).size) {
+          return unknownSelection("add-on");
+        }
+      }
+
+      const updated = await prisma.$transaction(async (transaction) => {
+        const next = await transaction.event.update({
+          where: { id: event.id, organizationId },
+          data: {
+            ...(input.packageId !== undefined
+              ? {
+                  packageId: input.packageId,
+                  packageName: selectedPackage?.name ?? null
+                }
+              : {}),
+            ...(input.tableclothId !== undefined
+              ? {
+                  tableclothId: input.tableclothId,
+                  tableclothName: selectedTablecloth?.name ?? null
+                }
+              : {}),
+            ...(input.menuItemIds !== undefined
+              ? { menuItemIds: input.menuItemIds }
+              : {}),
+            ...(input.addOnIds !== undefined ? { addOnIds: input.addOnIds } : {})
+          },
+          select: {
+            id: true,
+            packageId: true,
+            tableclothId: true,
+            menuItemIds: true,
+            addOnIds: true
+          }
+        });
+
+        // The event menu is a document now, so the client's picks have to land on
+        // it as lines and not only in the mirrored id array - otherwise staff open
+        // the menu tab and cannot see what the client chose.
+        //
+        // `ClientSubmitted` is exactly the middle state the status column exists
+        // for: the client has answered, staff have not signed it off yet. A
+        // confirmed menu never reaches here; the guard above already refused it.
+        if (input.menuItemIds !== undefined || input.addOnIds !== undefined) {
+          // Whichever list this request did not carry keeps what the event
+          // already had, or replacing the lines would wipe the other half.
+          const menuItemIds = [
+            ...new Set(input.menuItemIds ?? event.menuItemIds)
+          ];
+          const addOnIds = [...new Set(input.addOnIds ?? event.addOnIds)];
+
+          const menu = await transaction.eventMenu.upsert({
+            where: { eventId_meal: { eventId: event.id, meal: "Main" } },
+            create: {
+              organizationId,
+              eventId: event.id,
+              meal: "Main",
+              status: "ClientSubmitted",
+              version: 1
+            },
+            update: { status: "ClientSubmitted", version: { increment: 1 } },
+            select: { id: true }
+          });
+
+          // A dish served exactly one way needs no decision; one that carries
+          // both a Buffet and a Plated rule is left unset for staff to answer,
+          // because the portal never asked the client and guessing would put the
+          // wrong quantity rule in front of the kitchen.
+          const stylesByMenuItemId = new Map(
+            (
+              await transaction.menuItem.findMany({
+                where: { id: { in: menuItemIds }, organizationId },
+                select: { id: true, services: { select: { serviceStyle: true } } }
+              })
+            ).map((item) => [
+              item.id,
+              [...new Set(item.services.map((service) => service.serviceStyle))]
+            ])
+          );
+
+          // The portal replaces the whole line set from two id arrays, and its
+          // body cannot carry a quantity - the client is never asked one. So a
+          // decision staff made about a line the client is keeping has to be read
+          // off the row before it is deleted and put back on the row replacing it.
+          // Without this, a client tapping Save on selections they did not change
+          // silently undoes "2x the brisket", and nothing anywhere says so.
+          //
+          // A dish the client genuinely drops takes its multiplier with it: it is
+          // not in the recreated set at all, which is the same rule its style and
+          // its notes already follow.
+          const carriedByTarget = new Map(
+            (
+              await transaction.eventMenuLine.findMany({
+                where: { eventMenuId: menu.id },
+                select: {
+                  menuItemId: true,
+                  addOnId: true,
+                  quantityMultiplier: true
+                }
+              })
+            ).map((line) => [
+              line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
+              line.quantityMultiplier
+            ])
+          );
+
+          await transaction.eventMenuLine.deleteMany({
+            where: { eventMenuId: menu.id }
+          });
+          await transaction.eventMenuLine.createMany({
+            data: [
+              ...menuItemIds.map((menuItemId, index) => {
+                const styles = stylesByMenuItemId.get(menuItemId) ?? [];
+
+                return {
+                  organizationId,
+                  eventMenuId: menu.id,
+                  menuItemId,
+                  serviceStyle: styles.length === 1 ? styles[0] : null,
+                  sortOrder: index,
+                  quantityMultiplier: carriedByTarget.get(`dish:${menuItemId}`) ?? 1,
+                  // Recorded rather than assumed: a line staff added and a line
+                  // the client picked are not the same thing when they disagree.
+                  source: "ClientPortal"
+                };
+              }),
+              ...addOnIds.map((addOnId, index) => ({
+                organizationId,
+                eventMenuId: menu.id,
+                addOnId,
+                sortOrder: menuItemIds.length + index,
+                quantityMultiplier: carriedByTarget.get(`addon:${addOnId}`) ?? 1,
+                source: "ClientPortal"
+              }))
+            ]
+          });
+
+          // A client dropping a dish removes it as surely as staff doing it, so
+          // the kitchen rows behind it go too.
+          await discardOrphanedKitchenStatuses(transaction, {
+            organizationId,
+            eventId: event.id
+          });
+        }
+
+        await transaction.activityLog.create({
+          data: {
+            organizationId,
+            eventId: event.id,
+            actionType: "Client Portal Selection Updated",
+            message: "The client updated their selections from the event portal.",
+            oldValue: {
+              packageId: event.packageId,
+              tableclothId: event.tableclothId,
+              menuItemIds: event.menuItemIds,
+              addOnIds: event.addOnIds
+            },
+            newValue: {
+              packageId: next.packageId,
+              tableclothId: next.tableclothId,
+              menuItemIds: next.menuItemIds,
+              addOnIds: next.addOnIds
+            }
+          }
+        });
+
+        return next;
       });
 
-      return next;
-    });
-
-    return NextResponse.json({ selections: updated });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({ selections: updated });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

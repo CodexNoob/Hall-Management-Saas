@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createRole, listRoles, readEpoch } from "@/lib/authz/admin/roles";
 import { parseEpochPrecondition, parsePermissionKeys } from "@/lib/authz/guards";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Roles. Reading them is `role.read`; AUTHORING them is `role.manage`.
@@ -30,42 +31,48 @@ const createRoleSchema = z.object({
   permissions: z.array(z.string())
 });
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "role.read");
+export const GET = withRoute(
+  "GET /api/access/roles",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "role.read");
 
-    return NextResponse.json({
-      roles: await listRoles(actor),
-      epoch: actor.epoch
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        roles: await listRoles(actor),
+        epoch: actor.epoch
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
 
-export async function POST(request: Request) {
-  try {
-    const actor = await authorize(request, "role.manage");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const input = createRoleSchema.parse(await request.json());
+export const POST = withRoute(
+  "POST /api/access/roles",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "role.manage");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const input = createRoleSchema.parse(await request.json());
 
-    const role = await createRole(actor, {
-      key: input.key,
-      name: input.name,
-      description: input.description ?? null,
-      rank: input.rank,
-      // Validated against the catalog rather than trusted, and REFUSED rather
-      // than filtered: silently dropping an unknown key means an administrator
-      // ticks a box, sees it save, and finds it unticked next time.
-      permissions: parsePermissionKeys(input.permissions),
-      expectedEpoch
-    });
+      const role = await createRole(actor, {
+        key: input.key,
+        name: input.name,
+        description: input.description ?? null,
+        rank: input.rank,
+        // Validated against the catalog rather than trusted, and REFUSED rather
+        // than filtered: silently dropping an unknown key means an administrator
+        // ticks a box, sees it save, and finds it unticked next time.
+        permissions: parsePermissionKeys(input.permissions),
+        expectedEpoch
+      });
 
-    return NextResponse.json(
-      { data: role, epoch: await readEpoch(actor.organizationId) },
-      { status: 201 }
-    );
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json(
+        { data: role, epoch: await readEpoch(actor.organizationId) },
+        { status: 201 }
+      );
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

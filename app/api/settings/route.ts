@@ -18,6 +18,7 @@ import {
   isPortalHeaderColor
 } from "@/lib/ui/portal-header-theme";
 import { countSchema } from "@/lib/validation/number";
+import { withRoute } from "@/lib/http/with-route";
 
 // The portal shows this link to clients, so an empty string is a meaningful
 // value: it clears the link and hides the Pay balance action rather than
@@ -236,112 +237,131 @@ function mergeBillingSettings(
   return { ...base, billing } as Prisma.InputJsonValue;
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "settings.read");
-    const [organization, settings, notifications, paymentSetting] =
-      await Promise.all([
-        // Selected, not the whole row. `permissionsEpoch` is a BigInt, which
-        // JSON.stringify throws on, so an unselected organization row turns
-        // this endpoint into a 500 the moment the column exists. Naming the two
-        // fields the response contract actually promises also means the next
-        // column added to Organization cannot silently join the payload.
-        prisma.organization.findUniqueOrThrow({
-          where: { id: actor.organizationId },
-          select: { id: true, name: true }
-        }),
-        prisma.organizationSetting.upsert({
-          where: { ...tenant(actor) },
-          update: {},
-          create: { organizationId: actor.organizationId }
-        }),
-        prisma.notificationPreference.upsert({
-          where: {
-            organizationId_userId: {
+export const GET = withRoute(
+  "GET /api/settings",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "settings.read");
+      const [organization, settings, notifications, paymentSetting] =
+        await Promise.all([
+          // Selected, not the whole row. `permissionsEpoch` is a BigInt, which
+          // JSON.stringify throws on, so an unselected organization row turns
+          // this endpoint into a 500 the moment the column exists. Naming the two
+          // fields the response contract actually promises also means the next
+          // column added to Organization cannot silently join the payload.
+          prisma.organization.findUniqueOrThrow({
+            where: { id: actor.organizationId },
+            select: { id: true, name: true }
+          }),
+          prisma.organizationSetting.upsert({
+            where: { ...tenant(actor) },
+            update: {},
+            create: { organizationId: actor.organizationId }
+          }),
+          prisma.notificationPreference.upsert({
+            where: {
+              organizationId_userId: {
+                organizationId: actor.organizationId,
+                userId: requireUserActor(actor)
+              }
+            },
+            update: {},
+            create: {
               organizationId: actor.organizationId,
               userId: requireUserActor(actor)
             }
-          },
-          update: {},
-          create: {
-            organizationId: actor.organizationId,
-            userId: requireUserActor(actor)
-          }
-        }),
-        prisma.paymentSetting.findUnique({
-          where: { ...tenant(actor) },
-          select: { paymentLink: true }
-        })
-      ]);
+          }),
+          prisma.paymentSetting.findUnique({
+            where: { ...tenant(actor) },
+            select: { paymentLink: true }
+          })
+        ]);
 
-    return NextResponse.json({
-      organization,
-      settings: {
-        ...settings,
-        calendar: calendarSettingsFromIntegrations(settings.integrations),
-        controlCenter: controlCenterFromIntegrations(settings.integrations)
-      },
-      notifications,
-      payments: { paymentLink: paymentSetting?.paymentLink ?? "" }
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
-  }
-}
-
-export async function PATCH(request: Request) {
-  try {
-    const actor = await authorize(request, "settings.read");
-    const input = settingsSchema.parse(await request.json());
-    if (
-      input.language !== undefined ||
-      input.timezone !== undefined ||
-      input.organizationName !== undefined ||
-      input.twoFactorRequired !== undefined ||
-      input.sessionTimeoutMinutes !== undefined ||
-      input.dailyEventLimit !== undefined ||
-      input.controlCenter !== undefined ||
-      input.billing !== undefined
-    ) {
-      await assertPermission(actor, "settings.update");
-    }
-    // Changing where client payments land is a money decision, not a general
-    // settings edit, so it needs the dedicated payments permission.
-    if (input.payments !== undefined) {
-      await assertPermission(actor, "payment.record");
-    }
-    // The browser writes the objects to storage itself, so this is where a path
-    // pointing outside the caller's own folder gets refused - for both of the
-    // branding images this payload can carry.
-    for (const [subject, path] of [
-      ["Logo", input.controlCenter?.general.logoPath],
-      ["Header image", input.controlCenter?.general.portalHeader.imagePath]
-    ] as const) {
-      const pathError = path
-        ? readBrandingPathError(actor.organizationId, path, subject)
-        : null;
-      if (pathError) {
-        return NextResponse.json({ error: pathError }, { status: 400 });
-      }
-    }
-    const currentSettings = await prisma.organizationSetting.upsert({
-      where: { ...tenant(actor) },
-      update: {},
-      create: { organizationId: actor.organizationId }
-    });
-    if (input.organizationName !== undefined) {
-      await prisma.organization.update({
-        where: { id: actor.organizationId },
-        data: { name: input.organizationName }
+      return NextResponse.json({
+        organization,
+        settings: {
+          ...settings,
+          calendar: calendarSettingsFromIntegrations(settings.integrations),
+          controlCenter: controlCenterFromIntegrations(settings.integrations)
+        },
+        notifications,
+        payments: { paymentLink: paymentSetting?.paymentLink ?? "" }
       });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-    const organizationChanges = {
-      language: input.language,
-      timezone: input.timezone,
-      twoFactorRequired: input.twoFactorRequired,
-      sessionTimeoutMinutes: input.sessionTimeoutMinutes,
-      integrations:
-        mergeControlCenterSettings(
+  }
+);
+
+export const PATCH = withRoute(
+  "PATCH /api/settings",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "settings.read");
+      const input = settingsSchema.parse(await request.json());
+      if (
+        input.language !== undefined ||
+        input.timezone !== undefined ||
+        input.organizationName !== undefined ||
+        input.twoFactorRequired !== undefined ||
+        input.sessionTimeoutMinutes !== undefined ||
+        input.dailyEventLimit !== undefined ||
+        input.controlCenter !== undefined ||
+        input.billing !== undefined
+      ) {
+        await assertPermission(actor, "settings.update");
+      }
+      // Changing where client payments land is a money decision, not a general
+      // settings edit, so it needs the dedicated payments permission.
+      if (input.payments !== undefined) {
+        await assertPermission(actor, "payment.record");
+      }
+      // The browser writes the objects to storage itself, so this is where a path
+      // pointing outside the caller's own folder gets refused - for both of the
+      // branding images this payload can carry.
+      for (const [subject, path] of [
+        ["Logo", input.controlCenter?.general.logoPath],
+        ["Header image", input.controlCenter?.general.portalHeader.imagePath]
+      ] as const) {
+        const pathError = path
+          ? readBrandingPathError(actor.organizationId, path, subject)
+          : null;
+        if (pathError) {
+          return NextResponse.json({ error: pathError }, { status: 400 });
+        }
+      }
+      const currentSettings = await prisma.organizationSetting.upsert({
+        where: { ...tenant(actor) },
+        update: {},
+        create: { organizationId: actor.organizationId }
+      });
+      if (input.organizationName !== undefined) {
+        await prisma.organization.update({
+          where: { id: actor.organizationId },
+          data: { name: input.organizationName }
+        });
+      }
+      const organizationChanges = {
+        language: input.language,
+        timezone: input.timezone,
+        twoFactorRequired: input.twoFactorRequired,
+        sessionTimeoutMinutes: input.sessionTimeoutMinutes,
+        integrations:
+          mergeControlCenterSettings(
+            mergeBillingSettings(
+              mergeCalendarSettings(
+                currentSettings.integrations,
+                input.dailyEventLimit
+              ) ?? currentSettings.integrations,
+              input.billing
+            ) ??
+              mergeCalendarSettings(
+                currentSettings.integrations,
+                input.dailyEventLimit
+              ) ??
+              currentSettings.integrations,
+            input.controlCenter
+          ) ??
           mergeBillingSettings(
             mergeCalendarSettings(
               currentSettings.integrations,
@@ -349,120 +369,107 @@ export async function PATCH(request: Request) {
             ) ?? currentSettings.integrations,
             input.billing
           ) ??
-            mergeCalendarSettings(
-              currentSettings.integrations,
-              input.dailyEventLimit
-            ) ??
-            currentSettings.integrations,
-          input.controlCenter
-        ) ??
-        mergeBillingSettings(
           mergeCalendarSettings(
             currentSettings.integrations,
             input.dailyEventLimit
-          ) ?? currentSettings.integrations,
-          input.billing
-        ) ??
-        mergeCalendarSettings(
-          currentSettings.integrations,
-          input.dailyEventLimit
-        )
-    };
-    const notificationChanges = {
-      emailNotifications: input.emailNotifications,
-      eventConfirmations: input.eventConfirmations,
-      billingAlerts: input.billingAlerts,
-      systemAnnouncements: input.systemAnnouncements
-    };
+          )
+      };
+      const notificationChanges = {
+        emailNotifications: input.emailNotifications,
+        eventConfirmations: input.eventConfirmations,
+        billingAlerts: input.billingAlerts,
+        systemAnnouncements: input.systemAnnouncements
+      };
 
-    const { settings, notifications } = await prisma.$transaction(
-      async (transaction) => {
-        const settings = await transaction.organizationSetting.upsert({
-          where: { ...tenant(actor) },
-          update: organizationChanges,
-          create: {
-            organizationId: actor.organizationId,
-            ...organizationChanges
-          }
-        });
-
-        if (input.dailyEventLimit !== undefined) {
-          await transaction.hall.updateMany({
+      const { settings, notifications } = await prisma.$transaction(
+        async (transaction) => {
+          const settings = await transaction.organizationSetting.upsert({
             where: { ...tenant(actor) },
-            data: { dailyEventLimit: input.dailyEventLimit }
-          });
-        }
-
-        const notifications = await transaction.notificationPreference.upsert({
-          where: {
-            organizationId_userId: {
-              organizationId: actor.organizationId,
-              userId: requireUserActor(actor)
-            }
-          },
-          update: notificationChanges,
-          create: {
-            organizationId: actor.organizationId,
-            userId: requireUserActor(actor),
-            ...notificationChanges
-          }
-        });
-
-        return { settings, notifications };
-      }
-    );
-
-    // After the write, and best effort: an image replaced or removed leaves an
-    // object nothing points at, but a storage failure must not undo a save the
-    // caller has already been told nothing about.
-    //
-    // Keyed on the path changing, not on which style is selected: an operator
-    // who switches the header back to a colour keeps the image they uploaded,
-    // so switching to it again costs them nothing.
-    if (input.controlCenter) {
-      const previous = controlCenterFromIntegrations(
-        currentSettings.integrations
-      ).general;
-      const next = input.controlCenter.general;
-      for (const [previousPath, nextPath] of [
-        [previous.logoPath, next.logoPath],
-        [previous.portalHeader.imagePath, next.portalHeader.imagePath]
-      ]) {
-        if (previousPath && previousPath !== nextPath) {
-          await discardOrganizationBrandingImage(
-            actor.organizationId,
-            previousPath
-          );
-        }
-      }
-    }
-
-    const payments =
-      input.payments !== undefined
-        ? await prisma.paymentSetting.upsert({
-            where: { ...tenant(actor) },
-            update: { paymentLink: input.payments.paymentLink },
+            update: organizationChanges,
             create: {
               organizationId: actor.organizationId,
-              paymentLink: input.payments.paymentLink
-            },
-            select: { paymentLink: true }
-          })
-        : await prisma.paymentSetting.findUnique({
-            where: { ...tenant(actor) },
-            select: { paymentLink: true }
+              ...organizationChanges
+            }
           });
 
-    return NextResponse.json({
-      settings: {
-        ...settings,
-        calendar: calendarSettingsFromIntegrations(settings.integrations),
-        controlCenter: controlCenterFromIntegrations(settings.integrations)
-      },
-      notifications,
-      payments: { paymentLink: payments?.paymentLink ?? "" }
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+          if (input.dailyEventLimit !== undefined) {
+            await transaction.hall.updateMany({
+              where: { ...tenant(actor) },
+              data: { dailyEventLimit: input.dailyEventLimit }
+            });
+          }
+
+          const notifications = await transaction.notificationPreference.upsert({
+            where: {
+              organizationId_userId: {
+                organizationId: actor.organizationId,
+                userId: requireUserActor(actor)
+              }
+            },
+            update: notificationChanges,
+            create: {
+              organizationId: actor.organizationId,
+              userId: requireUserActor(actor),
+              ...notificationChanges
+            }
+          });
+
+          return { settings, notifications };
+        }
+      );
+
+      // After the write, and best effort: an image replaced or removed leaves an
+      // object nothing points at, but a storage failure must not undo a save the
+      // caller has already been told nothing about.
+      //
+      // Keyed on the path changing, not on which style is selected: an operator
+      // who switches the header back to a colour keeps the image they uploaded,
+      // so switching to it again costs them nothing.
+      if (input.controlCenter) {
+        const previous = controlCenterFromIntegrations(
+          currentSettings.integrations
+        ).general;
+        const next = input.controlCenter.general;
+        for (const [previousPath, nextPath] of [
+          [previous.logoPath, next.logoPath],
+          [previous.portalHeader.imagePath, next.portalHeader.imagePath]
+        ]) {
+          if (previousPath && previousPath !== nextPath) {
+            await discardOrganizationBrandingImage(
+              actor.organizationId,
+              previousPath
+            );
+          }
+        }
+      }
+
+      const payments =
+        input.payments !== undefined
+          ? await prisma.paymentSetting.upsert({
+              where: { ...tenant(actor) },
+              update: { paymentLink: input.payments.paymentLink },
+              create: {
+                organizationId: actor.organizationId,
+                paymentLink: input.payments.paymentLink
+              },
+              select: { paymentLink: true }
+            })
+          : await prisma.paymentSetting.findUnique({
+              where: { ...tenant(actor) },
+              select: { paymentLink: true }
+            });
+
+      return NextResponse.json({
+        settings: {
+          ...settings,
+          calendar: calendarSettingsFromIntegrations(settings.integrations),
+          controlCenter: controlCenterFromIntegrations(settings.integrations)
+        },
+        notifications,
+        payments: { paymentLink: payments?.paymentLink ?? "" }
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
