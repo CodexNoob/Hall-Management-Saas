@@ -65,12 +65,6 @@ type SettingsPageProps = {
  */
 const CONTROL_CENTER_QUERY_PREFIXES = ["/api/calendar", "/api/kitchen"];
 
-/**
- * `dailyEventLimit` is saved on its own, into its own `integrations.calendar`
- * blob, and is read by the event list as well as by the calendar.
- */
-const DAILY_EVENT_LIMIT_QUERY_PREFIXES = ["/api/calendar", "/api/events"];
-
 function refreshQueriesCarrying(prefixes: string[]) {
   for (const prefix of prefixes) {
     invalidateAuthenticatedQueryPrefix(prefix);
@@ -127,7 +121,6 @@ export function SettingsPage({
       SettingsResponse["notifications"] & {
         language: string;
         timezone: string;
-        dailyEventLimit: number;
         organizationName: string;
         controlCenter: ControlCenterSettings;
         payments: { paymentLink: string };
@@ -141,7 +134,6 @@ export function SettingsPage({
   const [systemAnnouncements, setSystemAnnouncements] = useState(false);
   const [timezone, setTimezone] = useState("America/New_York");
   const [language, setLanguage] = useState("en-US");
-  const [dailyEventLimit, setDailyEventLimit] = useState(2);
   const [organizationName, setOrganizationName] = useState("");
   const [controlCenter, setControlCenter] = useState<ControlCenterSettings>({
     general: {
@@ -199,9 +191,6 @@ export function SettingsPage({
     );
     setLanguage(settingsQuery.data.settings.language);
     setTimezone(settingsQuery.data.settings.timezone);
-    setDailyEventLimit(
-      settingsQuery.data.settings.calendar?.dailyEventLimit ?? 2
-    );
     setOrganizationName(settingsQuery.data.organization.name);
     setControlCenter(settingsQuery.data.settings.controlCenter);
     // What the server says is now what is stored, so a pending pick or a
@@ -773,20 +762,6 @@ export function SettingsPage({
                 ) : null}
                 {activeModalSection === "Calendar" ? (
                   <CalendarSettingsPanel
-                    canEdit={canEditSettings}
-                    dailyEventLimit={dailyEventLimit}
-                    onDailyEventLimitChange={(value) => {
-                      if (!Number.isFinite(value) || value < 1 || value > 50)
-                        return;
-                      setDailyEventLimit(value);
-                      void settingsMutation
-                        .mutate({ dailyEventLimit: value })
-                        .then(() =>
-                          refreshQueriesCarrying(
-                            DAILY_EVENT_LIMIT_QUERY_PREFIXES
-                          )
-                        );
-                    }}
                     onChange={(calendar) =>
                       setControlCenter((current) => ({ ...current, calendar }))
                     }

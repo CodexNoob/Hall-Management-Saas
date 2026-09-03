@@ -38,15 +38,9 @@ function SettingRow({
 }
 
 export function CalendarSettingsPanel({
-  canEdit,
-  dailyEventLimit,
-  onDailyEventLimitChange,
   value,
   onChange
 }: {
-  canEdit: boolean;
-  dailyEventLimit: number;
-  onDailyEventLimitChange: (value: number) => void;
   value: ControlCenterSettings["calendar"];
   onChange: (value: ControlCenterSettings["calendar"]) => void;
 }) {
@@ -132,21 +126,6 @@ export function CalendarSettingsPanel({
               <option value="14">14 days</option>
               <option value="30">30 days</option>
             </select>
-          </label>
-          <label className="text-[10px] font-black sm:col-span-2">
-            Events allowed per hall, per day
-            <input
-              className={fieldClass}
-              disabled={!canEdit}
-              name="calendarEventsPerHallPerDay"
-              max={50}
-              min={1}
-              onChange={(event) =>
-                onDailyEventLimitChange(Number(event.target.value))
-              }
-              type="number"
-              value={dailyEventLimit}
-            />
           </label>
         </div>
       </section>
