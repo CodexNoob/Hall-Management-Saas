@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { deleteRole, readEpoch, updateRole } from "@/lib/authz/admin/roles";
 import { parseEpochPrecondition, parsePermissionKeys } from "@/lib/authz/guards";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Editing and deleting one role.
@@ -22,51 +23,57 @@ const updateRoleSchema = z.object({
   permissions: z.array(z.string()).optional()
 });
 
-export async function PATCH(
+export const PATCH = withRoute(
+  "PATCH /api/access/roles/[roleId]",
+  async (
   request: Request,
-  context: { params: Promise<{ roleId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "role.manage");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const { roleId } = await context.params;
-    const input = updateRoleSchema.parse(await request.json());
+    context: { params: Promise<{ roleId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "role.manage");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const { roleId } = await context.params;
+      const input = updateRoleSchema.parse(await request.json());
 
-    const role = await updateRole(actor, z.string().uuid().parse(roleId), {
-      name: input.name,
-      description: input.description,
-      rank: input.rank,
-      permissions: input.permissions
-        ? parsePermissionKeys(input.permissions)
-        : undefined,
-      expectedEpoch
-    });
+      const role = await updateRole(actor, z.string().uuid().parse(roleId), {
+        name: input.name,
+        description: input.description,
+        rank: input.rank,
+        permissions: input.permissions
+          ? parsePermissionKeys(input.permissions)
+          : undefined,
+        expectedEpoch
+      });
 
-    return NextResponse.json({
-      data: role,
-      epoch: await readEpoch(actor.organizationId)
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        data: role,
+        epoch: await readEpoch(actor.organizationId)
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
 
-export async function DELETE(
+export const DELETE = withRoute(
+  "DELETE /api/access/roles/[roleId]",
+  async (
   request: Request,
-  context: { params: Promise<{ roleId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "role.manage");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const { roleId } = await context.params;
+    context: { params: Promise<{ roleId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "role.manage");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const { roleId } = await context.params;
 
-    await deleteRole(actor, z.string().uuid().parse(roleId), expectedEpoch);
+      await deleteRole(actor, z.string().uuid().parse(roleId), expectedEpoch);
 
-    return NextResponse.json({
-      ok: true,
-      epoch: await readEpoch(actor.organizationId)
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        ok: true,
+        epoch: await readEpoch(actor.organizationId)
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

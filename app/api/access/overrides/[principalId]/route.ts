@@ -5,6 +5,7 @@ import { readOverrides, replaceOverrides } from "@/lib/authz/admin/overrides";
 import { readEpoch } from "@/lib/authz/admin/roles";
 import { parseEpochPrecondition, parsePermissionKeys } from "@/lib/authz/guards";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * One person's individual exceptions.
@@ -24,51 +25,57 @@ const overridesSchema = z.object({
   denies: z.array(z.string()).default([])
 });
 
-export async function GET(
+export const GET = withRoute(
+  "GET /api/access/overrides/[principalId]",
+  async (
   request: Request,
-  context: { params: Promise<{ principalId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "role.read");
-    const { principalId } = await context.params;
+    context: { params: Promise<{ principalId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "role.read");
+      const { principalId } = await context.params;
 
-    return NextResponse.json({
-      data: await readOverrides(
-        actor.organizationId,
-        z.string().uuid().parse(principalId)
-      ),
-      epoch: actor.epoch
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        data: await readOverrides(
+          actor.organizationId,
+          z.string().uuid().parse(principalId)
+        ),
+        epoch: actor.epoch
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
 
-export async function PUT(
+export const PUT = withRoute(
+  "PUT /api/access/overrides/[principalId]",
+  async (
   request: Request,
-  context: { params: Promise<{ principalId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "permission.override");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const { principalId } = await context.params;
-    const input = overridesSchema.parse(await request.json());
+    context: { params: Promise<{ principalId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "permission.override");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const { principalId } = await context.params;
+      const input = overridesSchema.parse(await request.json());
 
-    const data = await replaceOverrides(
-      actor,
-      z.string().uuid().parse(principalId),
-      {
-        grants: parsePermissionKeys(input.grants),
-        denies: parsePermissionKeys(input.denies)
-      },
-      expectedEpoch
-    );
+      const data = await replaceOverrides(
+        actor,
+        z.string().uuid().parse(principalId),
+        {
+          grants: parsePermissionKeys(input.grants),
+          denies: parsePermissionKeys(input.denies)
+        },
+        expectedEpoch
+      );
 
-    return NextResponse.json({
-      data,
-      epoch: await readEpoch(actor.organizationId)
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        data,
+        epoch: await readEpoch(actor.organizationId)
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

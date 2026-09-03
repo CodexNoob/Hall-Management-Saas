@@ -10,6 +10,7 @@ import {
   dimensionSchema,
   quantitySchema
 } from "@/lib/validation/number";
+import { withRoute } from "@/lib/http/with-route";
 
 const invoiceLineItemSchema = z.object({
   description: z.string().trim().min(1),
@@ -79,246 +80,252 @@ const invoiceSchema = z
     }
   );
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "invoice.read");
-    await refreshOverdueInvoices(actor.organizationId);
-    const [transactions, invoices, events, invoiceHistory] = await Promise.all([
-      prisma.paymentTransaction.findMany({
-        where: { organizationId: actor.organizationId },
-        include: { event: { select: { clientName: true, eventDate: true } } },
-        orderBy: { createdAt: "desc" },
-        take: 50
-      }),
-      prisma.invoice.findMany({
-        where: { organizationId: actor.organizationId },
-        include: {
-          event: { select: { eventDate: true, hallName: true } },
-          lineItems: { orderBy: { sortOrder: "asc" } },
-          discounts: true,
-          taxes: true,
-          paymentSchedule: { orderBy: { sortOrder: "asc" } },
-          balance: true,
-          receipts: { orderBy: { issuedAt: "desc" } }
-        },
-        orderBy: { createdAt: "desc" },
-        take: 50
-      }),
-      prisma.event.findMany({
-        where: { organizationId: actor.organizationId, deleted: false },
-        select: {
-          id: true,
-          clientName: true,
-          eventDate: true,
-          finalTotal: true,
-          amountDue: true,
-          paymentStatus: true,
-          hallName: true,
-          eventType: true,
-          eventStatus: true
-        },
-        orderBy: { eventDate: "desc" },
-        take: 50
-      }),
-      prisma.activityLog.findMany({
-        where: {
-          organizationId: actor.organizationId,
-          actionType: {
-            in: ["Invoice Created", "Invoice Updated", "Invoice Status Changed"]
-          }
-        },
-        select: {
-          id: true,
-          actionType: true,
-          message: true,
-          newValue: true,
-          oldValue: true,
-          userName: true,
-          createdAt: true
-        },
-        orderBy: { createdAt: "desc" },
-        take: 200
-      })
-    ]);
+export const GET = withRoute(
+  "GET /api/billing",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "invoice.read");
+      await refreshOverdueInvoices(actor.organizationId);
+      const [transactions, invoices, events, invoiceHistory] = await Promise.all([
+        prisma.paymentTransaction.findMany({
+          where: { organizationId: actor.organizationId },
+          include: { event: { select: { clientName: true, eventDate: true } } },
+          orderBy: { createdAt: "desc" },
+          take: 50
+        }),
+        prisma.invoice.findMany({
+          where: { organizationId: actor.organizationId },
+          include: {
+            event: { select: { eventDate: true, hallName: true } },
+            lineItems: { orderBy: { sortOrder: "asc" } },
+            discounts: true,
+            taxes: true,
+            paymentSchedule: { orderBy: { sortOrder: "asc" } },
+            balance: true,
+            receipts: { orderBy: { issuedAt: "desc" } }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 50
+        }),
+        prisma.event.findMany({
+          where: { organizationId: actor.organizationId, deleted: false },
+          select: {
+            id: true,
+            clientName: true,
+            eventDate: true,
+            finalTotal: true,
+            amountDue: true,
+            paymentStatus: true,
+            hallName: true,
+            eventType: true,
+            eventStatus: true
+          },
+          orderBy: { eventDate: "desc" },
+          take: 50
+        }),
+        prisma.activityLog.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            actionType: {
+              in: ["Invoice Created", "Invoice Updated", "Invoice Status Changed"]
+            }
+          },
+          select: {
+            id: true,
+            actionType: true,
+            message: true,
+            newValue: true,
+            oldValue: true,
+            userName: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: "desc" },
+          take: 200
+        })
+      ]);
 
-    const paidCents = transactions
-      .filter((item) => item.status === "paid")
-      .reduce(
-        (sum, item) => sum + item.amountCents - item.refundedAmountCents,
+      const paidCents = transactions
+        .filter((item) => item.status === "paid")
+        .reduce(
+          (sum, item) => sum + item.amountCents - item.refundedAmountCents,
+          0
+        );
+      const openInvoiceCents = invoices.reduce(
+        (sum, invoice) => sum + invoice.balanceDueCents,
         0
       );
-    const openInvoiceCents = invoices.reduce(
-      (sum, invoice) => sum + invoice.balanceDueCents,
-      0
-    );
 
-    return NextResponse.json({
-      transactions,
-      invoices,
-      events,
-      invoiceHistory,
-      summary: {
-        paidCents,
-        openInvoiceCents,
-        openInvoices: invoices.filter((item) => item.status !== "Paid").length
-      }
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
-  }
-}
-
-export async function POST(request: Request) {
-  try {
-    const actor = await authorize(request, "invoice.create");
-    const input = invoiceSchema.parse(await request.json());
-
-    const event = input.eventId
-      ? await prisma.event.findFirst({
-          where: { id: input.eventId, organizationId: actor.organizationId },
-          select: { id: true, clientId: true }
-        })
-      : null;
-    if (input.eventId) {
-      if (!event)
-        return NextResponse.json(
-          { error: "Event not found." },
-          { status: 404 }
-        );
-    }
-
-    const computedLineItems = input.lineItems.map((lineItem, index) => {
-      const subtotalCents = Math.round(
-        lineItem.quantity * lineItem.unitAmountCents
-      );
-      return {
-        ...lineItem,
-        subtotalCents,
-        totalCents: Math.max(
-          0,
-          subtotalCents - lineItem.discountCents + lineItem.taxCents
-        ),
-        sortOrder: index
-      };
-    });
-    const subtotalCents =
-      computedLineItems.length > 0
-        ? computedLineItems.reduce(
-            (sum, lineItem) => sum + lineItem.subtotalCents,
-            0
-          )
-        : (input.totalCents ?? 0);
-    const discountCents = input.discounts.reduce(
-      (sum, discount) => sum + discount.amountCents,
-      0
-    );
-    const taxCents = input.taxes.reduce((sum, tax) => sum + tax.amountCents, 0);
-    const totalCents = Math.max(0, subtotalCents - discountCents + taxCents);
-    const scheduledCents = input.paymentSchedule.reduce(
-      (sum, schedule) => sum + schedule.amountCents,
-      0
-    );
-
-    if (scheduledCents > totalCents) {
-      return NextResponse.json(
-        { error: "Payment schedule cannot exceed the invoice total." },
-        { status: 400 }
-      );
-    }
-
-    const invoice = await prisma.$transaction(async (transaction) => {
-      const invoiceNumber =
-        input.invoiceNumber ??
-        `INV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
-      const created = await transaction.invoice.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId: input.eventId,
-          clientId: event?.clientId,
-          invoiceNumber,
-          clientName: input.clientName,
-          status: input.status === "Open" ? "Sent" : input.status,
-          currency: input.currency,
-          dueDate: input.dueDate
-            ? new Date(`${input.dueDate}T00:00:00.000Z`)
-            : undefined,
-          issuedAt: input.status === "Draft" ? undefined : new Date(),
-          subtotalCents,
-          discountCents,
-          taxCents,
-          totalCents,
-          balanceDueCents: totalCents,
-          notes: input.notes,
-          lineItems: {
-            create: computedLineItems.map((lineItem) => ({
-              organizationId: actor.organizationId,
-              ...lineItem
-            }))
-          },
-          discounts: {
-            create: input.discounts.map((discount) => ({
-              organizationId: actor.organizationId,
-              ...discount
-            }))
-          },
-          taxes: {
-            create: input.taxes.map((tax) => ({
-              organizationId: actor.organizationId,
-              ...tax
-            }))
-          },
-          paymentSchedule: {
-            create: input.paymentSchedule.map((schedule, index) => ({
-              organizationId: actor.organizationId,
-              ...schedule,
-              dueDate: new Date(`${schedule.dueDate}T00:00:00.000Z`),
-              sortOrder: index
-            }))
-          },
-          balance: {
-            create: {
-              organizationId: actor.organizationId,
-              subtotalCents,
-              discountCents,
-              taxCents,
-              totalCents,
-              outstandingCents: totalCents
-            }
-          }
-        },
-        include: {
-          lineItems: true,
-          discounts: true,
-          taxes: true,
-          paymentSchedule: true,
-          balance: true
+      return NextResponse.json({
+        transactions,
+        invoices,
+        events,
+        invoiceHistory,
+        summary: {
+          paidCents,
+          openInvoiceCents,
+          openInvoices: invoices.filter((item) => item.status !== "Paid").length
         }
       });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
+  }
+);
 
-      await transaction.activityLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId: event?.id,
-          clientId: event?.clientId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "Invoice Created",
-          message: `Created invoice ${created.invoiceNumber}.`,
-          newValue: {
-            invoiceId: created.id,
+export const POST = withRoute(
+  "POST /api/billing",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "invoice.create");
+      const input = invoiceSchema.parse(await request.json());
+
+      const event = input.eventId
+        ? await prisma.event.findFirst({
+            where: { id: input.eventId, organizationId: actor.organizationId },
+            select: { id: true, clientId: true }
+          })
+        : null;
+      if (input.eventId) {
+        if (!event)
+          return NextResponse.json(
+            { error: "Event not found." },
+            { status: 404 }
+          );
+      }
+
+      const computedLineItems = input.lineItems.map((lineItem, index) => {
+        const subtotalCents = Math.round(
+          lineItem.quantity * lineItem.unitAmountCents
+        );
+        return {
+          ...lineItem,
+          subtotalCents,
+          totalCents: Math.max(
+            0,
+            subtotalCents - lineItem.discountCents + lineItem.taxCents
+          ),
+          sortOrder: index
+        };
+      });
+      const subtotalCents =
+        computedLineItems.length > 0
+          ? computedLineItems.reduce(
+              (sum, lineItem) => sum + lineItem.subtotalCents,
+              0
+            )
+          : (input.totalCents ?? 0);
+      const discountCents = input.discounts.reduce(
+        (sum, discount) => sum + discount.amountCents,
+        0
+      );
+      const taxCents = input.taxes.reduce((sum, tax) => sum + tax.amountCents, 0);
+      const totalCents = Math.max(0, subtotalCents - discountCents + taxCents);
+      const scheduledCents = input.paymentSchedule.reduce(
+        (sum, schedule) => sum + schedule.amountCents,
+        0
+      );
+
+      if (scheduledCents > totalCents) {
+        return NextResponse.json(
+          { error: "Payment schedule cannot exceed the invoice total." },
+          { status: 400 }
+        );
+      }
+
+      const invoice = await prisma.$transaction(async (transaction) => {
+        const invoiceNumber =
+          input.invoiceNumber ??
+          `INV-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
+        const created = await transaction.invoice.create({
+          data: {
+            organizationId: actor.organizationId,
+            eventId: input.eventId,
+            clientId: event?.clientId,
+            invoiceNumber,
+            clientName: input.clientName,
+            status: input.status === "Open" ? "Sent" : input.status,
+            currency: input.currency,
+            dueDate: input.dueDate
+              ? new Date(`${input.dueDate}T00:00:00.000Z`)
+              : undefined,
+            issuedAt: input.status === "Draft" ? undefined : new Date(),
             subtotalCents,
             discountCents,
             taxCents,
             totalCents,
-            scheduledCents
+            balanceDueCents: totalCents,
+            notes: input.notes,
+            lineItems: {
+              create: computedLineItems.map((lineItem) => ({
+                organizationId: actor.organizationId,
+                ...lineItem
+              }))
+            },
+            discounts: {
+              create: input.discounts.map((discount) => ({
+                organizationId: actor.organizationId,
+                ...discount
+              }))
+            },
+            taxes: {
+              create: input.taxes.map((tax) => ({
+                organizationId: actor.organizationId,
+                ...tax
+              }))
+            },
+            paymentSchedule: {
+              create: input.paymentSchedule.map((schedule, index) => ({
+                organizationId: actor.organizationId,
+                ...schedule,
+                dueDate: new Date(`${schedule.dueDate}T00:00:00.000Z`),
+                sortOrder: index
+              }))
+            },
+            balance: {
+              create: {
+                organizationId: actor.organizationId,
+                subtotalCents,
+                discountCents,
+                taxCents,
+                totalCents,
+                outstandingCents: totalCents
+              }
+            }
+          },
+          include: {
+            lineItems: true,
+            discounts: true,
+            taxes: true,
+            paymentSchedule: true,
+            balance: true
           }
-        }
-      });
+        });
 
-      return created;
-    });
-    return NextResponse.json({ invoice }, { status: 201 });
-  } catch (error) {
-    return createApiErrorResponse(error);
+        await transaction.activityLog.create({
+          data: {
+            organizationId: actor.organizationId,
+            eventId: event?.id,
+            clientId: event?.clientId,
+            userId: actor.userId,
+            userName: actor.actorName,
+            actionType: "Invoice Created",
+            message: `Created invoice ${created.invoiceNumber}.`,
+            newValue: {
+              invoiceId: created.id,
+              subtotalCents,
+              discountCents,
+              taxCents,
+              totalCents,
+              scheduledCents
+            }
+          }
+        });
+
+        return created;
+      });
+      return NextResponse.json({ invoice }, { status: 201 });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

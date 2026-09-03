@@ -6,6 +6,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { countSchema, dimensionSchema } from "@/lib/validation/number";
 import { seatingSidesSchema } from "@/lib/hall-map/seating";
+import { withRoute } from "@/lib/http/with-route";
 
 const tableSchema = z.object({
   id: z.string().min(1).max(100),
@@ -155,179 +156,185 @@ async function findHallPreset(
   return rows[0] ?? null;
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "dining.read");
-    const events = await prisma.event.findMany({
-      where: {
-        organizationId: actor.organizationId,
-        deleted: false,
-        bookingStatus: { notIn: ["CANCELLED", "EXPIRED"] }
-      },
-      orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
-      take: 100,
-      select: {
-        id: true,
-        clientName: true,
-        eventType: true,
-        eventDate: true,
-        startsAt: true,
-        eventStatus: true,
-        bookingStatus: true,
-        packageName: true,
-        couplesCount: true,
-        menCount: true,
-        ladiesCount: true,
-        boysCount: true,
-        girlsCount: true,
-        kidsCount: true,
-        waitersCount: true,
-        tableclothName: true,
-        washingTime: true,
-        notes: true,
-        hall: { select: { id: true, name: true } }
-      }
-    });
-    const [hallMapPresets, diningPlans] = await Promise.all([
-      listHallMapPresets(actor.organizationId),
-      listDiningPlans(
-        actor.organizationId,
-        events.map((event) => event.id)
-      )
-    ]);
-    const diningPlanByEventId = new Map(
-      diningPlans.map((plan) => [plan.eventId, plan])
-    );
-
-    return NextResponse.json({
-      events: events.map((event) => ({
-        ...event,
-        diningPlan: diningPlanByEventId.get(event.id) ?? null
-      })),
-      hallMapPresets
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
-  }
-}
-
-export async function PATCH(request: Request) {
-  try {
-    const actor = await authorize(request, "dining.update");
-    const input = saveDiningPlanSchema.parse(await request.json());
-    const event = await prisma.event.findFirst({
-      where: {
-        id: input.eventId,
-        organizationId: actor.organizationId,
-        deleted: false
-      },
-      select: { id: true, hallId: true }
-    });
-
-    if (!event) {
-      return NextResponse.json(
-        { error: "Event not found in this organization." },
-        { status: 404 }
-      );
-    }
-
-    if (input.hallMapPresetId) {
-      const preset = await findHallPreset(
-        input.hallMapPresetId,
-        actor.organizationId,
-        event.hallId
-      );
-      if (!preset) {
-        return NextResponse.json(
-          { error: "This map preset is not assigned to the event's hall." },
-          { status: 400 }
-        );
-      }
-    }
-
-    const planId = crypto.randomUUID();
-
-    const plan = await prisma.$transaction(async (tx) => {
-      const [savedPlan] = await tx.$queryRaw<DiningPlanRow[]>`
-        INSERT INTO dining_plans (
-          id,
-          organization_id,
-          event_id,
-          hall_map_preset_id,
-          count_type,
-          adult_count,
-          children_count,
-          men_waiters,
-          women_waiters,
-          tablecloth,
-          washing_time,
-          special_notes,
-          tables,
-          created_at,
-          updated_at
-        ) VALUES (
-          ${planId}::uuid,
-          ${actor.organizationId}::uuid,
-          ${input.eventId}::uuid,
-          ${input.hallMapPresetId ?? null}::uuid,
-          ${input.countType},
-          ${input.adultCount},
-          ${input.childrenCount},
-          ${input.menWaiters},
-          ${input.womenWaiters},
-          ${input.tablecloth || null},
-          ${input.washingTime || null},
-          ${input.specialNotes || null},
-          ${JSON.stringify(input.tables)}::jsonb,
-          NOW(),
-          NOW()
-        )
-        ON CONFLICT (event_id) DO UPDATE SET
-          hall_map_preset_id = EXCLUDED.hall_map_preset_id,
-          count_type = EXCLUDED.count_type,
-          adult_count = EXCLUDED.adult_count,
-          children_count = EXCLUDED.children_count,
-          men_waiters = EXCLUDED.men_waiters,
-          women_waiters = EXCLUDED.women_waiters,
-          tablecloth = EXCLUDED.tablecloth,
-          washing_time = EXCLUDED.washing_time,
-          special_notes = EXCLUDED.special_notes,
-          tables = EXCLUDED.tables,
-          updated_at = NOW()
-        RETURNING
-          id,
-          organization_id AS "organizationId",
-          event_id AS "eventId",
-          hall_map_preset_id AS "hallMapPresetId",
-          count_type AS "countType",
-          adult_count AS "adultCount",
-          children_count AS "childrenCount",
-          men_waiters AS "menWaiters",
-          women_waiters AS "womenWaiters",
-          tablecloth,
-          washing_time AS "washingTime",
-          special_notes AS "specialNotes",
-          tables,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
-      `;
-
-      await tx.event.update({
-        where: { id: event.id, organizationId: actor.organizationId },
-        data: {
-          tableclothName: input.tablecloth || null,
-          waitersCount: input.menWaiters + input.womenWaiters,
-          washingTime: input.washingTime || null,
-          updatedById: actor.userId,
-          version: { increment: 1 }
+export const GET = withRoute(
+  "GET /api/dining",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "dining.read");
+      const events = await prisma.event.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          deleted: false,
+          bookingStatus: { notIn: ["CANCELLED", "EXPIRED"] }
+        },
+        orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
+        take: 100,
+        select: {
+          id: true,
+          clientName: true,
+          eventType: true,
+          eventDate: true,
+          startsAt: true,
+          eventStatus: true,
+          bookingStatus: true,
+          packageName: true,
+          couplesCount: true,
+          menCount: true,
+          ladiesCount: true,
+          boysCount: true,
+          girlsCount: true,
+          kidsCount: true,
+          waitersCount: true,
+          tableclothName: true,
+          washingTime: true,
+          notes: true,
+          hall: { select: { id: true, name: true } }
         }
       });
+      const [hallMapPresets, diningPlans] = await Promise.all([
+        listHallMapPresets(actor.organizationId),
+        listDiningPlans(
+          actor.organizationId,
+          events.map((event) => event.id)
+        )
+      ]);
+      const diningPlanByEventId = new Map(
+        diningPlans.map((plan) => [plan.eventId, plan])
+      );
 
-      return savedPlan;
-    });
-
-    return NextResponse.json({ plan: formatDiningPlan(plan) });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        events: events.map((event) => ({
+          ...event,
+          diningPlan: diningPlanByEventId.get(event.id) ?? null
+        })),
+        hallMapPresets
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
+
+export const PATCH = withRoute(
+  "PATCH /api/dining",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "dining.update");
+      const input = saveDiningPlanSchema.parse(await request.json());
+      const event = await prisma.event.findFirst({
+        where: {
+          id: input.eventId,
+          organizationId: actor.organizationId,
+          deleted: false
+        },
+        select: { id: true, hallId: true }
+      });
+
+      if (!event) {
+        return NextResponse.json(
+          { error: "Event not found in this organization." },
+          { status: 404 }
+        );
+      }
+
+      if (input.hallMapPresetId) {
+        const preset = await findHallPreset(
+          input.hallMapPresetId,
+          actor.organizationId,
+          event.hallId
+        );
+        if (!preset) {
+          return NextResponse.json(
+            { error: "This map preset is not assigned to the event's hall." },
+            { status: 400 }
+          );
+        }
+      }
+
+      const planId = crypto.randomUUID();
+
+      const plan = await prisma.$transaction(async (tx) => {
+        const [savedPlan] = await tx.$queryRaw<DiningPlanRow[]>`
+          INSERT INTO dining_plans (
+            id,
+            organization_id,
+            event_id,
+            hall_map_preset_id,
+            count_type,
+            adult_count,
+            children_count,
+            men_waiters,
+            women_waiters,
+            tablecloth,
+            washing_time,
+            special_notes,
+            tables,
+            created_at,
+            updated_at
+          ) VALUES (
+            ${planId}::uuid,
+            ${actor.organizationId}::uuid,
+            ${input.eventId}::uuid,
+            ${input.hallMapPresetId ?? null}::uuid,
+            ${input.countType},
+            ${input.adultCount},
+            ${input.childrenCount},
+            ${input.menWaiters},
+            ${input.womenWaiters},
+            ${input.tablecloth || null},
+            ${input.washingTime || null},
+            ${input.specialNotes || null},
+            ${JSON.stringify(input.tables)}::jsonb,
+            NOW(),
+            NOW()
+          )
+          ON CONFLICT (event_id) DO UPDATE SET
+            hall_map_preset_id = EXCLUDED.hall_map_preset_id,
+            count_type = EXCLUDED.count_type,
+            adult_count = EXCLUDED.adult_count,
+            children_count = EXCLUDED.children_count,
+            men_waiters = EXCLUDED.men_waiters,
+            women_waiters = EXCLUDED.women_waiters,
+            tablecloth = EXCLUDED.tablecloth,
+            washing_time = EXCLUDED.washing_time,
+            special_notes = EXCLUDED.special_notes,
+            tables = EXCLUDED.tables,
+            updated_at = NOW()
+          RETURNING
+            id,
+            organization_id AS "organizationId",
+            event_id AS "eventId",
+            hall_map_preset_id AS "hallMapPresetId",
+            count_type AS "countType",
+            adult_count AS "adultCount",
+            children_count AS "childrenCount",
+            men_waiters AS "menWaiters",
+            women_waiters AS "womenWaiters",
+            tablecloth,
+            washing_time AS "washingTime",
+            special_notes AS "specialNotes",
+            tables,
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+        `;
+
+        await tx.event.update({
+          where: { id: event.id, organizationId: actor.organizationId },
+          data: {
+            tableclothName: input.tablecloth || null,
+            waitersCount: input.menWaiters + input.womenWaiters,
+            washingTime: input.washingTime || null,
+            updatedById: actor.userId,
+            version: { increment: 1 }
+          }
+        });
+
+        return savedPlan;
+      });
+
+      return NextResponse.json({ plan: formatDiningPlan(plan) });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
+  }
+);

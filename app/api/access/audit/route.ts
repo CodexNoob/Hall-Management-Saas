@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * The privilege-change audit trail, filterable and exportable.
@@ -34,98 +35,101 @@ function csvCell(value: unknown): string {
   return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "audit.read");
-    const query = querySchema.parse(
-      Object.fromEntries(new URL(request.url).searchParams)
-    );
-
-    const where = {
-      ...tenant(actor),
-      ...(query.actorId ? { actorId: query.actorId } : {}),
-      ...(query.subjectPrincipalId
-        ? { subjectPrincipalId: query.subjectPrincipalId }
-        : {}),
-      ...(query.action ? { action: query.action } : {}),
-      ...(query.from || query.to
-        ? {
-            createdAt: {
-              ...(query.from ? { gte: new Date(query.from) } : {}),
-              ...(query.to ? { lte: new Date(query.to) } : {})
-            }
-          }
-        : {})
-    };
-
-    const rows = await prisma.authorizationAudit.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: query.format === "csv" ? MAX_EXPORT_ROWS : PAGE_SIZE + 1,
-      ...(query.cursor
-        ? { cursor: { id: query.cursor }, skip: 1 }
-        : {}),
-      select: {
-        id: true,
-        createdAt: true,
-        action: true,
-        actorId: true,
-        actorName: true,
-        subjectPrincipalId: true,
-        subjectName: true,
-        detail: true
-      }
-    });
-
-    if (query.format === "csv") {
-      const header = [
-        "created_at",
-        "action",
-        "actor_name",
-        "subject_name",
-        "detail"
-      ];
-      const body = rows.map((row) =>
-        [
-          row.createdAt.toISOString(),
-          row.action,
-          row.actorName,
-          row.subjectName,
-          row.detail
-        ]
-          .map(csvCell)
-          .join(",")
+export const GET = withRoute(
+  "GET /api/access/audit",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "audit.read");
+      const query = querySchema.parse(
+        Object.fromEntries(new URL(request.url).searchParams)
       );
 
-      // Truncation is announced rather than silent: a report that quietly stops
-      // at ten thousand rows reads as "this is everything" when it is not.
-      if (rows.length === MAX_EXPORT_ROWS) {
-        body.push(
-          csvCell(
-            `TRUNCATED at ${MAX_EXPORT_ROWS} rows. Narrow the date range to export the rest.`
-          )
-        );
-      }
+      const where = {
+        ...tenant(actor),
+        ...(query.actorId ? { actorId: query.actorId } : {}),
+        ...(query.subjectPrincipalId
+          ? { subjectPrincipalId: query.subjectPrincipalId }
+          : {}),
+        ...(query.action ? { action: query.action } : {}),
+        ...(query.from || query.to
+          ? {
+              createdAt: {
+                ...(query.from ? { gte: new Date(query.from) } : {}),
+                ...(query.to ? { lte: new Date(query.to) } : {})
+              }
+            }
+          : {})
+      };
 
-      return new NextResponse([header.join(","), ...body].join("\n"), {
-        headers: {
-          "content-type": "text/csv; charset=utf-8",
-          "content-disposition": `attachment; filename="authorization-audit-${actor.organization.slug}.csv"`
+      const rows = await prisma.authorizationAudit.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: query.format === "csv" ? MAX_EXPORT_ROWS : PAGE_SIZE + 1,
+        ...(query.cursor
+          ? { cursor: { id: query.cursor }, skip: 1 }
+          : {}),
+        select: {
+          id: true,
+          createdAt: true,
+          action: true,
+          actorId: true,
+          actorName: true,
+          subjectPrincipalId: true,
+          subjectName: true,
+          detail: true
         }
       });
+
+      if (query.format === "csv") {
+        const header = [
+          "created_at",
+          "action",
+          "actor_name",
+          "subject_name",
+          "detail"
+        ];
+        const body = rows.map((row) =>
+          [
+            row.createdAt.toISOString(),
+            row.action,
+            row.actorName,
+            row.subjectName,
+            row.detail
+          ]
+            .map(csvCell)
+            .join(",")
+        );
+
+        // Truncation is announced rather than silent: a report that quietly stops
+        // at ten thousand rows reads as "this is everything" when it is not.
+        if (rows.length === MAX_EXPORT_ROWS) {
+          body.push(
+            csvCell(
+              `TRUNCATED at ${MAX_EXPORT_ROWS} rows. Narrow the date range to export the rest.`
+            )
+          );
+        }
+
+        return new NextResponse([header.join(","), ...body].join("\n"), {
+          headers: {
+            "content-type": "text/csv; charset=utf-8",
+            "content-disposition": `attachment; filename="authorization-audit-${actor.organization.slug}.csv"`
+          }
+        });
+      }
+
+      const page = rows.slice(0, PAGE_SIZE);
+
+      return NextResponse.json({
+        entries: page.map((row) => ({
+          ...row,
+          createdAt: row.createdAt.toISOString()
+        })),
+        nextCursor: rows.length > PAGE_SIZE ? page[page.length - 1].id : null,
+        epoch: actor.epoch
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    const page = rows.slice(0, PAGE_SIZE);
-
-    return NextResponse.json({
-      entries: page.map((row) => ({
-        ...row,
-        createdAt: row.createdAt.toISOString()
-      })),
-      nextCursor: rows.length > PAGE_SIZE ? page[page.length - 1].id : null,
-      epoch: actor.epoch
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

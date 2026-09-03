@@ -19,6 +19,7 @@ import {
 } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Putting a package on one event's menu, and taking it back off.
@@ -190,306 +191,312 @@ function gateResponse(gate: Exclude<MenuGate, { kind: "ok" }>) {
 }
 
 /** Puts every dish in a package onto the event's menu. */
-export async function POST(
+export const POST = withRoute(
+  "POST /api/events/[eventId]/menu/package",
+  async (
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    // The permission every other write to an event menu asks for.
-    const actor = await authorize(request, "eventmenu.update");
-    const { eventId } = await params;
-    const id = eventIdSchema.parse(eventId);
-    const input = applySchema.parse(await request.json());
+    { params }: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      // The permission every other write to an event menu asks for.
+      const actor = await authorize(request, "eventmenu.update");
+      const { eventId } = await params;
+      const id = eventIdSchema.parse(eventId);
+      const input = applySchema.parse(await request.json());
 
-    const event = await loadEventForMenu(actor, id);
+      const event = await loadEventForMenu(actor, id);
 
-    if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    assertInScope(actor, "hall", event.hallId);
-
-    // Scoped to this organization and to an active package, the same check the
-    // client portal makes before it lets a package near an event.
-    const eventPackage = await prisma.eventPackage.findFirst({
-      where: {
-        id: input.packageId,
-        organizationId: actor.organizationId,
-        isActive: true
-      },
-      select: {
-        id: true,
-        name: true,
-        includedMenuItemIds: true,
-        defaultTimeline: true
+      if (!event) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
       }
-    });
 
-    if (!eventPackage) {
-      return NextResponse.json(
-        { error: "That package is not available for this event." },
-        { status: 400 }
-      );
-    }
+      assertInScope(actor, "hall", event.hallId);
 
-    // Deactivated dishes are skipped rather than refused: a package that has
-    // outlived one of its items should still be applicable, minus that item.
-    // Their service rules come along because they decide which style each line
-    // lands under, and the answer is unknowable once the lines are written.
-    const items = await prisma.menuItem.findMany({
-      where: {
-        id: { in: eventPackage.includedMenuItemIds },
-        organizationId: actor.organizationId,
-        isActive: true
-      },
-      select: { id: true, services: { select: { serviceStyle: true } } }
-    });
-
-    if (items.length === 0) {
-      return NextResponse.json(
-        {
-          error:
-            "This package has no active menu items to add. Add items to it in the menu library first."
+      // Scoped to this organization and to an active package, the same check the
+      // client portal makes before it lets a package near an event.
+      const eventPackage = await prisma.eventPackage.findFirst({
+        where: {
+          id: input.packageId,
+          organizationId: actor.organizationId,
+          isActive: true
         },
-        { status: 400 }
-      );
-    }
-
-    const packageItemIds = new Set(items.map((item) => item.id));
-
-    const result = await prisma.$transaction(async (transaction) => {
-      const gate = await openMenuForWrite(transaction, {
-        organizationId: actor.organizationId,
-        eventId: id,
-        meal: input.meal,
-        version: input.version,
-        createWhenMissing: true
-      });
-
-      if (gate.kind !== "ok") return gate;
-
-      const existingLines = await transaction.eventMenuLine.findMany({
-        where: { eventMenuId: gate.id },
-        select: { id: true, menuItemId: true, source: true, sortOrder: true }
-      });
-
-      // Swapping packages: whatever the previous one put here and this one does
-      // not include goes, so the menu matches the package it now names. A dish
-      // in both packages stays put and keeps the style it was given, along with
-      // however many of it the event ordered - the row is never rewritten, so
-      // `quantity_multiplier` survives the swap. Additions take the column's
-      // default of one; a package is a list of dishes and cannot ask for two.
-      const supersededIds = existingLines
-        .filter(
-          (line) =>
-            line.source === PACKAGE_SOURCE &&
-            line.menuItemId !== null &&
-            !packageItemIds.has(line.menuItemId)
-        )
-        .map((line) => line.id);
-
-      if (supersededIds.length > 0) {
-        await transaction.eventMenuLine.deleteMany({
-          where: { id: { in: supersededIds } }
-        });
-      }
-
-      const keptItemIds = new Set(
-        existingLines
-          .filter((line) => !supersededIds.includes(line.id))
-          .map((line) => line.menuItemId)
-          .filter((value): value is string => Boolean(value))
-      );
-      // Already on the menu by hand: left exactly as it is, tag included. The
-      // user put it there, and relabelling it would have the package's removal
-      // take it away.
-      const additions = items.filter((item) => !keptItemIds.has(item.id));
-      const nextSortOrder =
-        existingLines.reduce(
-          (highest, line) => Math.max(highest, line.sortOrder),
-          -1
-        ) + 1;
-
-      if (additions.length > 0) {
-        await transaction.eventMenuLine.createMany({
-          data: additions.map((item, index) => {
-            const styles = [
-              ...new Set(item.services.map((service) => service.serviceStyle))
-            ];
-
-            return {
-              organizationId: actor.organizationId,
-              eventMenuId: gate.id,
-              menuItemId: item.id,
-              // A dish served exactly one way needs no decision. One that
-              // carries both rules is left unanswered for staff to settle in
-              // the tab, because guessing picks the quantity the kitchen cooks.
-              serviceStyle: styles.length === 1 ? styles[0] : null,
-              sortOrder: nextSortOrder + index,
-              source: PACKAGE_SOURCE,
-              addedById: actor.userId
-            };
-          })
-        });
-      }
-
-      /*
-       * The package's saved schedule, copied onto an event that has none.
-       *
-       * Only onto an empty one. A timeline somebody has typed is the answer for
-       * that event, and a package applied afterwards - to add a forgotten dish,
-       * or because the package was swapped - must not throw it away. An event
-       * that already has rows simply keeps them.
-       *
-       * Read inside the transaction rather than from the row loaded above, so a
-       * timeline saved while this request was in flight still counts as present.
-       */
-      const packageTimeline = readStoredTimeline(eventPackage.defaultTimeline);
-      let workspaceData: Prisma.InputJsonObject | undefined;
-
-      if (packageTimeline.length > 0) {
-        const current = await transaction.event.findFirst({
-          where: { id, organizationId: actor.organizationId },
-          select: { workspaceData: true }
-        });
-        const previousWorkspace =
-          current?.workspaceData &&
-          typeof current.workspaceData === "object" &&
-          !Array.isArray(current.workspaceData)
-            ? (current.workspaceData as Record<string, unknown>)
-            : {};
-
-        if (readStoredTimeline(previousWorkspace.timeline).length === 0) {
-          workspaceData = {
-            ...previousWorkspace,
-            timeline: packageTimeline,
-            // A copied schedule is a starting point, not a decision. Confirming
-            // is what tells staff to follow it, and that stays theirs to do.
-            timelineConfirmed: false
-          } as Prisma.InputJsonObject;
+        select: {
+          id: true,
+          name: true,
+          includedMenuItemIds: true,
+          defaultTimeline: true
         }
-      }
-
-      await mirrorOntoEvent(transaction, {
-        organizationId: actor.organizationId,
-        eventId: id,
-        eventMenuId: gate.id,
-        actorId: requireUserActor(actor),
-        packageColumns: {
-          packageId: eventPackage.id,
-          packageName: eventPackage.name
-        },
-        workspaceData
       });
 
-      return gate;
-    });
+      if (!eventPackage) {
+        return NextResponse.json(
+          { error: "That package is not available for this event." },
+          { status: 400 }
+        );
+      }
 
-    if (result.kind !== "ok") return gateResponse(result);
+      // Deactivated dishes are skipped rather than refused: a package that has
+      // outlived one of its items should still be applicable, minus that item.
+      // Their service rules come along because they decide which style each line
+      // lands under, and the answer is unknowable once the lines are written.
+      const items = await prisma.menuItem.findMany({
+        where: {
+          id: { in: eventPackage.includedMenuItemIds },
+          organizationId: actor.organizationId,
+          isActive: true
+        },
+        select: { id: true, services: { select: { serviceStyle: true } } }
+      });
 
-    // The whole saved menu, the way every other write to it answers, so the tab
-    // draws the result instead of going back for it.
-    return NextResponse.json({
-      menu: await readPresentedMenu(result.id, {
-        organizationId: actor.organizationId,
-        packageId: eventPackage.id
-      })
-    });
-  } catch (error) {
-    // Two writes creating the header at once: the unique caught the loser.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return conflict();
+      if (items.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "This package has no active menu items to add. Add items to it in the menu library first."
+          },
+          { status: 400 }
+        );
+      }
+
+      const packageItemIds = new Set(items.map((item) => item.id));
+
+      const result = await prisma.$transaction(async (transaction) => {
+        const gate = await openMenuForWrite(transaction, {
+          organizationId: actor.organizationId,
+          eventId: id,
+          meal: input.meal,
+          version: input.version,
+          createWhenMissing: true
+        });
+
+        if (gate.kind !== "ok") return gate;
+
+        const existingLines = await transaction.eventMenuLine.findMany({
+          where: { eventMenuId: gate.id },
+          select: { id: true, menuItemId: true, source: true, sortOrder: true }
+        });
+
+        // Swapping packages: whatever the previous one put here and this one does
+        // not include goes, so the menu matches the package it now names. A dish
+        // in both packages stays put and keeps the style it was given, along with
+        // however many of it the event ordered - the row is never rewritten, so
+        // `quantity_multiplier` survives the swap. Additions take the column's
+        // default of one; a package is a list of dishes and cannot ask for two.
+        const supersededIds = existingLines
+          .filter(
+            (line) =>
+              line.source === PACKAGE_SOURCE &&
+              line.menuItemId !== null &&
+              !packageItemIds.has(line.menuItemId)
+          )
+          .map((line) => line.id);
+
+        if (supersededIds.length > 0) {
+          await transaction.eventMenuLine.deleteMany({
+            where: { id: { in: supersededIds } }
+          });
+        }
+
+        const keptItemIds = new Set(
+          existingLines
+            .filter((line) => !supersededIds.includes(line.id))
+            .map((line) => line.menuItemId)
+            .filter((value): value is string => Boolean(value))
+        );
+        // Already on the menu by hand: left exactly as it is, tag included. The
+        // user put it there, and relabelling it would have the package's removal
+        // take it away.
+        const additions = items.filter((item) => !keptItemIds.has(item.id));
+        const nextSortOrder =
+          existingLines.reduce(
+            (highest, line) => Math.max(highest, line.sortOrder),
+            -1
+          ) + 1;
+
+        if (additions.length > 0) {
+          await transaction.eventMenuLine.createMany({
+            data: additions.map((item, index) => {
+              const styles = [
+                ...new Set(item.services.map((service) => service.serviceStyle))
+              ];
+
+              return {
+                organizationId: actor.organizationId,
+                eventMenuId: gate.id,
+                menuItemId: item.id,
+                // A dish served exactly one way needs no decision. One that
+                // carries both rules is left unanswered for staff to settle in
+                // the tab, because guessing picks the quantity the kitchen cooks.
+                serviceStyle: styles.length === 1 ? styles[0] : null,
+                sortOrder: nextSortOrder + index,
+                source: PACKAGE_SOURCE,
+                addedById: actor.userId
+              };
+            })
+          });
+        }
+
+        /*
+         * The package's saved schedule, copied onto an event that has none.
+         *
+         * Only onto an empty one. A timeline somebody has typed is the answer for
+         * that event, and a package applied afterwards - to add a forgotten dish,
+         * or because the package was swapped - must not throw it away. An event
+         * that already has rows simply keeps them.
+         *
+         * Read inside the transaction rather than from the row loaded above, so a
+         * timeline saved while this request was in flight still counts as present.
+         */
+        const packageTimeline = readStoredTimeline(eventPackage.defaultTimeline);
+        let workspaceData: Prisma.InputJsonObject | undefined;
+
+        if (packageTimeline.length > 0) {
+          const current = await transaction.event.findFirst({
+            where: { id, organizationId: actor.organizationId },
+            select: { workspaceData: true }
+          });
+          const previousWorkspace =
+            current?.workspaceData &&
+            typeof current.workspaceData === "object" &&
+            !Array.isArray(current.workspaceData)
+              ? (current.workspaceData as Record<string, unknown>)
+              : {};
+
+          if (readStoredTimeline(previousWorkspace.timeline).length === 0) {
+            workspaceData = {
+              ...previousWorkspace,
+              timeline: packageTimeline,
+              // A copied schedule is a starting point, not a decision. Confirming
+              // is what tells staff to follow it, and that stays theirs to do.
+              timelineConfirmed: false
+            } as Prisma.InputJsonObject;
+          }
+        }
+
+        await mirrorOntoEvent(transaction, {
+          organizationId: actor.organizationId,
+          eventId: id,
+          eventMenuId: gate.id,
+          actorId: requireUserActor(actor),
+          packageColumns: {
+            packageId: eventPackage.id,
+            packageName: eventPackage.name
+          },
+          workspaceData
+        });
+
+        return gate;
+      });
+
+      if (result.kind !== "ok") return gateResponse(result);
+
+      // The whole saved menu, the way every other write to it answers, so the tab
+      // draws the result instead of going back for it.
+      return NextResponse.json({
+        menu: await readPresentedMenu(result.id, {
+          organizationId: actor.organizationId,
+          packageId: eventPackage.id
+        })
+      });
+    } catch (error) {
+      // Two writes creating the header at once: the unique caught the loser.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        return conflict();
+      }
+
+      return createApiErrorResponse(error);
     }
-
-    return createApiErrorResponse(error);
   }
-}
+);
 
 /**
  * Takes the package back off: its lines go, the event stops naming it, and
  * anything staff added by hand stays exactly where it is.
  */
-export async function DELETE(
+export const DELETE = withRoute(
+  "DELETE /api/events/[eventId]/menu/package",
+  async (
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "eventmenu.update");
-    const { eventId } = await params;
-    const id = eventIdSchema.parse(eventId);
-    // Query params rather than a body: a DELETE with one is accepted unevenly
-    // by proxies, and there are only two scalars to carry.
-    const searchParams = new URL(request.url).searchParams;
-    const rawVersion = searchParams.get("version");
-    const input = removeSchema.parse({
-      meal: searchParams.get("meal") ?? undefined,
-      version: rawVersion === null ? undefined : Number(rawVersion)
-    });
-
-    const event = await loadEventForMenu(actor, id);
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    assertInScope(actor, "hall", event.hallId);
-
-    const clearedColumns = { packageId: null, packageName: null };
-
-    const result = await prisma.$transaction(async (transaction) => {
-      const gate = await openMenuForWrite(transaction, {
-        organizationId: actor.organizationId,
-        eventId: id,
-        meal: input.meal,
-        version: input.version,
-        createWhenMissing: false
+    { params }: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "eventmenu.update");
+      const { eventId } = await params;
+      const id = eventIdSchema.parse(eventId);
+      // Query params rather than a body: a DELETE with one is accepted unevenly
+      // by proxies, and there are only two scalars to carry.
+      const searchParams = new URL(request.url).searchParams;
+      const rawVersion = searchParams.get("version");
+      const input = removeSchema.parse({
+        meal: searchParams.get("meal") ?? undefined,
+        version: rawVersion === null ? undefined : Number(rawVersion)
       });
 
-      // No menu row at all: there are no lines to drop, but the event may still
-      // name a package - one chosen at booking or through the client portal -
-      // and the user asked for that to go.
-      if (gate.kind === "missing") {
-        await transaction.event.update({
-          where: { id, organizationId: actor.organizationId },
-          data: { ...clearedColumns, updatedById: actor.userId }
+      const event = await loadEventForMenu(actor, id);
+
+      if (!event) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      }
+
+      assertInScope(actor, "hall", event.hallId);
+
+      const clearedColumns = { packageId: null, packageName: null };
+
+      const result = await prisma.$transaction(async (transaction) => {
+        const gate = await openMenuForWrite(transaction, {
+          organizationId: actor.organizationId,
+          eventId: id,
+          meal: input.meal,
+          version: input.version,
+          createWhenMissing: false
+        });
+
+        // No menu row at all: there are no lines to drop, but the event may still
+        // name a package - one chosen at booking or through the client portal -
+        // and the user asked for that to go.
+        if (gate.kind === "missing") {
+          await transaction.event.update({
+            where: { id, organizationId: actor.organizationId },
+            data: { ...clearedColumns, updatedById: actor.userId }
+          });
+
+          return gate;
+        }
+
+        if (gate.kind !== "ok") return gate;
+
+        await transaction.eventMenuLine.deleteMany({
+          where: { eventMenuId: gate.id, source: PACKAGE_SOURCE }
+        });
+
+        await mirrorOntoEvent(transaction, {
+          organizationId: actor.organizationId,
+          eventId: id,
+          eventMenuId: gate.id,
+          actorId: requireUserActor(actor),
+          packageColumns: clearedColumns
         });
 
         return gate;
+      });
+
+      if (result.kind === "missing") {
+        return NextResponse.json({ menu: emptyMenu(input.meal, null) });
       }
 
-      if (gate.kind !== "ok") return gate;
+      if (result.kind !== "ok") return gateResponse(result);
 
-      await transaction.eventMenuLine.deleteMany({
-        where: { eventMenuId: gate.id, source: PACKAGE_SOURCE }
+      return NextResponse.json({
+        menu: await readPresentedMenu(result.id, {
+          organizationId: actor.organizationId,
+          packageId: null
+        })
       });
-
-      await mirrorOntoEvent(transaction, {
-        organizationId: actor.organizationId,
-        eventId: id,
-        eventMenuId: gate.id,
-        actorId: requireUserActor(actor),
-        packageColumns: clearedColumns
-      });
-
-      return gate;
-    });
-
-    if (result.kind === "missing") {
-      return NextResponse.json({ menu: emptyMenu(input.meal, null) });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    if (result.kind !== "ok") return gateResponse(result);
-
-    return NextResponse.json({
-      menu: await readPresentedMenu(result.id, {
-        organizationId: actor.organizationId,
-        packageId: null
-      })
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

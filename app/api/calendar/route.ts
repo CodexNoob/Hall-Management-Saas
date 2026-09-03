@@ -5,6 +5,7 @@ import { authorize, scoped, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { dailyEventLimitFromIntegrations } from "@/lib/bookings/hall-day-availability";
+import { withRoute } from "@/lib/http/with-route";
 
 const rangeSchema = z.object({
   startDate: z.string().date(),
@@ -61,81 +62,84 @@ function calendarDisplayFromIntegrations(integrations: unknown) {
   };
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await authorize(request, "calendar.read");
-    const url = new URL(request.url);
-    const range = rangeSchema.parse({
-      startDate: url.searchParams.get("startDate"),
-      endDate: url.searchParams.get("endDate")
-    });
-    const startDate = new Date(`${range.startDate}T00:00:00.000Z`);
-    const endDate = new Date(`${range.endDate}T00:00:00.000Z`);
-    if (endDate < startDate) throw new z.ZodError([]);
+export const GET = withRoute(
+  "GET /api/calendar",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "calendar.read");
+      const url = new URL(request.url);
+      const range = rangeSchema.parse({
+        startDate: url.searchParams.get("startDate"),
+        endDate: url.searchParams.get("endDate")
+      });
+      const startDate = new Date(`${range.startDate}T00:00:00.000Z`);
+      const endDate = new Date(`${range.endDate}T00:00:00.000Z`);
+      if (endDate < startDate) throw new z.ZodError([]);
 
-    const [events, halls, eventTypes, settings, blockedDates] =
-      await Promise.all([
-        prisma.event.findMany({
-          where: {
-            ...tenant(actor),
-            deleted: false,
-            ...scoped(actor, "hall"),
-            bookingStatus: { in: ["CONFIRMED", "TENTATIVE_HOLD", "COMPLETED"] },
-            eventDate: { gte: startDate, lte: endDate }
-          },
-          orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
-          select: {
-            id: true,
-            clientName: true,
-            eventDate: true,
-            eventStatus: true,
-            bookingStatus: true,
-            eventType: true,
-            packageName: true,
-            hall: { select: { id: true, name: true, color: true } }
-          }
-        }),
-        prisma.hall.findMany({
-          where: {
-            ...tenant(actor),
-            isActive: true,
-            isBookable: true,
-            ...scoped(actor, "hall", { field: "id" })
-          },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true, color: true, dailyEventLimit: true }
-        }),
-        prisma.eventType.findMany({
-          where: { ...tenant(actor), isActive: true },
-          orderBy: { name: "asc" },
-          select: { id: true, name: true }
-        }),
-        prisma.organizationSetting.upsert({
-          where: { ...tenant(actor) },
-          update: {},
-          create: { organizationId: actor.organizationId },
-          select: { integrations: true }
-        }),
-        prisma.holidayBlockedDate.findMany({
-          where: {
-            ...tenant(actor),
-            isBlocked: true
-          },
-          orderBy: [{ startDate: "asc" }, { endDate: "asc" }]
-        })
-      ]);
+      const [events, halls, eventTypes, settings, blockedDates] =
+        await Promise.all([
+          prisma.event.findMany({
+            where: {
+              ...tenant(actor),
+              deleted: false,
+              ...scoped(actor, "hall"),
+              bookingStatus: { in: ["CONFIRMED", "TENTATIVE_HOLD", "COMPLETED"] },
+              eventDate: { gte: startDate, lte: endDate }
+            },
+            orderBy: [{ eventDate: "asc" }, { startsAt: "asc" }],
+            select: {
+              id: true,
+              clientName: true,
+              eventDate: true,
+              eventStatus: true,
+              bookingStatus: true,
+              eventType: true,
+              packageName: true,
+              hall: { select: { id: true, name: true, color: true } }
+            }
+          }),
+          prisma.hall.findMany({
+            where: {
+              ...tenant(actor),
+              isActive: true,
+              isBookable: true,
+              ...scoped(actor, "hall", { field: "id" })
+            },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true, color: true, dailyEventLimit: true }
+          }),
+          prisma.eventType.findMany({
+            where: { ...tenant(actor), isActive: true },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true }
+          }),
+          prisma.organizationSetting.upsert({
+            where: { ...tenant(actor) },
+            update: {},
+            create: { organizationId: actor.organizationId },
+            select: { integrations: true }
+          }),
+          prisma.holidayBlockedDate.findMany({
+            where: {
+              ...tenant(actor),
+              isBlocked: true
+            },
+            orderBy: [{ startDate: "asc" }, { endDate: "asc" }]
+          })
+        ]);
 
-    return NextResponse.json({
-      events,
-      halls,
-      eventTypes,
-      blockedDates,
-      calendarSettings: {
-        dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations),
-        ...calendarDisplayFromIntegrations(settings.integrations)
-      }
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({
+        events,
+        halls,
+        eventTypes,
+        blockedDates,
+        calendarSettings: {
+          dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations),
+          ...calendarDisplayFromIntegrations(settings.integrations)
+        }
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

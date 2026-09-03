@@ -8,6 +8,7 @@ import {
   RESET_SCOPES
 } from "@/features/settings/lib/organization-reset-scopes";
 import { resetOrganization } from "@/features/settings/server/organization-reset";
+import { withRoute } from "@/lib/http/with-route";
 
 const resetSchema = z.object({
   scope: z.enum(RESET_SCOPES),
@@ -22,33 +23,36 @@ const resetSchema = z.object({
   confirmation: z.string()
 });
 
-export async function POST(request: Request) {
-  try {
-    // Its own key, not `settings.update`: this is the one act in the catalog
-    // with nothing to undo it. `requireUserActor` because a service account has
-    // no membership, and this needs a person to keep signed in afterwards - and
-    // somebody to name in the audit entry.
-    const actor = await authorize(request, "organization.reset");
-    const userId = requireUserActor(actor);
-    const input = resetSchema.parse(await request.json());
+export const POST = withRoute(
+  "POST /api/settings/reset",
+  async (request: Request) => {
+    try {
+      // Its own key, not `settings.update`: this is the one act in the catalog
+      // with nothing to undo it. `requireUserActor` because a service account has
+      // no membership, and this needs a person to keep signed in afterwards - and
+      // somebody to name in the audit entry.
+      const actor = await authorize(request, "organization.reset");
+      const userId = requireUserActor(actor);
+      const input = resetSchema.parse(await request.json());
 
-    if (input.confirmation.trim() !== RESET_CONFIRMATIONS[input.scope]) {
-      return NextResponse.json(
-        {
-          error: `Type ${RESET_CONFIRMATIONS[input.scope]} to confirm this reset.`
-        },
-        { status: 400 }
-      );
+      if (input.confirmation.trim() !== RESET_CONFIRMATIONS[input.scope]) {
+        return NextResponse.json(
+          {
+            error: `Type ${RESET_CONFIRMATIONS[input.scope]} to confirm this reset.`
+          },
+          { status: 400 }
+        );
+      }
+
+      const outcome = await resetOrganization({
+        organizationId: actor.organizationId,
+        actorUserId: userId,
+        scope: input.scope
+      });
+
+      return NextResponse.json(outcome);
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    const outcome = await resetOrganization({
-      organizationId: actor.organizationId,
-      actorUserId: userId,
-      scope: input.scope
-    });
-
-    return NextResponse.json(outcome);
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

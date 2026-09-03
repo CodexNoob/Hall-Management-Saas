@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { updateStaffProfile } from "@/features/administration/server/staff-route-handlers";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * A person's profile - name, phone, department, title.
@@ -10,18 +11,21 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
  * endpoint uses. A user id would be the one identifier that spans tenants, which
  * is exactly the shape of the bug the global `users.role` column caused.
  */
-export async function PATCH(
+export const PATCH = withRoute(
+  "PATCH /api/staff/[principalId]",
+  async (
   request: Request,
-  context: { params: Promise<{ principalId: string }> }
-) {
-  try {
-    const { principalId } = await context.params;
+    context: { params: Promise<{ principalId: string }> }
+  ) => {
+    try {
+      const { principalId } = await context.params;
 
-    return await updateStaffProfile(
-      request,
-      z.string().uuid().parse(principalId)
-    );
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return await updateStaffProfile(
+        request,
+        z.string().uuid().parse(principalId)
+      );
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

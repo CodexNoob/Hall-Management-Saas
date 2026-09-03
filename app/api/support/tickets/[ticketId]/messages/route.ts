@@ -4,55 +4,59 @@ import { prisma } from "@/lib/prisma";
 import { authorizeMember, hasPermission, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { withRoute } from "@/lib/http/with-route";
 
 const schema = z.object({ body: z.string().trim().min(2).max(3_000) });
 
-export async function POST(request: Request, context: { params: Promise<{ ticketId: string }> }) {
-  try {
-    const limited = await enforceRateLimit(request, {
-      scope: "support-ticket-message",
-      limit: 20,
-      windowMs: 10 * 60 * 1000
-    });
-    if (limited) return limited;
-    const actor = await authorizeMember(request);
-    const { ticketId } = await context.params;
-    const { body } = schema.parse(await request.json());
-    const ticket = await prisma.supportTicket.findFirst({
-      where: {
-        id: ticketId,
-        organizationId: actor.organizationId,
-        ...((await hasPermission(actor, "staff.read"))
-          ? {}
-          : { createdById: requireUserActor(actor) })
-      },
-      select: { id: true }
-    });
-    if (!ticket) return NextResponse.json({ error: "Support ticket not found." }, { status: 404 });
-    const message = await prisma.$transaction(async (transaction) => {
-      const created = await transaction.supportTicketMessage.create({
-        data: {
+export const POST = withRoute(
+  "POST /api/support/tickets/[ticketId]/messages",
+  async (request: Request, context: { params: Promise<{ ticketId: string }> }) => {
+    try {
+      const limited = await enforceRateLimit(request, {
+        scope: "support-ticket-message",
+        limit: 20,
+        windowMs: 10 * 60 * 1000
+      });
+      if (limited) return limited;
+      const actor = await authorizeMember(request);
+      const { ticketId } = await context.params;
+      const { body } = schema.parse(await request.json());
+      const ticket = await prisma.supportTicket.findFirst({
+        where: {
+          id: ticketId,
           organizationId: actor.organizationId,
-          ticketId,
-          authorId: actor.userId,
-          body
+          ...((await hasPermission(actor, "staff.read"))
+            ? {}
+            : { createdById: requireUserActor(actor) })
         },
-        select: {
-          id: true,
-          body: true,
-          isStaffReply: true,
-          createdAt: true,
-          author: { select: { name: true } }
-        }
+        select: { id: true }
       });
-      await transaction.supportTicket.update({
-        where: { id: ticketId },
-        data: { status: "CUSTOMER_REPLIED" }
+      if (!ticket) return NextResponse.json({ error: "Support ticket not found." }, { status: 404 });
+      const message = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.supportTicketMessage.create({
+          data: {
+            organizationId: actor.organizationId,
+            ticketId,
+            authorId: actor.userId,
+            body
+          },
+          select: {
+            id: true,
+            body: true,
+            isStaffReply: true,
+            createdAt: true,
+            author: { select: { name: true } }
+          }
+        });
+        await transaction.supportTicket.update({
+          where: { id: ticketId },
+          data: { status: "CUSTOMER_REPLIED" }
+        });
+        return created;
       });
-      return created;
-    });
-    return NextResponse.json({ message }, { status: 201 });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({ message }, { status: 201 });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

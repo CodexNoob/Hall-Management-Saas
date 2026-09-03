@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { phoneSchema } from "@/lib/validation/phone";
+import { withRoute } from "@/lib/http/with-route";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(200).optional(),
@@ -15,20 +16,23 @@ const schema = z.object({
   notes: z.string().trim().max(2000).optional()
 });
 
-export async function PATCH(
+export const PATCH = withRoute(
+  "PATCH /api/vendors/[vendorId]",
+  async (
   request: Request,
-  { params }: { params: Promise<{ vendorId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "vendor.manage");
-    const { vendorId } = await params;
-    const id = z.string().uuid().parse(vendorId);
-    const vendor = await prisma.vendor.update({
-      where: { id, organizationId: actor.organizationId },
-      data: schema.parse(await request.json())
-    });
-    return NextResponse.json({ vendor });
-  } catch (error) {
-    return createApiErrorResponse(error);
+    { params }: { params: Promise<{ vendorId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "vendor.manage");
+      const { vendorId } = await params;
+      const id = z.string().uuid().parse(vendorId);
+      const vendor = await prisma.vendor.update({
+        where: { id, organizationId: actor.organizationId },
+        data: schema.parse(await request.json())
+      });
+      return NextResponse.json({ vendor });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

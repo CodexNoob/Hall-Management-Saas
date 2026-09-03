@@ -10,6 +10,7 @@ import {
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
+import { withRoute } from "@/lib/http/with-route";
 
 const workerIdSchema = z.string().uuid();
 
@@ -30,64 +31,67 @@ async function loadWorker(organizationId: string, id: string) {
   });
 }
 
-export async function PATCH(
+export const PATCH = withRoute(
+  "PATCH /api/kitchen/workers/[workerId]",
+  async (
   request: Request,
-  { params }: { params: Promise<{ workerId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "kitchen.worker.assign");
-    const { workerId } = await params;
-    const id = workerIdSchema.parse(workerId);
-    const input = updateWorkerSchema.parse(await request.json());
+    { params }: { params: Promise<{ workerId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "kitchen.worker.assign");
+      const { workerId } = await params;
+      const id = workerIdSchema.parse(workerId);
+      const input = updateWorkerSchema.parse(await request.json());
 
-    // Read first rather than leaning on the update's where clause, so a worker
-    // belonging to another organization answers 404 instead of surfacing as a
-    // Prisma error. Same shape the menu item route uses.
-    const current = await loadWorker(actor.organizationId, id);
+      // Read first rather than leaning on the update's where clause, so a worker
+      // belonging to another organization answers 404 instead of surfacing as a
+      // Prisma error. Same shape the menu item route uses.
+      const current = await loadWorker(actor.organizationId, id);
 
-    if (!current) {
-      return NextResponse.json(
-        { error: "Kitchen worker not found." },
-        { status: 404 }
-      );
-    }
+      if (!current) {
+        return NextResponse.json(
+          { error: "Kitchen worker not found." },
+          { status: 404 }
+        );
+      }
 
-    if (input.name) {
-      const clash = await prisma.kitchenWorker.findFirst({
-        where: {
-          organizationId: actor.organizationId,
-          name: { equals: input.name, mode: "insensitive" },
-          id: { not: id }
-        },
-        select: { id: true }
+      if (input.name) {
+        const clash = await prisma.kitchenWorker.findFirst({
+          where: {
+            organizationId: actor.organizationId,
+            name: { equals: input.name, mode: "insensitive" },
+            id: { not: id }
+          },
+          select: { id: true }
+        });
+
+        if (clash) {
+          return NextResponse.json(
+            { error: DUPLICATE_WORKER_MESSAGE },
+            { status: 409 }
+          );
+        }
+      }
+
+      const worker = await prisma.kitchenWorker.update({
+        where: { id },
+        data: input,
+        select: workerSelect
       });
 
-      if (clash) {
+      return NextResponse.json({ worker });
+    } catch (error) {
+      if (isDuplicateWorkerError(error)) {
         return NextResponse.json(
           { error: DUPLICATE_WORKER_MESSAGE },
           { status: 409 }
         );
       }
+
+      return createApiErrorResponse(error);
     }
-
-    const worker = await prisma.kitchenWorker.update({
-      where: { id },
-      data: input,
-      select: workerSelect
-    });
-
-    return NextResponse.json({ worker });
-  } catch (error) {
-    if (isDuplicateWorkerError(error)) {
-      return NextResponse.json(
-        { error: DUPLICATE_WORKER_MESSAGE },
-        { status: 409 }
-      );
-    }
-
-    return createApiErrorResponse(error);
   }
-}
+);
 
 /**
  * Retires a worker. Deliberately not a row delete.
@@ -96,31 +100,34 @@ export async function PATCH(
  * fails against the foreign key or takes the name off work that has already
  * been done. A kitchen sheet from last month should still say who cooked it.
  */
-export async function DELETE(
+export const DELETE = withRoute(
+  "DELETE /api/kitchen/workers/[workerId]",
+  async (
   request: Request,
-  { params }: { params: Promise<{ workerId: string }> }
-) {
-  try {
-    const actor = await authorize(request, "kitchen.worker.assign");
-    const { workerId } = await params;
-    const id = workerIdSchema.parse(workerId);
-    const current = await loadWorker(actor.organizationId, id);
+    { params }: { params: Promise<{ workerId: string }> }
+  ) => {
+    try {
+      const actor = await authorize(request, "kitchen.worker.assign");
+      const { workerId } = await params;
+      const id = workerIdSchema.parse(workerId);
+      const current = await loadWorker(actor.organizationId, id);
 
-    if (!current) {
-      return NextResponse.json(
-        { error: "Kitchen worker not found." },
-        { status: 404 }
-      );
+      if (!current) {
+        return NextResponse.json(
+          { error: "Kitchen worker not found." },
+          { status: 404 }
+        );
+      }
+
+      const worker = await prisma.kitchenWorker.update({
+        where: { id },
+        data: { isActive: false },
+        select: workerSelect
+      });
+
+      return NextResponse.json({ worker });
+    } catch (error) {
+      return createApiErrorResponse(error);
     }
-
-    const worker = await prisma.kitchenWorker.update({
-      where: { id },
-      data: { isActive: false },
-      select: workerSelect
-    });
-
-    return NextResponse.json({ worker });
-  } catch (error) {
-    return createApiErrorResponse(error);
   }
-}
+);

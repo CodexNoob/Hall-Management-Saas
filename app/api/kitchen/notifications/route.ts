@@ -4,6 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { resolveKitchenVisibility } from "@/features/kitchen/server/kitchen-visibility-resolve";
 import { prisma } from "@/lib/prisma";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Both of these act on the organization's whole feed, so both are refused to
@@ -36,40 +37,46 @@ async function refuseScopedCaller(request: Request) {
   return { actor, response: null };
 }
 
-export async function PATCH(request: Request) {
-  try {
-    const { actor, response } = await refuseScopedCaller(request);
-    if (response) return response;
+export const PATCH = withRoute(
+  "PATCH /api/kitchen/notifications",
+  async (request: Request) => {
+    try {
+      const { actor, response } = await refuseScopedCaller(request);
+      if (response) return response;
 
-    const result = await prisma.kitchenNotification.updateMany({
-      where: {
-        organizationId: actor.organizationId,
-        requiresAcknowledgment: true,
-        acknowledgedAt: null
-      },
-      data: {
-        acknowledgedById: actor.userId,
-        acknowledgedAt: new Date()
-      }
-    });
+      const result = await prisma.kitchenNotification.updateMany({
+        where: {
+          organizationId: actor.organizationId,
+          requiresAcknowledgment: true,
+          acknowledgedAt: null
+        },
+        data: {
+          acknowledgedById: actor.userId,
+          acknowledgedAt: new Date()
+        }
+      });
 
-    return NextResponse.json({ acknowledgedCount: result.count });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({ acknowledgedCount: result.count });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
 
-export async function DELETE(request: Request) {
-  try {
-    const { actor, response } = await refuseScopedCaller(request);
-    if (response) return response;
+export const DELETE = withRoute(
+  "DELETE /api/kitchen/notifications",
+  async (request: Request) => {
+    try {
+      const { actor, response } = await refuseScopedCaller(request);
+      if (response) return response;
 
-    const result = await prisma.kitchenNotification.deleteMany({
-      where: { organizationId: actor.organizationId }
-    });
+      const result = await prisma.kitchenNotification.deleteMany({
+        where: { organizationId: actor.organizationId }
+      });
 
-    return NextResponse.json({ deletedCount: result.count });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json({ deletedCount: result.count });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

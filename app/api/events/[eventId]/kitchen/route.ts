@@ -17,6 +17,7 @@ import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
 import { listKitchenNotificationsForEvent } from "@/features/kitchen/server/kitchen-notifications";
 import { log } from "@/lib/logging/context";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * What the kitchen has to cook for one event, and how far along it is.
@@ -69,94 +70,97 @@ async function signLinePictures(
   }
 }
 
-export async function GET(
+export const GET = withRoute(
+  "GET /api/events/[eventId]/kitchen",
+  async (
   request: Request,
-  { params }: { params: Promise<{ eventId: string }> }
-) {
-  try {
-    // The menu tab's pair, plus the board's own permission. Not
-    // canViewEventManager alone: a manager who can already see and edit these
-    // dishes one tab across must not be 403'd here, and neither must a kitchen
-    // member, whose board opens this route for the dish list behind an event
-    // card. All three are reads of the same sheet.
-    const actor = await authorize(request, "kitchen.read");
-    const { eventId } = await params;
-    const id = eventIdSchema.parse(eventId);
-    const meal = mealSchema.parse(
-      new URL(request.url).searchParams.get("meal") ?? undefined
-    );
+    { params }: { params: Promise<{ eventId: string }> }
+  ) => {
+    try {
+      // The menu tab's pair, plus the board's own permission. Not
+      // canViewEventManager alone: a manager who can already see and edit these
+      // dishes one tab across must not be 403'd here, and neither must a kitchen
+      // member, whose board opens this route for the dish list behind an event
+      // card. All three are reads of the same sheet.
+      const actor = await authorize(request, "kitchen.read");
+      const { eventId } = await params;
+      const id = eventIdSchema.parse(eventId);
+      const meal = mealSchema.parse(
+        new URL(request.url).searchParams.get("meal") ?? undefined
+      );
 
-    const event = await prisma.event.findFirst({
-      where: {
-        id,
-        organizationId: actor.organizationId,
-        deleted: false
-      },
-      select: eventSelect
-    });
-
-    if (!event) {
-      return NextResponse.json({ error: "Event not found." }, { status: 404 });
-    }
-
-    assertInScope(actor, "hall", event.hallId);
-
-    // Resolved before the reads rather than after them, because the feed below
-    // is scoped by it now as well as the sheet.
-    const visibility = await resolveKitchenVisibility(actor);
-
-    const [menu, otherMeals, statuses, notifications] = await Promise.all([
-      prisma.eventMenu.findUnique({
-        where: { eventId_meal: { eventId: id, meal } },
-        select: kitchenMenuSelect
-      }),
-      // Keyed off the meal that was asked for rather than `Main`, so the day
-      // this route is called with `?meal=ShabbosDay` the answer is still the
-      // meals that sheet is not showing.
-      prisma.eventMenu.findMany({
+      const event = await prisma.event.findFirst({
         where: {
+          id,
+          organizationId: actor.organizationId,
+          deleted: false
+        },
+        select: eventSelect
+      });
+
+      if (!event) {
+        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+      }
+
+      assertInScope(actor, "hall", event.hallId);
+
+      // Resolved before the reads rather than after them, because the feed below
+      // is scoped by it now as well as the sheet.
+      const visibility = await resolveKitchenVisibility(actor);
+
+      const [menu, otherMeals, statuses, notifications] = await Promise.all([
+        prisma.eventMenu.findUnique({
+          where: { eventId_meal: { eventId: id, meal } },
+          select: kitchenMenuSelect
+        }),
+        // Keyed off the meal that was asked for rather than `Main`, so the day
+        // this route is called with `?meal=ShabbosDay` the answer is still the
+        // meals that sheet is not showing.
+        prisma.eventMenu.findMany({
+          where: {
+            eventId: id,
+            organizationId: actor.organizationId,
+            meal: { not: meal }
+          },
+          select: { meal: true }
+        }),
+        prisma.kitchenItemStatus.findMany({
+          where: { eventId: id, organizationId: actor.organizationId },
+          select: statusSelect
+        }),
+        listKitchenNotificationsForEvent({
           eventId: id,
           organizationId: actor.organizationId,
-          meal: { not: meal }
-        },
-        select: { meal: true }
-      }),
-      prisma.kitchenItemStatus.findMany({
-        where: { eventId: id, organizationId: actor.organizationId },
-        select: statusSelect
-      }),
-      listKitchenNotificationsForEvent({
-        eventId: id,
-        organizationId: actor.organizationId,
-        visibility
-      })
-    ]);
+          visibility
+        })
+      ]);
 
-    const signedUrlsByPath = await signLinePictures(
-      menu?.lines ?? [],
-      actor.organizationId
-    );
+      const signedUrlsByPath = await signLinePictures(
+        menu?.lines ?? [],
+        actor.organizationId
+      );
 
-    // The board withholds a scoped cook's colleagues' dishes; this route is the
-    // other way into the same sheet, so it has to withhold them too. Without
-    // this, opening an event card would hand back everything the board had just
-    // filtered out.
-    return NextResponse.json({
-      kitchen: buildKitchenSheet({
-        event,
-        meal,
-        menu,
-        otherMeals: otherMeals.map((row) => row.meal),
-        statuses,
-        visibility,
-        signedUrlsByPath
-      }),
-      notifications: notifications.notifications,
-      // Whether this event has older change notifications than the ones sent,
-      // so the panel can say so rather than reporting a count that is short.
-      notificationsHasMore: notifications.hasMore
-    });
-  } catch (error) {
-    return createApiErrorResponse(error);
+      // The board withholds a scoped cook's colleagues' dishes; this route is the
+      // other way into the same sheet, so it has to withhold them too. Without
+      // this, opening an event card would hand back everything the board had just
+      // filtered out.
+      return NextResponse.json({
+        kitchen: buildKitchenSheet({
+          event,
+          meal,
+          menu,
+          otherMeals: otherMeals.map((row) => row.meal),
+          statuses,
+          visibility,
+          signedUrlsByPath
+        }),
+        notifications: notifications.notifications,
+        // Whether this event has older change notifications than the ones sent,
+        // so the panel can say so rather than reporting a count that is short.
+        notificationsHasMore: notifications.hasMore
+      });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);

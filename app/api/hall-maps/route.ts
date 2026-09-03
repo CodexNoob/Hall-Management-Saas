@@ -20,6 +20,7 @@ import {
   type MapObject
 } from "@/features/hall-room-map/validations/hall-map.schema";
 import { log } from "@/lib/logging/context";
+import { withRoute } from "@/lib/http/with-route";
 
 const createPresetSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -197,88 +198,38 @@ async function readPreset(id: string, organizationId: string) {
   return row ? formatPreset(row) : null;
 }
 
-export async function GET(request: Request) {
-  try {
-    const actor = await getActor(request, "hallmap.read");
-    const [halls, presets, shapeLibrary] = await Promise.all([
-      prisma.hall.findMany({
-        where: {
-          organizationId: actor.organizationId,
-          isActive: true,
-          ...scoped(actor, "hall", { field: "id" })
-        },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, capacity: true }
-      }),
-      listHallMapPresets(actor),
-      listShapeLibrary(actor.organizationId)
-    ]);
+export const GET = withRoute(
+  "GET /api/hall-maps",
+  async (request: Request) => {
+    try {
+      const actor = await getActor(request, "hallmap.read");
+      const [halls, presets, shapeLibrary] = await Promise.all([
+        prisma.hall.findMany({
+          where: {
+            organizationId: actor.organizationId,
+            isActive: true,
+            ...scoped(actor, "hall", { field: "id" })
+          },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, capacity: true }
+        }),
+        listHallMapPresets(actor),
+        listShapeLibrary(actor.organizationId)
+      ]);
 
-    return NextResponse.json({ halls, presets, shapeLibrary });
-  } catch (error) {
-    return createHallMapErrorResponse(error);
+      return NextResponse.json({ halls, presets, shapeLibrary });
+    } catch (error) {
+      return createHallMapErrorResponse(error);
+    }
   }
-}
+);
 
-export async function POST(request: Request) {
-  try {
-    const actor = await getActor(request, "hallmap.update");
-    const input = createPresetSchema.parse(await request.json());
-    const hall = await prisma.hall.findFirst({
-      where: {
-        id: input.hallId,
-        organizationId: actor.organizationId,
-        isActive: true,
-        ...scoped(actor, "hall", { field: "id" })
-      },
-      select: { id: true }
-    });
-    if (!hall) {
-      return NextResponse.json(
-        { error: "Hall not found or unavailable." },
-        { status: 404 }
-      );
-    }
-
-    const pathError = backgroundPathError(
-      actor.organizationId,
-      input.backgroundPath
-    );
-    if (pathError) {
-      return NextResponse.json({ error: pathError }, { status: 400 });
-    }
-
-    const created = await prisma.hallMapPreset.create({
-      data: {
-        organizationId: actor.organizationId,
-        hallId: hall.id,
-        name: input.name,
-        objects: input.objects,
-        backgroundPath: input.backgroundPath ?? null
-      },
-      select: { id: true }
-    });
-    const preset = await readPreset(created.id, actor.organizationId);
-
-    return NextResponse.json({ preset }, { status: 201 });
-  } catch (error) {
-    return createHallMapErrorResponse(error);
-  }
-}
-
-export async function PATCH(request: Request) {
-  try {
-    const actor = await getActor(request, "hallmap.update");
-    const input = updatePresetSchema.parse(await request.json());
-    const current = await findPresetIdentity(input.id, actor);
-    if (!current) {
-      return NextResponse.json(
-        { error: "Hall map preset not found." },
-        { status: 404 }
-      );
-    }
-
-    if (input.hallId && input.hallId !== current.hallId) {
+export const POST = withRoute(
+  "POST /api/hall-maps",
+  async (request: Request) => {
+    try {
+      const actor = await getActor(request, "hallmap.update");
+      const input = createPresetSchema.parse(await request.json());
       const hall = await prisma.hall.findFirst({
         where: {
           id: input.hallId,
@@ -294,62 +245,124 @@ export async function PATCH(request: Request) {
           { status: 404 }
         );
       }
-    }
 
-    const pathError = backgroundPathError(
-      actor.organizationId,
-      input.backgroundPath
-    );
-    if (pathError) {
-      return NextResponse.json({ error: pathError }, { status: 400 });
-    }
-
-    await prisma.hallMapPreset.update({
-      where: { id: current.id },
-      data: {
-        ...(input.name !== undefined ? { name: input.name } : {}),
-        ...(input.hallId !== undefined ? { hallId: input.hallId } : {}),
-        ...(input.objects !== undefined ? { objects: input.objects } : {}),
-        ...(input.backgroundPath !== undefined
-          ? { backgroundPath: input.backgroundPath }
-          : {})
-      }
-    });
-
-    // The row is written; dropping the replaced image afterwards means a
-    // storage failure leaves an orphaned object rather than a broken save.
-    if (
-      input.backgroundPath !== undefined &&
-      current.backgroundPath &&
-      current.backgroundPath !== input.backgroundPath
-    ) {
-      await discardFloorPlan(actor.organizationId, current.backgroundPath);
-    }
-
-    const preset = await readPreset(current.id, actor.organizationId);
-
-    return NextResponse.json({ preset });
-  } catch (error) {
-    return createHallMapErrorResponse(error);
-  }
-}
-
-export async function DELETE(request: Request) {
-  try {
-    const actor = await getActor(request, "hallmap.update");
-    const input = deletePresetSchema.parse(await request.json());
-    const preset = await findPresetIdentity(input.id, actor);
-    if (!preset) {
-      return NextResponse.json(
-        { error: "Hall map preset not found." },
-        { status: 404 }
+      const pathError = backgroundPathError(
+        actor.organizationId,
+        input.backgroundPath
       );
-    }
+      if (pathError) {
+        return NextResponse.json({ error: pathError }, { status: 400 });
+      }
 
-    await prisma.hallMapPreset.delete({ where: { id: preset.id } });
-    await discardFloorPlan(actor.organizationId, preset.backgroundPath);
-    return NextResponse.json({ deleted: true });
-  } catch (error) {
-    return createHallMapErrorResponse(error);
+      const created = await prisma.hallMapPreset.create({
+        data: {
+          organizationId: actor.organizationId,
+          hallId: hall.id,
+          name: input.name,
+          objects: input.objects,
+          backgroundPath: input.backgroundPath ?? null
+        },
+        select: { id: true }
+      });
+      const preset = await readPreset(created.id, actor.organizationId);
+
+      return NextResponse.json({ preset }, { status: 201 });
+    } catch (error) {
+      return createHallMapErrorResponse(error);
+    }
   }
-}
+);
+
+export const PATCH = withRoute(
+  "PATCH /api/hall-maps",
+  async (request: Request) => {
+    try {
+      const actor = await getActor(request, "hallmap.update");
+      const input = updatePresetSchema.parse(await request.json());
+      const current = await findPresetIdentity(input.id, actor);
+      if (!current) {
+        return NextResponse.json(
+          { error: "Hall map preset not found." },
+          { status: 404 }
+        );
+      }
+
+      if (input.hallId && input.hallId !== current.hallId) {
+        const hall = await prisma.hall.findFirst({
+          where: {
+            id: input.hallId,
+            organizationId: actor.organizationId,
+            isActive: true,
+            ...scoped(actor, "hall", { field: "id" })
+          },
+          select: { id: true }
+        });
+        if (!hall) {
+          return NextResponse.json(
+            { error: "Hall not found or unavailable." },
+            { status: 404 }
+          );
+        }
+      }
+
+      const pathError = backgroundPathError(
+        actor.organizationId,
+        input.backgroundPath
+      );
+      if (pathError) {
+        return NextResponse.json({ error: pathError }, { status: 400 });
+      }
+
+      await prisma.hallMapPreset.update({
+        where: { id: current.id },
+        data: {
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.hallId !== undefined ? { hallId: input.hallId } : {}),
+          ...(input.objects !== undefined ? { objects: input.objects } : {}),
+          ...(input.backgroundPath !== undefined
+            ? { backgroundPath: input.backgroundPath }
+            : {})
+        }
+      });
+
+      // The row is written; dropping the replaced image afterwards means a
+      // storage failure leaves an orphaned object rather than a broken save.
+      if (
+        input.backgroundPath !== undefined &&
+        current.backgroundPath &&
+        current.backgroundPath !== input.backgroundPath
+      ) {
+        await discardFloorPlan(actor.organizationId, current.backgroundPath);
+      }
+
+      const preset = await readPreset(current.id, actor.organizationId);
+
+      return NextResponse.json({ preset });
+    } catch (error) {
+      return createHallMapErrorResponse(error);
+    }
+  }
+);
+
+export const DELETE = withRoute(
+  "DELETE /api/hall-maps",
+  async (request: Request) => {
+    try {
+      const actor = await getActor(request, "hallmap.update");
+      const input = deletePresetSchema.parse(await request.json());
+      const preset = await findPresetIdentity(input.id, actor);
+      if (!preset) {
+        return NextResponse.json(
+          { error: "Hall map preset not found." },
+          { status: 404 }
+        );
+      }
+
+      await prisma.hallMapPreset.delete({ where: { id: preset.id } });
+      await discardFloorPlan(actor.organizationId, preset.backgroundPath);
+      return NextResponse.json({ deleted: true });
+    } catch (error) {
+      return createHallMapErrorResponse(error);
+    }
+  }
+);

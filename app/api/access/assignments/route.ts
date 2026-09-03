@@ -6,6 +6,7 @@ import { readEpoch } from "@/lib/authz/admin/roles";
 import { parseEpochPrecondition } from "@/lib/authz/guards";
 import { SCOPE_TYPES } from "@/lib/authz/types";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { withRoute } from "@/lib/http/with-route";
 
 /**
  * Putting somebody into a role.
@@ -33,25 +34,28 @@ const createAssignmentSchema = z.object({
   expiresAt: z.string().datetime().nullish()
 });
 
-export async function POST(request: Request) {
-  try {
-    const actor = await authorize(request, "role.assign");
-    const expectedEpoch = parseEpochPrecondition(request);
-    const input = createAssignmentSchema.parse(await request.json());
+export const POST = withRoute(
+  "POST /api/access/assignments",
+  async (request: Request) => {
+    try {
+      const actor = await authorize(request, "role.assign");
+      const expectedEpoch = parseEpochPrecondition(request);
+      const input = createAssignmentSchema.parse(await request.json());
 
-    const assignment = await createAssignment(actor, {
-      principalId: input.principalId,
-      roleId: input.roleId,
-      scope: input.scope,
-      expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
-      expectedEpoch
-    });
+      const assignment = await createAssignment(actor, {
+        principalId: input.principalId,
+        roleId: input.roleId,
+        scope: input.scope,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
+        expectedEpoch
+      });
 
-    return NextResponse.json(
-      { data: assignment, epoch: await readEpoch(actor.organizationId) },
-      { status: 201 }
-    );
-  } catch (error) {
-    return createApiErrorResponse(error);
+      return NextResponse.json(
+        { data: assignment, epoch: await readEpoch(actor.organizationId) },
+        { status: 201 }
+      );
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
   }
-}
+);
