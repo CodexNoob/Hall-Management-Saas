@@ -237,7 +237,7 @@ export async function markPasswordSet(accessToken: string) {
 }
 
 export async function signInWithOAuthProvider(
-  provider: Extract<Provider, "google" | "azure">,
+  provider: Extract<Provider, "google">,
   returnPath: string = MVP_LANDING_ROUTE
 ) {
   const supabase = createSupabaseBrowserClient();
