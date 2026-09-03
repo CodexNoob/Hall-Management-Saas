@@ -320,6 +320,14 @@ export const POST = withRoute(
         ...body,
         idempotencyKey: headerKey ?? body.idempotencyKey
       });
+      if (input.newEventTypeName) {
+        const eventTypeActor = await authorize(request, "eventtype.manage");
+        if (eventTypeActor.organizationId !== actor.organizationId) {
+          throw new Error(
+            "The active organization changed during this request."
+          );
+        }
+      }
       const result = await createBooking(input, {
         id: requireUserActor(actor),
         name: actor.actorName,

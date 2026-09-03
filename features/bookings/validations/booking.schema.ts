@@ -48,6 +48,7 @@ export const createBookingSchema = z
     }).default(1440),
     hallId: z.string().uuid(),
     eventTypeId: z.string().uuid().optional(),
+    newEventTypeName: z.string().trim().min(1).max(100).optional(),
     bookingStatus: z.enum(bookingStatuses).optional(),
     eventStatus: z.enum(["Inquiry", "On Hold", "Hold", "Confirmed"]).optional(),
     paymentStatus: z
@@ -67,6 +68,13 @@ export const createBookingSchema = z
     idempotencyKey: z.string().uuid().optional()
   })
   .superRefine((value, context) => {
+    if (value.eventTypeId && value.newEventTypeName) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Choose an existing event type or create a new one, not both.",
+        path: ["eventTypeId"]
+      });
+    }
     const hasExplicitWindow = Boolean(value.startsAt && value.endsAt);
     if (!hasExplicitWindow && !value.eventDate) {
       context.addIssue({

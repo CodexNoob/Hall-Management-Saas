@@ -422,7 +422,7 @@ export async function createBooking(
       const hall = await transaction.hall.findFirst({
         where: { id: input.hallId, organizationId: actor.organizationId }
       });
-      const eventType = input.eventTypeId
+      let eventType = input.eventTypeId
         ? await transaction.eventType.findFirst({
             where: {
               id: input.eventTypeId,
@@ -430,6 +430,30 @@ export async function createBooking(
             }
           })
         : null;
+      if (input.newEventTypeName) {
+        const duplicateEventType = await transaction.eventType.findFirst({
+          where: {
+            organizationId: actor.organizationId,
+            name: { equals: input.newEventTypeName, mode: "insensitive" }
+          },
+          select: { id: true }
+        });
+        if (duplicateEventType) {
+          throw new BookingError(
+            "An event type with this name already exists.",
+            409
+          );
+        }
+        eventType = await transaction.eventType.create({
+          data: {
+            organizationId: actor.organizationId,
+            name: input.newEventTypeName,
+            isActive: true,
+            validDays: [],
+            isShabbosShevaBrachos: false
+          }
+        });
+      }
       const eventPackage = input.packageId
         ? await transaction.eventPackage.findFirst({
             where: {
@@ -622,7 +646,7 @@ export async function createBooking(
           eventDate,
           hallId: hall.id,
           hallName: hall.name,
-          eventTypeId: input.eventTypeId,
+          eventTypeId: eventType?.id,
           eventType: eventType?.name,
           eventStatus: statusLabels[status],
           bookingStatus: status,

@@ -10,6 +10,7 @@ import {
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { EventTypesSettingsPanel } from "@/features/settings/components/event-types-settings-panel";
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { LogoField } from "@/features/settings/components/branding-image-field";
 import { PortalHeaderPanel } from "@/features/settings/components/portal-header-panel";
@@ -759,6 +760,9 @@ export function SettingsPage({
               <div className={isModal ? "contents" : "grid min-w-0 gap-4"}>
                 {activeModalSection === "Halls" ? (
                   <HallsSettingsPanel canEdit={canEditSettings} />
+                ) : null}
+                {activeModalSection === "Event Types" ? (
+                  <EventTypesSettingsPanel canEdit={canEditSettings} />
                 ) : null}
                 {activeModalSection === "Calendar" ? (
                   <CalendarSettingsPanel
