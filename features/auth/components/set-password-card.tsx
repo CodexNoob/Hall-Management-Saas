@@ -65,7 +65,7 @@ function LockMedallion() {
   // Laid out horizontally: the card only has two fields, so a tall stacked
   // illustration would drive the whole panel past the viewport.
   return (
-    <div className="relative mt-10 flex items-center gap-5 lg:mt-12">
+    <div className="relative mt-8 flex items-center gap-5 lg:mt-10">
       <div className="pointer-events-none absolute -left-6 bottom-0 h-28 w-28 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
 
       <div className="relative flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-xl shadow-[#1f4d73]/30">
@@ -267,18 +267,18 @@ export function SetPasswordCard() {
     <>
       <h2
         id="set-password-modal-title"
-        className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}
+        className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}
       >
         {copy.heading}
       </h2>
       <p
-        className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}
+        className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-2 text-sm leading-6 sm:text-base sm:leading-7"} max-w-md text-[#64748B]`}
       >
         {PASSWORD_RULES_HINT}
       </p>
 
       {sessionState === "missing" ? (
-        <div className={isDesktopApp ? "mt-5" : "mt-10"}>
+        <div className={isDesktopApp ? "mt-5" : "mt-6"}>
           <div className="rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4">
             <p className="font-bold text-[#0F172A]">
               This link has expired or has already been used.
@@ -290,7 +290,7 @@ export function SetPasswordCard() {
           </div>
 
           <Link
-            className={`login-button mt-6 flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl ${isDesktopApp ? "h-11 text-sm" : "h-16 text-lg"}`}
+            className={`login-button mt-6 flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl ${isDesktopApp ? "h-11 text-sm" : "h-12 text-base"}`}
             href={forgotPasswordHref}
           >
             <SendIcon />
@@ -300,22 +300,22 @@ export function SetPasswordCard() {
           {supportLine}
         </div>
       ) : (
-        <form className={isDesktopApp ? "mt-4" : "mt-10"} onSubmit={submit}>
+        <form className={isDesktopApp ? "mt-4" : "mt-6"} onSubmit={submit}>
           <label
-            className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`}
+            className="text-sm font-bold text-[#0F172A]"
             htmlFor="newPassword"
           >
             New Password
           </label>
           <div
-            className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}
+            className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-11"}`}
           >
             <LockIcon />
             <input
               id="newPassword"
               name="newPassword"
               autoComplete="new-password"
-              className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
               placeholder="Create a password"
               type={showPassword ? "text" : "password"}
               value={password}
@@ -335,20 +335,20 @@ export function SetPasswordCard() {
           </div>
 
           <label
-            className={`${isDesktopApp ? "mt-4 text-sm" : "mt-7 text-base"} block font-bold text-[#0F172A]`}
+            className={`${isDesktopApp ? "mt-4 text-sm" : "mt-5 text-sm"} block font-bold text-[#0F172A]`}
             htmlFor="confirmPassword"
           >
             Confirm Password
           </label>
           <div
-            className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}
+            className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-11"}`}
           >
             <LockIcon />
             <input
               id="confirmPassword"
               name="confirmPassword"
               autoComplete="new-password"
-              className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
               placeholder="Re-enter your password"
               type={showConfirmPassword ? "text" : "password"}
               value={confirmPassword}
@@ -379,7 +379,7 @@ export function SetPasswordCard() {
           ) : null}
 
           <button
-            className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-8 h-16 text-lg"}`}
+            className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-6 h-12 text-base"}`}
             type="submit"
             disabled={isSubmitting || sessionState !== "ready"}
           >
