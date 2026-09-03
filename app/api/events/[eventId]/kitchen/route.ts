@@ -16,6 +16,7 @@ import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
 import { listKitchenNotificationsForEvent } from "@/features/kitchen/server/kitchen-notifications";
+import { log } from "@/lib/logging/context";
 
 /**
  * What the kitchen has to cook for one event, and how far along it is.
@@ -59,7 +60,10 @@ async function signLinePictures(
       paths: picturePaths
     });
   } catch (signingError) {
-    console.error("Failed to sign event kitchen pictures", signingError);
+    log.error(
+      { count: picturePaths.length, err: String(signingError) },
+      "kitchen_picture_signing_failed"
+    );
 
     return new Map<string, string>();
   }

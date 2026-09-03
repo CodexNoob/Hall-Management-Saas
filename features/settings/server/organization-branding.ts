@@ -3,6 +3,7 @@ import {
   deleteStorageFiles,
   isOrgScopedStoragePath
 } from "@/lib/storage/files";
+import { log } from "@/lib/logging/context";
 
 /**
  * Validates a client-supplied branding path against the acting organization.
@@ -54,6 +55,9 @@ export async function discardOrganizationBrandingImage(
       paths: [path]
     });
   } catch (error) {
-    console.error("Failed to remove an organization branding image", error);
+    log.error(
+      { bucket: ORGANIZATION_LOGO_BUCKET, err: String(error) },
+      "organization_branding_removal_failed"
+    );
   }
 }

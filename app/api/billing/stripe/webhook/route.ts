@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { verifyStripeSignature } from "@/features/billing/services/stripe.service";
+import { log } from "@/lib/logging/context";
 
 type StripeEvent = {
   id: string;
@@ -197,11 +198,27 @@ export async function POST(request: Request) {
     );
     return NextResponse.json({ received: true });
   } catch (error) {
-    return NextResponse.json(
+    // This route bypasses `createApiErrorResponse` on purpose - Stripe reads the
+    // status, not the body - so the logging it would have inherited is spelled
+    // out here. It was the only unhandled-error path in the product recording
+    // nothing at all, on the one endpoint where a silent failure means money
+    // moved and the ledger did not.
+    log.error(
       {
-        error:
-          error instanceof Error ? error.message : "Webhook processing failed."
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { name: "NonError", message: String(error) },
+        status: 500
       },
+      "stripe_webhook_failed"
+    );
+
+    // Was `error.message`, which handed Stripe - and anything reading its
+    // delivery log - our internal failure text. Stripe retries on any 5xx, so
+    // the generic body costs nothing operationally.
+    return NextResponse.json(
+      { error: "Webhook processing failed." },
       { status: 500 }
     );
   }

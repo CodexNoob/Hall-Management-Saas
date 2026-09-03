@@ -3,6 +3,7 @@ import {
   deleteStorageFiles,
   isOrgScopedStoragePath
 } from "@/lib/storage/files";
+import { log } from "@/lib/logging/context";
 
 /**
  * Validates a client-supplied picture path against the acting organization.
@@ -50,6 +51,9 @@ export async function discardMenuPicture(
       paths: [picturePath]
     });
   } catch (error) {
-    console.error("Failed to remove menu item picture", error);
+    log.error(
+      { bucket: MENU_IMAGE_BUCKET, err: String(error) },
+      "menu_picture_removal_failed"
+    );
   }
 }

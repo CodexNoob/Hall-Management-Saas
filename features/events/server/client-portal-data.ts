@@ -17,6 +17,7 @@ export type {
   ClientPortalOption,
   ClientPortalTotals
 } from "@/features/events/types/client-portal";
+import { log } from "@/lib/logging/context";
 
 /**
  * Data access for the public client portal at /client/[eventId].
@@ -105,7 +106,10 @@ async function signMenuPictures(organizationId: string, paths: string[]) {
       paths
     });
   } catch (signingError) {
-    console.error("Failed to sign client portal menu pictures", signingError);
+    log.error(
+      { count: paths.length, err: String(signingError) },
+      "client_portal_menu_picture_signing_failed"
+    );
     return new Map<string, string>();
   }
 }
@@ -133,7 +137,10 @@ async function signBrandingImage(
       path
     });
   } catch (signingError) {
-    console.error(`Failed to sign the client portal ${subject}`, signingError);
+    log.error(
+      { subject, err: String(signingError) },
+      "client_portal_branding_signing_failed"
+    );
     return null;
   }
 }

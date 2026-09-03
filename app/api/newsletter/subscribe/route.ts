@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { log } from "@/lib/logging/context";
 
 const subscriptionSchema = z.object({
   email: z.string().trim().email().max(254),
@@ -42,7 +43,16 @@ export async function POST(request: Request) {
       );
     }
 
-    console.error("Newsletter subscription failed", error);
+    log.error(
+      {
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { name: "NonError", message: String(error) },
+        status: 500
+      },
+      "newsletter_subscription_failed"
+    );
     return NextResponse.json(
       { error: "We could not complete your subscription. Please try again." },
       { status: 500 }
