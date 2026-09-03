@@ -98,8 +98,8 @@ gate reads anything that is not `APPROVED` as a refusal.
 | Variable | Required | What it does |
 | --- | --- | --- |
 | `BETA_APPROVAL_EMAIL` | for notifications | Where "New Event Core beta-access request" is sent. Read from the environment, never hardcoded. |
-| `RESEND_API_KEY` | for notifications | Resend transport, shared with the support forms |
-| `SUPPORT_EMAIL_FROM` | for notifications | Sender, shared with the support forms |
+| `BREVO_API_KEY` | for notifications | Brevo transactional-email API key used by the application; this is separate from the SMTP key stored by Supabase. |
+| `SUPPORT_EMAIL_FROM` | for notifications | A sender address verified in Brevo, optionally formatted as `Event Core <no-reply@example.com>`. |
 | `BETA_ACCESS_AUTO_APPROVE_EMAILS` | no | Comma-separated addresses approved the moment they register |
 
 With no recipient configured the queue still works — the request is recorded,

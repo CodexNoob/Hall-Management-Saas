@@ -9,9 +9,11 @@ import type {
 /**
  * Tells the Event Core team somebody has asked for beta access.
  *
- * The same Resend transport `features/support/server/support-notifications.ts`
- * uses, with the same `RESEND_API_KEY` and `SUPPORT_EMAIL_FROM`. The RECIPIENT
- * is its own variable, `BETA_APPROVAL_EMAIL`, rather than `SUPPORT_EMAIL`:
+ * Beta notifications use Brevo's transactional-email API. Supabase may use
+ * the same Brevo account over SMTP for authentication mail, but its stored
+ * SMTP credentials are not exposed to this application, so the application
+ * receives its own `BREVO_API_KEY`. The recipient is its own variable,
+ * `BETA_APPROVAL_EMAIL`, rather than `SUPPORT_EMAIL`:
  * these are different jobs going to possibly different people, and an address
  * that must never be hardcoded is easier to keep un-hardcoded when it has a
  * name of its own.
@@ -49,18 +51,31 @@ async function sendEmail({
   subject: string;
   html: string;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.BREVO_API_KEY;
   const from = process.env.SUPPORT_EMAIL_FROM;
 
   if (!apiKey || !from) return false;
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const senderMatch = from.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
+  const sender = senderMatch
+    ? {
+        email: senderMatch[2].trim(),
+        ...(senderMatch[1].trim() ? { name: senderMatch[1].trim() } : {})
+      }
+    : { email: from.trim() };
+
+  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      "api-key": apiKey,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ from, to: [to], subject, html })
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html
+    })
   });
 
   if (!response.ok) {
@@ -81,7 +96,7 @@ export type BetaAccessNotification = {
  * Returns whether the team was actually mailed, and throws nothing.
  *
  * The caller decides whether to stamp `notified_at` from this, so "no recipient
- * configured" and "Resend refused it" are both plainly false rather than a
+ * configured" and "Brevo refused it" are both plainly false rather than a
  * claim recorded on the row that nobody can check.
  */
 export async function notifyBetaAccessRequested(

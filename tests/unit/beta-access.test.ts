@@ -55,17 +55,17 @@ function row(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** Every send Resend was asked to make, as parsed request bodies. */
+/** Every send Brevo was asked to make, as parsed request bodies. */
 function sentEmails() {
   return vi
     .mocked(fetch)
-    .mock.calls.filter(([url]) => String(url).includes("api.resend.com"))
+    .mock.calls.filter(([url]) => String(url).includes("api.brevo.com"))
     .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubEnv("RESEND_API_KEY", "resend-key");
+  vi.stubEnv("BREVO_API_KEY", "brevo-key");
   vi.stubEnv("SUPPORT_EMAIL_FROM", "Event Core <no-reply@example.com>");
   vi.stubEnv("BETA_APPROVAL_EMAIL", "contactevent.pro1@gmail.com");
   vi.stubEnv("BETA_ACCESS_AUTO_APPROVE_EMAILS", "");
@@ -239,13 +239,17 @@ describe("notifying the team", () => {
     const [email] = sentEmails();
 
     // The address comes from the environment. Nothing in the code hardcodes it.
-    expect(email.to).toEqual(["contactevent.pro1@gmail.com"]);
+    expect(email.sender).toEqual({
+      email: "no-reply@example.com",
+      name: "Event Core"
+    });
+    expect(email.to).toEqual([{ email: "contactevent.pro1@gmail.com" }]);
     expect(email.subject).toContain("New Event Core beta-access request");
     // The four things the notification has to carry.
-    expect(email.html).toContain("applicant@example.com");
-    expect(email.html).toContain("Email and password");
-    expect(email.html).toContain(REQUESTED_AT.toISOString());
-    expect(email.html).toContain("PENDING");
+    expect(email.htmlContent).toContain("applicant@example.com");
+    expect(email.htmlContent).toContain("Email and password");
+    expect(email.htmlContent).toContain(REQUESTED_AT.toISOString());
+    expect(email.htmlContent).toContain("PENDING");
   });
 
   it("names Google as the method when that is how they registered", async () => {
@@ -256,7 +260,7 @@ describe("notifying the team", () => {
       signupMethod: "google"
     });
 
-    expect(sentEmails()[0].html).toContain("Google");
+    expect(sentEmails()[0].htmlContent).toContain("Google");
   });
 
   it("stamps notifiedAt only once the mail has actually gone", async () => {
@@ -272,7 +276,7 @@ describe("notifying the team", () => {
 
   /**
    * The row is written before the send and the send cannot roll it back, so a
-   * Resend outage costs a notification and never an applicant - and nothing
+   * Brevo outage costs a notification and never an applicant - and nothing
    * anywhere claims the request was seen when it was not.
    */
   it("keeps the request when the email fails, and logs the failure", async () => {
