@@ -18,18 +18,30 @@ export class ApiRequestError extends Error {
    * typed is wrong, so there is no control to hang them off.
    */
   readonly details: string[];
+  /**
+   * The correlation id for the failed call, echoed back by `withRoute` on every
+   * response it stamps.
+   *
+   * This is the whole point of the logging work reaching the browser: a support
+   * ticket that quotes it turns "a customer says saving failed this morning"
+   * into one query. Empty only when the response never made it through a wrapped
+   * route - a proxy error, or a request that died in the network.
+   */
+  readonly requestId: string;
 
   constructor(
     message: string,
     status: number,
     fieldErrors: ZodFieldErrors = {},
-    details: string[] = []
+    details: string[] = [],
+    requestId = ""
   ) {
     super(message);
     this.name = "ApiRequestError";
     this.status = status;
     this.fieldErrors = fieldErrors;
     this.details = details;
+    this.requestId = requestId;
   }
 }
 
@@ -56,6 +68,17 @@ function readDetails(payload: ApiErrorPayload | null): string[] {
  */
 export function readApiErrorDetails(error: unknown): string[] {
   return error instanceof ApiRequestError ? error.details : [];
+}
+
+/**
+ * The correlation id behind a failure, or `""` for anything that did not come
+ * back from a wrapped route.
+ *
+ * Same `unknown` signature as `readApiErrorDetails`, for the same reason: the UI
+ * showing it only ever has the thrown value.
+ */
+export function readApiErrorRequestId(error: unknown): string {
+  return error instanceof ApiRequestError ? error.requestId : "";
 }
 
 function readFieldErrors(payload: ApiErrorPayload | null): ZodFieldErrors {
@@ -93,6 +116,7 @@ export async function readApiError(
     message,
     response.status,
     readFieldErrors(payload),
-    readDetails(payload)
+    readDetails(payload),
+    response.headers.get("x-request-id") ?? ""
   );
 }

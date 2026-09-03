@@ -17,6 +17,14 @@ export type ToastVariant = "error" | "success" | "info";
 type ToastOptions = {
   duration?: number;
   title?: string;
+  /**
+   * The failed call's correlation id, from `ApiRequestError.requestId`.
+   *
+   * Shown verbatim under the message so a customer can read it down a phone
+   * line: it is the one string that turns their report into a single query
+   * against the server logs.
+   */
+  requestId?: string;
 };
 
 type ToastRecord = {
@@ -25,6 +33,7 @@ type ToastRecord = {
   title: string;
   message: string;
   duration: number;
+  requestId: string;
 };
 
 type ToastApi = {
@@ -182,6 +191,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         options?.duration ??
         (variant === "error" ? ERROR_DURATION_MS : DEFAULT_DURATION_MS);
       const title = options?.title?.trim() || DEFAULT_TOAST_TITLES[variant];
+      const requestId = options?.requestId?.trim() ?? "";
 
       let targetId = "";
 
@@ -191,10 +201,17 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         );
 
         // Repeat failures (three bad password attempts in a row) refresh the
-        // visible toast instead of stacking duplicates.
+        // visible toast instead of stacking duplicates. The id is refreshed with
+        // it: each attempt is its own request, and showing the first attempt's
+        // id would send support looking at the wrong line.
         if (existing) {
           targetId = existing.id;
-          return current;
+
+          if (existing.requestId === requestId) return current;
+
+          return current.map((toast) =>
+            toast.id === existing.id ? { ...toast, requestId } : toast
+          );
         }
 
         counterRef.current += 1;
@@ -202,7 +219,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
         const next = [
           ...current,
-          { id: targetId, variant, title, message: trimmed, duration }
+          { id: targetId, variant, title, message: trimmed, duration, requestId }
         ];
 
         while (next.length > MAX_VISIBLE_TOASTS) {
@@ -287,6 +304,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <div className="min-w-0 flex-1">
                     <p className="event-toast-title">{toast.title}</p>
                     <p className="event-toast-message">{toast.message}</p>
+                    {toast.requestId ? (
+                      // Selectable, wrapping and monospaced, because its only
+                      // job is to be copied or read out accurately.
+                      <p className="event-toast-request-id mt-1 font-mono text-[11px] break-all opacity-70">
+                        Reference: {toast.requestId}
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     className="event-toast-dismiss"

@@ -15,9 +15,14 @@ export function useAuthenticatedMutation<TInput, TOutput>(
   // Populated when the server rejected the body with a schema error, so a form
   // can put the message next to the field that caused it.
   const [fieldErrors, setFieldErrors] = useState<ZodFieldErrors>({});
+  // The correlation id of the last failure, for the UI to show alongside the
+  // message. It is what a support ticket quotes, and it is the only field here
+  // that is worth anything after the user has closed the dialog.
+  const [requestId, setRequestId] = useState("");
   const resetError = useCallback(() => {
     setError(null);
     setFieldErrors({});
+    setRequestId("");
   }, []);
 
   const mutate = useCallback(
@@ -25,6 +30,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
       setIsPending(true);
       setError(null);
       setFieldErrors({});
+      setRequestId("");
 
       try {
         const response = await authenticatedFetch(url, {
@@ -50,6 +56,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
         setError(message);
         if (mutationError instanceof ApiRequestError) {
           setFieldErrors(mutationError.fieldErrors);
+          setRequestId(mutationError.requestId);
         }
         throw mutationError;
       } finally {
@@ -59,5 +66,5 @@ export function useAuthenticatedMutation<TInput, TOutput>(
     [method, url]
   );
 
-  return { mutate, isPending, error, fieldErrors, resetError };
+  return { mutate, isPending, error, fieldErrors, requestId, resetError };
 }
