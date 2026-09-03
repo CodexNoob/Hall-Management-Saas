@@ -86,6 +86,7 @@ export type IconName =
 export type ModalSettingsSection =
   | "General"
   | "Halls"
+  | "Event Types"
   | "Calendar"
   | "Kitchen"
   | "Notifications"
@@ -111,6 +112,11 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     label: "Halls",
     description: "Rooms, halls, capacity, and setup.",
     icon: "hall"
+  },
+  {
+    label: "Event Types",
+    description: "Booking categories, valid days, and availability.",
+    icon: "calendar"
   },
   {
     label: "Calendar",

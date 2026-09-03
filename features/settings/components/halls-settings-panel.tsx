@@ -614,42 +614,6 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   ) : null}
                 </label>
                 <label className="block text-xs font-black">
-                  Events allowed per day
-                  <input
-                    aria-describedby={
-                      fieldErrors.dailyEventLimit
-                        ? "hall-daily-event-limit-error"
-                        : undefined
-                    }
-                    aria-invalid={
-                      fieldErrors.dailyEventLimit ? true : undefined
-                    }
-                    className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
-                    id="hall-daily-event-limit"
-                    inputMode="decimal"
-                    name="hallDailyEventLimit"
-                    onChange={(event) =>
-                      updateField("dailyEventLimit", event.target.value)
-                    }
-                    placeholder="Calendar default"
-                    type="text"
-                    value={form.dailyEventLimit}
-                  />
-                  {fieldErrors.dailyEventLimit ? (
-                    <p
-                      className="mt-1 text-[10px] font-bold text-[#c2410c]"
-                      id="hall-daily-event-limit-error"
-                      role="alert"
-                    >
-                      {fieldErrors.dailyEventLimit}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-[10px] font-medium text-[#617086]">
-                      Leave blank to use the Calendar default.
-                    </p>
-                  )}
-                </label>
-                <label className="block text-xs font-black">
                   Calendar color
                   <input
                     className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-2"

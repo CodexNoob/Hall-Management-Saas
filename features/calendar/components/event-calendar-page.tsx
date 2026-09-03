@@ -126,6 +126,7 @@ export function EventCalendarPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [isNewBookingOpen, setIsNewBookingOpen] = useState(false);
+  const [bookingSuccessMessage, setBookingSuccessMessage] = useState("");
   const canCreateEvent = useAccess("booking.create");
   const canUpdateSettings = useAccess("settings.update");
   const calendarQueryUrl = useMemo(
@@ -178,6 +179,16 @@ export function EventCalendarPage() {
     [availabilityRange, visibleMonth]
   );
   const isLoadingCalendar = eventsQuery.isLoading;
+
+  useEffect(() => {
+    if (!bookingSuccessMessage) return;
+
+    const timeout = window.setTimeout(
+      () => setBookingSuccessMessage(""),
+      4000
+    );
+    return () => window.clearTimeout(timeout);
+  }, [bookingSuccessMessage]);
 
   useEffect(() => {
     // The period on screen goes first: a prefetch racing it would be competing
@@ -546,6 +557,16 @@ export function EventCalendarPage() {
           </button>
         </div>
       </nav>
+
+      {bookingSuccessMessage ? (
+        <div
+          aria-live="polite"
+          className="mx-2 mt-2 shrink-0 rounded-lg border border-[#a9dfc9] bg-[#effaf5] px-4 py-2 text-sm font-bold text-[#147653] sm:mx-4"
+          role="status"
+        >
+          {bookingSuccessMessage}
+        </div>
+      ) : null}
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-4">
         {/*
@@ -1032,6 +1053,7 @@ export function EventCalendarPage() {
         }}
         onSaved={async () => {
           await eventsQuery.refetch();
+          setBookingSuccessMessage("Booking saved and added to the calendar.");
         }}
         open={isNewBookingOpen}
         selectedDate={selectedDate}
