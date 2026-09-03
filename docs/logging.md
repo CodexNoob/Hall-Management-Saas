@@ -127,12 +127,63 @@ server-scoped. Adding the marker would make it transitive to every route and to
 the tests that exercise them. `node:async_hooks` is the real boundary and it
 enforces itself.
 
-## What is not built yet
+## Correlation
 
-`getRequestId()` returns `null`. Nothing binds a route, a request id or an
-organization onto a log line, so two failures from different endpoints are
-currently indistinguishable beyond their status and error class. That arrives
-with the `withRoute` wrapper and `bindActor` in `toContext()`.
+Every line emitted during a request carries a `requestId`, a `route` pattern
+and — once authorization has resolved — an `organizationId`, `userId` and
+`principalId`. One id joins the browser, the response header and every server
+line for that call.
 
-Until then: a line tells you *what class of thing failed and why*, not *who it
-happened to*.
+### Every new route gets wrapped
+
+```ts
+import { withRoute } from "@/lib/http/with-route";
+
+export const POST = withRoute("POST /api/events", async (request) => {
+  try {
+    const actor = await authorize(request, "booking.create");
+    /* ... every line from here is tenant-tagged ... */
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+});
+```
+
+The first argument is the route **pattern**, not the path. `request.url` has the
+ids substituted into it, which would give a thousand distinct values where there
+is one endpoint.
+
+Keep the route's own `try/catch`. `withRoute`'s catch is a net for what escapes
+one, and answers identically.
+
+`withRoute` also emits one `request_completed` line per request with the method,
+status and `durationMs`. Fast successful reads are sampled — the rate is
+`READ_SAMPLE_RATE` in `lib/http/with-route.ts`, currently 1, and every line
+carries the `sampleRate` it was kept under so a count in the log platform is a
+count of what happened rather than of what survived. Mutations, anything over a
+second, and anything that failed are never sampled out.
+
+**Never read `request.body` in anything that wraps a handler.**
+`billing/stripe/webhook` feeds `await request.text()` straight to signature
+verification, and a consumed stream turns every webhook into a 400.
+
+### Where the id comes from
+
+`authenticatedFetch` mints one per call and sends it as `x-request-id`, so the
+id exists even when the response never arrives. `withRoute` adopts it if it
+matches `[A-Za-z0-9-]{8,64}`, otherwise falls back to Vercel's `x-vercel-id` and
+finally to a fresh uuid — an inbound value that is not adopted is discarded
+outright rather than sanitised, because it lands in both a log line and a
+response header.
+
+The id comes back on every response. `readApiError` puts it on
+`ApiRequestError.requestId`, `useAuthenticatedMutation` exposes it beside the
+message, and `toast.error(message, { requestId })` renders it. That is the
+string a support ticket quotes.
+
+### Where the tenant comes from
+
+`resolveActor` calls `bindActor`, so both `authorize()` and `authorizeMember()`
+are covered — and so are **denials**, which throw before a context is ever
+built. A denial that does not name its tenant says somebody was refused, not
+who.
