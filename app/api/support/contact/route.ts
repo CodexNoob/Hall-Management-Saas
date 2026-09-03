@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { notifyPublicSupportRequest } from "@/features/support/server/support-notifications";
+import { log } from "@/lib/logging/context";
 
 const contactSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -47,7 +48,16 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "Please check the form and enter a valid message." }, { status: 400 });
     }
-    console.error("Public support request failed", error);
+    log.error(
+      {
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { name: "NonError", message: String(error) },
+        status: 500
+      },
+      "public_support_request_failed"
+    );
     return NextResponse.json({ error: "We could not send your request. Please try again." }, { status: 500 });
   }
 }

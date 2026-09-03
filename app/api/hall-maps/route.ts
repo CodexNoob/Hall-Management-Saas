@@ -19,6 +19,7 @@ import {
   mapObjectSchema,
   type MapObject
 } from "@/features/hall-room-map/validations/hall-map.schema";
+import { log } from "@/lib/logging/context";
 
 const createPresetSchema = z.object({
   name: z.string().trim().min(1).max(100),
@@ -75,8 +76,9 @@ function normalizeObjects(objects: unknown): MapObject[] {
   }
 
   if (kept.length !== objects.length) {
-    console.warn(
-      `hall-maps: dropped ${objects.length - kept.length} unreadable stored objects`
+    log.warn(
+      { dropped: objects.length - kept.length, total: objects.length },
+      "hall_map_objects_dropped"
     );
   }
 
@@ -167,7 +169,10 @@ async function discardFloorPlan(
       paths: [path]
     });
   } catch (error) {
-    console.error("Failed to remove hall floor plan", error);
+    log.error(
+      { bucket: HALL_FLOOR_PLAN_BUCKET, err: String(error) },
+      "hall_floor_plan_removal_failed"
+    );
   }
 }
 

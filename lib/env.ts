@@ -54,7 +54,19 @@ const envSchema = z.object({
   ENABLE_GMAIL_PAYMENT_EMAILS: booleanFlag,
   ENABLE_PDF_GENERATION: booleanFlag.default("true"),
   ENABLE_SCHOOL_CYCLES: booleanFlag,
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info")
+  // Prisma's, and only Prisma's. `lib/prisma.ts` switches the client to
+  // `log: ["query", "error", "warn"]` when this is `debug`, which prints every
+  // statement WITH ITS BOUND PARAMETERS - client names, phone numbers, event
+  // details. Never reuse it to turn the application logger up: doing so ships
+  // tenant data to wherever stdout is being collected.
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  // The application logger's level, deliberately a separate variable from the
+  // one above. The set is pino's, not Zod's convenience: `silent` is what test
+  // runs and the Playwright web server want so NDJSON does not interleave with
+  // the suite's output, and `getEnv()` throws on any value not listed here.
+  APP_LOG_LEVEL: z
+    .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
+    .default("info")
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

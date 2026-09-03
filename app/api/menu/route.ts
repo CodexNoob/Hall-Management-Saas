@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
 import { moneySchema } from "@/lib/validation/number";
+import { log } from "@/lib/logging/context";
 
 const menuMutationSchema = z.discriminatedUnion("resource", [
   menuItemFieldsSchema.extend({ resource: z.literal("item") }),
@@ -97,7 +98,10 @@ export async function GET(request: Request) {
         });
       } catch (signingError) {
         // Storage being unreachable should cost the thumbnails, not the page.
-        console.error("Failed to sign menu pictures", signingError);
+        log.error(
+          { count: picturePaths.length, err: String(signingError) },
+          "menu_picture_signing_failed"
+        );
       }
     }
 

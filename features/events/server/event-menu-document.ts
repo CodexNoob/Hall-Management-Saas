@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSignedFileUrls } from "@/lib/storage/files";
+import { log } from "@/lib/logging/context";
 
 /**
  * The pieces of an event's menu document that more than one route needs.
@@ -171,7 +172,10 @@ export async function presentMenu(
         paths: [...new Set(picturePaths)]
       });
     } catch (signingError) {
-      console.error("Failed to sign event menu pictures", signingError);
+      log.error(
+        { count: picturePaths.length, err: String(signingError) },
+        "event_menu_picture_signing_failed"
+      );
     }
   }
 

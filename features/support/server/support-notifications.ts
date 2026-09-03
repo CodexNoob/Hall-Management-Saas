@@ -1,4 +1,5 @@
 import "server-only";
+import { log } from "@/lib/logging/context";
 
 type TicketNotification = {
   reference: string;
@@ -74,7 +75,8 @@ export async function notifySupportTicketCreated(ticket: TicketNotification) {
   }
   const results = await Promise.allSettled(tasks);
   results.forEach((result) => {
-    if (result.status === "rejected") console.error("Support notification failed.", result.reason);
+    if (result.status === "rejected")
+      log.error({ reason: String(result.reason) }, "support_notification_failed");
   });
 }
 
@@ -114,6 +116,10 @@ export async function notifyPublicSupportRequest(request: {
   }
   const results = await Promise.allSettled(tasks);
   results.forEach((result) => {
-    if (result.status === "rejected") console.error("Public support notification failed.", result.reason);
+    if (result.status === "rejected")
+      log.error(
+        { reason: String(result.reason) },
+        "public_support_notification_failed"
+      );
   });
 }

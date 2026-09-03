@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { log } from "@/lib/logging/context";
 
 vi.mock("server-only", () => ({}));
+// The signing failures below used to be asserted through a `console.error`
+// spy. They now go through the application logger, so the assertion follows
+// them there - the behaviour under test is unchanged: storage being down must
+// cost the pictures and be recorded, not take the portal with it.
+vi.mock("@/lib/logging/context", () => ({
+  log: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  getRequestId: vi.fn(() => null)
+}));
 vi.mock("@/lib/storage/files", () => ({
   createSignedFileUrl: vi.fn(),
   createSignedFileUrls: vi.fn()
@@ -314,7 +323,8 @@ describe("client portal data", () => {
   });
 
   it("still serves the portal when signing fails", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi.mocked(log.error);
+    logged.mockClear();
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       {
         id: "dish-with-picture",
@@ -335,7 +345,6 @@ describe("client portal data", () => {
     expect(portal?.menuItems[0].imageUrl).toBeNull();
     expect(logged).toHaveBeenCalled();
 
-    logged.mockRestore();
   });
 
   it("reports no picture for the models that store none", async () => {
@@ -511,7 +520,8 @@ describe("client portal data", () => {
   });
 
   it("still serves the portal when the logo cannot be signed", async () => {
-    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    const logged = vi.mocked(log.error);
+    logged.mockClear();
     vi.mocked(createSignedFileUrl).mockRejectedValue(
       new Error("storage unreachable")
     );
@@ -524,7 +534,6 @@ describe("client portal data", () => {
     expect(portal?.title).toContain("Charles");
     expect(logged).toHaveBeenCalled();
 
-    logged.mockRestore();
   });
 
   it("marks the menu locked once staff confirmed it", async () => {

@@ -7,6 +7,7 @@ import { effectiveAccessByPrincipal } from "@/lib/authz/decide";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
 import { AuthorizationError } from "@/lib/auth/errors";
 import type { PermissionKey } from "@/lib/authz/catalog";
+import { log } from "@/lib/logging/context";
 
 /**
  * Just-in-time provisioning for a signed-in Supabase account.
@@ -107,7 +108,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.error("Auth session request failed", error);
+    log.error(
+      {
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message, stack: error.stack }
+            : { name: "NonError", message: String(error) },
+        status: 500
+      },
+      "auth_session_request_failed"
+    );
 
     // User-facing copy, deliberately left as it was. Renaming the route is a
     // code change; rewording what a user reads when sign-in breaks is a product

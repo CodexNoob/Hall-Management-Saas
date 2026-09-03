@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { log } from "@/lib/logging/context";
 
 type RateLimitOptions = {
   scope: string;
@@ -88,7 +89,19 @@ export async function enforceRateLimit(
     // Keep authentication and other critical endpoints available if the backing
     // table is temporarily unreachable. This per-instance limiter still provides
     // protection until the database-backed limiter recovers.
-    console.error("Persistent rate limiter unavailable; using memory fallback.", error);
+    // Kept at `error`, not `warn`: the memory fallback is per-instance, so on a
+    // platform that runs many of them the effective limit is multiplied by the
+    // instance count. Degraded rate limiting is a security condition, not noise.
+    log.error(
+      {
+        scope,
+        err:
+          error instanceof Error
+            ? { name: error.name, message: error.message }
+            : { name: "NonError", message: String(error) }
+      },
+      "rate_limiter_memory_fallback"
+    );
     bucket = readFallbackBucket(id, expiresAt);
   }
 
