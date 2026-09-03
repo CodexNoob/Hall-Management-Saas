@@ -1,12 +1,20 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
-import { getAuthErrorMessage } from "@/lib/auth/auth-error-messages";
-import { signInWithOAuthProvider, fetchAuthSession } from "@/lib/auth/client";
+import {
+  getAuthErrorMessage,
+  getAuthRejectionMessage
+} from "@/lib/auth/auth-error-messages";
+import {
+  fetchAuthSession,
+  isTerminalAuthSessionError,
+  signInWithOAuthProvider,
+  signOutCurrentSession
+} from "@/lib/auth/client";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import {
   createSupabaseBrowserClient,
@@ -117,6 +125,29 @@ export function LoginCard() {
 
   useDesktopAuthScrollLock(isDesktopApp);
 
+  // Why the dashboard sent them back. Read after mount rather than during
+  // render, so the server's markup - which has no query string to read - and the
+  // first client render still match.
+  useEffect(() => {
+    const message = getAuthRejectionMessage(
+      new URLSearchParams(window.location.search).get("reason")
+    );
+
+    if (message) setError(message);
+  }, []);
+
+  // Coming back from Google with the Back button restores this page from the
+  // bfcache with its React state intact, so the button stays disabled reading
+  // "Opening Google..." and the only way to try again is a reload.
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setOauthProvider(null);
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
   const failSignIn = (message: string) => {
     setError(message);
     toast.error(message, { title: "Sign-in failed" });
@@ -159,6 +190,14 @@ export function LoginCard() {
       router.replace(returnPath as Parameters<typeof router.replace>[0]);
       router.refresh();
     } catch (submitError) {
+      // Supabase accepted the credentials and we did not accept the account, so
+      // a live session is sitting behind this error message. Left in place it
+      // turns the next reload into a redirect to a dashboard that refuses them -
+      // and proxy.ts will not let them back to /login while it exists.
+      if (isTerminalAuthSessionError(submitError)) {
+        await signOutCurrentSession().catch(() => undefined);
+      }
+
       failSignIn(getAuthErrorMessage(submitError));
     } finally {
       setIsSubmitting(false);

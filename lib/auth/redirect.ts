@@ -37,6 +37,29 @@ export function getDashboardLoginPath(
   return `/login?next=${encodeURIComponent(getSafeDashboardReturnPath(returnPath))}`;
 }
 
+/**
+ * Where an account we refused is sent, once its Supabase session has been ended.
+ *
+ * Deliberately carries a `reason` CODE and never the server's prose. The value
+ * is attacker-supplied by the time the login page reads it back - anyone can
+ * type a `?reason=` - so it is mapped through a fixed table there, and an
+ * unrecognized code shows nothing at all. `next` is dropped on purpose: the
+ * destination is what was just refused.
+ */
+export function getRejectedLoginPath(
+  reason: string | undefined,
+  isDesktopApp: boolean
+): `/login${string}` {
+  const params = new URLSearchParams();
+
+  if (isDesktopApp) params.set("desktop", "1");
+  if (reason) params.set("reason", reason);
+
+  const query = params.toString();
+
+  return query ? `/login?${query}` : "/login";
+}
+
 export function getPasswordSetupPath(
   returnPath: string
 ): `/set-password?flow=required&next=${string}` {

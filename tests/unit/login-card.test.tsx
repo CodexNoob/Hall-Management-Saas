@@ -10,6 +10,7 @@ const signInWithPassword = vi.fn();
 const setAuthSessionPersistence = vi.fn();
 const fetchAuthSession = vi.fn();
 const signInWithOAuthProvider = vi.fn();
+const signOutCurrentSession = vi.fn();
 
 // useDesktopAppMode() calls useSearchParams(), so the mock has to provide it
 // or every render throws.
@@ -24,13 +25,25 @@ vi.mock("@/lib/supabase/browser", () => ({
     setAuthSessionPersistence(...args)
 }));
 
-vi.mock("@/lib/auth/client", () => ({
-  fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args),
-  signInWithOAuthProvider: (...args: unknown[]) =>
-    signInWithOAuthProvider(...args)
-}));
+// AuthSessionError and isTerminalAuthSessionError are the real ones: the whole
+// point of the terminal-refusal branch is that it recognizes what the route
+// actually returns, and a stubbed predicate would assert nothing.
+vi.mock("@/lib/auth/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/client")>();
+
+  return {
+    AuthSessionError: actual.AuthSessionError,
+    isTerminalAuthSessionError: actual.isTerminalAuthSessionError,
+    fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args),
+    signInWithOAuthProvider: (...args: unknown[]) =>
+      signInWithOAuthProvider(...args),
+    signOutCurrentSession: (...args: unknown[]) =>
+      signOutCurrentSession(...args)
+  };
+});
 
 import { ToastProvider } from "@/components/ui/toast";
+import { AuthSessionError } from "@/lib/auth/client";
 import { LoginCard } from "@/features/auth/components/login-card";
 import { AUTH_ERROR_MESSAGES } from "@/lib/auth/auth-error-messages";
 
@@ -82,6 +95,7 @@ describe("LoginCard failure paths", () => {
       supabaseFailure({ code: "invalid_credentials", status: 400 })
     );
     fetchAuthSession.mockResolvedValue(undefined);
+    signOutCurrentSession.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -243,6 +257,94 @@ describe("LoginCard failure paths", () => {
 
     await expectReportedTwice("Unable to start social login.");
     expect(screen.getByText("Social login failed")).toBeInTheDocument();
+  });
+
+  it("ends the Supabase session when the account itself is refused", async () => {
+    // Supabase authenticated the person and provisioning would not have them.
+    // The session it minted is valid, and proxy.ts sends anyone holding one away
+    // from /login - so leaving it behind this error message means the next
+    // reload lands on a dashboard that refuses them, with no way back.
+    signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    fetchAuthSession.mockRejectedValue(
+      new AuthSessionError(
+        "No employee account was found for this email. Ask your organization administrator for an invitation.",
+        403,
+        "invitation_required"
+      )
+    );
+    renderLogin();
+    fill("stranger@example.com", "Secret123");
+    submitForm();
+
+    await expectReportedTwice(
+      "No employee account was found for this email. Ask your organization administrator for an invitation."
+    );
+    await waitFor(() => expect(signOutCurrentSession).toHaveBeenCalledTimes(1));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("leaves the session alone when the refusal is only a server error", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    fetchAuthSession.mockRejectedValue(
+      new AuthSessionError("Unable to sync the signed-in user.", 500)
+    );
+    renderLogin();
+    fill("owner@example.com", "Secret123");
+    submitForm();
+
+    await expectReportedTwice("Unable to sync the signed-in user.");
+    expect(signOutCurrentSession).not.toHaveBeenCalled();
+  });
+
+  it("explains why the dashboard sent the user back", async () => {
+    window.history.replaceState({}, "", "/login?reason=invitation_required");
+    renderLogin();
+
+    expect(
+      await screen.findByText(/No employee account was found for that email/)
+    ).toBeInTheDocument();
+  });
+
+  it("ignores a reason code it does not recognize", async () => {
+    // The value is attacker-supplied - anyone can type a ?reason= - so only
+    // codes from the table may put text on the sign-in form.
+    window.history.replaceState({}, "", "/login?reason=call+555+for+support");
+    renderLogin();
+
+    await waitFor(() =>
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+    );
+  });
+
+  it("re-enables the Google button when the page comes back from the bfcache", async () => {
+    signInWithOAuthProvider.mockReturnValue(new Promise(() => {}));
+    renderLogin();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Continue with Google/ })
+    );
+    expect(
+      await screen.findByRole("button", { name: /Opening Google/ })
+    ).toBeDisabled();
+
+    // What the browser fires when Back restores this page with its React state
+    // still intact, which would otherwise leave the button disabled forever.
+    fireEvent(
+      window,
+      Object.assign(new Event("pageshow"), { persisted: true })
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Continue with Google/ })
+      ).toBeEnabled()
+    );
   });
 });
 

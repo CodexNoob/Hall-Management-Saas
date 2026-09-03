@@ -20,6 +20,10 @@
 export type AuthorizationErrorCode =
   /** No session, or a session with no principal. */
   | "unauthenticated"
+  /** A valid Supabase identity with no row of ours, and no right to create one. */
+  | "invitation_required"
+  /** The user, or their last active membership, was switched off. */
+  | "account_deactivated"
   /** The actor lacks the key guarding this endpoint. */
   | "not_permitted"
   /** The organization's plan does not include this feature. */
@@ -70,7 +74,8 @@ export class InvitationRequiredError extends AuthorizationError {
   constructor() {
     super(
       403,
-      "No employee account was found for this email. Ask your organization administrator for an invitation."
+      "No employee account was found for this email. Ask your organization administrator for an invitation.",
+      "invitation_required"
     );
     this.name = "InvitationRequiredError";
   }
@@ -91,7 +96,7 @@ export class AccountDeactivatedError extends AuthorizationError {
   constructor(
     message = "This account has been deactivated. Ask your organization administrator to restore it."
   ) {
-    super(403, message);
+    super(403, message, "account_deactivated");
     this.name = "AccountDeactivatedError";
   }
 }

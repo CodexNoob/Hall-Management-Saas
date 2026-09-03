@@ -20,6 +20,42 @@ export type {
 
 import type { AuthSessionResponse } from "@/lib/auth/session-context";
 
+/**
+ * A refusal from /api/auth/session, carrying the status and the machine-readable
+ * code the route now returns. Thrown instead of a bare Error so callers can tell
+ * "this account may not be here" from "the request failed".
+ */
+export class AuthSessionError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string
+  ) {
+    super(message);
+    this.name = "AuthSessionError";
+  }
+}
+
+/**
+ * Whether the refusal is one that retrying can never clear.
+ *
+ * This distinction is load-bearing rather than cosmetic. A rejected account
+ * still holds a perfectly valid Supabase session - Google authenticated the
+ * person, we simply have no seat for them - and proxy.ts sends anyone holding a
+ * session away from /login. Leaving that session in place strands them on the
+ * dashboard's error card with a "Try again" that cannot succeed and no route
+ * back to sign-in short of clearing cookies. So a terminal refusal must end the
+ * Supabase session too; a 500 or a dropped connection must not.
+ */
+export function isTerminalAuthSessionError(
+  error: unknown
+): error is AuthSessionError {
+  return (
+    error instanceof AuthSessionError &&
+    (error.status === 401 || error.status === 403)
+  );
+}
+
 const AUTH_SESSION_CACHE_KEY = "hms.authSession";
 const AUTH_SESSION_SUBJECT_KEY = "hms.authSession.subject";
 const AUTH_SESSION_FETCHED_AT_KEY = "hms.authSession.fetchedAt";
@@ -189,10 +225,13 @@ export function fetchAuthSession(
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        code?: string;
       } | null;
-      throw new Error(
+      throw new AuthSessionError(
         payload?.error ??
-          "Unable to sync the signed-in user with the Hall Management database."
+          "Unable to sync the signed-in user with the Hall Management database.",
+        response.status,
+        payload?.code
       );
     }
 
@@ -246,7 +285,13 @@ export async function signInWithOAuthProvider(
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo
+      redirectTo,
+      // Google signs the browser straight back in with whichever account it saw
+      // last, with no prompt at all. That is the wrong default here: a seat is
+      // provisioned against one work address, so anyone signed into a personal
+      // account first is silently authenticated as the wrong person and lands on
+      // "No employee account was found for this email" with nothing to change.
+      queryParams: { prompt: "select_account" }
     }
   });
 
