@@ -31,11 +31,11 @@ import { ShieldIcon } from "@/features/auth/components/auth-icons";
 /** Sits on the navy brand panel, so its plate is white and its accents light. */
 function DeadLinkIllustration() {
   return (
-    <div className="relative mt-10 min-h-75 lg:mt-12">
+    <div className="relative mt-8 h-52 lg:mt-10 xl:h-56">
       <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
       <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-107.5">
+      <div className="relative mx-auto w-full max-w-107.5 origin-top scale-90">
         <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] px-4">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
@@ -93,21 +93,21 @@ export function AuthErrorView({ initial }: { initial: AuthCallbackParams }) {
     >
       <AuthMobileLogo />
 
-      <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">
+      <h2 className="text-2xl font-black tracking-tight text-[#0F172A] sm:text-3xl">
         Confirmation needs attention
       </h2>
-      <p className="mt-3 max-w-md text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8">
+      <p className="mt-2 max-w-md text-sm leading-6 text-[#64748B] sm:text-base sm:leading-7">
         {message}
       </p>
 
-      <div className="mt-8 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4">
+      <div className="mt-6 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-3">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1f4d73] shadow-sm">
             <ShieldIcon className="h-5 w-5 text-[#1f4d73]" />
           </div>
           <div>
-            <p className="font-bold text-[#0F172A]">Secure workspace setup</p>
-            <p className="mt-1 text-sm leading-6 text-[#64748B]">
+            <p className="text-sm font-bold text-[#0F172A]">Secure workspace setup</p>
+            <p className="mt-1 text-xs leading-5 text-[#64748B]">
               Confirmation links can only be opened once, and they stop working
               after a while. A fresh one always works.
             </p>
@@ -117,14 +117,14 @@ export function AuthErrorView({ initial }: { initial: AuthCallbackParams }) {
 
       {isExpired ? (
         <Link
-          className="login-button mt-8 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl"
+          className="login-button mt-6 flex h-12 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-base font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl"
           href="/login"
         >
           Go to sign in
         </Link>
       ) : (
         <Link
-          className="login-button mt-8 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl"
+          className="login-button mt-6 flex h-12 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-base font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl"
           href="/forgot-password"
         >
           Email me a new link
@@ -132,7 +132,7 @@ export function AuthErrorView({ initial }: { initial: AuthCallbackParams }) {
       )}
 
       <Link
-        className="login-social mt-4 flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED]"
+        className="login-social mt-3 flex h-11 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-sm font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED]"
         href="/"
       >
         Back to Home

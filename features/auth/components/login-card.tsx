@@ -379,7 +379,7 @@ export function LoginCard() {
             onSubmit={submit}
           >
             <label
-              className={`${isDesktopApp ? "text-sm" : "text-sm"} font-bold text-[#0F172A]`}
+              className="text-sm font-bold text-[#0F172A]"
               htmlFor="email"
             >
               Email Address

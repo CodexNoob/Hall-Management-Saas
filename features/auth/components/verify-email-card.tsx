@@ -28,11 +28,11 @@ const RESEND_COOLDOWN_SECONDS = 60;
 /** Sits on the navy brand panel, so its plate is white and its accents light. */
 function InboxIllustration() {
   return (
-    <div className="relative mt-10 min-h-75 lg:mt-12">
+    <div className="relative mt-8 h-52 lg:mt-10 xl:h-56">
       <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
       <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-107.5">
+      <div className="relative mx-auto w-full max-w-107.5 origin-top scale-90">
         <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] px-4">
             <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
@@ -149,10 +149,10 @@ export function VerifyEmailCard() {
     >
       <AuthMobileLogo />
 
-      <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">
+      <h2 className="text-2xl font-black tracking-tight text-[#0F172A] sm:text-3xl">
         Confirm your email
       </h2>
-      <p className="mt-3 max-w-md text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8">
+      <p className="mt-2 max-w-md text-sm leading-6 text-[#64748B] sm:text-base sm:leading-7">
         Your account has been created. We sent a confirmation link
         {email ? " to " : " to your email address"}
         {email ? (
@@ -162,14 +162,14 @@ export function VerifyEmailCard() {
         organization.
       </p>
 
-      <div className="mt-8 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4">
+      <div className="mt-6 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-3">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1f4d73] shadow-sm">
             <ShieldIcon className="h-5 w-5 text-[#1f4d73]" />
           </div>
           <div>
-            <p className="font-bold text-[#0F172A]">What happens next</p>
-            <p className="mt-1 text-sm leading-6 text-[#64748B]">
+            <p className="text-sm font-bold text-[#0F172A]">What happens next</p>
+            <p className="mt-1 text-xs leading-5 text-[#64748B]">
               Confirming the link signs you in and takes you straight to a short
               form where you name your organization and choose a plan.
             </p>
@@ -179,13 +179,13 @@ export function VerifyEmailCard() {
 
       {email ? (
         <button
-          className="login-button mt-8 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+          className="login-button mt-6 flex h-12 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-base font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
           disabled={isResending || isCoolingDown}
           onClick={resendConfirmation}
           type="button"
         >
           {isResending ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <SendIcon />
           )}
@@ -198,13 +198,13 @@ export function VerifyEmailCard() {
       ) : null}
 
       <Link
-        className={`login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] ${email ? "mt-4" : "mt-8"}`}
+        className={`login-social flex h-11 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-sm font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] ${email ? "mt-3" : "mt-6"}`}
         href="/login"
       >
         Go to sign in
       </Link>
 
-      <p className="mt-7 text-center text-sm font-medium text-[#64748B]">
+      <p className="mt-5 text-center text-xs font-medium text-[#64748B]">
         Can&apos;t find it? Check your spam folder before resending.
       </p>
     </AuthShell>

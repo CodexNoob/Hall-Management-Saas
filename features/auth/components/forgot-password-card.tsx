@@ -22,11 +22,11 @@ import {
 /** Sits on the navy brand panel, so its accents are white rather than navy. */
 function ResetIllustration() {
   return (
-    <div className="relative mt-10 min-h-75 lg:mt-12">
+    <div className="relative mt-8 h-52 lg:mt-10 xl:h-56">
       <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
       <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#1f4d73]/70 blur-3xl" />
 
-      <div className="relative mx-auto w-full max-w-107.5">
+      <div className="relative mx-auto w-full max-w-107.5 origin-top scale-90">
         <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
           <div className="grid h-full grid-cols-[92px_1fr]">
             <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-4">
@@ -67,7 +67,6 @@ function ResetIllustration() {
             <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-
       </div>
     </div>
   );
@@ -156,20 +155,20 @@ export function ForgotPasswordCard() {
 
   const formPanel = (
     <>
-      <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
-      <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
+      <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
+      <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-2 text-sm leading-6 sm:text-base sm:leading-7"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
 
-      <form className={isDesktopApp ? "mt-4" : "mt-10"} onSubmit={submit}>
-        <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="forgotEmail">
+      <form className={isDesktopApp ? "mt-4" : "mt-6"} onSubmit={submit}>
+        <label className="text-sm font-bold text-[#0F172A]" htmlFor="forgotEmail">
           Email Address
         </label>
-        <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
+        <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-11"}`}>
           <EmailIcon />
           <input
             id="forgotEmail"
             name="email"
             autoComplete="email"
-            className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+            className="min-w-0 flex-1 bg-transparent text-sm text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
             placeholder="Enter your email address"
             type="email"
             value={email}
@@ -181,7 +180,7 @@ export function ForgotPasswordCard() {
           />
         </div>
 
-        <div className={`${isDesktopApp ? "mt-5 text-sm leading-6" : "mt-7 text-base leading-7"} flex gap-4 font-bold text-[#65718d]`}>
+        <div className="mt-5 flex gap-4 text-sm font-bold leading-6 text-[#65718d]">
           <p>We&apos;ll send a secure password reset link to this email address.</p>
         </div>
 
@@ -189,7 +188,7 @@ export function ForgotPasswordCard() {
         {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
         <button
-          className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-9 h-16 text-lg"}`}
+          className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-6 h-12 text-base"}`}
           type="submit"
           disabled={isSubmitting}
         >
@@ -197,17 +196,17 @@ export function ForgotPasswordCard() {
           {isSubmitting ? "Sending..." : "Send Reset Link"}
         </button>
 
-        <div className={`${isDesktopApp ? "my-5" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
+        <div className={`${isDesktopApp ? "my-5" : "my-6"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
           <span className="h-px flex-1 bg-[#E5E0D6]" />
           or
           <span className="h-px flex-1 bg-[#E5E0D6]" />
         </div>
 
-        <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#15344f] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
+        <Link className="mx-auto flex items-center justify-center gap-3 text-base font-black text-[#1f4d73] transition hover:text-[#15344f]" href={isDesktopApp ? "/login?desktop=1" : "/login"}>
           Back to Login
         </Link>
 
-        <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
+        <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-6 text-sm"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
           Need help?{" "}
           <button
             className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#15344f]"
