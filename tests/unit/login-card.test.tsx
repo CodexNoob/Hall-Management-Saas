@@ -286,6 +286,57 @@ describe("LoginCard failure paths", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  /**
+   * A beta applicant signing in before they are approved.
+   *
+   * They typed the right password - there is nothing on this form for them to
+   * correct - so a red message here reads as a mistake they made. They get the
+   * page about the beta instead, with the session ended for the same reason as
+   * the case above.
+   */
+  it("sends a pending beta applicant to the beta-pending page", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    fetchAuthSession.mockRejectedValue(
+      new AuthSessionError(
+        "Thank you for your interest in Event Core. Your beta access request has been received. We'll reach out when your account is approved.",
+        403,
+        "beta_access_pending"
+      )
+    );
+    renderLogin();
+    fill("applicant@example.com", "Secret123");
+    submitForm();
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/beta-pending"));
+    expect(signOutCurrentSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("distinguishes a rejected applicant on the same page", async () => {
+    signInWithPassword.mockResolvedValue({
+      data: { session: { access_token: "access-token" } },
+      error: null
+    });
+    fetchAuthSession.mockRejectedValue(
+      new AuthSessionError(
+        "This account has not been approved for Event Core access.",
+        403,
+        "beta_access_rejected"
+      )
+    );
+    renderLogin();
+    fill("applicant@example.com", "Secret123");
+    submitForm();
+
+    // A status CODE on the URL, never the server's prose: the page reads this
+    // back off its own query string, where anyone could have typed it.
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/beta-pending?status=rejected")
+    );
+  });
+
   it("leaves the session alone when the refusal is only a server error", async () => {
     signInWithPassword.mockResolvedValue({
       data: { session: { access_token: "access-token" } },

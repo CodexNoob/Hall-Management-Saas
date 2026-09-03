@@ -246,54 +246,87 @@ describe("SignUpCardsuccess path", () => {
     expect(payload.email).toBe("owner@example.com");
   });
 
-  it("sends an unconfirmed owner to the verify-email page", async () => {
+  /**
+   * These two used to end in different places - /verify-email without a
+   * session, /dashboard/new with one. While Event Core is in beta, registering
+   * is a REQUEST: nothing is provisioned, so both end at the same page and the
+   * second one would otherwise walk straight into a 403.
+   */
+  it("sends an unconfirmed applicant to the beta-pending page", async () => {
     signUp.mockResolvedValue({
       data: { user: { id: "user-1" }, session: null },
       error: null
     });
+    fetchMock.mockResolvedValue(new Response("{}", { status: 202 }));
     renderSignUp();
     fill("owner+trial@example.com", "Testing12345");
     submitForm();
 
-    await waitFor(() =>
-      expect(push).toHaveBeenCalledWith(
-        "/verify-email?email=owner%2Btrial%40example.com"
-      )
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/beta-pending"));
+    // The address is NOT carried on the URL any more. The page says the same
+    // thing to everybody, which is what stops it being a way to ask whether an
+    // address is registered.
+    expect(push).not.toHaveBeenCalledWith(
+      expect.stringContaining("owner%2Btrial")
     );
     expect(fetchAuthSession).not.toHaveBeenCalled();
   });
 
-  it("claims organization ownership on the account it creates", async () => {
+  it("queues the beta request and claims organization ownership", async () => {
     signUp.mockResolvedValue({
       data: { session: { access_token: "access-token" } },
       error: null
     });
-    fetchAuthSession.mockResolvedValue(undefined);
+    fetchMock.mockResolvedValue(new Response("{}", { status: 202 }));
     renderSignUp();
     fill("owner@example.com", "Testing12345");
     submitForm();
 
     await waitFor(() => expect(signUp).toHaveBeenCalled());
 
-    // Sign-up makes no HTTP call of its own. There used to be a
-    // /api/auth/free-trial-access pre-flight that read as an eligibility gate
-    // but approved every valid address; this fails if anything like it returns.
-    expect(fetchMock).not.toHaveBeenCalled();
+    // The one HTTP call sign-up makes, and it only RECORDS. There used to be a
+    // /api/auth/free-trial-access PRE-flight that read as an eligibility gate
+    // and approved every valid address; this is its opposite - it runs after
+    // the account exists and decides nothing.
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/beta-access/requests",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toEqual({
+      email: "owner@example.com",
+      signupMethod: "email_password"
+    });
 
-    // The only signal that authorizes the server to provision an organization.
+    // The only signal that authorizes the server to provision an organization -
+    // once the request behind it has been approved.
     const [payload] = signUp.mock.calls[0];
     expect(payload.options.data.account_type).toBe("organization_owner");
     // No query string of its own: the email template appends
     // `?token_hash=...&type=signup`, and a second `?` would break the link.
-    // /auth/confirm routes a confirmed signup to /dashboard/new on the type.
     expect(payload.options.emailRedirectTo).toMatch(/\/auth\/confirm$/);
 
-    await waitFor(() =>
-      expect(fetchAuthSession).toHaveBeenCalledWith("access-token", {
-        force: true
-      })
-    );
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/new"));
+    // A session in hand no longer means a dashboard: syncing it would be
+    // refused, so the applicant goes to the beta page like everybody else.
+    expect(fetchAuthSession).not.toHaveBeenCalled();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/beta-pending"));
+  });
+
+  it("still reaches the beta page when the request cannot be recorded", async () => {
+    // The account exists either way, and provisioning records the request again
+    // server-side. Failing the submit here would report "sign-up failed" over an
+    // account Supabase had already created.
+    signUp.mockResolvedValue({
+      data: { user: { id: "user-1" }, session: null },
+      error: null
+    });
+    fetchMock.mockRejectedValue(new Error("offline"));
+    renderSignUp();
+    fill("owner@example.com", "Testing12345");
+    submitForm();
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/beta-pending"));
   });
 });
 

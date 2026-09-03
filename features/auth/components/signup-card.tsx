@@ -9,7 +9,7 @@ import {
   getAuthErrorMessage,
   getSignUpErrorMessage
 } from "@/lib/auth/auth-error-messages";
-import { fetchAuthSession, signInWithOAuthProvider } from "@/lib/auth/client";
+import { signInWithOAuthProvider } from "@/lib/auth/client";
 import {
   AuthDivider,
   AuthSocialButtons,
@@ -97,6 +97,27 @@ function SignUpIllustration() {
   );
 }
 
+/**
+ * Tells the server somebody has registered, so the team is notified now rather
+ * than whenever the applicant next opens a browser.
+ *
+ * NEVER THROWS. The server records the request again in `provisionOwner`, which
+ * is also where the refusal lives, so this call is a promptness optimisation
+ * and not a step anything depends on. Letting it fail the submit would report
+ * "sign-up failed" over an account Supabase had already created.
+ */
+async function requestBetaAccess(email: string) {
+  try {
+    await fetch("/api/beta-access/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, signupMethod: "email_password" })
+    });
+  } catch {
+    // Deliberately silent - see above.
+  }
+}
+
 export function SignUpCard() {
   const router = useRouter();
   const { toast } = useToast();
@@ -179,7 +200,9 @@ export function SignUpCard() {
       // to consult had no importers. The free trial is open by design, so the
       // check is gone rather than left looking like it does something.
       const supabase = createSupabaseBrowserClient();
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      // The session is no longer read: with or without one, registration ends
+      // at the same page while Event Core is in beta.
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password: form.password,
         options: {
@@ -204,18 +227,21 @@ export function SignUpCard() {
         return;
       }
 
-      // With email confirmation enabled Supabase returns no session, so the
-      // account is real but unusable until the inbox is confirmed.
-      if (!data.session?.access_token) {
-        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
-        return;
-      }
+      /*
+       * Registering is a REQUEST now, so the team is told here.
+       *
+       * Deliberately after signUp rather than before: an address Supabase
+       * refuses - malformed, rate-limited, already taken - is not a
+       * registration, and queueing one would fill the list with people who
+       * never signed up.
+       */
+      await requestBetaAccess(email);
 
-      // Confirmation disabled (local development): the owner is already signed
-      // in, so go collect the organization details now.
-      await fetchAuthSession(data.session.access_token, { force: true });
-      router.push("/dashboard/new");
-      router.refresh();
+      // Whether or not Supabase started a session, the destination is the same:
+      // nothing is provisioned until the request is approved. This used to
+      // branch - /verify-email with no session, /dashboard/new with one - and
+      // that second branch is now a dead end that ends in a 403.
+      router.push("/beta-pending");
     } catch (error) {
       failSignUp(getSignUpErrorMessage(error));
     } finally {
@@ -232,7 +258,7 @@ export function SignUpCard() {
       }
     >
       <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-8 text-white lg:flex lg:flex-col lg:justify-center xl:p-10 2xl:p-14"}`}>
-        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-md rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
         <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
         <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-white opacity-8" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
@@ -265,7 +291,7 @@ export function SignUpCard() {
               Create your account
             </h1>
             <p className="mt-4 max-w-md text-base leading-7 text-white/75">
-              Start with your email and a password. You&apos;ll name your organization and choose a plan right after you confirm your inbox.
+              Event Core is in private beta. Start with your email and a password, and we&apos;ll reach out as soon as your access is approved.
             </p>
           </div>
 
@@ -314,8 +340,11 @@ export function SignUpCard() {
               />
             </Link>
           )}
-          <h2 className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
-          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
+          <h2 className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Request beta access</h2>
+          {/* Was "Step 1 of 2 - organization details come next". They do not
+              come next any more: nothing is provisioned until the request is
+              approved, and promising the setup form strands somebody on a 403. */}
+          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}>Event Core is in private beta. Create your account and we&apos;ll be in touch once it is approved.</p>
 
           <form className={isDesktopApp ? "mt-3" : "mt-6"} onSubmit={submit}>
             <label className="block text-sm font-bold text-[#0F172A]" htmlFor="signupEmail">

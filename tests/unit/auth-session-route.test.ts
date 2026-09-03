@@ -30,7 +30,10 @@ const {
   findManyPermissions,
   createManyPrincipalRoles,
   findManyPrincipalRoles,
-  findManyPrincipalPermissions
+  findManyPrincipalPermissions,
+  findManyBetaRequests,
+  upsertBetaRequest,
+  updateBetaRequest
 } = vi.hoisted(() => ({
   findManyUsers: vi.fn(),
   createUser: vi.fn(),
@@ -48,7 +51,10 @@ const {
   findManyPermissions: vi.fn(),
   createManyPrincipalRoles: vi.fn(),
   findManyPrincipalRoles: vi.fn(),
-  findManyPrincipalPermissions: vi.fn()
+  findManyPrincipalPermissions: vi.fn(),
+  findManyBetaRequests: vi.fn(),
+  upsertBetaRequest: vi.fn(),
+  updateBetaRequest: vi.fn()
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -80,7 +86,15 @@ vi.mock("@/lib/prisma", () => {
       createMany: createManyPrincipalRoles,
       findMany: findManyPrincipalRoles
     },
-    principalPermission: { findMany: findManyPrincipalPermissions }
+    principalPermission: { findMany: findManyPrincipalPermissions },
+    // The beta queue. Provisioning consults it before it may create anything,
+    // so without these doubles every registration test below would fail on an
+    // undefined call rather than on what it actually asserts.
+    betaAccessRequest: {
+      findMany: findManyBetaRequests,
+      upsert: upsertBetaRequest,
+      update: updateBetaRequest
+    }
   };
 
   return {
@@ -99,6 +113,13 @@ vi.mock("@/lib/supabase/server", () => ({
 
 vi.mock("@/lib/security/rate-limit", () => ({
   enforceRateLimit: vi.fn().mockResolvedValue(null)
+}));
+
+// Whether the team is emailed is beta-access.test.ts's question. Stubbed here
+// so these tests never reach Resend and never depend on which mail variables
+// happen to be set in the environment they run in.
+vi.mock("@/features/beta-access/server/beta-access-notifications", () => ({
+  notifyBetaAccessRequested: vi.fn().mockResolvedValue(false)
 }));
 
 import { POST } from "@/app/api/auth/session/route";
@@ -201,6 +222,17 @@ function supabaseUser(
   };
 }
 
+/** One row of the beta queue, as the module underneath provisioning reads it. */
+function betaRequest(status: "PENDING" | "APPROVED" | "REJECTED") {
+  return {
+    email: storedUser.email,
+    status,
+    signupMethod: "email_password",
+    requestedAt: new Date("2026-09-01T00:00:00.000Z"),
+    supabaseAuthId: AUTH_ID
+  };
+}
+
 function syncRequest() {
   return new Request("http://localhost/api/auth/session", {
     method: "POST",
@@ -251,6 +283,11 @@ describe("POST /api/auth/session", () => {
     }));
     updateMembership.mockResolvedValue(membership);
     createActivityLog.mockResolvedValue(null);
+    // Approved by default, so the tests that are about PROVISIONING stay about
+    // provisioning. The gate has its own block at the bottom of this file.
+    findManyBetaRequests.mockResolvedValue([betaRequest("APPROVED")]);
+    upsertBetaRequest.mockResolvedValue(betaRequest("PENDING"));
+    updateBetaRequest.mockResolvedValue(betaRequest("PENDING"));
   });
 
   it("rejects a request with no bearer token", async () => {
@@ -639,6 +676,209 @@ describe("POST /api/auth/session", () => {
         data: expect.objectContaining({ name: "Renamed Person" })
       })
     );
+  });
+
+  /**
+   * THE BETA GATE.
+   *
+   * `provisionOwner` is the only code in the application that may create an
+   * organization from nothing, and everything else - every API route, the whole
+   * dashboard - needs a `users` row that only it writes. So these are not "one
+   * of the places an applicant is refused"; they are the place.
+   *
+   * A new registration is one with no user row at all, so each case clears
+   * `findManyUsers` and supplies the owner flag Supabase would carry.
+   */
+  describe("beta access", () => {
+    function newRegistration(providers = ["email"]) {
+      findManyUsers.mockResolvedValue([]);
+      findMembership.mockResolvedValue(null);
+      getUser.mockResolvedValue(
+        supabaseUser({
+          user_metadata: {
+            full_name: "Ada",
+            account_type: "organization_owner"
+          },
+          app_metadata: { providers }
+        })
+      );
+    }
+
+    /** Nothing at all was created for this identity. */
+    function expectNothingProvisioned() {
+      expect(createOrganization).not.toHaveBeenCalled();
+      expect(createUser).not.toHaveBeenCalled();
+      expect(createMembership).not.toHaveBeenCalled();
+      expect(createManyPrincipalRoles).not.toHaveBeenCalled();
+    }
+
+    it("records a request for a first-time email/password registration", async () => {
+      newRegistration();
+      findManyBetaRequests.mockResolvedValue([]);
+      upsertBetaRequest.mockResolvedValue(betaRequest("PENDING"));
+
+      const response = await POST(syncRequest());
+
+      expect(upsertBetaRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            email: storedUser.email,
+            status: "PENDING",
+            signupMethod: "email_password",
+            supabaseAuthId: AUTH_ID
+          })
+        })
+      );
+      expect(response.status).toBe(403);
+      expectNothingProvisioned();
+    });
+
+    it("records a Google registration as one", async () => {
+      // The half the public form cannot cover: an OAuth round trip has no
+      // client-side registration moment, so this path is the only thing that
+      // ever queues a Google applicant.
+      newRegistration(["google"]);
+      findManyBetaRequests.mockResolvedValue([]);
+      upsertBetaRequest.mockResolvedValue(betaRequest("PENDING"));
+
+      await POST(syncRequest());
+
+      expect(upsertBetaRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ signupMethod: "google" })
+        })
+      );
+    });
+
+    it("opens no second request for somebody who registered already", async () => {
+      newRegistration();
+      findManyBetaRequests.mockResolvedValue([betaRequest("PENDING")]);
+
+      const response = await POST(syncRequest());
+
+      expect(upsertBetaRequest).not.toHaveBeenCalled();
+      expect(response.status).toBe(403);
+    });
+
+    it("refuses a pending applicant with a code the browser can route on", async () => {
+      newRegistration();
+      findManyBetaRequests.mockResolvedValue([betaRequest("PENDING")]);
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      // The code is what sends them to /beta-pending rather than to a sign-in
+      // form with a red message on it.
+      expect(body.code).toBe("beta_access_pending");
+      expect(body.error).toMatch(/beta access request has been received/i);
+      // 403 matters as much as the code: `isTerminalAuthSessionError` keys off
+      // the status to end the Supabase session, and without that the applicant
+      // holds a live session proxy.ts will not let them leave.
+      expectNothingProvisioned();
+    });
+
+    it("refuses a rejected applicant, and says something different", async () => {
+      newRegistration();
+      findManyBetaRequests.mockResolvedValue([betaRequest("REJECTED")]);
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(body.code).toBe("beta_access_rejected");
+      // Not the pending copy: telling somebody who was turned down that we will
+      // reach out leaves them waiting for a message that is not coming.
+      expect(body.error).not.toMatch(/reach out/i);
+      expectNothingProvisioned();
+    });
+
+    it("provisions the organization, membership and trial once approved", async () => {
+      newRegistration();
+      findManyBetaRequests.mockResolvedValue([betaRequest("APPROVED")]);
+      createOrganization.mockResolvedValue({
+        ...organization,
+        subscriptionStatus: "trialing",
+        onboardingCompletedAt: null
+      });
+      createUser.mockResolvedValue(storedUser);
+      createMembership.mockResolvedValue(membership);
+      findManyMemberships.mockResolvedValue([
+        {
+          ...membership,
+          organization: {
+            ...organization,
+            subscriptionStatus: "trialing",
+            onboardingCompletedAt: null
+          }
+        }
+      ]);
+      findManyPrincipalRoles.mockResolvedValue([
+        {
+          scopeType: "org",
+          scopeId: ORGANIZATION_ID,
+          expiresAt: null,
+          role: {
+            rolePermissions: [{ permission: { key: "settings.update" } }]
+          }
+        }
+      ]);
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      // Approval grants access to the EXISTING flow rather than replacing it:
+      // the same organization, the same founding role, the same trial, and the
+      // same trip through /dashboard/new.
+      expect(createOrganization).toHaveBeenCalledTimes(1);
+      expect(createMembership).toHaveBeenCalledTimes(1);
+      expect(createManyPrincipalRoles).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            expect.objectContaining({
+              roleId: `role-${FOUNDING_OWNER_ROLE_KEY}`
+            })
+          ]
+        })
+      );
+      expect(body.mustCompleteOnboarding).toBe(true);
+      expect(body.organizations[0].subscriptionStatus).toBe("trialing");
+    });
+
+    /**
+     * Invited staff must not be treated as owner applicants.
+     *
+     * They cannot be, by construction: POST /api/staff writes their `users` row
+     * at invite time, so `findUserForProfile` matches them and `reconcile` runs
+     * - `provisionOwner`, and therefore the gate, is never reached. This pins
+     * it, because the property is invisible in the gate's own code.
+     */
+    it("lets invited staff sign in without touching the beta queue", async () => {
+      // The default `findManyUsers` in beforeEach IS an invited-then-provisioned
+      // employee: a user row that already exists.
+      getUser.mockResolvedValue(supabaseUser({ user_metadata: {} }));
+
+      const response = await POST(syncRequest());
+
+      expect(response.status).toBe(200);
+      expect(findManyBetaRequests).not.toHaveBeenCalled();
+      expect(upsertBetaRequest).not.toHaveBeenCalled();
+    });
+
+    it("still refuses a stranger who is not registering at all", async () => {
+      // The pre-existing invitation refusal comes first and is unchanged: they
+      // never asked to open an organization, so they do not belong in the queue.
+      findManyUsers.mockResolvedValue([]);
+      getUser.mockResolvedValue(
+        supabaseUser({ email: "stranger@example.com", user_metadata: {} })
+      );
+
+      const response = await POST(syncRequest());
+
+      expect((await response.json()).code).toBe("invitation_required");
+      expect(findManyBetaRequests).not.toHaveBeenCalled();
+    });
   });
 
   /**

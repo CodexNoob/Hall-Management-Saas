@@ -29,6 +29,15 @@ export type SupabaseProfile = {
   /** True only for the owner sign-up flow, which may create an organization. */
   isOwnerSignUp: boolean;
   /**
+   * Supabase's own list of the providers on this identity, in its own words.
+   *
+   * Exposed so the beta queue can record HOW somebody registered rather than
+   * inferring it from `usesEmailPassword`, which answers a different question -
+   * an account can hold both a password and Google, and that flag decides
+   * whether to send them to /set-password, not which button they pressed.
+   */
+  providers: string[];
+  /**
    * Whether a password is applicable at all. Users who only ever authenticate
    * through an OAuth provider never need a password of their own, so they must
    * not be pushed into password setup.
@@ -70,6 +79,7 @@ export function parseSupabaseProfile(user: User): SupabaseProfile {
     venueName: readTrimmedString(metadata, "venue_name"),
     isOwnerSignUp:
       readTrimmedString(metadata, "account_type") === OWNER_ACCOUNT_TYPE,
+    providers,
     usesEmailPassword: providers.length === 0 || providers.includes("email"),
     lastSignInAt: user.last_sign_in_at ? new Date(user.last_sign_in_at) : null
   };

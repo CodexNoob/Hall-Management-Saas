@@ -44,6 +44,22 @@ const envSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   SUPPORT_EMAIL_FROM: z.string().optional(),
   SUPPORT_WEBHOOK_URL: z.string().url().optional(),
+  // Where "New Event Core beta-access request" is sent.
+  //
+  // Its own variable rather than a reuse of SUPPORT_EMAIL: these are different
+  // jobs that may go to different people, and an address that must never be
+  // hardcoded is easier to keep out of the code when it has a name. The
+  // transport is shared - RESEND_API_KEY and SUPPORT_EMAIL_FROM above.
+  BETA_APPROVAL_EMAIL: z.string().email().optional(),
+  // Addresses admitted to the beta the moment they register, comma-separated.
+  //
+  // Optional and empty by default, so the default posture is that everybody
+  // waits for a human decision. Deliberately a SEPARATE list from
+  // TESTER_BYPASS_EMAILS, which waives payment: not paying and being allowed to
+  // create a tenant are different powers, and one list holding both means
+  // granting either one grants the other by accident. See
+  // features/beta-access/server/beta-access.ts.
+  BETA_ACCESS_AUTO_APPROVE_EMAILS: z.string().optional(),
   // Deliberately optional with no default. The public client portal renders for
   // every organization, so a global payment link sent one venue's clients to
   // another venue's merchant account. Per-organization links live in

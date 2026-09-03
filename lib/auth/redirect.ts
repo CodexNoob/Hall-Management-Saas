@@ -60,6 +60,34 @@ export function getRejectedLoginPath(
   return query ? `/login?${query}` : "/login";
 }
 
+/**
+ * The page a beta applicant is shown, instead of a sign-in error.
+ *
+ * A refused applicant is not somebody who mistyped a password, and a login form
+ * with a red message on it says the wrong thing entirely - they have no action
+ * to take there. This is a page about the beta, and it is where both entry
+ * points send them: the sign-up form after registering, and the session sync
+ * after refusing.
+ *
+ * Carries a STATUS CODE and never the server's prose, for the same reason
+ * `getRejectedLoginPath` does: by the time the page reads it back it is
+ * attacker-supplied - anyone can type a `?status=` - so it is mapped through a
+ * fixed table there, and anything unrecognized renders the pending copy, which
+ * is the variant that says less.
+ */
+export function getBetaPendingPath(
+  code: string | undefined
+): `/beta-pending${string}` {
+  return code === "beta_access_rejected"
+    ? "/beta-pending?status=rejected"
+    : "/beta-pending";
+}
+
+/** Whether this refusal is one the beta page explains better than /login does. */
+export function isBetaAccessCode(code: string | undefined) {
+  return code === "beta_access_pending" || code === "beta_access_rejected";
+}
+
 export function getPasswordSetupPath(
   returnPath: string
 ): `/set-password?flow=required&next=${string}` {
