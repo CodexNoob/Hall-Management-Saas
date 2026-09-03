@@ -1,8 +1,8 @@
 "use client";
 
-import { GoogleIcon, MicrosoftIcon } from "@/features/auth/components/auth-icons";
+import { GoogleIcon } from "@/features/auth/components/auth-icons";
 
-export type AuthProvider = "google" | "azure";
+export type AuthProvider = "google";
 
 type AuthDividerProps = {
   className?: string;
@@ -43,18 +43,6 @@ export function AuthSocialButtons({
         {oauthProvider === "google"
           ? "Opening Google..."
           : "Continue with Google"}
-      </button>
-
-      <button
-        className={`login-social flex w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] disabled:cursor-not-allowed disabled:opacity-70 ${isCompact ? "h-10 text-sm" : "h-14 text-base"}`}
-        type="button"
-        disabled={oauthProvider !== null}
-        onClick={() => onProviderClick("azure")}
-      >
-        <MicrosoftIcon />
-        {oauthProvider === "azure"
-          ? "Opening Microsoft..."
-          : "Continue with Microsoft"}
       </button>
     </div>
   );

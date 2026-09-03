@@ -7,6 +7,10 @@ import {
   setActiveOrganizationCookie
 } from "@/lib/supabase/browser";
 import { isAuthSessionResponse } from "@/lib/auth/session-context";
+import {
+  ORGANIZATION_SIGNUP_INTENT,
+  OWNER_INTENT_PARAM
+} from "@/lib/auth/owner-signup";
 import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 // The response shape is owned by lib/auth/session-context.ts, which is also what
@@ -19,6 +23,42 @@ export type {
 } from "@/lib/auth/session-context";
 
 import type { AuthSessionResponse } from "@/lib/auth/session-context";
+
+/**
+ * A refusal from /api/auth/session, carrying the status and the machine-readable
+ * code the route now returns. Thrown instead of a bare Error so callers can tell
+ * "this account may not be here" from "the request failed".
+ */
+export class AuthSessionError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string
+  ) {
+    super(message);
+    this.name = "AuthSessionError";
+  }
+}
+
+/**
+ * Whether the refusal is one that retrying can never clear.
+ *
+ * This distinction is load-bearing rather than cosmetic. A rejected account
+ * still holds a perfectly valid Supabase session - Google authenticated the
+ * person, we simply have no seat for them - and proxy.ts sends anyone holding a
+ * session away from /login. Leaving that session in place strands them on the
+ * dashboard's error card with a "Try again" that cannot succeed and no route
+ * back to sign-in short of clearing cookies. So a terminal refusal must end the
+ * Supabase session too; a 500 or a dropped connection must not.
+ */
+export function isTerminalAuthSessionError(
+  error: unknown
+): error is AuthSessionError {
+  return (
+    error instanceof AuthSessionError &&
+    (error.status === 401 || error.status === 403)
+  );
+}
 
 const AUTH_SESSION_CACHE_KEY = "hms.authSession";
 const AUTH_SESSION_SUBJECT_KEY = "hms.authSession.subject";
@@ -189,10 +229,13 @@ export function fetchAuthSession(
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        code?: string;
       } | null;
-      throw new Error(
+      throw new AuthSessionError(
         payload?.error ??
-          "Unable to sync the signed-in user with the Hall Management database."
+          "Unable to sync the signed-in user with the Hall Management database.",
+        response.status,
+        payload?.code
       );
     }
 
@@ -236,17 +279,44 @@ export async function markPasswordSet(accessToken: string) {
   }
 }
 
+/**
+ * "Continue with Google" signs in an identity we know and creates an account for
+ * one we do not - the same button on both /login and /signup, because Google
+ * draws no such distinction and neither does self-serve sign-up. A first Google
+ * sign-in is therefore the OAuth twin of the /signup form, and gets what that
+ * form gets: an organization and a trial.
+ *
+ * The two pages used to differ, and it read as broken. Password sign-in gets
+ * away with the asymmetry because "no such account" is obvious at the form; an
+ * OAuth round trip *succeeds*, so refusing it afterwards looks like a bug rather
+ * than a policy.
+ *
+ * The flag still travels as a parameter rather than being assumed by the
+ * callback, because /auth/callback also serves email links - invitations,
+ * recovery, email changes - and none of those may provision anything.
+ */
 export async function signInWithOAuthProvider(
-  provider: Extract<Provider, "google" | "azure">,
+  provider: Extract<Provider, "google">,
   returnPath: string = MVP_LANDING_ROUTE
 ) {
   const supabase = createSupabaseBrowserClient();
-  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnPath)}`;
+  // Built with URL rather than concatenated: there are two parameters now, and
+  // `next` is a path that carries its own encoding needs.
+  const callback = new URL("/auth/callback", window.location.origin);
+  callback.searchParams.set("next", returnPath);
+  callback.searchParams.set(OWNER_INTENT_PARAM, ORGANIZATION_SIGNUP_INTENT);
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo
+      redirectTo: callback.toString(),
+      // Google signs the browser straight back in with whichever account it saw
+      // last, with no prompt at all. That is the wrong default here: an invited
+      // employee is expected under one work address, and anyone signed into a
+      // personal account first would be authenticated as the wrong person -
+      // which now means a second organization of their own rather than an error.
+      // Choosing the account is the one thing that prevents it.
+      queryParams: { prompt: "select_account" }
     }
   });
 

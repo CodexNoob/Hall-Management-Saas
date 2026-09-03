@@ -10,6 +10,8 @@ import {
 import {
   clearCachedAuthSession,
   fetchAuthSession,
+  isTerminalAuthSessionError,
+  signOutCurrentSession,
   type AuthSessionResponse
 } from "@/lib/auth/client";
 import { DashboardSidebar } from "@/components/layout/dashboard-sidebar";
@@ -26,7 +28,8 @@ import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
 import {
   getDashboardLoginPath,
-  getPasswordSetupPath
+  getPasswordSetupPath,
+  getRejectedLoginPath
 } from "@/lib/auth/redirect";
 import type { ReactNode } from "react";
 
@@ -247,6 +250,29 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           }
         }
       } catch (error) {
+        // A refusal no retry can clear - most often a social sign-in whose
+        // address has no seat here. The Supabase session is valid, so showing
+        // the error card and stopping would trap the person on it: "Try again"
+        // repeats the same 403, and proxy.ts bounces /login back to /dashboard
+        // for as long as that session exists. End it, then send them to sign in
+        // with the reason spelled out.
+        if (isTerminalAuthSessionError(error)) {
+          clearCachedAuthSession();
+          stopRealtimeSync();
+          // Never let a failed sign-out swallow the redirect: leaving the person
+          // on the error card is the outcome this whole branch exists to avoid,
+          // and the cookie expires on its own.
+          await signOutCurrentSession().catch(() => undefined);
+
+          router.replace(
+            getRejectedLoginPath(
+              error.code,
+              window.localStorage.getItem("eventCoreDesktopApp") === "true"
+            ) as Parameters<typeof router.replace>[0]
+          );
+          return;
+        }
+
         if (isMounted) {
           setStartupError(
             error instanceof Error

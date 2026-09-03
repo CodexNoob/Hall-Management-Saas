@@ -98,6 +98,28 @@ function getEmailDeliveryMessage(code: string, normalized: string) {
   return null;
 }
 
+/**
+ * Copy for the two refusals that end a session outright, keyed by the code
+ * `/api/auth/session` returns (lib/auth/errors.ts).
+ *
+ * Restated here rather than passed through the URL from the server: the login
+ * page reads the reason off its own query string, so carrying prose would let
+ * anyone put arbitrary text on a sign-in form. Only a code from this table
+ * renders, and everything else renders nothing.
+ */
+const REJECTION_MESSAGES_BY_REASON: Record<string, string> = {
+  invitation_required:
+    "No employee account was found for that email. Ask your organization administrator for an invitation, then sign in with the address they invited.",
+  account_deactivated:
+    "This account has been deactivated. Ask your organization administrator to restore it."
+};
+
+export function getAuthRejectionMessage(reason: string | null | undefined) {
+  if (!reason) return null;
+
+  return REJECTION_MESSAGES_BY_REASON[reason] ?? null;
+}
+
 type AuthErrorLike = {
   code?: unknown;
   status?: unknown;

@@ -325,9 +325,12 @@ async function provisionOwner(
         name: profile.name,
         phone: profile.phone,
         venueName: profile.venueName,
-        // This branch is only reachable from the owner sign-up, which calls
-        // supabase.auth.signUp with a password the user just chose.
-        passwordSetAt: new Date(),
+        // Only when a password is part of this account at all. The email
+        // sign-up calls supabase.auth.signUp with one the owner just chose; a
+        // Google sign-up has none, and stamping it there would tell the security
+        // panel a password exists that its owner could never have set - and that
+        // /set-password had already been completed.
+        passwordSetAt: profile.usesEmailPassword ? new Date() : null,
         lastSignInAt: profile.lastSignInAt
       }
     });

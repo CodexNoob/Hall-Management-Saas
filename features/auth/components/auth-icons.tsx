@@ -247,14 +247,3 @@ export function GoogleIcon({ className = "h-6 w-6" }: IconProps) {
     </svg>
   );
 }
-
-export function MicrosoftIcon({ className = "h-6 w-6" }: IconProps) {
-  return (
-    <svg aria-hidden="true" className={className} viewBox="0 0 24 24">
-      <path d="M3 3h8.5v8.5H3z" fill="#F35325" />
-      <path d="M12.5 3H21v8.5h-8.5z" fill="#81BC06" />
-      <path d="M3 12.5h8.5V21H3z" fill="#05A6F0" />
-      <path d="M12.5 12.5H21V21h-8.5z" fill="#FFBA08" />
-    </svg>
-  );
-}

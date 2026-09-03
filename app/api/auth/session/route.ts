@@ -97,8 +97,12 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     if (error instanceof AuthorizationError) {
+      // `code` alongside the prose, because the two refusals that are terminal -
+      // no invitation, deactivated account - have to be told apart from a
+      // transient 500 by the caller. The browser ends the Supabase session on
+      // those, and it must not decide that by matching on a message.
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, code: error.code },
         { status: error.status }
       );
     }

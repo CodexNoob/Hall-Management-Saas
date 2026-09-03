@@ -6,6 +6,7 @@ const push = vi.fn();
 const refresh = vi.fn();
 const signUp = vi.fn();
 const fetchAuthSession = vi.fn();
+const signInWithOAuthProvider = vi.fn();
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh, replace: vi.fn(), prefetch: vi.fn() }),
@@ -17,7 +18,9 @@ vi.mock("@/lib/supabase/browser", () => ({
 }));
 
 vi.mock("@/lib/auth/client", () => ({
-  fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args)
+  fetchAuthSession: (...args: unknown[]) => fetchAuthSession(...args),
+  signInWithOAuthProvider: (...args: unknown[]) =>
+    signInWithOAuthProvider(...args)
 }));
 
 import { ToastProvider } from "@/components/ui/toast";
@@ -291,5 +294,44 @@ describe("SignUpCardsuccess path", () => {
       })
     );
     await waitFor(() => expect(push).toHaveBeenCalledWith("/dashboard/new"));
+  });
+});
+
+describe("SignUpCard social sign-up", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    signInWithOAuthProvider.mockReturnValue(new Promise(() => {}));
+  });
+
+  it("hands Google off without touching the email sign-up", async () => {
+    // Identical to the call /login makes - one button signs in and signs up,
+    // and where the organization comes from is decided by whether the identity
+    // is already known, not by which page was open.
+    renderSignUp();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Continue with Google/ })
+    );
+
+    await waitFor(() =>
+      expect(signInWithOAuthProvider).toHaveBeenCalledWith("google")
+    );
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("reports a provider failure and re-enables the button", async () => {
+    signInWithOAuthProvider.mockRejectedValue(new Error(""));
+    renderSignUp();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Continue with Google/ })
+    );
+
+    await expectReportedTwice("Unable to start social sign-up.");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /Continue with Google/ })
+      ).toBeEnabled()
+    );
   });
 });
