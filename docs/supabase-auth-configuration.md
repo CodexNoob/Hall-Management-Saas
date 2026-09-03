@@ -307,12 +307,10 @@ only of the per-address cooldown, and is actively misleading for the other two.
 
 As of 2026-08-27 production has had none of these three done.
 
-1. Create a sender at a transactional provider and verify the sending domain.
-   **Resend** is the path of least resistance here — the app already talks to it
-   for support mail ([support-notifications.ts](../features/support/server/support-notifications.ts)),
-   so `RESEND_API_KEY` and `SUPPORT_EMAIL_FROM` end up serving both. SendGrid,
-   Postmark, Brevo and SES are equally fine; nothing in the app depends on the
-   choice.
+1. Create a sender in **Brevo** and verify the sending domain. Supabase uses
+   Brevo SMTP for authentication mail. The separate beta-request alert uses
+   `BREVO_API_KEY`, `SUPPORT_EMAIL_FROM`, and `BETA_APPROVAL_EMAIL` in the
+   application; Supabase's stored SMTP credentials are not exposed to Next.js.
 2. **Authentication → Emails → SMTP Settings → Enable Custom SMTP**, then fill in
    the provider's host, port, username and password. The sender address must be
    on the domain verified in step 1 or the provider will reject every message.

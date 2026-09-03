@@ -116,7 +116,7 @@ vi.mock("@/lib/security/rate-limit", () => ({
 }));
 
 // Whether the team is emailed is beta-access.test.ts's question. Stubbed here
-// so these tests never reach Resend and never depend on which mail variables
+// so these tests never reach Brevo and never depend on which mail variables
 // happen to be set in the environment they run in.
 vi.mock("@/features/beta-access/server/beta-access-notifications", () => ({
   notifyBetaAccessRequested: vi.fn().mockResolvedValue(false)

@@ -69,7 +69,7 @@ Extract cohesive dialogs, hooks, and services with tests; do not rewrite all wor
 
 - Stripe handles subscription checkout and payment webhooks.
 - Plaid handles bank-link flows and transaction import.
-- Resend-compatible configuration sends support/auth-related email where enabled.
+- Brevo sends beta-request notifications, while Supabase uses Brevo SMTP for authentication email.
 - Google integrations live under `lib/google` and feature-specific API routes.
 
 Keep provider secrets server-side and verify webhook signatures before processing events.

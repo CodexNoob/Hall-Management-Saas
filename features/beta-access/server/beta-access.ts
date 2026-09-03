@@ -230,7 +230,7 @@ function toRecord(row: RequestRow) {
 /**
  * Record the request, then tell the team - in that order, never the reverse.
  *
- * The write commits before a byte goes to Resend, and the send happens outside
+ * The write commits before a byte goes to Brevo, and the send happens outside
  * any transaction. That ordering is the whole of the delivery-failure
  * requirement: a mail outage can lose a notification and never a request, and
  * `notified_at` is stamped only if the mail actually went, so the row never
