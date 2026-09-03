@@ -7,6 +7,10 @@ import {
   setActiveOrganizationCookie
 } from "@/lib/supabase/browser";
 import { isAuthSessionResponse } from "@/lib/auth/session-context";
+import {
+  ORGANIZATION_SIGNUP_INTENT,
+  OWNER_INTENT_PARAM
+} from "@/lib/auth/owner-signup";
 import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 // The response shape is owned by lib/auth/session-context.ts, which is also what
@@ -275,22 +279,43 @@ export async function markPasswordSet(accessToken: string) {
   }
 }
 
+/**
+ * "Continue with Google" signs in an identity we know and creates an account for
+ * one we do not - the same button on both /login and /signup, because Google
+ * draws no such distinction and neither does self-serve sign-up. A first Google
+ * sign-in is therefore the OAuth twin of the /signup form, and gets what that
+ * form gets: an organization and a trial.
+ *
+ * The two pages used to differ, and it read as broken. Password sign-in gets
+ * away with the asymmetry because "no such account" is obvious at the form; an
+ * OAuth round trip *succeeds*, so refusing it afterwards looks like a bug rather
+ * than a policy.
+ *
+ * The flag still travels as a parameter rather than being assumed by the
+ * callback, because /auth/callback also serves email links - invitations,
+ * recovery, email changes - and none of those may provision anything.
+ */
 export async function signInWithOAuthProvider(
   provider: Extract<Provider, "google">,
   returnPath: string = MVP_LANDING_ROUTE
 ) {
   const supabase = createSupabaseBrowserClient();
-  const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(returnPath)}`;
+  // Built with URL rather than concatenated: there are two parameters now, and
+  // `next` is a path that carries its own encoding needs.
+  const callback = new URL("/auth/callback", window.location.origin);
+  callback.searchParams.set("next", returnPath);
+  callback.searchParams.set(OWNER_INTENT_PARAM, ORGANIZATION_SIGNUP_INTENT);
 
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo,
+      redirectTo: callback.toString(),
       // Google signs the browser straight back in with whichever account it saw
-      // last, with no prompt at all. That is the wrong default here: a seat is
-      // provisioned against one work address, so anyone signed into a personal
-      // account first is silently authenticated as the wrong person and lands on
-      // "No employee account was found for this email" with nothing to change.
+      // last, with no prompt at all. That is the wrong default here: an invited
+      // employee is expected under one work address, and anyone signed into a
+      // personal account first would be authenticated as the wrong person -
+      // which now means a second organization of their own rather than an error.
+      // Choosing the account is the one thing that prevents it.
       queryParams: { prompt: "select_account" }
     }
   });

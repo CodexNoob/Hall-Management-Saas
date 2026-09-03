@@ -11,10 +11,11 @@ import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 
 const verifyOtp = vi.fn();
 const exchangeCodeForSession = vi.fn();
+const updateUser = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
-    auth: { verifyOtp, exchangeCodeForSession }
+    auth: { verifyOtp, exchangeCodeForSession, updateUser }
   })
 }));
 
@@ -41,6 +42,73 @@ beforeEach(() => {
   vi.clearAllMocks();
   verifyOtp.mockResolvedValue(sessionResult());
   exchangeCodeForSession.mockResolvedValue(sessionResult());
+  updateUser.mockResolvedValue({ data: { user: null }, error: null });
+});
+
+/**
+ * The OAuth half of the sign-up. signInWithOAuth cannot carry `options.data`
+ * through the provider, so the flag that authorizes provisioning an organization
+ * travels in the redirect URL and is written here instead.
+ */
+describe("social sign-up (intent=organization)", () => {
+  it("stamps the flag onto the session it just established", async () => {
+    const url = await locationOf(
+      await confirm("?code=oauth-code&intent=organization&next=/dashboard/menu")
+    );
+
+    expect(updateUser).toHaveBeenCalledWith({
+      data: { account_type: "organization_owner" }
+    });
+    // Not diverted to /dashboard/new: the same flag arrives for people who
+    // already have an organization, and the dashboard layout is the half that
+    // knows which case this is.
+    expect(url.pathname).toBe("/dashboard/menu");
+  });
+
+  it("leaves an email link's metadata alone", async () => {
+    // The reason the flag is a parameter at all: /auth/callback also completes
+    // invitations and recovery, and neither may create an organization.
+    await confirm("?token_hash=hash-1&type=invite");
+
+    expect(updateUser).not.toHaveBeenCalled();
+  });
+
+  it("ignores an intent it does not recognize", async () => {
+    const url = await locationOf(
+      await confirm("?code=oauth-code&intent=administrator")
+    );
+
+    expect(updateUser).not.toHaveBeenCalled();
+    expect(url.pathname).toBe(MVP_LANDING_ROUTE);
+  });
+
+  it("stops rather than sending an unflagged owner to be refused", async () => {
+    // Provisioning would answer the unflagged account with "ask for an
+    // invitation", and the browser answers that by signing them out - which is
+    // the wrong story entirely for someone opening an organization.
+    updateUser.mockResolvedValue({
+      data: { user: null },
+      error: { code: "over_request_rate_limit", message: "Too many requests" }
+    });
+
+    const url = await locationOf(
+      await confirm("?code=oauth-code&intent=organization")
+    );
+
+    expect(url.pathname).toBe("/auth/auth-error");
+    expect(url.searchParams.get("error_code")).toBe("over_request_rate_limit");
+  });
+
+  it("never runs before a session exists", async () => {
+    exchangeCodeForSession.mockResolvedValue({
+      data: { session: null, user: null },
+      error: null
+    });
+
+    await confirm("?code=oauth-code&intent=organization");
+
+    expect(updateUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("email links (token_hash)", () => {
@@ -270,9 +338,7 @@ describe("/auth/callback", () => {
     const { GET } = await import("@/app/auth/callback/route");
     const url = await locationOf(
       await GET(
-        new NextRequest(
-          `${origin}/auth/callback?token_hash=hash-1&type=invite`
-        )
+        new NextRequest(`${origin}/auth/callback?token_hash=hash-1&type=invite`)
       )
     );
 

@@ -1,4 +1,5 @@
 import type { User } from "@supabase/supabase-js";
+import { OWNER_ACCOUNT_TYPE } from "@/lib/auth/owner-signup";
 import { phoneSchema } from "@/lib/validation/phone";
 
 /**
@@ -68,7 +69,7 @@ export function parseSupabaseProfile(user: User): SupabaseProfile {
     phone: rawPhone ? (phoneSchema().safeParse(rawPhone).data ?? null) : null,
     venueName: readTrimmedString(metadata, "venue_name"),
     isOwnerSignUp:
-      readTrimmedString(metadata, "account_type") === "organization_owner",
+      readTrimmedString(metadata, "account_type") === OWNER_ACCOUNT_TYPE,
     usesEmailPassword: providers.length === 0 || providers.includes("email"),
     lastSignInAt: user.last_sign_in_at ? new Date(user.last_sign_in_at) : null
   };

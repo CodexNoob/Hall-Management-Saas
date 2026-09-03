@@ -391,6 +391,34 @@ describe("POST /api/auth/session", () => {
     expect(body.organizations[0].subscriptionStatus).toBe("trialing");
   });
 
+  it("does not claim a Google owner has a password", async () => {
+    // /auth/callback stamps `account_type` after the OAuth return, because
+    // signInWithOAuth cannot carry metadata through the provider - so this is
+    // exactly what the session route sees for a social sign-up.
+    findManyUsers.mockResolvedValue([]);
+    getUser.mockResolvedValue(
+      supabaseUser({
+        user_metadata: { full_name: "Ada", account_type: "organization_owner" },
+        app_metadata: { providers: ["google"] }
+      })
+    );
+
+    const response = await POST(syncRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(createOrganization).toHaveBeenCalledTimes(1);
+    // The account has no password and never chose one. Stamping passwordSetAt
+    // here would tell the security panel otherwise.
+    expect(createUser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ passwordSetAt: null })
+      })
+    );
+    // ...and they must not be pushed into /set-password for one either.
+    expect(body.mustSetPassword).toBe(false);
+  });
+
   it("refuses to provision an unknown email that is not an owner sign-up", async () => {
     findManyUsers.mockResolvedValue([]);
     getUser.mockResolvedValue(

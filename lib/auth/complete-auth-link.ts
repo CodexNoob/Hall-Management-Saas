@@ -6,6 +6,11 @@ import {
   type AuthCallbackType
 } from "@/lib/auth/auth-callback-params";
 import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
+import {
+  OWNER_ACCOUNT_TYPE,
+  OWNER_INTENT_PARAM,
+  isOwnerIntent
+} from "@/lib/auth/owner-signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
@@ -70,6 +75,12 @@ function destinationFor(type: AuthCallbackType, next: string | null) {
     return "/dashboard/new";
   }
 
+  // Social returns are NOT special-cased here, even though one may have just
+  // created an organization. The same button signs in people who already have
+  // one, and sending those to /dashboard/new would throw away the page they
+  // asked for and bounce them straight back out of a form they cannot use. The
+  // dashboard layout already routes an owner who has not named their
+  // organization, and it is the half that knows which case this is.
   return getSafeDashboardReturnPath(next);
 }
 
@@ -84,6 +95,10 @@ export async function completeAuthLink(request: NextRequest) {
   // verifyOtp.
   const rawType = searchParams.get("type");
   const type = isAuthCallbackType(rawType) ? rawType : null;
+
+  // Set by the Google button on /signup and by nothing else. Read up here so
+  // both the metadata write and the destination below see the same value.
+  const isOwnerSignUp = isOwnerIntent(searchParams.get(OWNER_INTENT_PARAM));
 
   // Supabase reports a link it rejected outright in the URL itself and never
   // mints a credential for it. Read that first, so a precise reason ("link has
@@ -143,9 +158,36 @@ export async function completeAuthLink(request: NextRequest) {
     );
   }
 
-  // Built from `type` and the sanitized `next` only - neither the token hash
-  // nor the code may survive onto the redirect, or they land in browser history
-  // and in any Referer the destination page sends.
+  // A social sign-up carries no user metadata: signInWithOAuth has no
+  // `options.data`, so the flag that authorizes provisioning an organization
+  // cannot travel through Google. Stamp it here, on the session that was just
+  // established, and `parseSupabaseProfile` stays the only reader of
+  // `account_type` while `provisionOwner` stays the only writer of tenants.
+  //
+  // `updateUser`, not the admin API: this acts as the user on their own account,
+  // which is all it needs and all the email path ever was.
+  //
+  // A failure has to stop here rather than redirect anyway. Provisioning would
+  // refuse the unflagged account, and the browser would answer that refusal by
+  // signing them out - reporting "ask for an invitation" to someone who was
+  // trying to open an organization.
+  if (isOwnerSignUp) {
+    const { error: metadataError } = await supabase.auth.updateUser({
+      data: { account_type: OWNER_ACCOUNT_TYPE }
+    });
+
+    if (metadataError) {
+      return authErrorRedirect(
+        request,
+        metadataError.code ?? "owner_signup_failed",
+        metadataError.message
+      );
+    }
+  }
+
+  // Built from `type`, the sanitized `next` and the intent only - neither the
+  // token hash nor the code may survive onto the redirect, or they land in
+  // browser history and in any Referer the destination page sends.
   return NextResponse.redirect(
     new URL(destinationFor(type, next), request.nextUrl)
   );

@@ -1,12 +1,21 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
-import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
-import { fetchAuthSession } from "@/lib/auth/client";
+import {
+  getAuthErrorMessage,
+  getSignUpErrorMessage
+} from "@/lib/auth/auth-error-messages";
+import { fetchAuthSession, signInWithOAuthProvider } from "@/lib/auth/client";
+import {
+  AuthDivider,
+  AuthSocialButtons,
+  type AuthProvider
+} from "@/features/auth/components/auth-social-buttons";
+import { OWNER_ACCOUNT_TYPE } from "@/lib/auth/owner-signup";
 import { PASSWORD_RULES_HINT } from "@/lib/auth/password";
 import { getSignUpValidationError } from "@/features/auth/validations/auth.schema";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
@@ -99,6 +108,19 @@ export function SignUpCard() {
   });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<AuthProvider | null>(null);
+
+  // Coming back from Google with the Back button restores this page from the
+  // bfcache with its React state intact, so the button would stay disabled
+  // reading "Opening Google..." with no way to retry short of a reload.
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setOauthProvider(null);
+    };
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   const updateField = (name: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [name]: value }));
@@ -108,6 +130,27 @@ export function SignUpCard() {
   const failSignUp = (message: string) => {
     setError(message);
     toast.error(message, { title: "Sign-up failed" });
+  };
+
+  const signUpWithProvider = async (provider: AuthProvider) => {
+    setOauthProvider(provider);
+    setError("");
+
+    try {
+      // The same call the login page makes. One Google button both signs in and
+      // signs up, because the provider draws no distinction between the two and
+      // a first sign-in here gets what the form beside it gets: an organization
+      // and a trial.
+      await signInWithOAuthProvider(provider);
+    } catch (providerError) {
+      const message = getAuthErrorMessage(
+        providerError,
+        "Unable to start social sign-up."
+      );
+      setError(message);
+      toast.error(message, { title: "Social sign-up failed" });
+      setOauthProvider(null);
+    }
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -148,8 +191,10 @@ export function SignUpCard() {
           data: {
             // The only server-side signal that authorizes POST
             // /api/auth/session to provision an organization. Everyone else
-            // joins by administrator invitation.
-            account_type: "organization_owner"
+            // joins by administrator invitation. The Google button below sets
+            // the same flag the only way an OAuth round trip allows - see
+            // lib/auth/owner-signup.ts.
+            account_type: OWNER_ACCOUNT_TYPE
           }
         }
       });
@@ -332,6 +377,14 @@ export function SignUpCard() {
               <ArrowLoginIcon />
               {isSubmitting ? "Creating account..." : "Create account"}
             </button>
+
+            <AuthDivider className={isDesktopApp ? "my-4" : "my-7"} />
+
+            <AuthSocialButtons
+              isCompact={isDesktopApp}
+              oauthProvider={oauthProvider}
+              onProviderClick={signUpWithProvider}
+            />
 
             <p className={`${isDesktopApp ? "mt-3 text-xs leading-5" : "mt-5 text-sm leading-6"} text-center font-medium text-[#64748B]`}>
               By creating an account you agree to the{" "}
