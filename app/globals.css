@@ -179,6 +179,18 @@ a {
   text-decoration: none;
 }
 
+/*
+ * The reset above is UNLAYERED, and unlayered rules outrank everything inside a
+ * cascade layer - Tailwind's utilities included. So `text-white` on an anchor
+ * loses to `color: inherit` and the link is painted in the body ink it sits on.
+ * The auth screens style their primary action as a link on a navy gradient
+ * (/set-password's dead-link panel, /auth/auth-error), which is exactly the
+ * pairing that goes unreadable, so it opts back out here.
+ */
+a.login-button {
+  color: #ffffff;
+}
+
 svg {
   flex: none;
 }

@@ -3,10 +3,20 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Loader2, MailCheck, ShieldCheck } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
 import { getSignUpErrorMessage } from "@/lib/auth/auth-error-messages";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import {
+  AuthBrandPanel,
+  AuthMobileLogo,
+  AuthShell
+} from "@/features/auth/components/auth-shell";
+import {
+  EmailIcon,
+  SendIcon,
+  ShieldIcon
+} from "@/features/auth/components/auth-icons";
 
 // Supabase throttles confirmation sends per address, so the button stays disabled
 // long enough that a second press cannot trip that cooldown. It does nothing for
@@ -14,6 +24,58 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 // gets its own copy in auth-error-messages.ts rather than a "wait a minute" the
 // button has already waited out.
 const RESEND_COOLDOWN_SECONDS = 60;
+
+/** Sits on the navy brand panel, so its plate is white and its accents light. */
+function InboxIllustration() {
+  return (
+    <div className="relative mt-10 min-h-75 lg:mt-12">
+      <div className="absolute bottom-0 left-4 h-44 w-44 rounded-full bg-[#E7E3DA]/65 blur-3xl" />
+      <div className="absolute right-0 top-6 h-44 w-44 rounded-full bg-[#1f4d73]/70 blur-3xl" />
+
+      <div className="relative mx-auto w-full max-w-107.5">
+        <div className="relative mx-auto h-56 w-[88%] rotate-[-4deg] overflow-hidden rounded-3xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/20">
+          <div className="flex h-10 items-center gap-2 border-b border-[#E5E0D6] px-4">
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ff6b6b]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#ffbf4d]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[#32d583]" />
+          </div>
+          <div className="space-y-3 p-5">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 rounded-2xl bg-[#F7F4ED] p-3"
+              >
+                <span className="h-8 w-8 shrink-0 rounded-xl bg-[#1f4d73]/15" />
+                <span className="h-2.5 flex-1 rounded-full bg-[#E5E0D6]" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="absolute left-1/2 top-24 flex h-28 w-28 -translate-x-1/2 items-center justify-center rounded-full bg-linear-to-br from-[#1f4d73] to-[#0F172A] text-white shadow-2xl shadow-[#1f4d73]/30">
+          <EmailIcon className="h-11 w-11 text-white" />
+        </div>
+
+        <div className="absolute bottom-6 right-16 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
+          <svg
+            className="h-8 w-8"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="m6 12 4 4 8-8"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function VerifyEmailCard() {
   const searchParams = useSearchParams();
@@ -70,74 +132,81 @@ export function VerifyEmailCard() {
   const isCoolingDown = cooldownSeconds > 0;
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F3F6FA] px-5 py-10 text-[#0F172A]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(31,77,115,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(185,151,77,0.16),transparent_34%)]" />
-      <section className="relative w-full max-w-[520px] rounded-[32px] border border-white/80 bg-white p-8 text-center shadow-[0_28px_80px_rgba(15,23,42,0.16)] sm:p-10">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl border border-[#d8dde5]">
-          <MailCheck className="h-8 w-8 text-[#0B1930]" strokeWidth={1.5} />
-        </div>
+    <AuthShell
+      brand={
+        <AuthBrandPanel
+          eyebrow={
+            <>
+              Almost there! <span aria-hidden="true">&#128075;</span>
+            </>
+          }
+          heading="Check your inbox"
+          blurb="Opening the link we just sent activates your account and takes you straight to naming your organization."
+          illustration={<InboxIllustration />}
+          assuranceBlurb="Confirmation links are single-use and expire on their own."
+        />
+      }
+    >
+      <AuthMobileLogo />
 
-        <p className="mt-6 text-xs font-black uppercase tracking-[0.28em] text-[#1F4D73]">
-          Event Core
-        </p>
-        <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">
-          Confirm your email
-        </h1>
-        <p className="mx-auto mt-4 max-w-sm text-base font-semibold leading-7 text-[#64748B]">
-          Your account has been created. We sent a confirmation link
-          {email ? " to " : " to your email address"}
-          {email ? (
-            <span className="font-black text-[#0F172A]">{email}</span>
-          ) : null}
-          . Open it to activate your account and finish setting up your
-          organization.
-        </p>
+      <h2 className="text-3xl font-black tracking-tight text-[#0F172A] sm:text-4xl">
+        Confirm your email
+      </h2>
+      <p className="mt-3 max-w-md text-base leading-7 text-[#64748B] sm:mt-4 sm:text-lg sm:leading-8">
+        Your account has been created. We sent a confirmation link
+        {email ? " to " : " to your email address"}
+        {email ? (
+          <span className="font-black text-[#0F172A]">{email}</span>
+        ) : null}
+        . Open it to activate your account and finish setting up your
+        organization.
+      </p>
 
-        <div className="mt-7 rounded-2xl border border-[#D8DEE8] bg-[#F8FBFF] p-4 text-left">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1F4D73] shadow-sm">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-[#0F172A]">
-                What happens next
-              </p>
-              <p className="mt-1 text-sm leading-6 text-[#64748B]">
-                Confirming the link signs you in and takes you straight to a
-                short form where you name your organization and choose a plan.
-              </p>
-            </div>
+      <div className="mt-8 rounded-2xl border border-[#E5E0D6] bg-[#F7F4ED] p-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#1f4d73] shadow-sm">
+            <ShieldIcon className="h-5 w-5 text-[#1f4d73]" />
+          </div>
+          <div>
+            <p className="font-bold text-[#0F172A]">What happens next</p>
+            <p className="mt-1 text-sm leading-6 text-[#64748B]">
+              Confirming the link signs you in and takes you straight to a short
+              form where you name your organization and choose a plan.
+            </p>
           </div>
         </div>
+      </div>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          {email ? (
-            <button
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1F4D73] px-6 py-3 text-sm font-black text-white shadow-lg shadow-[#1F4D73]/20 transition hover:bg-[#163B59] disabled:cursor-not-allowed disabled:opacity-70"
-              disabled={isResending || isCoolingDown}
-              onClick={resendConfirmation}
-              type="button"
-            >
-              {isResending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {isResending
-                ? "Sending..."
-                : isCoolingDown
-                  ? `Resend in ${cooldownSeconds}s`
-                  : "Resend confirmation email"}
-            </button>
-          ) : null}
-          <Link
-            className="inline-flex items-center justify-center rounded-2xl border border-[#B8C4D4] bg-white px-6 py-3 text-sm font-black text-[#0F172A] transition hover:bg-[#F8FAFC]"
-            href="/login"
-          >
-            Go to sign in
-          </Link>
-        </div>
+      {email ? (
+        <button
+          className="login-button mt-8 flex h-16 w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] text-lg font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={isResending || isCoolingDown}
+          onClick={resendConfirmation}
+          type="button"
+        >
+          {isResending ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <SendIcon />
+          )}
+          {isResending
+            ? "Sending..."
+            : isCoolingDown
+              ? `Resend in ${cooldownSeconds}s`
+              : "Resend confirmation email"}
+        </button>
+      ) : null}
 
-        <p className="mt-7 text-sm font-semibold text-[#64748B]">
-          Can&apos;t find it? Check your spam folder before resending.
-        </p>
-      </section>
-    </main>
+      <Link
+        className={`login-social flex h-14 w-full items-center justify-center gap-4 border border-[#E5E0D6] bg-white text-base font-bold text-[#0F172A] transition hover:border-[#1f4d73] hover:bg-[#F7F4ED] ${email ? "mt-4" : "mt-8"}`}
+        href="/login"
+      >
+        Go to sign in
+      </Link>
+
+      <p className="mt-7 text-center text-sm font-medium text-[#64748B]">
+        Can&apos;t find it? Check your spam folder before resending.
+      </p>
+    </AuthShell>
   );
 }
