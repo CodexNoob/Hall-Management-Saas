@@ -257,13 +257,8 @@ export function SignUpCard() {
           : "grid min-h-dvh w-full min-w-0 lg:grid-cols-2"
       }
     >
-<<<<<<< HEAD
-      <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-10 text-white lg:flex lg:flex-col lg:justify-center xl:p-16"}`}>
-        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-md rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
-=======
       <div className={`relative overflow-hidden ${isDesktopApp ? "order-2 hidden" : "order-1 hidden bg-linear-to-br from-[#1f4d73] via-[#1a4066] to-[#0F172A] p-8 text-white lg:flex lg:flex-col lg:justify-center xl:p-10 2xl:p-14"}`}>
-        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-112 rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
->>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
+        <div className="pointer-events-none absolute -bottom-32 -left-28 h-80 w-md rounded-[50%] bg-[#3c86bd]/35 blur-3xl" />
         <div className="pointer-events-none absolute -right-28 top-1/4 h-72 w-72 rounded-full bg-[#0b5c8a]/35 blur-3xl" />
         <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-white opacity-8" viewBox="0 0 640 180" fill="none" aria-hidden="true">
           <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
@@ -295,13 +290,8 @@ export function SignUpCard() {
             <h1 className="mt-3 max-w-md text-3xl font-black leading-[1.12] tracking-tight text-white xl:text-4xl">
               Create your account
             </h1>
-<<<<<<< HEAD
-            <p className="mt-5 max-w-md text-base leading-8 text-white/75 sm:text-lg">
-              Event Core is in private beta. Start with your email and a password, and we&apos;ll reach out as soon as your access is approved.
-=======
             <p className="mt-4 max-w-md text-base leading-7 text-white/75">
-              Start with your email and a password. You&apos;ll name your organization and choose a plan right after you confirm your inbox.
->>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
+              Event Core is in private beta. Start with your email and a password, and we&apos;ll reach out as soon as your access is approved.
             </p>
           </div>
 
@@ -350,16 +340,11 @@ export function SignUpCard() {
               />
             </Link>
           )}
-<<<<<<< HEAD
-          <h2 className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Request beta access</h2>
+          <h2 className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Request beta access</h2>
           {/* Was "Step 1 of 2 - organization details come next". They do not
               come next any more: nothing is provisioned until the request is
               approved, and promising the setup form strands somebody on a 403. */}
-          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-3 text-base sm:mt-4 sm:text-lg"} text-[#64748B]`}>Event Core is in private beta. Create your account and we&apos;ll be in touch once it is approved.</p>
-=======
-          <h2 className={`${isDesktopApp ? "text-xl" : "text-2xl sm:text-3xl"} font-black tracking-tight text-[#0F172A]`}>Get started free</h2>
-          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}>Step 1 of 2 &mdash; create the owner account. Organization details come next.</p>
->>>>>>> 4f5174064571d6be3fb7c0cab5d41a799059d122
+          <p className={`${isDesktopApp ? "mt-1 text-sm" : "mt-2 text-sm sm:text-base"} text-[#64748B]`}>Event Core is in private beta. Create your account and we&apos;ll be in touch once it is approved.</p>
 
           <form className={isDesktopApp ? "mt-3" : "mt-6"} onSubmit={submit}>
             <label className="block text-sm font-bold text-[#0F172A]" htmlFor="signupEmail">
