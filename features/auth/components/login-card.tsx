@@ -15,6 +15,10 @@ import {
   signInWithOAuthProvider,
   signOutCurrentSession
 } from "@/lib/auth/client";
+import {
+  getBetaPendingPath,
+  isBetaAccessCode
+} from "@/lib/auth/redirect";
 import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import {
   createSupabaseBrowserClient,
@@ -196,6 +200,18 @@ export function LoginCard() {
       // and proxy.ts will not let them back to /login while it exists.
       if (isTerminalAuthSessionError(submitError)) {
         await signOutCurrentSession().catch(() => undefined);
+
+        // A beta applicant signing in early gets the page about the beta rather
+        // than a sign-in error. Their credentials were correct; there is
+        // nothing on this form for them to fix, and an error here reads as one.
+        if (isBetaAccessCode(submitError.code)) {
+          router.replace(
+            getBetaPendingPath(submitError.code) as Parameters<
+              typeof router.replace
+            >[0]
+          );
+          return;
+        }
       }
 
       failSignIn(getAuthErrorMessage(submitError));

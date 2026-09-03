@@ -24,6 +24,10 @@ export type AuthorizationErrorCode =
   | "invitation_required"
   /** The user, or their last active membership, was switched off. */
   | "account_deactivated"
+  /** Registered for an owner account, and not approved for the beta yet. */
+  | "beta_access_pending"
+  /** Registered, and the beta request was turned down. */
+  | "beta_access_rejected"
   /** The actor lacks the key guarding this endpoint. */
   | "not_permitted"
   /** The organization's plan does not include this feature. */
@@ -92,6 +96,50 @@ export class InvitationRequiredError extends AuthorizationError {
  * something to heal on sign-in is what let a removed employee reinstate
  * themselves simply by signing in again.
  */
+/**
+ * A verified Supabase identity whose beta request has not been approved.
+ *
+ * Thrown from `provisionOwner`, the only path that may create a tenant, which
+ * is what makes it a refusal everywhere at once: the dashboard syncs the
+ * session before it renders anything, and every API route needs a `users` row
+ * that only that path writes.
+ *
+ * A 403 rather than a softer status, because `isTerminalAuthSessionError` keys
+ * off it: the browser has to END the Supabase session, or the applicant is left
+ * holding a live session that proxy.ts will not let back to /login. Callers
+ * route the CODE to /beta-pending so what they actually see is a page about the
+ * beta rather than a sign-in error.
+ */
+export class BetaAccessPendingError extends AuthorizationError {
+  constructor() {
+    super(
+      403,
+      "Thank you for your interest in Event Core. Your beta access request has been received. We'll reach out when your account is approved.",
+      "beta_access_pending"
+    );
+    this.name = "BetaAccessPendingError";
+  }
+}
+
+/**
+ * The beta request for this identity was turned down.
+ *
+ * Its own code, so the page can stop promising that somebody is coming back to
+ * them - telling a rejected applicant "we'll reach out" leaves them waiting for
+ * a message that is not coming. Says nothing about why: the reason lives in
+ * `beta_access_requests.notes`, which is for the team.
+ */
+export class BetaAccessRejectedError extends AuthorizationError {
+  constructor() {
+    super(
+      403,
+      "This account has not been approved for Event Core access.",
+      "beta_access_rejected"
+    );
+    this.name = "BetaAccessRejectedError";
+  }
+}
+
 export class AccountDeactivatedError extends AuthorizationError {
   constructor(
     message = "This account has been deactivated. Ask your organization administrator to restore it."

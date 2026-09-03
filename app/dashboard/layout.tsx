@@ -27,9 +27,11 @@ import {
 import { getSubscriptionPlan } from "@/lib/subscription/plans";
 import { isTesterBypassEmail } from "@/lib/subscription/trial";
 import {
+  getBetaPendingPath,
   getDashboardLoginPath,
   getPasswordSetupPath,
-  getRejectedLoginPath
+  getRejectedLoginPath,
+  isBetaAccessCode
 } from "@/lib/auth/redirect";
 import type { ReactNode } from "react";
 
@@ -264,11 +266,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           // and the cookie expires on its own.
           await signOutCurrentSession().catch(() => undefined);
 
+          // A beta applicant is not somebody who got their password wrong, so
+          // they do not go to a sign-in form with a red message on it - there
+          // is no action for them to take there. They go to the page that
+          // explains the beta.
           router.replace(
-            getRejectedLoginPath(
-              error.code,
-              window.localStorage.getItem("eventCoreDesktopApp") === "true"
-            ) as Parameters<typeof router.replace>[0]
+            (isBetaAccessCode(error.code)
+              ? getBetaPendingPath(error.code)
+              : getRejectedLoginPath(
+                  error.code,
+                  window.localStorage.getItem("eventCoreDesktopApp") === "true"
+                )) as Parameters<typeof router.replace>[0]
           );
           return;
         }

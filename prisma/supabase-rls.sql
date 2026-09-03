@@ -237,6 +237,17 @@ REVOKE ALL ON TABLE public.contact_support_requests FROM anon, authenticated;
 ALTER TABLE public.api_rate_limit_buckets ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE public.api_rate_limit_buckets FROM anon, authenticated;
 
+-- The beta queue. Written by a public form and by provisioning through the
+-- privileged Prisma connection, read only by the approval script. It holds the
+-- email address of everybody who has ever asked for access, so it gets the same
+-- no-policy treatment as the two tables above rather than a narrow one.
+--
+-- Applied by prisma/migrations/20260903140000_beta_access_requests as well.
+-- Both, deliberately: the migration protects the table from the moment it
+-- exists, and this file stays the one place describing the whole RLS surface.
+ALTER TABLE public.beta_access_requests ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.beta_access_requests FROM anon, authenticated;
+
 DROP POLICY IF EXISTS tenant_storage_select ON storage.objects;
 CREATE POLICY tenant_storage_select
 ON storage.objects

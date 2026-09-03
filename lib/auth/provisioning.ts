@@ -23,8 +23,11 @@ import {
 } from "@/lib/subscription/trial";
 import {
   AccountDeactivatedError,
+  BetaAccessPendingError,
+  BetaAccessRejectedError,
   InvitationRequiredError
 } from "@/lib/auth/errors";
+import { recordAndNotifyBetaAccessRequest } from "@/features/beta-access/server/beta-access";
 import type { SupabaseProfile } from "@/lib/auth/supabase-profile";
 
 /**
@@ -298,6 +301,43 @@ async function provisionOwner(
 ): Promise<ProvisionedContext> {
   if (!profile.isOwnerSignUp) {
     throw new InvitationRequiredError();
+  }
+
+  /*
+   * THE BETA GATE.
+   *
+   * Here rather than in the proxy, a layout or each route, because this
+   * function is the only code in the application that may create an
+   * organization from nothing - and everything else needs a `users` row that
+   * only this function writes. So one refusal closes every door at once: the
+   * confirmation link, password sign-in, the Google button, a typed dashboard
+   * URL, and a direct API call carrying a perfectly valid Supabase JWT (which
+   * `resolveUserActor` refuses with "User account is not provisioned").
+   *
+   * It is the recording backstop too. The email/password form posts to
+   * /api/beta-access/requests at the moment of registration so the team hears
+   * promptly; a Google registration has no such moment, and nothing obliges
+   * anyone to use our form at all. Recording here means a request exists for
+   * every identity that ever reached this point, by whatever route.
+   *
+   * INVITED STAFF NEVER ARRIVE HERE. POST /api/staff writes their `users` row
+   * at invite time, so `findUserForProfile` matches them and `reconcile` runs
+   * instead. That is what leaves the invitation flow untouched by all of this.
+   */
+  const betaAccess = await recordAndNotifyBetaAccessRequest({
+    email: profile.email,
+    supabaseAuthId: profile.authUserId,
+    signupMethod: profile.providers.includes("google")
+      ? "google"
+      : "email_password"
+  });
+
+  if (betaAccess.status === "REJECTED") {
+    throw new BetaAccessRejectedError();
+  }
+
+  if (betaAccess.status !== "APPROVED") {
+    throw new BetaAccessPendingError();
   }
 
   // Sign-up only collects an email and a password, so `venue_name` is absent

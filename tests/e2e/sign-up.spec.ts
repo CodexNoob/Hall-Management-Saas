@@ -178,8 +178,10 @@ test("the landing hero routes to the sign-up page", async ({ page }) => {
     .click();
   await expect(page).toHaveURL(/\/signup$/);
 
+  // "Request beta access", not "Get started free": registration queues a
+  // request while Event Core is in private beta rather than opening a tenant.
   await expect(
-    page.getByRole("heading", { name: "Get started free" })
+    page.getByRole("heading", { name: "Request beta access" })
   ).toBeVisible();
 
   // The hydration wait above was for the landing page's form; this is a second

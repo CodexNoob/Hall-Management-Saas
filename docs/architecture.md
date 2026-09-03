@@ -63,6 +63,7 @@ Extract cohesive dialogs, hooks, and services with tests; do not rewrite all wor
 - Client-side visibility is usability only, not authorization.
 - Mutations must re-check permissions and organization ownership in the server/API layer.
 - Public endpoints require strict schemas and rate limiting.
+- **Beta access gate.** While Event Core is in private beta, owner registration records a request in `beta_access_requests` instead of provisioning anything. The gate is a single block in `provisionOwner()` (`lib/auth/provisioning.ts`) — the one function that may create an organization from nothing — so a pending or rejected applicant is refused everywhere at once, including direct API requests, without any route needing its own check. Refused applicants are sent to `/beta-pending` rather than a generic auth error. Approval is a script (`npm run beta:approve`), never an endpoint. Staff invitations are unaffected: invitees already have a `users` row and never reach that path. See [beta-access.md](beta-access.md).
 
 ## Integrations
 

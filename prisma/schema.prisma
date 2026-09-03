@@ -130,6 +130,48 @@ model ContactSupportRequest {
   @@map("contact_support_requests")
 }
 
+/// A request to open an Event Core account, and the decision on it.
+///
+/// GLOBAL, NOT TENANT-SCOPED, and necessarily so: this row exists precisely
+/// because there is no organization yet. It is what stands between a verified
+/// Supabase identity and `provisionOwner` creating a tenant for it. Same shape
+/// as `contact_support_requests` - written through the privileged Prisma
+/// connection, never read from a browser, RLS on with no policy granted.
+///
+/// TWO UNIQUE KEYS, deliberately. `email` catches somebody registering the same
+/// address twice, which is the common case and the only one the public form can
+/// see - it runs before any session exists. `supabaseAuthId` catches the same
+/// authenticated identity arriving by another route, and is what makes the
+/// Google path safe: signing in with Google after registering by password must
+/// find the existing request rather than open a second one.
+model BetaAccessRequest {
+  id     String @id @default(uuid()) @db.Uuid
+  /// Lower-cased and trimmed by the application before it is written.
+  email  String @unique
+  /// Null until an authenticated identity claims this request - the public form
+  /// records one before Supabase has issued a session. Unique so two identities
+  /// can never share a request.
+  supabaseAuthId String? @unique @map("supabase_auth_id")
+  status         String  @default("PENDING")
+  /// "email_password" or "google", when the recording path can tell. Null when
+  /// it cannot, which is why the notification says "if available".
+  signupMethod String?   @map("signup_method")
+  requestedAt  DateTime  @default(now()) @map("requested_at")
+  /// When the team was told. Best-effort: mail is sent after the row commits,
+  /// so a delivery failure leaves this NULL rather than losing the request.
+  notifiedAt   DateTime? @map("notified_at")
+  decidedAt    DateTime? @map("decided_at")
+  /// Free text naming whoever decided. Not a foreign key: the decision is made
+  /// from a script, by a person who may have no row in this database at all.
+  decidedBy    String?   @map("decided_by")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([status, requestedAt])
+  @@map("beta_access_requests")
+}
+
 model ApiRateLimitBucket {
   id           String   @id
   requestCount Int      @default(1) @map("request_count")
