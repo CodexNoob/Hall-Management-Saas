@@ -381,7 +381,7 @@ export function SignUpCard() {
             <AuthDivider className={isDesktopApp ? "my-4" : "my-7"} />
 
             <AuthSocialButtons
-              isCompact={isDesktopApp}
+              size={isDesktopApp ? "sm" : "lg"}
               oauthProvider={oauthProvider}
               onProviderClick={signUpWithProvider}
             />
