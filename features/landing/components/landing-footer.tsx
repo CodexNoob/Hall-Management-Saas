@@ -6,7 +6,6 @@ import type { Route } from "next";
 import { NewsletterForm } from "@/features/landing/components/newsletter-form";
 import {
   companyLinks,
-  productLinks,
   quickLinks
 } from "@/features/landing/navigation/footer-navigation";
 import { preparePublicPageNavigation } from "@/features/landing/navigation/public-page-scroll";
@@ -64,7 +63,7 @@ export function LandingFooter() {
       <div className="absolute -right-24 top-0 h-72 w-72 rounded-full bg-[#0F172A]/20 blur-3xl" />
 
       <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 lg:py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.35fr_0.85fr_0.9fr_0.9fr_1.25fr]">
+        <div className="grid gap-10 lg:grid-cols-[1.35fr_0.85fr_0.9fr_1.25fr]">
           <div>
             <FooterBrandIcon />
             <p className="mt-6 max-w-xs text-lg leading-8 text-[#aeb8d1]">
@@ -73,7 +72,6 @@ export function LandingFooter() {
           </div>
 
           <LinkList title="Quick Links" links={quickLinks} />
-          <LinkList title="Product" links={productLinks} />
           <LinkList title="Company" links={companyLinks} />
 
           <div className="border-white/10 lg:border-l lg:pl-9">
