@@ -19,14 +19,16 @@ export default async function AuthErrorPage({
   const params = await searchParams;
 
   return (
-    <AuthErrorView
-      initial={{
-        type: null,
-        errorCode: first(params.error_code),
-        errorDescription:
-          first(params.error_description) ?? first(params.error),
-        next: null
-      }}
-    />
+    <main className="min-h-dvh overflow-x-hidden bg-white text-[#0F172A]">
+      <AuthErrorView
+        initial={{
+          type: null,
+          errorCode: first(params.error_code),
+          errorDescription:
+            first(params.error_description) ?? first(params.error),
+          next: null
+        }}
+      />
+    </main>
   );
 }

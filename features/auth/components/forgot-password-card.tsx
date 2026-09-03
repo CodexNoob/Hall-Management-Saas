@@ -7,6 +7,11 @@ import { useDesktopAppMode } from "@/lib/desktop-app/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
 import {
+  AuthBrandPanel,
+  AuthMobileLogo,
+  AuthShell
+} from "@/features/auth/components/auth-shell";
+import {
   EmailIcon,
   ExternalLinkIcon,
   LockIcon,
@@ -14,6 +19,7 @@ import {
   ShieldIcon
 } from "@/features/auth/components/auth-icons";
 
+/** Sits on the navy brand panel, so its accents are white rather than navy. */
 function ResetIllustration() {
   return (
     <div className="relative mt-10 min-h-75 lg:mt-12">
@@ -54,16 +60,14 @@ function ResetIllustration() {
           <p className="mt-2 h-2 w-20 rounded-full bg-[#E5E0D6]" />
         </div>
 
-        <div className="absolute bottom-8 right-20 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
+        {/* Clear of the "Reset Link" plate above it: the two used to overlap and
+            swallow that label. */}
+        <div className="absolute bottom-2 left-10 flex h-16 w-16 items-center justify-center rounded-full border border-white/80 bg-white text-[#1f4d73] shadow-xl shadow-[#1f4d73]/15">
           <svg className="h-8 w-8" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="m6 12 4 4 8-8" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
 
-        <svg className="absolute right-8 top-14 h-24 w-24 text-[#0F172A]" viewBox="0 0 120 120" fill="none" aria-hidden="true">
-          <path d="M16 96c35-10 8-46 48-54" stroke="currentColor" strokeWidth="2" strokeDasharray="6 6" strokeLinecap="round" opacity="0.45" />
-          <path d="m70 35 28-13-12 29-5-13z" fill="currentColor" opacity="0.75" />
-        </svg>
       </div>
     </div>
   );
@@ -75,7 +79,7 @@ function DesktopResetIllustration() {
       <div className="absolute bottom-0 left-6 h-20 w-32 rounded-full bg-[#E7E3DA]/70 blur-3xl" />
       <div className="absolute right-8 top-0 h-20 w-24 rounded-full bg-[#1f4d73]/60 blur-3xl" />
 
-      <div className="relative mx-auto h-25 w-[82%] rotate-[-3deg] overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/18">
+      <div className="relative mx-auto h-25 w-[82%] -rotate-3 overflow-hidden rounded-2xl border border-white/80 bg-white shadow-2xl shadow-[#1f4d73]/18">
         <div className="grid h-full grid-cols-[58px_1fr]">
           <div className="bg-linear-to-b from-[#1f4d73] to-[#0F172A] p-3">
             <div className="h-2 w-9 rounded-full bg-white/80" />
@@ -108,11 +112,7 @@ function DesktopResetIllustration() {
   );
 }
 
-type ForgotPasswordCardProps = {
-  compact?: boolean;
-};
-
-export function ForgotPasswordCard({ compact = false }: ForgotPasswordCardProps) {
+export function ForgotPasswordCard() {
   const isDesktopApp = useDesktopAppMode();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -154,121 +154,154 @@ export function ForgotPasswordCard({ compact = false }: ForgotPasswordCardProps)
     }
   };
 
-  return (
-    <section className={`mx-auto grid w-full min-w-0 overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl ${isDesktopApp ? "desktop-auth-soft-page desktop-auth-soft-forward max-h-[760px] max-w-6xl grid-cols-[1fr_0.92fr]" : "lg:grid-cols-2"}`}>
-      <div className={`relative overflow-hidden p-5 sm:p-10 ${isDesktopApp ? "desktop-auth-info-panel order-2 block bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8" : "order-2 bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] lg:order-1"} ${!isDesktopApp && compact ? "hidden lg:block lg:p-10" : !isDesktopApp ? "lg:p-14" : ""}`}>
-        <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
-        <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
-        <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
-          {Array.from({ length: 36 }).map((_, index) => (
-            <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
-          ))}
+  const formPanel = (
+    <>
+      <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
+      <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
+
+      <form className={isDesktopApp ? "mt-4" : "mt-10"} onSubmit={submit}>
+        <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="forgotEmail">
+          Email Address
+        </label>
+        <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
+          <EmailIcon />
+          <input
+            id="forgotEmail"
+            name="email"
+            autoComplete="email"
+            className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
+            placeholder="Enter your email address"
+            type="email"
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              setError("");
+              setSuccess("");
+            }}
+          />
         </div>
-        <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#1f4d73] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
-          <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
-        </svg>
 
-        <div className="relative">
-          {isDesktopApp ? (
-            <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-          ) : (
-            <Link href="/" aria-label="Back to Hall Management SaaS home">
-              <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
-            </Link>
-          )}
+        <div className={`${isDesktopApp ? "mt-5 text-sm leading-6" : "mt-7 text-base leading-7"} flex gap-4 font-bold text-[#65718d]`}>
+          <p>We&apos;ll send a secure password reset link to this email address.</p>
+        </div>
 
-          <p className={`${isDesktopApp ? "mt-7" : compact ? "mt-8" : "mt-10"} text-base font-black text-[#1f4d73]`}>
-            No worries! <span aria-hidden="true">&#128075;</span>
-          </p>
-          <h1 className={`${isDesktopApp ? "mt-4 text-4xl" : "mt-5 text-3xl sm:mt-6 sm:text-5xl"} max-w-md font-black leading-[1.08] tracking-tight text-[#0F172A]`}>
-            Recover your account
-          </h1>
-          <p className={`${isDesktopApp ? "mt-3 text-base leading-7" : "mt-4 text-base leading-7 sm:mt-5 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>
-            Enter your email address and we&apos;ll send you a secure link to reset your password.
-          </p>
+        {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
+        {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
 
-          {isDesktopApp ? <DesktopResetIllustration /> : <ResetIllustration />}
+        <button
+          className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-9 h-16 text-lg"}`}
+          type="submit"
+          disabled={isSubmitting}
+        >
+          <SendIcon />
+          {isSubmitting ? "Sending..." : "Send Reset Link"}
+        </button>
 
-          <div className={`${isDesktopApp ? "mt-5" : compact ? "mt-8" : "mt-10"} flex items-center gap-4`}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
-              <ShieldIcon />
+        <div className={`${isDesktopApp ? "my-5" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
+          <span className="h-px flex-1 bg-[#E5E0D6]" />
+          or
+          <span className="h-px flex-1 bg-[#E5E0D6]" />
+        </div>
+
+        <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#15344f] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
+          Back to Login
+        </Link>
+
+        <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
+          Need help?{" "}
+          <button
+            className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#15344f]"
+            data-contact-modal
+            type="button"
+          >
+            Contact support
+            <ExternalLinkIcon />
+          </button>
+        </p>
+      </form>
+    </>
+  );
+
+  if (!isDesktopApp) {
+    return (
+      <AuthShell
+        brand={
+          <AuthBrandPanel
+            eyebrow={
+              <>
+                No worries! <span aria-hidden="true">&#128075;</span>
+              </>
+            }
+            heading="Recover your account"
+            blurb="Enter your email address and we'll send you a secure link to reset your password."
+            illustration={<ResetIllustration />}
+            assuranceTitle="Your security is our priority."
+            assuranceBlurb="We use industry-standard encryption to keep your data safe."
+          />
+        }
+      >
+        <AuthMobileLogo />
+        {formPanel}
+      </AuthShell>
+    );
+  }
+
+  // The desktop shell keeps the floating-panel presentation, so it supplies the
+  // page ground itself - the web layout is a full-bleed split now and no longer
+  // centres anything for it.
+  return (
+    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-2 py-4 sm:px-6 sm:py-8">
+      <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
+
+      <div className="relative flex w-full max-w-7xl items-center justify-center">
+        <section className="desktop-auth-soft-page desktop-auth-soft-forward mx-auto grid max-h-190 w-full min-w-0 max-w-6xl grid-cols-[1fr_0.92fr] overflow-hidden rounded-2xl border border-white/80 bg-white/70 shadow-2xl shadow-[#1f4d73]/12 backdrop-blur-xl sm:rounded-4xl">
+          <div className="desktop-auth-info-panel relative order-2 block overflow-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] p-8">
+            <div className="pointer-events-none absolute -bottom-24 -left-24 h-64 w-96 rounded-[50%] bg-[#E7E3DA]/80 blur-2xl" />
+            <div className="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-[#1f4d73]/80 blur-2xl" />
+            <div className="pointer-events-none absolute right-10 top-36 hidden grid-cols-6 gap-3 opacity-35 sm:grid">
+              {Array.from({ length: 36 }).map((_, index) => (
+                <span key={index} className="h-1.5 w-1.5 rounded-full bg-[#1f4d73]" />
+              ))}
             </div>
-            <div>
-              <p className="font-black text-[#0F172A]">Your security is our priority.</p>
-              <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption to keep your data safe.</p>
+            <svg className="pointer-events-none absolute bottom-0 left-0 h-40 w-full text-[#1f4d73] opacity-25" viewBox="0 0 640 180" fill="none" aria-hidden="true">
+              <path d="M0 106C70 54 130 150 222 102C310 56 356 140 438 92C510 50 574 74 640 40V180H0Z" fill="currentColor" />
+            </svg>
+
+            <div className="relative">
+              <Image src="/images/branding/hms-logo-header.png" alt="Hall Management SaaS" width={612} height={408} priority unoptimized className="h-auto w-64 max-w-full object-contain" />
+
+              <p className="mt-7 text-base font-black text-[#1f4d73]">
+                No worries! <span aria-hidden="true">&#128075;</span>
+              </p>
+              <h1 className="mt-4 max-w-md text-4xl font-black leading-[1.08] tracking-tight text-[#0F172A]">
+                Recover your account
+              </h1>
+              <p className="mt-3 max-w-md text-base leading-7 text-[#64748B]">
+                Enter your email address and we&apos;ll send you a secure link to reset your password.
+              </p>
+
+              <DesktopResetIllustration />
+
+              <div className="mt-5 flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/80 shadow-lg shadow-[#1f4d73]/10">
+                  <ShieldIcon />
+                </div>
+                <div>
+                  <p className="font-black text-[#0F172A]">Your security is our priority.</p>
+                  <p className="mt-1 text-sm font-medium text-[#64748B]">We use industry-standard encryption to keep your data safe.</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="desktop-auth-form-panel box-border order-1 w-full min-w-0 bg-white p-8">
+            <div className="mx-auto flex h-full w-full min-w-0 max-w-md flex-col justify-center">
+              {formPanel}
+            </div>
+          </div>
+        </section>
       </div>
-
-      <div className={`box-border w-full min-w-0 ${isDesktopApp ? "desktop-auth-form-panel order-1 bg-white p-8" : compact ? "order-1 bg-white p-5 pt-16 sm:p-10 lg:order-2 lg:p-10" : "order-1 bg-white p-5 sm:p-10 lg:order-2 lg:p-16"}`}>
-        <div className={`mx-auto flex h-full w-full min-w-0 flex-col justify-center ${isDesktopApp ? "max-w-md" : "max-w-xl"}`}>
-          <h2 id="forgot-password-modal-title" className={`${isDesktopApp ? "text-xl" : "text-3xl sm:text-4xl"} font-black tracking-tight text-[#0F172A]`}>Forgot Password</h2>
-          <p className={`${isDesktopApp ? "mt-2 text-sm leading-6" : "mt-3 text-base leading-7 sm:mt-4 sm:text-lg sm:leading-8"} max-w-md text-[#64748B]`}>Enter your email address and we will send you a reset link.</p>
-
-          <form className={isDesktopApp ? "mt-4" : compact ? "mt-10" : "mt-12"} onSubmit={submit}>
-            <label className={`${isDesktopApp ? "text-sm" : "text-base"} font-bold text-[#0F172A]`} htmlFor="forgotEmail">
-              Email Address
-            </label>
-            <div className={`login-field mt-2 flex items-center gap-3 border border-[#E5E0D6] bg-white px-3 transition focus-within:border-[#1f4d73] focus-within:shadow-[0_0_0_4px_rgba(31,77,115,0.14)] ${isDesktopApp ? "h-10" : "h-14"}`}>
-              <EmailIcon />
-              <input
-                id="forgotEmail"
-                name="email"
-                autoComplete="email"
-                className="min-w-0 flex-1 bg-transparent text-base text-[#0F172A] outline-none placeholder:text-[#9aa5ba]"
-                placeholder="Enter your email address"
-                type="email"
-                value={email}
-                onChange={(event) => {
-                  setEmail(event.target.value);
-                  setError("");
-                  setSuccess("");
-                }}
-              />
-            </div>
-
-            <div className={`${isDesktopApp ? "mt-5 text-sm leading-6" : "mt-7 text-base leading-7"} flex gap-4 font-bold text-[#65718d]`}>
-              <p>We&apos;ll send a secure password reset link to this email address.</p>
-            </div>
-
-            {error ? <p className="mt-5 text-sm font-bold text-[#c2410c]">{error}</p> : null}
-            {success ? <p className="mt-5 text-sm font-bold text-[#138a4f]">{success}</p> : null}
-
-            <button
-              className={`login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "mt-5 h-11 text-sm" : "mt-9 h-16 text-lg"}`}
-              type="submit"
-              disabled={isSubmitting}
-            >
-              <SendIcon />
-              {isSubmitting ? "Sending..." : "Send Reset Link"}
-            </button>
-
-            <div className={`${isDesktopApp ? "my-5" : "my-10"} flex items-center gap-5 text-sm font-medium text-[#64748B]`}>
-              <span className="h-px flex-1 bg-[#E5E0D6]" />
-              or
-              <span className="h-px flex-1 bg-[#E5E0D6]" />
-            </div>
-
-            <Link className={`mx-auto flex items-center justify-center gap-3 font-black text-[#1f4d73] transition hover:text-[#1f4d73] ${isDesktopApp ? "text-base" : "text-lg"}`} href={isDesktopApp ? "/login?desktop=1" : "/login"}>
-              <span aria-hidden="true"></span>
-              Back to Login
-            </Link>
-
-            <p className={`${isDesktopApp ? "mt-5 text-sm" : "mt-10 text-sm sm:mt-14 sm:text-base"} flex flex-wrap items-center justify-center gap-2 text-center text-[#64748B]`}>
-              Need help?{" "}
-              <button
-                className="inline-flex items-center gap-2 font-bold text-[#1f4d73] transition hover:text-[#1f4d73]"
-                data-contact-modal
-                type="button"
-              >
-                Contact support
-                <ExternalLinkIcon />
-              </button>
-            </p>
-          </form>
-        </div>
-      </div>
-    </section>
+    </div>
   );
 }
