@@ -25,8 +25,6 @@ const PUBLIC_ROUTES: Record<string, string> = {
     "Public marketing form. Rate-limited, writes one row to a table with no tenant.",
   "support/contact/route.ts":
     "Public contact form. Same shape as the newsletter subscribe.",
-  "beta-access/requests/route.ts":
-    "Public registration notice. There is no session to authorize - it runs between supabase.auth.signUp and email confirmation. Writes one tenant-less PENDING row that grants nothing; it cannot approve anything, and provisioning is what refuses.",
   "client-portal/[eventId]/route.ts":
     "CAPABILITY LINK. The unguessable URL is the grant - one event, read-mostly. Never a principal, never a role.",
   "client-portal/[eventId]/selections/route.ts":

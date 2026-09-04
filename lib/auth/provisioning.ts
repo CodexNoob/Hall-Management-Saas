@@ -314,11 +314,14 @@ async function provisionOwner(
    * URL, and a direct API call carrying a perfectly valid Supabase JWT (which
    * `resolveUserActor` refuses with "User account is not provisioned").
    *
-   * It is the recording backstop too. The email/password form posts to
-   * /api/beta-access/requests at the moment of registration so the team hears
-   * promptly; a Google registration has no such moment, and nothing obliges
-   * anyone to use our form at all. Recording here means a request exists for
-   * every identity that ever reached this point, by whatever route.
+   * IT IS ALSO WHERE THE REQUEST IS RECORDED, and the only place. Reaching
+   * here needs a session, so the queue holds only addresses somebody has
+   * actually confirmed - by opening the link, or through Google, which verifies
+   * the address itself. The sign-up form used to post /api/beta-access/requests
+   * at the moment of registration, which announced an address to the approval
+   * inbox before anyone had proven they could read mail at it. Recording here
+   * means a request exists for every identity that ever reached this point, by
+   * whatever route, and for no address that never got this far.
    *
    * INVITED STAFF NEVER ARRIVE HERE. POST /api/staff writes their `users` row
    * at invite time, so `findUserForProfile` matches them and `reconcile` runs

@@ -12,17 +12,22 @@ import { notifyBetaAccessRequested } from "@/features/beta-access/server/beta-ac
  * free trial on first sign-in. While Event Core is in beta it records a request
  * instead, and nothing is provisioned until somebody approves it.
  *
- * This module is the only reader and writer of `beta_access_requests`. Two
- * callers record; one consults the decision:
+ * This module is the only reader and writer of `beta_access_requests`, and
+ * `provisionOwner()` is its only caller - the one place that both records a
+ * request and consults the decision.
  *
- *   POST /api/beta-access/requests  - the email/password form, at the moment of
- *                                     registration, so the team hears promptly
- *   provisionOwner()                - the backstop, for Google registrations
- *                                     (an OAuth round trip has no client-side
- *                                     registration moment) and for anyone who
- *                                     never touched our form
+ * ONE CALLER ON PURPOSE, and specifically one that needs a session. An earlier
+ * version also recorded from POST /api/beta-access/requests, called by the
+ * sign-up form between `supabase.auth.signUp` and email confirmation. That
+ * announced an address before anybody had proven they could read mail at it, so
+ * the queue collected registrations that were never confirmed and the approval
+ * inbox heard about every one of them. Recording only from a path that cannot
+ * run without a session means an entry in this table is always an address
+ * somebody has confirmed - by opening the link, or by arriving through Google,
+ * which has verified it already.
  *
- * Both go through `recordAndNotifyBetaAccessRequest`, which is idempotent.
+ * `recordAndNotifyBetaAccessRequest` is idempotent, which is what lets it run on
+ * every sign-in attempt rather than only the first.
  */
 
 export const BETA_ACCESS_STATUSES = [
