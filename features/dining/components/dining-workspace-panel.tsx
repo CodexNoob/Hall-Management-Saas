@@ -121,7 +121,8 @@ export function DiningWorkspacePanel({
               {eventTitle(selectedEvent)}
             </h2>
             <p className="mt-1 truncate text-xs text-[#617086]">
-              {selectedEvent.hall.name} Â· {eventSchedule(selectedEvent)}
+              {selectedEvent.hall.name} {"\u00b7"}{" "}
+              {eventSchedule(selectedEvent)}
             </p>
           </div>
 

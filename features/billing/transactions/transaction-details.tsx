@@ -302,7 +302,7 @@ export function TransactionDetailsView({
             <MobileTransactionDetailRow
               icon="payment"
               label="From/To"
-              value={`${transaction.customer} â€¢ ${transaction.paymentMethod}`}
+              value={`${transaction.customer} \u2022 ${transaction.paymentMethod}`}
             />
             <MobileTransactionDetailRow
               icon="invoice"
@@ -336,7 +336,8 @@ export function TransactionDetailsView({
               Full bank description
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-[#526274] md:text-sm">
-              {transaction.referenceNo} â€¢ {transaction.customer} â€¢{" "}
+              {transaction.referenceNo} {"\u2022"} {transaction.customer}{" "}
+              {"\u2022"}{" "}
               {transaction.event}
             </p>
           </section>

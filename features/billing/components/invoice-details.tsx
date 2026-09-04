@@ -81,7 +81,9 @@ export function InvoiceDetails({
             </h2>
             <p className="text-sm text-[#6a7483]">
               {invoice.clientName}
-              {invoice.event?.hallName ? ` Ã‚Â· ${invoice.event.hallName}` : ""}
+              {invoice.event?.hallName
+                ? ` \u00b7 ${invoice.event.hallName}`
+                : ""}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -186,7 +188,7 @@ export function InvoiceDetails({
                     <span>
                       {item.description}
                       <span className="block text-xs text-[#6a7483]">
-                        Quantity {String(item.quantity)} Ã‚Â·{" "}
+                        Quantity {String(item.quantity)} {"\u00b7"}{" "}
                         {money(item.unitAmountCents, invoice.currency)} each
                       </span>
                     </span>

@@ -176,7 +176,7 @@ export function InvoiceEditDialog({
             onClick={onClose}
             type="button"
           >
-            Ãƒâ€”
+            &times;
           </button>
         </header>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
@@ -344,7 +344,7 @@ export function InvoiceEditDialog({
             onClick={save}
             type="button"
           >
-            {saving ? "SavingÃ¢â‚¬Â¦" : "Save invoice"}
+            {saving ? "Saving\u2026" : "Save invoice"}
           </button>
         </footer>
       </section>

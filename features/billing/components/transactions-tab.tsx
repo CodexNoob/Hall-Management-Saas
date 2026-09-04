@@ -668,7 +668,7 @@ export function TransactionsTab({
                   </span>
                   <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] font-bold text-[#6a7483]">
                     <span className="truncate">{row.venue}</span>
-                    <span>Ã¢â‚¬Â¢</span>
+                    <span>{"\u2022"}</span>
                     <span>{row.type}</span>
                   </span>
                 </span>
@@ -746,7 +746,7 @@ export function TransactionsTab({
                       {row.customer}
                     </span>
                     <span className="mt-1 block truncate text-sm font-semibold text-[#526274]">
-                      Ã¢Å“Â¦ {row.eventType}
+                      {"\u2726"} {row.eventType}
                     </span>
                   </span>
                   <span className="min-w-0 truncate text-sm font-semibold text-[#526274]">
@@ -833,8 +833,8 @@ export function TransactionsTab({
                       <span className="text-[0.6rem]">
                         {sortKey === key
                           ? sortDirection === "asc"
-                            ? "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â²"
-                            : "ÃƒÂ¢Ã¢â‚¬â€œÃ‚Â¼"
+                            ? "\u25b2"
+                            : "\u25bc"
                           : ""}
                       </span>
                     </button>
