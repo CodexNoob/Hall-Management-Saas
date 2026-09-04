@@ -140,12 +140,23 @@ export function formatEventDate(value: string) {
   }).format(new Date(`${value.slice(0, 10)}T00:00:00`));
 }
 
+/**
+ * The time an event starts, as the hall wrote it down.
+ *
+ * `timeZone: "UTC"` because `Event.startsAt` holds a WALL-CLOCK time anchored to
+ * UTC, not an instant: `booking.service.ts` stores what staff typed as
+ * `${date}T${startTime}:00.000Z`. Reading it back in the viewer's own zone is
+ * what turned a 6:30 PM booking into "2:30 PM" on a New York screen - and left
+ * the date beside it right, because every date label here is already pinned to
+ * UTC.
+ */
 export function formatEventTime(value: string | null) {
   if (!value) return "All day";
 
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    timeZone: "UTC"
   }).format(new Date(value));
 }
 

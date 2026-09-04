@@ -11,7 +11,9 @@ import {
   dateKey,
   dateKeyFromIso,
   startOfDay,
-  startOfWeek
+  startOfDayFromKey,
+  startOfWeek,
+  todayKeyInTimeZone
 } from "@/lib/dates/calendar-date";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import {
@@ -69,10 +71,33 @@ export function KitchenDashboardPage() {
    */
   const [today, setToday] = useState(() => startOfDay(new Date()));
   const [anchorDate, setAnchorDate] = useState(today);
+  // One window for all three views: it opens on the anchor's week and runs 28
+  // days, so Today, This Week and 4 Weeks all sit inside it. Measuring it per
+  // view is what would make the request depend on a setting that arrives in the
+  // response - refetching the board the moment that setting landed - and it
+  // also spares a refetch on every tab press.
+  const rangeStart = startOfWeek(anchorDate);
+  const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}`;
+  const kitchenQuery = useAuthenticatedQuery<KitchenResponse>(kitchenQueryUrl);
+  /*
+   * The venue's timezone, which is what "today" has to be measured in.
+   *
+   * The browser's own day is the wrong answer on any screen that is not in the
+   * hall - a manager at home in another zone - and the server refuses writes
+   * against a day it considers past. Both sides now read this one value, so the
+   * card the board leaves editable is the card the write endpoints accept.
+   *
+   * Undefined until the first response lands, and the browser's day stands in
+   * until then: it is right for the hall's own screens, and correcting it a
+   * moment later is better than opening on a day nothing has confirmed.
+   */
+  const venueTimeZone = kitchenQuery.data?.kitchenSettings?.timeZone;
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      const current = startOfDay(new Date());
+    const sync = () => {
+      const current = venueTimeZone
+        ? startOfDayFromKey(todayKeyInTimeZone(venueTimeZone))
+        : startOfDay(new Date());
 
       setToday((previous) => {
         if (dateKey(previous) === dateKey(current)) return previous;
@@ -86,18 +111,16 @@ export function KitchenDashboardPage() {
 
         return current;
       });
-    }, 60_000);
+    };
+
+    // Once now as well as on the minute, so the correction lands with the
+    // setting rather than up to a minute after it.
+    sync();
+
+    const timer = setInterval(sync, 60_000);
 
     return () => clearInterval(timer);
-  }, []);
-  // One window for all three views: it opens on the anchor's week and runs 28
-  // days, so Today, This Week and 4 Weeks all sit inside it. Measuring it per
-  // view is what would make the request depend on a setting that arrives in the
-  // response - refetching the board the moment that setting landed - and it
-  // also spares a refetch on every tab press.
-  const rangeStart = startOfWeek(anchorDate);
-  const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}`;
-  const kitchenQuery = useAuthenticatedQuery<KitchenResponse>(kitchenQueryUrl);
+  }, [venueTimeZone]);
   const activeView =
     activeViewOverride ??
     kitchenQuery.data?.kitchenSettings?.defaultView ??

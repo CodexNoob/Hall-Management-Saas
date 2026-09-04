@@ -505,8 +505,15 @@ export async function createBooking(
       if (input.coordinatorMembershipId && !coordinator)
         throw new BookingError("The selected coordinator does not exist.");
 
+      // The day the booking is FOR, which is not always the UTC day its window
+      // opens on. `resolveWindow` builds the window from `eventDate` plus a
+      // wall-clock time when it is given one, but `startsAt` may also arrive as
+      // a full offset-bearing timestamp - and `2026-09-04T20:00:00-04:00` is
+      // September 5th in UTC. Deriving the date from the window alone filed
+      // those bookings a day late; the date the caller named wins when it named
+      // one.
       const eventDate = new Date(
-        `${window.startsAt.toISOString().slice(0, 10)}T00:00:00.000Z`
+        `${input.eventDate ?? window.startsAt.toISOString().slice(0, 10)}T00:00:00.000Z`
       );
       // Scoped to the hall being booked. A range now closes one hall, so a
       // closure on the room next door has nothing to say about this booking.

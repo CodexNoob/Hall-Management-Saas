@@ -36,9 +36,13 @@ import {
   authorize,
   hasPermission,
   requireUserActor,
-  scoped,
-  tenant
+  scoped
 } from "@/lib/authz/authorize";
+import {
+  DEFAULT_TIME_ZONE,
+  dateKeyInTimeZone,
+  todayKeyInTimeZone
+} from "@/lib/dates/calendar-date";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { listKitchenNotifications } from "@/features/kitchen/server/kitchen-notifications";
@@ -95,6 +99,35 @@ function kitchenBoardSettingsFromIntegrations(integrations: unknown) {
         ? defaultView
         : ("week" as const)
   };
+}
+
+/**
+ * The settings document, read never created - an organization that has never
+ * opened Settings gets the shipped defaults, and a board that refetches every
+ * time a cook ticks a dish should not be writing on a GET.
+ */
+async function readKitchenSettings(organizationId: string) {
+  const settings = await prisma.organizationSetting.findUnique({
+    where: { organizationId },
+    select: { integrations: true, timezone: true }
+  });
+
+  return {
+    integrations: settings?.integrations ?? null,
+    timeZone: settings?.timezone || DEFAULT_TIME_ZONE
+  };
+}
+
+/**
+ * The venue's own timezone, for the writes that ask whether a date has passed.
+ *
+ * Read on every write rather than trusted from the caller: "is this event in
+ * the past" decides whether the board accepts a cook's tick, and a client that
+ * could name the zone could name one that unlocks a closed day. It is one
+ * indexed lookup on a unique column.
+ */
+async function organizationTimeZone(organizationId: string) {
+  return (await readKitchenSettings(organizationId)).timeZone;
 }
 
 /**
@@ -426,14 +459,20 @@ export const GET = withRoute(
       const requestedStart = kitchenRangeSchema.parse(
         new URL(request.url).searchParams.get("start") ?? undefined
       );
-      const start = requestedStart
-        ? new Date(`${requestedStart}T00:00:00.000Z`)
-        : new Date();
-      if (!requestedStart) start.setUTCHours(0, 0, 0, 0);
+      // Ahead of the queries rather than beside them: the board's own timezone
+      // decides which day the window opens on, and an unanchored `new Date()`
+      // opens it on the UTC day - which is tomorrow at a New York hall from
+      // eight in the evening.
+      const { integrations, timeZone } = await readKitchenSettings(
+        actor.organizationId
+      );
+      const start = new Date(
+        `${requestedStart ?? todayKeyInTimeZone(timeZone)}T00:00:00.000Z`
+      );
       const end = new Date(start);
       end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-      const [events, standaloneEvents, workers, settings] = await Promise.all([
+      const [events, standaloneEvents, workers] = await Promise.all([
         prisma.event.findMany({
           where: {
             organizationId: actor.organizationId,
@@ -474,14 +513,7 @@ export const GET = withRoute(
           },
           orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
         }),
-        loadKitchenStaffWorkers(actor.organizationId),
-        // Read, never created: an organization that has never opened Settings has
-        // no row here and gets the shipped default, and a board that refetches
-        // every time a cook ticks a dish should not be writing on a GET.
-        prisma.organizationSetting.findUnique({
-          where: tenant(actor),
-          select: { integrations: true }
-        })
+        loadKitchenStaffWorkers(actor.organizationId)
       ]);
       const currentWorkerId =
         workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
@@ -801,9 +833,14 @@ export const GET = withRoute(
           // the whole point of scoping the sheet.
           seesWholeBoard: visibility.seesWholeBoard
         },
-        kitchenSettings: kitchenBoardSettingsFromIntegrations(
-          settings?.integrations
-        )
+        kitchenSettings: {
+          ...kitchenBoardSettingsFromIntegrations(integrations),
+          // Sent so the board marks the same day "Today" that the writes below
+          // will accept. The two used to work it out separately - the browser
+          // locally, the server in UTC - and disagreed for the last four hours
+          // of every New York evening.
+          timeZone
+        }
       });
     } catch (error) {
       return createApiErrorResponse(error);
@@ -817,7 +854,9 @@ export const POST = withRoute(
     try {
       const actor = await authorize(request, "kitchen.event.create");
       const input = kitchenStandaloneEventSchema.parse(await request.json());
-      const todayKey = new Date().toISOString().slice(0, 10);
+      const todayKey = todayKeyInTimeZone(
+        await organizationTimeZone(actor.organizationId)
+      );
 
       if (input.date < todayKey) {
         return NextResponse.json(
@@ -1167,8 +1206,10 @@ export const PATCH = withRoute(
         }
 
         if (
-          kitchenEvent.eventDate.toISOString().slice(0, 10) <
-          new Date().toISOString().slice(0, 10)
+          dateKeyInTimeZone(kitchenEvent.eventDate, "UTC") <
+          todayKeyInTimeZone(
+            await organizationTimeZone(actor.organizationId)
+          )
         ) {
           return NextResponse.json(
             { error: "Past kitchen events are read-only." },
@@ -1326,8 +1367,8 @@ export const PATCH = withRoute(
       assertInScope(actor, "hall", event.hallId);
 
       if (
-        event.eventDate.toISOString().slice(0, 10) <
-        new Date().toISOString().slice(0, 10)
+        dateKeyInTimeZone(event.eventDate, "UTC") <
+        todayKeyInTimeZone(await organizationTimeZone(actor.organizationId))
       ) {
         return NextResponse.json(
           { error: "Past kitchen events are read-only." },
