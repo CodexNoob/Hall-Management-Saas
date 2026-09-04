@@ -748,10 +748,25 @@ function KitchenEventDetails({
    * into behaving differently.
    */
   const shellClass = embedded
-    ? "flex w-full flex-col overflow-hidden border border-[#d8dde5] bg-white"
+    ? "relative flex w-full flex-col overflow-hidden border border-[#d8dde5] bg-white"
     : chromeless
-      ? "flex max-h-[calc(100dvh-32px)] w-full max-w-5xl flex-col overflow-hidden border-4 border-white bg-[#dceaff] shadow-2xl shadow-[#07162d]/25"
+      ? "relative flex max-h-[calc(100dvh-32px)] w-full max-w-5xl flex-col overflow-hidden border-4 border-white bg-[#dceaff] shadow-2xl shadow-[#07162d]/25"
       : "flex max-h-[calc(100dvh-32px)] w-full max-w-7xl flex-col overflow-hidden border border-[#d8dde5] bg-white shadow-2xl shadow-[#07162d]/25";
+
+  /*
+   * NO CLOSE BUTTON on the embedded panel or the week popup, deliberately.
+   *
+   * There was one, and no placement made it look like part of the sheet: in
+   * the heading row it landed mid-panel once the layout stacked on a phone, and
+   * in the corner it read as something stuck on top of the production sheet
+   * rather than part of it.
+   *
+   * Nothing is lost by dropping it. On the day board the panel IS the page, so
+   * there was never anything for it to close - it called `onClose` into a
+   * selection that had never been made. The week popup is a real overlay and
+   * keeps the two ways out that every other overlay here has: Escape, handled
+   * above, and a click on the backdrop.
+   */
 
   const body = (
     <>
@@ -1136,12 +1151,28 @@ function KitchenEventDetails({
                               aria-labelledby={`kitchen-${event.id}-${section.id}`}
                               key={section.id}
                             >
-                              <h3
-                                className={`border-b border-[#c8daf2] font-black uppercase tracking-[0.08em] text-[#516071] ${preview ? "mb-1 pb-1 text-[9px]" : embedded ? "mb-2 pb-1.5 text-[11px]" : "mb-2.5 pb-2 text-[11px]"}`}
-                                id={`kitchen-${event.id}-${section.id}`}
+                              <div
+                                // `items-center`, not `items-start`: the button
+                                // is taller than an 11px heading, so aligning
+                                // tops left it hanging below the rule. Centred,
+                                // the two read as one row.
+                                className={
+                                  inline || chromeless
+                                    ? "mb-2 flex items-center gap-2 pr-0.5"
+                                    : undefined
+                                }
                               >
-                                {section.label}
-                              </h3>
+                                <h3
+                                  // No reserved space on the right any more:
+                                  // the close button that used to sit in this
+                                  // corner is gone, so the heading rule runs
+                                  // the full width of the dish panel again.
+                                  className={`border-b border-[#c8daf2] font-black uppercase tracking-[0.08em] text-[#516071] ${preview ? "mb-1 pb-1 text-[9px]" : embedded || chromeless ? "flex-1 pb-1.5 text-[11px]" : "mb-2.5 pb-2 text-[11px]"}`}
+                                  id={`kitchen-${event.id}-${section.id}`}
+                                >
+                                  {section.label}
+                                </h3>
+                              </div>
                               <div className={preview ? "flex w-max gap-2.5" : "grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"}>
                                 {section.dishes.map((line) => (
                                   <DishCard

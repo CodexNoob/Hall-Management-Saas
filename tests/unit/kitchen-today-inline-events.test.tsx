@@ -94,6 +94,7 @@ function kitchenEvent(id: string, clientName: string, dishName: string): Kitchen
 
 describe("Today's inline kitchen events", () => {
   it("shows every event and its dishes directly without opening a dialog", () => {
+    const onClose = vi.fn();
     const events = [
       kitchenEvent("event-a", "Feferkorn A", "Baked eggplant"),
       kitchenEvent("event-b", "Feferkorn B", "Japanese noodles")
@@ -112,7 +113,7 @@ describe("Today's inline kitchen events", () => {
           <KitchenEventPanel
             event={event}
             isSaving={false}
-            onClose={vi.fn()}
+            onClose={onClose}
             onSaveItemAction={vi.fn()}
             permissions={{
               canAssignWorkers: true,
@@ -132,9 +133,18 @@ describe("Today's inline kitchen events", () => {
     expect(screen.getByText("Feferkorn B")).toBeInTheDocument();
     expect(screen.getByText("Japanese noodles")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).toBeNull();
+
+    /*
+     * And NO close button on the day board.
+     *
+     * The panel is the page here, so there was never anything for one to
+     * close - it called `onClose` into a selection that had never been made,
+     * which meant a control a cook could press and watch do nothing.
+     */
     expect(
-      screen.queryByRole("button", { name: "Close kitchen event details" })
-    ).toBeNull();
+      screen.queryAllByRole("button", { name: "Close kitchen event details" })
+    ).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("centers a dish reset confirmation at the viewport across two events", () => {
@@ -277,6 +287,10 @@ describe("Week kitchen event previews", () => {
       "max-w-5xl",
       "bg-[#dceaff]"
     );
+    // The popup carries no close button either - it looked stuck on the
+    // production sheet at every placement tried. It keeps the two ways out
+    // every other overlay in this app has, and Escape is the one a keyboard
+    // user needs, so it is the one pinned here.
     expect(
       screen.queryByRole("button", { name: "Close kitchen event details" })
     ).toBeNull();
