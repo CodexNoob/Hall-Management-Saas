@@ -65,7 +65,7 @@ export function HallMapDialog({
             onClick={() => setIsMapDialogOpen(false)}
             type="button"
           >
-            Ã—
+            &times;
           </button>
         </header>
         <form

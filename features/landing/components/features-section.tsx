@@ -63,7 +63,6 @@ function FeatureCardArticle({ feature, index }: { feature: FeatureCard; index: n
   return (
     <article
       ref={cardRef}
-      aria-disabled={comingSoon || undefined}
       className={`saas-feature-slide-reveal ${
         index % 2 === 0 ? "saas-feature-mobile-left" : "saas-feature-mobile-right"
       } group relative flex min-h-80 flex-col items-center rounded-3xl border p-6 text-center shadow-sm transition duration-300 ${

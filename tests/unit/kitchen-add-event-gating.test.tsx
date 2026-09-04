@@ -1,5 +1,5 @@
 ﻿import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
@@ -144,7 +144,7 @@ describe("AddKitchenEventDialog", () => {
     expect(onSave).not.toHaveBeenCalled();
   });
 
-  it("calls onSave with the form values when canSave is true", () => {
+  it("calls onSave with the form values when canSave is true", async () => {
     const onSave = vi.fn();
     render(
       <AddKitchenEventDialog
@@ -171,20 +171,22 @@ describe("AddKitchenEventDialog", () => {
     // The whole payload, not a subset: the new-menu fields ride along empty
     // when an existing menu is picked, and the caller decides which of the two
     // shapes to send by looking at them.
-    expect(onSave).toHaveBeenCalledWith({
-      menuId: "menu-1",
-      menuName: "Shabbos Lunch",
-      portions: "40",
-      kitchenNote: "",
-      quickMenuName: "",
-      quickMenuDishes: "",
-      quickMenuItemIds: [],
-      addOnIds: [],
-      saveQuickMenuToLibrary: false
-    });
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith({
+        menuId: "menu-1",
+        menuName: "Shabbos Lunch",
+        portions: "40",
+        kitchenNote: "",
+        quickMenuName: "",
+        quickMenuDishes: "",
+        quickMenuItemIds: [],
+        addOnIds: [],
+        saveQuickMenuToLibrary: false
+      })
+    );
   });
 
-  it("shows add-ons and includes selected add-ons in the saved event", () => {
+  it("shows add-ons and includes selected add-ons in the saved event", async () => {
     const onSave = vi.fn();
     render(
       <AddKitchenEventDialog
@@ -208,12 +210,14 @@ describe("AddKitchenEventDialog", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Save Event" }));
 
-    expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({
-        quickMenuName: "Staff lunch",
-        quickMenuItemIds: [],
-        addOnIds: ["add-on-1"]
-      })
+    await waitFor(() =>
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quickMenuName: "Staff lunch",
+          quickMenuItemIds: [],
+          addOnIds: ["add-on-1"]
+        })
+      )
     );
   });
 
@@ -372,7 +376,7 @@ describe("AddKitchenEventDialog", () => {
       );
     });
 
-    it("clears the error once the count is corrected", () => {
+    it("clears the error once the count is corrected", async () => {
       const onSave = renderDialog();
 
       submitWith("abc");
@@ -380,18 +384,20 @@ describe("AddKitchenEventDialog", () => {
 
       submitWith("40");
 
-      expect(screen.queryByRole("alert")).toBeNull();
-      expect(onSave).toHaveBeenCalledWith({
-        menuId: "menu-1",
-        menuName: "Shabbos Lunch",
-        portions: "40",
-        kitchenNote: "",
-        quickMenuName: "",
-      quickMenuDishes: "",
-      quickMenuItemIds: [],
-      addOnIds: [],
-      saveQuickMenuToLibrary: false
-      });
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      await waitFor(() =>
+        expect(onSave).toHaveBeenCalledWith({
+          menuId: "menu-1",
+          menuName: "Shabbos Lunch",
+          portions: "40",
+          kitchenNote: "",
+          quickMenuName: "",
+          quickMenuDishes: "",
+          quickMenuItemIds: [],
+          addOnIds: [],
+          saveQuickMenuToLibrary: false
+        })
+      );
     });
   });
 });

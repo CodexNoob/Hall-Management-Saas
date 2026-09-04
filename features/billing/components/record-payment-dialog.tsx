@@ -100,7 +100,7 @@ export function RecordPaymentDialog({
           <div>
             <h2 className="font-black">Record payment</h2>
             <p className="text-sm text-[#6a7483]">
-              {invoice.invoiceNumber} Ã‚Â· Balance{" "}
+              {invoice.invoiceNumber} {"\u00b7"} Balance{" "}
               {money(invoice.balanceDueCents, invoice.currency)}
             </p>
           </div>
@@ -111,7 +111,7 @@ export function RecordPaymentDialog({
             onClick={onClose}
             type="button"
           >
-            Ãƒâ€”
+            &times;
           </button>
         </header>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
@@ -182,7 +182,7 @@ export function RecordPaymentDialog({
             onClick={save}
             type="button"
           >
-            {saving ? "RecordingÃ¢â‚¬Â¦" : "Record payment"}
+            {saving ? "Recording\u2026" : "Record payment"}
           </button>
         </footer>
       </section>

@@ -184,6 +184,38 @@ export async function recordRefundWithAudit(
       const eventBalanceCents =
         invoiceBalanceCents ??
         decimalToCents(payment.event.amountDue) + input.amountCents;
+
+      /**
+       * What is still paid on this event once this refund is applied.
+       *
+       * Read back rather than inferred from the balance, because the balance
+       * cannot tell "half of it was refunded" from "all of it was" - and the
+       * status was written straight off `eventBalanceCents === 0`, so refunding
+       * an event in full left it reading "Paid Partially" when nothing at all
+       * had been paid. The transaction row was incremented above, so this
+       * aggregate already counts this refund.
+       */
+      const paidAggregate = await transaction.paymentTransaction.aggregate({
+        where: {
+          eventId: payment.eventId,
+          organizationId: actor.organizationId,
+          status: "paid"
+        },
+        _sum: { amountCents: true, refundedAmountCents: true }
+      });
+      const netPaidCents =
+        (paidAggregate._sum.amountCents ?? 0) -
+        (paidAggregate._sum.refundedAmountCents ?? 0);
+      // Null, not a label: an event refunded back to nothing is in the same
+      // state as one that has never been paid, and that is what the column
+      // holds for it.
+      const eventPaymentStatus =
+        eventBalanceCents === 0
+          ? "Paid in Full"
+          : netPaidCents <= 0
+            ? null
+            : "Paid Partially";
+
       const event = await transaction.event.update({
         where: {
           id: payment.eventId,
@@ -191,8 +223,7 @@ export async function recordRefundWithAudit(
         },
         data: {
           amountDue: centsToDecimal(eventBalanceCents),
-          paymentStatus:
-            eventBalanceCents === 0 ? "Paid in Full" : "Paid Partially",
+          paymentStatus: eventPaymentStatus,
           updatedById: actor.userId
         }
       });

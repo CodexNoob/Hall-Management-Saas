@@ -313,10 +313,15 @@ export async function getClientPortalEvent(
         year: "numeric",
         timeZone: "UTC"
       }).format(event.eventDate),
+      // Pinned to UTC like the date above: `startsAt` is a wall-clock time
+      // anchored to UTC, and this string is rendered on the server, so an
+      // unpinned formatter reads the HOST's zone - the client would be told a
+      // time that depends on where the deployment runs.
       time: event.startsAt
         ? new Intl.DateTimeFormat("en-US", {
             hour: "numeric",
-            minute: "2-digit"
+            minute: "2-digit",
+            timeZone: "UTC"
           }).format(event.startsAt)
         : "Time not set",
       room: event.hall.name,

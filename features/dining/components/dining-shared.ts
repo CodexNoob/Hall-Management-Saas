@@ -551,10 +551,14 @@ export function eventSchedule(event: DiningEvent) {
     year: "numeric",
     timeZone: "UTC"
   }).format(new Date(event.eventDate));
+  // Same zone as the date above it. `startsAt` is a wall-clock time anchored to
+  // UTC, so leaving this half unpinned printed one label whose date was right
+  // and whose time was four hours out.
   const time = event.startsAt
     ? new Intl.DateTimeFormat("en-US", {
         hour: "numeric",
-        minute: "2-digit"
+        minute: "2-digit",
+        timeZone: "UTC"
       }).format(new Date(event.startsAt))
     : "Time not set";
   return `${date} · ${time}`;

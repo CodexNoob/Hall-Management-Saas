@@ -440,10 +440,15 @@ export function toEventDetailsPayload(
     eventTypeId: data.eventTypeId,
     ...toGuestCountPayload(data),
     notes: data.notes,
+    // The `Z` matches how a booking's window is built in the first place
+    // (`booking.service.ts` stores the typed time as `...T${startTime}:00.000Z`)
+    // and how `timeInput` was read off the row. Without it the string was parsed
+    // in the browser's zone, so the same unedited event round-tripped to a
+    // different instant depending on who opened it.
     ...(storedTimeInput
       ? {
           startsAt: new Date(
-            `${data.eventDate}T${storedTimeInput}:00`
+            `${data.eventDate}T${storedTimeInput}:00.000Z`
           ).toISOString()
         }
       : {})

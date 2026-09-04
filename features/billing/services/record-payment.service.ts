@@ -65,6 +65,17 @@ export async function recordPaymentWithAudit(
             }
           })
         : null;
+      // An instalment belongs to an invoice, so naming one without naming the
+      // invoice is a request that cannot be honoured. It used to be dropped in
+      // silence: the payment recorded, the instalment stayed PENDING, and
+      // nothing said the schedule had been ignored.
+      if (input.paymentScheduleId && !invoice) {
+        throw new BillingError(
+          "PAYMENT_SCHEDULE_REQUIRES_INVOICE",
+          "A payment schedule can only be settled against its invoice."
+        );
+      }
+
       const paymentSchedule =
         input.paymentScheduleId && invoice
           ? await transaction.invoicePaymentSchedule.findFirstOrThrow({

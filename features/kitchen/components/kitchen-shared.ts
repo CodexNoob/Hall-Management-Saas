@@ -172,7 +172,15 @@ export type KitchenResponse = {
    * opens on is not known at mount: a second round-trip would paint one range
    * and then swap it under whoever was already reading it.
    */
-  kitchenSettings: { defaultView: KitchenView };
+  kitchenSettings: {
+    defaultView: KitchenView;
+    /**
+     * The venue's IANA zone, so the board calls the same day "Today" that the
+     * write endpoints will accept. Optional because a board rendered from a
+     * cached payload written before this field existed still has to open.
+     */
+    timeZone?: string;
+  };
 };
 
 /**
@@ -246,9 +254,13 @@ export function eventCountLabel(events: KitchenEvent[] | undefined) {
   return count === 1 ? "1 event" : `${count} events`;
 }
 
+// UTC, because `startsAt` is a wall-clock time anchored to UTC rather than an
+// instant - see `formatEventTime` in components/layout/dashboard-shell-shared.
+// A pass reading "2:30 PM" for a dinner booked at 6:30 is worse than no time.
 const timeFormat = new Intl.DateTimeFormat("en-US", {
   hour: "numeric",
-  minute: "2-digit"
+  minute: "2-digit",
+  timeZone: "UTC"
 });
 
 /**

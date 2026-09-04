@@ -210,6 +210,12 @@ describe("event information save payload", () => {
     expect(payload).not.toHaveProperty("email");
   });
 
+  // 18:30 is a WALL-CLOCK time, anchored to UTC the same way `booking.service`
+  // stores one (`${date}T${startTime}:00.000Z`). Spelling the instant out rather
+  // than rebuilding it with `new Date("2026-09-08T18:30:00")` is the point of
+  // the assertion: that expression is parsed in the runner's own zone, so it
+  // agreed with a payload built the same wrong way and would have gone on
+  // agreeing whatever offset either side drifted to.
   it("carries the stored clock time onto a moved date", () => {
     const values = {
       ...createBookingFormValues(event as never),
@@ -217,9 +223,7 @@ describe("event information save payload", () => {
     };
     const payload = toEventDetailsPayload(parseValues(values), "18:30");
 
-    expect(payload.startsAt).toBe(
-      new Date("2026-09-08T18:30:00").toISOString()
-    );
+    expect(payload.startsAt).toBe("2026-09-08T18:30:00.000Z");
   });
 
   it("leaves an event with no recorded time without one", () => {

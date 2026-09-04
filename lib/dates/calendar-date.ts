@@ -59,6 +59,78 @@ export function dateKeyFromIso(value: string) {
     : dateKey(new Date(value));
 }
 
+/**
+ * The timezone an organization is read in when it has never said otherwise.
+ *
+ * Matches the `OrganizationSetting.timezone` column default, so an organization
+ * with no settings row and one that has never touched the field are the same
+ * venue rather than two.
+ */
+export const DEFAULT_TIME_ZONE = "America/New_York";
+
+/**
+ * Which calendar day an instant falls on AT THE VENUE, as a `YYYY-MM-DD` key.
+ *
+ * Event dates are `@db.Date` and every date label in the product is formatted
+ * at `timeZone: "UTC"`, so a day key is a civil date with no offset attached.
+ * "Which day is it right now" is the one question that cannot be answered that
+ * way: `new Date().toISOString().slice(0, 10)` is the UTC day, which for a hall
+ * in New York becomes tomorrow at eight in the evening - in the middle of
+ * service, on the board the kitchen is working from.
+ *
+ * An unrecognised IANA zone falls back to UTC rather than throwing: a settings
+ * row holding a typo should not take down the kitchen.
+ */
+export function dateKeyInTimeZone(
+  date: Date,
+  timeZone: string = DEFAULT_TIME_ZONE
+) {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(date);
+    const part = (type: "year" | "month" | "day") =>
+      parts.find((candidate) => candidate.type === type)?.value;
+    const year = part("year");
+    const month = part("month");
+    const day = part("day");
+
+    if (year && month && day) return `${year}-${month}-${day}`;
+  } catch {
+    // An invalid zone throws out of the Intl constructor; fall through to UTC.
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+/** Today at the venue. The reason every caller passes a timezone. */
+export function todayKeyInTimeZone(
+  timeZone: string = DEFAULT_TIME_ZONE,
+  now: Date = new Date()
+) {
+  return dateKeyInTimeZone(now, timeZone);
+}
+
+/**
+ * A day key back as a `Date`, in the local frame the rest of this module works
+ * in - so `dateKey(startOfDayFromKey(key)) === key`.
+ *
+ * The calendar and kitchen grids are built by walking `Date`s, while the venue's
+ * own day arrives as a key. This is the join between the two, and it is a local
+ * midnight rather than a UTC one precisely so the grid helpers above read it
+ * back unchanged.
+ */
+export function startOfDayFromKey(key: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key);
+
+  if (!match) return startOfDay(new Date());
+
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
 export function buildMonthGrid(
   month: Date,
   weekStartsOn: WeekStartsOn = "sunday"

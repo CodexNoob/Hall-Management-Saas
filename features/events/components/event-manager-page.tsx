@@ -80,15 +80,22 @@ export function EventManagerPage() {
             timeZone: "UTC"
           }).format(date),
           dateInput: date.toISOString().slice(0, 10),
+          // Both halves read `startsAt` as the wall-clock time it is - a booking
+          // stored as `${date}T${startTime}:00.000Z` - rather than as an
+          // instant. `timeInput` is the value the details panel sends back
+          // unchanged when nobody edits the time, so it has to come out of the
+          // same frame it goes back in on, or a save would walk the event
+          // around the clock by the viewer's offset.
           time: startsAt
             ? new Intl.DateTimeFormat("en-US", {
                 hour: "numeric",
-                minute: "2-digit"
+                minute: "2-digit",
+                timeZone: "UTC"
               }).format(startsAt)
             : "Time not set",
           timeInput: startsAt
-            ? `${String(startsAt.getHours()).padStart(2, "0")}:${String(
-                startsAt.getMinutes()
+            ? `${String(startsAt.getUTCHours()).padStart(2, "0")}:${String(
+                startsAt.getUTCMinutes()
               ).padStart(2, "0")}`
             : "",
           hallId: event.hall.id,
