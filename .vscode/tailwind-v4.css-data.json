@@ -21,5 +21,11 @@
       "name": "@custom-variant",
       "description": "Tailwind CSS v4 custom variant directive."
     }
+  ],
+  "properties": [
+    {
+      "name": "mso-hide",
+      "description": "Microsoft Outlook email CSS property used in HTML email templates."
+    }
   ]
 }
