@@ -22,8 +22,8 @@ import { ShieldIcon } from "@/features/auth/components/auth-icons";
  * SAYS NOTHING ABOUT THE ADDRESS. No email is echoed and no outcome is
  * distinguished beyond pending-versus-rejected, so it renders identically for a
  * brand new applicant, for somebody who registered twice, and for an address
- * that already has an account. Varying it would undo the anti-enumeration
- * property that POST /api/beta-access/requests is careful to hold.
+ * that already has an account. Varying it would make this page an oracle for
+ * whether an address is known to Event Core.
  */
 
 /** The message required verbatim, kept as a constant so a test can pin it. */

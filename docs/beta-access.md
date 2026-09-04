@@ -12,14 +12,28 @@ Before, completing registration provisioned an organization, an owner
 membership, the starter roles and a 14-day free trial on the applicant's first
 sign-in. That still happens — but only once their request says `APPROVED`.
 
+Registering and confirming the address are untouched. The request is opened at
+the end of them, not the start:
+
 ```
-register ──▶ beta_access_requests row (PENDING) ──▶ BETA_APPROVAL_EMAIL notified
-                                │
-                       npm run beta:approve
-                                │
-                                ▼
-  first sign-in ──▶ organization + owner membership + trial   (unchanged)
+register ──▶ /verify-email        nothing recorded, nobody mailed
+                  │
+          confirm the address     (Supabase, exactly as before)
+                  │
+                  ▼
+  beta_access_requests row (PENDING) ──▶ BETA_APPROVAL_EMAIL notified
+                  │                      applicant lands on /beta-pending
+         npm run beta:approve
+                  │
+                  ▼
+  next sign-in ──▶ organization + owner membership + trial   (unchanged)
 ```
+
+**Only a confirmed address is ever queued.** Recording happens in
+`provisionOwner`, which cannot run without a session, and a session only exists
+once the confirmation link has been opened — or once Google, which verifies the
+address itself, has returned one. Somebody who types an address and abandons it
+reaches neither the queue nor the approval inbox.
 
 ## Where the gate is
 
@@ -130,42 +144,46 @@ invited employee is never queued and never refused.
 **Tenant isolation, authorization, email verification, rate limiting and request
 logging.** Nothing here touches `authorize()`, `tenant()`, `scoped()` or any
 privilege table; the gate runs strictly before a principal exists. Supabase
-still sends and verifies the confirmation email exactly as before. The new
-endpoint goes through `withRoute` and `enforceRateLimit` like every other.
+still sends and verifies the confirmation email exactly as before, and
+registering still ends at `/verify-email`.
 
 ## Duplicate handling
 
 A request is found by **either** of two unique keys:
 
-- `email`, normalized to lower case — catches somebody registering twice, and is
-  the only key the public form can use, since it runs before Supabase has issued
-  a session.
-- `supabase_auth_id` — catches the same authenticated identity arriving by
-  another route, which is what makes the Google path safe.
+- `supabase_auth_id` — the identity that confirmed. Set at creation now that
+  recording needs a session, and it is what matches somebody arriving by another
+  route, which is what makes the Google path safe.
+- `email`, normalized to lower case — catches the same person on a *different*
+  identity: an account deleted and re-created, or the same address registered
+  again after a rejection.
 
-The first authenticated identity to appear claims an unclaimed row. Re-
-registering returns the existing request, does not open a second one, and does
-not re-send the notification.
+Identity is checked first, then address — the same precedence
+`findUserForProfile` uses. Re-registering returns the existing request, does not
+open a second one, and does not re-send the notification. Since the gate runs on
+every refused sign-in attempt, this is also what stops somebody generating a
+mail per retry.
 
-## The public endpoint
+## There is no public endpoint
 
-`POST /api/beta-access/requests` is called by the sign-up form between
-`supabase.auth.signUp` and email confirmation, when there is no session to
-authorize with. It is rate-limited (5 per 10 minutes), honeypotted, and answers
-`202 {"status":"received"}` for **every** address — new, pending, rejected, or
-an established account — so it cannot be used to ask whether somebody has an
-Event Core account.
+There was one: `POST /api/beta-access/requests`, called by the sign-up form
+between `supabase.auth.signUp` and email confirmation. It has been removed.
 
-It can only ever create a `PENDING` row. **The only writer of `APPROVED` is the
-approval script.** Nothing reachable over HTTP can raise a request's status.
-
-Anyone can therefore post an address and cause one pending row and one email.
-That row grants nothing, and the exposure is the same one the public contact
-form already carries.
+Recording before the address was confirmed meant anyone could post any address
+and cause a pending row and a mail to `BETA_APPROVAL_EMAIL`, and it put
+unconfirmed registrations in a queue whose whole purpose is to be read by a
+human. `provisionOwner` records instead, so **nothing reachable over HTTP writes
+to `beta_access_requests` at all** — and the only writer of `APPROVED` is still
+the approval script.
 
 ## Ending the beta
 
-When Event Core opens to the public, delete the gate block in `provisionOwner`
-(one clearly-marked `if`), and leave the table: it is the record of who was
-admitted and when. The public endpoint and `/beta-pending` go with the block,
-and the sign-up form goes back to routing at `/verify-email`.
+When Event Core opens to the public, delete the two `throw`s in the gate block
+in `provisionOwner` (one clearly-marked `if`), and leave the table: it is the
+record of who was admitted and when. `/beta-pending` goes with them.
+
+The sign-up form needs no change at all — it already ends at `/verify-email`,
+which is where it ended before the beta. Whether to keep recording requests
+after that is a free choice: `recordAndNotifyBetaAccessRequest` is what tells
+you somebody new arrived, and it is useful with or without a gate in front of
+it.

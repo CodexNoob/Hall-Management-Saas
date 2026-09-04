@@ -97,27 +97,6 @@ function SignUpIllustration() {
   );
 }
 
-/**
- * Tells the server somebody has registered, so the team is notified now rather
- * than whenever the applicant next opens a browser.
- *
- * NEVER THROWS. The server records the request again in `provisionOwner`, which
- * is also where the refusal lives, so this call is a promptness optimisation
- * and not a step anything depends on. Letting it fail the submit would report
- * "sign-up failed" over an account Supabase had already created.
- */
-async function requestBetaAccess(email: string) {
-  try {
-    await fetch("/api/beta-access/requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, signupMethod: "email_password" })
-    });
-  } catch {
-    // Deliberately silent - see above.
-  }
-}
-
 export function SignUpCard() {
   const router = useRouter();
   const { toast } = useToast();
@@ -200,9 +179,10 @@ export function SignUpCard() {
       // to consult had no importers. The free trial is open by design, so the
       // check is gone rather than left looking like it does something.
       const supabase = createSupabaseBrowserClient();
-      // The session is no longer read: with or without one, registration ends
-      // at the same page while Event Core is in beta.
-      const { error: signUpError } = await supabase.auth.signUp({
+      // The session decides where they go, and its ABSENCE is the normal case:
+      // with email confirmation on, signUp starts none, and the address is
+      // unproven until somebody opens the link sent to it.
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password: form.password,
         options: {
@@ -228,20 +208,28 @@ export function SignUpCard() {
       }
 
       /*
-       * Registering is a REQUEST now, so the team is told here.
+       * NOTHING IS QUEUED HERE, and the team is not told yet.
        *
-       * Deliberately after signUp rather than before: an address Supabase
-       * refuses - malformed, rate-limited, already taken - is not a
-       * registration, and queueing one would fill the list with people who
-       * never signed up.
+       * The beta request is recorded by `provisionOwner`, which cannot run
+       * without a session - so the queue only ever holds addresses somebody has
+       * actually confirmed, and the approval mail is never sent for one that
+       * was typed and abandoned. That is why registering now makes no HTTP call
+       * of its own; it used to POST /api/beta-access/requests from here, which
+       * announced an address before it was proven.
        */
-      await requestBetaAccess(email);
+      if (!data.session) {
+        // The normal path: confirm the address first. `?email=` is what lets
+        // that page offer a resend, and it is the address they just typed, so
+        // it tells them nothing they did not already know.
+        router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+        return;
+      }
 
-      // Whether or not Supabase started a session, the destination is the same:
-      // nothing is provisioned until the request is approved. This used to
-      // branch - /verify-email with no session, /dashboard/new with one - and
-      // that second branch is now a dead end that ends in a 403.
-      router.push("/beta-pending");
+      // A session already in hand - confirmation disabled, or an address
+      // Supabase considers confirmed. The dashboard layout syncs it,
+      // provisioning records the request and refuses it, and the browser is
+      // sent on to /beta-pending from there. Nothing is provisioned either way.
+      router.push("/dashboard/new");
     } catch (error) {
       failSignUp(getSignUpErrorMessage(error));
     } finally {

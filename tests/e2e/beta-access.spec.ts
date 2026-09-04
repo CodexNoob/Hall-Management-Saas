@@ -2,7 +2,11 @@ import { expect, test } from "@playwright/test";
 import { waitForHydration } from "./hydration";
 
 /**
- * Registration ends at the beta page, not at the dashboard.
+ * Registration ends at the confirmation step, not at the dashboard.
+ *
+ * The beta page is where the applicant lands LATER - after confirming the
+ * address and being refused by the gate - which is why these exercise it
+ * directly rather than by walking there.
  *
  * Supabase is stubbed rather than exercised: a real registration would send
  * mail and leave an account behind on every run. What these cover is our half -
@@ -74,21 +78,20 @@ test("an unrecognised status falls back to the pending copy", async ({
   await expect(page.getByRole("status")).toHaveText(PENDING_MESSAGE);
 });
 
-test("registering records a request and lands on the beta page", async ({
+test("registering asks for confirmation and queues nothing yet", async ({
   page
 }) => {
-  const requestedEmails: string[] = [];
+  const writes: string[] = [];
 
   await stubSignUp(page);
-  await page.route("**/api/beta-access/requests", async (route) => {
-    requestedEmails.push(
-      JSON.parse(route.request().postData() ?? "{}").email as string
-    );
-    await route.fulfill({
-      status: 202,
-      contentType: "application/json",
-      body: JSON.stringify({ status: "received" })
-    });
+  // Every write of ours the form attempts. The queue must not be written, and
+  // the approval inbox must not be mailed, until the address is confirmed.
+  // Scoped to non-GET so an unrelated read on page load cannot fail this.
+  await page.route("**/api/**", async (route) => {
+    if (route.request().method() !== "GET") {
+      writes.push(new URL(route.request().url()).pathname);
+    }
+    await route.continue();
   });
 
   await page.goto("/signup");
@@ -99,27 +102,11 @@ test("registering records a request and lands on the beta page", async ({
     .getByRole("button", { name: "Create account", exact: true })
     .click();
 
-  await expect(page).toHaveURL(/\/beta-pending$/);
-  await expect(page.getByRole("status")).toHaveText(PENDING_MESSAGE);
-  expect(requestedEmails).toEqual(["e2e-beta@example.com"]);
-});
-
-test("a failed notification still lands on the beta page", async ({ page }) => {
-  // The applicant's account exists either way, and provisioning records the
-  // request again on the server. Reporting "sign-up failed" over an account
-  // Supabase created is the outcome this guards against.
-  await stubSignUp(page);
-  await page.route("**/api/beta-access/requests", (route) => route.abort());
-
-  await page.goto("/signup");
-  await waitForHydration(page);
-  await page.getByLabel("Email Address").fill("e2e-beta@example.com");
-  await page.getByLabel("Password", { exact: true }).fill("Testing12345");
-  await page
-    .getByRole("button", { name: "Create account", exact: true })
-    .click();
-
-  await expect(page).toHaveURL(/\/beta-pending$/);
+  await expect(page).toHaveURL(/\/verify-email\?email=e2e-beta%40example\.com$/);
+  await expect(
+    page.getByRole("heading", { name: "Confirm your email" })
+  ).toBeVisible();
+  expect(writes).toEqual([]);
 });
 
 test("the sign-up page says access is reviewed rather than immediate", async ({
