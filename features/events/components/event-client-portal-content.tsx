@@ -325,6 +325,36 @@ export function ClientPortalPreviewContent({
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
+  /*
+   * Take a newly fetched payload over the one the lists were seeded with.
+   *
+   * The five lists above are working copies - a tick has to show before it is
+   * saved - so they are state rather than props. That left them pinned to the
+   * first payload while `locked` and the header below went on reading `portal`
+   * directly, so a refresh arriving while the drawer was open moved the date
+   * and the lock and left the options behind: half the panel current, half of
+   * it not, with nothing to say which.
+   *
+   * Compared by identity, which is what a fetch produces. The public portal at
+   * /client/[eventId] is served by a server component, so its `portal` object
+   * is stable for the life of the page and this never fires there - a client
+   * part-way through choosing does not have their picks taken away.
+   *
+   * Adjusting state during render rather than in an effect is deliberate: React
+   * re-renders with the new values before anything paints, so the stale lists
+   * are never committed to the screen.
+   */
+  const [renderedPortal, setRenderedPortal] = useState(portal);
+
+  if (renderedPortal !== portal) {
+    setRenderedPortal(portal);
+    setPackages(portal.packages);
+    setMenuItems(portal.menuItems);
+    setDrinks(portal.drinks);
+    setTablecloths(portal.tablecloths);
+    setAddOns(portal.addOns);
+  }
+
   // Staff confirmation closes the menu; the kitchen has already committed.
   const locked = !interactive || portal.menuConfirmed;
   const hasOptions =
@@ -492,7 +522,7 @@ export function ClientPortalPreviewContent({
           </>
         ) : (
           <p className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 text-sm text-[#6a7483]">
-            Your venue has not published selectable options yet.
+            Your venue has not published menu selections yet.
           </p>
         )}
 

@@ -130,7 +130,11 @@ describe("client portal data", () => {
     }
   });
 
-  it("excludes options scoped to a different hall", async () => {
+  it("exposes only event selections that belong on this hall", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      addOnIds: ["add-on-here", "add-on-elsewhere", "add-on-everywhere"]
+    } as never);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([
       {
         id: "add-on-here",
@@ -164,7 +168,102 @@ describe("client portal data", () => {
     expect(portal?.addOns[0].priceCents).toBe(35_000);
   });
 
+  it("does not expose unselected menu library records", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      packageId: "package-selected",
+      tableclothId: "linen-selected",
+      menuItemIds: ["dish-selected"],
+      addOnIds: ["add-on-selected"]
+    } as never);
+    vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
+      {
+        id: "package-selected",
+        name: "Selected dinner",
+        notes: null,
+        regularPrice: "3500.00",
+        memberPrice: null,
+        hallIds: [],
+        eventTypeIds: []
+      },
+      {
+        id: "package-other",
+        name: "Other dinner",
+        notes: null,
+        regularPrice: "2500.00",
+        memberPrice: null,
+        hallIds: [],
+        eventTypeIds: []
+      }
+    ] as never);
+    vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
+      {
+        id: "dish-selected",
+        name: "Brisket",
+        category: "Main",
+        kind: "Food",
+        picturePath: null
+      },
+      {
+        id: "dish-other",
+        name: "Chicken",
+        category: "Main",
+        kind: "Food",
+        picturePath: null
+      }
+    ] as never);
+    vi.mocked(prisma.tableclothOption.findMany).mockResolvedValue([
+      {
+        id: "linen-selected",
+        name: "Ivory linen",
+        colorOrDescription: "Ivory"
+      },
+      {
+        id: "linen-other",
+        name: "Blue linen",
+        colorOrDescription: "Blue"
+      }
+    ] as never);
+    vi.mocked(prisma.addOn.findMany).mockResolvedValue([
+      {
+        id: "add-on-selected",
+        name: "Coffee station",
+        notes: null,
+        price: "350.00",
+        hallIds: [],
+        picturePath: null
+      },
+      {
+        id: "add-on-other",
+        name: "Valet",
+        notes: null,
+        price: "100.00",
+        hallIds: [],
+        picturePath: null
+      }
+    ] as never);
+
+    const portal = (await getClientPortalEvent(eventId))?.portal;
+
+    expect(portal?.packages.map((option) => option.id)).toEqual([
+      "package-selected"
+    ]);
+    expect(portal?.menuItems.map((option) => option.id)).toEqual([
+      "dish-selected"
+    ]);
+    expect(portal?.tablecloths.map((option) => option.id)).toEqual([
+      "linen-selected"
+    ]);
+    expect(portal?.addOns.map((option) => option.id)).toEqual([
+      "add-on-selected"
+    ]);
+  });
+
   it("uses the member price only for member-rate events", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      packageId: "package-1"
+    } as never);
     vi.mocked(prisma.eventPackage.findMany).mockResolvedValue([
       {
         id: "package-1",
@@ -182,6 +281,7 @@ describe("client portal data", () => {
 
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       ...baseEvent,
+      packageId: "package-1",
       isMemberRate: true
     } as never);
 
@@ -190,6 +290,10 @@ describe("client portal data", () => {
   });
 
   it("reports no price for tablecloths, which carry none in the schema", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      tableclothId: "linen-1"
+    } as never);
     vi.mocked(prisma.tableclothOption.findMany).mockResolvedValue([
       { id: "linen-1", name: "Ivory linen", colorOrDescription: "Ivory" }
     ] as never);
@@ -229,6 +333,11 @@ describe("client portal data", () => {
   });
 
   it("signs every picture on the page in one call", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      menuItemIds: ["dish-with-picture", "dish-without-picture"],
+      addOnIds: ["add-on-with-picture", "add-on-without-picture"]
+    } as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       {
         id: "dish-with-picture",
@@ -287,6 +396,10 @@ describe("client portal data", () => {
   });
 
   it("does not sign a picture on an add-on scoped to another hall", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      addOnIds: ["add-on-elsewhere"]
+    } as never);
     vi.mocked(prisma.addOn.findMany).mockResolvedValue([
       {
         id: "add-on-elsewhere",
@@ -307,6 +420,10 @@ describe("client portal data", () => {
   });
 
   it("skips signing entirely when nothing on the page has a picture", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      menuItemIds: ["dish-without-picture"]
+    } as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       {
         id: "dish-without-picture",
@@ -325,6 +442,10 @@ describe("client portal data", () => {
   it("still serves the portal when signing fails", async () => {
     const logged = vi.mocked(log.error);
     logged.mockClear();
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      menuItemIds: ["dish-with-picture"]
+    } as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       {
         id: "dish-with-picture",
@@ -344,13 +465,17 @@ describe("client portal data", () => {
     expect(portal?.menuItems).toHaveLength(1);
     expect(portal?.menuItems[0].imageUrl).toBeNull();
     expect(logged).toHaveBeenCalled();
-
   });
 
   it("reports no picture for the models that store none", async () => {
     // Packages and tablecloths have no picture column in the schema, so their
     // options report null rather than being left undefined for the card to
     // guess at.
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      packageId: "package-1",
+      tableclothId: "linen-1"
+    } as never);
     vi.mocked(prisma.tableclothOption.findMany).mockResolvedValue([
       { id: "linen-1", name: "Ivory linen", colorOrDescription: "Ivory" }
     ] as never);
@@ -373,6 +498,10 @@ describe("client portal data", () => {
   });
 
   it("asks for drinks separately from the food, off one query", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      ...baseEvent,
+      menuItemIds: ["dish-1", "drink-1"]
+    } as never);
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       {
         id: "dish-1",
@@ -533,7 +662,6 @@ describe("client portal data", () => {
     expect(portal?.logoUrl).toBeNull();
     expect(portal?.title).toContain("Charles");
     expect(logged).toHaveBeenCalled();
-
   });
 
   it("marks the menu locked once staff confirmed it", async () => {

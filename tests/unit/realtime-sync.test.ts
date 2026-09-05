@@ -51,6 +51,33 @@ describe("realtime table map", () => {
   it("derives the replicated table list from the map so they cannot drift", () => {
     expect(REALTIME_TABLES).toEqual(Object.keys(TABLE_ENDPOINTS).sort());
   });
+
+  /*
+   * The Preview portal drawer reads `/api/client-portal/<id>`, and that endpoint
+   * was in this map nowhere at all - so the one screen whose entire claim is
+   * "this is what the client sees" was the one screen no change ever reached.
+   * Every table below feeds something the portal draws.
+   */
+  it("refreshes the client portal preview from everything it renders", () => {
+    for (const table of [
+      "events",
+      "packages",
+      "menu_items",
+      "add_ons",
+      "invoices",
+      // The venue's logo and header background live in the settings document.
+      "organization_settings"
+    ]) {
+      expect(endpointsForTable(table)).toContain("/api/client-portal");
+    }
+  });
+
+  // Adding a KEY here would mean adding a table to the Supabase publication;
+  // adding an endpoint to an existing key is a client-side change only. This
+  // pins that distinction so the map cannot quietly get ahead of the database.
+  it("adds no replicated table beyond the ones the publication already covers", () => {
+    expect(REALTIME_TABLES).not.toContain("tablecloth_options");
+  });
 });
 
 describe("realtime publication migration", () => {
