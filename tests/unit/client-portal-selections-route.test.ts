@@ -50,9 +50,9 @@ describe("public client portal selections", () => {
     vi.mocked(prisma.event.findFirst).mockResolvedValue({
       id: eventId,
       organizationId,
-      packageId: null,
+      packageId,
       tableclothId: null,
-      menuItemIds: [],
+      menuItemIds: [menuItemId],
       addOnIds: [],
       workspaceData: null
     } as never);
@@ -98,6 +98,24 @@ describe("public client portal selections", () => {
         where: expect.objectContaining({ id: packageId, organizationId })
       })
     );
+    expect(prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a package that was not published on this event", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      id: eventId,
+      organizationId,
+      packageId: null,
+      tableclothId: null,
+      menuItemIds: [],
+      addOnIds: [],
+      workspaceData: null
+    } as never);
+
+    const response = await post({ packageId });
+
+    expect(response.status).toBe(400);
+    expect(prisma.eventPackage.findFirst).not.toHaveBeenCalled();
     expect(prisma.event.update).not.toHaveBeenCalled();
   });
 
@@ -210,20 +228,67 @@ describe("public client portal selections", () => {
   });
 
   it("turns the client's add-ons into lines beside the dishes", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      id: eventId,
+      organizationId,
+      packageId,
+      tableclothId: null,
+      menuItemIds: [menuItemId],
+      addOnIds: [addOnId],
+      workspaceData: null
+    } as never);
     vi.mocked(prisma.addOn.count).mockResolvedValue(1);
 
     const response = await post({ addOnIds: [addOnId] });
 
     expect(response.status).toBe(200);
-    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
-      data: [
-        expect.objectContaining({
-          addOnId,
-          sortOrder: 0,
-          source: "ClientPortal"
-        })
-      ]
-    });
+    expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            addOnId,
+            sortOrder: 1,
+            source: "ClientPortal"
+          })
+        ])
+      })
+    );
+  });
+
+  it("rejects add-ons that were not published on this event", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      id: eventId,
+      organizationId,
+      packageId,
+      tableclothId: null,
+      menuItemIds: [menuItemId],
+      addOnIds: [],
+      workspaceData: null
+    } as never);
+
+    const response = await post({ addOnIds: [addOnId] });
+
+    expect(response.status).toBe(400);
+    expect(prisma.addOn.count).not.toHaveBeenCalled();
+    expect(prisma.event.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects menu items that were not published on this event", async () => {
+    vi.mocked(prisma.event.findFirst).mockResolvedValue({
+      id: eventId,
+      organizationId,
+      packageId,
+      tableclothId: null,
+      menuItemIds: [],
+      addOnIds: [],
+      workspaceData: null
+    } as never);
+
+    const response = await post({ menuItemIds: [menuItemId] });
+
+    expect(response.status).toBe(400);
+    expect(prisma.menuItem.count).not.toHaveBeenCalled();
+    expect(prisma.event.update).not.toHaveBeenCalled();
   });
 
   describe("counts staff set, across the client's replace", () => {
@@ -246,6 +311,15 @@ describe("public client portal selections", () => {
     });
 
     it("carries an add-on's quantity too", async () => {
+      vi.mocked(prisma.event.findFirst).mockResolvedValue({
+        id: eventId,
+        organizationId,
+        packageId,
+        tableclothId: null,
+        menuItemIds: [],
+        addOnIds: [addOnId],
+        workspaceData: null
+      } as never);
       vi.mocked(prisma.addOn.count).mockResolvedValue(1);
       vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
         { menuItemId: null, addOnId, quantityMultiplier: 2 }
@@ -259,7 +333,7 @@ describe("public client portal selections", () => {
       });
     });
 
-    it("starts a dish the client has newly picked at one", async () => {
+    it("starts a published dish without an existing line at one", async () => {
       vi.mocked(prisma.menuItem.count).mockResolvedValue(1);
       vi.mocked(prisma.eventMenuLine.findMany).mockResolvedValue([
         // A different dish carried the count; the one being added did not.
@@ -282,7 +356,7 @@ describe("public client portal selections", () => {
       packageId: null,
       tableclothId: null,
       menuItemIds: [menuItemId],
-      addOnIds: [],
+      addOnIds: [addOnId],
       workspaceData: null
     } as never);
     vi.mocked(prisma.addOn.count).mockResolvedValue(1);
@@ -295,7 +369,11 @@ describe("public client portal selections", () => {
     expect(prisma.eventMenuLine.createMany).toHaveBeenCalledWith({
       data: [
         expect.objectContaining({ menuItemId, sortOrder: 0 }),
-        expect.objectContaining({ addOnId, sortOrder: 1 })
+        expect.objectContaining({
+          addOnId,
+          sortOrder: 1,
+          source: "ClientPortal"
+        })
       ]
     });
   });

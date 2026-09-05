@@ -76,18 +76,34 @@ export function PrintPacketDrawer({
 
   return (
     <div
-      className="dashboard-drawer-backdrop fixed inset-0 z-100 bg-[#17202a]/30"
+      className="print-packet-sheet dashboard-drawer-backdrop fixed inset-0 z-100 bg-[#17202a]/30 print:static print:bg-white"
       onMouseDown={(mouseEvent) => {
         if (mouseEvent.currentTarget === mouseEvent.target) onClose();
       }}
     >
+      {/*
+        The same visibility trick the hall map's print sheet uses, and for the
+        same reason: printing in place keeps the app's styles rather than
+        rebuilding them in a new window. Without it `window.print()` printed the
+        dashboard behind this drawer - sidebar, topbar and all - and clipped the
+        packet itself at one viewport, because the panel is `fixed` with its body
+        set to scroll.
+      */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-packet-sheet, .print-packet-sheet * { visibility: visible; }
+          .print-packet-sheet { position: absolute; inset: 0; }
+        }
+      `}</style>
+
       <aside
         aria-labelledby={titleId}
         aria-modal="true"
-        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-[455px] flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20"
+        className="dashboard-drawer-enter ml-auto flex h-full w-full max-w-113.75 flex-col border-l border-[#d8dde5] bg-white shadow-2xl shadow-[#17202a]/20 print:ml-0 print:h-auto print:max-w-none print:border-0 print:shadow-none"
         role="dialog"
       >
-        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3 print:hidden">
           <div className="flex items-center gap-3">
             <PacketIcon />
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
@@ -104,12 +120,12 @@ export function PrintPacketDrawer({
           </button>
         </header>
 
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 print:block print:min-h-0 print:overflow-visible print:p-0">
           <section className="rounded-xl border border-[#d8dde5] bg-white p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
               Event
             </p>
-            <h3 className="mt-1 break-words text-lg font-black leading-tight text-[#17202a] sm:text-xl">
+            <h3 className="mt-1 wrap-break-word text-lg font-black leading-tight text-[#17202a] sm:text-xl">
               {event.title}
             </h3>
             <p className="mt-1 text-xs text-[#64748b]">
@@ -180,7 +196,7 @@ export function PrintPacketDrawer({
           </section>
         </div>
 
-        <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-white px-3 py-3">
+        <footer className="flex shrink-0 justify-end gap-2 border-t border-[#d8dde5] bg-white px-3 py-3 print:hidden">
           <button
             className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}

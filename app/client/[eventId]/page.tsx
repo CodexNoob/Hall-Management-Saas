@@ -37,7 +37,6 @@ export default async function ClientEventPortalPage({
     <main className="min-h-screen bg-[#eef4fa] px-3 py-6 sm:px-6 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <ClientPortalPreviewContent
-          interactive
           paymentUrl={paymentUrl}
           portal={lookup.portal}
         />

@@ -246,11 +246,22 @@ export async function getClientPortalEvent(
 
   const selectedMenuItemIds = new Set(event.menuItemIds);
   const selectedAddOnIds = new Set(event.addOnIds);
+  const visiblePackages = packages.filter(
+    (candidate) =>
+      candidate.id === event.packageId &&
+      appliesTo(candidate.hallIds, event.hallId) &&
+      appliesTo(candidate.eventTypeIds, event.eventTypeId)
+  );
+  const visibleMenuItems = menuItems.filter((candidate) =>
+    selectedMenuItemIds.has(candidate.id)
+  );
   // Narrowed to this hall before signing rather than after: an add-on scoped
   // elsewhere never reaches the client, so minting a URL for its picture would
   // be a round trip for an object nobody can fetch.
-  const visibleAddOns = addOns.filter((candidate) =>
-    appliesTo(candidate.hallIds, event.hallId)
+  const visibleAddOns = addOns.filter(
+    (candidate) =>
+      selectedAddOnIds.has(candidate.id) &&
+      appliesTo(candidate.hallIds, event.hallId)
   );
 
   // One batch call for every picture on the page rather than one per card, with
@@ -262,7 +273,7 @@ export async function getClientPortalEvent(
   // the service client even though the caller is anonymous: `organizationId`
   // comes off the event row, so these URLs can only ever address this tenant's
   // own objects.
-  const picturePaths = [...menuItems, ...visibleAddOns]
+  const picturePaths = [...visibleMenuItems, ...visibleAddOns]
     .map((candidate) => candidate.picturePath)
     .filter((path): path is string => Boolean(path));
 
@@ -338,31 +349,25 @@ export async function getClientPortalEvent(
       couples: String(event.couplesCount),
       children: String(event.kidsCount + event.boysCount + event.girlsCount),
       menuConfirmed: readMenuConfirmed(event.workspaceData),
-      packages: packages
-        .filter(
-          (candidate) =>
-            appliesTo(candidate.hallIds, event.hallId) &&
-            appliesTo(candidate.eventTypeIds, event.eventTypeId)
-        )
-        .map((candidate) => ({
-          id: candidate.id,
-          name: candidate.name,
-          description: candidate.notes,
-          priceCents: decimalToCents(
-            event.isMemberRate
-              ? (candidate.memberPrice ?? candidate.regularPrice)
-              : candidate.regularPrice
-          ),
-          // EventPackage stores no picture column.
-          imageUrl: null,
-          selected: candidate.id === event.packageId
-        })),
+      packages: visiblePackages.map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        description: candidate.notes,
+        priceCents: decimalToCents(
+          event.isMemberRate
+            ? (candidate.memberPrice ?? candidate.regularPrice)
+            : candidate.regularPrice
+        ),
+        // EventPackage stores no picture column.
+        imageUrl: null,
+        selected: true
+      })),
       // Split by kind rather than served as one list. A guest choosing food and
       // a guest choosing what to drink are two questions, and the staff menu
       // has asked them separately since drinks got their own tab. Both halves
       // are still menu items, so a selection from either goes back in
       // `menuItemIds` and nothing downstream has to learn a new id list.
-      menuItems: menuItems
+      menuItems: visibleMenuItems
         .filter((candidate) => !isDrinkKind(candidate.kind))
         .map((candidate) => ({
           id: candidate.id,
@@ -370,9 +375,9 @@ export async function getClientPortalEvent(
           description: candidate.category,
           priceCents: null,
           imageUrl: readImageUrl(candidate.picturePath),
-          selected: selectedMenuItemIds.has(candidate.id)
+          selected: true
         })),
-      drinks: menuItems
+      drinks: visibleMenuItems
         .filter((candidate) => isDrinkKind(candidate.kind))
         .map((candidate) => ({
           id: candidate.id,
@@ -380,25 +385,27 @@ export async function getClientPortalEvent(
           description: candidate.category,
           priceCents: null,
           imageUrl: readImageUrl(candidate.picturePath),
-          selected: selectedMenuItemIds.has(candidate.id)
+          selected: true
         })),
-      tablecloths: tablecloths.map((candidate) => ({
-        id: candidate.id,
-        name: candidate.name,
-        description: candidate.colorOrDescription,
-        // TableclothOption carries no price column; the portal used to invent one.
-        priceCents: null,
-        // Nor a picture column.
-        imageUrl: null,
-        selected: candidate.id === event.tableclothId
-      })),
+      tablecloths: tablecloths
+        .filter((candidate) => candidate.id === event.tableclothId)
+        .map((candidate) => ({
+          id: candidate.id,
+          name: candidate.name,
+          description: candidate.colorOrDescription,
+          // TableclothOption carries no price column; the portal used to invent one.
+          priceCents: null,
+          // Nor a picture column.
+          imageUrl: null,
+          selected: true
+        })),
       addOns: visibleAddOns.map((candidate) => ({
         id: candidate.id,
         name: candidate.name,
         description: candidate.notes,
         priceCents: decimalToCents(candidate.price),
         imageUrl: readImageUrl(candidate.picturePath),
-        selected: selectedAddOnIds.has(candidate.id)
+        selected: true
       })),
       totals
     }

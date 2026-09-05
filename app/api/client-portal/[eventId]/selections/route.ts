@@ -40,10 +40,31 @@ function unknownSelection(label: string) {
   );
 }
 
+function isPublishedChoice(
+  requestedId: string | null | undefined,
+  publishedId: string | null
+) {
+  return (
+    requestedId === null ||
+    requestedId === undefined ||
+    requestedId === publishedId
+  );
+}
+
+function hasOnlyPublishedChoices(
+  requestedIds: string[] | undefined,
+  publishedIds: string[]
+) {
+  if (!requestedIds) return true;
+
+  const published = new Set(publishedIds);
+  return requestedIds.every((id) => published.has(id));
+}
+
 export const POST = withRoute(
   "POST /api/client-portal/[eventId]/selections",
   async (
-  request: Request,
+    request: Request,
     context: { params: Promise<{ eventId: string }> }
   ) => {
     try {
@@ -59,7 +80,10 @@ export const POST = withRoute(
       const parsedEventId = eventIdSchema.safeParse(eventId);
 
       if (!parsedEventId.success) {
-        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+        return NextResponse.json(
+          { error: "Event not found." },
+          { status: 404 }
+        );
       }
 
       const event = await prisma.event.findFirst({
@@ -76,7 +100,10 @@ export const POST = withRoute(
       });
 
       if (!event) {
-        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+        return NextResponse.json(
+          { error: "Event not found." },
+          { status: 404 }
+        );
       }
 
       const workspaceData = event.workspaceData;
@@ -97,6 +124,22 @@ export const POST = withRoute(
 
       const input = selectionsSchema.parse(await request.json());
       const { organizationId } = event;
+
+      if (!isPublishedChoice(input.packageId, event.packageId)) {
+        return unknownSelection("package");
+      }
+
+      if (!isPublishedChoice(input.tableclothId, event.tableclothId)) {
+        return unknownSelection("tablecloth option");
+      }
+
+      if (!hasOnlyPublishedChoices(input.menuItemIds, event.menuItemIds)) {
+        return unknownSelection("menu item");
+      }
+
+      if (!hasOnlyPublishedChoices(input.addOnIds, event.addOnIds)) {
+        return unknownSelection("add-on");
+      }
 
       // Every id below is verified against this organization's active records.
       // The names come back from the same lookup so the denormalised
@@ -165,7 +208,9 @@ export const POST = withRoute(
             ...(input.menuItemIds !== undefined
               ? { menuItemIds: input.menuItemIds }
               : {}),
-            ...(input.addOnIds !== undefined ? { addOnIds: input.addOnIds } : {})
+            ...(input.addOnIds !== undefined
+              ? { addOnIds: input.addOnIds }
+              : {})
           },
           select: {
             id: true,
@@ -212,7 +257,10 @@ export const POST = withRoute(
             (
               await transaction.menuItem.findMany({
                 where: { id: { in: menuItemIds }, organizationId },
-                select: { id: true, services: { select: { serviceStyle: true } } }
+                select: {
+                  id: true,
+                  services: { select: { serviceStyle: true } }
+                }
               })
             ).map((item) => [
               item.id,
@@ -241,7 +289,9 @@ export const POST = withRoute(
                 }
               })
             ).map((line) => [
-              line.menuItemId ? `dish:${line.menuItemId}` : `addon:${line.addOnId}`,
+              line.menuItemId
+                ? `dish:${line.menuItemId}`
+                : `addon:${line.addOnId}`,
               line.quantityMultiplier
             ])
           );
@@ -260,7 +310,8 @@ export const POST = withRoute(
                   menuItemId,
                   serviceStyle: styles.length === 1 ? styles[0] : null,
                   sortOrder: index,
-                  quantityMultiplier: carriedByTarget.get(`dish:${menuItemId}`) ?? 1,
+                  quantityMultiplier:
+                    carriedByTarget.get(`dish:${menuItemId}`) ?? 1,
                   // Recorded rather than assumed: a line staff added and a line
                   // the client picked are not the same thing when they disagree.
                   source: "ClientPortal"
@@ -271,7 +322,8 @@ export const POST = withRoute(
                 eventMenuId: menu.id,
                 addOnId,
                 sortOrder: menuItemIds.length + index,
-                quantityMultiplier: carriedByTarget.get(`addon:${addOnId}`) ?? 1,
+                quantityMultiplier:
+                  carriedByTarget.get(`addon:${addOnId}`) ?? 1,
                 source: "ClientPortal"
               }))
             ]
@@ -290,7 +342,8 @@ export const POST = withRoute(
             organizationId,
             eventId: event.id,
             actionType: "Client Portal Selection Updated",
-            message: "The client updated their selections from the event portal.",
+            message:
+              "The client updated their selections from the event portal.",
             oldValue: {
               packageId: event.packageId,
               tableclothId: event.tableclothId,

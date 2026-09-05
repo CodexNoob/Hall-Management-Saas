@@ -19,6 +19,7 @@ import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authent
 import {
   invalidateAuthenticatedQuery,
   invalidateAuthenticatedQueryPrefix,
+  setAuthenticatedQueryData,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
@@ -44,6 +45,110 @@ import {
   type KitchenResponse,
   type KitchenView
 } from "@/features/kitchen/components/kitchen-shared";
+
+type KitchenAssignmentAction = Extract<
+  KitchenItemActionInput,
+  { action: "assign-worker" | "standalone-assign-worker" }
+>;
+
+function updateAssignedWorkerOnSheet(
+  sheet: NonNullable<KitchenEvent["sheet"]>,
+  menuItemId: string,
+  assignedWorkerId: string | null,
+  assignedWorkerName: string | null,
+  currentWorkerId: string | null
+) {
+  let changed = false;
+  const lines = sheet.lines.map((line) => {
+    if (line.kind !== "Dish" || line.menuItemId !== menuItemId) return line;
+
+    changed = true;
+    return {
+      ...line,
+      assignedWorkerId,
+      assignedWorkerName
+    };
+  });
+
+  if (!changed) return sheet;
+
+  return {
+    ...sheet,
+    lines,
+    summary: {
+      ...sheet.summary,
+      assigned: lines.filter((line) => Boolean(line.assignedWorkerId)).length,
+      assignedToCurrentWorker: currentWorkerId
+        ? lines.filter((line) => line.assignedWorkerId === currentWorkerId)
+            .length
+        : 0
+    }
+  };
+}
+
+function applyKitchenAssignment(
+  data: KitchenResponse | null,
+  input: KitchenAssignmentAction
+) {
+  if (!data) return null;
+
+  const assignedWorkerName =
+    data.workers.find((worker) => worker.id === input.assignedWorkerId)?.name ??
+    null;
+
+  if (input.action === "standalone-assign-worker") {
+    let changed = false;
+    const kitchenEvents = data.kitchenEvents.map((event) => {
+      if (event.id !== input.kitchenEventId || !event.sheet) return event;
+
+      const sheet = updateAssignedWorkerOnSheet(
+        event.sheet,
+        input.menuItemId,
+        input.assignedWorkerId,
+        assignedWorkerName,
+        data.currentWorkerId
+      );
+
+      if (sheet === event.sheet) return event;
+      changed = true;
+
+      return {
+        ...event,
+        sheet,
+        summary: sheet.summary
+      };
+    });
+
+    return changed ? { ...data, kitchenEvents } : null;
+  }
+
+  let changed = false;
+  const events = data.events.map((event) => {
+    if (event.id !== input.eventId || !event.sheet) return event;
+
+    const sheet = event.sheet
+      ? updateAssignedWorkerOnSheet(
+          event.sheet,
+          input.menuItemId,
+          input.assignedWorkerId,
+          assignedWorkerName,
+          data.currentWorkerId
+        )
+      : null;
+
+    if (!sheet || sheet === event.sheet) return event;
+
+    changed = true;
+
+    return {
+      ...event,
+      sheet,
+      summary: sheet.summary
+    };
+  });
+
+  return changed ? { ...data, events } : null;
+}
 export function KitchenDashboardPage() {
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   /*
@@ -197,11 +302,7 @@ export function KitchenDashboardPage() {
      */
     const matchesSearch = (fields: Array<string | null | undefined>) =>
       !normalizedSearch ||
-      fields
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch);
+      fields.filter(Boolean).join(" ").toLowerCase().includes(normalizedSearch);
 
     for (const event of kitchenQuery.data?.events ?? []) {
       const key = dateKeyFromIso(event.eventDate);
@@ -468,9 +569,20 @@ export function KitchenDashboardPage() {
   async function saveKitchenItemAction(input: KitchenItemActionInput) {
     await kitchenMutation.mutate(input);
     if (
-      input.action === "standalone-status" ||
-      input.action === "standalone-reset-status" ||
+      input.action === "assign-worker" ||
       input.action === "standalone-assign-worker"
+    ) {
+      const updated = applyKitchenAssignment(kitchenQuery.data, input);
+      if (updated) setAuthenticatedQueryData(kitchenQueryUrl, updated);
+      if (input.action === "assign-worker") {
+        invalidateAuthenticatedQuery(`/api/events/${input.eventId}/kitchen`);
+      }
+      return;
+    }
+
+    if (
+      input.action === "standalone-status" ||
+      input.action === "standalone-reset-status"
     ) {
       await kitchenQuery.refetch();
       return;
@@ -730,9 +842,7 @@ export function KitchenDashboardPage() {
         acknowledgmentError={acknowledgmentError}
         acknowledgingId={acknowledgingNotificationId}
         bulkAction={notificationBulkAction}
-        hasMoreNotifications={
-          kitchenQuery.data?.notificationsHasMore ?? false
-        }
+        hasMoreNotifications={kitchenQuery.data?.notificationsHasMore ?? false}
         // The same signal the server scopes the feed and gates the bulk
         // endpoints on: a cook is sent only the notifications for events they
         // are cooking on, so the drawer is shaped for that rather than for a
