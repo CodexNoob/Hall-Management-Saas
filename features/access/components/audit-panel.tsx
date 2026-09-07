@@ -24,6 +24,11 @@ const ACTION_LABELS: Record<string, string> = {
   "staff.restored": "Access restored"
 };
 
+const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "short"
+});
+
 function formatDetail(detail: unknown): string {
   if (!detail || typeof detail !== "object") return "";
 
@@ -125,10 +130,7 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
                   ) : null}
                 </span>
                 <span className="text-[10px] text-[#6a7483]">
-                  {new Intl.DateTimeFormat("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short"
-                  }).format(new Date(entry.createdAt))}
+                  {auditDateFormatter.format(new Date(entry.createdAt))}
                 </span>
               </div>
               <p className="mt-0.5 text-[10px] text-[#6a7483]">

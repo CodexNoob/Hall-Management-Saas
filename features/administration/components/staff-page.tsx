@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
@@ -61,6 +61,9 @@ import {
  */
 
 const STAFF_URL = "/api/staff";
+const invitationDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium"
+});
 
 export function StaffPage() {
   const access = useDashboardAccess();
@@ -69,6 +72,7 @@ export function StaffPage() {
   const canEditProfiles = access.hasPermission("staff.update");
   const canDeactivate = access.hasPermission("staff.deactivate");
   const canAssign = access.hasPermission("role.assign");
+  const [assigningPrincipalId, setAssigningPrincipalId] = useState("");
 
   const staffQuery = useAuthenticatedQuery<StaffResponse>(
     STAFF_URL,
@@ -76,7 +80,7 @@ export function StaffPage() {
   );
   const rolesQuery = useAuthenticatedQuery<RolesResponse>(
     "/api/access/roles",
-    canAssign
+    canAssign && Boolean(assigningPrincipalId)
   );
 
   const [searchQuery] = useDashboardPageSearch("Staff");
@@ -95,7 +99,6 @@ export function StaffPage() {
     StaffInvitation[]
   >([]);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [assigningPrincipalId, setAssigningPrincipalId] = useState("");
 
   const {
     currentPage,
@@ -151,10 +154,14 @@ export function StaffPage() {
    * staff row that has not been signed into yet. Sorted newest first, since the
    * one somebody is asking about is almost always the one just sent.
    */
-  const pendingInvitations = (staffQuery.data?.staff ?? [])
-    .filter((entry) => !entry.lastLoginAt && entry.status === "Active")
-    .slice()
-    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  const pendingInvitations = useMemo(
+    () =>
+      (staffQuery.data?.staff ?? [])
+        .filter((entry) => !entry.lastLoginAt && entry.status === "Active")
+        .slice()
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    [staffQuery.data?.staff]
+  );
 
   function showNotice(message: string) {
     setNotice(message);
@@ -388,9 +395,9 @@ export function StaffPage() {
                       <p className="text-xs font-black">{entry.name}</p>
                       <p className="mt-0.5 truncate text-[10px] text-[#6a7483]">
                         {entry.email} · invited{" "}
-                        {new Intl.DateTimeFormat("en-US", {
-                          dateStyle: "medium"
-                        }).format(new Date(entry.createdAt))}
+                        {invitationDateFormatter.format(
+                          new Date(entry.createdAt)
+                        )}
                       </p>
                     </div>
                     <span className="flex flex-wrap items-center gap-1.5">
@@ -666,6 +673,7 @@ export function StaffPage() {
         <AssignmentDialog
           canAssign={canAssign}
           epoch={rolesQuery.data?.epoch ?? access.epoch}
+          isRolesLoading={rolesQuery.isLoading}
           onClose={() => setAssigningPrincipalId("")}
           onSaved={() => {
             refresh();

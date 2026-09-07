@@ -1,15 +1,20 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { invalidateAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import {
+  invalidateAuthenticatedQuery,
+  setAuthenticatedQueryData
+} from "@/features/dashboard/hooks/use-authenticated-query";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { ApiRequestError, readApiError } from "@/lib/http/api-request-error";
 import type { ZodFieldErrors } from "@/lib/http/zod-error-message";
 
 export function useAuthenticatedMutation<TInput, TOutput>(
   url: string,
-  method: "POST" | "PATCH" | "DELETE" = "POST"
+  method: "POST" | "PATCH" | "DELETE" = "POST",
+  options: { cacheResponse?: boolean } = {}
 ) {
+  const cacheResponse = options.cacheResponse ?? false;
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Populated when the server rejected the body with a schema error, so a form
@@ -46,7 +51,11 @@ export function useAuthenticatedMutation<TInput, TOutput>(
           | TOutput
           | null;
 
-        invalidateAuthenticatedQuery(url);
+        if (cacheResponse && payload) {
+          setAuthenticatedQueryData(url, payload);
+        } else {
+          invalidateAuthenticatedQuery(url);
+        }
         return payload as TOutput;
       } catch (mutationError) {
         const message =
@@ -63,7 +72,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
         setIsPending(false);
       }
     },
-    [method, url]
+    [cacheResponse, method, url]
   );
 
   return { mutate, isPending, error, fieldErrors, requestId, resetError };

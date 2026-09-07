@@ -98,7 +98,9 @@ function eventsResponse(events: EventsResponse["events"]): EventsResponse {
     events,
     halls: [{ id: "hall-1", name: "Hall 1" }],
     eventTypes: [],
-    coordinators: []
+    packages: [],
+    coordinators: [],
+    calendarSettings: { dailyEventLimit: 2 }
   };
 }
 

@@ -164,6 +164,29 @@ describe("menu item pictures", () => {
     expect(payload.items[0]).not.toHaveProperty("pictureBucket");
   });
 
+  it("can skip picture signing for the fast menu response", async () => {
+    const itemPath = `${organizationId}/menu/item.jpg`;
+    const addOnPath = `${organizationId}/menu/addon.jpg`;
+    vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
+      { id: "1", name: "With picture", picturePath: itemPath }
+    ] as never);
+    vi.mocked(prisma.addOn.findMany).mockResolvedValue([
+      { id: "2", name: "With picture", picturePath: addOnPath }
+    ] as never);
+
+    const response = await GET(
+      new Request("http://localhost/api/menu?pictures=0")
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(storageMocks.from).not.toHaveBeenCalled();
+    expect(payload.items[0].pictureUrl).toBeNull();
+    expect(payload.addOns[0].pictureUrl).toBeNull();
+    expect(payload.items[0]).not.toHaveProperty("picturePath");
+    expect(payload.addOns[0]).not.toHaveProperty("picturePath");
+  });
+
   it("skips signing entirely when no item has a picture", async () => {
     vi.mocked(prisma.menuItem.findMany).mockResolvedValue([
       { id: "1", name: "Without picture", picturePath: null }

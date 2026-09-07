@@ -336,7 +336,6 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       }
       setDialogOpen(false);
       refreshHallConsumers();
-      await hallsQuery.refetch();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to save this hall."
@@ -361,7 +360,6 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       });
       setMessage(`${hall.name} ${hall.isActive ? "deactivated" : "activated"}.`);
       refreshHallConsumers();
-      await hallsQuery.refetch();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to update this hall."
@@ -375,7 +373,6 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
       await deleteMutation.mutate({ id: hall.id });
       setMessage(`${hall.name} deleted.`);
       refreshHallConsumers();
-      await hallsQuery.refetch();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to delete this hall."

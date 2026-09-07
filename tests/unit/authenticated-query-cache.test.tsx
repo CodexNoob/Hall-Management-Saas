@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/http/authenticated-fetch", () => ({
@@ -13,6 +13,7 @@ import {
   setAuthenticatedQueryData,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
 
@@ -134,6 +135,30 @@ describe("authenticated query cache", () => {
 
     act(() => {
       setAuthenticatedQueryData<Payload>(URL, { label: "saved" });
+    });
+
+    expect(read("label")).toBe("saved");
+    expect(authenticatedFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a mutation write its response into the matching query cache", async () => {
+    act(() => {
+      setAuthenticatedQueryData<Payload>(URL, { label: "before save" });
+    });
+
+    await mount(<Reader />);
+    vi.mocked(authenticatedFetch).mockResolvedValueOnce(
+      jsonResponse({ label: "saved" })
+    );
+
+    const { result } = renderHook(() =>
+      useAuthenticatedMutation<Payload, Payload>(URL, "PATCH", {
+        cacheResponse: true
+      })
+    );
+
+    await act(async () => {
+      await result.current.mutate({ label: "saved" });
     });
 
     expect(read("label")).toBe("saved");

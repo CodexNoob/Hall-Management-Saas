@@ -33,7 +33,7 @@ function createReference() {
   return `EC-${date}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-const ticketSelect = {
+const ticketSummarySelect = {
   id: true,
   reference: true,
   subject: true,
@@ -44,17 +44,7 @@ const ticketSelect = {
   pageUrl: true,
   createdAt: true,
   updatedAt: true,
-  createdBy: { select: { id: true, name: true, email: true } },
-  messages: {
-    select: {
-      id: true,
-      body: true,
-      isStaffReply: true,
-      createdAt: true,
-      author: { select: { name: true } }
-    },
-    orderBy: { createdAt: "asc" as const }
-  }
+  createdBy: { select: { id: true, name: true, email: true } }
 };
 
 export const GET = withRoute(
@@ -71,9 +61,9 @@ export const GET = withRoute(
           organizationId: actor.organizationId,
           ...(canViewOrganizationTickets ? {} : { createdById: requireUserActor(actor) })
         },
-        select: ticketSelect,
+        select: ticketSummarySelect,
         orderBy: { updatedAt: "desc" },
-        take: 50
+        take: 8
       });
       return NextResponse.json({ tickets, supportEmail: process.env.SUPPORT_EMAIL ?? null });
     } catch (error) {
@@ -102,7 +92,7 @@ export const POST = withRoute(
             reference: createReference(),
             ...input
           },
-          select: ticketSelect
+          select: ticketSummarySelect
         });
         await createActivityLog(transaction, {
           organizationId: actor.organizationId,

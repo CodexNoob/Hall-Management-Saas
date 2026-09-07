@@ -124,15 +124,7 @@ async function listStaff(request: Request) {
             phone: true,
             venueName: true,
             title: true,
-            activityLogs: {
-              where: {
-                organizationId: actor.organizationId,
-                actionType: "auth.login.success"
-              },
-              orderBy: { createdAt: "desc" },
-              select: { createdAt: true },
-              take: 1
-            }
+            lastSignInAt: true
           }
         }
       },
@@ -160,8 +152,7 @@ async function listStaff(request: Request) {
       // Inactive.
       status: membership.isActive ? "Active" : "Inactive",
       assignments: assignments.get(membership.principalId) ?? [],
-      lastLoginAt:
-        membership.user.activityLogs[0]?.createdAt.toISOString() ?? null,
+      lastLoginAt: membership.user.lastSignInAt?.toISOString() ?? null,
       createdAt: membership.createdAt.toISOString()
     }));
 

@@ -69,9 +69,8 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
     setMessage("");
     setDialogOpen(true);
   }
-  async function refresh() {
+  function refresh() {
     invalidateAuthenticatedQuery("/api/events");
-    await query.refetch();
   }
   async function save() {
     const name = form.name.trim();
@@ -81,7 +80,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
       else await createMutation.mutate({ ...form, name });
       setDialogOpen(false);
       setMessage(`${name} ${form.id ? "updated" : "created"}.`);
-      await refresh();
+      refresh();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to save event type."
@@ -100,7 +99,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
       setMessage(
         `${item.name} ${item.isActive ? "deactivated" : "activated"}.`
       );
-      await refresh();
+      refresh();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to update event type."
@@ -112,7 +111,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
     try {
       await deleteMutation.mutate({ id: item.id });
       setMessage(`${item.name} deleted.`);
-      await refresh();
+      refresh();
     } catch (error) {
       setMessage(
         error instanceof Error ? error.message : "Unable to delete event type."

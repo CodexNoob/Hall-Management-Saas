@@ -159,6 +159,14 @@ async function listEventActivityLogs(
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EVENT_LIST_LIMIT = 1000;
+const INACTIVE_BOOKING_STATUSES = ["CANCELLED", "COMPLETED", "EXPIRED"];
+
+const eventListInclude = {
+  hall: true,
+  package: true,
+  client: true,
+  coordinator: { select: { id: true, user: { select: { name: true } } } }
+} as const;
 
 export const GET = withRoute(
   "GET /api/events",
@@ -172,60 +180,74 @@ export const GET = withRoute(
         new URL(request.url).searchParams.get("eventId") ?? "";
 
       await expireOrganizationHolds(actor.organizationId);
-      const [events, halls, eventTypes, packages, settings, coordinators] =
+      const baseEventWhere = {
+        ...tenant(actor),
+        deleted: false,
+        ...scoped(actor, "hall")
+      };
+      const [activeEvents, halls, eventTypes, packages, settings, coordinators] =
         await Promise.all([
-        prisma.event.findMany({
-          where: {
-            ...tenant(actor),
-            deleted: false,
-            ...scoped(actor, "hall")
-          },
-          orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
-          include: {
-            hall: true,
-            package: true,
-            client: true,
-            coordinator: { select: { id: true, user: { select: { name: true } } } }
-          },
-          take: EVENT_LIST_LIMIT
-        }),
-        prisma.hall.findMany({
-          where: {
-            ...tenant(actor),
-            isActive: true,
-            isBookable: true,
-            ...scoped(actor, "hall", { field: "id" })
-          },
-          orderBy: { name: "asc" }
-        }),
-        prisma.eventType.findMany({
-          where: { ...tenant(actor), isActive: true },
-          orderBy: { name: "asc" }
-        }),
-        prisma.eventPackage.findMany({
-          where: { ...tenant(actor), isActive: true },
-          orderBy: { name: "asc" }
-        }),
-        prisma.organizationSetting.upsert({
-          where: { ...tenant(actor) },
-          update: {},
-          create: { organizationId: actor.organizationId }
-        }),
-        // Assignable staff, served beside the halls and event types because they
-        // answer the same question the booking form asks. Reading them from
-        // /api/staff instead would put the coordinator field behind `staff.read`,
-        // and somebody allowed to edit an event should not need the staff
-        // directory open to say who is running it.
-        //
-        // Active memberships only: an inactive seat is somebody who has been
-        // taken off this organization, and offering them would be offering a name
-        // nobody can act as.
-        prisma.organizationMembership.findMany({
-          where: { ...tenant(actor), isActive: true },
-          select: { id: true, user: { select: { name: true } } },
-          orderBy: { user: { name: "asc" } }
-        })
-      ]);
+          prisma.event.findMany({
+            where: {
+              ...baseEventWhere,
+              bookingStatus: { notIn: INACTIVE_BOOKING_STATUSES }
+            },
+            orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
+            include: eventListInclude,
+            take: EVENT_LIST_LIMIT
+          }),
+          prisma.hall.findMany({
+            where: {
+              ...tenant(actor),
+              isActive: true,
+              isBookable: true,
+              ...scoped(actor, "hall", { field: "id" })
+            },
+            orderBy: { name: "asc" }
+          }),
+          prisma.eventType.findMany({
+            where: { ...tenant(actor), isActive: true },
+            orderBy: { name: "asc" }
+          }),
+          prisma.eventPackage.findMany({
+            where: { ...tenant(actor), isActive: true },
+            orderBy: { name: "asc" }
+          }),
+          prisma.organizationSetting.upsert({
+            where: { ...tenant(actor) },
+            update: {},
+            create: { organizationId: actor.organizationId }
+          }),
+          // Assignable staff, served beside the halls and event types because they
+          // answer the same question the booking form asks. Reading them from
+          // /api/staff instead would put the coordinator field behind `staff.read`,
+          // and somebody allowed to edit an event should not need the staff
+          // directory open to say who is running it.
+          //
+          // Active memberships only: an inactive seat is somebody who has been
+          // taken off this organization, and offering them would be offering a name
+          // nobody can act as.
+          prisma.organizationMembership.findMany({
+            where: { ...tenant(actor), isActive: true },
+            select: { id: true, user: { select: { name: true } } },
+            orderBy: { user: { name: "asc" } }
+          })
+        ]);
+
+      const historicalEvents =
+        activeEvents.length >= EVENT_LIST_LIMIT
+          ? []
+          : await prisma.event.findMany({
+              where: {
+                ...baseEventWhere,
+                bookingStatus: { in: INACTIVE_BOOKING_STATUSES }
+              },
+              orderBy: [{ startsAt: "desc" }, { eventDate: "desc" }],
+              include: eventListInclude,
+              take: EVENT_LIST_LIMIT - activeEvents.length
+            });
+
+      const events = [...activeEvents, ...historicalEvents];
 
       if (
         UUID_PATTERN.test(requestedEventId) &&
@@ -240,26 +262,25 @@ export const GET = withRoute(
             // around what this actor is allowed to see.
             ...scoped(actor, "hall")
           },
-          include: {
-            hall: true,
-            package: true,
-            client: true,
-            coordinator: { select: { id: true, user: { select: { name: true } } } }
-          }
+          include: eventListInclude
         });
 
         if (requested) events.push(requested);
       }
 
-      const eventIds = events.map((event) => event.id);
+      const detailedEventIds = UUID_PATTERN.test(requestedEventId)
+        ? events
+            .filter((event) => event.id === requestedEventId)
+            .map((event) => event.id)
+        : [];
       const [
         diningManagerNotesByEventId,
         diningHallMapPresetByEventId,
         activityLogsByEventId
       ] = await Promise.all([
-        listDiningManagerNotes(actor.organizationId, eventIds),
-        listDiningHallMapPresets(actor.organizationId, eventIds),
-        listEventActivityLogs(actor.organizationId, eventIds)
+        listDiningManagerNotes(actor.organizationId, detailedEventIds),
+        listDiningHallMapPresets(actor.organizationId, detailedEventIds),
+        listEventActivityLogs(actor.organizationId, detailedEventIds)
       ]);
 
       return NextResponse.json({

@@ -130,6 +130,8 @@ export function MenuItemCard({
           <img
             alt=""
             className="absolute inset-0 h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
+            decoding="async"
+            loading="lazy"
             src={pictureUrl}
           />
         ) : (
@@ -297,6 +299,8 @@ export function AddOnCard({
           <img
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
+            decoding="async"
+            loading="lazy"
             src={pictureUrl}
           />
         ) : (

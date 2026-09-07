@@ -128,7 +128,7 @@ export function SettingsPage({
       }
     >,
     SettingsResponse
-  >("/api/settings", "PATCH");
+  >("/api/settings", "PATCH", { cacheResponse: true });
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [eventConfirmations, setEventConfirmations] = useState(true);
   const [billingAlerts, setBillingAlerts] = useState(true);
@@ -165,6 +165,7 @@ export function SettingsPage({
     }
   });
   const [settingsMessage, setSettingsMessage] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
   // The logo is picked here and uploaded on save, so an abandoned screen leaves
   // nothing in the bucket. `isLogoCleared` is the third state the path alone
   // cannot express: a stored logo the operator has asked to drop, which is not
@@ -230,9 +231,38 @@ export function SettingsPage({
 
   const savePreference = async (
     field: keyof SettingsResponse["notifications"],
-    value: boolean
+    value: boolean,
+    rollback: () => void
   ) => {
-    await settingsMutation.mutate({ [field]: value });
+    setNotificationMessage("");
+    try {
+      await settingsMutation.mutate({ [field]: value });
+    } catch (error) {
+      rollback();
+      setNotificationMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save notification preference."
+      );
+    }
+  };
+
+  const saveImmediateSetting = async (
+    input: Partial<{
+      language: string;
+      timezone: string;
+    }>,
+    rollback: () => void
+  ) => {
+    setSettingsMessage("");
+    try {
+      await settingsMutation.mutate(input);
+    } catch (error) {
+      rollback();
+      setSettingsMessage(
+        error instanceof Error ? error.message : "Could not save settings."
+      );
+    }
   };
 
   const saveControlCenter = async () => {
@@ -285,7 +315,6 @@ export function SettingsPage({
       setIsHeaderImageCleared(false);
       setSettingsMessage("Settings saved.");
       refreshQueriesCarrying(CONTROL_CENTER_QUERY_PREFIXES);
-      await settingsQuery.refetch();
     } catch (error) {
       setSettingsMessage(
         error instanceof Error ? error.message : "Could not save settings."
@@ -575,7 +604,9 @@ export function SettingsPage({
                           action: () => {
                             const value = !emailNotifications;
                             setEmailNotifications(value);
-                            void savePreference("emailNotifications", value);
+                            void savePreference("emailNotifications", value, () =>
+                              setEmailNotifications(!value)
+                            );
                           }
                         },
                         {
@@ -587,7 +618,9 @@ export function SettingsPage({
                           action: () => {
                             const value = !eventConfirmations;
                             setEventConfirmations(value);
-                            void savePreference("eventConfirmations", value);
+                            void savePreference("eventConfirmations", value, () =>
+                              setEventConfirmations(!value)
+                            );
                           }
                         },
                         {
@@ -598,7 +631,9 @@ export function SettingsPage({
                           action: () => {
                             const value = !billingAlerts;
                             setBillingAlerts(value);
-                            void savePreference("billingAlerts", value);
+                            void savePreference("billingAlerts", value, () =>
+                              setBillingAlerts(!value)
+                            );
                           }
                         },
                         {
@@ -610,7 +645,9 @@ export function SettingsPage({
                           action: () => {
                             const value = !systemAnnouncements;
                             setSystemAnnouncements(value);
-                            void savePreference("systemAnnouncements", value);
+                            void savePreference("systemAnnouncements", value, () =>
+                              setSystemAnnouncements(!value)
+                            );
                           }
                         }
                       ]
@@ -650,6 +687,14 @@ export function SettingsPage({
                             />
                           </div>
                         ))}
+                      {notificationMessage ? (
+                        <p
+                          className="rounded-lg bg-red-50 p-3 text-xs font-bold text-red-700"
+                          role="status"
+                        >
+                          {notificationMessage}
+                        </p>
+                      ) : null}
                     </div>
                   </section>
                 ) : null}
@@ -667,8 +712,11 @@ export function SettingsPage({
                           disabled={!canEditSettings}
                           onChange={(event) => {
                             const value = event.target.value;
+                            const previous = language;
                             setLanguage(value);
-                            void settingsMutation.mutate({ language: value });
+                            void saveImmediateSetting({ language: value }, () =>
+                              setLanguage(previous)
+                            );
                           }}
                           value={language}
                         >
@@ -689,8 +737,11 @@ export function SettingsPage({
                           disabled={!canEditSettings}
                           onChange={(event) => {
                             const value = event.target.value;
+                            const previous = timezone;
                             setTimezone(value);
-                            void settingsMutation.mutate({ timezone: value });
+                            void saveImmediateSetting({ timezone: value }, () =>
+                              setTimezone(previous)
+                            );
                           }}
                           value={timezone}
                         >
