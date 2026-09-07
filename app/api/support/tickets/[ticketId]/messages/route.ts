@@ -8,6 +8,45 @@ import { withRoute } from "@/lib/http/with-route";
 
 const schema = z.object({ body: z.string().trim().min(2).max(3_000) });
 
+const messageSelect = {
+  id: true,
+  body: true,
+  isStaffReply: true,
+  createdAt: true,
+  author: { select: { name: true } }
+};
+
+export const GET = withRoute(
+  "GET /api/support/tickets/[ticketId]/messages",
+  async (request: Request, context: { params: Promise<{ ticketId: string }> }) => {
+    try {
+      const actor = await authorizeMember(request);
+      const { ticketId } = await context.params;
+      const ticket = await prisma.supportTicket.findFirst({
+        where: {
+          id: ticketId,
+          organizationId: actor.organizationId,
+          ...((await hasPermission(actor, "staff.read"))
+            ? {}
+            : { createdById: requireUserActor(actor) })
+        },
+        select: {
+          messages: {
+            select: messageSelect,
+            orderBy: { createdAt: "asc" }
+          }
+        }
+      });
+
+      if (!ticket) return NextResponse.json({ error: "Support ticket not found." }, { status: 404 });
+
+      return NextResponse.json({ messages: ticket.messages });
+    } catch (error) {
+      return createApiErrorResponse(error);
+    }
+  }
+);
+
 export const POST = withRoute(
   "POST /api/support/tickets/[ticketId]/messages",
   async (request: Request, context: { params: Promise<{ ticketId: string }> }) => {
@@ -40,13 +79,7 @@ export const POST = withRoute(
             authorId: actor.userId,
             body
           },
-          select: {
-            id: true,
-            body: true,
-            isStaffReply: true,
-            createdAt: true,
-            author: { select: { name: true } }
-          }
+          select: messageSelect
         });
         await transaction.supportTicket.update({
           where: { id: ticketId },

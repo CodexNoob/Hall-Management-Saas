@@ -8,7 +8,7 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    event: { findMany: vi.fn() },
+    event: { findFirst: vi.fn(), findMany: vi.fn() },
     hall: { findMany: vi.fn() },
     eventType: { findMany: vi.fn() },
     eventPackage: { findMany: vi.fn() },
@@ -75,38 +75,39 @@ describe("event tenant isolation", () => {
 
   it("returns Dining Manager notes with each event", async () => {
     const eventId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-    vi.mocked(prisma.event.findMany).mockResolvedValue([
-      {
-        id: eventId,
-        organizationId,
-        clientName: "Charles",
-        eventDate: new Date("2026-08-12T00:00:00.000Z"),
-        eventType: "Wedding",
-        eventStatus: "Confirmed",
-        bookingStatus: "CONFIRMED",
-        startsAt: null,
-        endsAt: null,
-        setupStartsAt: null,
-        cleanupEndsAt: null,
-        holdExpiresAt: null,
-        version: 1,
-        paymentStatus: null,
-        packageName: null,
-        couplesCount: 0,
-        menCount: 0,
-        ladiesCount: 0,
-        boysCount: 0,
-        girlsCount: 0,
-        kidsCount: 0,
-        notes: null,
-        phone: "Not provided",
-        email: null,
-        workspaceData: null,
-        hall: { id: "hall-1", name: "Hall 1" },
-        package: null,
-        client: null
-      }
-    ] as never);
+    const eventRow = {
+      id: eventId,
+      organizationId,
+      clientName: "Charles",
+      eventDate: new Date("2026-08-12T00:00:00.000Z"),
+      eventType: "Wedding",
+      eventStatus: "Confirmed",
+      bookingStatus: "CONFIRMED",
+      startsAt: null,
+      endsAt: null,
+      setupStartsAt: null,
+      cleanupEndsAt: null,
+      holdExpiresAt: null,
+      version: 1,
+      paymentStatus: null,
+      packageName: null,
+      couplesCount: 0,
+      menCount: 0,
+      ladiesCount: 0,
+      boysCount: 0,
+      girlsCount: 0,
+      kidsCount: 0,
+      notes: null,
+      phone: "Not provided",
+      email: null,
+      workspaceData: null,
+      hall: { id: "hall-1", name: "Hall 1" },
+      package: null,
+      client: null
+    };
+    vi.mocked(prisma.event.findMany)
+      .mockResolvedValueOnce([eventRow] as never)
+      .mockResolvedValueOnce([] as never);
     vi.mocked(prisma.$queryRaw)
       .mockResolvedValueOnce([
         {
@@ -136,7 +137,9 @@ describe("event tenant isolation", () => {
         }
       ]);
 
-    const response = await GET(new Request("http://localhost/api/events"));
+    const response = await GET(
+      new Request(`http://localhost/api/events?eventId=${eventId}`)
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -159,6 +162,73 @@ describe("event tenant isolation", () => {
           organizationId,
           eventId: { in: [eventId] }
         }
+      })
+    );
+  });
+
+  it("lists active events before recent inactive history", async () => {
+    const activeEvent = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      bookingStatus: "CONFIRMED",
+      clientName: "Active",
+      eventDate: new Date("2026-08-12T00:00:00.000Z"),
+      eventType: "Wedding",
+      eventStatus: "Confirmed",
+      startsAt: null,
+      endsAt: null,
+      setupStartsAt: null,
+      cleanupEndsAt: null,
+      holdExpiresAt: null,
+      version: 1,
+      paymentStatus: null,
+      packageName: null,
+      couplesCount: 0,
+      menCount: 0,
+      ladiesCount: 0,
+      boysCount: 0,
+      girlsCount: 0,
+      kidsCount: 0,
+      notes: null,
+      phone: "Not provided",
+      email: null,
+      workspaceData: null,
+      hall: { id: "hall-1", name: "Hall 1" },
+      package: null,
+      client: null
+    };
+    const completedEvent = {
+      ...activeEvent,
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      bookingStatus: "COMPLETED",
+      clientName: "Completed"
+    };
+
+    vi.mocked(prisma.event.findMany)
+      .mockResolvedValueOnce([activeEvent] as never)
+      .mockResolvedValueOnce([completedEvent] as never);
+
+    const response = await GET(new Request("http://localhost/api/events"));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.events.map((event: { id: string }) => event.id)).toEqual([
+      activeEvent.id,
+      completedEvent.id
+    ]);
+    expect(prisma.event.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bookingStatus: { notIn: ["CANCELLED", "COMPLETED", "EXPIRED"] }
+        })
+      })
+    );
+    expect(prisma.event.findMany).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          bookingStatus: { in: ["CANCELLED", "COMPLETED", "EXPIRED"] }
+        })
       })
     );
   });

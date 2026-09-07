@@ -35,19 +35,24 @@ export const GET = withRoute(
   async (request: Request) => {
     try {
       const actor = await authorize(request, "menu.read");
+      const includePictures =
+        new URL(request.url).searchParams.get("pictures") !== "0";
       const [items, packages, addOns, categories] = await Promise.all([
         prisma.menuItem.findMany({
           where: { organizationId: actor.organizationId },
-          // `pictureBucket` is never read back: every stored picture lives in
-          // MENU_IMAGE_BUCKET by construction, and the client is given a signed
-          // URL, not a location. `countingRules` is superseded by `services` and
-          // kept only as a migration safety net - not shipping it is what keeps it
-          // dead until the column is dropped.
-          omit: { pictureBucket: true, countingRules: true },
-          // The Buffet and Plated tabs are "items having a rule for this style",
-          // so the rules have to travel with the item or the grid would need a
-          // request per card.
-          include: {
+          // Keep the list route lean: timestamps, tenant ids, storage buckets
+          // and legacy counting rows are not part of the client contract.
+          select: {
+            id: true,
+            name: true,
+            category: true,
+            usageType: true,
+            kind: true,
+            kosherType: true,
+            containsAlcohol: true,
+            allergens: true,
+            notes: true,
+            picturePath: true,
             services: {
               select: {
                 serviceStyle: true,
@@ -61,44 +66,61 @@ export const GET = withRoute(
               orderBy: { serviceStyle: "asc" }
             }
           },
+          // The Buffet and Plated tabs are "items having a rule for this style",
+          // so the rules have to travel with the item or the grid would need a
+          // request per card.
           orderBy: { name: "asc" }
         }),
         prisma.eventPackage.findMany({
           where: { organizationId: actor.organizationId },
+          select: {
+            id: true,
+            name: true,
+            regularPrice: true,
+            includedMenuItemIds: true
+          },
           orderBy: { name: "asc" }
         }),
         prisma.addOn.findMany({
           where: { organizationId: actor.organizationId },
-          // Dropped for the same reason it is on the items above: the bucket is a
-          // constant on this side and the client is handed a signed URL instead.
-          omit: { pictureBucket: true },
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            pricingType: true,
+            notes: true,
+            picturePath: true
+          },
           orderBy: { name: "asc" }
         }),
         // Ordered by `sortOrder`, because these are the course tabs on the event
         // menu now and menu order is not alphabetical order.
         prisma.menuCategory.findMany({
           where: { organizationId: actor.organizationId },
+          select: { id: true, name: true },
           orderBy: [{ sortOrder: "asc" }, { name: "asc" }]
         })
       ]);
 
-      // One batch call for the whole grid rather than one per card, and add-ons
-      // ride along in it: they live in the same bucket under the same tenant
-      // prefix, so splitting them out would only cost a second round trip. The
-      // 300s URL outlives the 2 minute client query cache, so a cached response
-      // never holds an expired URL.
       let signedUrlsByPath = new Map<string, string>();
-      const picturePaths = [...items, ...addOns]
-        .map((row) => row.picturePath)
-        .filter((path): path is string => Boolean(path));
+      if (includePictures) {
+        // One batch call for the whole grid rather than one per card, and
+        // add-ons ride along in it: they live in the same bucket under the same
+        // tenant prefix, so splitting them out would only cost a second round
+        // trip. The menu page can opt out for its first paint and hydrate
+        // thumbnails after the usable rows are already on screen.
+        const picturePaths = [...items, ...addOns]
+          .map((row) => row.picturePath)
+          .filter((path): path is string => Boolean(path));
 
-      if (picturePaths.length > 0) {
         try {
-          signedUrlsByPath = await createSignedFileUrls({
-            organizationId: actor.organizationId,
-            bucket: MENU_IMAGE_BUCKET,
-            paths: picturePaths
-          });
+          if (picturePaths.length > 0) {
+            signedUrlsByPath = await createSignedFileUrls({
+              organizationId: actor.organizationId,
+              bucket: MENU_IMAGE_BUCKET,
+              paths: picturePaths
+            });
+          }
         } catch (signingError) {
           // Storage being unreachable should cost the thumbnails, not the page.
           log.error(

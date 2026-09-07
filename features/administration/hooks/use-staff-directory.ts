@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { initialsForName } from "@/features/administration/components/staff-dialog";
 import type {
   StaffMember,
@@ -9,6 +9,10 @@ import type {
 import type { StaffResponse } from "@/features/access/components/access-shared";
 
 const ROWS_PER_PAGE = 10;
+const staffDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+  timeStyle: "medium"
+});
 
 /**
  * The directory's filtering and paging.
@@ -26,6 +30,7 @@ export function useStaffDirectory(
   const [statusFilter, setStatusFilter] = useState<"All" | StaffStatus>("All");
   const [selectedPrincipalId, setSelectedPrincipalId] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   const staffMembers = useMemo<StaffMember[]>(
     () =>
@@ -39,10 +44,7 @@ export function useStaffDirectory(
         title: staff.title,
         status: staff.status,
         lastLogin: staff.lastLoginAt
-          ? new Intl.DateTimeFormat("en-US", {
-              dateStyle: "medium",
-              timeStyle: "medium"
-            }).format(new Date(staff.lastLoginAt))
+          ? staffDateTimeFormatter.format(new Date(staff.lastLoginAt))
           : "Never",
         phone: staff.phone ?? "Not provided",
         color: ["bg-[#397fc2]", "bg-[#4eb18c]", "bg-[#e4a332]", "bg-[#7665d5]"][
@@ -62,7 +64,7 @@ export function useStaffDirectory(
   );
 
   const filteredStaff = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = deferredSearchQuery.trim().toLowerCase();
 
     return staffMembers.filter((staff) => {
       const roleNames = staff.assignments
@@ -77,7 +79,7 @@ export function useStaffDirectory(
         (statusFilter === "All" || staff.status === statusFilter)
       );
     });
-  }, [departmentFilter, searchQuery, staffMembers, statusFilter]);
+  }, [deferredSearchQuery, departmentFilter, staffMembers, statusFilter]);
 
   const totalPages = Math.max(
     1,

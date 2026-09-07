@@ -28,11 +28,16 @@ type ScopeOption = { id: string; name: string };
 type HallsResponse = { halls?: ScopeOption[] };
 type EventTypesResponse = { eventTypes?: ScopeOption[] };
 
+const assignmentDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium"
+});
+
 type AssignmentDialogProps = {
   staff: StaffEntry;
   roles: RoleSummary[];
   epoch: number;
   canAssign: boolean;
+  isRolesLoading?: boolean;
   onSaved: () => void;
   onClose: () => void;
 };
@@ -42,6 +47,7 @@ export function AssignmentDialog({
   roles,
   epoch,
   canAssign,
+  isRolesLoading = false,
   onSaved,
   onClose
 }: AssignmentDialogProps) {
@@ -74,7 +80,15 @@ export function AssignmentDialog({
     setScopeId("");
   }, [scopeType]);
 
+  useEffect(() => {
+    setRoleId((current) =>
+      roles.some((role) => role.id === current) ? current : (roles[0]?.id ?? "")
+    );
+  }, [roles]);
+
   const submit = async () => {
+    if (!roleId) return;
+
     setIsSaving(true);
     setError("");
 
@@ -155,6 +169,7 @@ export function AssignmentDialog({
   };
 
   const needsScopeTarget = scopeType !== "org" && !scopeId;
+  const canChooseRole = canAssign && !isRolesLoading && roles.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-6">
@@ -199,9 +214,9 @@ export function AssignmentDialog({
                     {assignment.expiresAt ? (
                       <span className="rounded border border-[#efd39d] bg-[#fff7e8] px-1.5 py-0.5 text-[9px] font-black text-[#a45f00]">
                         Until{" "}
-                        {new Intl.DateTimeFormat("en-US", {
-                          dateStyle: "medium"
-                        }).format(new Date(assignment.expiresAt))}
+                        {assignmentDateFormatter.format(
+                          new Date(assignment.expiresAt)
+                        )}
                       </span>
                     ) : null}
                     {assignment.source !== "manual" ? (
@@ -234,16 +249,22 @@ export function AssignmentDialog({
               Role
               <select
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
-                disabled={!canAssign}
+                disabled={!canChooseRole}
                 name="roleId"
                 onChange={(event) => setRoleId(event.target.value)}
                 value={roleId}
               >
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name} (rank {role.rank})
+                {roles.length === 0 ? (
+                  <option value="">
+                    {isRolesLoading ? "Loading roles..." : "No roles available"}
                   </option>
-                ))}
+                ) : (
+                  roles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {role.name} (rank {role.rank})
+                    </option>
+                  ))
+                )}
               </select>
             </label>
             <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
@@ -317,7 +338,13 @@ export function AssignmentDialog({
             </button>
             <button
               className="h-9 rounded-lg bg-[#17202a] px-4 text-xs font-black text-white disabled:opacity-50"
-              disabled={!canAssign || isSaving || !roleId || needsScopeTarget}
+              disabled={
+                !canAssign ||
+                isSaving ||
+                isRolesLoading ||
+                !roleId ||
+                needsScopeTarget
+              }
               onClick={submit}
               type="button"
             >

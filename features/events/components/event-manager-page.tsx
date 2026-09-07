@@ -19,6 +19,91 @@ import {
   type EventsResponse,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
+
+const eventDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  timeZone: "UTC"
+});
+
+const eventTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "UTC"
+});
+
+function toEventFile(event: EventsResponse["events"][number]): EventFile {
+  const date = new Date(event.eventDate);
+  const startsAt = event.startsAt ? new Date(event.startsAt) : null;
+  const guestCount =
+    event.couplesCount * 2 +
+    event.menCount +
+    event.ladiesCount +
+    event.boysCount +
+    event.girlsCount +
+    event.kidsCount;
+
+  return {
+    id: event.id,
+    bookingStatus: event.bookingStatus,
+    clientName: event.clientName,
+    eventType: event.eventType ?? "",
+    eventTypeId: event.eventTypeId ?? "",
+    title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
+    date: eventDateFormatter.format(date),
+    dateInput: date.toISOString().slice(0, 10),
+    // Both halves read `startsAt` as the wall-clock time it is - a booking
+    // stored as `${date}T${startTime}:00.000Z` - rather than as an instant.
+    // `timeInput` is the value the details panel sends back unchanged when
+    // nobody edits the time, so it has to come out of the same frame it goes
+    // back in on, or a save would walk the event around the clock by the
+    // viewer's offset.
+    time: startsAt ? eventTimeFormatter.format(startsAt) : "Time not set",
+    timeInput: startsAt
+      ? `${String(startsAt.getUTCHours()).padStart(2, "0")}:${String(
+          startsAt.getUTCMinutes()
+        ).padStart(2, "0")}`
+      : "",
+    hallId: event.hall.id,
+    room: event.hall.name,
+    packageId: event.packageId ?? "",
+    packageName: event.packageName ?? "Not assigned",
+    guests: String(guestCount),
+    children: String(event.kidsCount + event.boysCount + event.girlsCount),
+    couples: String(event.couplesCount),
+    // "Unassigned" is the reading of no coordinator, not a placeholder
+    // standing in for one - which is all this was until the column existed.
+    coordinator: event.coordinator?.user.name ?? "Unassigned",
+    balance: event.paymentStatus === "Paid in Full" ? "Paid" : "See billing",
+    status: event.eventStatus.toLowerCase().includes("confirm")
+      ? "Confirmed"
+      : "Hold",
+    paymentStatus: event.paymentStatus ?? "No invoice",
+    version: event.version,
+    cancelledAt: event.cancelledAt,
+    completedAt: event.completedAt,
+    waitersCount: event.waitersCount,
+    setupTime: event.setupTime ?? "",
+    washingTime: event.washingTime ?? "",
+    tableclothName: event.tableclothName ?? "",
+    notes: event.notes ? [event.notes] : [],
+    internalNotes: event.notes ?? "",
+    daveningNote: event.daveningNote ?? "",
+    memberShulName: event.memberShulName ?? "",
+    sideBoxes: typeof event.sideBoxes === "string" ? event.sideBoxes : "",
+    shabbosSetup:
+      typeof event.shabbosSetup === "string" ? event.shabbosSetup : "",
+    diningManagerNotes: event.diningManagerNotes,
+    activityLogs: event.activityLogs ?? [],
+    diningHallMapPreset: event.diningHallMapPreset,
+    phone: event.phone,
+    email: event.email ?? "",
+    workspaceData: event.workspaceData ?? {},
+    menuItemIds: event.menuItemIds
+  };
+}
+
 export function EventManagerPage() {
   // Plain state, not `useDashboardPageSearch`: the topbar no longer carries a
   // search box on this page, so nothing outside the event list can set it.
@@ -53,95 +138,25 @@ export function EventManagerPage() {
   const [eventLifecycleFilter, setEventLifecycleFilter] = useState("Active");
   const [roomFilter, setRoomFilter] = useState("All rooms");
   const [isEventListExpanded, setIsEventListExpanded] = useState(true);
+  const selectedDetailsEventId = selectedEventId || deepLinkEventId;
+  const selectedDetailsUrl = selectedDetailsEventId
+    ? `/api/events?eventId=${encodeURIComponent(selectedDetailsEventId)}`
+    : "/api/events?eventId=";
+  const selectedDetailsQuery = useAuthenticatedQuery<EventsResponse>(
+    selectedDetailsUrl,
+    Boolean(selectedDetailsEventId)
+  );
   const allEvents = useMemo<EventFile[]>(
-    () =>
-      (eventsQuery.data?.events ?? []).map((event) => {
-        const date = new Date(event.eventDate);
-        const startsAt = event.startsAt ? new Date(event.startsAt) : null;
-        const guestCount =
-          event.couplesCount * 2 +
-          event.menCount +
-          event.ladiesCount +
-          event.boysCount +
-          event.girlsCount +
-          event.kidsCount;
-
-        return {
-          id: event.id,
-          bookingStatus: event.bookingStatus,
-          clientName: event.clientName,
-          eventType: event.eventType ?? "",
-          eventTypeId: event.eventTypeId ?? "",
-          title: `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`,
-          date: new Intl.DateTimeFormat("en-US", {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-            timeZone: "UTC"
-          }).format(date),
-          dateInput: date.toISOString().slice(0, 10),
-          // Both halves read `startsAt` as the wall-clock time it is - a booking
-          // stored as `${date}T${startTime}:00.000Z` - rather than as an
-          // instant. `timeInput` is the value the details panel sends back
-          // unchanged when nobody edits the time, so it has to come out of the
-          // same frame it goes back in on, or a save would walk the event
-          // around the clock by the viewer's offset.
-          time: startsAt
-            ? new Intl.DateTimeFormat("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-                timeZone: "UTC"
-              }).format(startsAt)
-            : "Time not set",
-          timeInput: startsAt
-            ? `${String(startsAt.getUTCHours()).padStart(2, "0")}:${String(
-                startsAt.getUTCMinutes()
-              ).padStart(2, "0")}`
-            : "",
-          hallId: event.hall.id,
-          room: event.hall.name,
-          packageId: event.packageId ?? "",
-          packageName: event.packageName ?? "Not assigned",
-          guests: String(guestCount),
-          children: String(
-            event.kidsCount + event.boysCount + event.girlsCount
-          ),
-          couples: String(event.couplesCount),
-          // "Unassigned" is the reading of no coordinator, not a placeholder
-          // standing in for one - which is all this was until the column
-          // existed.
-          coordinator: event.coordinator?.user.name ?? "Unassigned",
-          balance:
-            event.paymentStatus === "Paid in Full" ? "Paid" : "See billing",
-          status: event.eventStatus.toLowerCase().includes("confirm")
-            ? "Confirmed"
-            : "Hold",
-          paymentStatus: event.paymentStatus ?? "No invoice",
-          version: event.version,
-          cancelledAt: event.cancelledAt,
-          completedAt: event.completedAt,
-          waitersCount: event.waitersCount,
-          setupTime: event.setupTime ?? "",
-          washingTime: event.washingTime ?? "",
-          tableclothName: event.tableclothName ?? "",
-          notes: event.notes ? [event.notes] : [],
-          internalNotes: event.notes ?? "",
-          daveningNote: event.daveningNote ?? "",
-          memberShulName: event.memberShulName ?? "",
-          sideBoxes: typeof event.sideBoxes === "string" ? event.sideBoxes : "",
-          shabbosSetup:
-            typeof event.shabbosSetup === "string" ? event.shabbosSetup : "",
-          diningManagerNotes: event.diningManagerNotes,
-          activityLogs: event.activityLogs ?? [],
-          diningHallMapPreset: event.diningHallMapPreset,
-          phone: event.phone,
-          email: event.email ?? "",
-          workspaceData: event.workspaceData ?? {},
-          menuItemIds: event.menuItemIds
-        };
-      }),
+    () => (eventsQuery.data?.events ?? []).map(toEventFile),
     [eventsQuery.data]
   );
+  const selectedEventDetails = useMemo(() => {
+    const detailedEvent = selectedDetailsQuery.data?.events.find(
+      (event) => event.id === selectedDetailsEventId
+    );
+
+    return detailedEvent ? toEventFile(detailedEvent) : null;
+  }, [selectedDetailsEventId, selectedDetailsQuery.data]);
 
   const deepLinkEvent = deepLinkEventId
     ? allEvents.find((event) => event.id === deepLinkEventId)
@@ -223,6 +238,7 @@ export function EventManagerPage() {
   // empty pane on the way to it. Null when nothing is selected, which is the
   // state the page now starts in.
   const selectedEvent =
+    selectedEventDetails ??
     allEvents.find((event) => event.id === selectedEventId) ??
     deepLinkEvent ??
     null;
@@ -430,7 +446,14 @@ export function EventManagerPage() {
               event={selectedEvent}
               eventTypes={eventsQuery.data?.eventTypes ?? []}
               halls={eventsQuery.data?.halls ?? []}
-              onEventSaved={eventsQuery.refetch}
+              onEventSaved={async () => {
+                await Promise.all([
+                  eventsQuery.refetch(),
+                  selectedDetailsEventId
+                    ? selectedDetailsQuery.refetch()
+                    : Promise.resolve(null)
+                ]);
+              }}
               onTabChange={setActiveTab}
             />
           ) : (

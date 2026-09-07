@@ -15,8 +15,8 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     organization: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
-    organizationSetting: { upsert: vi.fn() },
-    notificationPreference: { upsert: vi.fn() },
+    organizationSetting: { findUnique: vi.fn(), upsert: vi.fn() },
+    notificationPreference: { findUnique: vi.fn(), upsert: vi.fn() },
     // Every hall gets the organization-wide daily event limit written to it in
     // the same transaction.
     hall: { updateMany: vi.fn() },
@@ -89,7 +89,13 @@ describe("organization payment link settings", () => {
     vi.mocked(prisma.organizationSetting.upsert).mockResolvedValue({
       integrations: null
     } as never);
+    vi.mocked(prisma.organizationSetting.findUnique).mockResolvedValue({
+      integrations: null
+    } as never);
     vi.mocked(prisma.notificationPreference.upsert).mockResolvedValue(
+      {} as never
+    );
+    vi.mocked(prisma.notificationPreference.findUnique).mockResolvedValue(
       {} as never
     );
     vi.mocked(prisma.paymentSetting.findUnique).mockResolvedValue(null);
@@ -166,6 +172,17 @@ describe("organization payment link settings", () => {
         create: expect.objectContaining({ organizationId })
       })
     );
+  });
+
+  it("does not rewrite unrelated settings rows when only the payment link changes", async () => {
+    const response = await patch({
+      payments: { paymentLink: "https://secure.example.com/venue-a" }
+    });
+
+    expect(response.status).toBe(200);
+    expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
+    expect(prisma.notificationPreference.upsert).not.toHaveBeenCalled();
+    expect(prisma.paymentSetting.upsert).toHaveBeenCalled();
   });
 
   it("accepts an empty string to clear the link", async () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -60,6 +60,39 @@ import {
   toServiceRules,
   type ServiceStyle
 } from "@/features/menu/lib/service-style";
+
+const MENU_URL = "/api/menu";
+const MENU_FAST_URL = `${MENU_URL}?pictures=0`;
+const currencyFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD"
+});
+
+function mergeMenuPictures(
+  menuData: MenuResponse | null,
+  picturesData: MenuResponse | null
+) {
+  if (!menuData || !picturesData) return menuData;
+
+  const itemPictures = new Map(
+    picturesData.items.map((item) => [item.id, item.pictureUrl])
+  );
+  const addOnPictures = new Map(
+    picturesData.addOns.map((addOn) => [addOn.id, addOn.pictureUrl])
+  );
+
+  return {
+    ...menuData,
+    items: menuData.items.map((item) => ({
+      ...item,
+      pictureUrl: itemPictures.get(item.id) ?? item.pictureUrl
+    })),
+    addOns: menuData.addOns.map((addOn) => ({
+      ...addOn,
+      pictureUrl: addOnPictures.get(addOn.id) ?? addOn.pictureUrl
+    }))
+  };
+}
 /**
  * The dialogs validate before calling back, so reaching an invalid value here
  * means a caller skipped that check - throw rather than send `NaN`, which
@@ -92,13 +125,42 @@ function menuTabForChoice({ kind, serviceStyle }: NewItemMenuChoice) {
 
 export function MenuPage() {
   const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
-  const menuQuery = useAuthenticatedQuery<MenuResponse>("/api/menu");
+  const deferredSearchQuery = useDeferredValue(pageSearchQuery);
+  const menuQuery = useAuthenticatedQuery<MenuResponse>(MENU_FAST_URL);
+  const menuPicturesQuery = useAuthenticatedQuery<MenuResponse>(
+    MENU_URL,
+    Boolean(menuQuery.data)
+  );
+  const {
+    data: fastMenuData,
+    error: menuError,
+    isLoading: isMenuLoading,
+    refetch: refetchMenu
+  } = menuQuery;
+  const {
+    data: menuPicturesData,
+    isFetching: isMenuPicturesFetching,
+    refetch: refetchMenuPictures
+  } = menuPicturesQuery;
+  const menuData = useMemo(
+    () => mergeMenuPictures(fastMenuData, menuPicturesData),
+    [fastMenuData, menuPicturesData]
+  );
+  const refreshMenu = useCallback(async () => {
+    const refreshed = await refetchMenu();
+
+    if (menuPicturesData || isMenuPicturesFetching) {
+      void refetchMenuPictures();
+    }
+
+    return refreshed;
+  }, [isMenuPicturesFetching, menuPicturesData, refetchMenu, refetchMenuPictures]);
   const menuMutation = useAuthenticatedMutation<
     Record<string, unknown>,
     // Only the created package's id is read back, and only so the new package
     // can be the one that opens. The other two resources ignore the payload.
     { package?: { id?: string } }
-  >("/api/menu");
+  >(MENU_URL);
   const [activeTab, setActiveTab] = useState("Menu Library");
   const [selectedCategory, setSelectedCategory] = useState("All");
   // Which way of serving the Drink Menu is filtered to. Its own state rather
@@ -123,7 +185,7 @@ export function MenuPage() {
   );
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const allMenuItems = useMemo<MenuLibraryItem[]>(() => {
-    const savedItems = (menuQuery.data?.items ?? []).map((item) => ({
+    const savedItems = (menuData?.items ?? []).map((item) => ({
       id: item.id,
       name: item.name,
       category: item.category ?? "More",
@@ -137,10 +199,10 @@ export function MenuPage() {
       pictureUrl: item.pictureUrl
     }));
     return savedItems;
-  }, [menuQuery.data]);
+  }, [menuData]);
   const allPackages = useMemo(
     () =>
-      (menuQuery.data?.packages ?? []).map((item) => ({
+      (menuData?.packages ?? []).map((item) => ({
         id: item.id,
         name: item.name,
         includedMenuItemIds: item.includedMenuItemIds,
@@ -150,27 +212,21 @@ export function MenuPage() {
         // the edit dialog needs the number, and stripping the currency symbols
         // off `price` to get it back is a round trip through a lossy format.
         regularPrice: Number(item.regularPrice ?? 0),
-        price: new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD"
-        }).format(Number(item.regularPrice ?? 0))
+        price: currencyFormatter.format(Number(item.regularPrice ?? 0))
       })),
-    [menuQuery.data]
+    [menuData]
   );
   const addOns = useMemo(
     () =>
-      (menuQuery.data?.addOns ?? []).map((item) => ({
+      (menuData?.addOns ?? []).map((item) => ({
         id: item.id,
         name: item.name,
         description: item.notes ?? item.pricingType,
-        price: new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD"
-        }).format(Number(item.price ?? 0)),
+        price: currencyFormatter.format(Number(item.price ?? 0)),
         tag: item.pricingType,
         pictureUrl: item.pictureUrl
       })),
-    [menuQuery.data]
+    [menuData]
   );
   // Resolved up here rather than beside the panel that draws it: the hook below
   // acts on it, and hooks cannot be called after the loading gate. Falling back
@@ -184,27 +240,13 @@ export function MenuPage() {
   const libraryItemActions = useMenuItemActions({
     items: allMenuItems,
     onCategorySaved: setSelectedCategory,
-    onChanged: menuQuery.refetch
+    onChanged: refreshMenu
   });
   const packageItemActions = usePackageItems({
     activePackage,
-    onChanged: menuQuery.refetch
+    onChanged: refreshMenu
   });
   const packageSelection = usePackageSelection(activePackage?.id ?? null);
-
-  if (menuQuery.isLoading || menuQuery.error) {
-    return (
-      <DashboardPageState
-        error={menuQuery.error}
-        isLoading={menuQuery.isLoading}
-        onRetry={menuQuery.refetch}
-        showDefaultActions={false}
-        showSearch={false}
-        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
-        title="Menu"
-      />
-    );
-  }
 
   // Which tab is open, resolved before the lists below because two of them now
   // depend on it. `isRuleMenu` covers the two service tabs, which share a pane.
@@ -235,49 +277,71 @@ export function MenuPage() {
     if (isRuleMenu || isDrinkMenu) setIsNewLibraryItemOpen(true);
     else setIsMenuPickerOpen(true);
   };
-  const normalizedSearch = pageSearchQuery.trim().toLowerCase();
+  const normalizedSearch = useMemo(
+    () => deferredSearchQuery.trim().toLowerCase(),
+    [deferredSearchQuery]
+  );
   // Menu Library and Drink Menu are one screen over two halves of one catalog:
   // an item shows under exactly whichever of them matches its kind, so a drink
   // is managed in one place instead of sitting in a food library it has nothing
   // to do with. Split here rather than in the grid, so the category filter and
   // the search below only ever see the half that is on screen.
-  const kindFilteredItems = allMenuItems.filter(
-    (item) => isDrinkKind(item.kind) === isDrinkMenu
+  const kindFilteredItems = useMemo(
+    () => allMenuItems.filter((item) => isDrinkKind(item.kind) === isDrinkMenu),
+    [allMenuItems, isDrinkMenu]
   );
-  const visibleItems = (
-    selectedCategory === "All"
-      ? kindFilteredItems
-      : kindFilteredItems.filter((item) => item.category === selectedCategory)
-  ).filter(
-    (item) =>
-      !normalizedSearch ||
-      `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
+  const visibleItems = useMemo(
+    () =>
+      (selectedCategory === "All"
+        ? kindFilteredItems
+        : kindFilteredItems.filter(
+            (item) => item.category === selectedCategory
+          )
+      ).filter(
+        (item) =>
+          !normalizedSearch ||
+          `${item.name} ${item.category}`
+            .toLowerCase()
+            .includes(normalizedSearch)
+      ),
+    [kindFilteredItems, normalizedSearch, selectedCategory]
   );
-  const visiblePackages = allPackages.filter(
-    (item) =>
-      !normalizedSearch ||
-      `${item.name} ${item.type} ${item.summary}`
-        .toLowerCase()
-        .includes(normalizedSearch)
+  const visiblePackages = useMemo(
+    () =>
+      allPackages.filter(
+        (item) =>
+          !normalizedSearch ||
+          `${item.name} ${item.type} ${item.summary}`
+            .toLowerCase()
+            .includes(normalizedSearch)
+      ),
+    [allPackages, normalizedSearch]
   );
-  const visibleAddOns = addOns.filter(
-    (item) =>
-      !normalizedSearch ||
-      `${item.name} ${item.description} ${item.tag}`
-        .toLowerCase()
-        .includes(normalizedSearch)
+  const visibleAddOns = useMemo(
+    () =>
+      addOns.filter(
+        (item) =>
+          !normalizedSearch ||
+          `${item.name} ${item.description} ${item.tag}`
+            .toLowerCase()
+            .includes(normalizedSearch)
+      ),
+    [addOns, normalizedSearch]
   );
   // Drawn from the half of the catalog that is on screen, so the Drink Menu
   // filter does not offer courses no drink is ever filed under.
-  const categoryNames = [
-    "All",
-    ...Array.from(
-      new Set([
-        ...(menuQuery.data?.categories ?? []).map((category) => category.name),
-        ...kindFilteredItems.map((item) => item.category)
-      ])
-    )
-  ];
+  const categoryNames = useMemo(
+    () => [
+      "All",
+      ...Array.from(
+        new Set([
+          ...(menuData?.categories ?? []).map((category) => category.name),
+          ...kindFilteredItems.map((item) => item.category)
+        ])
+      )
+    ],
+    [kindFilteredItems, menuData]
+  );
   // Both lists are resolved against the library rather than read off the
   // package: `included_menu_item_ids` is an id array, so this is the only place
   // the ids become items with names to draw.
@@ -287,25 +351,43 @@ export function MenuPage() {
   // package will not carry the change until a write and a refetch have both
   // come back.
   const packageItemIds = packageItemActions.itemIds;
-  const activePackageItems = activePackage
-    ? allMenuItems.filter((item) => packageItemIds.includes(item.id))
-    : [];
-  const addablePackageItems = activePackage
-    ? allMenuItems.filter((item) => !packageItemIds.includes(item.id))
-    : [];
+  const activePackageItems = useMemo(
+    () =>
+      activePackage
+        ? allMenuItems.filter((item) => packageItemIds.includes(item.id))
+        : [],
+    [activePackage, allMenuItems, packageItemIds]
+  );
+  const addablePackageItems = useMemo(
+    () =>
+      activePackage
+        ? allMenuItems.filter((item) => !packageItemIds.includes(item.id))
+        : [],
+    [activePackage, allMenuItems, packageItemIds]
+  );
   // Intersected with what is actually on screen rather than handed over raw: a
   // ticked card can leave its grid without being unticked - refetched away, or
   // moved across by someone else's write - and a count that includes it would
   // put a number on the bar that nothing on the page adds up to.
-  const tickedIncludedIds = new Set(
-    activePackageItems
-      .map((item) => item.id)
-      .filter((itemId) => packageSelection.selectedIn("included").has(itemId))
+  const selectedIncludedPackageIds = packageSelection.selectedIn("included");
+  const selectedLibraryPackageIds = packageSelection.selectedIn("library");
+  const tickedIncludedIds = useMemo(
+    () =>
+      new Set(
+        activePackageItems
+          .map((item) => item.id)
+          .filter((itemId) => selectedIncludedPackageIds.has(itemId))
+      ),
+    [activePackageItems, selectedIncludedPackageIds]
   );
-  const tickedLibraryIds = new Set(
-    addablePackageItems
-      .map((item) => item.id)
-      .filter((itemId) => packageSelection.selectedIn("library").has(itemId))
+  const tickedLibraryIds = useMemo(
+    () =>
+      new Set(
+        addablePackageItems
+          .map((item) => item.id)
+          .filter((itemId) => selectedLibraryPackageIds.has(itemId))
+      ),
+    [addablePackageItems, selectedLibraryPackageIds]
   );
   // One grid holds a selection at a time, so the panel needs one bar and this
   // is which way round it reads.
@@ -330,18 +412,24 @@ export function MenuPage() {
   // Filtering the items rather than flattening their rules is what keeps this
   // one card per dish: the unique key allows a dish to hold more than one rule
   // for the same style, and flattening would render it twice.
-  const servedItems = allMenuItems
-    .filter((item) => servesStyle(item.services, serviceStyle))
-    // Drinks keep their rules - the kitchen sheet still counts bottles per
-    // table - but they are read off the Drink Menu tab, which is the one place
-    // they are managed. Leaving them here would list them under a food heading
-    // and, on Plated, under a word that is not even the one they use.
-    .filter((item) => !isDrinkKind(item.kind))
-    .filter(
-      (item) =>
-        !normalizedSearch ||
-        `${item.name} ${item.category}`.toLowerCase().includes(normalizedSearch)
-    );
+  const servedItems = useMemo(
+    () =>
+      allMenuItems
+        .filter((item) => servesStyle(item.services, serviceStyle))
+        // Drinks keep their rules - the kitchen sheet still counts bottles per
+        // table - but they are read off the Drink Menu tab, which is the one place
+        // they are managed. Leaving them here would list them under a food heading
+        // and, on Plated, under a word that is not even the one they use.
+        .filter((item) => !isDrinkKind(item.kind))
+        .filter(
+          (item) =>
+            !normalizedSearch ||
+            `${item.name} ${item.category}`
+              .toLowerCase()
+              .includes(normalizedSearch)
+        ),
+    [allMenuItems, normalizedSearch, serviceStyle]
+  );
   /**
    * The Drink Menu, split by how each drink is served.
    *
@@ -354,49 +442,73 @@ export function MenuPage() {
    * rules shows under both Buffet Menu and Plated Menu. It is one row with two
    * rules, not two drinks.
    */
-  const rulelessDrinks = visibleItems.filter(
-    (item) => item.services.length === 0
+  const rulelessDrinks = useMemo(
+    () => visibleItems.filter((item) => item.services.length === 0),
+    [visibleItems]
   );
-  const drinkViews = [
-    {
-      id: "All",
-      label: "All",
-      hint: "Every drink, however it is served.",
-      items: visibleItems
-    },
-    {
-      id: "Buffet",
-      label: "Buffet",
-      hint: "A drinks station guests help themselves from. Counted per guests.",
-      items: visibleItems.filter((item) => servesStyle(item.services, "Buffet"))
-    },
-    {
-      // "Table" to the operator, `Plated` in the column - the same rename
-      // `serviceStyleLabel` does everywhere else a drink's style is shown.
-      id: "Table",
-      label: "Table",
-      hint: "Bottles set out on each table. Counted per table.",
-      items: visibleItems.filter((item) => servesStyle(item.services, "Plated"))
-    },
-    // Only when there is something in it. A permanently visible "No rule yet"
-    // reads as a chore the venue is failing at; a drink without a rule is a
-    // normal state, and the event asks for the number when it matters.
-    ...(rulelessDrinks.length > 0
-      ? [
-          {
-            id: "NoRule",
-            label: "No rule yet",
-            hint: "Still available to put on an event, which is where the rule gets asked for.",
-            items: rulelessDrinks
-          }
-        ]
-      : [])
-  ];
+  const drinkViews = useMemo(
+    () => [
+      {
+        id: "All",
+        label: "All",
+        hint: "Every drink, however it is served.",
+        items: visibleItems
+      },
+      {
+        id: "Buffet",
+        label: "Buffet",
+        hint: "A drinks station guests help themselves from. Counted per guests.",
+        items: visibleItems.filter((item) =>
+          servesStyle(item.services, "Buffet")
+        )
+      },
+      {
+        // "Table" to the operator, `Plated` in the column - the same rename
+        // `serviceStyleLabel` does everywhere else a drink's style is shown.
+        id: "Table",
+        label: "Table",
+        hint: "Bottles set out on each table. Counted per table.",
+        items: visibleItems.filter((item) =>
+          servesStyle(item.services, "Plated")
+        )
+      },
+      // Only when there is something in it. A permanently visible "No rule yet"
+      // reads as a chore the venue is failing at; a drink without a rule is a
+      // normal state, and the event asks for the number when it matters.
+      ...(rulelessDrinks.length > 0
+        ? [
+            {
+              id: "NoRule",
+              label: "No rule yet",
+              hint: "Still available to put on an event, which is where the rule gets asked for.",
+              items: rulelessDrinks
+            }
+          ]
+        : [])
+    ],
+    [rulelessDrinks, visibleItems]
+  );
   // Falls back rather than trusting the state: answering the last outstanding
   // rule removes the tab the operator is standing on, and a dangling id would
   // leave an empty grid with nothing highlighted above it.
-  const activeDrinkView =
-    drinkViews.find((view) => view.id === drinkView) ?? drinkViews[0];
+  const activeDrinkView = useMemo(
+    () => drinkViews.find((view) => view.id === drinkView) ?? drinkViews[0],
+    [drinkView, drinkViews]
+  );
+
+  if (isMenuLoading || menuError) {
+    return (
+      <DashboardPageState
+        error={menuError}
+        isLoading={isMenuLoading}
+        onRetry={refetchMenu}
+        showDefaultActions={false}
+        showSearch={false}
+        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
+        title="Menu"
+      />
+    );
+  }
 
   /** The rule line under a drink's name, for whichever tab is open. */
   const describeDrink = (item: MenuLibraryItem) => {
@@ -447,7 +559,7 @@ export function MenuPage() {
         name: values.name,
         regularPrice
       });
-      await menuQuery.refetch();
+      await refreshMenu();
       setIsEditingPackage(false);
       setIsNewPackageOpen(false);
       return;
@@ -461,7 +573,7 @@ export function MenuPage() {
       eventTypeIds: [],
       includedMenuItemIds: []
     });
-    await menuQuery.refetch();
+    await refreshMenu();
     // Selected by the id the server assigned, so the panel opens on the package
     // that was just created even if another one shares its name.
     setSelectedPackageId(created?.package?.id ?? null);
@@ -488,7 +600,7 @@ export function MenuPage() {
       hallIds: [],
       picturePath
     });
-    await menuQuery.refetch();
+    await refreshMenu();
   };
 
   const saveLibraryItem = async (values: NewLibraryItemFormValues) => {
@@ -526,7 +638,7 @@ export function MenuPage() {
       notes: values.description,
       picturePath
     });
-    await menuQuery.refetch();
+    await refreshMenu();
     setSelectedCategory(values.category);
     // Land where the item actually went.
     //
@@ -677,7 +789,7 @@ export function MenuPage() {
         existingNames={allMenuItems.map((item) => item.name)}
         onClose={() => setIsBulkUploadOpen(false)}
         onImported={async () => {
-          await menuQuery.refetch();
+          await refreshMenu();
         }}
         open={canEditMenu && isBulkUploadOpen}
       />

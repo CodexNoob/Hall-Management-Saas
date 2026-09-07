@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => ({
   enforceRateLimit: vi.fn(),
   notify: vi.fn(),
   findMany: vi.fn(),
+  findFirst: vi.fn(),
   create: vi.fn(),
+  update: vi.fn(),
+  messageCreate: vi.fn(),
   activityCreate: vi.fn(),
   transaction: vi.fn()
 }));
@@ -28,12 +31,22 @@ vi.mock("@/features/support/server/support-notifications", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    supportTicket: { findMany: mocks.findMany },
+    supportTicket: {
+      findMany: mocks.findMany,
+      findFirst: mocks.findFirst,
+      create: mocks.create,
+      update: mocks.update
+    },
+    supportTicketMessage: { create: mocks.messageCreate },
     $transaction: mocks.transaction
   }
 }));
 
-import { GET, POST } from "@/app/api/support/tickets/route";
+import { GET as GET_TICKETS, POST as POST_TICKET } from "@/app/api/support/tickets/route";
+import {
+  GET as GET_TICKET_MESSAGES,
+  POST as POST_TICKET_MESSAGE
+} from "@/app/api/support/tickets/[ticketId]/messages/route";
 
 const organizationId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -73,18 +86,28 @@ describe("support tickets API", () => {
     mocks.hasPermission.mockResolvedValue(false);
     mocks.enforceRateLimit.mockResolvedValue(null);
     mocks.findMany.mockResolvedValue([ticket]);
+    mocks.findFirst.mockResolvedValue({ messages: ticket.messages });
     mocks.create.mockResolvedValue(ticket);
+    mocks.update.mockResolvedValue({ id: ticket.id });
+    mocks.messageCreate.mockResolvedValue({
+      id: "44444444-4444-4444-8444-444444444444",
+      body: "More details",
+      isStaffReply: false,
+      createdAt: new Date(),
+      author: { name: actor.actorName }
+    });
     mocks.activityCreate.mockResolvedValue({ id: "log" });
     mocks.transaction.mockImplementation(async (callback) =>
       callback({
-        supportTicket: { create: mocks.create },
+        supportTicket: { create: mocks.create, update: mocks.update },
+        supportTicketMessage: { create: mocks.messageCreate },
         activityLog: { create: mocks.activityCreate }
       })
     );
   });
 
   it("limits non-admin ticket history to the signed-in user and organization", async () => {
-    const response = await GET(
+    const response = await GET_TICKETS(
       new Request("https://eventcore.app/api/support/tickets")
     );
     expect(response.status).toBe(200);
@@ -95,8 +118,22 @@ describe("support tickets API", () => {
     );
   });
 
+  it("loads only the ticket summary rows for support history", async () => {
+    const response = await GET_TICKETS(
+      new Request("https://eventcore.app/api/support/tickets")
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        take: 8,
+        select: expect.not.objectContaining({ messages: expect.anything() })
+      })
+    );
+  });
+
   it("creates a ticket with server-controlled tenant and reporter fields", async () => {
-    const response = await POST(
+    const response = await POST_TICKET(
       new Request("https://eventcore.app/api/support/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,6 +157,56 @@ describe("support tickets API", () => {
     );
     expect(mocks.notify).toHaveBeenCalledWith(
       expect.objectContaining({ reference: ticket.reference })
+    );
+  });
+
+  it("loads messages only for an authorized ticket", async () => {
+    const response = await GET_TICKET_MESSAGES(
+      new Request(`https://eventcore.app/api/support/tickets/${ticket.id}/messages`),
+      { params: Promise.resolve({ ticketId: ticket.id }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: ticket.id,
+          organizationId: actor.organizationId,
+          createdById: actor.userId
+        },
+        select: expect.objectContaining({ messages: expect.anything() })
+      })
+    );
+  });
+
+  it("adds a customer reply to an authorized ticket", async () => {
+    mocks.findFirst.mockResolvedValue({ id: ticket.id });
+
+    const response = await POST_TICKET_MESSAGE(
+      new Request(`https://eventcore.app/api/support/tickets/${ticket.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: "Here are more details." })
+      }),
+      { params: Promise.resolve({ ticketId: ticket.id }) }
+    );
+
+    expect(response.status).toBe(201);
+    expect(mocks.messageCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          organizationId: actor.organizationId,
+          ticketId: ticket.id,
+          authorId: actor.userId,
+          body: "Here are more details."
+        })
+      })
+    );
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: ticket.id },
+        data: { status: "CUSTOMER_REPLIED" }
+      })
     );
   });
 });

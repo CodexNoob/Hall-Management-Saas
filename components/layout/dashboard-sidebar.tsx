@@ -341,9 +341,18 @@ export function DashboardSidebar({
     }
   }, [isCollapsed]);
 
+  const isDesktopKitchenSidebar = () =>
+    forceOverlay &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(min-width: 1024px)").matches;
+
+  const closeFloatingSidebar = () => {
+    if (!isDesktopKitchenSidebar()) setIsMobileOpen(false);
+  };
+
   const openProfileDestination = (route: string) => {
     setIsProfileMenuOpen(false);
-    setIsMobileOpen(false);
+    closeFloatingSidebar();
     router.push(route as Parameters<typeof router.push>[0], { scroll: false });
   };
 
@@ -352,11 +361,7 @@ export function DashboardSidebar({
     // made it slide left, then the destination's normal sidebar slid straight
     // back in. Keep the same mounted panel visible across that route change.
     // Phones still close their drawer after choosing a destination.
-    const isDesktopKitchenSidebar =
-      forceOverlay &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(min-width: 1024px)").matches;
-    if (!isDesktopKitchenSidebar) setIsMobileOpen(false);
+    closeFloatingSidebar();
     router.push(route as Parameters<typeof router.push>[0], { scroll: false });
   };
 
@@ -689,14 +694,14 @@ export function DashboardSidebar({
                     onClick={() => {
                       if (item.label === "Upgrade Plan") {
                         setIsProfileMenuOpen(false);
-                        setIsMobileOpen(false);
+                        closeFloatingSidebar();
                         setIsUpgradePlanDialogOpen(true);
                         return;
                       }
 
                       if (item.label === "Profile") {
                         setIsProfileMenuOpen(false);
-                        setIsMobileOpen(false);
+                        closeFloatingSidebar();
                         setIsEditProfileDialogOpen(true);
                         return;
                       }
@@ -785,7 +790,7 @@ export function DashboardSidebar({
                         onClick={() => {
                           setIsHelpMenuOpen(false);
                           setIsProfileMenuOpen(false);
-                          setIsMobileOpen(false);
+                          closeFloatingSidebar();
                           setHelpDialogKind(item.kind as HelpPageKind);
                         }}
                         role="menuitem"

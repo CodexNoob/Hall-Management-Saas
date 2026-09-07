@@ -118,6 +118,11 @@ export type EventCoordinatorOption = {
   name: string;
 };
 
+export type EventPackageOption = {
+  id: string;
+  name: string;
+};
+
 export type EventsResponse = {
   events: Array<{
     id: string;
@@ -176,7 +181,9 @@ export type EventsResponse = {
   }>;
   halls: EventHallOption[];
   eventTypes: EventTypeOption[];
+  packages: EventPackageOption[];
   coordinators: EventCoordinatorOption[];
+  calendarSettings?: { dailyEventLimit: number };
 };
 
 /// Every tab the workspace can render, including the ones the MVP withdraws.

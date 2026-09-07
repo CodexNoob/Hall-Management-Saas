@@ -157,6 +157,29 @@ const defaultControlCenter = {
   }
 };
 
+function defaultSettingsSnapshot(organizationId: string) {
+  return {
+    organizationId,
+    language: "en-US",
+    timezone: "America/New_York",
+    twoFactorRequired: false,
+    sessionTimeoutMinutes: 30,
+    branding: null,
+    integrations: null
+  };
+}
+
+function defaultNotificationSnapshot(organizationId: string, userId: string) {
+  return {
+    organizationId,
+    userId,
+    emailNotifications: true,
+    eventConfirmations: true,
+    billingAlerts: true,
+    systemAnnouncements: false
+  };
+}
+
 function controlCenterFromIntegrations(integrations: unknown) {
   const candidate =
     integrations &&
@@ -330,67 +353,92 @@ export const PATCH = withRoute(
           return NextResponse.json({ error: pathError }, { status: 400 });
         }
       }
-      const currentSettings = await prisma.organizationSetting.upsert({
-        where: { ...tenant(actor) },
-        update: {},
-        create: { organizationId: actor.organizationId }
-      });
-      if (input.organizationName !== undefined) {
-        await prisma.organization.update({
-          where: { id: actor.organizationId },
-          data: { name: input.organizationName }
-        });
-      }
-      const organizationChanges = {
-        language: input.language,
-        timezone: input.timezone,
-        twoFactorRequired: input.twoFactorRequired,
-        sessionTimeoutMinutes: input.sessionTimeoutMinutes,
-        integrations:
-          mergeControlCenterSettings(
-            mergeBillingSettings(
-              mergeCalendarSettings(
-                currentSettings.integrations,
-                input.dailyEventLimit
-              ) ?? currentSettings.integrations,
-              input.billing
-            ) ??
-              mergeCalendarSettings(
-                currentSettings.integrations,
-                input.dailyEventLimit
-              ) ??
-              currentSettings.integrations,
-            input.controlCenter
-          ) ??
-          mergeBillingSettings(
-            mergeCalendarSettings(
-              currentSettings.integrations,
-              input.dailyEventLimit
-            ) ?? currentSettings.integrations,
-            input.billing
-          ) ??
-          mergeCalendarSettings(
-            currentSettings.integrations,
-            input.dailyEventLimit
-          )
-      };
       const notificationChanges = {
         emailNotifications: input.emailNotifications,
         eventConfirmations: input.eventConfirmations,
         billingAlerts: input.billingAlerts,
         systemAnnouncements: input.systemAnnouncements
       };
+      const hasOrganizationSettingChanges =
+        input.language !== undefined ||
+        input.timezone !== undefined ||
+        input.twoFactorRequired !== undefined ||
+        input.sessionTimeoutMinutes !== undefined ||
+        input.dailyEventLimit !== undefined ||
+        input.controlCenter !== undefined ||
+        input.billing !== undefined;
+      const hasNotificationChanges = Object.values(notificationChanges).some(
+        (value) => value !== undefined
+      );
+      const userId = requireUserActor(actor);
 
-      const { settings, notifications } = await prisma.$transaction(
-        async (transaction) => {
-          const settings = await transaction.organizationSetting.upsert({
-            where: { ...tenant(actor) },
-            update: organizationChanges,
-            create: {
-              organizationId: actor.organizationId,
-              ...organizationChanges
+      const [organization, currentSettings, currentNotifications] =
+        await Promise.all([
+          input.organizationName !== undefined
+            ? prisma.organization.update({
+                where: { id: actor.organizationId },
+                data: { name: input.organizationName },
+                select: { id: true, name: true }
+              })
+            : prisma.organization.findUniqueOrThrow({
+                where: { id: actor.organizationId },
+                select: { id: true, name: true }
+              }),
+          prisma.organizationSetting.findUnique({
+            where: { ...tenant(actor) }
+          }),
+          prisma.notificationPreference.findUnique({
+            where: {
+              organizationId_userId: {
+                organizationId: actor.organizationId,
+                userId
+              }
             }
-          });
+          })
+        ]);
+      const currentIntegrations = currentSettings?.integrations ?? null;
+      const calendarMergedIntegrations =
+        mergeCalendarSettings(currentIntegrations, input.dailyEventLimit) ??
+        currentIntegrations;
+      const billingMergedIntegrations =
+        mergeBillingSettings(calendarMergedIntegrations, input.billing) ??
+        calendarMergedIntegrations;
+      const nextIntegrations =
+        mergeControlCenterSettings(
+          billingMergedIntegrations,
+          input.controlCenter
+        ) ?? billingMergedIntegrations;
+      const shouldWriteIntegrations =
+        input.dailyEventLimit !== undefined ||
+        input.billing !== undefined ||
+        input.controlCenter !== undefined;
+      const organizationChanges = {
+        language: input.language,
+        timezone: input.timezone,
+        twoFactorRequired: input.twoFactorRequired,
+        sessionTimeoutMinutes: input.sessionTimeoutMinutes,
+        integrations: shouldWriteIntegrations
+          ? nextIntegrations ?? Prisma.JsonNull
+          : undefined
+      };
+
+      let settings = currentSettings ?? defaultSettingsSnapshot(actor.organizationId);
+      let notifications =
+        currentNotifications ??
+        defaultNotificationSnapshot(actor.organizationId, userId);
+
+      if (hasOrganizationSettingChanges || hasNotificationChanges) {
+        const saved = await prisma.$transaction(async (transaction) => {
+          const settings = hasOrganizationSettingChanges
+            ? await transaction.organizationSetting.upsert({
+                where: { ...tenant(actor) },
+                update: organizationChanges,
+                create: {
+                  organizationId: actor.organizationId,
+                  ...organizationChanges
+                }
+              })
+            : currentSettings ?? defaultSettingsSnapshot(actor.organizationId);
 
           if (input.dailyEventLimit !== undefined) {
             await transaction.hall.updateMany({
@@ -399,24 +447,30 @@ export const PATCH = withRoute(
             });
           }
 
-          const notifications = await transaction.notificationPreference.upsert({
-            where: {
-              organizationId_userId: {
-                organizationId: actor.organizationId,
-                userId: requireUserActor(actor)
-              }
-            },
-            update: notificationChanges,
-            create: {
-              organizationId: actor.organizationId,
-              userId: requireUserActor(actor),
-              ...notificationChanges
-            }
-          });
+          const notifications = hasNotificationChanges
+            ? await transaction.notificationPreference.upsert({
+                where: {
+                  organizationId_userId: {
+                    organizationId: actor.organizationId,
+                    userId
+                  }
+                },
+                update: notificationChanges,
+                create: {
+                  organizationId: actor.organizationId,
+                  userId,
+                  ...notificationChanges
+                }
+              })
+            : currentNotifications ??
+              defaultNotificationSnapshot(actor.organizationId, userId);
 
           return { settings, notifications };
-        }
-      );
+        });
+
+        settings = saved.settings;
+        notifications = saved.notifications;
+      }
 
       // After the write, and best effort: an image replaced or removed leaves an
       // object nothing points at, but a storage failure must not undo a save the
@@ -427,7 +481,7 @@ export const PATCH = withRoute(
       // so switching to it again costs them nothing.
       if (input.controlCenter) {
         const previous = controlCenterFromIntegrations(
-          currentSettings.integrations
+          currentSettings?.integrations
         ).general;
         const next = input.controlCenter.general;
         for (const [previousPath, nextPath] of [
@@ -460,6 +514,7 @@ export const PATCH = withRoute(
             });
 
       return NextResponse.json({
+        organization,
         settings: {
           ...settings,
           calendar: calendarSettingsFromIntegrations(settings.integrations),
