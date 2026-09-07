@@ -26,10 +26,12 @@ export type SidebarItem = {
   route?: string;
 };
 
+// `icon` is the section's own glyph. Nothing draws it today - the collapsed
+// sidebar lists each item's icon rather than one badge per section - but it is
+// what a section would be drawn with anywhere it has to stand for its items.
 export type SidebarSection = {
   title: string;
   icon: SidebarIconName;
-  collapsedIconSrc?: string;
   items: SidebarItem[];
 };
 
@@ -72,7 +74,6 @@ const allSidebarSections: SidebarSection[] = [
   {
     title: "Operations",
     icon: "dining",
-    collapsedIconSrc: "/images/icons/sidebar/operations-cogwheel.png",
     items: [
       {
         icon: "dining",
@@ -91,7 +92,6 @@ const allSidebarSections: SidebarSection[] = [
   {
     title: "Office",
     icon: "billing",
-    collapsedIconSrc: "/images/icons/sidebar/office-location.png",
     items: [
       {
         icon: "billing",
