@@ -78,6 +78,14 @@ async function openSettings(blockedDates: StubBlockedDate[] = []) {
   });
 }
 
+async function openCalendar(blockedDates: StubBlockedDate[] = []) {
+  respondWith(blockedDates);
+
+  await act(async () => {
+    render(<EventCalendarPage />);
+  });
+}
+
 function addButton() {
   return screen.getByRole("button", { name: "Add blocked range" });
 }
@@ -159,6 +167,16 @@ describe("Blocked ranges name a hall", () => {
     ];
   }
 
+  function julyRange(hallId: string | null, day: string) {
+    return {
+      id: `range-${hallId ?? "all"}-${day}`,
+      hallId,
+      startDate: `2026-07-${day}T00:00:00.000Z`,
+      endDate: `2026-07-${day}T00:00:00.000Z`,
+      label: "Blocked"
+    };
+  }
+
   it("names the hall each saved range closes", async () => {
     await openSettings(savedRange(HALL_A));
 
@@ -173,5 +191,29 @@ describe("Blocked ranges name a hall", () => {
     // Saved before ranges named a hall, so it still closes the whole venue and
     // the list says so rather than leaving the row unlabelled.
     expect(within(savedRangeRow()!).getByText("All halls")).toBeInTheDocument();
+  });
+
+  it("keeps the main calendar bookable when only one hall is blocked", async () => {
+    await openCalendar([julyRange(HALL_A, "20")]);
+
+    expect(screen.getByLabelText("Book July 20, 2026")).toBeInTheDocument();
+    expect(screen.getByText("3 open")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Select July 20, 2026"));
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Book date" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
+  });
+
+  it("blocks the main calendar date when every visible hall is blocked", async () => {
+    await openCalendar([julyRange(HALL_A, "21"), julyRange(HALL_B, "21")]);
+
+    expect(screen.queryByLabelText("Book July 21, 2026")).toBeNull();
+    expect(screen.getByLabelText("Select July 21, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Blocked")).toBeInTheDocument();
   });
 });
