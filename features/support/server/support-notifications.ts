@@ -1,5 +1,6 @@
 import "server-only";
 import { log } from "@/lib/logging/context";
+import { trackedFetch } from "@/lib/logging/outbound";
 
 type TicketNotification = {
   reference: string;
@@ -33,11 +34,15 @@ async function sendEmail({ to, subject, html, replyTo }: {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.SUPPORT_EMAIL_FROM;
   if (!apiKey || !from) return false;
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from, to: [to], subject, html, reply_to: replyTo })
-  });
+  const response = await trackedFetch(
+    { vendor: "resend", operation: "emails.send" },
+    "https://api.resend.com/emails",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [to], subject, html, reply_to: replyTo })
+    }
+  );
   if (!response.ok) throw new Error(`Support email failed (${response.status}).`);
   return true;
 }
@@ -60,18 +65,25 @@ export async function notifySupportTicketCreated(ticket: TicketNotification) {
     html: `<h2>Support request received</h2><p>We received your request: <strong>${safeSubject}</strong>.</p><p>Your reference number is <strong>${safeReference}</strong>.</p>`
   }));
   if (process.env.SUPPORT_WEBHOOK_URL) {
-    tasks.push(fetch(process.env.SUPPORT_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: "support.ticket.created",
-        reference: ticket.reference,
-        subject: ticket.subject,
-        priority: ticket.priority,
-        category: ticket.category,
-        organization: ticket.organizationName
-      })
-    }));
+    // The URL is operator-configured and never logged - `operation` is what the
+    // timing groups by, and a webhook URL is frequently a bearer token in path
+    // form (Slack and Teams both work that way).
+    tasks.push(trackedFetch(
+      { vendor: "webhook", operation: "support.ticket.created" },
+      process.env.SUPPORT_WEBHOOK_URL,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "support.ticket.created",
+          reference: ticket.reference,
+          subject: ticket.subject,
+          priority: ticket.priority,
+          category: ticket.category,
+          organization: ticket.organizationName
+        })
+      }
+    ));
   }
   const results = await Promise.allSettled(tasks);
   results.forEach((result) => {
@@ -102,17 +114,21 @@ export async function notifyPublicSupportRequest(request: {
     html: `<h2>Support request received</h2><p>Thank you, ${escapeHtml(request.name)}. Your request was received.</p><p>Your reference number is <strong>${escapeHtml(request.reference)}</strong>.</p>`
   }));
   if (process.env.SUPPORT_WEBHOOK_URL) {
-    tasks.push(fetch(process.env.SUPPORT_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: "support.public_request.created",
-        reference: request.reference,
-        name: request.name,
-        email: request.email,
-        company: request.company
-      })
-    }));
+    tasks.push(trackedFetch(
+      { vendor: "webhook", operation: "support.public_request.created" },
+      process.env.SUPPORT_WEBHOOK_URL,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "support.public_request.created",
+          reference: request.reference,
+          name: request.name,
+          email: request.email,
+          company: request.company
+        })
+      }
+    ));
   }
   const results = await Promise.allSettled(tasks);
   results.forEach((result) => {

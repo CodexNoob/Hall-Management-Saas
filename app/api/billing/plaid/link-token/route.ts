@@ -3,6 +3,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
 import { withRoute } from "@/lib/http/with-route";
+import { trackedFetch } from "@/lib/logging/outbound";
 
 export const POST = withRoute(
   "POST /api/billing/plaid/link-token",
@@ -21,23 +22,27 @@ export const POST = withRoute(
         );
       }
 
-      const response = await fetch(`${config.baseUrl}/link/token/create`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          client_id: config.clientId,
-          secret: config.secret,
-          user: { client_user_id: actor.userId },
-          client_name: "Event Core",
-          products: ["transactions"],
-          country_codes: ["US"],
-          language: "en",
-          webhook: process.env.PLAID_WEBHOOK_URL ?? undefined,
-          redirect_uri: process.env.NEXT_PUBLIC_APP_URL
-        })
-      });
+      const response = await trackedFetch(
+        { vendor: "plaid", operation: "link/token/create" },
+        `${config.baseUrl}/link/token/create`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            client_id: config.clientId,
+            secret: config.secret,
+            user: { client_user_id: actor.userId },
+            client_name: "Event Core",
+            products: ["transactions"],
+            country_codes: ["US"],
+            language: "en",
+            webhook: process.env.PLAID_WEBHOOK_URL ?? undefined,
+            redirect_uri: process.env.NEXT_PUBLIC_APP_URL
+          })
+        }
+      );
 
       const payload = await response.json();
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { BillingError } from "@/features/billing/services/billing-error";
+import { trackedFetch } from "@/lib/logging/outbound";
 
 type StripeValue =
   | string
@@ -25,6 +26,17 @@ function appendForm(form: URLSearchParams, key: string, value: StripeValue) {
   form.append(key, String(value));
 }
 
+/**
+ * The path with any Stripe object id folded away.
+ *
+ * Both call sites today pass a constant (`checkout/sessions`, `refunds`), but
+ * half the API is `payment_intents/pi_.../capture`, and one such path added
+ * later would turn a single timing series into one series per payment.
+ */
+function operationName(path: string) {
+  return path.replace(/[a-z]{2,6}_[A-Za-z0-9]{6,}/g, ":id");
+}
+
 export function stripeConfigured() {
   return Boolean(
     process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET
@@ -44,14 +56,18 @@ export async function stripeRequest<T>(
     );
   const form = new URLSearchParams();
   Object.entries(body).forEach(([key, value]) => appendForm(form, key, value));
-  const response = await fetch(`https://api.stripe.com/v1/${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${secret}:`).toString("base64")}`,
-      "Content-Type": "application/x-www-form-urlencoded"
-    },
-    body: form.toString()
-  });
+  const response = await trackedFetch(
+    { vendor: "stripe", operation: operationName(path) },
+    `https://api.stripe.com/v1/${path}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${secret}:`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: form.toString()
+    }
+  );
   const payload = (await response.json()) as T & {
     error?: { message?: string };
   };

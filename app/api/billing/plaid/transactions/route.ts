@@ -5,6 +5,7 @@ import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import { withRoute } from "@/lib/http/with-route";
+import { trackedFetch } from "@/lib/logging/outbound";
 
 type PlaidTransactionPayload = {
   transaction_id?: string;
@@ -43,15 +44,19 @@ export const POST = withRoute(
         );
       }
 
-      const response = await fetch(`${config.baseUrl}/transactions/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: config.clientId,
-          secret: config.secret,
-          access_token: connection.plaidAccessToken
-        })
-      });
+      const response = await trackedFetch(
+        { vendor: "plaid", operation: "transactions/sync" },
+        `${config.baseUrl}/transactions/sync`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id: config.clientId,
+            secret: config.secret,
+            access_token: connection.plaidAccessToken
+          })
+        }
+      );
 
       const payload = await response.json();
 

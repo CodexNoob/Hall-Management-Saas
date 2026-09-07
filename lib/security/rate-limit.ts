@@ -111,6 +111,28 @@ export async function enforceRateLimit(
     1,
     Math.ceil((bucket.expiresAt.getTime() - Date.now()) / 1000)
   );
+
+  // Nothing else records this. The 429 is built here and returned straight to
+  // the caller, so it never passes through `createApiErrorResponse` - a limit
+  // tripping is a decision this process took, which is exactly the category the
+  // logging contract says to log.
+  //
+  // `bucket` is a keyed hash (the id folds in `SESSION_SECRET`), so it groups
+  // one caller's attempts together without being reversible to an address by
+  // anyone reading the logs. Truncated because 64 hex characters on every line
+  // buys nothing over 16 for grouping. Most of these fire before `authorize`,
+  // so there is usually no tenant tag to lean on instead.
+  log.warn(
+    {
+      scope,
+      limit,
+      requestCount: bucket.requestCount,
+      retryAfter,
+      bucket: id.slice(0, 16)
+    },
+    "rate_limit_exceeded"
+  );
+
   return NextResponse.json(
     { error: "Too many requests. Please try again later." },
     {

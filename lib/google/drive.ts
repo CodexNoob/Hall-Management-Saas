@@ -2,6 +2,7 @@ import { Readable } from "node:stream";
 import { google } from "googleapis";
 import { createGoogleOAuthClient } from "@/lib/google/oauth";
 import { getEnv } from "@/lib/env";
+import { trackOutbound } from "@/lib/logging/outbound";
 
 export type DriveStatus = {
   /** Every credential the integration needs is present. */
@@ -62,16 +63,20 @@ async function findFolder(
   // client's name would otherwise terminate the quoted string and change the
   // query - the Drive equivalent of an injection.
   const escaped = name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-  const response = await drive.files.list({
-    q: [
-      `name = '${escaped}'`,
-      `'${parentId}' in parents`,
-      "mimeType = 'application/vnd.google-apps.folder'",
-      "trashed = false"
-    ].join(" and "),
-    fields: "files(id, name)",
-    pageSize: 1
-  });
+  const response = await trackOutbound(
+    { vendor: "google", operation: "drive.files.list" },
+    () =>
+      drive.files.list({
+        q: [
+          `name = '${escaped}'`,
+          `'${parentId}' in parents`,
+          "mimeType = 'application/vnd.google-apps.folder'",
+          "trashed = false"
+        ].join(" and "),
+        fields: "files(id, name)",
+        pageSize: 1
+      })
+  );
 
   return response.data.files?.[0]?.id ?? null;
 }
@@ -98,14 +103,19 @@ export async function ensureDriveFolderPath(segments: string[]) {
       continue;
     }
 
-    const created = await drive.files.create({
-      requestBody: {
-        name,
-        mimeType: "application/vnd.google-apps.folder",
-        parents: [parentId]
-      },
-      fields: "id"
-    });
+    const parent = parentId;
+    const created = await trackOutbound(
+      { vendor: "google", operation: "drive.files.create.folder" },
+      () =>
+        drive.files.create({
+          requestBody: {
+            name,
+            mimeType: "application/vnd.google-apps.folder",
+            parents: [parent]
+          },
+          fields: "id"
+        })
+    );
 
     if (!created.data.id) {
       throw new Error(`Drive did not return an id for folder "${name}".`);
@@ -132,11 +142,15 @@ export async function uploadToDrive({
   const drive = createDriveClient();
   const parentId = await ensureDriveFolderPath(folderPath);
 
-  const created = await drive.files.create({
-    requestBody: { name: fileName, parents: [parentId] },
-    media: { mimeType: contentType, body: Readable.from(body) },
-    fields: "id, webViewLink"
-  });
+  const created = await trackOutbound(
+    { vendor: "google", operation: "drive.files.create.upload" },
+    () =>
+      drive.files.create({
+        requestBody: { name: fileName, parents: [parentId] },
+        media: { mimeType: contentType, body: Readable.from(body) },
+        fields: "id, webViewLink"
+      })
+  );
 
   if (!created.data.id) {
     throw new Error("Drive did not return an id for the uploaded file.");
