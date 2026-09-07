@@ -38,6 +38,14 @@ rules are non-negotiable and apply to every change:
 - **When you add a server-side code path that can fail, degrade, or take a
   decision worth reconstructing later, add the log line in the same change.**
   Retrofitting observability is the work this system exists to stop repeating.
+- **Never import `@sentry/nextjs` outside `sentry.server.config.ts` and
+  `instrumentation-client.ts`.** Everything else goes through
+  `captureException` from `@/lib/logging/report`, which holds no vendor import
+  on purpose: it sits in `api-error.ts`'s import graph, and the SDK's entry
+  point pulls a webpack plugin that throws under Vitest and would fail the
+  whole suite. You rarely need it anyway — `createApiErrorResponse` already
+  captures the unhandled branch, and the handled 4xx branches are logged but
+  deliberately **not** reported.
 
 Log payloads want `organizationId` and `userId`; they are the debugging axis and
 are not personal data. `userEmail`, phone numbers and client names are, and are
