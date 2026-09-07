@@ -99,10 +99,15 @@ APP_LOG_LEVEL=info    # this logger. trace|debug|info|warn|error|fatal|silent
 LOG_LEVEL=info        # Prisma's, and only Prisma's
 ```
 
-These are deliberately separate variables. `LOG_LEVEL=debug` switches the Prisma
-client to full query logging, which prints every statement **with its bound
-parameters** — client names, phone numbers, event details. Never reuse it to
-raise the application's verbosity, and never raise it in a deployed environment.
+These are deliberately separate variables, and they still are. `LOG_LEVEL=debug`
+means "tell me about every query": it drops the slow-query threshold in
+`lib/prisma.ts` to zero so every statement is logged rather than only the slow
+ones. It no longer prints bound parameters — the client subscribes to Prisma's
+query **event** now instead of letting it write to stdout, and the handler logs
+the statement text and never `event.params`. Raising it in a deployed
+environment is a volume problem rather than a privacy one, which it used to be.
+
+Never reuse either variable for the other's job.
 
 ## Reading the output
 
@@ -188,6 +193,62 @@ string a support ticket quotes.
 are covered — and so are **denials**, which throw before a context is ever
 built. A denial that does not name its tenant says somebody was refused, not
 who.
+
+## The lines you get without writing one
+
+Six events are emitted by shared code. Nothing at a call site has to remember
+them, and a new route inherits all six.
+
+| Event | Level | From | Says |
+| --- | --- | --- | --- |
+| `request_completed` | info | `withRoute` | method, status, `durationMs`, `sampleRate` |
+| `handled_route_error` | warn/info | `createApiErrorResponse` | an expected 4xx/409, with its class and code |
+| `unhandled_route_error` | error | `createApiErrorResponse` | the 500, with the stack and `sentryId` |
+| `authorization_denied` | warn | `authorize()` | the denial **reason**, and the tenant it hit |
+| `rate_limit_exceeded` | warn | `enforceRateLimit` | scope, limit, count, `retryAfter` |
+| `slow_query` | warn | `lib/prisma.ts` | `durationMs` and the statement — never its parameters |
+
+`authorization_denied` is deliberately not the same line as the
+`handled_route_error` that follows it. The wire code collapses four of the five
+denial reasons into `not_permitted`; the reason itself separates "their plan
+does not include this" from "nobody granted them the key", which is the whole
+question behind "why can't my staff member see this screen".
+
+### Calls that leave the process
+
+```ts
+import { trackedFetch, trackOutbound } from "@/lib/logging/outbound";
+
+const response = await trackedFetch(
+  { vendor: "stripe", operation: "checkout/sessions" },
+  "https://api.stripe.com/v1/checkout/sessions",
+  init
+);
+
+const sent = await trackOutbound(
+  { vendor: "google", operation: "gmail.users.messages.send" },
+  () => gmail.users.messages.send(request)
+);
+```
+
+Every call to Stripe, Plaid, Google, Resend and an operator's support webhook
+goes through one of these. They emit `outbound_call_completed` — info normally,
+`warn` on a 4xx/5xx or anything over two seconds — and `outbound_call_failed`
+when the call throws.
+
+- **`operation` must be low-cardinality.** It is what a duration is averaged
+  over, so a value carrying an id gives one series per call and no average.
+  `stripeRequest` folds object ids out of the path for exactly this reason.
+- **The URL is never logged.** It carries ids, and a customer-configured webhook
+  URL is often a bearer token in path form.
+- **The status, never the body.**
+- `outbound_call_failed` on a call that also fails its route is not the
+  double-logging the rule above forbids. The route's line says a request
+  returned 500; this one says which partner took eight seconds to refuse it.
+  Neither can be derived from the other, and they share a `requestId`.
+
+There is no retry count in the payload because nothing retries yet. Add the
+field with the first retry loop, not before it.
 
 ## Errors
 

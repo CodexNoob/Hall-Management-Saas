@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
 import { createActivityLog } from "@/lib/audit/activity-log";
 import { withRoute } from "@/lib/http/with-route";
+import { trackedFetch } from "@/lib/logging/outbound";
 
 const exchangeSchema = z.object({
   publicToken: z.string().min(1),
@@ -38,7 +39,8 @@ export const POST = withRoute(
         );
       }
 
-      const response = await fetch(
+      const response = await trackedFetch(
+        { vendor: "plaid", operation: "item/public_token/exchange" },
         `${config.baseUrl}/item/public_token/exchange`,
         {
           method: "POST",

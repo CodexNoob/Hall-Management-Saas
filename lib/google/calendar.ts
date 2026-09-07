@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { createGoogleOAuthClient } from "@/lib/google/oauth";
 import { getEnv } from "@/lib/env";
+import { trackOutbound } from "@/lib/logging/outbound";
 
 export type CalendarEventInput = {
   title: string;
@@ -22,6 +23,9 @@ export async function upsertGoogleCalendarEvent(input: CalendarEventInput) {
     throw new Error("Google Calendar integration is not configured.");
   }
 
+  // Bound to a local because the calls below are inside a closure now, and
+  // TypeScript drops the narrowing the guard above established on a property.
+  const calendarId = env.GOOGLE_CALENDAR_ID;
   const auth = createGoogleOAuthClient(env.GOOGLE_CALENDAR_ENCRYPTED_REFRESH_TOKEN);
   const calendar = google.calendar({ version: "v3", auth });
   const requestBody = {
@@ -32,19 +36,20 @@ export async function upsertGoogleCalendarEvent(input: CalendarEventInput) {
     end: { dateTime: input.endsAt.toISOString() }
   };
 
-  if (input.googleCalendarEventId) {
-    const updated = await calendar.events.update({
-      calendarId: env.GOOGLE_CALENDAR_ID,
-      eventId: input.googleCalendarEventId,
-      requestBody
-    });
+  const eventId = input.googleCalendarEventId;
+
+  if (eventId) {
+    const updated = await trackOutbound(
+      { vendor: "google", operation: "calendar.events.update" },
+      () => calendar.events.update({ calendarId, eventId, requestBody })
+    );
     return { skipped: false as const, eventId: updated.data.id };
   }
 
-  const created = await calendar.events.insert({
-    calendarId: env.GOOGLE_CALENDAR_ID,
-    requestBody
-  });
+  const created = await trackOutbound(
+    { vendor: "google", operation: "calendar.events.insert" },
+    () => calendar.events.insert({ calendarId, requestBody })
+  );
 
   return { skipped: false as const, eventId: created.data.id };
 }

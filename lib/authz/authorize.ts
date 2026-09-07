@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { AuthorizationError } from "@/lib/auth/errors";
-import { bindActor } from "@/lib/logging/context";
+import { bindActor, log } from "@/lib/logging/context";
 import { getBearerToken, resolveAuthIdentity } from "@/lib/auth/identity";
 import { ACTIVE_ORGANIZATION_COOKIE } from "@/lib/supabase/cookie-policy";
 import type { PermissionKey } from "@/lib/authz/catalog";
@@ -427,7 +427,24 @@ export async function authorize(
   const principal = await resolveActor(request);
   const decision = await decideForPrincipal(principal, permission);
 
-  if (!decision.allow) throw denialError(decision.reason);
+  if (!decision.allow) {
+    // Not a duplicate of the `handled_route_error` line `api-error.ts` writes
+    // for the error thrown on the next line, and not the case the "do not log
+    // an error you are about to throw" rule is about. That line carries the
+    // WIRE code, where four of the five denial reasons collapse into
+    // `not_permitted`. This one carries the reason itself - the difference
+    // between "their plan does not include this" and "nobody ever granted them
+    // the key", which are the same 403 to the caller and completely different
+    // answers to the venue asking why their staff member cannot see a screen.
+    //
+    // `resolveActor` has already bound the tenant, so this line names who was
+    // refused as well as what for.
+    log.warn(
+      { reason: decision.reason, permission },
+      "authorization_denied"
+    );
+    throw denialError(decision.reason);
+  }
 
   return toContext(principal, permission, decision.scope);
 }

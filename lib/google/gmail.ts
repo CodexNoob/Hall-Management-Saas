@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { createGoogleOAuthClient } from "@/lib/google/oauth";
 import { getEnv } from "@/lib/env";
+import { trackOutbound } from "@/lib/logging/outbound";
 
 export type SendEmailInput = {
   to: string;
@@ -40,12 +41,11 @@ export async function sendGmailMessage(input: SendEmailInput) {
   const auth = createGoogleOAuthClient(env.GMAIL_ENCRYPTED_REFRESH_TOKEN);
   const gmail = google.gmail({ version: "v1", auth });
 
-  const sent = await gmail.users.messages.send({
-    userId: "me",
-    requestBody: {
-      raw: encodeMessage({ ...input, from: env.GMAIL_SENDER_EMAIL })
-    }
-  });
+  const raw = encodeMessage({ ...input, from: env.GMAIL_SENDER_EMAIL });
+  const sent = await trackOutbound(
+    { vendor: "google", operation: "gmail.users.messages.send" },
+    () => gmail.users.messages.send({ userId: "me", requestBody: { raw } })
+  );
 
   return { skipped: false as const, messageId: sent.data.id };
 }
