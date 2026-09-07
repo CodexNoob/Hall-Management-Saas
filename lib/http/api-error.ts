@@ -9,6 +9,7 @@ import {
   isWriteConflictError
 } from "@/features/bookings/services/booking.service";
 import { getRequestId, log } from "@/lib/logging/context";
+import { captureException } from "@/lib/logging/report";
 
 /**
  * Every `return` in this file goes through here.
@@ -162,17 +163,28 @@ export function createApiErrorResponse(error: unknown) {
 
   // The "we did not anticipate this" branch. The stack is the whole point, and
   // it is the one thing `console.error` did give us - structured now, so it can
-  // be filtered by service, release and eventually tenant.
+  // be filtered by service, release and tenant.
   //
-  // No Sentry here yet: Phase 1 ships with no vendor account, so the capture
-  // and its `sentryId` join field arrive in Phase 2.
+  // The handled branches above are deliberately NOT captured. They are expected
+  // outcomes with a status and a shape - a 403, a 409, a failed validation - and
+  // sending them to an issue tracker is how the tracker becomes noise nobody
+  // reads. They are logged; this one is logged and reported.
+  //
+  // Captured before the log line so `sentryId` can ride along on it. That field
+  // is the join between the two planes: without it, a log search and a grouped
+  // issue are two search boxes with nothing tying them together. It is null
+  // whenever reporting is not configured, which is every environment until the
+  // DSN is set.
+  const sentryId = captureException(error);
+
   log.error(
     {
       err:
         error instanceof Error
           ? { name: error.name, message: error.message, stack: error.stack }
           : { name: "NonError", message: String(error) },
-      status: 500
+      status: 500,
+      sentryId
     },
     "unhandled_route_error"
   );

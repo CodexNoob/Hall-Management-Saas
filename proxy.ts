@@ -23,9 +23,16 @@ export const config = {
      *   have N requests each racing to refresh with the same refresh token,
      *   and every loser gets "Already Used". This also keeps the Stripe webhook
      *   (signature-verified, no session) and the health check untouched.
+     * - `monitoring` - the Sentry tunnel (`tunnelRoute` in next.config.ts).
+     *   Every browser-side error envelope POSTs here, it carries no session and
+     *   needs none, and it exists precisely to be reachable when things are
+     *   already going wrong. Putting a Supabase round trip in front of the
+     *   error reporter is the same mistake as putting one in front of `api/`,
+     *   with the added irony that it degrades the tool you would use to
+     *   diagnose it.
      * - `_next/static`, `_next/image`, `images/`, `sw.js` and image/font files
      *   - static assets that carry no session and would only burn invocations.
      */
-    "/((?!api/|_next/static|_next/image|images/|favicon.ico|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf)$).*)"
+    "/((?!api/|monitoring|_next/static|_next/image|images/|favicon.ico|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf)$).*)"
   ]
 };

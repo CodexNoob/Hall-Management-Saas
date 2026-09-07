@@ -83,7 +83,24 @@ const envSchema = z.object({
   // the suite's output, and `getEnv()` throws on any value not listed here.
   APP_LOG_LEVEL: z
     .enum(["trace", "debug", "info", "warn", "error", "fatal", "silent"])
-    .default("info")
+    .default("info"),
+  // The error plane. Every one of these is optional on purpose: the application
+  // has to run identically with none of them set, because that is exactly how
+  // it ships until the Sentry account exists. An unset DSN disables the SDK at
+  // `init` and every capture becomes a no-op - see `lib/logging/report.ts`.
+  //
+  // The two DSNs are normally the same value. A DSN is a public ingest key that
+  // names a project and grants nothing else, which is why the browser's copy is
+  // allowed to be `NEXT_PUBLIC_` and inlined into the client bundle.
+  //
+  // SENTRY_AUTH_TOKEN is the opposite and must NEVER become `NEXT_PUBLIC_`: it
+  // is a real credential, it is read only by the build when uploading source
+  // maps, and it never reaches the runtime at all.
+  SENTRY_DSN: z.string().url().optional(),
+  NEXT_PUBLIC_SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ORG: z.string().optional(),
+  SENTRY_PROJECT: z.string().optional(),
+  SENTRY_AUTH_TOKEN: z.string().optional()
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
