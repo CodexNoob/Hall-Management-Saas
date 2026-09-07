@@ -27,14 +27,23 @@ rules are non-negotiable and apply to every change:
   id or a total. URLs go through `safePath()` — the auth routes carry one-time
   credentials in their query string, and redaction matches object keys, not the
   insides of strings.
-- **`LOG_LEVEL` belongs to Prisma.** Setting it to `debug` prints every SQL
-  statement with its bound parameters, which is tenant data. The application
-  logger reads `APP_LOG_LEVEL`. Never merge the two.
+- **`LOG_LEVEL` belongs to Prisma.** Setting it to `debug` drops the slow-query
+  threshold to zero, so every statement is logged. `lib/prisma.ts` subscribes to
+  Prisma's query *event* and never logs `event.params` — the bound parameters
+  are tenant data and that is the one line in the file that matters. Do not
+  reintroduce the bare-string `log: ["query"]` form: it writes to stdout, with
+  parameters, and the listener silently never fires. The application logger
+  reads `APP_LOG_LEVEL`. Never merge the two.
 - **Every new `app/api` route handler is wrapped in `withRoute`**, with the route
   PATTERN as its first argument: `export const POST = withRoute("POST /api/events", async (request) => { ... })`.
   An unwrapped route logs with no request id, no route and no tenant, and its
   response carries no `x-request-id` for a customer to quote. Keep the route's
   own `try/catch` — the wrapper's is only a net for what escapes one.
+- **Every call that leaves the process goes through `trackedFetch` or
+  `trackOutbound`** from `@/lib/logging/outbound`, with a bounded `vendor` and a
+  low-cardinality `operation`. A bare `fetch` to a partner is a call with no
+  duration, no status and no attribution when it is the thing making requests
+  slow. Never pass the URL or a body into the payload — the helper logs neither.
 - **When you add a server-side code path that can fail, degrade, or take a
   decision worth reconstructing later, add the log line in the same change.**
   Retrofitting observability is the work this system exists to stop repeating.
