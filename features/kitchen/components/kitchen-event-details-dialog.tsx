@@ -581,9 +581,10 @@ function KitchenEventDetails({
   const isStandalone = event.source === "standalone";
   const embedded = inline || preview;
   const hasSheet = Boolean(event.sheet) || event.summary !== null;
+  const shouldFetchSheet = hasSheet && !event.sheet && !embedded;
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`,
-    hasSheet && !event.sheet
+    shouldFetchSheet
   );
   const sheet = event.sheet ?? kitchenQuery.data?.kitchen ?? null;
   const hold = event.statusType === "hold";
@@ -785,41 +786,41 @@ function KitchenEventDetails({
           opened over it.
         */}
         {embedded || chromeless ? null : (
-        <header className="flex shrink-0 items-center gap-3 border-b border-[#d8dde5] bg-white px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <p className="hidden text-[11px] font-black uppercase tracking-wide text-[#617086]">
-              {event.category}
-            </p>
-            <h2
-              className="truncate text-lg font-black text-[#111827]"
-              id={titleId}
-            >
-              {event.eventType ?? event.title} · Full Details
-            </h2>
-            <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
-              <span>{event.totalGuests} portions</span>
-              <span aria-hidden="true">•</span>
-              <span>Serves {formatServeTime(event.startsAt)}</span>
-              <span aria-hidden="true">•</span>
-              <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
-            </p>
-          </div>
+          <header className="flex shrink-0 items-center gap-3 border-b border-[#d8dde5] bg-white px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="hidden text-[11px] font-black uppercase tracking-wide text-[#617086]">
+                {event.category}
+              </p>
+              <h2
+                className="truncate text-lg font-black text-[#111827]"
+                id={titleId}
+              >
+                {event.eventType ?? event.title} · Full Details
+              </h2>
+              <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
+                <span>{event.totalGuests} portions</span>
+                <span aria-hidden="true">•</span>
+                <span>Serves {formatServeTime(event.startsAt)}</span>
+                <span aria-hidden="true">•</span>
+                <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
+              </p>
+            </div>
 
-          <button
-            aria-label="Close kitchen event details"
-            className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
-            onClick={onClose}
-            type="button"
-          >
-            × Close
-          </button>
-        </header>
+            <button
+              aria-label="Close kitchen event details"
+              className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
+              onClick={onClose}
+              type="button"
+            >
+              × Close
+            </button>
+          </header>
         )}
 
-          <div
-            className={`min-h-0 flex-1 overflow-y-auto ${chromeless ? "bg-[#dceaff]" : "bg-white"} ${embedded || chromeless ? "" : "p-4 sm:p-5"}`}
-          >
-            {/*
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto ${chromeless ? "bg-[#dceaff]" : "bg-white"} ${embedded || chromeless ? "" : "p-4 sm:p-5"}`}
+        >
+          {/*
               The row is in here rather than being the scroller itself.
               A flex row, not a float: the aside used to be floated with
               `min-h-132` on it and on the dish panel, which set both to 33rem
@@ -834,18 +835,22 @@ function KitchenEventDetails({
               add-ons. This wrapper has no height of its own, so the line is as
               tall as the dishes and the aside follows it down.
             */}
-            <div className={preview ? "flex items-stretch" : "lg:flex lg:items-stretch"}>
-              {/*
+          <div
+            className={
+              preview ? "flex items-stretch" : "lg:flex lg:items-stretch"
+            }
+          >
+            {/*
                 The blue column is the panel's floor: it is taller than a short
                 dish list, so its padding sets how much room one event takes on
                 a board showing all of them. Roomy in the dialog, close-cropped
                 inline.
               */}
-              <aside
-                className={`border-l-8 border-[#2f80ed] bg-[#dceaff] lg:mb-0 lg:shrink-0 ${
-                  preview
-                    ? "relative mb-0 w-24 min-w-0 shrink-0 overflow-hidden border-r border-[#c8daf2] px-2 py-2 pb-8"
-                    : embedded
+            <aside
+              className={`border-l-8 border-[#2f80ed] bg-[#dceaff] lg:mb-0 lg:shrink-0 ${
+                preview
+                  ? "relative mb-0 w-24 min-w-0 shrink-0 overflow-hidden border-r border-[#c8daf2] px-2 py-2 pb-8"
+                  : embedded
                     ? // A share of the panel rather than a fixed 15rem: the
                       // same panel is the width of the board in the day view
                       // and a seventh of it in a week column, and 15rem does
@@ -853,35 +858,36 @@ function KitchenEventDetails({
                       // when there is room.
                       "mb-3 px-4 py-4 lg:w-1/3 lg:max-w-60"
                     : "mb-4 px-5 py-10 lg:w-72"
-                }`}
+              }`}
+            >
+              <p
+                className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#516071]`}
               >
-                <p className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#516071]`}>
-                  {event.category}
-                </p>
-                <h3
-                  className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 line-clamp-4 text-[9px] wrap-break-word" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
-                  id={asideTitleId}
-                >
-                  {event.clientName ?? event.title}
-                </h3>
-                <p
-                  className={`font-black text-[#17202a] ${preview ? "mt-1 text-[10px]" : embedded ? "mt-1 text-sm" : "mt-3 text-lg"}`}
-                >
-                  {sheet?.counts.couples
-                    ? `${sheet.counts.couples} couples`
-                    : `${event.totalGuests} portions`}
-                </p>
-                <p
-                  className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#6a7483] ${embedded ? "mt-2" : "mt-6"}`}
-                >
-                  {event.eventType ??
-                    `${mealLabel(sheet?.meal ?? "Main")} meal`}
-                </p>
-                <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
-                  Serves {formatServeTime(event.startsAt)}
-                </p>
+                {event.category}
+              </p>
+              <h3
+                className={`font-black leading-tight text-[#17202a] ${preview ? "mt-1 line-clamp-4 text-[9px] wrap-break-word" : embedded ? "mt-1 text-xl" : "mt-5 text-3xl"}`}
+                id={asideTitleId}
+              >
+                {event.clientName ?? event.title}
+              </h3>
+              <p
+                className={`font-black text-[#17202a] ${preview ? "mt-1 text-[10px]" : embedded ? "mt-1 text-sm" : "mt-3 text-lg"}`}
+              >
+                {sheet?.counts.couples
+                  ? `${sheet.counts.couples} couples`
+                  : `${event.totalGuests} portions`}
+              </p>
+              <p
+                className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#6a7483] ${embedded ? "mt-2" : "mt-6"}`}
+              >
+                {event.eventType ?? `${mealLabel(sheet?.meal ?? "Main")} meal`}
+              </p>
+              <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
+                Serves {formatServeTime(event.startsAt)}
+              </p>
 
-                {/*
+              {/*
                 Cancel, not delete. The booking leaves the board and the
                 calendar and everything it carries stays - menu, counts,
                 invoices, activity - which is what makes it safe to offer on an
@@ -889,19 +895,19 @@ function KitchenEventDetails({
                 The wording on the button is the client's; the dialog behind it
                 is where the distinction is spelled out.
               */}
-                {onRemoveEvent ? (
-                  <button
-                    className={`rounded-lg border border-[#efb5ad] bg-white font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45 ${preview ? "absolute inset-x-2 bottom-2 h-5 truncate px-1 text-[8px]" : embedded ? "mt-3 h-8 px-4 text-xs" : "mt-8 h-9 px-4 text-xs"}`}
-                    disabled={isSaving}
-                    onClick={() => setIsConfirmingCancel(true)}
-                    type="button"
-                  >
-                    Delete Event
-                  </button>
-                ) : null}
-              </aside>
+              {onRemoveEvent ? (
+                <button
+                  className={`rounded-lg border border-[#efb5ad] bg-white font-black text-[#c3291b] transition hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-45 ${preview ? "absolute inset-x-2 bottom-2 h-5 truncate px-1 text-[8px]" : embedded ? "mt-3 h-8 px-4 text-xs" : "mt-8 h-9 px-4 text-xs"}`}
+                  disabled={isSaving}
+                  onClick={() => setIsConfirmingCancel(true)}
+                  type="button"
+                >
+                  Delete Event
+                </button>
+              ) : null}
+            </aside>
 
-              {/*
+            {/*
                 The other half of the row: everything that is not the aside.
 
                 A container, so the dish grid counts columns against the space
@@ -910,29 +916,29 @@ function KitchenEventDetails({
                 in a week column - a viewport breakpoint says "wide screen" in
                 both, and would put five columns of dishes in 7rem.
               */}
-              <div className="@container min-w-0 lg:flex-1">
-                <div
-                  className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
-                    hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
-                  }`}
-                >
-                  {event.past ? <span>Past event</span> : null}
-                  {event.past ? (
-                    <span className="text-white/70" aria-hidden="true">
-                      •
-                    </span>
-                  ) : null}
-                  <span>
-                    {event.status ??
-                      (hold ? "On hold - not confirmed" : "Kitchen")}
-                  </span>
+            <div className="@container min-w-0 lg:flex-1">
+              <div
+                className={`hidden mb-3 min-h-10 flex-wrap items-center justify-center gap-2 px-4 text-center text-sm font-black uppercase tracking-wide text-white ${
+                  hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
+                }`}
+              >
+                {event.past ? <span>Past event</span> : null}
+                {event.past ? (
                   <span className="text-white/70" aria-hidden="true">
                     •
                   </span>
-                  <span>{event.menuStatus}</span>
-                </div>
+                ) : null}
+                <span>
+                  {event.status ??
+                    (hold ? "On hold - not confirmed" : "Kitchen")}
+                </span>
+                <span className="text-white/70" aria-hidden="true">
+                  •
+                </span>
+                <span>{event.menuStatus}</span>
+              </div>
 
-                {/*
+              {/*
               `min-h-full`, not `h-full`. The panel sits in a row stretched to
               the aside's height, and `overflow-hidden` is here to keep the
               border square around its contents - so pinning it to exactly the
@@ -941,316 +947,328 @@ function KitchenEventDetails({
               the footer were cut off the bottom. A minimum fills the row when
               there is little to show and gets out of the way when there is more.
             */}
-                <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
-                  <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
-                    <StatTile
-                      label="Serves"
-                      note={
-                        event.startsAt
-                          ? "Event start time"
-                          : "No start time set"
-                      }
-                      tone="blue"
-                      value={formatServeTime(event.startsAt)}
-                    />
-                    <StatTile
-                      label="Portions"
-                      note={
-                        sheet && sheet.counts.waiters > 0
-                          ? `${sheet.counts.waiters} waiters not counted`
-                          : "Guests, waiters excluded"
-                      }
-                      value={event.totalGuests}
-                    />
-                    <StatTile
-                      label="Prepared"
-                      note={
-                        summary
-                          ? `${summary.pending} pending · ${summary.notStarted} not started`
-                          : "No menu behind this event"
-                      }
-                      value={
-                        summary ? `${summary.complete}/${summary.dishes}` : "—"
-                      }
-                    />
-                    <StatTile
-                      label="Needs attention"
-                      note={
-                        !summary
-                          ? "Nothing to count"
-                          : summary.needsAttention === 0
-                            ? "Every dish has a quantity"
-                            : "Dishes with no quantity to cook to"
-                      }
-                      value={summary ? summary.needsAttention : "—"}
-                    />
-                  </div>
+              <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
+                <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+                  <StatTile
+                    label="Serves"
+                    note={
+                      event.startsAt ? "Event start time" : "No start time set"
+                    }
+                    tone="blue"
+                    value={formatServeTime(event.startsAt)}
+                  />
+                  <StatTile
+                    label="Portions"
+                    note={
+                      sheet && sheet.counts.waiters > 0
+                        ? `${sheet.counts.waiters} waiters not counted`
+                        : "Guests, waiters excluded"
+                    }
+                    value={event.totalGuests}
+                  />
+                  <StatTile
+                    label="Prepared"
+                    note={
+                      summary
+                        ? `${summary.pending} pending · ${summary.notStarted} not started`
+                        : "No menu behind this event"
+                    }
+                    value={
+                      summary ? `${summary.complete}/${summary.dishes}` : "—"
+                    }
+                  />
+                  <StatTile
+                    label="Needs attention"
+                    note={
+                      !summary
+                        ? "Nothing to count"
+                        : summary.needsAttention === 0
+                          ? "Every dish has a quantity"
+                          : "Dishes with no quantity to cook to"
+                    }
+                    value={summary ? summary.needsAttention : "—"}
+                  />
+                </div>
 
-                  {summary ? (
-                    <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
-                      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                          Dish workflow
-                        </h3>
-                        <p className="text-xs font-semibold text-[#64748b]">
-                          Tap a dish card to move it forward
-                        </p>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <WorkflowStep
-                          label="Not started"
-                          tone="none"
-                          value={summary.notStarted}
-                        />
-                        <WorkflowStep
-                          label="Pending / In prep"
-                          tone="pending"
-                          value={summary.pending}
-                        />
-                        <WorkflowStep
-                          label="Complete / Ready"
-                          tone="complete"
-                          value={summary.complete}
-                        />
-                      </div>
+                {summary ? (
+                  <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                        Dish workflow
+                      </h3>
+                      <p className="text-xs font-semibold text-[#64748b]">
+                        Tap a dish card to move it forward
+                      </p>
                     </div>
-                  ) : null}
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <WorkflowStep
+                        label="Not started"
+                        tone="none"
+                        value={summary.notStarted}
+                      />
+                      <WorkflowStep
+                        label="Pending / In prep"
+                        tone="pending"
+                        value={summary.pending}
+                      />
+                      <WorkflowStep
+                        label="Complete / Ready"
+                        tone="complete"
+                        value={summary.complete}
+                      />
+                    </div>
+                  </div>
+                ) : null}
 
-                  {/* Before the counting problems, because this one is about work
+                {/* Before the counting problems, because this one is about work
                   that is not on this sheet at all: every number above is the
                   Main meal, and the tiles give no hint that there is more. */}
-                  {otherMeals.length > 0 ? (
-                    <p
-                      className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
-                      role="status"
-                    >
-                      {formatOtherMeals(otherMeals)}{" "}
-                      {otherMeals.length === 1 ? "is" : "are"} not shown here.
-                      This sheet is the {mealLabel(sheet?.meal ?? "Main")} meal
-                      only.
-                    </p>
-                  ) : null}
+                {otherMeals.length > 0 ? (
+                  <p
+                    className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                    role="status"
+                  >
+                    {formatOtherMeals(otherMeals)}{" "}
+                    {otherMeals.length === 1 ? "is" : "are"} not shown here.
+                    This sheet is the {mealLabel(sheet?.meal ?? "Main")} meal
+                    only.
+                  </p>
+                ) : null}
 
-                  {summary && summary.needsAttention > 0 ? (
-                    <p
-                      className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
-                      role="status"
-                    >
-                      {summary.needsAttention} dish
-                      {summary.needsAttention === 1 ? "" : "es"} cannot be
-                      counted yet.
-                      {summary.unresolvedBases.includes("Tables")
-                        ? " Draw the dining plan so per-table rules have a table count."
-                        : " Set a service style on the Menu tab, or a counting rule in the menu library."}
-                    </p>
-                  ) : null}
+                {summary && summary.needsAttention > 0 ? (
+                  <p
+                    className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
+                    role="status"
+                  >
+                    {summary.needsAttention} dish
+                    {summary.needsAttention === 1 ? "" : "es"} cannot be counted
+                    yet.
+                    {summary.unresolvedBases.includes("Tables")
+                      ? " Draw the dining plan so per-table rules have a table count."
+                      : " Set a service style on the Menu tab, or a counting rule in the menu library."}
+                  </p>
+                ) : null}
 
-                  {!hasSheet ? (
-                    <div className="p-4">
-                      <AsyncState
-                        emptyMessage="This kitchen event does not have any dishes to track yet."
-                        emptyTitle="No production sheet"
-                        isEmpty
-                      />
+                {!hasSheet ? (
+                  <div className="p-4">
+                    <AsyncState
+                      emptyMessage="This kitchen event does not have any dishes to track yet."
+                      emptyTitle="No production sheet"
+                      isEmpty
+                    />
+                  </div>
+                ) : !sheet && !shouldFetchSheet ? (
+                  <div className="p-4">
+                    <AsyncState
+                      emptyMessage="Open this event to load its full production sheet."
+                      emptyTitle="Production summary loaded"
+                      isEmpty
+                    />
+                  </div>
+                ) : !sheet && (kitchenQuery.isLoading || kitchenQuery.error) ? (
+                  <div className="p-4">
+                    <AsyncState
+                      error={kitchenQuery.error}
+                      isLoading={kitchenQuery.isLoading}
+                      onRetry={() => void kitchenQuery.refetch()}
+                    />
+                  </div>
+                ) : allDishes.length === 0 ? (
+                  <div className="p-4">
+                    <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
+                      <p className="text-sm font-black text-[#111827]">
+                        {workersOnly
+                          ? "No assigned dishes on this menu yet"
+                          : "No dishes on this menu yet"}
+                      </p>
+                      <p className="mt-3 text-xs text-[#64748b]">
+                        {workersOnly
+                          ? "Assign a worker to a dish to make it appear in this filtered view."
+                          : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
+                      </p>
                     </div>
-                  ) : !sheet &&
-                    (kitchenQuery.isLoading || kitchenQuery.error) ? (
-                    <div className="p-4">
-                      <AsyncState
-                        error={kitchenQuery.error}
-                        isLoading={kitchenQuery.isLoading}
-                        onRetry={() => void kitchenQuery.refetch()}
-                      />
-                    </div>
-                  ) : allDishes.length === 0 ? (
-                    <div className="p-4">
-                      <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
-                        <p className="text-sm font-black text-[#111827]">
-                          {workersOnly
-                            ? "No assigned dishes on this menu yet"
-                            : "No dishes on this menu yet"}
-                        </p>
-                        <p className="mt-3 text-xs text-[#64748b]">
-                          {workersOnly
-                            ? "Assign a worker to a dish to make it appear in this filtered view."
-                            : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                          <div>
-                            <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                              Worker ownership
-                            </h3>
-                            <p className="mt-1 text-xs text-[#64748b]">
-                              {assignedToMeCount} assigned to me ·{" "}
-                              {unassignedCount} unassigned · {allDishes.length}{" "}
-                              total dishes
-                            </p>
-                          </div>
-                          <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
-                            {[
-                              { id: "all", label: "All dishes" },
-                              {
-                                id: "mine",
-                                label: currentWorkerId
-                                  ? "My assigned"
-                                  : "Assigned dishes"
-                              },
-                              { id: "unassigned", label: "Unassigned" }
-                            ].map((item) => (
-                              <button
-                                className={`h-9 border px-3 text-xs font-black transition ${
-                                  assignmentFilter === item.id
-                                    ? "border-[#1f4d73] bg-[#1f4d73] text-white"
-                                    : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
-                                }`}
-                                key={item.id}
-                                onClick={() =>
-                                  setAssignmentFilter(
-                                    item.id as AssignmentFilter
-                                  )
-                                }
-                                type="button"
-                              >
-                                {item.label}
-                              </button>
-                            ))}
-                          </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] px-3 py-3 sm:px-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                          <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                            Worker ownership
+                          </h3>
+                          <p className="mt-1 text-xs text-[#64748b]">
+                            {assignedToMeCount} assigned to me ·{" "}
+                            {unassignedCount} unassigned · {allDishes.length}{" "}
+                            total dishes
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
+                          {[
+                            { id: "all", label: "All dishes" },
+                            {
+                              id: "mine",
+                              label: currentWorkerId
+                                ? "My assigned"
+                                : "Assigned dishes"
+                            },
+                            { id: "unassigned", label: "Unassigned" }
+                          ].map((item) => (
+                            <button
+                              className={`h-9 border px-3 text-xs font-black transition ${
+                                assignmentFilter === item.id
+                                  ? "border-[#1f4d73] bg-[#1f4d73] text-white"
+                                  : "border-[#b9c2cf] bg-white text-[#17202a] hover:bg-[#eef4fa]"
+                              }`}
+                              key={item.id}
+                              onClick={() =>
+                                setAssignmentFilter(item.id as AssignmentFilter)
+                              }
+                              type="button"
+                            >
+                              {item.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
+                    </div>
 
-                      {visibleDishes.length === 0 ? (
-                        <div className="p-4">
-                          <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
-                            <p className="text-sm font-black text-[#111827]">
-                              No dishes in this filter
-                            </p>
-                            <p className="mt-3 text-xs text-[#64748b]">
-                              Choose another ownership filter or assign workers
-                              to the dish cards below.
-                            </p>
-                          </div>
+                    {visibleDishes.length === 0 ? (
+                      <div className="p-4">
+                        <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
+                          <p className="text-sm font-black text-[#111827]">
+                            No dishes in this filter
+                          </p>
+                          <p className="mt-3 text-xs text-[#64748b]">
+                            Choose another ownership filter or assign workers to
+                            the dish cards below.
+                          </p>
                         </div>
-                      ) : (
-                        <div
-                          className={`bg-[#dceaff] ${embedded ? "space-y-3 p-3" : "space-y-5 p-3 sm:p-4"}`}
-                        >
-                          {/*
+                      </div>
+                    ) : (
+                      <div
+                        className={`bg-[#dceaff] ${embedded ? "space-y-3 p-3" : "space-y-5 p-3 sm:p-4"}`}
+                      >
+                        {/*
                         Plated first, then buffet, then anything with no style -
                         the order `dishSections` is built in. The headings are
                         shown rather than screen-reader-only because the two are
                         cooked and served differently, and a single unbroken
                         grid left a cook to work out which half was which.
                       */}
-                          {dishSections.map((section) => (
-                            <section
-                              aria-labelledby={`kitchen-${event.id}-${section.id}`}
-                              key={section.id}
-                            >
-                              <div
-                                // `items-center`, not `items-start`: the button
-                                // is taller than an 11px heading, so aligning
-                                // tops left it hanging below the rule. Centred,
-                                // the two read as one row.
-                                className={
-                                  inline || chromeless
-                                    ? "mb-2 flex items-center gap-2 pr-0.5"
-                                    : undefined
-                                }
-                              >
-                                <h3
-                                  // No reserved space on the right any more:
-                                  // the close button that used to sit in this
-                                  // corner is gone, so the heading rule runs
-                                  // the full width of the dish panel again.
-                                  className={`border-b border-[#c8daf2] font-black uppercase tracking-[0.08em] text-[#516071] ${preview ? "mb-1 pb-1 text-[9px]" : embedded || chromeless ? "flex-1 pb-1.5 text-[11px]" : "mb-2.5 pb-2 text-[11px]"}`}
-                                  id={`kitchen-${event.id}-${section.id}`}
-                                >
-                                  {section.label}
-                                </h3>
-                              </div>
-                              <div className={preview ? "flex w-max gap-2.5" : "grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"}>
-                                {section.dishes.map((line) => (
-                                  <DishCard
-                                    canReplace={!isStandalone}
-                                    compact={embedded}
-                                    isSaving={isSaving}
-                                    key={line.id}
-                                    line={line}
-                                    onReplace={(replacing) =>
-                                      setReplaceLineId(replacing.id)
-                                    }
-                                    onSaveItemAction={saveForEvent}
-                                    permissions={permissions}
-                                    preview={preview}
-                                    workers={workers}
-                                  />
-                                ))}
-                              </div>
-                            </section>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {addOns.length > 0 ? (
-                    <section className="border-t border-[#c8daf2] bg-[#dceaff] px-3 py-3 sm:px-4">
-                      <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                        Add-ons
-                      </h3>
-                      {/* Statusless on purpose: KitchenItemStatus is keyed by menu
-                    item, so an add-on line has nowhere to record one. */}
-                      <ul className={preview ? "mt-2 flex w-max gap-2.5" : "mt-2 grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"}>
-                        {addOns.map((line) => (
-                          <li className="min-w-0" key={line.id}>
-                            <DishCard
-                              canReplace={!isStandalone}
-                              compact={embedded}
-                              isSaving={isSaving}
-                              line={line}
-                              onReplace={(replacing) =>
-                                setReplaceLineId(replacing.id)
+                        {dishSections.map((section) => (
+                          <section
+                            aria-labelledby={`kitchen-${event.id}-${section.id}`}
+                            key={section.id}
+                          >
+                            <div
+                              // `items-center`, not `items-start`: the button
+                              // is taller than an 11px heading, so aligning
+                              // tops left it hanging below the rule. Centred,
+                              // the two read as one row.
+                              className={
+                                inline || chromeless
+                                  ? "mb-2 flex items-center gap-2 pr-0.5"
+                                  : undefined
                               }
-                              onSaveItemAction={saveForEvent}
-                              permissions={permissions}
-                              preview={preview}
-                              workers={workers}
-                            />
-                          </li>
+                            >
+                              <h3
+                                // No reserved space on the right any more:
+                                // the close button that used to sit in this
+                                // corner is gone, so the heading rule runs
+                                // the full width of the dish panel again.
+                                className={`border-b border-[#c8daf2] font-black uppercase tracking-[0.08em] text-[#516071] ${preview ? "mb-1 pb-1 text-[9px]" : embedded || chromeless ? "flex-1 pb-1.5 text-[11px]" : "mb-2.5 pb-2 text-[11px]"}`}
+                                id={`kitchen-${event.id}-${section.id}`}
+                              >
+                                {section.label}
+                              </h3>
+                            </div>
+                            <div
+                              className={
+                                preview
+                                  ? "flex w-max gap-2.5"
+                                  : "grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"
+                              }
+                            >
+                              {section.dishes.map((line) => (
+                                <DishCard
+                                  canReplace={!isStandalone}
+                                  compact={embedded}
+                                  isSaving={isSaving}
+                                  key={line.id}
+                                  line={line}
+                                  onReplace={(replacing) =>
+                                    setReplaceLineId(replacing.id)
+                                  }
+                                  onSaveItemAction={saveForEvent}
+                                  permissions={permissions}
+                                  preview={preview}
+                                  workers={workers}
+                                />
+                              ))}
+                            </div>
+                          </section>
                         ))}
-                      </ul>
-                    </section>
-                  ) : null}
+                      </div>
+                    )}
+                  </>
+                )}
 
-                  <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
-                    {permissions.canUpdateKitchenStatus ? (
-                      <p>
-                        Click a dish to move it on — not started, then pending,
-                        then complete. Double-click to put it back to not
-                        started.
-                      </p>
-                    ) : null}
-                    <p
+                {addOns.length > 0 ? (
+                  <section className="border-t border-[#c8daf2] bg-[#dceaff] px-3 py-3 sm:px-4">
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
+                      Add-ons
+                    </h3>
+                    {/* Statusless on purpose: KitchenItemStatus is keyed by menu
+                    item, so an add-on line has nowhere to record one. */}
+                    <ul
                       className={
-                        permissions.canUpdateKitchenStatus ? "mt-1" : ""
+                        preview
+                          ? "mt-2 flex w-max gap-2.5"
+                          : "mt-2 grid grid-cols-1 gap-2.5 @xs:grid-cols-2 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5"
                       }
                     >
-                      Quantities come from the counting rules on the
-                      event&rsquo;s Menu tab.
-                      {permissions.canUpdateKitchenStatus
-                        ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
-                        : " That tab is also where dishes are added and removed."}
+                      {addOns.map((line) => (
+                        <li className="min-w-0" key={line.id}>
+                          <DishCard
+                            canReplace={!isStandalone}
+                            compact={embedded}
+                            isSaving={isSaving}
+                            line={line}
+                            onReplace={(replacing) =>
+                              setReplaceLineId(replacing.id)
+                            }
+                            onSaveItemAction={saveForEvent}
+                            permissions={permissions}
+                            preview={preview}
+                            workers={workers}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
+                  {permissions.canUpdateKitchenStatus ? (
+                    <p>
+                      Click a dish to move it on — not started, then pending,
+                      then complete. Double-click to put it back to not started.
                     </p>
-                  </footer>
-                </div>
+                  ) : null}
+                  <p
+                    className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}
+                  >
+                    Quantities come from the counting rules on the event&rsquo;s
+                    Menu tab.
+                    {permissions.canUpdateKitchenStatus
+                      ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
+                      : " That tab is also where dishes are added and removed."}
+                  </p>
+                </footer>
               </div>
             </div>
           </div>
+        </div>
       </section>
 
       {replaceLine ? (

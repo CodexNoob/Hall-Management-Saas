@@ -29,7 +29,9 @@ import { AvailabilityView } from "@/features/calendar/components/calendar-availa
 import { CalendarAgendaView } from "@/features/calendar/components/calendar-agenda-view";
 import {
   createCalendarDayReader,
-  hasOpenAvailability
+  hasOpenAvailability,
+  isDateBlockedForCalendar,
+  isHallBlockedOnDate
 } from "@/features/calendar/components/calendar-day-model";
 import { EventPill } from "@/features/calendar/components/calendar-event-pill";
 import { CalendarSettingsView } from "@/features/calendar/components/calendar-settings-tab";
@@ -183,10 +185,7 @@ export function EventCalendarPage() {
   useEffect(() => {
     if (!bookingSuccessMessage) return;
 
-    const timeout = window.setTimeout(
-      () => setBookingSuccessMessage(""),
-      4000
-    );
+    const timeout = window.setTimeout(() => setBookingSuccessMessage(""), 4000);
     return () => window.clearTimeout(timeout);
   }, [bookingSuccessMessage]);
 
@@ -393,23 +392,35 @@ export function EventCalendarPage() {
         const used = selectedBookings.filter(
           (booking) => booking.hall === hall.name
         ).length;
+        const isBlocked = isHallBlockedOnDate({
+          blockedDates: calendarData?.blockedDates ?? [],
+          dateKey: selectedDate,
+          hallId: hall.id
+        });
 
         return {
           id: hall.id,
           name: hall.name,
           limit,
           used,
+          isBlocked,
           isFull: used >= limit,
           usesDefaultLimit: hall.dailyEventLimit === null
         };
       }),
-    [dailyEventLimit, calendarData?.halls, selectedBookings]
+    [
+      dailyEventLimit,
+      calendarData?.blockedDates,
+      calendarData?.halls,
+      selectedBookings,
+      selectedDate
+    ]
   );
-  const selectedDateIsBlocked = (calendarData?.blockedDates ?? []).some(
-    (range) =>
-      selectedDate >= dateKeyFromIso(range.startDate) &&
-      selectedDate <= dateKeyFromIso(range.endDate)
-  );
+  const selectedDateIsBlocked = isDateBlockedForCalendar({
+    blockedDates: calendarData?.blockedDates ?? [],
+    dateKey: selectedDate,
+    halls: calendarData?.halls ?? []
+  });
   // A past day can still be selected - the schedule that ran on it is worth
   // reading - but nothing new is booked onto it, so the buttons that open the
   // form go away with the day's + button.
@@ -418,7 +429,7 @@ export function EventCalendarPage() {
     canCreateEvent &&
     !selectedDateIsPast &&
     !selectedDateIsBlocked &&
-    hallAvailability.some((hall) => !hall.isFull);
+    hallAvailability.some((hall) => !hall.isBlocked && !hall.isFull);
 
   const monthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -1015,12 +1026,16 @@ export function EventCalendarPage() {
 
                           <span
                             className={`rounded-full px-2 py-1 text-[9px] font-black ${
-                              hall.isFull
+                              hall.isBlocked || hall.isFull
                                 ? "bg-[#fff0ed] text-[#b42318]"
                                 : "bg-[#e9f8f0] text-[#087047]"
                             }`}
                           >
-                            {hall.isFull ? "Full" : "Available"}
+                            {hall.isBlocked
+                              ? "Blocked"
+                              : hall.isFull
+                                ? "Full"
+                                : "Available"}
                           </span>
 
                           <span className="text-xs font-black tabular-nums text-[#17202a]">

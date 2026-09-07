@@ -182,7 +182,7 @@ export function KitchenDashboardPage() {
   // response - refetching the board the moment that setting landed - and it
   // also spares a refetch on every tab press.
   const rangeStart = startOfWeek(anchorDate);
-  const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}`;
+  const kitchenQueryUrl = `/api/kitchen?start=${dateKey(rangeStart)}&detailsDate=${dateKey(anchorDate)}`;
   const kitchenQuery = useAuthenticatedQuery<KitchenResponse>(kitchenQueryUrl);
   /*
    * The venue's timezone, which is what "today" has to be measured in.

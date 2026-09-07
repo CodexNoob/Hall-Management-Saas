@@ -210,7 +210,12 @@ function mockMenus({
 
 async function readBoard(response: Response) {
   return (await response.json()) as {
-    events: Array<Record<string, unknown>>;
+    events: Array<
+      Record<string, unknown> & {
+        sheet: { lines: Array<Record<string, unknown>> } | null;
+        summary: Record<string, unknown>;
+      }
+    >;
     workers: unknown;
     currentWorkerId: string | null;
     menus: Array<{ id: string; name: string; dishCount: number }>;
@@ -485,16 +490,30 @@ describe("kitchen dashboard route", () => {
       });
     });
 
-    it("reads Main, and does not send dish lists or picture paths", async () => {
+    it("keeps full dish sheets off events outside the focused day", async () => {
       const board = await readBoard(await GET(request()));
 
       expect(
         vi.mocked(prisma.eventMenu.findMany).mock.calls[0]?.[0]?.where
       ).toMatchObject({ meal: "Main", organizationId });
-      // The card draws a ratio; the dialog fetches the dishes from the
-      // per-event route, which is the one that signs their pictures.
-      expect(board.events[0]).not.toHaveProperty("lines");
+      expect(board.events[0].sheet).toBeNull();
       expect(JSON.stringify(board)).not.toContain("picturePath");
+    });
+
+    it("sends the full dish sheet only for the focused day", async () => {
+      const response = await GET(
+        new Request(
+          "http://localhost/api/kitchen?start=2026-08-16&detailsDate=2026-08-20"
+        )
+      );
+
+      const board = await readBoard(response);
+
+      expect(board.events[0].sheet?.lines).toEqual([]);
+      expect(board.events[0].summary).toMatchObject({
+        dishes: 0,
+        addOns: 0
+      });
     });
 
     it("batches the menu and status reads across the whole window", async () => {
@@ -599,9 +618,7 @@ describe("kitchen dashboard route", () => {
 
       const board = await readBoard(await GET(request()));
 
-      expect(board.addOns).toEqual([
-        { id: addOnId, name: "Coffee station" }
-      ]);
+      expect(board.addOns).toEqual([{ id: addOnId, name: "Coffee station" }]);
       expect(board.kitchenEvents[0].sheet.lines).toContainEqual(
         expect.objectContaining({
           addOnId,

@@ -33,11 +33,74 @@ export type CalendarDayMeta = {
   canBook: boolean;
 };
 
+type CalendarHall = {
+  id: string;
+  name: string;
+  dailyEventLimit?: number | null;
+};
+
+type CalendarBlockedDate = {
+  hallId?: string | null;
+  startDate: string;
+  endDate: string;
+};
+
 const dayLabelFormatter = new Intl.DateTimeFormat("en-US", {
   month: "long",
   day: "numeric",
   year: "numeric"
 });
+
+function rangeIncludesDate(range: CalendarBlockedDate, key: string) {
+  return (
+    key >= dateKeyFromIso(range.startDate) &&
+    key <= dateKeyFromIso(range.endDate)
+  );
+}
+
+export function isHallBlockedOnDate({
+  blockedDates,
+  dateKey: key,
+  hallId
+}: {
+  blockedDates: CalendarBlockedDate[];
+  dateKey: string;
+  hallId: string;
+}) {
+  return blockedDates.some(
+    (range) =>
+      rangeIncludesDate(range, key) &&
+      (range.hallId === null ||
+        range.hallId === undefined ||
+        range.hallId === hallId)
+  );
+}
+
+export function isDateBlockedForCalendar({
+  blockedDates,
+  dateKey: key,
+  halls
+}: {
+  blockedDates: CalendarBlockedDate[];
+  dateKey: string;
+  halls: CalendarHall[];
+}) {
+  const rangesOnDay = blockedDates.filter((range) =>
+    rangeIncludesDate(range, key)
+  );
+  if (
+    rangesOnDay.some(
+      (range) => range.hallId === null || range.hallId === undefined
+    )
+  ) {
+    return true;
+  }
+  if (halls.length === 0) return false;
+
+  return halls.every((hall) =>
+    rangesOnDay.some((range) => range.hallId === hall.id)
+  );
+}
 
 export function createCalendarDayReader({
   bookings,
@@ -51,8 +114,8 @@ export function createCalendarDayReader({
 }: {
   bookings: CalendarBooking[];
   filteredBookings: CalendarBooking[];
-  halls: Array<{ name: string; dailyEventLimit?: number | null }>;
-  blockedDates: Array<{ startDate: string; endDate: string }>;
+  halls: CalendarHall[];
+  blockedDates: CalendarBlockedDate[];
   dailyEventLimit: number;
   selectedDate: string;
   todayKey: string;
@@ -63,27 +126,37 @@ export function createCalendarDayReader({
     const dayBookings = bookings.filter((booking) => booking.dateKey === key);
     const usedByHall = (hallName: string) =>
       dayBookings.filter((booking) => booking.hall === hallName).length;
-    const isBlocked = blockedDates.some(
-      (range) =>
-        key >= dateKeyFromIso(range.startDate) &&
-        key <= dateKeyFromIso(range.endDate)
-    );
+    const isBlocked = isDateBlockedForCalendar({
+      blockedDates,
+      dateKey: key,
+      halls
+    });
     // No halls saved yet is not the same as no room: the organization has not
     // finished setting up, so the day falls back to the organization-wide limit
     // rather than reporting itself full.
     const openSlots =
       halls.length === 0
         ? Math.max(0, dailyEventLimit - dayBookings.length)
-        : halls.reduce(
-            (total, hall) =>
+        : halls.reduce((total, hall) => {
+            if (
+              isHallBlockedOnDate({
+                blockedDates,
+                dateKey: key,
+                hallId: hall.id
+              })
+            ) {
+              return total;
+            }
+
+            return (
               total +
               Math.max(
                 0,
                 (hall.dailyEventLimit ?? dailyEventLimit) -
                   usedByHall(hall.name)
-              ),
-            0
-          );
+              )
+            );
+          }, 0);
     const fullyBooked = inView && halls.length > 0 && openSlots === 0;
     // Both keys are `YYYY-MM-DD`, so this compares as text.
     const isPast = key < todayKey;
@@ -107,8 +180,7 @@ export function createCalendarDayReader({
       // has no + button, and books nothing when the whole cell is the button.
       // A day that has already been and gone is one of them - an event cannot
       // be held on it, so offering to book it only invites a mistake.
-      canBook:
-        inView && !isPast && !fullyBooked && !isBlocked && canCreateEvent
+      canBook: inView && !isPast && !fullyBooked && !isBlocked && canCreateEvent
     };
   };
 }

@@ -13,8 +13,10 @@ export type KitchenView = "today" | "week" | "four-weeks";
  * know when the food is wanted and how much of the work is done; neither was on
  * here.
  *
- * `summary` is null for a kitchen event someone added by hand: it has no menu
- * document behind it, so there is no production to be part-way through.
+ * `summary` is null for a kitchen event someone added by hand with no menu
+ * document behind it. `sheet` is null on booking cards outside the focused day:
+ * the board carries their ratios, and the full dialog fetches their dish lines
+ * only if someone opens them.
  */
 export type KitchenEvent = {
   id: string;
@@ -39,7 +41,7 @@ export type KitchenEvent = {
   otherMeals: string[];
   summary: EventKitchenSheet["summary"] | null;
   kitchenNote?: string | null;
-  sheet?: EventKitchenSheet;
+  sheet?: EventKitchenSheet | null;
   /// The booking's row version, for the optimistic check on a cancel. Absent on
   /// a standalone kitchen job, which is not a booking and has no version.
   version?: number;
@@ -60,10 +62,10 @@ export type KitchenDay = {
 /**
  * The board's payload: one summary per confirmed event in the window.
  *
- * No `lines`. The dish list for one event is fetched by the details dialog from
- * `GET /api/events/[eventId]/kitchen`, which is the route that signs the
- * pictures - four weeks of dish lists is a large response for a view that draws
- * a ratio.
+ * Full dish lines only ride along for the focused day. Other booking cards
+ * carry summaries and fetch one sheet from `GET /api/events/[eventId]/kitchen`
+ * when opened - four weeks of dish lists is a large response for a view that
+ * mostly draws ratios.
  */
 export type KitchenResponse = {
   events: Array<{
@@ -80,7 +82,7 @@ export type KitchenResponse = {
     otherMeals: string[];
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
-    sheet: EventKitchenSheet;
+    sheet: EventKitchenSheet | null;
   }>;
   kitchenEvents: Array<KitchenEvent & { dateKey: string }>;
   workers: Array<{ id: string; name: string; isStaff: boolean }>;

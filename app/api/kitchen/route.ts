@@ -374,27 +374,29 @@ function buildStandaloneKitchenSheet({
     const addOn = addOnsById.get(addOnId);
     if (!addOn) return [];
 
-    return [{
-      id: `add-on:${addOn.id}:${index}`,
-      menuItemId: null,
-      addOnId: addOn.id,
-      kind: "AddOn",
-      itemKind: null,
-      name: addOn.name,
-      pictureUrl: null,
-      serviceStyle: null,
-      availableStyles: [],
-      notes: null,
-      sortOrder: allLines.length + index,
-      isRetired: !addOn.isActive,
-      quantityMultiplier: 1,
-      quantities: [],
-      unresolvedBases: [],
-      countState: "NotCounted",
-      status: null,
-      assignedWorkerId: null,
-      assignedWorkerName: null
-    }];
+    return [
+      {
+        id: `add-on:${addOn.id}:${index}`,
+        menuItemId: null,
+        addOnId: addOn.id,
+        kind: "AddOn",
+        itemKind: null,
+        name: addOn.name,
+        pictureUrl: null,
+        serviceStyle: null,
+        availableStyles: [],
+        notes: null,
+        sortOrder: allLines.length + index,
+        isRetired: !addOn.isActive,
+        quantityMultiplier: 1,
+        quantities: [],
+        unresolvedBases: [],
+        countState: "NotCounted",
+        status: null,
+        assignedWorkerId: null,
+        assignedWorkerName: null
+      }
+    ];
   });
 
   const lines = visibleKitchenLines([...allLines, ...addOnLines], visibility);
@@ -451,566 +453,567 @@ const boardEventSelect = {
   hall: { select: { name: true } }
 } satisfies Prisma.EventSelect;
 
-export const GET = withRoute(
-  "GET /api/kitchen",
-  async (request: Request) => {
-    try {
-      const actor = await authorize(request, "kitchen.read");
-      const requestedStart = kitchenRangeSchema.parse(
-        new URL(request.url).searchParams.get("start") ?? undefined
-      );
-      // Ahead of the queries rather than beside them: the board's own timezone
-      // decides which day the window opens on, and an unanchored `new Date()`
-      // opens it on the UTC day - which is tomorrow at a New York hall from
-      // eight in the evening.
-      const { integrations, timeZone } = await readKitchenSettings(
-        actor.organizationId
-      );
-      const start = new Date(
-        `${requestedStart ?? todayKeyInTimeZone(timeZone)}T00:00:00.000Z`
-      );
-      const end = new Date(start);
-      end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
+export const GET = withRoute("GET /api/kitchen", async (request: Request) => {
+  try {
+    const actor = await authorize(request, "kitchen.read");
+    const url = new URL(request.url);
+    const requestedStart = kitchenRangeSchema.parse(
+      url.searchParams.get("start") ?? undefined
+    );
+    const requestedDetailsDate = kitchenRangeSchema.parse(
+      url.searchParams.get("detailsDate") ?? undefined
+    );
+    // Ahead of the queries rather than beside them: the board's own timezone
+    // decides which day the window opens on, and an unanchored `new Date()`
+    // opens it on the UTC day - which is tomorrow at a New York hall from
+    // eight in the evening.
+    const { integrations, timeZone } = await readKitchenSettings(
+      actor.organizationId
+    );
+    const start = new Date(
+      `${requestedStart ?? todayKeyInTimeZone(timeZone)}T00:00:00.000Z`
+    );
+    const detailsDate = requestedDetailsDate ?? todayKeyInTimeZone(timeZone);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + WINDOW_DAYS);
 
-      const [events, standaloneEvents, workers] = await Promise.all([
-        prisma.event.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            deleted: false,
-            // Only the events the hall is committed to. Without this the board
-            // listed inquiries, expired holds and cancelled bookings beside real
-            // work, so a kitchen reading today's list could not tell what it was
-            // actually cooking.
-            //
-            // `bookingStatus`, not `eventStatus`: the lifecycle in
-            // `booking.service.ts` is the only writer of this column, while
-            // `eventStatus` is a display label PATCH /api/events/[eventId] still
-            // accepts as "Confirmed" or "Hold" - so a caller sending it for a
-            // cancelled event would relabel it and put it back on this board.
-            bookingStatus: CONFIRMED_STATUS,
-            eventDate: { gte: start, lt: end },
-            // A kitchen lead restricted to one hall was still served every hall's
-            // production, because this query only ever scoped by organization.
-            ...scoped(actor, "hall")
-          },
-          select: boardEventSelect,
-          orderBy: { eventDate: "asc" }
-        }),
-        prisma.kitchenStandaloneEvent.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            eventDate: { gte: start, lt: end }
-          },
-          select: {
-            id: true,
-            menuId: true,
-            menuName: true,
-            eventDate: true,
-            portions: true,
-            kitchenNote: true,
-            includedAddOnIds: true,
-            menu: { select: { includedMenuItemIds: true } }
-          },
-          orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
-        }),
-        loadKitchenStaffWorkers(actor.organizationId)
-      ]);
-      const currentWorkerId =
-        workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
+    const [events, standaloneEvents, workers] = await Promise.all([
+      prisma.event.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          deleted: false,
+          // Only the events the hall is committed to. Without this the board
+          // listed inquiries, expired holds and cancelled bookings beside real
+          // work, so a kitchen reading today's list could not tell what it was
+          // actually cooking.
+          //
+          // `bookingStatus`, not `eventStatus`: the lifecycle in
+          // `booking.service.ts` is the only writer of this column, while
+          // `eventStatus` is a display label PATCH /api/events/[eventId] still
+          // accepts as "Confirmed" or "Hold" - so a caller sending it for a
+          // cancelled event would relabel it and put it back on this board.
+          bookingStatus: CONFIRMED_STATUS,
+          eventDate: { gte: start, lt: end },
+          // A kitchen lead restricted to one hall was still served every hall's
+          // production, because this query only ever scoped by organization.
+          ...scoped(actor, "hall")
+        },
+        select: boardEventSelect,
+        orderBy: { eventDate: "asc" }
+      }),
+      prisma.kitchenStandaloneEvent.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          eventDate: { gte: start, lt: end }
+        },
+        select: {
+          id: true,
+          menuId: true,
+          menuName: true,
+          eventDate: true,
+          portions: true,
+          kitchenNote: true,
+          includedAddOnIds: true,
+          menu: { select: { includedMenuItemIds: true } }
+        },
+        orderBy: [{ eventDate: "asc" }, { createdAt: "asc" }]
+      }),
+      loadKitchenStaffWorkers(actor.organizationId)
+    ]);
+    const currentWorkerId =
+      workers.find((worker) => worker.userId === actor.userId)?.id ?? null;
 
-      // How much of the kitchen this caller may be sent. Resolved after
-      // `loadKitchenStaffWorkers` above, which returns the roster row for
-      // somebody who was given the Kitchen Staff role but never added by hand -
-      // asking first would scope a cook to a worker record that did not exist yet
-      // and hand them an empty board on their first visit.
-      const visibility = await resolveKitchenVisibility(actor);
+    // How much of the kitchen this caller may be sent. Resolved after
+    // `loadKitchenStaffWorkers` above, which returns the roster row for
+    // somebody who was given the Kitchen Staff role but never added by hand -
+    // asking first would scope a cook to a worker record that did not exist yet
+    // and hand them an empty board on their first visit.
+    const visibility = await resolveKitchenVisibility(actor);
 
-      // Not in the batch above, because it needs the answer that batch produces:
-      // the feed is scoped to the events this caller is cooking on, and asking
-      // before the roster row exists would scope a brand new cook to nothing.
-      const notificationFeed = await listKitchenNotifications(
-        actor.organizationId,
+    // Not in the batch above, because it needs the answer that batch produces:
+    // the feed is scoped to the events this caller is cooking on, and asking
+    // before the roster row exists would scope a brand new cook to nothing.
+    const notificationFeed = await listKitchenNotifications(
+      actor.organizationId,
+      visibility
+    );
+
+    const eventIds = events.map((event) => event.id);
+    const standaloneEventIds = standaloneEvents.map((event) => event.id);
+    const standaloneMenuItemIds = [
+      ...new Set(
+        standaloneEvents.flatMap((event) => event.menu.includedMenuItemIds)
+      )
+    ];
+    const standaloneAddOnIds = [
+      ...new Set(standaloneEvents.flatMap((event) => event.includedAddOnIds))
+    ];
+    // Two queries for the whole window rather than two per event. The board
+    // spans four weeks, so the per-event route's shape - which is the right one
+    // for a single event - would be up to a hundred round-trips here.
+    const [
+      menus,
+      otherMeals,
+      statuses,
+      standaloneMenuItems,
+      standaloneAddOns,
+      standaloneStatuses
+    ] = await Promise.all([
+      prisma.eventMenu.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId,
+          meal: DEFAULT_MEAL
+        },
+        select: { ...kitchenMenuSelect, eventId: true }
+      }),
+      // The meals this board cannot draw. Ids and names only - the lines behind
+      // them are not rendered anywhere yet, and four weeks of a second menu's
+      // dishes is a large response for a badge saying they exist.
+      prisma.eventMenu.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId,
+          meal: { not: DEFAULT_MEAL }
+        },
+        select: { eventId: true, meal: true }
+      }),
+      prisma.kitchenItemStatus.findMany({
+        where: {
+          eventId: { in: eventIds },
+          organizationId: actor.organizationId
+        },
+        select: boardStatusSelect
+      }),
+      prisma.menuItem.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          id: { in: standaloneMenuItemIds }
+        },
+        select: {
+          id: true,
+          name: true,
+          // Grouped on by the sheet, the same as an event's own lines.
+          kind: true,
+          isActive: true,
+          services: {
+            select: {
+              serviceStyle: true,
+              quantity: true,
+              unit: true,
+              per: true,
+              perBasis: true,
+              rounding: true,
+              minimumUnits: true
+            },
+            orderBy: { serviceStyle: "asc" }
+          }
+        }
+      }),
+      prisma.addOn.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          id: { in: standaloneAddOnIds }
+        },
+        select: { id: true, name: true, isActive: true }
+      }),
+      prisma.kitchenStandaloneItemStatus.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          kitchenStandaloneEventId: { in: standaloneEventIds }
+        },
+        select: {
+          kitchenStandaloneEventId: true,
+          menuItemId: true,
+          status: true,
+          assignedWorkerId: true,
+          assignedWorker: { select: { name: true } }
+        }
+      })
+    ]);
+
+    const menuByEventId = new Map(menus.map((menu) => [menu.eventId, menu]));
+    const statusesByEventId = new Map<string, StatusRow[]>();
+    const otherMealsByEventId = new Map<string, string[]>();
+
+    for (const itemStatus of statuses) {
+      const current = statusesByEventId.get(itemStatus.eventId) ?? [];
+      current.push(itemStatus);
+      statusesByEventId.set(itemStatus.eventId, current);
+    }
+    const standaloneMenuItemsById = new Map(
+      standaloneMenuItems.map((menuItem) => [menuItem.id, menuItem])
+    );
+    const standaloneAddOnsById = new Map(
+      standaloneAddOns.map((addOn) => [addOn.id, addOn])
+    );
+    const standaloneStatusesByEventId = new Map<
+      string,
+      StandaloneStatusRow[]
+    >();
+
+    for (const itemStatus of standaloneStatuses) {
+      const current =
+        standaloneStatusesByEventId.get(itemStatus.kitchenStandaloneEventId) ??
+        [];
+      current.push(itemStatus);
+      standaloneStatusesByEventId.set(
+        itemStatus.kitchenStandaloneEventId,
+        current
+      );
+    }
+
+    for (const menu of otherMeals) {
+      const current = otherMealsByEventId.get(menu.eventId) ?? [];
+      current.push(menu.meal);
+      otherMealsByEventId.set(menu.eventId, current);
+    }
+
+    const boardEvents = events.flatMap((event) => {
+      // The same builder the event's own kitchen tab runs, so a card's progress
+      // ratio and that tab's can never disagree. No signed pictures: the board
+      // lists events, not dishes, and signing a four week window of thumbnails
+      // nobody renders is a storage round-trip per event.
+      const sheet = buildKitchenSheet({
+        event,
+        meal: DEFAULT_MEAL,
+        menu: menuByEventId.get(event.id) ?? null,
+        otherMeals: otherMealsByEventId.get(event.id) ?? [],
+        statuses: statusesByEventId.get(event.id) ?? [],
+        currentWorkerId,
         visibility
-      );
+      });
 
-      const eventIds = events.map((event) => event.id);
-      const standaloneEventIds = standaloneEvents.map((event) => event.id);
-      const standaloneMenuItemIds = [
-        ...new Set(
-          standaloneEvents.flatMap((event) => event.menu.includedMenuItemIds)
-        )
-      ];
-      const standaloneAddOnIds = [
-        ...new Set(standaloneEvents.flatMap((event) => event.includedAddOnIds))
-      ];
-      // Two queries for the whole window rather than two per event. The board
-      // spans four weeks, so the per-event route's shape - which is the right one
-      // for a single event - would be up to a hundred round-trips here.
-      const [
-        menus,
-        otherMeals,
-        statuses,
-        standaloneMenuItems,
-        standaloneAddOns,
-        standaloneStatuses
-      ] = await Promise.all([
-        prisma.eventMenu.findMany({
-          where: {
-            eventId: { in: eventIds },
-            organizationId: actor.organizationId,
-            meal: DEFAULT_MEAL
-          },
-          select: { ...kitchenMenuSelect, eventId: true }
-        }),
-        // The meals this board cannot draw. Ids and names only - the lines behind
-        // them are not rendered anywhere yet, and four weeks of a second menu's
-        // dishes is a large response for a badge saying they exist.
-        prisma.eventMenu.findMany({
-          where: {
-            eventId: { in: eventIds },
-            organizationId: actor.organizationId,
-            meal: { not: DEFAULT_MEAL }
-          },
-          select: { eventId: true, meal: true }
-        }),
-        prisma.kitchenItemStatus.findMany({
-          where: {
-            eventId: { in: eventIds },
-            organizationId: actor.organizationId
-          },
-          select: boardStatusSelect
-        }),
-        prisma.menuItem.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            id: { in: standaloneMenuItemIds }
-          },
-          select: {
-            id: true,
-            name: true,
-            // Grouped on by the sheet, the same as an event's own lines.
-            kind: true,
-            isActive: true,
-            services: {
-              select: {
-                serviceStyle: true,
-                quantity: true,
-                unit: true,
-                per: true,
-                perBasis: true,
-                rounding: true,
-                minimumUnits: true
-              },
-              orderBy: { serviceStyle: "asc" }
-            }
-          }
-        }),
-        prisma.addOn.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            id: { in: standaloneAddOnIds }
-          },
-          select: { id: true, name: true, isActive: true }
-        }),
-        prisma.kitchenStandaloneItemStatus.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            kitchenStandaloneEventId: { in: standaloneEventIds }
-          },
-          select: {
-            kitchenStandaloneEventId: true,
-            menuItemId: true,
-            status: true,
-            assignedWorkerId: true,
-            assignedWorker: { select: { name: true } }
-          }
-        })
-      ]);
+      // An event a scoped cook has no dish on is not their job, so it does not
+      // reach them at all - the card would otherwise sit on the board reading
+      // "0 of 0" and inviting a tap that opens an empty sheet. Unscoped callers
+      // keep every event, including the ones with no menu saved yet, because for
+      // them an empty sheet is a fact about the event rather than about them.
+      if (!visibility.seesWholeBoard && sheet.lines.length === 0) return [];
+      const shouldIncludeSheet =
+        dateKeyInTimeZone(event.eventDate, "UTC") === detailsDate;
 
-      const menuByEventId = new Map(menus.map((menu) => [menu.eventId, menu]));
-      const statusesByEventId = new Map<string, StatusRow[]>();
-      const otherMealsByEventId = new Map<string, string[]>();
+      return {
+        id: event.id,
+        clientName: event.clientName,
+        eventDate: event.eventDate,
+        eventType: event.eventType,
+        eventStatus: event.eventStatus,
+        startsAt: event.startsAt,
+        packageName: event.packageName,
+        version: event.version,
+        hall: { name: event.hall.name },
+        // The whole window carries summaries. Only the focused day carries
+        // dish lines; week and four-week cards fetch one full sheet when they
+        // are opened instead of making the list response haul every line.
+        menuStatus: sheet.menuStatus,
+        otherMeals: sheet.otherMeals,
+        counts: sheet.counts,
+        summary: sheet.summary,
+        sheet: shouldIncludeSheet ? sheet : null
+      };
+    });
 
-      for (const itemStatus of statuses) {
-        const current = statusesByEventId.get(itemStatus.eventId) ?? [];
-        current.push(itemStatus);
-        statusesByEventId.set(itemStatus.eventId, current);
-      }
-      const standaloneMenuItemsById = new Map(
-        standaloneMenuItems.map((menuItem) => [menuItem.id, menuItem])
-      );
-      const standaloneAddOnsById = new Map(
-        standaloneAddOns.map((addOn) => [addOn.id, addOn])
-      );
-      const standaloneStatusesByEventId = new Map<
-        string,
-        StandaloneStatusRow[]
-      >();
+    // The board is gated on `kitchen.read`; what the board lets you DO is four
+    // further questions, each asked of the resolver rather than inferred from
+    // one "is this an administrator" flag. The client renders buttons from these
+    // - and the PATCH handler below re-asks every one of them, because a hidden
+    // button is a courtesy and the 403 is the control.
+    //
+    // `event.status.update` is not a kitchen permission and is deliberately not
+    // one: cancelling ends a booking for the whole business, so it is the
+    // booking lifecycle's own permission that decides it, asked here only so the
+    // board can avoid offering a cook a button that will refuse them.
+    const [
+      canAssignWorkers,
+      canUpdateKitchenStatus,
+      canAddKitchenEvents,
+      canCancelEvents
+    ] = await Promise.all([
+      hasPermission(actor, "kitchen.worker.assign"),
+      hasPermission(actor, "kitchen.status.update"),
+      hasPermission(actor, "kitchen.event.create"),
+      hasPermission(actor, "event.status.update")
+    ]);
 
-      for (const itemStatus of standaloneStatuses) {
-        const current =
-          standaloneStatusesByEventId.get(itemStatus.kitchenStandaloneEventId) ??
-          [];
-        current.push(itemStatus);
-        standaloneStatusesByEventId.set(
-          itemStatus.kitchenStandaloneEventId,
-          current
-        );
-      }
+    // The menus a kitchen event can be raised against. A kitchen event is a
+    // production job rather than a booking - "cook this menu for this many
+    // people" - so the menu is the one thing it genuinely needs, and a typed
+    // name would tell the kitchen nothing about what to make.
+    const [menuOptions, libraryMenuItems, libraryAddOns] = await Promise.all([
+      prisma.eventPackage.findMany({
+        where: { organizationId: actor.organizationId, isActive: true },
+        select: { id: true, name: true, includedMenuItemIds: true },
+        orderBy: { name: "asc" }
+      }),
+      prisma.menuItem.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          isActive: true,
+          kind: { in: ["Food", "Drink"] }
+        },
+        select: {
+          id: true,
+          name: true,
+          category: true,
+          kind: true,
+          services: { select: { serviceStyle: true } },
+          categoryRef: { select: { name: true } }
+        },
+        orderBy: [{ category: "asc" }, { name: "asc" }]
+      }),
+      prisma.addOn.findMany({
+        where: {
+          organizationId: actor.organizationId,
+          isActive: true
+        },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" }
+      })
+    ]);
 
-      for (const menu of otherMeals) {
-        const current = otherMealsByEventId.get(menu.eventId) ?? [];
-        current.push(menu.meal);
-        otherMealsByEventId.set(menu.eventId, current);
-      }
-
-      const boardEvents = events.flatMap((event) => {
-        // The same builder the event's own kitchen tab runs, so a card's progress
-        // ratio and that tab's can never disagree. No signed pictures: the board
-        // lists events, not dishes, and signing a four week window of thumbnails
-        // nobody renders is a storage round-trip per event.
-        const sheet = buildKitchenSheet({
-          event,
-          meal: DEFAULT_MEAL,
-          menu: menuByEventId.get(event.id) ?? null,
-          otherMeals: otherMealsByEventId.get(event.id) ?? [],
-          statuses: statusesByEventId.get(event.id) ?? [],
+    return NextResponse.json({
+      events: boardEvents,
+      kitchenEvents: standaloneEvents.flatMap((event) => {
+        const sheet = buildStandaloneKitchenSheet({
+          menuItemIds: event.menu.includedMenuItemIds,
+          menuItemsById: standaloneMenuItemsById,
+          addOnIds: event.includedAddOnIds,
+          addOnsById: standaloneAddOnsById,
+          portions: event.portions,
+          statuses: standaloneStatusesByEventId.get(event.id) ?? [],
           currentWorkerId,
           visibility
         });
 
-        // An event a scoped cook has no dish on is not their job, so it does not
-        // reach them at all - the card would otherwise sit on the board reading
-        // "0 of 0" and inviting a tap that opens an empty sheet. Unscoped callers
-        // keep every event, including the ones with no menu saved yet, because for
-        // them an empty sheet is a fact about the event rather than about them.
+        // Same rule as the booked events above: a production job with nothing
+        // assigned to this cook is not theirs to see.
         if (!visibility.seesWholeBoard && sheet.lines.length === 0) return [];
 
         return {
           id: event.id,
-          clientName: event.clientName,
-          eventDate: event.eventDate,
-          eventType: event.eventType,
-          eventStatus: event.eventStatus,
-          startsAt: event.startsAt,
-          packageName: event.packageName,
-          version: event.version,
-          hall: { name: event.hall.name },
-          // Deliberately without `lines`. The card draws a ratio and a time; the
-          // dish list is fetched per event by the details dialog, from the route
-          // that already signs its pictures.
+          source: "standalone",
+          dateKey: event.eventDate.toISOString().slice(0, 10),
+          category: "Kitchen-only",
+          title: event.menuName,
+          status: "Kitchen",
+          statusType: "kitchen",
+          startsAt: null,
+          totalGuests: event.portions,
           menuStatus: sheet.menuStatus,
-          otherMeals: sheet.otherMeals,
-          counts: sheet.counts,
+          otherMeals: [],
           summary: sheet.summary,
+          kitchenNote: event.kitchenNote,
           sheet
         };
-      });
-
-      // The board is gated on `kitchen.read`; what the board lets you DO is four
-      // further questions, each asked of the resolver rather than inferred from
-      // one "is this an administrator" flag. The client renders buttons from these
-      // - and the PATCH handler below re-asks every one of them, because a hidden
-      // button is a courtesy and the 403 is the control.
-      //
-      // `event.status.update` is not a kitchen permission and is deliberately not
-      // one: cancelling ends a booking for the whole business, so it is the
-      // booking lifecycle's own permission that decides it, asked here only so the
-      // board can avoid offering a cook a button that will refuse them.
-      const [
+      }),
+      workers: workers.map(({ id, name, isStaff }) => ({ id, name, isStaff })),
+      currentWorkerId,
+      notifications: notificationFeed.notifications,
+      // Whether the feed was cut short, so the drawer can say so rather than
+      // letting a full-looking list stand for the whole history.
+      notificationsHasMore: notificationFeed.hasMore,
+      menus: menuOptions.map((menu) => ({
+        id: menu.id,
+        name: menu.name,
+        dishCount: menu.includedMenuItemIds.length
+      })),
+      menuItems: libraryMenuItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        category: item.categoryRef?.name ?? item.category,
+        kind: item.kind,
+        serviceStyles: [
+          ...new Set(item.services.map((service) => service.serviceStyle))
+        ]
+      })),
+      addOns: libraryAddOns,
+      permissions: {
         canAssignWorkers,
         canUpdateKitchenStatus,
         canAddKitchenEvents,
-        canCancelEvents
-      ] = await Promise.all([
-        hasPermission(actor, "kitchen.worker.assign"),
-        hasPermission(actor, "kitchen.status.update"),
-        hasPermission(actor, "kitchen.event.create"),
-        hasPermission(actor, "event.status.update")
-      ]);
-
-      // The menus a kitchen event can be raised against. A kitchen event is a
-      // production job rather than a booking - "cook this menu for this many
-      // people" - so the menu is the one thing it genuinely needs, and a typed
-      // name would tell the kitchen nothing about what to make.
-      const [menuOptions, libraryMenuItems, libraryAddOns] = await Promise.all([
-        prisma.eventPackage.findMany({
-          where: { organizationId: actor.organizationId, isActive: true },
-          select: { id: true, name: true, includedMenuItemIds: true },
-          orderBy: { name: "asc" }
-        }),
-        prisma.menuItem.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            isActive: true,
-            kind: { in: ["Food", "Drink"] }
-          },
-          select: {
-            id: true,
-            name: true,
-            category: true,
-            kind: true,
-            services: { select: { serviceStyle: true } },
-            categoryRef: { select: { name: true } }
-          },
-          orderBy: [{ category: "asc" }, { name: "asc" }]
-        }),
-        prisma.addOn.findMany({
-          where: {
-            organizationId: actor.organizationId,
-            isActive: true
-          },
-          select: { id: true, name: true },
-          orderBy: { name: "asc" }
-        })
-      ]);
-
-      return NextResponse.json({
-        events: boardEvents,
-        kitchenEvents: standaloneEvents.flatMap((event) => {
-          const sheet = buildStandaloneKitchenSheet({
-            menuItemIds: event.menu.includedMenuItemIds,
-            menuItemsById: standaloneMenuItemsById,
-            addOnIds: event.includedAddOnIds,
-            addOnsById: standaloneAddOnsById,
-            portions: event.portions,
-            statuses: standaloneStatusesByEventId.get(event.id) ?? [],
-            currentWorkerId,
-            visibility
-          });
-
-          // Same rule as the booked events above: a production job with nothing
-          // assigned to this cook is not theirs to see.
-          if (!visibility.seesWholeBoard && sheet.lines.length === 0) return [];
-
-          return {
-            id: event.id,
-            source: "standalone",
-            dateKey: event.eventDate.toISOString().slice(0, 10),
-            category: "Kitchen-only",
-            title: event.menuName,
-            status: "Kitchen",
-            statusType: "kitchen",
-            startsAt: null,
-            totalGuests: event.portions,
-            menuStatus: sheet.menuStatus,
-            otherMeals: [],
-            summary: sheet.summary,
-            kitchenNote: event.kitchenNote,
-            sheet
-          };
-        }),
-        workers: workers.map(({ id, name, isStaff }) => ({ id, name, isStaff })),
-        currentWorkerId,
-        notifications: notificationFeed.notifications,
-        // Whether the feed was cut short, so the drawer can say so rather than
-        // letting a full-looking list stand for the whole history.
-        notificationsHasMore: notificationFeed.hasMore,
-        menus: menuOptions.map((menu) => ({
-          id: menu.id,
-          name: menu.name,
-          dishCount: menu.includedMenuItemIds.length
-        })),
-        menuItems: libraryMenuItems.map((item) => ({
-          id: item.id,
-          name: item.name,
-          category: item.categoryRef?.name ?? item.category,
-          kind: item.kind,
-          serviceStyles: [
-            ...new Set(item.services.map((service) => service.serviceStyle))
-          ]
-        })),
-        addOns: libraryAddOns,
-        permissions: {
-          canAssignWorkers,
-          canUpdateKitchenStatus,
-          canAddKitchenEvents,
-          canCancelEvents,
-          // Not a capability - a description of what was just sent. The board uses
-          // it to word an empty day honestly: "nothing scheduled" is false for a
-          // cook whose colleagues are cooking eight dishes they cannot see, and
-          // the difference between "no work exists" and "none of it is yours" is
-          // the whole point of scoping the sheet.
-          seesWholeBoard: visibility.seesWholeBoard
-        },
-        kitchenSettings: {
-          ...kitchenBoardSettingsFromIntegrations(integrations),
-          // Sent so the board marks the same day "Today" that the writes below
-          // will accept. The two used to work it out separately - the browser
-          // locally, the server in UTC - and disagreed for the last four hours
-          // of every New York evening.
-          timeZone
-        }
-      });
-    } catch (error) {
-      return createApiErrorResponse(error);
-    }
+        canCancelEvents,
+        // Not a capability - a description of what was just sent. The board uses
+        // it to word an empty day honestly: "nothing scheduled" is false for a
+        // cook whose colleagues are cooking eight dishes they cannot see, and
+        // the difference between "no work exists" and "none of it is yours" is
+        // the whole point of scoping the sheet.
+        seesWholeBoard: visibility.seesWholeBoard
+      },
+      kitchenSettings: {
+        ...kitchenBoardSettingsFromIntegrations(integrations),
+        // Sent so the board marks the same day "Today" that the writes below
+        // will accept. The two used to work it out separately - the browser
+        // locally, the server in UTC - and disagreed for the last four hours
+        // of every New York evening.
+        timeZone
+      }
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
   }
-);
+});
 
-export const POST = withRoute(
-  "POST /api/kitchen",
-  async (request: Request) => {
-    try {
-      const actor = await authorize(request, "kitchen.event.create");
-      const input = kitchenStandaloneEventSchema.parse(await request.json());
-      const todayKey = todayKeyInTimeZone(
-        await organizationTimeZone(actor.organizationId)
+export const POST = withRoute("POST /api/kitchen", async (request: Request) => {
+  try {
+    const actor = await authorize(request, "kitchen.event.create");
+    const input = kitchenStandaloneEventSchema.parse(await request.json());
+    const todayKey = todayKeyInTimeZone(
+      await organizationTimeZone(actor.organizationId)
+    );
+
+    if (input.date < todayKey) {
+      return NextResponse.json(
+        { error: "Kitchen events cannot be created in the past." },
+        { status: 409 }
       );
+    }
 
-      if (input.date < todayKey) {
-        return NextResponse.json(
-          { error: "Kitchen events cannot be created in the past." },
-          { status: 409 }
-        );
+    const eventDate = new Date(`${input.date}T00:00:00.000Z`);
+
+    const kitchenEvent = await prisma.$transaction(async (transaction) => {
+      const uniqueAddOnIds = [...new Set(input.addOnIds)];
+      const selectedAddOns = uniqueAddOnIds.length
+        ? await transaction.addOn.findMany({
+            where: {
+              organizationId: actor.organizationId,
+              id: { in: uniqueAddOnIds },
+              isActive: true
+            },
+            select: { id: true }
+          })
+        : [];
+
+      if (selectedAddOns.length !== uniqueAddOnIds.length) {
+        throw new Error("One of the selected add-ons is unavailable.");
       }
 
-      const eventDate = new Date(`${input.date}T00:00:00.000Z`);
+      let menu: { id: string; name: string };
 
-      const kitchenEvent = await prisma.$transaction(async (transaction) => {
-        const uniqueAddOnIds = [...new Set(input.addOnIds)];
-        const selectedAddOns = uniqueAddOnIds.length
-          ? await transaction.addOn.findMany({
+      if (input.quickMenu) {
+        const uniqueDishNames = [...new Set(input.quickMenu.dishNames)];
+        const uniqueMenuItemIds = [...new Set(input.quickMenu.menuItemIds)];
+        const categoryId = await resolveMenuCategoryId(
+          actor.organizationId,
+          "Kitchen"
+        );
+
+        const existingItems = uniqueMenuItemIds.length
+          ? await transaction.menuItem.findMany({
               where: {
                 organizationId: actor.organizationId,
-                id: { in: uniqueAddOnIds },
+                id: { in: uniqueMenuItemIds },
                 isActive: true
               },
               select: { id: true }
             })
           : [];
 
-        if (selectedAddOns.length !== uniqueAddOnIds.length) {
-          throw new Error("One of the selected add-ons is unavailable.");
+        if (existingItems.length !== uniqueMenuItemIds.length) {
+          throw new Error("One of the selected menu items is unavailable.");
         }
 
-        let menu: { id: string; name: string };
-
-        if (input.quickMenu) {
-          const uniqueDishNames = [...new Set(input.quickMenu.dishNames)];
-          const uniqueMenuItemIds = [...new Set(input.quickMenu.menuItemIds)];
-          const categoryId = await resolveMenuCategoryId(
-            actor.organizationId,
-            "Kitchen"
-          );
-
-          const existingItems = uniqueMenuItemIds.length
-            ? await transaction.menuItem.findMany({
-                where: {
-                  organizationId: actor.organizationId,
-                  id: { in: uniqueMenuItemIds },
-                  isActive: true
-                },
-                select: { id: true }
-              })
-            : [];
-
-          if (existingItems.length !== uniqueMenuItemIds.length) {
-            throw new Error("One of the selected menu items is unavailable.");
-          }
-
-          const createdItems = [];
-          for (const name of uniqueDishNames) {
-            createdItems.push(
-              await transaction.menuItem.create({
-                data: {
-                  organizationId: actor.organizationId,
-                  name,
-                  category: "Kitchen",
-                  categoryId,
-                  usageType: "Both",
-                  kind: "Food",
-                  services: {
-                    create: {
-                      organizationId: actor.organizationId,
-                      serviceStyle: "Buffet",
-                      quantity: 1,
-                      unit: "portion",
-                      per: 1,
-                      perBasis: "TotalGuests",
-                      rounding: "Exact",
-                      minimumUnits: null
-                    }
+        const createdItems = [];
+        for (const name of uniqueDishNames) {
+          createdItems.push(
+            await transaction.menuItem.create({
+              data: {
+                organizationId: actor.organizationId,
+                name,
+                category: "Kitchen",
+                categoryId,
+                usageType: "Both",
+                kind: "Food",
+                services: {
+                  create: {
+                    organizationId: actor.organizationId,
+                    serviceStyle: "Buffet",
+                    quantity: 1,
+                    unit: "portion",
+                    per: 1,
+                    perBasis: "TotalGuests",
+                    rounding: "Exact",
+                    minimumUnits: null
                   }
-                },
-                select: { id: true }
-              })
-            );
-          }
-
-          menu = await transaction.eventPackage.create({
-            data: {
-              organizationId: actor.organizationId,
-              name: input.quickMenu.name,
-              includedMenuItemIds: [
-                ...existingItems.map((item) => item.id),
-                ...createdItems.map((item) => item.id)
-              ],
-              isActive: input.quickMenu.saveToLibrary,
-              notes: input.quickMenu.saveToLibrary
-                ? "Created from the Kitchen Dashboard."
-                : "One-time kitchen-only quick menu."
-            },
-            select: { id: true, name: true }
-          });
-        } else {
-          const existingMenu = await transaction.eventPackage.findFirst({
-            where: {
-              id: input.menuId,
-              organizationId: actor.organizationId,
-              isActive: true
-            },
-            select: { id: true, name: true }
-          });
-
-          if (!existingMenu) {
-            throw new Error("Choose an active menu for this kitchen event.");
-          }
-
-          menu = existingMenu;
+                }
+              },
+              select: { id: true }
+            })
+          );
         }
 
-        return transaction.kitchenStandaloneEvent.create({
+        menu = await transaction.eventPackage.create({
           data: {
             organizationId: actor.organizationId,
-            menuId: menu.id,
-            menuName: menu.name,
-            eventDate,
-            portions: input.portions,
-            kitchenNote: input.kitchenNote || null,
-            includedAddOnIds: uniqueAddOnIds,
-            createdById: actor.userId
+            name: input.quickMenu.name,
+            includedMenuItemIds: [
+              ...existingItems.map((item) => item.id),
+              ...createdItems.map((item) => item.id)
+            ],
+            isActive: input.quickMenu.saveToLibrary,
+            notes: input.quickMenu.saveToLibrary
+              ? "Created from the Kitchen Dashboard."
+              : "One-time kitchen-only quick menu."
           },
-          select: {
-            id: true,
-            menuName: true,
-            eventDate: true,
-            portions: true,
-            kitchenNote: true
-          }
+          select: { id: true, name: true }
         });
-      });
+      } else {
+        const existingMenu = await transaction.eventPackage.findFirst({
+          where: {
+            id: input.menuId,
+            organizationId: actor.organizationId,
+            isActive: true
+          },
+          select: { id: true, name: true }
+        });
 
-      return NextResponse.json({
-        kitchenEvent: {
-          id: kitchenEvent.id,
-          dateKey: kitchenEvent.eventDate.toISOString().slice(0, 10),
-          category: "Kitchen",
-          title: kitchenEvent.menuName,
-          statusType: "kitchen",
-          startsAt: null,
-          totalGuests: kitchenEvent.portions,
-          menuStatus: "Draft",
-          otherMeals: [],
-          summary: null,
-          kitchenNote: kitchenEvent.kitchenNote
+        if (!existingMenu) {
+          throw new Error("Choose an active menu for this kitchen event.");
+        }
+
+        menu = existingMenu;
+      }
+
+      return transaction.kitchenStandaloneEvent.create({
+        data: {
+          organizationId: actor.organizationId,
+          menuId: menu.id,
+          menuName: menu.name,
+          eventDate,
+          portions: input.portions,
+          kitchenNote: input.kitchenNote || null,
+          includedAddOnIds: uniqueAddOnIds,
+          createdById: actor.userId
+        },
+        select: {
+          id: true,
+          menuName: true,
+          eventDate: true,
+          portions: true,
+          kitchenNote: true
         }
       });
-    } catch (error) {
-      return createApiErrorResponse(error);
-    }
+    });
+
+    return NextResponse.json({
+      kitchenEvent: {
+        id: kitchenEvent.id,
+        dateKey: kitchenEvent.eventDate.toISOString().slice(0, 10),
+        category: "Kitchen",
+        title: kitchenEvent.menuName,
+        statusType: "kitchen",
+        startsAt: null,
+        totalGuests: kitchenEvent.portions,
+        menuStatus: "Draft",
+        otherMeals: [],
+        summary: null,
+        kitchenNote: kitchenEvent.kitchenNote
+      }
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
   }
-);
+});
 
 /**
  * Removes a standalone kitchen job.
@@ -1189,7 +1192,10 @@ export const PATCH = withRoute(
             }
           }),
           prisma.menuItem.findFirst({
-            where: { id: input.menuItemId, organizationId: actor.organizationId },
+            where: {
+              id: input.menuItemId,
+              organizationId: actor.organizationId
+            },
             select: { id: true, name: true }
           })
         ]);
@@ -1207,9 +1213,7 @@ export const PATCH = withRoute(
 
         if (
           dateKeyInTimeZone(kitchenEvent.eventDate, "UTC") <
-          todayKeyInTimeZone(
-            await organizationTimeZone(actor.organizationId)
-          )
+          todayKeyInTimeZone(await organizationTimeZone(actor.organizationId))
         ) {
           return NextResponse.json(
             { error: "Past kitchen events are read-only." },
@@ -1339,7 +1343,8 @@ export const PATCH = withRoute(
       ) {
         return NextResponse.json(
           {
-            error: "You do not have permission to change what the kitchen cooks."
+            error:
+              "You do not have permission to change what the kitchen cooks."
           },
           { status: 403 }
         );
@@ -1359,7 +1364,10 @@ export const PATCH = withRoute(
         select: { id: true, hallId: true, eventDate: true }
       });
       if (!event) {
-        return NextResponse.json({ error: "Event not found." }, { status: 404 });
+        return NextResponse.json(
+          { error: "Event not found." },
+          { status: 404 }
+        );
       }
 
       // Scoping the GET alone would be half the fix: an event id is all it takes
