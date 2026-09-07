@@ -1,16 +1,27 @@
 import type { Instrumentation } from "next";
 
 /**
+ * Runs once, before anything is served.
+ *
+ * The runtime guard is not ceremony: this file is loaded on every runtime Next
+ * has, and the server config pulls in pino and the Node SDK. There are zero
+ * `runtime = "edge"` routes in this repository and Next 16 runs Proxy on Node
+ * by default, so the guard is a no-op today and the honest boundary tomorrow -
+ * an edge route added later gets no Sentry rather than a build failure.
+ */
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("./sentry.server.config");
+  }
+}
+
+/**
  * The gap `createApiErrorResponse` cannot see.
  *
  * `onRequestError` fires only for errors that ESCAPE a handler, and 69 of the
  * 73 route files here carry their own `catch`. So this is not a second net
  * under the API - it is the only net at all under Server Component rendering
  * and streaming, which today fail with nothing recorded anywhere.
- *
- * No `register()` export yet: it exists to initialise a vendor SDK, and Phase 1
- * ships without one. Sentry's `captureRequestError` joins this function in
- * Phase 2.
  */
 export const onRequestError: Instrumentation.onRequestError = async (
   err,
@@ -45,4 +56,16 @@ export const onRequestError: Instrumentation.onRequestError = async (
     },
     "request_error"
   );
+
+  // Sentry ships this for exactly this hook's signature, so the arguments are
+  // handed straight through rather than reshaped. It is called AFTER the log
+  // line above on purpose: the line is the thing that always happens, and a
+  // failure inside the vendor SDK must not be able to swallow it.
+  //
+  // Lazily imported for the same reason as the logger, and additionally so that
+  // an edge invocation - where `register()` deliberately never initialised the
+  // SDK - does not drag the server build in behind it.
+  const Sentry = await import("@sentry/nextjs");
+
+  await Sentry.captureRequestError(err, request, context);
 };

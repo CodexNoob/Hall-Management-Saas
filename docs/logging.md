@@ -118,7 +118,8 @@ be drained somewhere durable.
 ## Server only
 
 `lib/logging/context.ts` imports `node:async_hooks`. Importing `log` into a
-`"use client"` component fails the build. There is no client-side reporting yet.
+`"use client"` component fails the build. Client-side code reports through
+`lib/logging/report.ts` instead — see [Errors](#errors) below.
 
 Neither logging module carries `server-only`, and that is deliberate:
 `lib/http/api-error.ts` imports the context module, and `lib/auth/errors.ts`
@@ -187,3 +188,84 @@ string a support ticket quotes.
 are covered — and so are **denials**, which throw before a context is ever
 built. A denial that does not name its tenant says somebody was refused, not
 who.
+
+## Errors
+
+The log stream answers "what did the system do". It is deliberately not the
+place for "what broke, and who did it hit" — that is Sentry, and it is a
+separate plane with its own store, retention and privacy rules.
+
+```ts
+import { captureException } from "@/lib/logging/report";
+```
+
+**You almost never call this.** `createApiErrorResponse` already captures the
+unhandled branch, exactly as it already logs it, so anything reaching a route's
+`catch` is reported without a line of code. The two existing call sites are
+`app/error.tsx` and `app/global-error.tsx`, which are React error boundaries and
+cannot reach the server logger at all.
+
+The handled branches — `AuthorizationError`, `BookingError`, `ZodError`,
+P2002/P2025, write conflicts — are logged but **not** captured. They are
+expected outcomes with a status and a shape, and sending a 403 to an issue
+tracker is how the tracker becomes noise nobody reads.
+
+### The two ids
+
+| Field | Where it lives | Joins |
+| --- | --- | --- |
+| `requestId` | log line, `x-request-id` header, error toast | every log line for one request |
+| `sentryId` | on the `unhandled_route_error` log line | that line to the grouped issue |
+| `digest` | React's hash, on `request_error` | an error boundary's screen to the server log |
+
+`sentryId` is null whenever no DSN is configured, which is deliberate: an id for
+an event that was never transmitted is a join key pointing at a row that does
+not exist.
+
+### No call site imports Sentry
+
+`lib/logging/report.ts` holds no vendor import. `sentry.server.config.ts` and
+`instrumentation-client.ts` push an implementation into it at startup with
+`registerErrorReporter`.
+
+That is a constraint, not a preference. `report.ts` is in
+`lib/http/api-error.ts`'s import graph and therefore in all 71 routes' and every
+test that exercises one — and importing `@sentry/nextjs` pulls its webpack
+bundler plugin, which throws `The URL must be of scheme file` under Vitest.
+**Do not import `@sentry/nextjs` anywhere except those two config files.**
+
+### Privacy applies here too
+
+Sentry builds its own events and attaches its own request metadata, so none of
+the redaction above carries over. `lib/logging/scrub-event.ts` re-states the
+rules for the error plane and strips the body, the cookie and authorization
+headers, and the query string, and runs URLs through `safePath()`.
+`sendDefaultPii` is off in both configs, and the user is bound as a bare uuid —
+never an email. `tests/unit/error-reporting.test.ts` asserts all of it.
+
+### Configuration
+
+```
+SENTRY_DSN=              # server. unset = reporting off, everything no-ops
+NEXT_PUBLIC_SENTRY_DSN=  # browser. same value; a DSN is a public ingest key
+SENTRY_ORG=              # build-time, source map upload
+SENTRY_PROJECT=          # build-time, source map upload
+SENTRY_AUTH_TOKEN=       # build-time ONLY. a real credential. never NEXT_PUBLIC_
+```
+
+All optional. With none of them set the SDK initialises with no destination,
+every capture is a no-op and the application behaves identically — which is how
+it ships until the Sentry project exists.
+
+### The CSP, and why there is no Sentry host in it
+
+`next.config.ts` sets `tunnelRoute`, so the browser posts envelopes to a
+same-origin path that `connect-src 'self'` already allows, and the server
+forwards them. This also survives ad-blockers, which block direct requests to
+`*.sentry.io` by hostname.
+
+If the SDK looks installed and the dashboard is empty, **adding an ingest host
+to `connect-src` is the wrong fix** — check `tunnelRoute` and the DSN. A CSP
+refusal is silent. `tests/unit/security-headers.test.ts` asserts the tunnel and
+the absent host as a pair, and asserts that `proxy.ts` does not match the tunnel
+— an envelope must not carry a Supabase round trip.

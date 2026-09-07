@@ -1,6 +1,10 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Logger } from "pino";
 import { baseLogger } from "@/lib/logging/logger";
+import {
+  bindActorToErrorScope,
+  bindRequestIdToErrorScope
+} from "@/lib/logging/report";
 
 /**
  * Per-request context, carried ambiently so that a service three calls deep can
@@ -22,6 +26,11 @@ type RequestScope = {
 const storage = new AsyncLocalStorage<{ logger: Logger; scope: RequestScope }>();
 
 export function runInRequestScope<T>(scope: RequestScope, fn: () => T): T {
+  // The two planes get the same correlation key from one place. Sentry groups
+  // by stack and the logs group by `requestId`, so without this an issue tells
+  // you what broke but not which of the request's log lines belong to it.
+  bindRequestIdToErrorScope(scope.requestId);
+
   return storage.run({ logger: baseLogger.child(scope), scope }, fn);
 }
 
@@ -42,6 +51,12 @@ export function bindActor(actor: {
   userId: string | null;
   principalId: string;
 }) {
+  // Outside the `if` below on purpose. The error plane has its own per-request
+  // isolation scope and does not depend on this module's storage, so an actor
+  // resolved outside a request scope still deserves its tag - and tagging is
+  // what turns "an error happened" into "this hit these three organizations".
+  bindActorToErrorScope(actor);
+
   const store = storage.getStore();
 
   if (!store) return;
