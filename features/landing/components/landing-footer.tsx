@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
+import type { MouseEvent } from "react";
 import { NewsletterForm } from "@/features/landing/components/newsletter-form";
 import {
   companyLinks,
@@ -31,7 +32,46 @@ function ChevronIcon() {
   );
 }
 
+function openFooterTarget(href: string) {
+  const url = new URL(href, window.location.origin);
+  const currentPath = `${window.location.pathname}${window.location.search}`;
+  const targetPath = `${url.pathname}${url.search}`;
+
+  if (targetPath !== currentPath) {
+    preparePublicPageNavigation(href);
+    return false;
+  }
+
+  const id = decodeURIComponent(url.hash.slice(1));
+  if (id === "contact") {
+    window.dispatchEvent(new Event("event-core:open-contact"));
+    return true;
+  }
+
+  if (!id) {
+    window.history.pushState(null, "", targetPath || "/");
+    window.scrollTo({ top: 0, left: 0 });
+    return true;
+  }
+
+  const target = document.getElementById(id);
+  if (!target) {
+    preparePublicPageNavigation(href);
+    return false;
+  }
+
+  window.history.pushState(null, "", `${targetPath}${url.hash}`);
+  target.scrollIntoView({ block: "start" });
+  return true;
+}
+
 function LinkList({ title, links }: { title: string; links: { label: string; href: string }[] }) {
+  function handleClick(event: MouseEvent<HTMLAnchorElement>, href: string) {
+    if (openFooterTarget(href)) {
+      event.preventDefault();
+    }
+  }
+
   return (
     <div className="border-white/10 lg:border-l lg:pl-9">
       <h3 className="text-xl font-black text-white">{title}</h3>
@@ -41,7 +81,7 @@ function LinkList({ title, links }: { title: string; links: { label: string; hre
             <Link
               className="group flex items-center gap-3 text-base font-medium text-[#aeb8d1] transition hover:text-[#1f4d73]"
               href={link.href as Route}
-              onClick={() => preparePublicPageNavigation(link.href)}
+              onClick={(event) => handleClick(event, link.href)}
               scroll={false}
             >
               <span className="text-[#1f4d73]">
