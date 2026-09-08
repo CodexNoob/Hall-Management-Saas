@@ -7,6 +7,7 @@ import {
   invalidateAuthenticatedQuery,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { countSchema, moneySchema } from "@/lib/validation/number";
 import { readNumericFields } from "@/lib/validation/numeric-form";
 
@@ -52,6 +53,28 @@ type HallInput = {
 };
 
 /**
+ * What a PATCH may leave out, which is the whole point of this type.
+ *
+ * `PUT`-shaped saves - send the entire record every time - stopped working the
+ * moment `PATCH /api/halls` began asking for `hall.price.update` when a price
+ * field is present and `hall.delete` when a circulation flag is. A hall editor
+ * without those keys who resent the prices unchanged would be refused for
+ * fields they never touched, so the payload now carries only what the caller
+ * may actually change. The route treats an absent field as leave-alone.
+ */
+type HallUpdateInput = Partial<HallInput> & { id: string };
+
+/**
+ * Create is partial for the same reason, minus the id.
+ *
+ * `POST /api/halls` defaults every absent field - prices to null, `isActive`
+ * and `isBookable` to true - so a creator who may not price a hall sends no
+ * price fields rather than four nulls, and the route's own
+ * `hall.price.update` check has nothing to refuse. Only the name is required.
+ */
+type HallCreateInput = Partial<HallInput> & { name: string };
+
+/**
  * The dialog keeps numeric fields as the raw text the user typed and only
  * converts on save. Coercing per keystroke with `Number(...)` is what let
  * unparseable input reach the server as a silent 0 or a silent null.
@@ -90,10 +113,6 @@ const emptyHall: HallFormState = {
   isActive: true,
   isBookable: true
 };
-
-function normalizeMoneyValue(value: string | number | null) {
-  return value === null ? null : Number(value);
-}
 
 function moneyText(value: string | number | null) {
   return value === null || value === undefined ? "" : String(Number(value));
@@ -137,6 +156,7 @@ function PriceInput({
   label,
   value,
   error,
+  disabled,
   onChange
 }: {
   id: string;
@@ -144,6 +164,7 @@ function PriceInput({
   label: string;
   value: string;
   error?: string;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -152,12 +173,14 @@ function PriceInput({
       <input
         aria-describedby={error ? `${id}-error` : undefined}
         aria-invalid={error ? true : undefined}
-        className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm"
+        className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm disabled:cursor-not-allowed disabled:bg-[#f1f4f8] disabled:text-[#6a7483]"
+        disabled={disabled}
         id={id}
         inputMode="decimal"
         name={name}
         onChange={(event) => onChange(event.target.value)}
         placeholder="0.00"
+        readOnly={disabled}
         type="text"
         value={value}
       />
@@ -184,14 +207,46 @@ function formatMoney(value: string | number | null) {
   }).format(Number(value));
 }
 
-export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
+/**
+ * ONE CONTROL, ONE KEY - not one panel, one key.
+ *
+ * This whole panel used to be gated on `settings.update`, passed down as a
+ * single `canEdit`. That was true enough while halls were one `hall.manage`
+ * key, and became wrong the moment the lifecycle split: an Event Manager holds
+ * `hall.update` and would have sat looking at four disabled buttons, because
+ * the page was answering a question about settings rather than about halls.
+ *
+ * Read here rather than passed in, like `reset-settings-panel` does with
+ * `organization.reset`: the panel knows which control needs which key, and the
+ * page cannot get it wrong on its behalf. These are RENDERING HINTS - the
+ * routes decide, and each of them asks again.
+ */
+function useHallPermissions() {
+  const { hasPermission } = useDashboardAccess();
+
+  return {
+    canCreate: hasPermission("hall.create"),
+    canUpdate: hasPermission("hall.update"),
+    /** Every price field on the form, member rates included. */
+    canPrice: hasPermission("hall.price.update"),
+    /**
+     * Deactivating, reactivating, and deleting outright. One key, because
+     * deletion is refused as soon as anything references the hall - so
+     * deactivating IS the removal, and the catalog treats them as one act.
+     */
+    canRetire: hasPermission("hall.delete")
+  };
+}
+
+export function HallsSettingsPanel() {
+  const { canCreate, canUpdate, canPrice, canRetire } = useHallPermissions();
   const hallsQuery = useAuthenticatedQuery<HallsResponse>("/api/halls");
   const createMutation = useAuthenticatedMutation<
-    HallInput,
+    HallCreateInput,
     { hall: Hall }
   >("/api/halls", "POST");
   const updateMutation = useAuthenticatedMutation<
-    HallInput & { id: string },
+    HallUpdateInput,
     { hall: Hall }
   >("/api/halls", "PATCH");
   const deleteMutation = useAuthenticatedMutation<
@@ -313,17 +368,24 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
 
     setFieldErrors({});
 
-    const payload: HallInput = {
+    // What every hall editor may send. Prices and the circulation flag are
+    // added below only for a caller who holds their keys - resending an
+    // unchanged price is still a price field on the wire, and the route reads
+    // the payload, not the intent.
+    const payload: HallCreateInput = {
       name,
       capacity: numbers.values.capacity,
       dailyEventLimit: numbers.values.dailyEventLimit,
-      basePrice: numbers.values.basePrice,
-      perCouplePrice: numbers.values.perCouplePrice,
-      memberBasePrice: numbers.values.memberBasePrice,
-      memberPerCouplePrice: numbers.values.memberPerCouplePrice,
       color: form.color,
-      isActive: form.isActive,
-      isBookable: form.isBookable
+      ...(canPrice
+        ? {
+            basePrice: numbers.values.basePrice,
+            perCouplePrice: numbers.values.perCouplePrice,
+            memberBasePrice: numbers.values.memberBasePrice,
+            memberPerCouplePrice: numbers.values.memberPerCouplePrice
+          }
+        : {}),
+      ...(canRetire ? { isActive: form.isActive, isBookable: form.isBookable } : {})
     };
 
     try {
@@ -331,6 +393,10 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
         await updateMutation.mutate({ ...payload, id: form.id });
         setMessage(`${name} updated.`);
       } else {
+        // A hall has to start somewhere: the create route defaults `isActive`
+        // and `isBookable` to true and every price to null when they are
+        // absent, so a creator without the other two keys gets a live,
+        // unpriced hall rather than a refusal.
         await createMutation.mutate(payload);
         setMessage(`${name} created.`);
       }
@@ -345,19 +411,11 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
 
   async function toggleHall(hall: Hall) {
     try {
-      await updateMutation.mutate({
-        id: hall.id,
-        name: hall.name,
-        capacity: hall.capacity,
-        dailyEventLimit: hall.dailyEventLimit,
-        basePrice: normalizeMoneyValue(hall.basePrice),
-        perCouplePrice: normalizeMoneyValue(hall.perCouplePrice),
-        memberBasePrice: normalizeMoneyValue(hall.memberBasePrice),
-        memberPerCouplePrice: normalizeMoneyValue(hall.memberPerCouplePrice),
-        color: hall.color ?? "#1f5f91",
-        isActive: !hall.isActive,
-        isBookable: hall.isBookable
-      });
+      // The one field that is actually changing. Echoing the whole record back
+      // - which this did - made a deactivation carry four prices, so the route
+      // asked for `hall.price.update` on top of `hall.delete` and refused
+      // anyone holding only the latter.
+      await updateMutation.mutate({ id: hall.id, isActive: !hall.isActive });
       setMessage(`${hall.name} ${hall.isActive ? "deactivated" : "activated"}.`);
       refreshHallConsumers();
     } catch (error) {
@@ -398,7 +456,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
           </div>
           <button
             className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white enabled:hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
-            disabled={!canEdit || pending || reachedActiveHallLimit}
+            disabled={!canCreate || pending || reachedActiveHallLimit}
             onClick={openCreate}
             type="button"
             title={
@@ -478,7 +536,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     className="h-8 rounded-lg border border-[#b9c2cf] bg-white text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:opacity-45"
-                    disabled={!canEdit || pending}
+                    disabled={!canUpdate || pending}
                     onClick={() => openEdit(hall)}
                     type="button"
                   >
@@ -487,7 +545,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   <button
                     className="h-8 rounded-lg border border-[#b9c2cf] bg-white text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:opacity-45"
                     disabled={
-                      !canEdit ||
+                      !canRetire ||
                       pending ||
                       (!hall.isActive && reachedActiveHallLimit)
                     }
@@ -503,7 +561,7 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   </button>
                   <button
                     className="h-8 rounded-lg border border-[#efb5ad] bg-white text-[10px] font-black text-[#b42318] enabled:hover:bg-[#fff4f2] disabled:opacity-45"
-                    disabled={!canEdit || pending}
+                    disabled={!canRetire || pending}
                     onClick={() => void deleteHall(hall)}
                     type="button"
                   >
@@ -632,12 +690,14 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   Pricing
                 </p>
                 <p className="mt-1 text-[10px] text-[#617086]">
-                  Used as the default hall pricing when creating packages,
-                  proposals, or event billing.
+                  {canPrice
+                    ? "Used as the default hall pricing when creating packages, proposals, or event billing."
+                    : "Read-only: setting what a hall costs needs the hall pricing permission. Everything else on this form is yours to change."}
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {priceFields.map((field) => (
                     <PriceInput
+                      disabled={!canPrice}
                       error={fieldErrors[field.key]}
                       id={field.id}
                       key={field.key}
@@ -649,9 +709,17 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   ))}
                 </div>
               </div>
-              <label className="flex items-center gap-2 text-xs font-bold">
+              {/*
+                Taking a hall off the booking flow is retiring it, so the box
+                asks for the removal key rather than for the edit key - the same
+                line the route draws between `hall.update` and `hall.delete`.
+              */}
+              <label
+                className={`flex items-center gap-2 text-xs font-bold ${canRetire ? "" : "text-[#6a7483]"}`}
+              >
                 <input
                   checked={form.isBookable}
+                  disabled={!canRetire}
                   id="hall-is-bookable"
                   name="hallIsBookable"
                   onChange={(event) =>
@@ -675,7 +743,11 @@ export function HallsSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 </button>
                 <button
                   className="h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white disabled:opacity-45"
-                  disabled={!form.name.trim() || pending}
+                  disabled={
+                    !form.name.trim() ||
+                    pending ||
+                    (form.id ? !canUpdate : !canCreate)
+                  }
                   type="submit"
                 >
                   {pending ? "Saving..." : form.id ? "Save changes" : "Create hall"}

@@ -227,6 +227,17 @@ export const POST = withRoute(
     try {
       const actor = await authorize(request, "hall.create");
       const input = createHallSchema.parse(await request.json());
+
+      // Same question PATCH asks, for the same reason: a hall may be brought
+      // into existence by somebody who may not decide what it costs. Creating
+      // one WITHOUT prices is allowed - they default to null - so this refuses
+      // only an attempt to set them. `isActive` and `isBookable` are not asked
+      // for here: a hall has to start somewhere, and starting one live is
+      // creating it rather than retiring it.
+      if (PRICE_FIELDS.some((field) => input[field] !== undefined)) {
+        await assertPermission(actor, "hall.price.update");
+      }
+
       const organization = await prisma.organization.findUnique({
         where: { id: actor.organizationId },
         select: { subscriptionPlan: true, subscriptionStatus: true }

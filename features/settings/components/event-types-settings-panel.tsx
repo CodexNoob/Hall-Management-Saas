@@ -6,6 +6,7 @@ import {
   invalidateAuthenticatedQuery,
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 type EventType = {
   id: string;
@@ -30,7 +31,18 @@ const emptyForm: EventTypeInput = {
   isShabbosShevaBrachos: false
 };
 
-export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
+/**
+ * One control, one key - see the same note in `halls-settings-panel`.
+ *
+ * `canRetire` covers both the Deactivate button and Delete, because
+ * `DELETE /api/event-types` refuses with a 409 as soon as any event uses the
+ * type: deactivating is the removal that actually happens.
+ */
+export function EventTypesSettingsPanel() {
+  const { hasPermission } = useDashboardAccess();
+  const canCreate = hasPermission("eventtype.create");
+  const canUpdate = hasPermission("eventtype.update");
+  const canRetire = hasPermission("eventtype.delete");
   const query = useAuthenticatedQuery<{ eventTypes: EventType[] }>(
     "/api/event-types"
   );
@@ -38,8 +50,11 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
     EventTypeInput,
     { eventType: EventType }
   >("/api/event-types", "POST");
+  // Partial, because PATCH now asks for `eventtype.delete` when `isActive` is
+  // on the wire. An editor without that key must be able to rename a type
+  // without resending the flag they are not allowed to change.
   const updateMutation = useAuthenticatedMutation<
-    EventTypeInput & { id: string },
+    Partial<EventTypeInput> & { id: string },
     { eventType: EventType }
   >("/api/event-types", "PATCH");
   const deleteMutation = useAuthenticatedMutation<
@@ -76,8 +91,17 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
     const name = form.name.trim();
     if (!name) return;
     try {
-      if (form.id) await updateMutation.mutate({ ...form, id: form.id, name });
-      else await createMutation.mutate({ ...form, name });
+      if (form.id) {
+        const { isActive, ...editable } = form;
+        await updateMutation.mutate({
+          ...editable,
+          id: form.id,
+          name,
+          // Only from a caller who may retire one. Resending it unchanged is
+          // still sending it, and the route reads the payload.
+          ...(canRetire ? { isActive } : {})
+        });
+      } else await createMutation.mutate({ ...form, name });
       setDialogOpen(false);
       setMessage(`${name} ${form.id ? "updated" : "created"}.`);
       refresh();
@@ -89,13 +113,9 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
   }
   async function toggle(item: EventType) {
     try {
-      await updateMutation.mutate({
-        id: item.id,
-        isActive: !item.isActive,
-        name: item.name,
-        validDays: item.validDays,
-        isShabbosShevaBrachos: item.isShabbosShevaBrachos
-      });
+      // The one field that is changing. Echoing the rest back made a
+      // deactivation look like a rename as well.
+      await updateMutation.mutate({ id: item.id, isActive: !item.isActive });
       setMessage(
         `${item.name} ${item.isActive ? "deactivated" : "activated"}.`
       );
@@ -132,7 +152,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
           </div>
           <button
             className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white disabled:opacity-45"
-            disabled={!canEdit || pending}
+            disabled={!canCreate || pending}
             onClick={() => openEdit()}
             type="button"
           >
@@ -190,7 +210,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     className="h-8 rounded-lg border text-[10px] font-black"
-                    disabled={!canEdit || pending}
+                    disabled={!canUpdate || pending}
                     onClick={() => openEdit(item)}
                     type="button"
                   >
@@ -198,7 +218,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   </button>
                   <button
                     className="h-8 rounded-lg border text-[10px] font-black"
-                    disabled={!canEdit || pending}
+                    disabled={!canRetire || pending}
                     onClick={() => void toggle(item)}
                     type="button"
                   >
@@ -206,7 +226,7 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   </button>
                   <button
                     className="h-8 rounded-lg border border-[#efaaa4] text-[10px] font-black text-[#b42318]"
-                    disabled={!canEdit || pending}
+                    disabled={!canRetire || pending}
                     onClick={() => void remove(item)}
                     type="button"
                   >
@@ -299,9 +319,14 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
                   ))}
                 </div>
               </fieldset>
-              <label className="flex items-center gap-2 text-xs font-bold">
+              {/* Retiring a type, so it asks for the removal key - not the
+                  edit key that opened this dialog. */}
+              <label
+                className={`flex items-center gap-2 text-xs font-bold ${canRetire ? "" : "text-[#6a7483]"}`}
+              >
                 <input
                   checked={form.isActive}
+                  disabled={!canRetire}
                   name="eventTypeIsActive"
                   onChange={(event) =>
                     setForm((current) => ({
@@ -338,7 +363,11 @@ export function EventTypesSettingsPanel({ canEdit }: { canEdit: boolean }) {
               </button>
               <button
                 className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white disabled:opacity-45"
-                disabled={pending || !form.name.trim()}
+                disabled={
+                  pending ||
+                  !form.name.trim() ||
+                  (form.id ? !canUpdate : !canCreate)
+                }
                 onClick={() => void save()}
                 type="button"
               >

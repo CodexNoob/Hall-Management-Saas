@@ -817,11 +817,15 @@ export function SettingsPage({
               </aside>
 
               <div className={isModal ? "contents" : "grid min-w-0 gap-4"}>
-                {activeModalSection === "Halls" ? (
-                  <HallsSettingsPanel canEdit={canEditSettings} />
-                ) : null}
+                {/*
+                  No `canEdit` prop: these two panels read their own keys.
+                  `settings.update` is the wrong question for them - a hall is
+                  not a preference, and the split lifecycle means each control
+                  has a different answer. See `useHallPermissions`.
+                */}
+                {activeModalSection === "Halls" ? <HallsSettingsPanel /> : null}
                 {activeModalSection === "Event Types" ? (
-                  <EventTypesSettingsPanel canEdit={canEditSettings} />
+                  <EventTypesSettingsPanel />
                 ) : null}
                 {activeModalSection === "Calendar" ? (
                   <CalendarSettingsPanel
