@@ -5,6 +5,7 @@ import {
   readPackageItemIdsError
 } from "@/features/menu/server/menu-package-items";
 import { menuPackageUpdateSchema } from "@/features/menu/validations/menu-package.schema";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -64,6 +65,29 @@ export const PATCH = withRoute(
             })
           : null;
 
+        // Outside a transaction, and this is the one branch where that is not a
+        // choice: `applyPackageItemDelta` has already committed by the time the
+        // route regains control. Wrapping only the entry would claim an atomicity
+        // that does not exist, so it is recorded after the fact instead.
+        await recordActivity(prisma, actor, {
+          action: "menu.package.updated",
+          message: `Changed the items in the ${
+            itemPackage?.name ?? "package"
+          }: ${addMenuItemIds?.length ?? 0} added, ${
+            removeMenuItemIds?.length ?? 0
+          } removed.`,
+          changed: {
+            after: {
+              packageId: id,
+              added: addMenuItemIds?.length ?? 0,
+              removed: removeMenuItemIds?.length ?? 0,
+              ...(Object.keys(fields).length
+                ? { fields: Object.keys(fields) }
+                : {})
+            }
+          }
+        });
+
         // The stored list goes back with the answer so the caller can reconcile
         // its optimistic copy against what actually landed, rather than trusting
         // the array it sent or paying for a second round trip to read it.
@@ -72,10 +96,23 @@ export const PATCH = withRoute(
         });
       }
 
-      const itemPackage = await prisma.eventPackage.update({
-        where: { id, organizationId: actor.organizationId },
-        data: fields
+      const itemPackage = await prisma.$transaction(async (transaction) => {
+        const updated = await transaction.eventPackage.update({
+          where: { id, organizationId: actor.organizationId },
+          data: fields
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "menu.package.updated",
+          message: `Edited the ${updated.name} package: ${Object.keys(
+            fields
+          ).join(", ")}.`,
+          changed: { after: { packageId: id, fields: Object.keys(fields) } }
+        });
+
+        return updated;
       });
+
       return NextResponse.json({ package: itemPackage });
     } catch (error) {
       return createApiErrorResponse(error);

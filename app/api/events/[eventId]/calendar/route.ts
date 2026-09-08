@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { upsertGoogleCalendarEvent } from "@/lib/google/calendar";
@@ -45,15 +46,30 @@ export const POST = withRoute(
         result.eventId &&
         result.eventId !== event.googleCalendarEventId
       ) {
-        await prisma.event.update({
-          where: { id: event.id, organizationId: actor.organizationId },
-          data: {
-            googleCalendarEventId: result.eventId,
-            googleSyncStatus: "Synced",
-            googleLastSyncedAt: new Date(),
-            googleSyncError: null,
-            updatedById: actor.userId
-          }
+        await prisma.$transaction(async (transaction) => {
+          await transaction.event.update({
+            where: { id: event.id, organizationId: actor.organizationId },
+            data: {
+              googleCalendarEventId: result.eventId,
+              googleSyncStatus: "Synced",
+              googleLastSyncedAt: new Date(),
+              googleSyncError: null,
+              updatedById: actor.userId
+            }
+          });
+
+          // Recorded only when the push actually landed a NEW calendar entry.
+          // A skipped push - the integration is off - changed nothing, and a
+          // re-push of an event already synced is a no-op the history should
+          // not fill up with. The Google id is deliberately not in the payload:
+          // it is a handle into a third party's calendar, not this
+          // organization's history.
+          await recordActivity(transaction, actor, {
+            action: "event.calendar.exported",
+            eventId: event.id,
+            clientId: event.clientId,
+            message: `Sent ${event.clientName}'s event to Google Calendar.`
+          });
         });
       }
 

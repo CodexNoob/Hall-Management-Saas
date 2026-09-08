@@ -12,6 +12,7 @@ import {
   readPresentedMenu
 } from "@/features/events/server/event-menu-document";
 import { readStoredTimeline } from "@/features/events/validations/timeline.schema";
+import { recordActivity } from "@/lib/audit/activity-log";
 import {
   assertInScope,
   authorize,
@@ -385,6 +386,22 @@ export const POST = withRoute(
           workspaceData
         });
 
+        await recordActivity(transaction, actor, {
+          action: "event.package.applied",
+          eventId: id,
+          clientId: event.clientId,
+          message: `Applied the ${eventPackage.name} package to ${event.clientName}'s ${input.meal.toLowerCase()} menu.`,
+          changed: {
+            after: {
+              packageId: eventPackage.id,
+              meal: input.meal,
+              linesAdded: additions.length,
+              linesSuperseded: supersededIds.length,
+              timelineCopied: workspaceData !== undefined
+            }
+          }
+        });
+
         return gate;
       });
 
@@ -463,12 +480,20 @@ export const DELETE = withRoute(
             data: { ...clearedColumns, updatedById: actor.userId }
           });
 
+          await recordActivity(transaction, actor, {
+            action: "event.package.removed",
+            eventId: id,
+            clientId: event.clientId,
+            message: `Removed the package from ${event.clientName}'s ${input.meal.toLowerCase()} menu.`,
+            changed: { after: { meal: input.meal, linesRemoved: 0 } }
+          });
+
           return gate;
         }
 
         if (gate.kind !== "ok") return gate;
 
-        await transaction.eventMenuLine.deleteMany({
+        const dropped = await transaction.eventMenuLine.deleteMany({
           where: { eventMenuId: gate.id, source: PACKAGE_SOURCE }
         });
 
@@ -478,6 +503,14 @@ export const DELETE = withRoute(
           eventMenuId: gate.id,
           actorId: requireUserActor(actor),
           packageColumns: clearedColumns
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "event.package.removed",
+          eventId: id,
+          clientId: event.clientId,
+          message: `Removed the package from ${event.clientName}'s ${input.meal.toLowerCase()} menu: ${dropped.count} line(s) dropped.`,
+          changed: { after: { meal: input.meal, linesRemoved: dropped.count } }
         });
 
         return gate;

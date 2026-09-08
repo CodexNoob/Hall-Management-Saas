@@ -22,6 +22,7 @@ import {
 import { resolveKitchenVisibility } from "@/features/kitchen/server/kitchen-visibility-resolve";
 import type { EventKitchenLine } from "@/features/events/components/event-manager-shared";
 import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
+import { recordActivity } from "@/lib/audit/activity-log";
 import {
   calculateStyleQuantity,
   totalGuests,
@@ -974,7 +975,7 @@ export const POST = withRoute("POST /api/kitchen", async (request: Request) => {
         menu = existingMenu;
       }
 
-      return transaction.kitchenStandaloneEvent.create({
+      const created = await transaction.kitchenStandaloneEvent.create({
         data: {
           organizationId: actor.organizationId,
           menuId: menu.id,
@@ -993,6 +994,26 @@ export const POST = withRoute("POST /api/kitchen", async (request: Request) => {
           kitchenNote: true
         }
       });
+
+      // The quick-menu branch above may have created menu items and a package as
+      // well; those are recorded here as counts rather than as their own Menu
+      // entries, because to the operator this was one act - raising a kitchen
+      // job - and three entries would read as three.
+      await recordActivity(transaction, actor, {
+        action: "kitchen.event.created",
+        message: `Raised a kitchen job for ${input.date}: ${menu.name}, ${input.portions} portion(s).`,
+        changed: {
+          after: {
+            kitchenEventId: created.id,
+            menuId: menu.id,
+            portions: input.portions,
+            addOns: uniqueAddOnIds.length,
+            quickMenu: Boolean(input.quickMenu)
+          }
+        }
+      });
+
+      return created;
     });
 
     return NextResponse.json({
@@ -1043,19 +1064,42 @@ export const DELETE = withRoute(
         .uuid("Choose a kitchen event to remove.")
         .parse(new URL(request.url).searchParams.get("kitchenEventId"));
 
-      // deleteMany, not delete: the organization travels in the filter, so a job
-      // belonging to another tenant matches nothing and reports back as not found
-      // rather than being removed.
-      const removed = await prisma.kitchenStandaloneEvent.deleteMany({
-        where: { id: kitchenEventId, organizationId: actor.organizationId }
+      // Read first: the entry has to name the job that was removed, and after
+      // the delete there is nothing left to read it from. The organization is in
+      // this filter for the same reason it was in `deleteMany`'s - a job
+      // belonging to another tenant matches nothing and reports back as not
+      // found rather than being removed.
+      const existing = await prisma.kitchenStandaloneEvent.findFirst({
+        where: { id: kitchenEventId, organizationId: actor.organizationId },
+        select: { id: true, menuName: true, eventDate: true, portions: true }
       });
 
-      if (removed.count === 0) {
+      if (!existing) {
         return NextResponse.json(
           { error: "That kitchen event was not found." },
           { status: 404 }
         );
       }
+
+      await prisma.$transaction(async (transaction) => {
+        await transaction.kitchenStandaloneEvent.delete({
+          where: { id: existing.id }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "kitchen.event.deleted",
+          message: `Removed the ${existing.menuName} kitchen job for ${existing.eventDate
+            .toISOString()
+            .slice(0, 10)}.`,
+          changed: {
+            before: {
+              kitchenEventId: existing.id,
+              menuName: existing.menuName,
+              portions: existing.portions
+            }
+          }
+        });
+      });
 
       return NextResponse.json({ deleted: true });
     } catch (error) {
@@ -1229,11 +1273,27 @@ export const PATCH = withRoute(
         };
 
         if (input.action === "standalone-reset-status") {
-          await prisma.kitchenStandaloneItemStatus.deleteMany({
-            where: {
-              kitchenStandaloneEventId: kitchenEvent.id,
-              menuItemId: menuItem.id
-            }
+          await prisma.$transaction(async (transaction) => {
+            await transaction.kitchenStandaloneItemStatus.deleteMany({
+              where: {
+                kitchenStandaloneEventId: kitchenEvent.id,
+                menuItemId: menuItem.id
+              }
+            });
+
+            await recordActivity(transaction, actor, {
+              action: "kitchen.status.updated",
+              message: `Cleared production status on ${menuItem.name} for the ${kitchenEvent.eventDate
+                .toISOString()
+                .slice(0, 10)} kitchen job.`,
+              changed: {
+                after: {
+                  kitchenEventId: kitchenEvent.id,
+                  menuItemId: menuItem.id,
+                  status: null
+                }
+              }
+            });
           });
 
           return NextResponse.json({ itemStatus: null });
@@ -1263,44 +1323,93 @@ export const PATCH = withRoute(
             select: { id: true, status: true }
           });
 
+          const assignment = {
+            action: "kitchen.worker.assigned",
+            changed: {
+              after: {
+                kitchenEventId: kitchenEvent.id,
+                menuItemId: menuItem.id,
+                assignedWorkerId: input.assignedWorkerId ?? null
+              }
+            }
+          } as const;
+
           if (!input.assignedWorkerId && current && current.status == null) {
-            await prisma.kitchenStandaloneItemStatus.delete({
-              where: { id: current.id }
+            await prisma.$transaction(async (transaction) => {
+              await transaction.kitchenStandaloneItemStatus.delete({
+                where: { id: current.id }
+              });
+
+              await recordActivity(transaction, actor, {
+                ...assignment,
+                message: `Unassigned ${menuItem.name} on the kitchen job.`
+              });
             });
 
             return NextResponse.json({ itemStatus: null });
           }
 
-          const itemStatus = await prisma.kitchenStandaloneItemStatus.upsert({
-            where,
-            update: {
-              assignedWorkerId: input.assignedWorkerId,
-              updatedById: actor.userId
-            },
-            create: {
-              organizationId: actor.organizationId,
-              kitchenStandaloneEventId: kitchenEvent.id,
-              menuItemId: menuItem.id,
-              status: null,
-              assignedWorkerId: input.assignedWorkerId,
-              updatedById: actor.userId
-            }
+          const itemStatus = await prisma.$transaction(async (transaction) => {
+            const saved = await transaction.kitchenStandaloneItemStatus.upsert({
+              where,
+              update: {
+                assignedWorkerId: input.assignedWorkerId,
+                updatedById: actor.userId
+              },
+              create: {
+                organizationId: actor.organizationId,
+                kitchenStandaloneEventId: kitchenEvent.id,
+                menuItemId: menuItem.id,
+                status: null,
+                assignedWorkerId: input.assignedWorkerId,
+                updatedById: actor.userId
+              }
+            });
+
+            await recordActivity(transaction, actor, {
+              ...assignment,
+              message: input.assignedWorkerId
+                ? `Assigned ${menuItem.name} on the kitchen job.`
+                : `Unassigned ${menuItem.name} on the kitchen job.`
+            });
+
+            return saved;
           });
 
           return NextResponse.json({ itemStatus });
         }
 
-        const itemStatus = await prisma.kitchenStandaloneItemStatus.upsert({
-          where,
-          update: { status: input.status, updatedById: actor.userId },
-          create: {
-            organizationId: actor.organizationId,
-            kitchenStandaloneEventId: kitchenEvent.id,
-            menuItemId: menuItem.id,
-            status: input.status,
-            assignedWorkerId: null,
-            updatedById: actor.userId
-          }
+        const itemStatus = await prisma.$transaction(async (transaction) => {
+          const saved = await transaction.kitchenStandaloneItemStatus.upsert({
+            where,
+            update: { status: input.status, updatedById: actor.userId },
+            create: {
+              organizationId: actor.organizationId,
+              kitchenStandaloneEventId: kitchenEvent.id,
+              menuItemId: menuItem.id,
+              status: input.status,
+              assignedWorkerId: null,
+              updatedById: actor.userId
+            }
+          });
+
+          await recordActivity(transaction, actor, {
+            action: "kitchen.status.updated",
+            message: `Marked ${menuItem.name} ${String(
+              input.status
+            ).toLowerCase()} on the ${kitchenEvent.eventDate
+              .toISOString()
+              .slice(0, 10)} kitchen job.`,
+            changed: {
+              after: {
+                kitchenEventId: kitchenEvent.id,
+                menuItemId: menuItem.id,
+                status: input.status
+              }
+            }
+          });
+
+          return saved;
         });
 
         return NextResponse.json({ itemStatus });
@@ -1404,6 +1513,20 @@ export const PATCH = withRoute(
           replacementAddOnId: input.replacementAddOnId
         });
         if (result.outcome === "replaced") {
+          // After the fact, not inside the swap: `replaceKitchenAddOn` owns its
+          // own transaction and has already committed by the time control gets
+          // back here. Wrapping only the entry would claim an atomicity that
+          // does not exist.
+          await recordActivity(prisma, actor, {
+            action: "kitchen.addon.replaced",
+            eventId: event.id,
+            message: `Swapped ${addOn.name} for ${result.name} on the kitchen board.`,
+            changed: {
+              before: { addOnId: addOn.id, name: addOn.name },
+              after: { addOnId: input.replacementAddOnId, name: result.name }
+            }
+          });
+
           return NextResponse.json({
             replaced: { from: addOn.name, to: result.name, serviceStyle: null }
           });
@@ -1455,6 +1578,21 @@ export const PATCH = withRoute(
         });
 
         if (result.outcome === "replaced") {
+          // After the fact; see the note on the add-on swap above.
+          await recordActivity(prisma, actor, {
+            action: "kitchen.dish.replaced",
+            eventId: event.id,
+            message: `Swapped ${menuItem.name} for ${result.name} on the kitchen board.`,
+            changed: {
+              before: { menuItemId: menuItem.id, name: menuItem.name },
+              after: {
+                menuItemId: input.replacementMenuItemId,
+                name: result.name,
+                serviceStyle: result.serviceStyle
+              }
+            }
+          });
+
           return NextResponse.json({
             replaced: {
               from: menuItem.name,
@@ -1502,8 +1640,17 @@ export const PATCH = withRoute(
       }
 
       if (input.action === "reset-status") {
-        await prisma.kitchenItemStatus.deleteMany({
-          where: { eventId: event.id, menuItemId: menuItem.id }
+        await prisma.$transaction(async (transaction) => {
+          await transaction.kitchenItemStatus.deleteMany({
+            where: { eventId: event.id, menuItemId: menuItem.id }
+          });
+
+          await recordActivity(transaction, actor, {
+            action: "kitchen.status.updated",
+            eventId: event.id,
+            message: `Cleared production status on ${menuItem.name}.`,
+            changed: { after: { menuItemId: menuItem.id, status: null } }
+          });
         });
 
         return NextResponse.json({ itemStatus: null });
@@ -1519,49 +1666,88 @@ export const PATCH = withRoute(
           select: { id: true, status: true }
         });
 
+        const assignment = {
+          action: "kitchen.worker.assigned",
+          eventId: event.id,
+          message: input.assignedWorkerId
+            ? `Assigned ${menuItem.name} to a worker.`
+            : `Unassigned ${menuItem.name}.`,
+          changed: {
+            after: {
+              menuItemId: menuItem.id,
+              assignedWorkerId: input.assignedWorkerId ?? null
+            }
+          }
+        } as const;
+
         // Unassigning the last thing this row was recording. Deleting rather than
         // keeping a row that says nothing: an empty row and no row are the same
         // "not started" to every reader, and only one of them is tidy.
         if (!input.assignedWorkerId && current && current.status == null) {
-          await prisma.kitchenItemStatus.delete({ where: { id: current.id } });
+          await prisma.$transaction(async (transaction) => {
+            await transaction.kitchenItemStatus.delete({
+              where: { id: current.id }
+            });
+
+            await recordActivity(transaction, actor, assignment);
+          });
 
           return NextResponse.json({ itemStatus: null });
         }
 
-        const itemStatus = await prisma.kitchenItemStatus.upsert({
-          where,
-          // Status is deliberately absent from both branches. Assigning someone
-          // to a dish says who is doing it, not that it has been started - and
-          // writing PENDING here used to demote a COMPLETE dish the moment anyone
-          // put a name against it.
-          update: {
-            assignedWorkerId: input.assignedWorkerId,
-            updatedById: actor.userId
-          },
-          create: {
-            organizationId: actor.organizationId,
-            eventId: event.id,
-            menuItemId: menuItem.id,
-            status: null,
-            assignedWorkerId: input.assignedWorkerId,
-            updatedById: actor.userId
-          }
+        const itemStatus = await prisma.$transaction(async (transaction) => {
+          const saved = await transaction.kitchenItemStatus.upsert({
+            where,
+            // Status is deliberately absent from both branches. Assigning someone
+            // to a dish says who is doing it, not that it has been started - and
+            // writing PENDING here used to demote a COMPLETE dish the moment
+            // anyone put a name against it.
+            update: {
+              assignedWorkerId: input.assignedWorkerId,
+              updatedById: actor.userId
+            },
+            create: {
+              organizationId: actor.organizationId,
+              eventId: event.id,
+              menuItemId: menuItem.id,
+              status: null,
+              assignedWorkerId: input.assignedWorkerId,
+              updatedById: actor.userId
+            }
+          });
+
+          await recordActivity(transaction, actor, assignment);
+
+          return saved;
         });
 
         return NextResponse.json({ itemStatus });
       }
 
-      const itemStatus = await prisma.kitchenItemStatus.upsert({
-        where,
-        update: { status: input.status, updatedById: actor.userId },
-        create: {
-          organizationId: actor.organizationId,
+      const itemStatus = await prisma.$transaction(async (transaction) => {
+        const saved = await transaction.kitchenItemStatus.upsert({
+          where,
+          update: { status: input.status, updatedById: actor.userId },
+          create: {
+            organizationId: actor.organizationId,
+            eventId: event.id,
+            menuItemId: menuItem.id,
+            status: input.status,
+            assignedWorkerId: null,
+            updatedById: actor.userId
+          }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "kitchen.status.updated",
           eventId: event.id,
-          menuItemId: menuItem.id,
-          status: input.status,
-          assignedWorkerId: null,
-          updatedById: actor.userId
-        }
+          message: `Marked ${menuItem.name} ${String(input.status).toLowerCase()}.`,
+          changed: {
+            after: { menuItemId: menuItem.id, status: input.status }
+          }
+        });
+
+        return saved;
       });
 
       return NextResponse.json({ itemStatus });

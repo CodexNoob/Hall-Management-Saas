@@ -6,6 +6,7 @@ import {
   readPicturePathError
 } from "@/features/menu/server/menu-picture";
 import { menuItemUpdateSchema } from "@/features/menu/validations/menu-item.schema";
+import { changedFields, recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -53,7 +54,19 @@ export const PATCH = withRoute(
       // 404 rather than surface as a Prisma error.
       const current = await prisma.menuItem.findFirst({
         where: { id, organizationId: actor.organizationId },
-        select: { id: true, picturePath: true }
+        // `loggedFields` as well as the picture path: the activity entry records
+        // which of them actually moved, and "was it supplied" is not the same
+        // question - the dialog sends the whole item on every save.
+        select: {
+          id: true,
+          picturePath: true,
+          name: true,
+          category: true,
+          kind: true,
+          kosherType: true,
+          usageType: true,
+          containsAlcohol: true
+        }
       });
 
       if (!current) {
@@ -67,21 +80,23 @@ export const PATCH = withRoute(
       // column, and an omitted key has to leave them alone.
       const { services, ...fields } = input;
 
-      const item = await prisma.menuItem.update({
+      // Resolved before the transaction opens; see the note on POST /api/menu.
+      const categoryId =
+        fields.category !== undefined
+          ? await resolveMenuCategoryId(actor.organizationId, fields.category)
+          : undefined;
+
+      const moved = changedFields(current, fields);
+
+      const item = await prisma.$transaction(async (transaction) => {
+        const updated = await transaction.menuItem.update({
         where: { id: current.id },
         data: {
           ...fields,
           // Kept in step with the free-text column above it. An omitted
           // `category` leaves both alone; re-filing a dish moves it to the tab
           // that now matches, creating that course if it is a new one.
-          ...(fields.category !== undefined
-            ? {
-                categoryId: await resolveMenuCategoryId(
-                  actor.organizationId,
-                  fields.category
-                )
-              }
-            : {}),
+          ...(categoryId !== undefined ? { categoryId } : {}),
           // The bucket follows the path instead of being accepted from the
           // request, exactly as it does on create.
           ...(input.picturePath !== undefined
@@ -105,6 +120,32 @@ export const PATCH = withRoute(
         },
         omit: hidePictureLocation,
         include: { services: true }
+      });
+
+        // Only when something actually moved. The dialog posts every field on
+        // every save, so logging on arrival rather than on change would fill the
+        // history with edits that changed nothing.
+        if (moved.length > 0 || services !== undefined) {
+          await recordActivity(transaction, actor, {
+            action: "menu.item.updated",
+            message: `Edited ${current.name}: ${
+              moved.length > 0 ? moved.join(", ") : "service rules"
+            }.`,
+            changed: {
+              before: Object.fromEntries(
+                moved.map((field) => [field, current[field] ?? null])
+              ),
+              after: Object.fromEntries(
+                moved.map((field) => [
+                  field,
+                  (fields as Record<string, unknown>)[field] ?? null
+                ])
+              )
+            }
+          });
+        }
+
+        return updated;
       });
 
       if (
@@ -135,7 +176,7 @@ export const DELETE = withRoute(
 
       const item = await prisma.menuItem.findFirst({
         where: { id, organizationId: actor.organizationId },
-        select: { id: true, picturePath: true }
+        select: { id: true, picturePath: true, name: true, category: true }
       });
 
       if (!item) {
@@ -238,7 +279,20 @@ export const DELETE = withRoute(
         );
       }
 
-      await prisma.menuItem.delete({ where: { id: item.id } });
+      await prisma.$transaction(async (transaction) => {
+        await transaction.menuItem.delete({ where: { id: item.id } });
+
+        // In the same transaction as the delete: the row is about to stop
+        // existing, and this entry is the only thing that will say it ever did.
+        await recordActivity(transaction, actor, {
+          action: "menu.item.deleted",
+          message: `Deleted ${item.name} from the menu.`,
+          changed: {
+            before: { menuItemId: item.id, name: item.name, category: item.category }
+          }
+        });
+      });
+
       // After the row is gone: a storage failure should not undo a delete the
       // caller has already been told nothing about.
       await discardMenuPicture(actor.organizationId, item.picturePath);

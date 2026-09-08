@@ -6,14 +6,17 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   authorize: vi.fn()
 }));
 vi.mock("@/lib/security/rate-limit", () => ({ enforceRateLimit: vi.fn() }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     menuItem: { create: vi.fn() },
     menuCategory: { findFirst: vi.fn(), create: vi.fn() },
     activityLog: { create: vi.fn() },
     $transaction: vi.fn()
-  }
-}));
+  })
+  };
+});
 
 import { POST } from "@/app/api/menu/import/route";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
@@ -182,7 +185,7 @@ describe("POST /api/menu/import", () => {
         organizationId,
         userId: actor.userId,
         userName: "Dana Klein",
-        actionType: "Menu Items Imported",
+        actionType: "menu.imported",
         newValue: { count: 2 }
       })
     });

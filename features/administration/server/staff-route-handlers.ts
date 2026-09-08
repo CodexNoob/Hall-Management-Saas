@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { changedFields, recordActivity } from "@/lib/audit/activity-log";
 import { authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { withRoute } from "@/lib/http/with-route";
@@ -356,7 +357,16 @@ export async function updateStaffProfile(
 
   const membership = await prisma.organizationMembership.findFirst({
     where: { principalId, organizationId: actor.organizationId },
-    select: { id: true, userId: true }
+    // `user` is read for the activity diff below - the dialog posts every field
+    // on every save, so "was it supplied" would record a change that never
+    // happened.
+    select: {
+      id: true,
+      userId: true,
+      user: {
+        select: { name: true, phone: true, venueName: true, title: true }
+      }
+    }
   });
 
   if (!membership) throw notFound("That staff member");
@@ -366,24 +376,48 @@ export async function updateStaffProfile(
       ? undefined
       : (staffPhoneSchema.parse(input.phone ?? "") ?? null);
 
-  const user = await prisma.user.update({
-    where: { id: membership.userId },
-    data: {
-      ...(input.name !== undefined ? { name: input.name } : {}),
-      ...(phone !== undefined ? { phone } : {}),
-      ...(input.department !== undefined
-        ? { venueName: input.department }
-        : {}),
-      ...(input.title !== undefined ? { title: input.title || null } : {})
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      venueName: true,
-      title: true
+  const changes = {
+    ...(input.name !== undefined ? { name: input.name } : {}),
+    ...(phone !== undefined ? { phone } : {}),
+    ...(input.department !== undefined ? { venueName: input.department } : {}),
+    ...(input.title !== undefined ? { title: input.title || null } : {})
+  };
+  const moved = changedFields(membership.user, changes);
+
+  const user = await prisma.$transaction(async (transaction) => {
+    const saved = await transaction.user.update({
+      where: { id: membership.userId },
+      data: changes,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        venueName: true,
+        title: true
+      }
+    });
+
+    // FIELD NAMES ONLY. `phone` is in this set and is personal data;
+    // `activity_logs` carries no redaction and this row is read back on the
+    // Activity screen. The subject is named by `userId` in the payload rather
+    // than by their email, for the same reason.
+    //
+    // Invite, deactivate and restore are NOT recorded here: they write
+    // `authorization_audit` rows in the same transaction as the privilege change
+    // (INV-7), and the Activity feed unions that table - so an entry here would
+    // show each of them twice.
+    if (moved.length > 0) {
+      await recordActivity(transaction, actor, {
+        action: "staff.profile.updated",
+        message: `Edited a staff profile: ${moved.join(", ")}.`,
+        changed: {
+          after: { principalId, userId: membership.userId, fields: moved }
+        }
+      });
     }
+
+    return saved;
   });
 
   return NextResponse.json({

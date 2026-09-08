@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { createOrganizationSlug } from "@/lib/auth/organization-slug";
 import { authorize, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -71,17 +71,20 @@ export const POST = withRoute(
           }
         });
 
-        await createActivityLog(transaction, {
-          organizationId: actor.organizationId,
-          userId,
-          userName: input.fullName,
-          actionType: "organization.onboarding.completed",
-          message: `Organization setup completed as ${updatedOrganization.name}.`,
-          newValue: {
-            organizationName: updatedOrganization.name,
-            subscriptionPlan: input.plan
+        await recordActivity(
+          transaction,
+          { organizationId: actor.organizationId, userId, actorName: input.fullName },
+          {
+            action: "organization.onboarding.completed",
+            message: `Organization setup completed as ${updatedOrganization.name}.`,
+            changed: {
+              after: {
+                organizationName: updatedOrganization.name,
+                subscriptionPlan: input.plan
+              }
+            }
           }
-        });
+        );
 
         return updatedOrganization;
       });

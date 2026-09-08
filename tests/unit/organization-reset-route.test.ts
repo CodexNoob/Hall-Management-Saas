@@ -58,6 +58,11 @@ describe("POST /api/settings/reset", () => {
     expect(resetOrganization).toHaveBeenCalledWith({
       organizationId,
       actorUserId: userId,
+      // Snapshotted onto the entry the reset writes into the emptied history.
+      // `user_id` is ON DELETE SET NULL and an account reset can take the
+      // actor's own row with it, so the name is what keeps "who emptied this"
+      // readable afterwards.
+      actorName: "Test User",
       scope: "events"
     });
   });

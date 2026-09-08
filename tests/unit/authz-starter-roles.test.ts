@@ -93,10 +93,12 @@ describe("starter roles", () => {
 
   describe("exact counts", () => {
     it.each([
-      [OWNER, 64],
-      // Still sixty: `organization.reset` joined the catalog and was withheld
-      // here in the same change, so what an Administrator holds is unmoved.
-      [ADMINISTRATOR, 60],
+      [OWNER, 65],
+      // Sixty-one since `activity.read` joined the catalog. It is NOT in
+      // ADMINISTRATOR_WITHHELD - reading the organization's own history is
+      // ordinary administration - so it lands in both of the top two roles and
+      // in neither of the four below, which is the whole decision.
+      [ADMINISTRATOR, 61],
       [EVENT_MANAGER, 41],
       [KITCHEN_MANAGER, 15],
       // Eleven, down from fourteen: `kitchen.event.create`,

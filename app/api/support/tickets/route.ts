@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { authorizeMember, hasPermission, requireUserActor } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { notifySupportTicketCreated } from "@/features/support/server/support-notifications";
 import { withRoute } from "@/lib/http/with-route";
 
@@ -94,17 +94,16 @@ export const POST = withRoute(
           },
           select: ticketSummarySelect
         });
-        await createActivityLog(transaction, {
-          organizationId: actor.organizationId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "Support Ticket Created",
-          message: `Created support ticket ${created.reference}.`,
-          newValue: {
-            ticketId: created.id,
-            reference: created.reference,
-            category: created.category,
-            priority: created.priority
+        await recordActivity(transaction, actor, {
+          action: "support.ticket.created",
+          message: `Opened support ticket ${created.reference}.`,
+          changed: {
+            after: {
+              ticketId: created.id,
+              reference: created.reference,
+              category: created.category,
+              priority: created.priority
+            }
           }
         });
         return created;

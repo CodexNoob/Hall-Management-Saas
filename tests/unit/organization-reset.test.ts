@@ -273,7 +273,7 @@ describe("organization reset", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           organizationId,
-          actionType: "Organization Reset",
+          actionType: "organization.reset.performed",
           userId: actorUserId
         })
       })

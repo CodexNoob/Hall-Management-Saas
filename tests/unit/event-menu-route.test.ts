@@ -7,8 +7,10 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   assertInScope: vi.fn(),
   authorize: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     event: { findFirst: vi.fn(), update: vi.fn() },
     menuItem: { count: vi.fn(), findMany: vi.fn() },
     addOn: { count: vi.fn() },
@@ -27,8 +29,9 @@ vi.mock("@/lib/prisma", () => ({
     kitchenNotification: { create: vi.fn() },
     $executeRaw: vi.fn(),
     $transaction: vi.fn()
-  }
-}));
+  })
+  };
+});
 
 import { GET, POST, PUT } from "@/app/api/events/[eventId]/menu/route";
 import { authorize } from "@/lib/authz/authorize";

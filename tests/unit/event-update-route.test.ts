@@ -64,10 +64,26 @@ function storedEvent(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/** The single `activityLog.create` argument, or a failure naming the count. */
-function loggedEntry() {
-  expect(mocks.prisma.activityLog.create).toHaveBeenCalledOnce();
-  return mocks.prisma.activityLog.create.mock.calls[0][0].data;
+/**
+ * The entries written for one request, by action.
+ *
+ * A save can now write more than one: head counts get their own key so the
+ * Activity screen can filter for them, the timeline gets another because it
+ * lives in `workspaceData` where a column diff cannot see it, and everything
+ * else lands in one `event.updated`. Selecting by action rather than by call
+ * index is what keeps each assertion about the entry it means.
+ */
+function loggedEntries(action: string) {
+  return mocks.prisma.activityLog.create.mock.calls
+    .map((call) => call[0].data)
+    .filter((data: { actionType: string }) => data.actionType === action);
+}
+
+/** The single entry for one action, or a failure naming the count. */
+function loggedEntry(action = "event.guest_counts.updated") {
+  const entries = loggedEntries(action);
+  expect(entries).toHaveLength(1);
+  return entries[0];
 }
 
 describe("PATCH /api/events/[eventId] guest counts", () => {
@@ -224,7 +240,7 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
         eventId,
         userId: "user-1",
         userName: "Sarah Klein",
-        actionType: "Guest Counts Changed",
+        actionType: "event.guest_counts.updated",
         message: "Changed guest counts for Charles Duot: couples 10 to 25.",
         oldValue: { couplesCount: 10 },
         newValue: { couplesCount: 25 }
@@ -286,13 +302,41 @@ describe("PATCH /api/events/[eventId] guest counts", () => {
 
       expect(response.status).toBe(200);
       expect(mocks.prisma.event.update).toHaveBeenCalled();
-      expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+      expect(loggedEntries("event.guest_counts.updated")).toEqual([]);
+      // The notes DID move, so the general entry fires - and names only the
+      // field, never its text.
+      expect(loggedEntry("event.updated")).toMatchObject({
+        message: "Edited Charles Duot's event: notes.",
+        newValue: { fields: ["notes"] }
+      });
     });
 
     it("stays quiet for a save that touches no count at all", async () => {
       await patch({ clientName: "Jane Doe" });
 
+      expect(loggedEntries("event.guest_counts.updated")).toEqual([]);
+      expect(loggedEntry("event.updated").newValue).toEqual({
+        fields: ["clientName"]
+      });
+    });
+
+    it("records nothing at all for a save that changes nothing", async () => {
+      // Both halves of the same rule: the panel posts every field on every
+      // save, and neither entry may fire on a request that moved nothing.
+      await patch({ clientName: "Charles Duot", couplesCount: 10 });
+
       expect(mocks.prisma.activityLog.create).not.toHaveBeenCalled();
+    });
+
+    it("names a changed phone or email without recording the value", async () => {
+      // Both are personal data and `activity_logs` carries no redaction, so the
+      // entry says WHICH field moved and stops there.
+      await patch({ email: "client@example.com" });
+
+      const entry = loggedEntry("event.updated");
+
+      expect(entry.newValue).toEqual({ fields: ["email"] });
+      expect(JSON.stringify(entry)).not.toContain("client@example.com");
     });
 
     it("writes nothing when the update itself fails", async () => {

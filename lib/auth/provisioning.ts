@@ -16,7 +16,7 @@ import {
   provisionOrganizationAuthorization
 } from "@/lib/authz/provision";
 import { createOrganizationSlug } from "@/lib/auth/organization-slug";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import {
   isTesterBypassEmail,
   newOrganizationSubscription
@@ -429,15 +429,20 @@ function loadActiveMemberships(
  * indistinguishable from a page refresh.
  */
 function logSignIn(transaction: Prisma.TransactionClient, user: User) {
-  return createActivityLog(transaction, {
-    organizationId: user.organizationId,
-    userId: user.id,
-    userName: user.name,
-    actionType: "auth.login.success",
-    message: `User signed in successfully as ${user.email}.`,
-    newValue: {
-      email: user.email,
-      organizationId: user.organizationId
+  // The email is deliberately not recorded, in the message or the payload.
+  // `activity_logs` has no redaction at all and this row is read back on the
+  // Activity screen; `user_id` and `user_name` already say who signed in, and
+  // they are the debugging axis. See the payload note in lib/audit/activity-log.
+  return recordActivity(
+    transaction,
+    {
+      organizationId: user.organizationId,
+      userId: user.id,
+      actorName: user.name
+    },
+    {
+      action: "auth.login.success",
+      message: `${user.name} signed in.`
     }
-  });
+  );
 }

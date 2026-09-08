@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { principalIdsHolding } from "@/lib/authz/decide";
 import { createApiErrorResponse } from "@/lib/http/api-error";
@@ -179,16 +180,30 @@ export const POST = withRoute(
         );
       }
 
-      const worker = await prisma.kitchenWorker.create({
-        data: {
-          organizationId: actor.organizationId,
-          userId: input.userId,
-          // From the staff record, not the caller: the two must not be able to
-          // disagree about who this row is.
-          name: membership.user.name?.trim() || membership.user.email,
-          color: input.color
-        },
-        select: workerSelect
+      const worker = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.kitchenWorker.create({
+          data: {
+            organizationId: actor.organizationId,
+            userId: input.userId,
+            // From the staff record, not the caller: the two must not be able to
+            // disagree about who this row is.
+            name: membership.user.name?.trim() || membership.user.email,
+            color: input.color
+          },
+          select: workerSelect
+        });
+
+        // `created.name` falls back to the staff email when the account has no
+        // name set, so the message quotes the id and the payload carries the id
+        // rather than repeating a value that may be an address. The roster
+        // screen resolves the name.
+        await recordActivity(transaction, actor, {
+          action: "kitchen.worker.added",
+          message: "Added a staff member to the kitchen roster.",
+          changed: { after: { workerId: created.id, userId: input.userId } }
+        });
+
+        return created;
       });
 
       return NextResponse.json({ worker }, { status: 201 });

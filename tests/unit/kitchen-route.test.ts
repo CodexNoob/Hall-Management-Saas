@@ -21,8 +21,10 @@ vi.mock("@/features/kitchen/server/kitchen-dish-replacement", () => ({
 vi.mock("@/features/kitchen/server/kitchen-staff-workers", () => ({
   loadKitchenStaffWorkers: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     event: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
     eventMenu: { findMany: vi.fn() },
     // The menus a kitchen event can be raised against.
@@ -72,8 +74,9 @@ vi.mock("@/lib/prisma", () => ({
     // computed, which reads as an empty board rather than as a missing double.
     organizationSetting: { findUnique: vi.fn() },
     $transaction: vi.fn()
-  }
-}));
+  })
+  };
+});
 
 import { GET, PATCH, POST } from "@/app/api/kitchen/route";
 import { replaceKitchenDish } from "@/features/kitchen/server/kitchen-dish-replacement";

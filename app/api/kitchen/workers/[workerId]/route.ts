@@ -7,6 +7,7 @@ import {
   workerNameSchema,
   workerSelect
 } from "@/features/kitchen/server/kitchen-workers";
+import { changedFields, recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -27,7 +28,9 @@ const updateWorkerSchema = z
 async function loadWorker(organizationId: string, id: string) {
   return prisma.kitchenWorker.findFirst({
     where: { id, organizationId },
-    select: { id: true }
+    // `name` and `isActive` are read for the activity entry, which has to say
+    // WHICH worker and - for a restore - which direction the flag moved.
+    select: { id: true, name: true, isActive: true }
   });
 }
 
@@ -73,10 +76,33 @@ export const PATCH = withRoute(
         }
       }
 
-      const worker = await prisma.kitchenWorker.update({
-        where: { id },
-        data: input,
-        select: workerSelect
+      const moved = changedFields(current, input);
+
+      const worker = await prisma.$transaction(async (transaction) => {
+        const saved = await transaction.kitchenWorker.update({
+          where: { id },
+          data: input,
+          select: workerSelect
+        });
+
+        if (moved.length > 0) {
+          await recordActivity(transaction, actor, {
+            // A restore arrives here as `isActive: true`, and it is the exact
+            // counterpart of DELETE's retirement - so it carries the same key
+            // from the other direction rather than inventing a third.
+            action:
+              input.isActive === true
+                ? "kitchen.worker.added"
+                : "kitchen.worker.updated",
+            message:
+              input.isActive === true
+                ? `Restored ${current.name} to the kitchen roster.`
+                : `Edited ${current.name} on the kitchen roster: ${moved.join(", ")}.`,
+            changed: { after: { workerId: id, fields: moved } }
+          });
+        }
+
+        return saved;
       });
 
       return NextResponse.json({ worker });
@@ -119,10 +145,23 @@ export const DELETE = withRoute(
         );
       }
 
-      const worker = await prisma.kitchenWorker.update({
-        where: { id },
-        data: { isActive: false },
-        select: workerSelect
+      const worker = await prisma.$transaction(async (transaction) => {
+        const saved = await transaction.kitchenWorker.update({
+          where: { id },
+          data: { isActive: false },
+          select: workerSelect
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "kitchen.worker.removed",
+          message: `Retired ${current.name} from the kitchen roster.`,
+          changed: {
+            before: { workerId: id, isActive: true },
+            after: { workerId: id, isActive: false }
+          }
+        });
+
+        return saved;
       });
 
       return NextResponse.json({ worker });

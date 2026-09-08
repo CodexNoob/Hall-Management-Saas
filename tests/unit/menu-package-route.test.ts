@@ -5,13 +5,16 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
   authorize: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     menuItem: { count: vi.fn() },
     eventPackage: { update: vi.fn() },
     $queryRaw: vi.fn()
-  }
-}));
+  })
+  };
+});
 
 import { PATCH } from "@/app/api/menu/packages/[packageId]/route";
 import { authorize } from "@/lib/authz/authorize";

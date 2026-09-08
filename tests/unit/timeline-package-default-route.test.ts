@@ -6,12 +6,15 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   assertInScope: vi.fn(),
   authorize: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     event: { findFirst: vi.fn() },
     eventPackage: { updateMany: vi.fn() }
-  }
-}));
+  })
+  };
+});
 
 import { POST } from "@/app/api/events/[eventId]/timeline/package-default/route";
 import { authorize } from "@/lib/authz/authorize";

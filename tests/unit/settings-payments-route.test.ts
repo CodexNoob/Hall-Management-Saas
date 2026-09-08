@@ -12,8 +12,10 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   // suite's question.
   assertPermission: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     organization: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
     organizationSetting: { findUnique: vi.fn(), upsert: vi.fn() },
     notificationPreference: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -22,8 +24,9 @@ vi.mock("@/lib/prisma", () => ({
     hall: { updateMany: vi.fn() },
     paymentSetting: { findUnique: vi.fn(), upsert: vi.fn() },
     $transaction: vi.fn()
-  }
-}));
+  })
+  };
+});
 
 import { GET, PATCH } from "@/app/api/settings/route";
 import { AuthorizationError } from "@/lib/auth/errors";
@@ -409,5 +412,70 @@ describe("organization payment link settings", () => {
 
     expect(response.status).toBe(400);
     expect(prisma.organizationSetting.upsert).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The activity entry a settings save writes.
+   *
+   * This payload carries a contact email and a client payment link - one
+   * personal data, one a URL - and `activity_logs` has no redaction at all.
+   * The entry therefore records WHICH settings moved and no values, which is
+   * what these three pin.
+   */
+  describe("activity entry", () => {
+    const loggedEntry = () =>
+      vi.mocked(prisma.activityLog.create).mock.calls[0][0].data as {
+        actionType: string;
+        message: string;
+        newValue: { fields: string[] };
+      };
+
+    it("names the paths that moved, without their values", async () => {
+      const response = await patch({
+        controlCenter: controlCenterWith({
+          style: "color",
+          color: "#1f4d73",
+          imagePath: ""
+        }),
+        payments: { paymentLink: "https://secure.example.com/venue-a" }
+      });
+
+      expect(response.status).toBe(200);
+
+      const entry = loggedEntry();
+
+      expect(entry.actionType).toBe("settings.updated");
+      expect(entry.newValue.fields).toContain("payments.paymentLink");
+      expect(JSON.stringify(entry)).not.toContain("secure.example.com");
+    });
+
+    it("names a changed contact email without recording the address", async () => {
+      const controlCenter = controlCenterWith({
+        style: "color",
+        color: "#1f4d73",
+        imagePath: ""
+      });
+      controlCenter.general.contactEmail = "office@example.com";
+
+      await patch({ controlCenter });
+
+      const entry = loggedEntry();
+
+      expect(entry.newValue.fields).toContain(
+        "controlCenter.general.contactEmail"
+      );
+      expect(JSON.stringify(entry)).not.toContain("office@example.com");
+    });
+
+    it("stays quiet for a save that changed nothing", async () => {
+      // The General section posts the organization name back on every save.
+      // Recording that as a rename would put an edit in the history that never
+      // happened.
+      const response = await patch({ organizationName: "Venue A" });
+
+      expect(response.status).toBe(200);
+      expect(prisma.organization.update).not.toHaveBeenCalled();
+      expect(prisma.activityLog.create).not.toHaveBeenCalled();
+    });
   });
 });

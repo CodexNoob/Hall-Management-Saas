@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -40,9 +41,19 @@ export const POST = withRoute(
         select: { id: true }
       });
       if (duplicate) return NextResponse.json({ error: "An event type with this name already exists." }, { status: 409 });
-      const eventType = await prisma.eventType.create({
-        data: { organizationId: actor.organizationId, name: input.name, isActive: input.isActive ?? true, validDays: input.validDays ?? [], isShabbosShevaBrachos: input.isShabbosShevaBrachos ?? false },
-        include: { _count: { select: { events: true } } }
+      const eventType = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.eventType.create({
+          data: { organizationId: actor.organizationId, name: input.name, isActive: input.isActive ?? true, validDays: input.validDays ?? [], isShabbosShevaBrachos: input.isShabbosShevaBrachos ?? false },
+          include: { _count: { select: { events: true } } }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "settings.event_type.created",
+          message: `Added the ${created.name} event type.`,
+          changed: { after: { eventTypeId: created.id, name: created.name } }
+        });
+
+        return created;
       });
       return NextResponse.json({ eventType }, { status: 201 });
     } catch (error) { return createApiErrorResponse(error); }
@@ -55,23 +66,38 @@ export const PATCH = withRoute(
     try {
       const actor = await authorize(request, "eventtype.manage");
       const input = updateSchema.parse(await request.json());
-      const current = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, select: { id: true } });
+      // `name` and `isActive` are read for the activity diff, not for the
+      // duplicate check below.
+      const current = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, select: { id: true, name: true, isActive: true } });
       if (!current) return NextResponse.json({ error: "Event type not found." }, { status: 404 });
       if (input.name) {
         const duplicate = await prisma.eventType.findFirst({ where: { organizationId: actor.organizationId, name: { equals: input.name, mode: "insensitive" }, id: { not: current.id } }, select: { id: true } });
         if (duplicate) return NextResponse.json({ error: "An event type with this name already exists." }, { status: 409 });
       }
-      const eventType = await prisma.eventType.update({
-        where: { id: current.id },
-        data: {
-          ...(input.name !== undefined ? { name: input.name } : {}),
-          ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-          ...(input.validDays !== undefined ? { validDays: input.validDays } : {}),
-          ...(input.isShabbosShevaBrachos !== undefined
-            ? { isShabbosShevaBrachos: input.isShabbosShevaBrachos }
-            : {})
-        },
-        include: { _count: { select: { events: true } } }
+      const eventType = await prisma.$transaction(async (transaction) => {
+        const saved = await transaction.eventType.update({
+          where: { id: current.id },
+          data: {
+            ...(input.name !== undefined ? { name: input.name } : {}),
+            ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+            ...(input.validDays !== undefined ? { validDays: input.validDays } : {}),
+            ...(input.isShabbosShevaBrachos !== undefined
+              ? { isShabbosShevaBrachos: input.isShabbosShevaBrachos }
+              : {})
+          },
+          include: { _count: { select: { events: true } } }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "settings.event_type.updated",
+          message: `Edited the ${current.name} event type.`,
+          changed: {
+            before: { name: current.name, isActive: current.isActive },
+            after: { eventTypeId: saved.id, name: saved.name, isActive: saved.isActive }
+          }
+        });
+
+        return saved;
       });
       return NextResponse.json({ eventType });
     } catch (error) { return createApiErrorResponse(error); }
@@ -87,7 +113,15 @@ export const DELETE = withRoute(
       const eventType = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, include: { _count: { select: { events: true } } } });
       if (!eventType) return NextResponse.json({ error: "Event type not found." }, { status: 404 });
       if (eventType._count.events > 0) return NextResponse.json({ error: "This event type is already used by events. Deactivate it instead." }, { status: 409 });
-      await prisma.eventType.delete({ where: { id: eventType.id } });
+      await prisma.$transaction(async (transaction) => {
+        await transaction.eventType.delete({ where: { id: eventType.id } });
+
+        await recordActivity(transaction, actor, {
+          action: "settings.event_type.deleted",
+          message: `Removed the ${eventType.name} event type.`,
+          changed: { before: { eventTypeId: eventType.id, name: eventType.name } }
+        });
+      });
       return NextResponse.json({ deleted: true });
     } catch (error) { return createApiErrorResponse(error); }
   }

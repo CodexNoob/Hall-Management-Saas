@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authorizeMember, requireUserActor } from "@/lib/authz/authorize";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -44,16 +44,15 @@ export const POST = withRoute(
           data: { passwordSetAt }
         });
 
-        await createActivityLog(transaction, {
-          organizationId: actor.organizationId,
-          userId,
-          userName: actor.actorName,
-          actionType: "auth.password.set",
-          message: `Account password was set for ${actor.userEmail}.`,
-          newValue: {
-            email: actor.userEmail,
-            wasFirstPassword: !previous.passwordSetAt
-          }
+        // The email stays out of both the message and the payload: this table
+        // has no redaction and the row is read back on the Activity screen.
+        // `userId` and `userName` already identify the account.
+        await recordActivity(transaction, actor, {
+          action: "auth.password.set",
+          message: previous.passwordSetAt
+            ? "Account password was changed."
+            : "Account password was set for the first time.",
+          changed: { after: { wasFirstPassword: !previous.passwordSetAt } }
         });
       });
 

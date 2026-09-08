@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { recordActivity } from "@/lib/audit/activity-log";
 import { assertInScope, authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -44,16 +45,34 @@ export const POST = withRoute(
         );
       }
 
-      const blockedDate = await prisma.holidayBlockedDate.create({
-        data: {
-          organizationId: actor.organizationId,
-          hallId: input.hallId,
-          startDate: new Date(`${input.startDate}T00:00:00.000Z`),
-          endDate: new Date(`${input.endDate}T00:00:00.000Z`),
-          label: input.label,
-          reason: input.reason
-        }
+      const blockedDate = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.holidayBlockedDate.create({
+          data: {
+            organizationId: actor.organizationId,
+            hallId: input.hallId,
+            startDate: new Date(`${input.startDate}T00:00:00.000Z`),
+            endDate: new Date(`${input.endDate}T00:00:00.000Z`),
+            label: input.label,
+            reason: input.reason
+          }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "calendar.blocked_date.created",
+          message: `Blocked ${input.startDate} to ${input.endDate} (${input.label}).`,
+          changed: {
+            after: {
+              blockedDateId: created.id,
+              hallId: input.hallId,
+              startDate: input.startDate,
+              endDate: input.endDate
+            }
+          }
+        });
+
+        return created;
       });
+
       return NextResponse.json({ blockedDate }, { status: 201 });
     } catch (error) {
       return createApiErrorResponse(error);
@@ -69,15 +88,42 @@ export const DELETE = withRoute(
       const { id } = z
         .object({ id: z.string().uuid() })
         .parse(await request.json());
-      const result = await prisma.holidayBlockedDate.deleteMany({
-        where: { id, ...tenant(actor) }
+      // Read first rather than relying on `deleteMany`'s count: the entry has to
+      // say WHICH dates were reopened, and after the delete there is nothing
+      // left to read it from.
+      const existing = await prisma.holidayBlockedDate.findFirst({
+        where: { id, ...tenant(actor) },
+        select: { id: true, label: true, startDate: true, endDate: true, hallId: true }
       });
-      if (!result.count) {
+
+      if (!existing) {
         return NextResponse.json(
           { error: "Blocked date was not found." },
           { status: 404 }
         );
       }
+
+      await prisma.$transaction(async (transaction) => {
+        await transaction.holidayBlockedDate.delete({ where: { id: existing.id } });
+
+        await recordActivity(transaction, actor, {
+          action: "calendar.blocked_date.removed",
+          message: `Unblocked ${existing.startDate
+            .toISOString()
+            .slice(0, 10)} to ${existing.endDate.toISOString().slice(0, 10)} (${
+            existing.label
+          }).`,
+          changed: {
+            before: {
+              blockedDateId: existing.id,
+              hallId: existing.hallId,
+              startDate: existing.startDate.toISOString().slice(0, 10),
+              endDate: existing.endDate.toISOString().slice(0, 10)
+            }
+          }
+        });
+      });
+
       return NextResponse.json({ deleted: true });
     } catch (error) {
       return createApiErrorResponse(error);

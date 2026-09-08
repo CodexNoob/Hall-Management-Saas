@@ -15,14 +15,17 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
   authorize: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     menuItem: { findMany: vi.fn(), create: vi.fn() },
     eventPackage: { findMany: vi.fn() },
     addOn: { findMany: vi.fn(), create: vi.fn() },
     menuCategory: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() }
-  }
-}));
+  })
+  };
+});
 
 import { GET, POST } from "@/app/api/menu/route";
 import { authorize } from "@/lib/authz/authorize";

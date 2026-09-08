@@ -292,6 +292,9 @@ export function loadEventForMenu(
       eventDate: true,
       eventType: true,
       clientName: true,
+      // For the activity entries the menu routes write. The Clients page lists
+      // activity by client, and an entry with no `client_id` never reaches it.
+      clientId: true,
       hall: { select: { name: true } }
     }
   });

@@ -4,7 +4,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { withRoute } from "@/lib/http/with-route";
 import { trackedFetch } from "@/lib/logging/outbound";
 
@@ -84,17 +84,16 @@ export const POST = withRoute(
           }
         });
 
-        await createActivityLog(transaction, {
-          organizationId: actor.organizationId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "plaid.connection.created",
+        await recordActivity(transaction, actor, {
+          action: "plaid.connection.created",
           message: `Connected a Plaid bank account for ${input.institutionName ?? "the selected institution"}.`,
-          newValue: {
-            bankConnectionId: created.id,
-            institutionName: input.institutionName ?? null,
-            accountName: input.metadata?.accountName ?? null,
-            accountType: input.metadata?.accountType ?? null
+          changed: {
+            after: {
+              bankConnectionId: created.id,
+              institutionName: input.institutionName ?? null,
+              accountName: input.metadata?.accountName ?? null,
+              accountType: input.metadata?.accountType ?? null
+            }
           }
         });
 
