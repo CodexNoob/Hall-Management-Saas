@@ -56,7 +56,6 @@ export function DashboardSidebar({
   activeLabel = "Events"
 }: DashboardSidebarProps) {
   const router = useRouter();
-  const collapsedNavigationRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [profileName, setProfileName] = useState(user.name);
   const [profileUsername, setProfileUsername] = useState(
@@ -113,9 +112,6 @@ export function DashboardSidebar({
   const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
     visibleSidebarSections.map((section) => section.title)
   );
-  const [openCollapsedSection, setOpenCollapsedSection] = useState<
-    string | null
-  >(null);
   const [isSidebarTransitionReady, setIsSidebarTransitionReady] =
     useState(false);
   const initials = getInitials(profileName);
@@ -273,35 +269,6 @@ export function DashboardSidebar({
   }, [router, visibleSidebarSections]);
 
   useEffect(() => {
-    if (!openCollapsedSection) return;
-
-    function closeOnOutsideClick(event: PointerEvent) {
-      if (
-        event.target instanceof Node &&
-        !collapsedNavigationRef.current?.contains(event.target)
-      ) {
-        setOpenCollapsedSection(null);
-      }
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpenCollapsedSection(null);
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsideClick);
-    window.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsideClick);
-      window.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [openCollapsedSection]);
-
-  useEffect(() => {
-    if (!isCollapsed || isMobileOpen) setOpenCollapsedSection(null);
-  }, [isCollapsed, isMobileOpen]);
-
-  useEffect(() => {
     if (!isProfileMenuOpen) return;
 
     function closeOnOutsideClick(event: PointerEvent) {
@@ -427,239 +394,137 @@ export function DashboardSidebar({
         <nav
           className={`flex-1 ${
             showCollapsed
-              ? "overflow-visible px-2 py-4"
+              ? "space-y-3 overflow-visible px-2 py-4"
               : "space-y-5 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-4"
           }`}
         >
-          {showCollapsed ? (
-            <div className="space-y-3" ref={collapsedNavigationRef}>
-              {visibleSidebarSections.map((section) => {
-                const isActiveSection = section.items.some(
-                  (item) => item.label === activeLabel
-                );
-                const isOpen = openCollapsedSection === section.title;
-
-                return (
-                  <div className="relative" key={section.title}>
-                    <button
-                      aria-label={`${section.title} navigation`}
-                      aria-expanded={isOpen}
-                      aria-haspopup="menu"
-                      className={`group relative flex h-11 w-full items-center justify-center rounded-xl transition ${
-                        isActiveSection
-                          ? "bg-white/15 text-white"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
-                      onClick={() =>
-                        setOpenCollapsedSection((current) =>
-                          current === section.title ? null : section.title
-                        )
-                      }
-                      type="button"
-                    >
-                      {isActiveSection ? (
-                        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
-                      ) : null}
-
-                      {section.collapsedIconSrc ? (
-                        <Image
-                          alt=""
-                          aria-hidden="true"
-                          className="h-6 w-6 object-contain brightness-0 invert drop-shadow-[0_0_0.7px_white]"
-                          height={24}
-                          src={section.collapsedIconSrc}
-                          width={24}
-                        />
-                      ) : (
-                        <SidebarIcon
-                          className="h-6 w-6"
-                          name={section.icon}
-                          strokeWidth={2.6}
-                        />
-                      )}
-
-                      {!isOpen ? (
-                        <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                          {section.title}
-                        </span>
-                      ) : null}
-                    </button>
-
-                    {isOpen ? (
-                      <div
-                        aria-label={`${section.title} links`}
-                        className="absolute left-[calc(100%+0.5rem)] top-0 z-80 w-60 overflow-hidden rounded-2xl border border-[#15344f] bg-[#1f4d73] p-2 text-white shadow-xl shadow-[#17202a]/20"
-                        role="menu"
-                      >
-                        <h2 className="mb-2 border-b border-white/20 px-3 pb-2 pt-1 text-sm font-medium">
-                          {section.title}
-                        </h2>
-
-                        <div className="space-y-1">
-                          {section.items.map((item) => {
-                            const isActive = item.label === activeLabel;
-
-                            return (
-                              <button
-                                className={`relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-normal transition ${
-                                  isActive
-                                    ? "bg-white/15 text-white"
-                                    : "text-white/90 hover:bg-white/10 hover:text-white"
-                                }`}
-                                key={item.label}
-                                onClick={() => {
-                                  setOpenCollapsedSection(null);
-                                  if (item.route) {
-                                    router.push(
-                                      item.route as Parameters<
-                                        typeof router.push
-                                      >[0],
-                                      { scroll: false }
-                                    );
-                                  }
-                                }}
-                                role="menuitem"
-                                type="button"
-                              >
-                                {isActive ? (
-                                  <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-[#eef4fa]" />
-                                ) : null}
-                                {item.iconSrc ? (
-                                  <Image
-                                    alt=""
-                                    aria-hidden="true"
-                                    className="h-4 w-4 shrink-0 object-contain brightness-0 invert"
-                                    height={16}
-                                    src={item.iconSrc}
-                                    width={16}
-                                  />
-                                ) : (
-                                  <SidebarIcon
-                                    className="h-4 w-4 shrink-0"
-                                    name={item.icon}
-                                  />
-                                )}
-                                <span>{item.label}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            visibleSidebarSections.map((section) => (
-              <section key={section.title}>
-                {!showCollapsed ? (
-                  <button
-                    aria-expanded={expandedSidebarSections.includes(
-                      section.title
-                    )}
-                    className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-0.5 text-left text-[11px] font-medium tracking-[0.04em] text-white/55 transition hover:bg-white/10 hover:text-white"
-                    onClick={() =>
-                      setExpandedSidebarSections((current) =>
-                        current.includes(section.title)
-                          ? current.filter((title) => title !== section.title)
-                          : [...current, section.title]
-                      )
-                    }
-                    type="button"
+          {visibleSidebarSections.map((section, sectionIndex) => (
+            <section
+              // A 4.5rem rail has no room for a heading, so the grouping the
+              // headings carry survives as a hairline between the last icon of
+              // one section and the first of the next.
+              className={
+                showCollapsed && sectionIndex > 0
+                  ? "border-t border-white/10 pt-3"
+                  : undefined
+              }
+              key={section.title}
+            >
+              {!showCollapsed ? (
+                <button
+                  aria-expanded={expandedSidebarSections.includes(
+                    section.title
+                  )}
+                  className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-0.5 text-left text-[11px] font-medium tracking-[0.04em] text-white/55 transition hover:bg-white/10 hover:text-white"
+                  onClick={() =>
+                    setExpandedSidebarSections((current) =>
+                      current.includes(section.title)
+                        ? current.filter((title) => title !== section.title)
+                        : [...current, section.title]
+                    )
+                  }
+                  type="button"
+                >
+                  <span>{section.title}</span>
+                  <span
+                    aria-hidden="true"
+                    className={`text-sm leading-none transition-transform ${
+                      expandedSidebarSections.includes(section.title)
+                        ? "rotate-90"
+                        : "rotate-0"
+                    }`}
                   >
-                    <span>{section.title}</span>
-                    <span
-                      aria-hidden="true"
-                      className={`text-sm leading-none transition-transform ${
-                        expandedSidebarSections.includes(section.title)
-                          ? "rotate-90"
-                          : "rotate-0"
-                      }`}
-                    >
-                      ›
-                    </span>
-                  </button>
-                ) : null}
+                    ›
+                  </span>
+                </button>
+              ) : null}
 
-                {expandedSidebarSections.includes(section.title) ? (
-                  <div className={showCollapsed ? "space-y-2" : "space-y-1.5"}>
-                    {section.items.map((item) => {
-                      const isActive = item.label === activeLabel;
+              {/* Folding a section away shortens a column of labels. The rail
+                  has no headings to fold, so honouring that choice there would
+                  leave those destinations with nothing at all to click - not
+                  even an icon - until the sidebar is expanded again. The rail
+                  therefore always lists every item. */}
+              {showCollapsed ||
+              expandedSidebarSections.includes(section.title) ? (
+                <div className="space-y-1.5">
+                  {section.items.map((item) => {
+                    const isActive = item.label === activeLabel;
 
-                      return (
-                        <button
-                          key={`${section.title}-${item.label}`}
-                          className={`group relative flex w-full items-center transition ${
+                    return (
+                      <button
+                        key={`${section.title}-${item.label}`}
+                        className={`group relative flex w-full items-center transition ${
+                          showCollapsed
+                            ? `h-11 justify-center rounded-xl ${
+                                isActive
+                                  ? "bg-white/15 text-white"
+                                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                              }`
+                            : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
+                                isActive
+                                  ? "bg-white/15 text-white"
+                                  : "text-white/80 hover:bg-white/10 hover:text-white"
+                              }`
+                        }`}
+                        type="button"
+                        onClick={() => {
+                          if (item.route) openNavigationDestination(item.route);
+                        }}
+                        aria-label={item.label}
+                      >
+                        {isActive ? (
+                          <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
+                        ) : null}
+
+                        <span
+                          className={`flex shrink-0 items-center justify-center ${
                             showCollapsed
-                              ? `h-11 justify-center rounded-xl ${
-                                  isActive
-                                    ? "bg-white/15 text-white"
-                                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                                }`
-                              : `gap-2.5 rounded-xl px-2.5 py-2 text-left ${
-                                  isActive
-                                    ? "bg-white/15 text-white"
-                                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                                }`
+                              ? "h-9 w-9 rounded-xl"
+                              : isActive
+                                ? "text-white"
+                                : "text-white/65"
                           }`}
-                          type="button"
-                          onClick={() => {
-                            if (item.route)
-                              openNavigationDestination(item.route);
-                          }}
-                          aria-label={item.label}
-                          title={isCollapsed ? item.label : undefined}
                         >
-                          {isActive ? (
-                            <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
-                          ) : null}
-
-                          <span
-                            className={`flex shrink-0 items-center justify-center ${
-                              showCollapsed
-                                ? "h-9 w-9 rounded-xl"
-                                : isActive
-                                  ? "text-white"
-                                  : "text-white/65"
-                            }`}
-                          >
-                            {item.iconSrc ? (
-                              <Image
-                                alt=""
-                                aria-hidden="true"
-                                className="h-4.5 w-4.5 object-contain brightness-0 invert opacity-80"
-                                height={18}
-                                src={item.iconSrc}
-                                width={18}
-                              />
-                            ) : (
-                              <SidebarIcon
-                                className="h-4.5 w-4.5"
-                                name={item.icon}
-                              />
-                            )}
-                          </span>
-
-                          {!showCollapsed ? (
-                            <>
-                              <span className="min-w-0 flex-1 truncate text-sm font-normal">
-                                {item.label}
-                              </span>
-                            </>
+                          {item.iconSrc ? (
+                            <Image
+                              alt=""
+                              aria-hidden="true"
+                              className={`object-contain brightness-0 invert ${
+                                showCollapsed
+                                  ? "h-5 w-5"
+                                  : "h-4.5 w-4.5 opacity-80"
+                              }`}
+                              height={24}
+                              src={item.iconSrc}
+                              width={24}
+                            />
                           ) : (
-                            <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                              {item.label}
-                            </span>
+                            <SidebarIcon
+                              className={
+                                showCollapsed ? "h-5 w-5" : "h-4.5 w-4.5"
+                              }
+                              name={item.icon}
+                              strokeWidth={showCollapsed ? 2.4 : 2}
+                            />
                           )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </section>
-            ))
-          )}
+                        </span>
+
+                        {!showCollapsed ? (
+                          <span className="min-w-0 flex-1 truncate text-sm font-normal">
+                            {item.label}
+                          </span>
+                        ) : (
+                          <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
+                            {item.label}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
+          ))}
         </nav>
 
         {!showCollapsed || isProfileMenuOpen ? (
