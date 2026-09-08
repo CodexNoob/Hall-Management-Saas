@@ -14,6 +14,7 @@ import { EventTypesSettingsPanel } from "@/features/settings/components/event-ty
 import { HallsSettingsPanel } from "@/features/settings/components/halls-settings-panel";
 import { LogoField } from "@/features/settings/components/branding-image-field";
 import { PortalHeaderPanel } from "@/features/settings/components/portal-header-panel";
+import { ActivitySettingsPanel } from "@/features/settings/components/activity-settings-panel";
 import { ResetSettingsPanel } from "@/features/settings/components/reset-settings-panel";
 import {
   getOrganizationBrandingUrl,
@@ -326,8 +327,15 @@ export function SettingsPage({
   // its tab goes with it. A tab that opens on an empty page reads as a broken
   // screen, and one labelled Reset invites a conversation about who has the
   // permission - which is not a conversation this screen should start.
+  //
+  // Activity goes the same way and for the same reason: without `activity.read`
+  // the panel draws only an explanation of the permission it needs, which is a
+  // worse answer than not offering the tab.
+  const canReadActivity = hasPermission("activity.read");
   const visibleModalNavItems = modalSettingsNavItems.filter(
-    (item) => item.label !== "Reset" || hasPermission("organization.reset")
+    (item) =>
+      (item.label !== "Reset" || hasPermission("organization.reset")) &&
+      (item.label !== "Activity" || canReadActivity)
   );
   const activeModalNavItem =
     visibleModalNavItems.find((item) => item.label === activeModalSection) ??
@@ -833,6 +841,9 @@ export function SettingsPage({
                 ) : null}
                 {activeModalSection === "Access" ? (
                   <AccessSettingsPanel />
+                ) : null}
+                {activeModalSection === "Activity" ? (
+                  <ActivitySettingsPanel canRead={canReadActivity} />
                 ) : null}
                 {activeModalSection === "Reset" ? <ResetSettingsPanel /> : null}
                 {activeModalSection === "Billing" ? (

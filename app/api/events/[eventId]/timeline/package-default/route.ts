@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { timelineSchema } from "@/features/events/validations/timeline.schema";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -65,12 +66,37 @@ export const POST = withRoute(
         );
       }
 
+      const packageId = event.packageId;
+
       // updateMany rather than update: it carries the organization in the filter,
       // so a package belonging to another tenant matches nothing and reports back
       // as not found instead of being written to.
-      const saved = await prisma.eventPackage.updateMany({
-        where: { id: event.packageId, organizationId: actor.organizationId },
-        data: { defaultTimeline: input.timeline as Prisma.InputJsonValue }
+      const saved = await prisma.$transaction(async (transaction) => {
+        const written = await transaction.eventPackage.updateMany({
+          where: { id: packageId, organizationId: actor.organizationId },
+          data: { defaultTimeline: input.timeline as Prisma.InputJsonValue }
+        });
+
+        if (written.count === 0) return written;
+
+        // `menu.package.updated`, not an event key, and the route's own
+        // docstring is why: this writes to the menu catalog and the change
+        // outlives the event it was saved from. Filing it under Events would put
+        // it on one event's history when what it actually changed is what every
+        // future booking of the package starts from. `eventId` is still stamped,
+        // because "saved from here" is worth being able to trace back.
+        await recordActivity(transaction, actor, {
+          action: "menu.package.updated",
+          eventId: id,
+          message: `Saved a ${input.timeline.length}-row default schedule onto the ${
+            event.packageName ?? "selected"
+          } package.`,
+          changed: {
+            after: { packageId, defaultTimelineRows: input.timeline.length }
+          }
+        });
+
+        return written;
       });
 
       if (saved.count === 0) {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -272,6 +273,19 @@ export const POST = withRoute(
           });
         }
 
+        await recordActivity(transaction, actor, {
+          action: "settings.hall.created",
+          message: `Added the ${hall.name} hall.`,
+          changed: {
+            after: {
+              hallId: hall.id,
+              name: hall.name,
+              capacity: hall.capacity,
+              isActive: hall.isActive
+            }
+          }
+        });
+
         return hall;
       });
       return NextResponse.json({ hall }, { status: 201 });
@@ -289,7 +303,21 @@ export const PATCH = withRoute(
       const input = updateHallSchema.parse(await request.json());
       const current = await prisma.hall.findFirst({
         where: { id: input.id, organizationId: actor.organizationId },
-        select: { id: true, isActive: true }
+        // Everything the panel can edit, read so the activity entry can name
+        // the fields that actually moved rather than the ones that arrived.
+        select: {
+          id: true,
+          isActive: true,
+          name: true,
+          capacity: true,
+          dailyEventLimit: true,
+          basePrice: true,
+          perCouplePrice: true,
+          memberBasePrice: true,
+          memberPerCouplePrice: true,
+          color: true,
+          isBookable: true
+        }
       });
       if (!current) {
         return NextResponse.json({ error: "Hall not found." }, { status: 404 });
@@ -388,6 +416,28 @@ export const PATCH = withRoute(
           });
         }
 
+        // Prices are `Decimal` columns, so `changedFields`' `!==` would report
+        // every one of them as moved. Compared as strings instead, which is
+        // what a Decimal's own equality check comes down to anyway.
+        const moved = Object.keys(input)
+          .filter((field) => field !== "id")
+          .filter((field) => {
+            const next = (input as Record<string, unknown>)[field];
+            if (next === undefined) return false;
+
+            const previous = (current as Record<string, unknown>)[field];
+
+            return String(next) !== String(previous);
+          });
+
+        if (moved.length > 0) {
+          await recordActivity(transaction, actor, {
+            action: "settings.hall.updated",
+            message: `Edited the ${current.name} hall: ${moved.join(", ")}.`,
+            changed: { after: { hallId: current.id, fields: moved } }
+          });
+        }
+
         return hall;
       });
       return NextResponse.json({ hall });
@@ -407,6 +457,9 @@ export const DELETE = withRoute(
         where: { id: input.id, organizationId: actor.organizationId },
         select: {
           id: true,
+          // For the activity entry: the row is about to stop existing, and that
+          // entry is the only thing that will say it ever did.
+          name: true,
           _count: {
             select: {
               events: true,
@@ -440,7 +493,15 @@ export const DELETE = withRoute(
         );
       }
 
-      await prisma.hall.delete({ where: { id: hall.id } });
+      await prisma.$transaction(async (transaction) => {
+        await transaction.hall.delete({ where: { id: hall.id } });
+
+        await recordActivity(transaction, actor, {
+          action: "settings.hall.deleted",
+          message: `Removed the ${hall.name} hall.`,
+          changed: { before: { hallId: hall.id, name: hall.name } }
+        });
+      });
       return NextResponse.json({ deleted: true });
     } catch (error) {
       return createApiErrorResponse(error);

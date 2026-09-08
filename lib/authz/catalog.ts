@@ -485,6 +485,24 @@ const CATALOG = [
     group: "Access",
     isDangerous: false
   },
+  {
+    // Its own key rather than folded into `audit.read` under rule 1 at the top
+    // of this file: the two answer different questions and someone plausibly
+    // holds one and not the other. `audit.read` is the privilege trail - who
+    // was granted what. This is the operational history - who edited a hall,
+    // deleted a dish, moved a booking. A venue manager wants the second and has
+    // no business with the first.
+    //
+    // The Activity screen asks for BOTH: it renders privilege rows only when
+    // the caller also holds `audit.read`, which is what `hasPermission` exists
+    // for.
+    key: "activity.read",
+    label: "Read the activity history",
+    description:
+      "Read and export the record of what was changed across the organization.",
+    group: "Access",
+    isDangerous: false
+  },
 
   // --------------------------------------------------------- Configuration
   {

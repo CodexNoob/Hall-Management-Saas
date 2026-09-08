@@ -6,6 +6,11 @@ import {
   readBrandingPathError
 } from "@/features/settings/server/organization-branding";
 import {
+  changedFields,
+  changedKeyPaths,
+  recordActivity
+} from "@/lib/audit/activity-log";
+import {
   assertPermission,
   authorize,
   requireUserActor,
@@ -372,18 +377,15 @@ export const PATCH = withRoute(
       );
       const userId = requireUserActor(actor);
 
-      const [organization, currentSettings, currentNotifications] =
+      // Read first even when a rename is coming, so the activity entry can tell
+      // a rename from a General-section save that merely posted the name back
+      // unchanged. The rename itself follows immediately below.
+      const [existingOrganization, currentSettings, currentNotifications] =
         await Promise.all([
-          input.organizationName !== undefined
-            ? prisma.organization.update({
-                where: { id: actor.organizationId },
-                data: { name: input.organizationName },
-                select: { id: true, name: true }
-              })
-            : prisma.organization.findUniqueOrThrow({
-                where: { id: actor.organizationId },
-                select: { id: true, name: true }
-              }),
+          prisma.organization.findUniqueOrThrow({
+            where: { id: actor.organizationId },
+            select: { id: true, name: true }
+          }),
           prisma.organizationSetting.findUnique({
             where: { ...tenant(actor) }
           }),
@@ -396,6 +398,17 @@ export const PATCH = withRoute(
             }
           })
         ]);
+      const renaming =
+        input.organizationName !== undefined &&
+        input.organizationName !== existingOrganization.name;
+      const organization = renaming
+        ? await prisma.organization.update({
+            where: { id: actor.organizationId },
+            data: { name: input.organizationName },
+            select: { id: true, name: true }
+          })
+        : existingOrganization;
+
       const currentIntegrations = currentSettings?.integrations ?? null;
       const calendarMergedIntegrations =
         mergeCalendarSettings(currentIntegrations, input.dailyEventLimit) ??
@@ -512,6 +525,71 @@ export const PATCH = withRoute(
               where: { ...tenant(actor) },
               select: { paymentLink: true }
             });
+
+      /*
+       * One entry for the whole save, naming WHICH SETTINGS MOVED AND NOTHING
+       * ELSE.
+       *
+       * No values, deliberately and not for brevity: this payload carries
+       * `controlCenter.general.contactEmail`, which is personal data, and
+       * `payments.paymentLink`, which is a URL. `activity_logs` has no redaction
+       * and this row is read back on the Activity screen. "Somebody changed the
+       * payment link at 14:12" is the whole answer an operator needs; the value
+       * is on the screen they are already looking at. See the payload note in
+       * lib/audit/activity-log.
+       *
+       * Outside a transaction, and this one is not a choice either: the save
+       * lands across three independent writes above - the organization row, the
+       * settings/notifications transaction, and the payment setting - with no
+       * single transaction spanning them. Recorded after they have all
+       * succeeded rather than inside one of the three, which would tie the
+       * record to whichever happened to be picked.
+       */
+      const changedSettings = [
+        ...(renaming ? ["organizationName"] : []),
+        ...changedFields(
+          {
+            language: currentSettings?.language,
+            timezone: currentSettings?.timezone,
+            twoFactorRequired: currentSettings?.twoFactorRequired,
+            sessionTimeoutMinutes: currentSettings?.sessionTimeoutMinutes
+          },
+          {
+            language: input.language,
+            timezone: input.timezone,
+            twoFactorRequired: input.twoFactorRequired,
+            sessionTimeoutMinutes: input.sessionTimeoutMinutes
+          }
+        ),
+        ...(input.dailyEventLimit !== undefined
+          ? ["calendar.dailyEventLimit"]
+          : []),
+        ...(input.billing !== undefined ? ["billing"] : []),
+        ...(input.controlCenter
+          ? changedKeyPaths(
+              controlCenterFromIntegrations(currentSettings?.integrations),
+              input.controlCenter,
+              "controlCenter"
+            )
+          : []),
+        // Supplied rather than diffed: the payment link is saved from its own
+        // section behind its own permission, so posting it IS the decision to
+        // change it, and reading the old value back only to compare would put a
+        // URL in this handler's memory for no gain.
+        ...(input.payments !== undefined ? ["payments.paymentLink"] : []),
+        ...changedFields(
+          currentNotifications ?? {},
+          notificationChanges
+        ).map((field) => `notifications.${field}`)
+      ];
+
+      if (changedSettings.length > 0) {
+        await recordActivity(prisma, actor, {
+          action: "settings.updated",
+          message: `Changed organization settings: ${changedSettings.join(", ")}.`,
+          changed: { after: { fields: changedSettings } }
+        });
+      }
 
       return NextResponse.json({
         organization,

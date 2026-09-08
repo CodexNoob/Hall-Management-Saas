@@ -60,7 +60,7 @@ function* walk(directory: string): Generator<string> {
 }
 
 describe("permission catalog", () => {
-  it("holds exactly 64 keys", () => {
+  it("holds exactly 65 keys", () => {
     // The count is asserted, not just the uniqueness. Replacing twenty-three
     // booleans is the design's own claim, and a silent drift in either direction
     // means somebody added a key without deciding it was one.
@@ -69,8 +69,10 @@ describe("permission catalog", () => {
     // and "may see all of it", which is what lets Kitchen Staff be scoped to
     // their own dishes. Sixty-four since `organization.reset`, which is the
     // Settings panel that empties the account and is deliberately not
-    // `settings.update`.
-    expect(permissionKeys).toHaveLength(64);
+    // `settings.update`. Sixty-five since `activity.read`, which reads the
+    // organization's operational history and is deliberately not `audit.read` -
+    // that one is the privilege trail, and they are different questions.
+    expect(permissionKeys).toHaveLength(65);
   });
 
   it("has no duplicates", () => {

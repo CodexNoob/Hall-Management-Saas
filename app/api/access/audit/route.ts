@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { authorize, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
+import { csvCell } from "@/lib/http/csv";
 import { prisma } from "@/lib/prisma";
 import { withRoute } from "@/lib/http/with-route";
 
@@ -25,15 +26,6 @@ const querySchema = z.object({
   format: z.enum(["json", "csv"]).default("json"),
   cursor: z.string().uuid().optional()
 });
-
-/** RFC 4180: double the quotes, wrap anything with a comma, quote or newline. */
-function csvCell(value: unknown): string {
-  if (value === null || value === undefined) return "";
-
-  const text = typeof value === "string" ? value : JSON.stringify(value);
-
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
 
 export const GET = withRoute(
   "GET /api/access/audit",

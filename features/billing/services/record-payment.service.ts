@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@prisma/client";
+import { recordActivity } from "@/lib/audit/activity-log";
 import {
   assertInScope,
   type AuthzContext
@@ -224,21 +225,18 @@ export async function recordPaymentWithAudit(
             })
           : null;
 
-      const activityLog = await transaction.activityLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          eventId: input.eventId,
-          clientId: currentEvent.clientId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "Payment Confirmation",
-          message: `Payment marked ${input.result}.`,
-          oldValue: {
+      const activityLog = await recordActivity(transaction, actor, {
+        action: "event.payment.recorded",
+        eventId: input.eventId,
+        clientId: currentEvent.clientId,
+        message: `Payment marked ${input.result}.`,
+        changed: {
+          before: {
             eventPaymentStatus: currentEvent.paymentStatus,
             eventBalanceCents: eventBalanceBeforeCents,
             invoiceBalanceCents: invoice?.balanceDueCents ?? null
           },
-          newValue: {
+          after: {
             amountCents: input.amountCents,
             result: input.result,
             note: input.note ?? null,

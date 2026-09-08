@@ -3,7 +3,7 @@ import { authorize } from "@/lib/authz/authorize";
 import { prisma } from "@/lib/prisma";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { getPlaidRuntimeConfig } from "@/lib/plaid";
-import { createActivityLog } from "@/lib/audit/activity-log";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { withRoute } from "@/lib/http/with-route";
 import { trackedFetch } from "@/lib/logging/outbound";
 
@@ -100,16 +100,15 @@ export const POST = withRoute(
           data: { lastSyncedAt: new Date() }
         });
 
-        await createActivityLog(tx, {
-          organizationId: actor.organizationId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "plaid.sync.completed",
+        await recordActivity(tx, actor, {
+          action: "plaid.sync.completed",
           message: `Synced ${addedTransactions.length} Plaid transaction(s).`,
-          oldValue: { count: 0 },
-          newValue: {
-            count: addedTransactions.length,
-            bankConnectionId: connection.id
+          changed: {
+            before: { count: 0 },
+            after: {
+              count: addedTransactions.length,
+              bankConnectionId: connection.id
+            }
           }
         });
       });

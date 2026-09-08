@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { changedFields, recordActivity } from "@/lib/audit/activity-log";
 import { assertInScope, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -222,6 +223,25 @@ export const PATCH = withRoute(
           waitersCount: true,
           clientId: true,
           clientName: true,
+          // The rest of what the details panel can edit, read so the activity
+          // entry can say which fields actually MOVED. The panel posts every
+          // field on every save, so "was it supplied" would record a change on
+          // a save that changed nothing - the same trap `movedCounts` avoids
+          // below. `phone` and `email` are read for the comparison only; their
+          // VALUES never reach the log, see the entry itself.
+          phone: true,
+          email: true,
+          coordinatorMembershipId: true,
+          eventTypeId: true,
+          eventType: true,
+          eventStatus: true,
+          startsAt: true,
+          setupTime: true,
+          washingTime: true,
+          tableclothName: true,
+          memberShulName: true,
+          notes: true,
+          daveningNote: true,
           hall: { select: { name: true, capacity: true } }
         }
       });
@@ -411,6 +431,15 @@ export const PATCH = withRoute(
         (field) => input[field] !== undefined && input[field] !== current[field]
       );
 
+      // The non-count columns that actually moved, for the general entry below.
+      // `eventChanges` is what is about to be written, minus the workspace JSON
+      // that `workspaceData` handles; the counts are excluded because they get
+      // an entry of their own.
+      const movedFields = changedFields(
+        current as Record<string, unknown>,
+        eventChanges as Record<string, unknown>
+      ).filter((field) => !loggedCountFields.includes(field as CountField));
+
       const event = await prisma.$transaction(async (transaction) => {
         const updated = await transaction.event.update({
           where: { id, organizationId: actor.organizationId },
@@ -434,28 +463,73 @@ export const PATCH = withRoute(
         // being able to trace back to a person. In the same transaction as the
         // update: a lost log entry would leave the numbers changed with nothing
         // saying so, which is the state this exists to end.
+        //
+        // Its own entry rather than a line in the general one below, so the
+        // Activity screen can filter for it: "who changed the numbers" is the
+        // question this trail gets asked most.
         if (movedCounts.length > 0) {
-          await transaction.activityLog.create({
-            data: {
-              organizationId: actor.organizationId,
-              eventId: id,
-              clientId: current.clientId,
-              userId: actor.userId,
-              userName: actor.actorName,
-              actionType: "Guest Counts Changed",
-              message: `Changed guest counts for ${current.clientName}: ${movedCounts
-                .map(
-                  (field) =>
-                    `${countLabels[field]} ${current[field]} to ${input[field]}`
-                )
-                .join(", ")}.`,
-              oldValue: Object.fromEntries(
+          await recordActivity(transaction, actor, {
+            action: "event.guest_counts.updated",
+            eventId: id,
+            clientId: current.clientId,
+            message: `Changed guest counts for ${current.clientName}: ${movedCounts
+              .map(
+                (field) =>
+                  `${countLabels[field]} ${current[field]} to ${input[field]}`
+              )
+              .join(", ")}.`,
+            changed: {
+              before: Object.fromEntries(
                 movedCounts.map((field) => [field, current[field]])
               ),
-              newValue: Object.fromEntries(
-                movedCounts.map((field) => [field, input[field]])
+              after: Object.fromEntries(
+                movedCounts.map((field) => [field, input[field] ?? null])
               )
             }
+          });
+        }
+
+        // The day-of schedule, which lives in `workspaceData` rather than in a
+        // column - so it is invisible to the field diff above and needs saying
+        // separately. Confirming it is what tells staff to follow it on the day,
+        // which is the half worth being able to trace.
+        if (timeline !== undefined || timelineConfirmed !== undefined) {
+          await recordActivity(transaction, actor, {
+            action: "event.timeline.updated",
+            eventId: id,
+            clientId: current.clientId,
+            message:
+              timelineConfirmed === true
+                ? `Confirmed the timeline for ${current.clientName}.`
+                : timelineConfirmed === false
+                  ? `Reopened the timeline for ${current.clientName}.`
+                  : `Edited the timeline for ${current.clientName}: ${timeline?.length ?? 0} row(s).`,
+            changed: {
+              after: {
+                ...(timeline !== undefined ? { rows: timeline.length } : {}),
+                ...(timelineConfirmed !== undefined
+                  ? { confirmed: timelineConfirmed }
+                  : {})
+              }
+            }
+          });
+        }
+
+        // Everything else the panel can edit.
+        //
+        // FIELD NAMES ONLY, NO VALUES. `phone` and `email` are in this set and
+        // are personal data; `activity_logs` has no redaction and this row is
+        // read back on the Activity screen. "Somebody changed the phone number
+        // at 14:12" is the whole answer an operator needs, and the current value
+        // is on the screen they are already looking at. See the payload note in
+        // lib/audit/activity-log.
+        if (movedFields.length > 0) {
+          await recordActivity(transaction, actor, {
+            action: "event.updated",
+            eventId: id,
+            clientId: current.clientId,
+            message: `Edited ${current.clientName}'s event: ${movedFields.join(", ")}.`,
+            changed: { after: { fields: movedFields } }
           });
         }
 

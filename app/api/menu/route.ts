@@ -5,6 +5,7 @@ import { readPackageItemIdsError } from "@/features/menu/server/menu-package-ite
 import { readPicturePathError } from "@/features/menu/server/menu-picture";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
 import { menuPackageFieldsSchema } from "@/features/menu/validations/menu-package.schema";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -196,37 +197,56 @@ export const POST = withRoute(
         // The item and its service rules are one thing to a caller, so they are
         // one transaction here. A dish that saved without the rule it was created
         // with would sit on no service tab and read as a failed save.
-        const item = await prisma.menuItem.create({
-          data: {
-            organizationId: actor.organizationId,
-            name: input.name,
-            // Both are written: `category` is the deprecated free-text column,
-            // still populated for readers on other branches, and `categoryId` is
-            // the row the event menu's course tabs are built from.
-            category: input.category,
-            categoryId: await resolveMenuCategoryId(
-              actor.organizationId,
-              input.category
-            ),
-            usageType: input.usageType,
-            kind: input.kind,
-            kosherType: input.kosherType,
-            containsAlcohol: input.containsAlcohol,
-            allergens: input.allergens ?? [],
-            notes: input.notes,
-            picturePath: input.picturePath,
-            // Set here, not taken from the request - the same reason
-            // organizationId is injected rather than accepted.
-            pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null,
-            services: {
-              create: (input.services ?? []).map((service) => ({
-                organizationId: actor.organizationId,
-                ...service
-              }))
+        // Resolved before the transaction opens rather than inside it: it is a
+        // read against the singleton either way, and holding an interactive
+        // transaction open across a round trip that is not part of it is how a
+        // busy create starts brushing Prisma's five-second ceiling.
+        const categoryId = await resolveMenuCategoryId(
+          actor.organizationId,
+          input.category
+        );
+
+        const item = await prisma.$transaction(async (transaction) => {
+          const created = await transaction.menuItem.create({
+            data: {
+              organizationId: actor.organizationId,
+              name: input.name,
+              // Both are written: `category` is the deprecated free-text column,
+              // still populated for readers on other branches, and `categoryId`
+              // is the row the event menu's course tabs are built from.
+              category: input.category,
+              categoryId,
+              usageType: input.usageType,
+              kind: input.kind,
+              kosherType: input.kosherType,
+              containsAlcohol: input.containsAlcohol,
+              allergens: input.allergens ?? [],
+              notes: input.notes,
+              picturePath: input.picturePath,
+              // Set here, not taken from the request - the same reason
+              // organizationId is injected rather than accepted.
+              pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null,
+              services: {
+                create: (input.services ?? []).map((service) => ({
+                  organizationId: actor.organizationId,
+                  ...service
+                }))
+              }
+            },
+            include: { services: true }
+          });
+
+          await recordActivity(transaction, actor, {
+            action: "menu.item.created",
+            message: `Added ${created.name} to the menu.`,
+            changed: {
+              after: { menuItemId: created.id, category: created.category }
             }
-          },
-          include: { services: true }
+          });
+
+          return created;
         });
+
         return NextResponse.json({ item }, { status: 201 });
       }
 
@@ -239,35 +259,62 @@ export const POST = withRoute(
           return NextResponse.json({ error: itemIdsError }, { status: 400 });
         }
 
-        const itemPackage = await prisma.eventPackage.create({
-          data: {
-            organizationId: actor.organizationId,
-            name: input.name,
-            regularPrice: input.regularPrice,
-            memberPrice: input.memberPrice,
-            hallIds: input.hallIds,
-            eventTypeIds: input.eventTypeIds,
-            includedMenuItemIds: input.includedMenuItemIds,
-            notes: input.notes
-          }
+        const itemPackage = await prisma.$transaction(async (transaction) => {
+          const created = await transaction.eventPackage.create({
+            data: {
+              organizationId: actor.organizationId,
+              name: input.name,
+              regularPrice: input.regularPrice,
+              memberPrice: input.memberPrice,
+              hallIds: input.hallIds,
+              eventTypeIds: input.eventTypeIds,
+              includedMenuItemIds: input.includedMenuItemIds,
+              notes: input.notes
+            }
+          });
+
+          await recordActivity(transaction, actor, {
+            action: "menu.package.created",
+            message: `Created the ${created.name} package.`,
+            changed: {
+              after: {
+                packageId: created.id,
+                includedItems: created.includedMenuItemIds.length
+              }
+            }
+          });
+
+          return created;
         });
+
         return NextResponse.json({ package: itemPackage }, { status: 201 });
       }
 
-      const addOn = await prisma.addOn.create({
-        data: {
-          organizationId: actor.organizationId,
-          name: input.name,
-          price: input.price,
-          pricingType: input.pricingType,
-          hallIds: input.hallIds,
-          notes: input.notes,
-          picturePath: input.picturePath,
-          // Set here, not taken from the request - the same reason
-          // organizationId is injected rather than accepted.
-          pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null
-        }
+      const addOn = await prisma.$transaction(async (transaction) => {
+        const created = await transaction.addOn.create({
+          data: {
+            organizationId: actor.organizationId,
+            name: input.name,
+            price: input.price,
+            pricingType: input.pricingType,
+            hallIds: input.hallIds,
+            notes: input.notes,
+            picturePath: input.picturePath,
+            // Set here, not taken from the request - the same reason
+            // organizationId is injected rather than accepted.
+            pictureBucket: input.picturePath ? MENU_IMAGE_BUCKET : null
+          }
+        });
+
+        await recordActivity(transaction, actor, {
+          action: "menu.addon.created",
+          message: `Created the ${created.name} add-on.`,
+          changed: { after: { addOnId: created.id } }
+        });
+
+        return created;
       });
+
       return NextResponse.json({ addOn }, { status: 201 });
     } catch (error) {
       return createApiErrorResponse(error);

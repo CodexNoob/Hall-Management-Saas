@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MAX_MENU_CSV_ROWS } from "@/features/menu/lib/menu-csv";
 import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import { menuItemFieldsSchema } from "@/features/menu/validations/menu-item.schema";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
@@ -93,15 +94,15 @@ export const POST = withRoute(
 
       // The only trace a 500-row write leaves. Every other menu mutation is one
       // visible card; this one is not.
-      await prisma.activityLog.create({
-        data: {
-          organizationId: actor.organizationId,
-          userId: actor.userId,
-          userName: actor.actorName,
-          actionType: "Menu Items Imported",
-          message: `Imported ${created.length} menu items from a CSV file.`,
-          newValue: { count: created.length }
-        }
+      //
+      // Written after the import rather than inside it, and that is forced: the
+      // import above is the ARRAY form of `$transaction`, which takes unexecuted
+      // Prisma promises and so cannot carry a helper that awaits. The import is
+      // all-or-nothing on its own; this entry follows a confirmed success.
+      await recordActivity(prisma, actor, {
+        action: "menu.imported",
+        message: `Imported ${created.length} menu items from a CSV file.`,
+        changed: { after: { count: created.length } }
       });
 
       return NextResponse.json({ imported: created.length }, { status: 201 });

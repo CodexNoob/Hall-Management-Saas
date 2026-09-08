@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { recordActivity } from "@/lib/audit/activity-log";
 import type {
   BookingStatus,
   CreateBookingInput
@@ -691,25 +692,30 @@ export async function createBooking(
         });
       }
 
-      await transaction.activityLog.create({
-        data: {
+      await recordActivity(
+        transaction,
+        {
           organizationId: actor.organizationId,
+          userId: actor.id,
+          actorName: actor.name
+        },
+        {
+          action: "event.created",
           clientId: client.id,
           eventId: event.id,
-          userId: actor.id,
-          userName: actor.name,
-          actionType: "Booking Created",
           message: `Created ${statusLabels[status].toLowerCase()} booking for ${event.clientName} in ${hall.name}.`,
-          newValue: {
-            bookingStatus: status,
-            startsAt: window.startsAt.toISOString(),
-            endsAt: window.endsAt.toISOString(),
-            setupStartsAt: window.setupStartsAt.toISOString(),
-            cleanupEndsAt: window.cleanupEndsAt.toISOString(),
-            reservedHallIds
+          changed: {
+            after: {
+              bookingStatus: status,
+              startsAt: window.startsAt.toISOString(),
+              endsAt: window.endsAt.toISOString(),
+              setupStartsAt: window.setupStartsAt.toISOString(),
+              cleanupEndsAt: window.cleanupEndsAt.toISOString(),
+              reservedHallIds
+            }
           }
         }
-      });
+      );
       return { eventId: event.id, replayed: false };
     },
     holdsAHall
@@ -864,19 +870,24 @@ export async function transitionBooking(
       }
     }
 
-    await transaction.activityLog.create({
-      data: {
+    await recordActivity(
+      transaction,
+      {
         organizationId: actor.organizationId,
+        userId: actor.id,
+        actorName: actor.name
+      },
+      {
+        action: "event.status.updated",
         eventId: event.id,
         clientId: event.clientId,
-        userId: actor.id,
-        userName: actor.name,
-        actionType: "Booking Status Changed",
         message: `Changed ${event.clientName}'s booking from ${statusLabels[current]} to ${statusLabels[status]}.`,
-        oldValue: { bookingStatus: current, version: expectedVersion },
-        newValue: { bookingStatus: status, version: expectedVersion + 1 }
+        changed: {
+          before: { bookingStatus: current, version: expectedVersion },
+          after: { bookingStatus: status, version: expectedVersion + 1 }
+        }
       }
-    });
+    );
     return { eventId: event.id };
   });
 

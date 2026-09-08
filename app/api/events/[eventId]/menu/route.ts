@@ -15,6 +15,7 @@ import {
   readPresentedMenu,
   serviceStyleSchema
 } from "@/features/events/server/event-menu-document";
+import { recordActivity } from "@/lib/audit/activity-log";
 import {
   assertInScope,
   authorize,
@@ -321,6 +322,24 @@ export const PUT = withRoute(
           eventId: id
         });
 
+        // A count, not the line set. The whole menu is on the screen the reader
+        // came from; what the history has to answer is who rewrote it and when.
+        await recordActivity(transaction, actor, {
+          action: "event.menu.updated",
+          eventId: id,
+          clientId: event.clientId,
+          message: `Saved the ${input.meal.toLowerCase()} menu for ${event.clientName}: ${lines.length} line(s).`,
+          changed: {
+            after: {
+              meal: input.meal,
+              lines: lines.length,
+              dishes: menuItemIds.length,
+              addOns: addOnIds.length,
+              version: savedMenu.version
+            }
+          }
+        });
+
         return savedMenu;
       });
 
@@ -431,6 +450,22 @@ export const POST = withRoute(
           data: {
             workspaceData: mergeWorkspace(event.workspaceData, confirming),
             updatedById: actor.userId
+          }
+        });
+
+        // Confirming hands the sheet to the kitchen as the thing to cook, and
+        // reopening takes it back. Both directions carry the same key so the
+        // filter shows the whole lifecycle of one menu in order.
+        await recordActivity(transaction, actor, {
+          action: "event.menu.confirmed",
+          eventId: id,
+          clientId: event.clientId,
+          message: confirming
+            ? `Confirmed the ${input.meal.toLowerCase()} menu for ${event.clientName}.`
+            : `Reopened the ${input.meal.toLowerCase()} menu for ${event.clientName}.`,
+          changed: {
+            before: { status: confirming ? "Draft" : "Confirmed" },
+            after: { status: confirming ? "Confirmed" : "Draft", meal: input.meal }
           }
         });
 

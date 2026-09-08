@@ -47,6 +47,7 @@ export const POST = withRoute(
       const outcome = await resetOrganization({
         organizationId: actor.organizationId,
         actorUserId: userId,
+        actorName: actor.actorName,
         scope: input.scope
       });
 

@@ -5,12 +5,15 @@ vi.mock("@/lib/authz/authorize", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/authz/authorize")>()),
   authorize: vi.fn()
 }));
-vi.mock("@/lib/prisma", () => ({
-  prisma: {
+vi.mock("@/lib/prisma", async () => {
+  const { withActivityLog } = await import("./prisma-activity-mock");
+  return {
+    prisma: withActivityLog({
     kitchenWorker: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     organizationMembership: { findMany: vi.fn(), findFirst: vi.fn() }
-  }
-}));
+  })
+  };
+});
 // Who holds a key is the resolver's question and has its own suite; this route
 // only has to ask it and honour the answer.
 vi.mock("@/lib/authz/decide", () => ({

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { recordActivity } from "@/lib/audit/activity-log";
 import { assignRole, ensureStarterRoles } from "@/lib/authz/provision";
 import { FOUNDING_OWNER_ROLE_KEY } from "@/lib/authz/starter-roles";
 import {
@@ -386,10 +387,17 @@ async function deleteVenueAndRecords(tx: Tx, organizationId: string) {
 export async function resetOrganization({
   organizationId,
   actorUserId,
+  actorName,
   scope
 }: {
   organizationId: string;
   actorUserId: string;
+  /**
+   * Snapshotted onto the entry below. `user_id` is ON DELETE SET NULL and the
+   * account reset can take the actor's own user row with it, so the name is the
+   * only thing that keeps "who emptied this" readable afterwards.
+   */
+  actorName?: string | null;
   scope: ResetScope;
 }): Promise<ResetOutcome> {
   const deleted = await prisma.$transaction(
@@ -418,17 +426,17 @@ export async function resetOrganization({
 
       // Written last and deliberately after the history has been cleared: the
       // first thing in the new log says what emptied it and who asked for it.
-      await tx.activityLog.create({
-        data: {
-          organizationId,
-          actionType: "Organization Reset",
+      await recordActivity(
+        tx,
+        { organizationId, userId: actorUserId, actorName: actorName ?? null },
+        {
+          action: "organization.reset.performed",
           message: `${RESET_DESCRIPTIONS[scope].title} performed. ${Object.values(
             counts
           ).reduce((total, count) => total + count, 0)} records deleted.`,
-          newValue: { scope, deleted: counts },
-          userId: actorUserId
+          changed: { after: { scope, deleted: counts } }
         }
-      });
+      );
 
       return counts;
     },

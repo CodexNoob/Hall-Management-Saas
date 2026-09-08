@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
       upsert: vi.fn(),
       update: vi.fn()
     },
+    // The hall edit records what moved, in the same transaction as the write.
+    activityLog: { create: vi.fn() },
     $transaction: vi.fn()
   },
   authorize: vi.fn()

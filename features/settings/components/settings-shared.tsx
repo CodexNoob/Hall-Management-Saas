@@ -92,6 +92,7 @@ export type ModalSettingsSection =
   | "Notifications"
   | "Billing"
   | "Access"
+  | "Activity"
   | "Branding"
   | "Integrations"
   | "Reset";
@@ -142,6 +143,14 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     label: "Access",
     description: "Staff, roles, permissions, and invites.",
     icon: "access"
+  },
+  {
+    // Next to Access rather than at the top, because the two answer adjacent
+    // questions: who may do things, and what was done. Gated on `activity.read`
+    // in settings-page.tsx, the same way Reset is gated on `organization.reset`.
+    label: "Activity",
+    description: "What was changed across the organization, and by whom.",
+    icon: "activity"
   },
   {
     label: "Branding",
