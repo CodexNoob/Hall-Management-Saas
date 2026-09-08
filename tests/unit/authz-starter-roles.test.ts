@@ -99,7 +99,9 @@ describe("starter roles", () => {
       // ordinary administration - so it lands in both of the top two roles and
       // in neither of the four below, which is the whole decision.
       [ADMINISTRATOR, 61],
-      [EVENT_MANAGER, 41],
+      // Forty, down from forty-one: `staff.read` came off. The directory is a
+      // people-management read, and this role manages events.
+      [EVENT_MANAGER, 40],
       [KITCHEN_MANAGER, 15],
       // Eleven, down from fourteen: `kitchen.event.create`,
       // `kitchen.worker.assign` and `eventmenu.confirm` moved to Kitchen Manager.
@@ -189,11 +191,24 @@ describe("starter roles", () => {
       expect(holds(EVENT_MANAGER, "menu.import")).toBe(false);
     });
 
-    it("sees the directory and hands out nothing", () => {
-      expect(holds(EVENT_MANAGER, "staff.read")).toBe(true);
-      expect(holds(EVENT_MANAGER, "staff.invite")).toBe(false);
-      expect(holds(EVENT_MANAGER, "role.assign")).toBe(false);
-      expect(holds(EVENT_MANAGER, "permission.override")).toBe(false);
+    // Including the directory. `staff.read` is a people-management key, not an
+    // events one - it serves the People and Invitations tabs and widens the
+    // support-ticket list to the whole organization. Assigning a coordinator to
+    // an event does not go through it (`/api/events` serves the memberships).
+    it("is refused every access key, the directory included", () => {
+      for (const key of [
+        "staff.read",
+        "staff.invite",
+        "staff.update",
+        "staff.deactivate",
+        "role.read",
+        "role.assign",
+        "role.manage",
+        "permission.override",
+        "audit.read"
+      ] as PermissionKey[]) {
+        expect(holds(EVENT_MANAGER, key), `must not hold ${key}`).toBe(false);
+      }
     });
   });
 

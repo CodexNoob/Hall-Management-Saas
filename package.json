@@ -35,6 +35,8 @@
     "db:kitchen-role-split-rollback": "prisma db execute --file prisma/kitchen-role-split-rollback.sql",
     "db:organization-reset-permission": "prisma db execute --file prisma/organization-reset-permission.sql",
     "db:organization-reset-permission-rollback": "prisma db execute --file prisma/organization-reset-permission-rollback.sql",
+    "db:event-manager-staff-revoke": "prisma db execute --file prisma/event-manager-staff-revoke.sql",
+    "db:event-manager-staff-revoke-rollback": "prisma db execute --file prisma/event-manager-staff-revoke-rollback.sql",
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "beta:list": "tsx scripts/beta-access.ts list",
     "beta:approve": "tsx scripts/beta-access.ts approve",

@@ -148,8 +148,26 @@ export const starterRoles: readonly StarterRole[] = [
       "payment.record",
       "payment.notify",
 
-      // Access - the directory only. No invite, no assign, no override.
-      "staff.read",
+      // Access - NOTHING. Not the directory either, and the absence is the
+      // point.
+      //
+      // `staff.read` used to sit here, described as "the directory only", as
+      // though reading were the harmless half of people management. It is not
+      // one key: it opens the People and Invitations tabs of Staff - every
+      // colleague's name, email, phone number and title - and it widens
+      // `GET /api/support/tickets` from "the ones I raised" to every ticket the
+      // organization has raised. That is the roster and the correspondence of
+      // people this role does not manage.
+      //
+      // Running an event needs neither. The booking form's coordinator field is
+      // served by `/api/events` from `organization_memberships` for exactly this
+      // reason (see `EventCoordinatorOption`), so naming who runs Friday's
+      // wedding never touches `/api/staff` and is unaffected by this absence.
+      //
+      // A tenant who does want their Event Manager on the directory ticks the
+      // key back on in the role editor. That is a grant made by a person and
+      // written to the audit trail, which is the whole difference between it and
+      // a default.
 
       // Configuration - read. Changing settings is an Administrator act.
       "settings.read",

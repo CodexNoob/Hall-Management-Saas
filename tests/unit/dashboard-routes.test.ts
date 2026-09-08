@@ -49,13 +49,29 @@ describe("canAccessDashboardRoute", () => {
     }
   });
 
-  it("lets an Event Manager into staff but not access", () => {
-    // The split that matters: reading the directory is `staff.read`, and
-    // authoring roles is `role.read` on a different page behind a different key.
-    expect(canAccessDashboardRoute("/dashboard/staff", eventManager)).toBe(true);
+  it("keeps an Event Manager out of staff and access alike", () => {
+    // `/dashboard/staff` takes `staff.read` OR `role.read`, and this role holds
+    // neither: the directory came off it deliberately (lib/authz/starter-roles.ts),
+    // so there is no tab of that page left for it to reach. The sidebar entry
+    // goes with it, and `GET /api/staff` refuses the request underneath.
+    expect(canAccessDashboardRoute("/dashboard/staff", eventManager)).toBe(
+      false
+    );
     expect(canAccessDashboardRoute("/dashboard/access", eventManager)).toBe(
       false
     );
+  });
+
+  it("still lets an Event Manager run events", () => {
+    for (const route of [
+      "/dashboard/events",
+      "/dashboard/calendar",
+      "/dashboard/clients",
+      "/dashboard/menu",
+      "/dashboard/settings"
+    ]) {
+      expect(canAccessDashboardRoute(route, eventManager), route).toBe(true);
+    }
   });
 
   it("keeps Kitchen Staff on the kitchen", () => {
