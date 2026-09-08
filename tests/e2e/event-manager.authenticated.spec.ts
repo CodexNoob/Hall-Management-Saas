@@ -80,6 +80,21 @@ const eventResponse = {
   calendarSettings: { dailyEventLimit: 2 }
 };
 
+/**
+ * Both reads the event manager makes: the list, and the workspace's own
+ * one-event refresh at `/api/events?eventId=...`.
+ *
+ * A regex rather than `**\/api/events`, because a glob is anchored at the end of
+ * the url and does not match the query-string form. Left to the real database
+ * that second read answers out of the whole organization, and every save in this
+ * file reports success only once BOTH refetches behind `onEventSaved` have come
+ * back - so a slow one shows up here as a save that never announced itself.
+ *
+ * The path ends at `events` on purpose: `/api/events/<id>` and its `/status`
+ * child are separate routes in the tests below, registered after this one.
+ */
+const EVENTS_READ = /\/api\/events(\?.*)?$/;
+
 test.beforeEach(async () => {
   test.skip(
     !process.env.E2E_READONLY_EMAIL || !process.env.E2E_READONLY_PASSWORD,
@@ -145,7 +160,7 @@ test("Event details save and persist edited fields", async ({ page }) => {
   const eventId = eventResponse.events[0].id;
   const persistedResponse = structuredClone(eventResponse);
 
-  await page.route("**/api/events", async (route) => {
+  await page.route(EVENTS_READ, async (route) => {
     if (route.request().method() !== "GET") {
       await route.fallback();
       return;
@@ -311,7 +326,7 @@ test("Confirm event saves the details first, then confirms the booking", async (
   let savedPayload: Record<string, unknown> | null = null;
   let statusPayload: Record<string, unknown> | null = null;
 
-  await page.route("**/api/events", async (route) => {
+  await page.route(EVENTS_READ, async (route) => {
     if (route.request().method() !== "GET") {
       await route.fallback();
       return;

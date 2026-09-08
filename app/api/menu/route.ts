@@ -45,6 +45,13 @@ export const GET = withRoute(
           select: {
             id: true,
             name: true,
+            // Deactivated rows travel with their flag rather than being
+            // filtered out here: the library grid shows them, and the event
+            // menu's selector is the one that drops them. Leaving this out of
+            // the select does not fail - it hands every reader `undefined`,
+            // which their `isActive` filters read as "not active", and the
+            // drawer offers nothing at all.
+            isActive: true,
             category: true,
             usageType: true,
             kind: true,
@@ -76,6 +83,7 @@ export const GET = withRoute(
           select: {
             id: true,
             name: true,
+            isActive: true,
             regularPrice: true,
             includedMenuItemIds: true
           },
@@ -86,6 +94,7 @@ export const GET = withRoute(
           select: {
             id: true,
             name: true,
+            isActive: true,
             price: true,
             pricingType: true,
             notes: true,

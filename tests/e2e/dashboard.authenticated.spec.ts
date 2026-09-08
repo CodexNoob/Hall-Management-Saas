@@ -262,6 +262,40 @@ test("event manager topbar carries the title only, leaving search to the event l
     page.getByRole("heading", { name: "Event Manager", exact: true })
   ).toBeVisible({ timeout: 45_000 });
 
+  // Waited for before anything below is measured, and on the heading's budget
+  // rather than the default five seconds. The loading state renders this page's
+  // heading too, so the heading does not say the events have landed - and every
+  // assertion after this one counts things that must NOT be on the page, which
+  // a skeleton satisfies by having nothing on it at all. An organization big
+  // enough to take a few seconds to list would have passed this test without
+  // ever rendering the thing it is about.
+  //
+  // The one search this page keeps, which filters the list rather than jumping
+  // between modules. The organization may be empty, so accept either the list
+  // search input or the empty-state content as a valid page.
+  await expect
+    .poll(
+      async () => {
+        if (
+          (await page.getByPlaceholder("Search client, hall, type").count()) > 0
+        ) {
+          return (
+            await page.getByPlaceholder("Search client, hall, type").first()
+          ).isVisible();
+        }
+
+        return (
+          (await page.getByText("No events yet").count()) > 0 ||
+          (await page
+            .getByText("Create an event to start using the event workspace.")
+            .count()) > 0 ||
+          (await page.getByText("That event could not be opened").count()) > 0
+        );
+      },
+      { timeout: 45_000 }
+    )
+    .toBe(true);
+
   const topbar = page.locator(".dashboard-topbar-content");
   await expect(topbar.getByRole("button", { name: "New booking" })).toHaveCount(
     0
@@ -270,29 +304,6 @@ test("event manager topbar carries the title only, leaving search to the event l
     topbar.getByRole("button", { name: "Open today notes" })
   ).toHaveCount(0);
   await expect(topbar.getByRole("searchbox")).toHaveCount(0);
-
-  // The one search this page keeps, which filters the list rather than jumping
-  // between modules. The organization may be empty or still loading, so accept
-  // either the list search input or the empty-state content as a valid page.
-  await expect
-    .poll(async () => {
-      if (
-        (await page.getByPlaceholder("Search client, hall, type").count()) > 0
-      ) {
-        return (
-          await page.getByPlaceholder("Search client, hall, type").first()
-        ).isVisible();
-      }
-
-      return (
-        (await page.getByText("No events yet").count()) > 0 ||
-        (await page
-          .getByText("Create an event to start using the event workspace.")
-          .count()) > 0 ||
-        (await page.getByText("That event could not be opened").count()) > 0
-      );
-    })
-    .toBe(true);
 });
 
 // The smoke list is the pages the MVP ships. /dashboard and the four hidden
