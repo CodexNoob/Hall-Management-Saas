@@ -5,7 +5,6 @@ import { ClientPortalPreviewDrawer } from "@/features/events/components/client-p
 import { PrintPacketDrawer } from "@/features/events/components/print-packet-drawer";
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
-import { EventBillingContent } from "@/features/events/components/event-billing-content";
 import { ClientPortalContent } from "@/features/events/components/event-client-portal-content";
 import {
   ActivityPanel,
@@ -217,7 +216,6 @@ export function EventWorkspace({
         {activeTab === "Client portal" ? (
           <ClientPortalContent event={event} />
         ) : null}
-        {activeTab === "Billing" ? <EventBillingContent /> : null}
         {activeTab === "Hall map" ? (
           <HallMapContent key={event.id} event={event} />
         ) : null}

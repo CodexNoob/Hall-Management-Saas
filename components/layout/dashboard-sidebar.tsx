@@ -767,10 +767,6 @@ export function DashboardSidebar({
                           kind: "release-notes"
                         },
                         {
-                          label: "Download Apps",
-                          kind: "download-apps"
-                        },
-                        {
                           label: "Terms of Service",
                           kind: "terms-of-service"
                         },
@@ -782,7 +778,7 @@ export function DashboardSidebar({
                     ).map((item) => (
                       <button
                         className={`relative block w-full whitespace-nowrap rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
-                          item.label === "Download Apps"
+                          item.kind === "release-notes"
                             ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
                             : ""
                         }`}

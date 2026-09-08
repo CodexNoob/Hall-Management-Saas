@@ -11,6 +11,7 @@ import {
   getEventReadinessSummary,
   getScopedEventReadinessItems
 } from "@/features/events/components/event-readiness";
+import { showBillingReadouts } from "@/lib/ui/mvp-features";
 
 type PrintPacketDrawerProps = {
   event: EventFile;
@@ -471,7 +472,12 @@ export function PrintPacketDrawer({
                 label="Washing time"
                 value={fieldValue(event.washingTime)}
               />
-              <DetailField label="Balance" value={fieldValue(event.balance)} />
+              {showBillingReadouts ? (
+                <DetailField
+                  label="Balance"
+                  value={fieldValue(event.balance)}
+                />
+              ) : null}
             </div>
           </PacketSection>
 

@@ -4,7 +4,8 @@
  * The Dashboard overview, Hall Room Map, Billing, Dining Manager, Files and
  * Vendors
  * modules are finished enough to run but are out of scope for the first
- * release, which is Events, Menu, Kitchen and Settings. Their routes,
+ * release, which is Bookings/Calendar, Events, Menu, Kitchen, Staff and
+ * Settings. Their routes,
  * components, API handlers and tables are all left in place - only the ways a
  * user could reach them are withdrawn, so turning one back on is an edit to
  * this file rather than a revert.
