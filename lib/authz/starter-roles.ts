@@ -121,9 +121,20 @@ export const starterRoles: readonly StarterRole[] = [
       "kitchen.worker.read",
       "kitchen.worker.assign",
 
-      // Venue - maps, not halls. Drawing a floor plan for tonight is operational;
-      // creating a hall and pricing it is configuration.
+      // Venue - the halls themselves may be corrected, but not brought into
+      // existence, priced, or retired.
+      //
+      // `hall.update` covers name, capacity, colour and the daily event limit:
+      // the facts about a hall that the person running events is the first to
+      // notice are wrong. The three keys deliberately absent are the ones that
+      // change what the venue SELLS rather than what it is - `hall.create`,
+      // `hall.price.update` (every price field, member rates included) and
+      // `hall.delete` (which is also what deactivating a hall asks for, since
+      // taking one out of the booking flow is retiring it). Same split on the
+      // maps, which were always operational: drawing a floor plan for tonight
+      // is this role's work.
       "hall.read",
+      "hall.update",
       "hallmap.read",
       "hallmap.update",
       "dining.read",
@@ -169,8 +180,13 @@ export const starterRoles: readonly StarterRole[] = [
       // written to the audit trail, which is the whole difference between it and
       // a default.
 
-      // Configuration - read. Changing settings is an Administrator act.
+      // Configuration - read, plus the event-type list this role books against.
+      // `eventtype.update` renames a type and changes which days it is valid
+      // on; adding one to the list and taking one out of circulation are
+      // `eventtype.create` and `eventtype.delete`, and both stay above.
+      // Reading the list needs no key of its own - it is `event.read`.
       "settings.read",
+      "eventtype.update",
 
       // Scheduling - the recurring school schedule and the shared day notes are
       // this role's daily work.

@@ -342,7 +342,7 @@ export const POST = withRoute(
         idempotencyKey: headerKey ?? body.idempotencyKey
       });
       if (input.newEventTypeName) {
-        const eventTypeActor = await authorize(request, "eventtype.manage");
+        const eventTypeActor = await authorize(request, "eventtype.create");
         if (eventTypeActor.organizationId !== actor.organizationId) {
           throw new Error(
             "The active organization changed during this request."

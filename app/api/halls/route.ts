@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { recordActivity } from "@/lib/audit/activity-log";
-import { authorize } from "@/lib/authz/authorize";
+import { assertPermission, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { getActiveHallLimit } from "@/lib/subscription/limits";
@@ -69,6 +69,36 @@ const updateHallSchema = hallFieldsSchema
   .partial()
   .extend({ id: z.string().uuid() });
 const deleteHallSchema = z.object({ id: z.string().uuid() });
+
+/**
+ * The two groups of fields on the update payload that are not "editing a hall".
+ *
+ * PATCH's door asks for `hall.update` - the facts about a hall that whoever
+ * runs events is first to notice are wrong. These arrive through the same
+ * endpoint and are different decisions, so the branch that reaches them asks
+ * again with `assertPermission`. Gating the whole door on the stricter key
+ * would lock out everyone who only needed to fix a capacity.
+ */
+const PRICE_FIELDS = [
+  "basePrice",
+  "perCouplePrice",
+  "memberBasePrice",
+  "memberPerCouplePrice"
+] as const satisfies ReadonlyArray<keyof z.infer<typeof hallFieldsSchema>>;
+
+/**
+ * `isActive` and `isBookable` are how a hall is RETIRED, and retiring is not an
+ * edit. DELETE below refuses with a 409 the moment an event, a reservation or a
+ * map preset references the hall, and tells the caller to deactivate instead -
+ * so deactivation is the removal this product actually performs, and it asks
+ * for the removal key. Both booleans, because `booking.service` refuses a hall
+ * that fails either one: taking a hall out of the booking flow is the act, and
+ * which of the two fields does it is an implementation detail.
+ */
+const CIRCULATION_FIELDS = [
+  "isActive",
+  "isBookable"
+] as const satisfies ReadonlyArray<keyof z.infer<typeof hallFieldsSchema>>;
 
 function mergeCalendarDailyEventLimit(
   integrations: unknown,
@@ -195,7 +225,7 @@ export const POST = withRoute(
   "POST /api/halls",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "hall.manage");
+      const actor = await authorize(request, "hall.create");
       const input = createHallSchema.parse(await request.json());
       const organization = await prisma.organization.findUnique({
         where: { id: actor.organizationId },
@@ -299,8 +329,17 @@ export const PATCH = withRoute(
   "PATCH /api/halls",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "hall.manage");
+      const actor = await authorize(request, "hall.update");
       const input = updateHallSchema.parse(await request.json());
+
+      if (PRICE_FIELDS.some((field) => input[field] !== undefined)) {
+        await assertPermission(actor, "hall.price.update");
+      }
+
+      if (CIRCULATION_FIELDS.some((field) => input[field] !== undefined)) {
+        await assertPermission(actor, "hall.delete");
+      }
+
       const current = await prisma.hall.findFirst({
         where: { id: input.id, organizationId: actor.organizationId },
         // Everything the panel can edit, read so the activity entry can name
@@ -451,7 +490,7 @@ export const DELETE = withRoute(
   "DELETE /api/halls",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "hall.manage");
+      const actor = await authorize(request, "hall.delete");
       const input = deleteHallSchema.parse(await request.json());
       const hall = await prisma.hall.findFirst({
         where: { id: input.id, organizationId: actor.organizationId },

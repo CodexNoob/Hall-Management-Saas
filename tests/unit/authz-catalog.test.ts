@@ -60,7 +60,7 @@ function* walk(directory: string): Generator<string> {
 }
 
 describe("permission catalog", () => {
-  it("holds exactly 65 keys", () => {
+  it("holds exactly 70 keys", () => {
     // The count is asserted, not just the uniqueness. Replacing twenty-three
     // booleans is the design's own claim, and a silent drift in either direction
     // means somebody added a key without deciding it was one.
@@ -72,7 +72,12 @@ describe("permission catalog", () => {
     // `settings.update`. Sixty-five since `activity.read`, which reads the
     // organization's operational history and is deliberately not `audit.read` -
     // that one is the privilege trail, and they are different questions.
-    expect(permissionKeys).toHaveLength(65);
+    // Seventy since the venue and event-type lifecycles stopped being one
+    // `manage` key each: `hall.manage` became create/update/delete plus
+    // `hall.price.update`, and `eventtype.manage` became create/update/delete.
+    // That is what lets an Event Manager correct a hall without repricing or
+    // retiring it.
+    expect(permissionKeys).toHaveLength(70);
   });
 
   it("has no duplicates", () => {

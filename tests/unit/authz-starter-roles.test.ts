@@ -93,15 +93,20 @@ describe("starter roles", () => {
 
   describe("exact counts", () => {
     it.each([
-      [OWNER, 65],
+      [OWNER, 70],
       // Sixty-one since `activity.read` joined the catalog. It is NOT in
       // ADMINISTRATOR_WITHHELD - reading the organization's own history is
       // ordinary administration - so it lands in both of the top two roles and
       // in neither of the four below, which is the whole decision.
-      [ADMINISTRATOR, 61],
-      // Forty, down from forty-one: `staff.read` came off. The directory is a
-      // people-management read, and this role manages events.
-      [EVENT_MANAGER, 40],
+      // Sixty-six since the two `manage` keys became seven verbs. Administrator
+      // withholds none of them - splitting a lifecycle says who may do WHICH
+      // part, and this role does all of it.
+      [ADMINISTRATOR, 66],
+      // Forty-one, then forty-two. Down one when `staff.read` came off - the
+      // directory is a people-management read, and this role manages events -
+      // and up two for `hall.update` and `eventtype.update`, the middles of the
+      // two lifecycles it may now correct without repricing or retiring.
+      [EVENT_MANAGER, 42],
       [KITCHEN_MANAGER, 15],
       // Eleven, down from fourteen: `kitchen.event.create`,
       // `kitchen.worker.assign` and `eventmenu.confirm` moved to Kitchen Manager.
@@ -176,7 +181,18 @@ describe("starter roles", () => {
     it("draws maps but does not create halls", () => {
       expect(holds(EVENT_MANAGER, "hallmap.update")).toBe(true);
       expect(holds(EVENT_MANAGER, "hall.read")).toBe(true);
-      expect(holds(EVENT_MANAGER, "hall.manage")).toBe(false);
+      // Corrects a hall, but does not bring one into existence, reprice it, or
+      // retire it - `hall.delete` is what deactivating asks for.
+      expect(holds(EVENT_MANAGER, "hall.update")).toBe(true);
+      expect(holds(EVENT_MANAGER, "hall.create")).toBe(false);
+      expect(holds(EVENT_MANAGER, "hall.price.update")).toBe(false);
+      expect(holds(EVENT_MANAGER, "hall.delete")).toBe(false);
+    });
+
+    it("renames an event type but cannot add or retire one", () => {
+      expect(holds(EVENT_MANAGER, "eventtype.update")).toBe(true);
+      expect(holds(EVENT_MANAGER, "eventtype.create")).toBe(false);
+      expect(holds(EVENT_MANAGER, "eventtype.delete")).toBe(false);
     });
 
     it("keeps clients but cannot delete one", () => {

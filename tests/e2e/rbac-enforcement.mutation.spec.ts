@@ -631,9 +631,27 @@ const PROBES: Probe[] = [
   // Writes.
   { permission: "vendor.manage", method: "POST", url: "/api/vendors" },
   { permission: "client.create", method: "POST", url: "/api/clients" },
-  { permission: "hall.manage", method: "POST", url: "/api/halls" },
+  /**
+   * The venue and event-type lifecycles, one probe per verb.
+   *
+   * They were one `manage` key each until Event Manager was given the middle of
+   * each lifecycle - edit a hall, rename a type - without the ends. A single
+   * POST probe could not tell the two halves apart, and the whole point of the
+   * split is that a role may hold one and not the other.
+   *
+   * `hall.price.update` has no probe here, and cannot have one: it is asked for
+   * AFTER the Zod parse, by the branch that sees a price field, and every write
+   * in this matrix sends an empty body on purpose. Its unit coverage is the
+   * starter-role matrix; proving the field-level refusal needs a real payload
+   * against a real hall, which is not what this file does.
+   */
+  { permission: "hall.create", method: "POST", url: "/api/halls" },
+  { permission: "hall.update", method: "PATCH", url: "/api/halls" },
+  { permission: "hall.delete", method: "DELETE", url: "/api/halls" },
   { permission: "menu.create", method: "POST", url: "/api/menu" },
-  { permission: "eventtype.manage", method: "POST", url: "/api/event-types" },
+  { permission: "eventtype.create", method: "POST", url: "/api/event-types" },
+  { permission: "eventtype.update", method: "PATCH", url: "/api/event-types" },
+  { permission: "eventtype.delete", method: "DELETE", url: "/api/event-types" },
   {
     permission: "kitchen.worker.assign",
     method: "POST",

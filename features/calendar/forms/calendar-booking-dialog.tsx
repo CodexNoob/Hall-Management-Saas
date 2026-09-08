@@ -87,7 +87,10 @@ export function CalendarBookingDialog({
     BookingPayload,
     { event: { id: string } }
   >("/api/events");
-  const canManageEventTypes = useAccess("eventtype.manage");
+  // Naming a type the list does not have yet CREATES one, which is why this
+  // asks for the create key rather than for a general "may manage event types":
+  // POST /api/events authorizes the same key on that branch.
+  const canManageEventTypes = useAccess("eventtype.create");
   const { resetError } = bookingMutation;
 
   const [values, setValues] = useState<BookingFormValues>(

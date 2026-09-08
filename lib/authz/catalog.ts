@@ -267,9 +267,44 @@ const CATALOG = [
     isDangerous: false
   },
   {
-    key: "hall.manage",
-    label: "Manage halls",
-    description: "Create, edit, and retire halls and their pricing.",
+    key: "hall.create",
+    label: "Create halls",
+    description: "Add a hall to the venue.",
+    group: "Venue",
+    isDangerous: false
+  },
+  {
+    key: "hall.update",
+    label: "Edit halls",
+    description: "Change a hall's name, capacity, colour, and daily event limit.",
+    group: "Venue",
+    isDangerous: false
+  },
+  {
+    // Split from `hall.update` under rule 1 at the top of this file, and the
+    // request it answers is an ordinary one: an event manager who may correct a
+    // hall's capacity or its colour has no business setting what the venue
+    // charges for it. Every price field on a hall is behind this key - base,
+    // per-couple, and both member rates - and `PUT /api/halls` asks for it again
+    // when the payload carries one, which is what `assertPermission` is for.
+    key: "hall.price.update",
+    label: "Set hall pricing",
+    description: "Change what a hall costs, including member rates.",
+    group: "Venue",
+    isDangerous: false
+  },
+  {
+    // Removal, BY EITHER MEANS - and the two are one key rather than two
+    // because nobody plausibly holds one without the other (rule 1). Hard
+    // delete is refused with a 409 the moment an event, a reservation or a map
+    // preset references the hall, and the message tells the caller to
+    // deactivate instead: deactivation is the removal this product actually
+    // performs. So `isActive` and `isBookable` on the update payload are asked
+    // for here, not under `hall.update` - taking a hall out of the booking flow
+    // is retiring it, whichever field does it.
+    key: "hall.delete",
+    label: "Remove halls",
+    description: "Deactivate a hall or delete one that nothing references yet.",
     group: "Venue",
     isDangerous: false
   },
@@ -527,9 +562,32 @@ const CATALOG = [
     isDangerous: false
   },
   {
-    key: "eventtype.manage",
-    label: "Manage event types",
-    description: "Create, edit, and retire event types.",
+    key: "eventtype.create",
+    label: "Create event types",
+    description: "Add an event type to the list bookings choose from.",
+    group: "Configuration",
+    isDangerous: false
+  },
+  {
+    key: "eventtype.update",
+    label: "Edit event types",
+    description: "Rename an event type and change which days it is valid on.",
+    group: "Configuration",
+    isDangerous: false
+  },
+  {
+    // The same pairing as `hall.delete`, for the same reason: `DELETE
+    // /api/event-types` refuses with a 409 once any event uses the type, so
+    // deactivating is the removal that actually happens. `isActive` on the
+    // PATCH payload therefore asks for this key rather than for
+    // `eventtype.update`.
+    //
+    // There is no `eventtype.read`. Reading the list is `event.read` - everyone
+    // who books needs the dropdown, and only changing the list is privileged.
+    key: "eventtype.delete",
+    label: "Remove event types",
+    description:
+      "Deactivate an event type or delete one no event has used yet.",
     group: "Configuration",
     isDangerous: false
   },

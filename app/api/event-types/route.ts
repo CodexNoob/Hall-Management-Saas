@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { recordActivity } from "@/lib/audit/activity-log";
-import { authorize } from "@/lib/authz/authorize";
+import { assertPermission, authorize } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { withRoute } from "@/lib/http/with-route";
@@ -34,7 +34,7 @@ export const POST = withRoute(
   "POST /api/event-types",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "eventtype.manage");
+      const actor = await authorize(request, "eventtype.create");
       const input = fieldsSchema.parse(await request.json());
       const duplicate = await prisma.eventType.findFirst({
         where: { organizationId: actor.organizationId, name: { equals: input.name, mode: "insensitive" } },
@@ -64,8 +64,16 @@ export const PATCH = withRoute(
   "PATCH /api/event-types",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "eventtype.manage");
+      const actor = await authorize(request, "eventtype.update");
       const input = updateSchema.parse(await request.json());
+
+      // Retiring a type is not editing one. DELETE below refuses with a 409
+      // once any event uses it and says to deactivate instead, so this boolean
+      // is the removal that actually happens - and it asks for the removal key.
+      if (input.isActive !== undefined) {
+        await assertPermission(actor, "eventtype.delete");
+      }
+
       // `name` and `isActive` are read for the activity diff, not for the
       // duplicate check below.
       const current = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, select: { id: true, name: true, isActive: true } });
@@ -108,7 +116,7 @@ export const DELETE = withRoute(
   "DELETE /api/event-types",
   async (request: Request) => {
     try {
-      const actor = await authorize(request, "eventtype.manage");
+      const actor = await authorize(request, "eventtype.delete");
       const input = deleteSchema.parse(await request.json());
       const eventType = await prisma.eventType.findFirst({ where: { id: input.id, organizationId: actor.organizationId }, include: { _count: { select: { events: true } } } });
       if (!eventType) return NextResponse.json({ error: "Event type not found." }, { status: 404 });

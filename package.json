@@ -37,6 +37,8 @@
     "db:organization-reset-permission-rollback": "prisma db execute --file prisma/organization-reset-permission-rollback.sql",
     "db:event-manager-staff-revoke": "prisma db execute --file prisma/event-manager-staff-revoke.sql",
     "db:event-manager-staff-revoke-rollback": "prisma db execute --file prisma/event-manager-staff-revoke-rollback.sql",
+    "db:venue-lifecycle-split": "prisma db execute --file prisma/venue-lifecycle-split.sql",
+    "db:venue-lifecycle-split-rollback": "prisma db execute --file prisma/venue-lifecycle-split-rollback.sql",
     "db:erd": "tsx scripts/generate-supabase-erd.ts",
     "beta:list": "tsx scripts/beta-access.ts list",
     "beta:approve": "tsx scripts/beta-access.ts approve",
