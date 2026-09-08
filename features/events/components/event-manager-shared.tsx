@@ -2,7 +2,10 @@
 
 import { type ReactNode } from "react";
 
-import { hiddenEventWorkspaceTabs } from "@/lib/ui/mvp-features";
+import {
+  hiddenEventWorkspaceTabs,
+  showBillingReadouts
+} from "@/lib/ui/mvp-features";
 
 export type BadgeTone = "green" | "gold" | "red";
 export type IconName =
@@ -505,7 +508,7 @@ export function MenuThumbnail({
   );
 }
 
-export const portalChecklist = [
+const allPortalChecklist = [
   ["Event date and time", true],
   ["Guest count editor", true],
   ["Client menu selector", true],
@@ -517,6 +520,11 @@ export const portalChecklist = [
   ["Balance due", true],
   ["Internal notes", false]
 ] as const;
+
+export const portalChecklist = allPortalChecklist.filter(
+  ([label]) =>
+    showBillingReadouts || (label !== "Payment link" && label !== "Balance due")
+);
 
 export function LineIcon({
   name,

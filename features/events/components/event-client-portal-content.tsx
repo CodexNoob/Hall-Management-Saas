@@ -18,6 +18,7 @@ import type {
 import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
 import { copyText } from "@/lib/ui/copy-text";
 import { formatMoney } from "@/lib/ui/format-money";
+import { showBillingReadouts } from "@/lib/ui/mvp-features";
 
 type PortalResponse = {
   portal: ClientPortalEvent;
@@ -548,29 +549,32 @@ export function ClientPortalPreviewContent({
           </div>
         ) : null}
 
-        <section className="rounded-lg border border-[#d8dde5] p-4">
-          <h2 className="text-sm font-black">Payment</h2>
-          {paymentUrl ? (
-            <a
-              className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white! transition-colors hover:bg-[#15344f] hover:text-white! visited:text-white!"
-              href={paymentUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <LineIcon name="document" />
-              Pay balance
-            </a>
-          ) : (
-            // No global fallback: an unconfigured organization shows no button
-            // rather than sending the client to another venue's merchant.
-            <p className="mt-3 text-sm text-[#6a7483]">
-              Online payment is not set up for this event. Please contact the
-              venue to arrange payment.
-            </p>
-          )}
-        </section>
+        {showBillingReadouts ? (
+          <section className="rounded-lg border border-[#d8dde5] p-4">
+            <h2 className="text-sm font-black">Payment</h2>
+            {paymentUrl ? (
+              <a
+                className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white! transition-colors hover:bg-[#15344f] hover:text-white! visited:text-white!"
+                href={paymentUrl}
+                rel="noreferrer"
+                target="_blank"
+              >
+                <LineIcon name="document" />
+                Pay balance
+              </a>
+            ) : (
+              // No global fallback: an unconfigured organization shows no
+              // button rather than sending the client to another venue's
+              // merchant.
+              <p className="mt-3 text-sm text-[#6a7483]">
+                Online payment is not set up for this event. Please contact the
+                venue to arrange payment.
+              </p>
+            )}
+          </section>
+        ) : null}
 
-        {portal.totals ? (
+        {showBillingReadouts && portal.totals ? (
           <div className="space-y-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm text-[#17202a]">Invoice total</span>

@@ -20,8 +20,8 @@ const releaseGroups = [
     color: "green",
     icon: Sparkles,
     items: [
-      "Added dashboard-focused Help Center content for bookings, kitchen, dining, hall maps, files, billing, staff, clients, vendors, and settings.",
-      "Added Download Apps modal for Windows desktop installation directly from the dashboard.",
+      "Added dashboard-focused Help Center content for bookings, events, menu selections, kitchen, staff, and settings.",
+      "Focused Phase 1 navigation on the responsive web launch.",
       "Added Today Notes access across dashboard workflows for operating-day reminders."
     ],
     status: "New",
@@ -31,12 +31,10 @@ const releaseGroups = [
     color: "blue",
     icon: TrendingUp,
     items: [
-      "Dashboard Total Events, Booked Events, Income Timeline, and Operating Schedule now provide clearer operational summaries.",
-      "Calendar, Kitchen, Events, Menu, Dining Manager, Hall Room Map, Files, Billing, Staff, Clients, and Vendors pages now use cleaner responsive layouts.",
-      "Hall room map presets can be assigned to halls and are view-only on phone-sized screens.",
-      "Dining Manager event selection, required tables, and seating actions now fit better on mobile and desktop.",
-      "Billing transactions, invoices, event billing, and payment actions are easier to scan on smaller screens.",
-      "Settings integrations for Payments & Gmail, Google Calendar, and PDF & Branding now align better with the dashboard design."
+      "Calendar, Kitchen, Events, Menu, Staff, and Settings pages now use cleaner responsive layouts.",
+      "Event workspaces now emphasize event details, menu selection, client portal review, timeline notes, and kitchen status.",
+      "Kitchen production views are easier to scan by Today, This Week, and 4 Weeks.",
+      "Settings integrations for Gmail, Google Calendar, and PDF & Branding now align better with the dashboard design."
     ],
     status: "Improved",
     title: "Improvements"
@@ -46,10 +44,9 @@ const releaseGroups = [
     icon: Bug,
     items: [
       "Fixed dashboard sidebar highlight after opening Events from dashboard actions.",
-      "Fixed hall room map dropdown visibility and map canvas spacing issues.",
-      "Fixed duplicate React keys in Menu and Billing lists.",
+      "Fixed duplicate React keys in Menu lists.",
       "Fixed mobile route loader covering too much of the interface on several dashboard pages.",
-      "Fixed desktop app startup white flash by keeping the splash/loading screen visible until the login UI is ready."
+      "Fixed profile-menu actions so dialogs open without closing the active sidebar view."
     ],
     status: "Fixed",
     title: "Bug Fixes"
@@ -58,7 +55,7 @@ const releaseGroups = [
     color: "purple",
     icon: Shield,
     items: [
-      "Enhanced session handling for dashboard pages and desktop app login redirects.",
+      "Enhanced session handling for dashboard pages and login redirects.",
       "Improved SaaS data separation readiness through organization-scoped dashboard access."
     ],
     status: "Security",

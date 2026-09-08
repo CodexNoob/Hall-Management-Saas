@@ -1,13 +1,11 @@
 "use client";
 
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
-import { AppInstallCard } from "@/features/help/components/app-install-card";
 
 export type HelpPageKind =
   | "help-center"
   | "report-problem"
   | "release-notes"
-  | "download-apps"
   | "terms-of-service"
   | "privacy-policy";
 
@@ -31,7 +29,7 @@ export const helpPages: Record<
       },
       {
         title: "Daily workflow",
-        body: "Start with Dashboard, then move through Events, Dining Manager, Kitchen, and Billing as each event gets closer."
+        body: "Start with Calendar availability, then move through Events, Menu, Client portal, and Kitchen as each event gets closer."
       },
       {
         title: "Need support?",
@@ -46,30 +44,15 @@ export const helpPages: Record<
     sections: [
       {
         title: "Dashboard improvements",
-        body: "Financial and event timeline widgets now provide clearer visual summaries for filtered periods."
+        body: "Phase 1 dashboard pages now focus on booking availability, event management, menu planning, kitchen visibility, staff access, and settings."
       },
       {
-        title: "Hall room map updates",
-        body: "Hall map presets now scale better across devices and support compact dropdown controls."
+        title: "Events improvements",
+        body: "Event workspaces now keep the active Phase 1 tools easier to reach across desktop and mobile browsers."
       },
       {
-        title: "Dining manager updates",
-        body: "Dining setup screens now adapt more cleanly on phone, tablet, laptop, and desktop layouts."
-      }
-    ]
-  },
-  "download-apps": {
-    eyebrow: "Apps",
-    title: "Download Apps",
-    subtitle: "Install Event Core as a Windows desktop app.",
-    sections: [
-      {
-        title: "Desktop and laptop",
-        body: "Download and run the Windows installer. After installation, Event Core opens directly to the dashboard and requires the user to log in before any data is shown."
-      },
-      {
-        title: "Staff access",
-        body: "Staff members use the same installer. Their dashboard access depends on the account and permissions assigned by the subscribed organization."
+        title: "Kitchen improvements",
+        body: "Kitchen workflows now prioritize production status, assignment, and service timing without extra Phase 2 modules in the way."
       }
     ]
   },
@@ -86,7 +69,7 @@ export const helpPages: Record<
     sections: [
       {
         title: "Authorized use",
-        body: "Use Event Core only for legitimate venue, booking, event, dining, billing, and operational management work."
+        body: "Use Event Core only for legitimate venue, booking, event, menu, kitchen, staff, and operational management work."
       },
       {
         title: "Account responsibility",
@@ -94,7 +77,7 @@ export const helpPages: Record<
       },
       {
         title: "Data accuracy",
-        body: "Your organization is responsible for entering accurate booking, client, event, and financial information."
+        body: "Your organization is responsible for entering accurate booking, client, event, menu, kitchen, and staff information."
       }
     ]
   },
@@ -105,7 +88,7 @@ export const helpPages: Record<
     sections: [
       {
         title: "Operational data",
-        body: "Event Core stores information needed to run bookings, events, dining plans, billing, and team workflows."
+        body: "Event Core stores information needed to run bookings, events, menu planning, kitchen production, and team workflows."
       },
       {
         title: "Access control",
@@ -113,7 +96,7 @@ export const helpPages: Record<
       },
       {
         title: "Responsible handling",
-        body: "Client names, schedules, payments, and internal notes should be treated as private business information."
+        body: "Client names, schedules, menu selections, and internal notes should be treated as private business information."
       }
     ]
   }
@@ -146,9 +129,7 @@ export function HelpPage({ kind }: { kind: HelpPageKind }) {
             </header>
 
             <div className="grid gap-3 p-4 sm:p-5">
-              {kind === "download-apps" ? <AppInstallCard /> : null}
-
-              {kind !== "download-apps" ? page.sections.map((section) => (
+              {page.sections.map((section) => (
                 <article
                   className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-4"
                   key={section.title}
@@ -158,7 +139,7 @@ export function HelpPage({ kind }: { kind: HelpPageKind }) {
                     {section.body}
                   </p>
                 </article>
-              )) : null}
+              ))}
             </div>
           </section>
 

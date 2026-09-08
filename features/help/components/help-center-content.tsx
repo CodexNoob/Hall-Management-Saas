@@ -3,20 +3,15 @@
 import { useState } from "react";
 import {
   AlertTriangle,
-  BarChart3,
-  Building2,
   CalendarPlus,
   CalendarDays,
   ChevronDown,
   ChevronRight,
   ClipboardList,
-  CreditCard,
   FileText,
-  FolderOpen,
   Headphones,
   HelpCircle,
   Lightbulb,
-  Rocket,
   Search,
   Settings,
   ShieldQuestion,
@@ -31,91 +26,53 @@ const popularTopics = [
   { label: "New Booking", icon: CalendarPlus },
   { label: "Calendar", icon: CalendarDays },
   { label: "Events", icon: ClipboardList },
+  { label: "Menu", icon: FileText },
   { label: "Kitchen", icon: Utensils },
-  { label: "Billing", icon: CreditCard },
-  { label: "Hall Maps", icon: Building2 }
+  { label: "Staff", icon: Users },
+  { label: "Settings", icon: Settings }
 ];
 
 const helpRows = [
   {
-    title: "Dashboard Overview",
-    body: "Read total events, booked events, income timeline, operating schedule, and urgent action items.",
-    details: [
-      "Use Total Events for the whole-year event count.",
-      "Use Booked Events to compare confirmed and on-hold bookings.",
-      "Use Operating Schedule for the next active work items."
-    ],
-    icon: Rocket
-  },
-  {
     title: "Bookings & Calendar",
-    body: "Create bookings, review room availability, select date ranges, and open Today Notes.",
+    body: "Check availability quickly, create holds or bookings, and manage event dates without leaving the calendar flow.",
     details: [
-      "Click New booking from the top bar to start a booking.",
-      "Use Month Calendar to review event dates and room activity.",
-      "Use Availability and Settings to manage date ranges and closed dates."
+      "Use the calendar to scan open dates, closed dates, and room activity.",
+      "Create a booking with basic contact details, hall/date, and expected guest counts.",
+      "Use Settings to manage halls and calendar availability rules."
     ],
     icon: CalendarDays
   },
   {
     title: "Event Manager",
-    body: "Manage event details, menus, billing, client portal sharing, files, vendors, timeline, and kitchen views.",
+    body: "Manage event details, guest counts, timelines, menu selections, client portal sharing, and kitchen visibility.",
     details: [
       "Select an event from the event list first.",
-      "Open sections like Event details, Menu, Billing, Client portal, Kitchen, Files, Vendors, and Timeline.",
+      "Use Event details for contact information, guest breakdowns, dietary notes, and timeline milestones.",
+      "Use Client portal when the host needs to submit final menu selections from their phone.",
       "On mobile, expand the selected event to view its sections cleanly."
     ],
     icon: ClipboardList
   },
   {
-    title: "Menu & Kitchen",
-    body: "Build menu libraries, packages, buffet/plated items, and track kitchen production by day, week, or four weeks.",
+    title: "Menu & Client Portal",
+    body: "Build menu libraries, packages, buffet/plated items, add-ons, photos, and client-facing selection options.",
     details: [
       "Use Menu Library, Packages, Buffet Menu, Plated Menu, and Add-ons to build reusable menu items.",
-      "Use Kitchen Dashboard to view production by Today, This Week, or 4 Weeks.",
-      "Click a kitchen event to open full production details."
+      "Attach clear food photos so clients can choose from the portal on mobile.",
+      "Review submitted selections from the event workspace before sending them to the kitchen."
+    ],
+    icon: FileText
+  },
+  {
+    title: "Kitchen Dashboard",
+    body: "Track the dishes that need prep, who owns each item, and what is ready for service.",
+    details: [
+      "Use Today, This Week, or 4 Weeks to match the kitchen's working view.",
+      "Mark dishes Pending, In Prep, Complete, or Ready as production moves forward.",
+      "Assign workers to menu items so ownership is clear during service."
     ],
     icon: Utensils
-  },
-  {
-    title: "Dining Manager",
-    body: "Select an event, check seating, add required tables, and prepare dining setup work.",
-    details: [
-      "Choose an organization event from the Events panel.",
-      "Use Check seating before finalizing required tables.",
-      "Add required tables for the selected event workspace."
-    ],
-    icon: BarChart3
-  },
-  {
-    title: "Halls & Room Maps",
-    body: "Create halls, assign map presets, place shapes, and keep phone users in view-only mode.",
-    details: [
-      "Create a hall before assigning a room map preset.",
-      "Use the shape library to add tables and objects to the map.",
-      "Phone-sized screens are view-only to prevent accidental layout edits."
-    ],
-    icon: Building2
-  },
-  {
-    title: "Files, Clients & Vendors",
-    body: "Organize Event Core Files, client records, vendor records, and documents for each organization.",
-    details: [
-      "New folders and files go inside Event Core Files by default.",
-      "Use Clients for contact and event relationship records.",
-      "Use Vendors for outside services connected to events."
-    ],
-    icon: FolderOpen
-  },
-  {
-    title: "Billing & Invoices",
-    body: "Review transactions, create invoices, record payments, print statements, and track open balances.",
-    details: [
-      "Use Dashboard for financial summary and timeline.",
-      "Use Transactions to review imported or manually recorded payments.",
-      "Use Invoices and Event Billing to create invoices, record payments, and print statements."
-    ],
-    icon: CreditCard
   },
   {
     title: "Staff & Permissions",
@@ -123,27 +80,27 @@ const helpRows = [
     details: [
       "Add staff from the Staff page.",
       "Assign roles based on the pages each staff member should access.",
-      "Review role templates before giving billing, settings, or file permissions."
+      "Review role templates before giving kitchen, events, menu, staff, or settings permissions."
     ],
     icon: Users
   },
   {
     title: "Settings & Integrations",
-    body: "Configure language, halls, Google Calendar, Payments & Gmail, PDF branding, and activity logs.",
+    body: "Configure language, halls, Google Calendar, Gmail, PDF branding, and activity logs.",
     details: [
       "Use Halls to manage the rooms shown in booking forms.",
-      "Use Payments & Gmail and Google Calendar to check integration status.",
+      "Use Gmail and Google Calendar to check integration status.",
       "Use PDF & Branding to control exported document identity."
     ],
     icon: Settings
   },
   {
     title: "Troubleshooting",
-    body: "Fix login/session errors, missing deployment updates, Supabase access issues, and desktop app startup problems.",
+    body: "Fix login/session errors, missing deployment updates, permission issues, and browser refresh problems.",
     details: [
-      "If the desktop app shows old UI, deploy the web app first and reopen the app.",
       "If a section says invalid session, sign out and sign back in.",
-      "If Vercel production does not update, confirm the production domain is assigned to the newest deployment."
+      "If a user cannot open a page, confirm their staff role includes that page.",
+      "If production does not update, confirm the production domain is assigned to the newest deployment."
     ],
     icon: ShieldQuestion
   }
@@ -159,20 +116,20 @@ const quickActions = [
   {
     label: "Event Manager Checklist",
     detail:
-      "Confirm event details, menu, billing, client portal sharing, hall map, vendors, files, and timeline.",
+      "Confirm event details, guest counts, dietary notes, menu, client portal sharing, timeline, and kitchen status.",
     icon: ClipboardList
   },
   {
-    label: "Billing & Invoice Help",
+    label: "Client Portal Guide",
     detail:
-      "Use Event Billing to create invoices, record payments, and print statements for the selected event.",
-    icon: CreditCard
+      "Send the portal link, let the host review menu photos, then confirm their submitted choices in Events.",
+    icon: FileText
   },
   {
-    label: "Desktop App Install Guide",
+    label: "Kitchen Handoff Guide",
     detail:
-      "Download the Windows installer, install Event Core, then log in with your organization account.",
-    icon: FileText
+      "Open the kitchen view for the event, assign workers, and update each dish as prep moves forward.",
+    icon: Utensils
   },
   {
     label: "Contact Administrator",
@@ -190,31 +147,30 @@ const quickActions = [
 
 const faqs = [
   {
-    question:
-      "Why does the dashboard show different Total Events and Booked Events?",
+    question: "How do I check if a date is open for a new event?",
     answer:
-      "Total Events counts the selected year. Booked Events focuses on confirmed and on-hold bookings for the active dashboard period."
+      "Open Calendar, scan the target date or date range, and check the hall activity before creating a hold or booking."
   },
   {
     question: "How do I add another hall to the Hall / Room dropdown?",
     answer:
-      "Create the hall in Settings or Hall Room Map hall controls. Once saved, it becomes available in booking hall/room dropdowns."
+      "Create the hall in Settings. Once saved, it becomes available in booking hall/room dropdowns."
   },
   {
-    question: "How do I assign a hall room map preset to a hall?",
+    question: "How do clients submit final menu selections?",
     answer:
-      "Open Hall Room Map, select a map preset, choose a hall in Assign to Hall, then save the map assignment."
+      "Open the event workspace, use Client portal, send the portal link, and review the submitted choices from the event."
   },
   {
     question:
-      "Why can phone users only view the hall map instead of editing it?",
+      "How do I know if a dish can still be changed?",
     answer:
-      "Phone screens are view-only to prevent accidental drag, resize, or delete actions while reviewing layouts."
+      "Check the event's Kitchen section or the Kitchen Dashboard. If the dish is already In Prep or Ready, coordinate with the kitchen before changing it."
   },
   {
-    question: "How do I create an invoice or record a payment for an event?",
+    question: "How do I report a problem?",
     answer:
-      "Open Billing or Event Manager > Billing, choose the event, then use Create invoice or Record payment."
+      "Open Help, choose Report a problem, and include the page name, event name, screenshot, and steps that caused the issue."
   }
 ];
 
@@ -267,8 +223,8 @@ export function HelpCenterContent({
               Help Center
             </h2>
             <p className="mt-1.5 max-w-3xl text-xs leading-5 text-[#617086] sm:text-sm">
-              Find dashboard-specific guides for bookings, kitchen production,
-              dining, hall maps, files, billing, staff, vendors, and settings.
+              Find dashboard-specific guides for bookings, events, menu
+              selections, kitchen production, staff, and settings.
             </p>
           </div>
 
@@ -290,7 +246,7 @@ export function HelpCenterContent({
               <Search className="h-5 w-5 text-[#1f4d73]" />
               <input
                 className="min-w-0 flex-1 bg-transparent text-xs font-semibold text-[#071427] outline-none placeholder:text-[#7a879a] sm:text-sm"
-                placeholder="Search help articles... (e.g. create booking, assign hall map, record payment)"
+                placeholder="Search help articles... (e.g. create booking, client portal, kitchen)"
                 onChange={(event) => setSearchQuery(event.target.value)}
                 type="search"
                 value={searchQuery}

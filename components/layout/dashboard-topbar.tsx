@@ -69,9 +69,9 @@ const allSearchTargets: SearchTarget[] = [
   },
   {
     label: "Events",
-    description: "Event manager and event files",
+    description: "Event manager workspace",
     route: "/dashboard/events",
-    keywords: ["event", "client", "wedding", "files"]
+    keywords: ["event", "client", "wedding", "timeline"]
   },
   {
     label: "Menu",
@@ -81,7 +81,7 @@ const allSearchTargets: SearchTarget[] = [
   },
   {
     label: "Clients",
-    description: "Client directory, events and balances",
+    description: "Client directory and event history",
     route: "/dashboard/clients",
     keywords: ["client", "crm", "contacts", "history"]
   },
