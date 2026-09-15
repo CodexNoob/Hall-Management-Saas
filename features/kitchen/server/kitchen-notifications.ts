@@ -449,7 +449,9 @@ export async function createMenuChangedKitchenNotification({
   hallOrRoom,
   changedById,
   oldValue,
-  newValue
+  newValue,
+  message,
+  requiresAcknowledgment = true
 }: {
   organizationId: string;
   eventId: string;
@@ -459,6 +461,24 @@ export async function createMenuChangedKitchenNotification({
   changedById: string;
   oldValue: Prisma.InputJsonValue;
   newValue: Prisma.InputJsonValue;
+  /**
+   * Overrides the default wording. The office changing a menu and the kitchen
+   * swapping a dish on its own board are the same fact to everyone reading the
+   * feed later, but they read differently in the moment, and "Menu was changed"
+   * against a swap the kitchen itself just made is confusing rather than
+   * informative.
+   */
+  message?: string;
+  /**
+   * Whether somebody has to tick this off.
+   *
+   * True for a change made somewhere else, which is the whole point of the
+   * feed: the kitchen has to be able to prove it saw it. False when the kitchen
+   * is the one who made the change - asking a cook to acknowledge their own
+   * decision trains people to clear the badge without reading it, which is
+   * exactly how the acknowledgement stops meaning anything.
+   */
+  requiresAcknowledgment?: boolean;
 }) {
   await prisma.kitchenNotification.create({
     data: {
@@ -468,10 +488,11 @@ export async function createMenuChangedKitchenNotification({
       eventDate,
       hallOrRoom,
       eventType,
-      message: `Menu was changed for ${eventType ?? "event"}`,
+      message: message ?? `Menu was changed for ${eventType ?? "event"}`,
       oldValue,
       newValue,
-      changedById
+      changedById,
+      requiresAcknowledgment
     }
   });
 }

@@ -20,6 +20,7 @@ import {
   type KitchenVisibility
 } from "@/features/kitchen/server/kitchen-visibility";
 import { resolveKitchenVisibility } from "@/features/kitchen/server/kitchen-visibility-resolve";
+import { readStoredTimeline } from "@/features/events/validations/timeline.schema";
 import type { EventKitchenLine } from "@/features/events/components/event-manager-shared";
 import { resolveMenuCategoryId } from "@/features/menu/server/menu-categories";
 import { recordActivity } from "@/lib/audit/activity-log";
@@ -46,7 +47,10 @@ import {
 } from "@/lib/dates/calendar-date";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
-import { listKitchenNotifications } from "@/features/kitchen/server/kitchen-notifications";
+import {
+  createMenuChangedKitchenNotification,
+  listKitchenNotifications
+} from "@/features/kitchen/server/kitchen-notifications";
 import { loadKitchenStaffWorkers } from "@/features/kitchen/server/kitchen-staff-workers";
 import { withRoute } from "@/lib/http/with-route";
 
@@ -146,6 +150,17 @@ async function organizationTimeZone(organizationId: string) {
  * cooking is a promise to the client that somebody has to unmake, and that
  * conversation belongs on the Menu tab.
  */
+/**
+ * Why a dish is being swapped after the kitchen already picked it up.
+ *
+ * Required only in that case - see the `replace-menu-item` branch below. A swap
+ * on a dish nobody has touched is ordinary menu editing; a swap on one that is
+ * pending, in prep or already plated throws away work somebody did, and the
+ * person who has to explain that to the client needs to know who decided and
+ * why. This is the 3pm "can we swap the chicken for short ribs" call.
+ */
+const replacementReasonSchema = z.string().trim().min(3).max(500).optional();
+
 const kitchenMutationSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("status"),
@@ -171,7 +186,8 @@ const kitchenMutationSchema = z.discriminatedUnion("action", [
     menuItemId: z.string().uuid(),
     /// The dish going on in its place. Dishes only: a line is either a dish or
     /// an add-on, and an add-on carries neither a style nor a status.
-    replacementMenuItemId: z.string().uuid()
+    replacementMenuItemId: z.string().uuid(),
+    reason: replacementReasonSchema
   }),
   z.object({
     action: z.literal("replace-add-on"),
@@ -251,6 +267,7 @@ type StandaloneMenuItemRow = Prisma.MenuItemGetPayload<{
     name: true;
     kind: true;
     isActive: true;
+    allergens: true;
     services: {
       select: {
         serviceStyle: true;
@@ -337,6 +354,7 @@ function buildStandaloneKitchenSheet({
           serviceStyle: style,
           availableStyles,
           notes: null,
+          allergens: menuItem.allergens,
           sortOrder: index,
           isRetired: !menuItem.isActive,
           // Always one serving here, and not for want of support: a standalone
@@ -387,6 +405,7 @@ function buildStandaloneKitchenSheet({
         serviceStyle: null,
         availableStyles: [],
         notes: null,
+        allergens: [],
         sortOrder: allLines.length + index,
         isRetired: !addOn.isActive,
         quantityMultiplier: 1,
@@ -432,6 +451,24 @@ function buildStandaloneKitchenSheet({
 }
 
 /**
+ * The day-of schedule off an event's workspace document.
+ *
+ * `workspaceData` is a free-form Json column, so the rows go back through the
+ * same parser that accepted them: a document written by an older shape, or by
+ * hand, reads as "no timeline" rather than reaching the kitchen as a broken
+ * one. Every row is sent, not only the Kitchen-typed ones - a cook plates to
+ * the reception and the speeches as much as to the courses.
+ */
+function readEventTimeline(workspaceData: unknown) {
+  const timeline =
+    workspaceData && typeof workspaceData === "object"
+      ? (workspaceData as { timeline?: unknown }).timeline
+      : undefined;
+
+  return readStoredTimeline(timeline);
+}
+
+/**
  * Everything the board draws for one event, on top of what the sheet needs.
  *
  * `startsAt` is here because a kitchen works against time to service, not
@@ -451,6 +488,12 @@ const boardEventSelect = {
   // stale one, which is what stops two people cancelling past each other -
   // without this the board would have to re-read the event to answer it.
   version: true,
+  // The day-of schedule the event workspace writes. Read here rather than
+  // fetched separately by the dialog: the kitchen cooks to the timeline - main
+  // course at 8:15 is the deadline every dish on the sheet is working towards -
+  // and a second round-trip to learn it would leave the sheet and the schedule
+  // able to disagree about which event they describe.
+  workspaceData: true,
   hall: { select: { name: true } }
 } satisfies Prisma.EventSelect;
 
@@ -597,6 +640,7 @@ export const GET = withRoute("GET /api/kitchen", async (request: Request) => {
           // Grouped on by the sheet, the same as an event's own lines.
           kind: true,
           isActive: true,
+          allergens: true,
           services: {
             select: {
               serviceStyle: true,
@@ -711,6 +755,12 @@ export const GET = withRoute("GET /api/kitchen", async (request: Request) => {
         otherMeals: sheet.otherMeals,
         counts: sheet.counts,
         summary: sheet.summary,
+        // Carried on the same terms as the dish lines: the focused day only. A
+        // timeline is a handful of short rows, but four weeks of them on every
+        // board poll is a cost paid for a panel only the open dialog draws.
+        timeline: shouldIncludeSheet
+          ? readEventTimeline(event.workspaceData)
+          : [],
         sheet: shouldIncludeSheet ? sheet : null
       };
     });
@@ -1470,7 +1520,16 @@ export const PATCH = withRoute(
           // work to do.
           bookingStatus: CONFIRMED_STATUS
         },
-        select: { id: true, hallId: true, eventDate: true }
+        // `eventType` and the hall's name are here for the swap notice below:
+        // the kitchen feed names the event a notice concerns, and re-reading
+        // the row to word it would be a second query for two columns.
+        select: {
+          id: true,
+          hallId: true,
+          eventDate: true,
+          eventType: true,
+          hall: { select: { name: true } }
+        }
       });
       if (!event) {
         return NextResponse.json(
@@ -1527,6 +1586,21 @@ export const PATCH = withRoute(
             }
           });
 
+          // Same reasoning as the dish swap below: what leaves the kitchen has
+          // changed, and the people who were not at the board need to see it.
+          await createMenuChangedKitchenNotification({
+            organizationId: actor.organizationId,
+            eventId: event.id,
+            eventType: event.eventType,
+            eventDate: event.eventDate,
+            hallOrRoom: event.hall.name,
+            changedById: requireUserActor(actor),
+            message: `Kitchen swapped ${addOn.name} for ${result.name}`,
+            requiresAcknowledgment: false,
+            oldValue: addOn.name,
+            newValue: result.name
+          });
+
           return NextResponse.json({
             replaced: { from: addOn.name, to: result.name, serviceStyle: null }
           });
@@ -1569,6 +1643,37 @@ export const PATCH = withRoute(
       }
 
       if (input.action === "replace-menu-item") {
+        // Whether this swap throws work away. The 3pm call - "can we swap the
+        // chicken for short ribs" - has two different answers depending on
+        // whether the kitchen has picked the dish up yet, and the board is the
+        // only thing that knows. A dish nobody has touched swaps silently; one
+        // that is pending, in prep or already plated needs a reason on the
+        // record, because somebody will have to explain it to the client.
+        const startedStatus =
+          (
+            await prisma.kitchenItemStatus.findUnique({
+              where: {
+                eventId_menuItemId: {
+                  eventId: event.id,
+                  menuItemId: menuItem.id
+                }
+              },
+              select: { status: true }
+            })
+          )?.status ?? null;
+
+        if (startedStatus !== null && !input.reason) {
+          return NextResponse.json(
+            {
+              error: `The kitchen has already started ${menuItem.name}. Say why it is being replaced.`,
+              // Named so the drawer can open its reason box on this answer
+              // rather than parsing the sentence above.
+              reasonRequired: true
+            },
+            { status: 409 }
+          );
+        }
+
         const result = await replaceKitchenDish({
           actorId: requireUserActor(actor),
           organizationId: actor.organizationId,
@@ -1584,13 +1689,43 @@ export const PATCH = withRoute(
             eventId: event.id,
             message: `Swapped ${menuItem.name} for ${result.name} on the kitchen board.`,
             changed: {
-              before: { menuItemId: menuItem.id, name: menuItem.name },
+              before: {
+                menuItemId: menuItem.id,
+                name: menuItem.name,
+                // What the kitchen had already done with it, so the history
+                // shows whether this swap cost anyone their work.
+                status: startedStatus
+              },
               after: {
                 menuItemId: input.replacementMenuItemId,
                 name: result.name,
+                reason: input.reason ?? null,
                 serviceStyle: result.serviceStyle
               }
             }
+          });
+
+          // The same notice the office's own menu edit raises, so a swap made
+          // on the board is not invisible to everyone who was not standing at
+          // it. The activity log answers "who changed this" when somebody goes
+          // looking; this is what puts it in front of a manager who is not.
+          //
+          // Informational rather than acknowledgeable: the kitchen made this
+          // change, and asking a cook to tick off their own decision is how a
+          // badge becomes something people clear without reading.
+          await createMenuChangedKitchenNotification({
+            organizationId: actor.organizationId,
+            eventId: event.id,
+            eventType: event.eventType,
+            eventDate: event.eventDate,
+            hallOrRoom: event.hall.name,
+            changedById: requireUserActor(actor),
+            message: `Kitchen swapped ${menuItem.name} for ${result.name}`,
+            requiresAcknowledgment: false,
+            oldValue: menuItem.name,
+            newValue: input.reason
+              ? `${result.name} - ${input.reason}`
+              : result.name
           });
 
           return NextResponse.json({

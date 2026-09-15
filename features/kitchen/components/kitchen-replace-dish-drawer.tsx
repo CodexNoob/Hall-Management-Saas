@@ -73,7 +73,10 @@ export function KitchenReplaceDishDrawer({
   menuStatus: string;
   onClose: () => void;
   /// Rejects with the server's own message, which is what the footer prints.
-  onReplace: (replacementMenuItemId: string) => Promise<void>;
+  onReplace: (
+    replacementMenuItemId: string,
+    reason?: string
+  ) => Promise<void>;
   usedMenuItemIds: Set<string>;
 }) {
   const titleId = useId();
@@ -82,6 +85,9 @@ export function KitchenReplaceDishDrawer({
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  // Shown only once the server has said it needs one. See `replace` below.
+  const [needsReason, setNeedsReason] = useState(false);
+  const [reason, setReason] = useState("");
   const group = replacementGroup(line);
 
   useEffect(() => {
@@ -170,9 +176,20 @@ export function KitchenReplaceDishDrawer({
     setMessage("");
 
     try {
-      await onReplace(selected.id);
+      await onReplace(selected.id, reason.trim() || undefined);
       onClose();
     } catch (replaceError) {
+      // The kitchen has already picked this dish up, so the route wants a
+      // reason before it will swap it. Asked here rather than up front: most
+      // swaps happen before anyone has touched the dish, and making everybody
+      // justify those would train people to type "x" into the box.
+      if (
+        replaceError instanceof Error &&
+        replaceError.message.includes("Say why it is being replaced")
+      ) {
+        setNeedsReason(true);
+      }
+
       // The route answers with the reason - already on the menu, changed
       // elsewhere, no longer in the library - and each has a different next
       // move, so it is shown rather than flattened into "could not save".
@@ -330,6 +347,27 @@ export function KitchenReplaceDishDrawer({
             >
               {message}
             </p>
+          ) : null}
+
+          {/* Appears only after the server has refused the swap for want of a
+              reason, so an ordinary swap on an untouched dish stays one click.
+              The text goes into the event's history beside who did it, which is
+              what somebody fielding the client's question will read later. */}
+          {needsReason ? (
+            <label className="mb-2 block">
+              <span className="mb-1 block text-xs font-black text-[#17202a]">
+                Why is this being replaced?
+              </span>
+              <input
+                autoFocus
+                className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73]"
+                maxLength={500}
+                onChange={(changeEvent) => setReason(changeEvent.target.value)}
+                placeholder="Delivery was short"
+                type="text"
+                value={reason}
+              />
+            </label>
           ) : null}
 
           {/* The sentence the button carries out. Both dishes are named, in the

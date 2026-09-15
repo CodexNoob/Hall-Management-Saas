@@ -67,7 +67,11 @@ vi.mock("@/lib/prisma", async () => {
       deleteMany: vi.fn()
     },
     kitchenNotification: {
-      findMany: vi.fn()
+      findMany: vi.fn(),
+      // A swap made on the board raises the same notice the office's own menu
+      // edit does, so it is not invisible to a manager who was not at the
+      // screen.
+      create: vi.fn()
     },
     // The view the board opens itself on, read in the same `Promise.all` as the
     // events. Leaving it off the mock threw before a single number was
@@ -726,7 +730,9 @@ describe("kitchen dashboard route", () => {
       vi.mocked(prisma.event.findFirst).mockResolvedValue({
         id: eventId,
         hallId,
-        eventDate: new Date("2099-08-20T00:00:00.000Z")
+        eventDate: new Date("2099-08-20T00:00:00.000Z"),
+        eventType: "Wedding",
+        hall: { name: "Main Hall" }
       } as never);
       vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
         id: menuItemId,
@@ -768,7 +774,10 @@ describe("kitchen dashboard route", () => {
         vi.mocked(prisma.event.findFirst).mockResolvedValue({
           id: eventId,
           hallId,
-          eventDate: new Date("2099-08-20T00:00:00.000Z")
+          eventDate: new Date("2099-08-20T00:00:00.000Z"),
+          // Read by the swap notice, which names the event it concerns.
+          eventType: "Wedding",
+          hall: { name: "Main Hall" }
         } as never);
         vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
           id: menuItemId,
@@ -874,7 +883,9 @@ describe("kitchen dashboard route", () => {
       vi.mocked(prisma.event.findFirst).mockResolvedValue({
         id: eventId,
         hallId,
-        eventDate: new Date("2099-08-20T00:00:00.000Z")
+        eventDate: new Date("2099-08-20T00:00:00.000Z"),
+        eventType: "Wedding",
+        hall: { name: "Main Hall" }
       } as never);
       vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
         id: menuItemId,
@@ -906,17 +917,255 @@ describe("kitchen dashboard route", () => {
       expect(prisma.event.update).not.toHaveBeenCalled();
     });
 
-    describe("replacing a dish", () => {
+    /**
+     * The 3pm call: "can we swap the roast chicken for short ribs?"
+     *
+     * The answer depends on something only the board knows - whether the
+     * kitchen has picked the dish up yet - and the cost of getting it wrong is
+     * work already done being thrown away without anybody recording why.
+     */
+    describe("replacing a dish the kitchen has started", () => {
       beforeEach(() => {
         vi.mocked(prisma.event.findFirst).mockResolvedValue({
           id: eventId,
           hallId,
-          eventDate: new Date("2099-08-20T00:00:00.000Z")
+          eventDate: new Date("2099-08-20T00:00:00.000Z"),
+          // Read by the swap notice, which names the event it concerns.
+          eventType: "Wedding",
+          hall: { name: "Main Hall" }
         } as never);
         vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
           id: menuItemId,
           name: "Potato kugel"
         } as never);
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue({
+          status: "PENDING"
+        } as never);
+      });
+
+      it("refuses the swap with no reason, and says a reason is what is wanted", async () => {
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(409);
+        await expect(response.json()).resolves.toMatchObject({
+          reasonRequired: true
+        });
+        expect(replaceKitchenDish).not.toHaveBeenCalled();
+      });
+
+      it("allows it with a reason, and records the reason and what was lost", async () => {
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "replaced",
+          name: "Short ribs",
+          serviceStyle: "Buffet"
+        } as never);
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId,
+            reason: "Delivery was short"
+          })
+        );
+
+        expect(response.status).toBe(200);
+        expect(prisma.activityLog.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            actionType: "kitchen.dish.replaced",
+            oldValue: expect.objectContaining({ status: "PENDING" }),
+            newValue: expect.objectContaining({ reason: "Delivery was short" })
+          })
+        });
+      });
+
+      it("asks nothing of a swap on a dish nobody has touched", async () => {
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue(
+          null as never
+        );
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "replaced",
+          name: "Short ribs",
+          serviceStyle: "Buffet"
+        } as never);
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(200);
+        expect(replaceKitchenDish).toHaveBeenCalled();
+      });
+    });
+
+    /**
+     * A swap made on the board used to be silent.
+     *
+     * The office editing a menu raised a MENU_CHANGED notice the kitchen had to
+     * acknowledge; the identical swap made on the kitchen board raised nothing,
+     * so a manager who was not standing at the screen had no way to see that
+     * what leaves the kitchen had changed.
+     */
+    describe("telling everyone else about a swap", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.event.findFirst).mockResolvedValue({
+          id: eventId,
+          hallId,
+          eventDate: new Date("2099-08-20T00:00:00.000Z"),
+          eventType: "Wedding",
+          hall: { name: "Main Hall" }
+        } as never);
+        vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
+          id: menuItemId,
+          name: "Roast chicken"
+        } as never);
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue(
+          null as never
+        );
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "replaced",
+          name: "Short ribs",
+          serviceStyle: "Buffet"
+        } as never);
+      });
+
+      it("raises a kitchen notice naming both dishes", async () => {
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(200);
+        expect(prisma.kitchenNotification.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            notificationType: "MENU_CHANGED",
+            eventId,
+            message: "Kitchen swapped Roast chicken for Short ribs",
+            oldValue: "Roast chicken",
+            newValue: "Short ribs"
+          })
+        });
+      });
+
+      it("does not ask the kitchen to acknowledge its own decision", async () => {
+        await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        // The office's own menu edit still requires one - that notice exists so
+        // the kitchen can prove it saw a change it did not make. Asking a cook
+        // to tick off their own swap is how a badge becomes something people
+        // clear without reading.
+        expect(prisma.kitchenNotification.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ requiresAcknowledgment: false })
+        });
+      });
+
+      it("carries the reason into the notice when the dish was already started", async () => {
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue({
+          status: "PENDING"
+        } as never);
+
+        await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId,
+            reason: "Delivery was short"
+          })
+        );
+
+        expect(prisma.kitchenNotification.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            newValue: "Short ribs - Delivery was short"
+          })
+        });
+      });
+
+      it("raises nothing when the swap was refused", async () => {
+        vi.mocked(replaceKitchenDish).mockResolvedValue({
+          outcome: "already-on-menu",
+          name: "Short ribs"
+        } as never);
+
+        const response = await PATCH(
+          request({
+            action: "replace-menu-item",
+            eventId,
+            menuItemId,
+            replacementMenuItemId: otherMenuItemId
+          })
+        );
+
+        expect(response.status).toBe(409);
+        expect(prisma.kitchenNotification.create).not.toHaveBeenCalled();
+      });
+
+      it("says nothing about a worker being assigned", async () => {
+        vi.mocked(prisma.kitchenItemStatus.upsert).mockResolvedValue(
+          {} as never
+        );
+
+        await PATCH(
+          request({
+            action: "assign-worker",
+            eventId,
+            menuItemId,
+            assignedWorkerId: workerId
+          })
+        );
+
+        // Deliberate. Stations are assigned in bursts while a service is being
+        // set up, and twenty entries would bury the one swap notice that
+        // matters. The assignment is visible on the dish card instead.
+        expect(prisma.kitchenNotification.create).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("replacing a dish", () => {
+      beforeEach(() => {
+        vi.mocked(prisma.event.findFirst).mockResolvedValue({
+          id: eventId,
+          hallId,
+          eventDate: new Date("2099-08-20T00:00:00.000Z"),
+          // Read by the swap notice, which names the event it concerns.
+          eventType: "Wedding",
+          hall: { name: "Main Hall" }
+        } as never);
+        vi.mocked(prisma.menuItem.findFirst).mockResolvedValue({
+          id: menuItemId,
+          name: "Potato kugel"
+        } as never);
+        // A dish nobody has picked up, which is what every case in this group
+        // is about. Stated rather than left to the default: the route reads the
+        // status before it swaps, and a swap on a started dish takes the other
+        // path - see "replacing a dish the kitchen has started" below.
+        vi.mocked(prisma.kitchenItemStatus.findUnique).mockResolvedValue(
+          null as never
+        );
       });
 
       it("sends the swap to the line writer rather than the mirror", async () => {

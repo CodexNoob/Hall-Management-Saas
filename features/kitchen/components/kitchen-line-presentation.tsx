@@ -177,6 +177,14 @@ export function LineName({ line }: { line: EventKitchenLine }) {
             {line.notes}
           </span>
         ) : null}
+        {/* Off the catalog row, so the people cooking the food can see what is
+            in it. Red because an allergen is the one fact on this row that can
+            send somebody to hospital. */}
+        {line.allergens && line.allergens.length > 0 ? (
+          <span className="mt-0.5 block text-[11px] font-black uppercase tracking-[0.06em] text-[#a62b24]">
+            Contains {line.allergens.join(", ")}
+          </span>
+        ) : null}
         {line.isRetired ? (
           <span className="mt-0.5 block text-[11px] font-black text-[#9a5b00]">
             Retired from the library
