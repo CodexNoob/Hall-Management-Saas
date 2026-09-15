@@ -96,6 +96,10 @@ export const kitchenLineSelect = {
       // which is exactly why the style alone cannot tell them apart.
       kind: true,
       isActive: true,
+      // Read by the kitchen, not only by the Menu page. A cook deciding whether
+      // a tray can go out beside a nut-free table should not have to leave the
+      // sheet to find out what is in it.
+      allergens: true,
       // Signed by the caller and handed over as a URL. The bucket is never
       // selected and the path never reaches the client, the same rule the menu
       // route follows.
@@ -247,6 +251,7 @@ export function presentKitchenLine(
     serviceStyle: line.serviceStyle,
     availableStyles,
     notes: line.notes,
+    allergens: line.menuItem?.allergens ?? [],
     sortOrder: line.sortOrder,
     isRetired: isAddOn
       ? line.addOn?.isActive === false

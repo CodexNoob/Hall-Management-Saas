@@ -27,6 +27,7 @@ export type IconName =
   | "phone"
   | "plus"
   | "printer"
+  | "refresh"
   | "save"
   | "store"
   | "upload"
@@ -370,7 +371,14 @@ export type EventKitchenLine = {
   pictureUrl: string | null;
   serviceStyle: string | null;
   availableStyles: string[];
+  /// The kitchen instruction for this dish at this event, set on the event's
+  /// Menu tab. Per event and per dish, which is why the kitchen has no note
+  /// field of its own.
   notes: string | null;
+  /// Labels off the catalog row, carried so the people actually cooking the
+  /// food can see what is in it without opening the Menu page. Absent rather
+  /// than empty on a payload built before this existed.
+  allergens?: string[];
   sortOrder: number;
   isRetired: boolean;
   /// How many complete servings of this line the event ordered. Already applied
@@ -633,6 +641,14 @@ export function LineIcon({
         <path d="M7 8V3h10v5" />
         <path d="M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
         <path d="M7 14h10v7H7Z" />
+      </>
+    ),
+    refresh: (
+      <>
+        <path d="M20 6v5h-5" />
+        <path d="M4 18v-5h5" />
+        <path d="M18.5 9A7 7 0 0 0 6.6 6.6L4 9" />
+        <path d="M5.5 15a7 7 0 0 0 11.9 2.4L20 15" />
       </>
     ),
     save: (

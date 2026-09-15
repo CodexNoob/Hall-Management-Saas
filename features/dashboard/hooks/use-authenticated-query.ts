@@ -377,6 +377,12 @@ export function useAuthenticatedQuery<T>(
     // and true on isFetching, so it never drops back to a skeleton.
     isLoading: enabled && record.data === null && record.error === null,
     isFetching: enabled && record.isFetching,
+    /// When the data on screen was last read from the server, as an epoch, or 0
+    /// when nothing has been read yet. The cache has always tracked this to
+    /// answer `isFresh`; it is returned so a screen can say it out loud, which
+    /// is the difference between a board that is quiet because nothing has
+    /// changed and one that is quiet because it stopped listening.
+    updatedAt: enabled ? record.updatedAt : 0,
     refetch
   };
 }

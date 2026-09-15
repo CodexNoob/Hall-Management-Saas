@@ -46,6 +46,34 @@ import {
   type KitchenView
 } from "@/features/kitchen/components/kitchen-shared";
 
+/**
+ * How often the mounted kitchen screen re-reads the board.
+ *
+ * Not a "live" figure and not trying to be: the point is that the screen cannot
+ * silently stop moving, not that it reflects every keystroke elsewhere. The
+ * freshness label beside the refresh button is what makes the gap honest.
+ */
+const BOARD_POLL_MS = 30_000;
+
+/**
+ * When the board was last read from the server, in the words a cook needs.
+ *
+ * A clock time rather than "2 minutes ago": a relative phrase has to keep
+ * re-rendering to stay true, and one that has quietly stopped updating tells
+ * the exact lie this indicator exists to prevent. Seconds are included because
+ * the question being asked is "is this thing still live", and a value that
+ * visibly moves answers it.
+ */
+function formatFreshness(updatedAt: number) {
+  if (!updatedAt) return "Not loaded yet";
+
+  return `Updated ${new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  }).format(new Date(updatedAt))}`;
+}
+
 type KitchenAssignmentAction = Extract<
   KitchenItemActionInput,
   { action: "assign-worker" | "standalone-assign-worker" }
@@ -197,25 +225,62 @@ export function KitchenDashboardPage() {
    * moment later is better than opening on a day nothing has confirmed.
    */
   const venueTimeZone = kitchenQuery.data?.kitchenSettings?.timeZone;
+  const refetchBoard = kitchenQuery.refetch;
+
+  /*
+   * The board reads itself back on a timer, and again whenever the screen comes
+   * back to the front.
+   *
+   * This screen is not a page somebody visits - it is mounted on a wall in the
+   * kitchen and left running for a service. Without this it only ever changed
+   * when somebody standing at THAT screen wrote something: a cook ticking a
+   * dish on the tablet by the ovens never reached the wall, and a manager
+   * checking "has the chicken been started" could be reading a board that
+   * stopped moving hours ago. A stale board is worse than no board, because it
+   * looks exactly like a current one.
+   *
+   * Thirty seconds is chosen against how fast a kitchen actually moves - dishes
+   * change state in minutes, not seconds - and the response is one query for a
+   * 28-day window that the client cache already dedupes.
+   *
+   * The visibility check is the other half: a tablet asleep in a pocket should
+   * not poll on a timer nobody is reading, and should be current the moment it
+   * is woken.
+   */
+  useEffect(() => {
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
+
+      void refetchBoard();
+    };
+
+    const timer = setInterval(poll, BOARD_POLL_MS);
+    document.addEventListener("visibilitychange", poll);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", poll);
+    };
+  }, [refetchBoard]);
 
   useEffect(() => {
     const sync = () => {
       const current = venueTimeZone
         ? startOfDayFromKey(todayKeyInTimeZone(venueTimeZone))
         : startOfDay(new Date());
+      const currentKey = dateKey(current);
+      const previousKey = dateKey(today);
 
-      setToday((previous) => {
-        if (dateKey(previous) === dateKey(current)) return previous;
+      if (previousKey === currentKey) return;
 
-        // A board nobody has navigated away from follows the date over. One
-        // parked on another week is left where it was put - the day rolling
-        // over is not a reason to move somebody off what they were reading.
-        setAnchorDate((anchor) =>
-          dateKey(anchor) === dateKey(previous) ? current : anchor
-        );
+      setToday(current);
 
-        return current;
-      });
+      // A board nobody has navigated away from follows the date over. One
+      // parked on another week is left where it was put - the day rolling
+      // over is not a reason to move somebody off what they were reading.
+      if (dateKey(anchorDate) === previousKey) {
+        setAnchorDate(current);
+      }
     };
 
     // Once now as well as on the minute, so the correction lands with the
@@ -225,7 +290,7 @@ export function KitchenDashboardPage() {
     const timer = setInterval(sync, 60_000);
 
     return () => clearInterval(timer);
-  }, [venueTimeZone]);
+  }, [anchorDate, today, venueTimeZone]);
   const activeView =
     activeViewOverride ??
     kitchenQuery.data?.kitchenSettings?.defaultView ??
@@ -325,6 +390,7 @@ export function KitchenDashboardPage() {
           ? "hold"
           : undefined,
         startsAt: event.startsAt,
+        timeline: event.timeline ?? [],
         totalGuests: event.counts.totalGuests,
         menuStatus: event.menuStatus,
         otherMeals: event.otherMeals,
@@ -567,19 +633,43 @@ export function KitchenDashboardPage() {
   }
 
   async function saveKitchenItemAction(input: KitchenItemActionInput) {
-    await kitchenMutation.mutate(input);
+    // The confirmation these writes leave behind is raised by the sheet itself,
+    // not here: it belongs beside the dish that changed, and a message at this
+    // level sat above the day columns with nothing to connect it to.
     if (
       input.action === "assign-worker" ||
       input.action === "standalone-assign-worker"
     ) {
-      const updated = applyKitchenAssignment(kitchenQuery.data, input);
+      // Painted BEFORE the request, not after it. Picking a name off a dropdown
+      // is a decision the person has already made, and the answer the server
+      // sends back is the one they just typed - so waiting for the round trip
+      // buys nothing and costs the whole latency. The write is still what
+      // decides: a refusal puts the previous board straight back.
+      const previous = kitchenQuery.data;
+      const updated = applyKitchenAssignment(previous, input);
       if (updated) setAuthenticatedQueryData(kitchenQueryUrl, updated);
+
+      try {
+        await kitchenMutation.mutate(input);
+      } catch (error) {
+        if (updated && previous) {
+          setAuthenticatedQueryData(kitchenQueryUrl, previous);
+        }
+
+        throw error;
+      }
+
       if (input.action === "assign-worker") {
         invalidateAuthenticatedQuery(`/api/events/${input.eventId}/kitchen`);
       }
       return;
     }
 
+    await kitchenMutation.mutate(input);
+
+    // Everything a standalone kitchen job can be sent. It has no event file
+    // behind it, so there is no per-event sheet to invalidate - the board's own
+    // response is the only reader.
     if (
       input.action === "standalone-status" ||
       input.action === "standalone-reset-status"
@@ -605,7 +695,12 @@ export function KitchenDashboardPage() {
       invalidateAuthenticatedQuery(`/api/events/${input.eventId}/menu`);
     }
 
-    await kitchenQuery.refetch();
+    // Started, not awaited. The write has already been accepted by the time
+    // control reaches here, and this is a 28-day query the caller does not
+    // depend on: awaiting it held the replace drawer open, and the dish card
+    // disabled, for a second round trip that only refreshes numbers already
+    // painted. The board catches up a moment later on its own.
+    void kitchenQuery.refetch();
   }
 
   /**
@@ -784,8 +879,11 @@ export function KitchenDashboardPage() {
           <KitchenToolbar
             canAddKitchenEvent={canAddOnSelectedDate}
             canManageWorkers={canManageWorkers}
+            freshnessLabel={formatFreshness(kitchenQuery.updatedAt)}
+            isRefreshing={kitchenQuery.isFetching}
             onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
             onManageWorkers={() => setIsManageWorkersOpen(true)}
+            onRefresh={() => void kitchenQuery.refetch()}
             onWorkersOnlyChange={setWorkersOnly}
             // Withheld from a scoped cook, for whom it is a no-op: the server
             // already sent only their dishes, so the box would filter a list

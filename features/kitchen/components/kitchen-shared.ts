@@ -5,6 +5,22 @@ import { addDays, startOfWeek } from "@/lib/dates/calendar-date";
 export type KitchenView = "today" | "week" | "four-weeks";
 
 /**
+ * One row of the event's day-of schedule, as the kitchen reads it.
+ *
+ * Structurally the same row `features/events/validations/timeline.schema.ts`
+ * accepts, restated here rather than imported so the board's payload type does
+ * not pull a zod schema into the client bundle. A cue row has no clock time -
+ * it happens after the thing before it - which is why `time` is optional.
+ */
+export type KitchenTimelineRow = {
+  id: string;
+  time?: string;
+  cue?: string;
+  text: string;
+  type: "Event" | "Kitchen" | "Staff";
+};
+
+/**
  * One card on the board.
  *
  * The fields it used to carry - `portions` as a pre-formatted string, a package
@@ -41,6 +57,10 @@ export type KitchenEvent = {
   otherMeals: string[];
   summary: EventKitchenSheet["summary"] | null;
   kitchenNote?: string | null;
+  /// The day-of schedule, carried only for the focused day - the same terms the
+  /// dish lines ride on. Empty on a standalone kitchen job, which has no event
+  /// file and therefore no schedule.
+  timeline?: KitchenTimelineRow[];
   sheet?: EventKitchenSheet | null;
   /// The booking's row version, for the optimistic check on a cancel. Absent on
   /// a standalone kitchen job, which is not a booking and has no version.
@@ -82,6 +102,7 @@ export type KitchenResponse = {
     otherMeals: string[];
     counts: EventKitchenSheet["counts"];
     summary: EventKitchenSheet["summary"];
+    timeline?: KitchenTimelineRow[];
     sheet: EventKitchenSheet | null;
   }>;
   kitchenEvents: Array<KitchenEvent & { dateKey: string }>;

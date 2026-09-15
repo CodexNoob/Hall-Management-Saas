@@ -5,16 +5,30 @@ import { LineIcon } from "@/features/events/components/event-manager-shared";
 export function KitchenToolbar({
   canAddKitchenEvent,
   canManageWorkers,
+  freshnessLabel = "",
+  isRefreshing = false,
   onAddKitchenEvent,
   onManageWorkers,
+  onRefresh,
   workersOnly,
   onWorkersOnlyChange,
   showWorkersOnly = true
 }: {
   canAddKitchenEvent: boolean;
   canManageWorkers: boolean;
+  /**
+   * When the board on screen was last read from the server, already worded.
+   *
+   * A board on a kitchen wall is trusted the way a clock is: nobody checks
+   * whether it is still running. Saying when it last spoke to the server turns
+   * "nothing has changed" into "nothing has changed as of 6:04:12".
+   */
+  freshnessLabel?: string;
+  isRefreshing?: boolean;
   onAddKitchenEvent: () => void;
   onManageWorkers: () => void;
+  /** Absent when the caller has nothing to refresh, which hides the control. */
+  onRefresh?: () => void;
   workersOnly: boolean;
   onWorkersOnlyChange: (checked: boolean) => void;
   /**
@@ -69,6 +83,28 @@ export function KitchenToolbar({
 
           <span className="leading-tight">Show only my assigned items</span>
         </label>
+      ) : null}
+
+      {/* Last, and small. This is a status line with a control attached, not a
+          feature of the board - it earns its place by being readable without
+          being looked for. Same 40px row, border and type scale as the controls
+          beside it, so it reads as another item in this bar rather than a new
+          piece of chrome. */}
+      {onRefresh ? (
+        <div className="inline-flex h-10 w-full items-center justify-between gap-2 border border-[#d8dde5] bg-white px-3 text-xs font-black text-[#061126] sm:w-auto">
+          <span className="truncate text-[#637085]" role="status">
+            {isRefreshing ? "Refreshing…" : freshnessLabel}
+          </span>
+          <button
+            aria-label="Refresh the kitchen board"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center border border-[#d8dde5] bg-white text-[#061126] transition hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isRefreshing}
+            onClick={onRefresh}
+            type="button"
+          >
+            <LineIcon className="h-3.5 w-3.5" name="refresh" />
+          </button>
+        </div>
       ) : null}
     </div>
   );

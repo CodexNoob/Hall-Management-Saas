@@ -61,6 +61,10 @@ export type KitchenItemActionInput =
       eventId: string;
       menuItemId: string;
       replacementMenuItemId: string;
+      /// Sent only once the kitchen has picked the dish up. The route refuses
+      /// the swap without it and answers `reasonRequired`, which is what opens
+      /// the box - the drawer does not guess when to ask.
+      reason?: string;
     }
   | {
       action: "replace-add-on";
@@ -103,12 +107,16 @@ type LineActionInput =
       action: "replace-menu-item";
       menuItemId: string;
       replacementMenuItemId: string;
+      reason?: string;
     }
   | {
       action: "replace-add-on";
       addOnId: string;
       replacementAddOnId: string;
     };
+
+/** How long a confirmation stays on the sheet before clearing itself. */
+const CONFIRMATION_MS = 4_000;
 
 type KitchenPermissions = KitchenResponse["permissions"];
 type AssignmentFilter = "all" | "mine" | "unassigned";
@@ -153,9 +161,18 @@ function nextStatus(status: EventKitchenLine["status"]) {
   return "COMPLETE" as const;
 }
 
+/**
+ * The two states the kitchen works in, worded the way the kitchen says them.
+ *
+ * "Pending / In prep" is one state, not two: a dish that has been picked up and
+ * is not yet out. "Complete / Ready" is plated and waiting for a server. The
+ * workflow tiles further down this file have always used these words; the dish
+ * cards said the shorter "Pending" and "Complete", so a cook and a manager
+ * reading the same screen were reading different vocabularies.
+ */
 function statusLabel(status: EventKitchenLine["status"]) {
-  if (status === "COMPLETE") return "Complete";
-  if (status === "PENDING") return "Pending";
+  if (status === "COMPLETE") return "Complete / Ready";
+  if (status === "PENDING") return "Pending / In prep";
 
   return "Not started";
 }
@@ -432,6 +449,20 @@ function DishCard({
         {line.name}
       </span>
 
+      {/*
+        The two facts a cook must not have to go and look up, and only on a card
+        with room to carry them - the clipped week preview is a glance at what
+        exists, not a working card, and a truncated allergen is worse than none.
+
+        Allergens first: it is the only line here that can send somebody to
+        hospital, so it does not sit below a "serve separately".
+      */}
+      {!preview && line.allergens && line.allergens.length > 0 ? (
+        <span className="mt-1 block text-[10px] font-black uppercase leading-tight tracking-[0.06em] text-[#a62b24]">
+          Contains {line.allergens.join(", ")}
+        </span>
+      ) : null}
+
       <span
         className={`mt-auto block border-t border-[#cfd5dc] ${compact ? "pt-2" : "pt-4"}`}
       >
@@ -491,8 +522,7 @@ function DishCard({
           deliberately has no visible control here; double-clicking the card
           opens its confirmation. */}
       {replaceableId &&
-      (permissions.canAssignWorkers ||
-        (permissions.canUpdateKitchenStatus && canReplace)) ? (
+      (permissions.canAssignWorkers || permissions.canUpdateKitchenStatus) ? (
         <div className="mt-1 flex flex-col gap-1">
           {permissions.canAssignWorkers && menuItemId ? (
             <label className="block">
@@ -502,11 +532,15 @@ function DishCard({
                 disabled={isSaving}
                 name={`assignedWorker-${menuItemId}`}
                 onChange={(changeEvent) =>
+                  // Caught here rather than left to float: `saveForEvent` has
+                  // already said what went wrong, above the dish list, and the
+                  // board has put the previous assignment back. Rethrowing past
+                  // this point would only produce an unhandled rejection.
                   void onSaveItemAction({
                     action: "assign-worker",
                     menuItemId,
                     assignedWorkerId: changeEvent.target.value || null
-                  })
+                  }).catch(() => {})
                 }
                 value={line.assignedWorkerId ?? ""}
               >
@@ -587,6 +621,19 @@ function KitchenEventDetails({
     shouldFetchSheet
   );
   const sheet = event.sheet ?? kitchenQuery.data?.kitchen ?? null;
+  const timeline = event.timeline ?? [];
+  /**
+   * The last thing this sheet did, said back inside the sheet.
+   *
+   * Held with the moment it was said rather than as a bare string, so assigning
+   * two dishes to the same cook reads as two confirmations rather than one that
+   * never appeared to change.
+   */
+  const [confirmation, setConfirmation] = useState<{
+    id: number;
+    text: string;
+    tone: "success" | "error";
+  } | null>(null);
   const hold = event.statusType === "hold";
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
   const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>(
@@ -664,6 +711,17 @@ function KitchenEventDetails({
   // notice is on the first frame rather than appearing once the sheet lands.
   const otherMeals = sheet?.otherMeals ?? event.otherMeals;
 
+  // Clears itself. A confirmation that stays put stops being a confirmation and
+  // becomes a label nobody reads - and this board is left running for a whole
+  // service, so it would otherwise still be there hours later.
+  useEffect(() => {
+    if (!confirmation) return;
+
+    const timer = setTimeout(() => setConfirmation(null), CONFIRMATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [confirmation]);
+
   useEffect(() => {
     if (embedded) return;
 
@@ -676,7 +734,7 @@ function KitchenEventDetails({
   }, [embedded, onClose]);
 
   /** The board's PATCH wants the event id on every action; the rows do not. */
-  async function saveForEvent(input: LineActionInput) {
+  async function dispatchLineAction(input: LineActionInput) {
     if (isStandalone) {
       if (input.action === "status") {
         await onSaveItemAction({
@@ -706,6 +764,8 @@ function KitchenEventDetails({
         });
       }
 
+      // A standalone job has no menu document behind it, so there is nothing to
+      // swap a dish for - and the drawer is not offered on one either.
       return;
     }
 
@@ -713,29 +773,82 @@ function KitchenEventDetails({
   }
 
   /**
+   * Every line action, plus the sentence it leaves behind.
+   *
+   * The confirmation is raised HERE rather than by the board, because the sheet
+   * is what somebody is looking at when they assign a dish. A message at page
+   * level sat above the day columns, nowhere near the card that had just
+   * changed - which is a notice nobody reads on a screen mounted across a
+   * kitchen.
+   */
+  async function saveForEvent(input: LineActionInput, confirmation?: string) {
+    try {
+      await dispatchLineAction(input);
+    } catch (error) {
+      // The board has already put itself back - the assignment paints before
+      // the request and rolls back on refusal. Without a word here that
+      // rollback is silent: a cook watches a name appear on a dish and vanish
+      // again with nothing said, which reads as the screen glitching rather
+      // than as "you may not claim that dish".
+      setConfirmation({
+        id: Date.now(),
+        tone: "error",
+        text:
+          error instanceof Error ? error.message : "That change was not saved."
+      });
+
+      // Rethrown so the replace drawer can print the server's own reason
+      // beside the dish list it is showing.
+      throw error;
+    }
+
+    const message =
+      confirmation ??
+      (input.action === "assign-worker"
+        ? input.assignedWorkerId
+          ? `Assigned to ${
+              workers.find((worker) => worker.id === input.assignedWorkerId)
+                ?.name ?? "a worker"
+            }.`
+          : "Worker assignment removed."
+        : null);
+
+    if (message) {
+      setConfirmation({ id: Date.now(), tone: "success", text: message });
+    }
+  }
+
+  /**
    * Rejects rather than swallowing: the drawer prints the server's reason, and
    * the reasons a swap is refused - the dish is already on this menu, somebody
    * else has since saved it - are the ones the person needs to read.
    */
-  async function replaceDish(replacementMenuItemId: string) {
+  async function replaceDish(replacementMenuItemId: string, reason?: string) {
     if (!replaceLine) return;
 
     if (replaceLine.kind === "AddOn" && replaceLine.addOnId) {
-      await saveForEvent({
-        action: "replace-add-on",
-        addOnId: replaceLine.addOnId,
-        replacementAddOnId: replacementMenuItemId
-      });
+      await saveForEvent(
+        {
+          action: "replace-add-on",
+          addOnId: replaceLine.addOnId,
+          replacementAddOnId: replacementMenuItemId
+        },
+        `${replaceLine.name} replaced.`
+      );
       return;
     }
 
     if (!replaceLine.menuItemId) return;
 
-    await saveForEvent({
-      action: "replace-menu-item",
-      menuItemId: replaceLine.menuItemId,
-      replacementMenuItemId
-    });
+    await saveForEvent(
+      {
+        action: "replace-menu-item",
+        menuItemId: replaceLine.menuItemId,
+        replacementMenuItemId,
+        reason
+      },
+      `${replaceLine.name} replaced.`
+    );
   }
 
   /*
@@ -1020,6 +1133,42 @@ function KitchenEventDetails({
                   </div>
                 ) : null}
 
+                {/* The schedule the whole sheet is working towards. Under the
+                  workflow counts and above the dish list, in the same panel
+                  language as the blocks around it: a cook reads "how much is
+                  done", then "by when", then the dishes themselves.
+
+                  A cue row carries no clock time - it happens after the thing
+                  before it - so the time column falls back to the cue rather
+                  than printing a midnight nobody meant. */}
+                {timeline.length > 0 ? (
+                  <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:block sm:p-4">
+                    <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
+                      Timeline
+                    </h3>
+                    <ul className="flex flex-col gap-1.5">
+                      {timeline.map((row) => (
+                        <li
+                          className="flex min-w-0 items-baseline gap-3 text-xs"
+                          key={row.id}
+                        >
+                          <span className="w-24 shrink-0 font-black tabular-nums text-[#1f4d73]">
+                            {row.time || row.cue || "—"}
+                          </span>
+                          <span className="min-w-0 flex-1 text-[#17202a]">
+                            {row.text}
+                          </span>
+                          {row.type !== "Event" ? (
+                            <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.06em] text-[#64748b]">
+                              {row.type}
+                            </span>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+
                 {/* Before the counting problems, because this one is about work
                   that is not on this sheet at all: every number above is the
                   Main meal, and the tiles give no hint that there is more. */}
@@ -1148,6 +1297,26 @@ function KitchenEventDetails({
                       <div
                         className={`bg-[#dceaff] ${embedded ? "space-y-3 p-3" : "space-y-5 p-3 sm:p-4"}`}
                       >
+                        {/* Directly above the dish cards, inside the sheet, so
+                            it lands where the person is already looking. The
+                            board used to raise this at page level, above the
+                            day columns - nowhere near the card that had just
+                            changed. `role="status"` so a screen reader hears it
+                            without focus leaving the dish. */}
+                        {confirmation ? (
+                          <p
+                            className={`border px-3 py-2 text-xs font-black ${
+                              confirmation.tone === "error"
+                                ? "border-[#efb5ad] bg-[#fff4f2] text-[#c3291b]"
+                                : "border-[#b9dfca] bg-[#f3fbf6] text-[#0f5132]"
+                            }`}
+                            key={confirmation.id}
+                            role="status"
+                          >
+                            {confirmation.text}
+                          </p>
+                        ) : null}
+
                         {/*
                         Plated first, then buffet, then anything with no style -
                         the order `dishSections` is built in. The headings are

@@ -4,7 +4,8 @@ import {
   cleanup,
   fireEvent,
   render,
-  screen
+  screen,
+  within
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -204,5 +205,110 @@ describe("Kitchen worker assignment", () => {
     expect(
       (screen.getByLabelText(/Assign a worker/) as HTMLSelectElement).value
     ).toBe(WORKER_ID);
+  });
+
+  /**
+   * The name appears before the server has answered.
+   *
+   * Picking a cook off a dropdown is a decision the person has already made,
+   * and the answer the server sends back is the one they just chose - so
+   * waiting for the round trip buys nothing and costs the whole latency. On a
+   * tablet on a kitchen counter that wait is the difference between a board
+   * that feels like a screen and one that feels like a form.
+   */
+  it("shows the worker on the dish before the save has answered", async () => {
+    let finishAssignment: (response: Response) => void = () => {};
+
+    vi.mocked(authenticatedFetch).mockImplementation(async (url, init) => {
+      if (String(url) === "/api/kitchen" && init?.method === "PATCH") {
+        return await new Promise<Response>((resolve) => {
+          finishAssignment = resolve;
+        });
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => boardPayload()
+      } as unknown as Response;
+    });
+
+    await act(async () => {
+      render(<KitchenDashboardPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Feferkorn Wedding"));
+    });
+
+    const dishCard = screen.getByRole("button", { name: /^Potato kugel/ });
+    expect(within(dishCard).queryByText("Mendy")).toBeNull();
+
+    fireEvent.change(screen.getByLabelText(/Assign a worker/), {
+      target: { value: WORKER_ID }
+    });
+
+    // The request is still in the air at this point - deliberately unresolved.
+    expect(within(dishCard).getByText("Mendy")).toBeInTheDocument();
+    expect(assignmentRequests()).toHaveLength(1);
+
+    await act(async () => {
+      finishAssignment({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          itemStatus: {
+            id: "status-1",
+            eventId: EVENT_ID,
+            menuItemId: MENU_ITEM_ID,
+            status: null,
+            assignedWorkerId: WORKER_ID
+          }
+        })
+      } as unknown as Response);
+    });
+  });
+
+  it("puts the board back when the save is refused", async () => {
+    vi.mocked(authenticatedFetch).mockImplementation(async (url, init) => {
+      if (String(url) === "/api/kitchen" && init?.method === "PATCH") {
+        return {
+          ok: false,
+          status: 403,
+          // The error reader quotes `x-request-id` back to the user, so a
+          // refusal fixture needs headers as well as a body.
+          headers: { get: () => null },
+          json: async () => ({ error: "That dish is not assigned to you." })
+        } as unknown as Response;
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        json: async () => boardPayload()
+      } as unknown as Response;
+    });
+
+    await act(async () => {
+      render(<KitchenDashboardPage />);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText("Feferkorn Wedding"));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/Assign a worker/), {
+        target: { value: WORKER_ID }
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // Painting first is only safe because a refusal takes it back. Without this
+    // a cook who is not allowed to claim a dish would see their name stick to
+    // it until something else happened to refetch the board.
+    const dishCard = screen.getByRole("button", { name: /^Potato kugel/ });
+    expect(within(dishCard).queryByText("Mendy")).toBeNull();
   });
 });
