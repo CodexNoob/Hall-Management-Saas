@@ -3,6 +3,9 @@
 import { useState } from "react";
 import type { AuditResponse } from "@/features/access/components/access-shared";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import { useDateFormatters } from "@/features/dashboard/hooks/use-regional-settings";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * The privilege-change audit trail, with a reader.
@@ -12,22 +15,24 @@ import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authentica
  * an export is what a security questionnaire actually asks to see.
  */
 
-const ACTION_LABELS: Record<string, string> = {
-  "role.created": "Role created",
-  "role.updated": "Role updated",
-  "role.deleted": "Role deleted",
-  "assignment.created": "Role assigned",
-  "assignment.revoked": "Role revoked",
-  "override.replaced": "Individual permissions changed",
-  "staff.invited": "Staff invited",
-  "staff.deactivated": "Access revoked",
-  "staff.restored": "Access restored"
+const ACTION_LABELS: Record<string, MessageKey> = {
+  "role.created": "access.action.roleCreated",
+  "role.updated": "access.action.roleUpdated",
+  "role.deleted": "access.action.roleDeleted",
+  "assignment.created": "access.action.roleAssigned",
+  "assignment.revoked": "access.action.roleRevoked",
+  "override.replaced": "access.action.permissionsChanged",
+  "staff.invited": "access.action.staffInvited",
+  "staff.deactivated": "access.action.accessRevoked",
+  "staff.restored": "access.action.accessRestored",
+  "staff.password.reset": "access.action.passwordReset"
 };
 
-const auditDateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short"
-});
+// An audit row is a REAL TIMESTAMP: something that actually happened, shown in
+// the venue's own timezone. The module-level `en-US` formatter that used to sit
+// here ignored the organization's Language & Region settings entirely, so a
+// venue on dd/MM/yyyy and a 24-hour clock still read its own audit trail in
+// American. `useDateFormatters` is a hook, so it lives inside the component.
 
 function formatDetail(detail: unknown): string {
   if (!detail || typeof detail !== "object") return "";
@@ -57,6 +62,8 @@ function formatDetail(detail: unknown): string {
 }
 
 export function AuditPanel({ canRead }: { canRead: boolean }) {
+  const { t } = useAppLanguage();
+  const dates = useDateFormatters();
   const [action, setAction] = useState("");
   const query = useAuthenticatedQuery<AuditResponse>(
     `/api/access/audit${action ? `?action=${encodeURIComponent(action)}` : ""}`,
@@ -67,7 +74,7 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
     return (
       <section className="rounded-xl border border-[#d8dde5] bg-white px-4 py-6">
         <p className="text-[11px] text-[#6a7483]">
-          Reading the audit trail needs
+          {t("access.auditNeeds")}
           <code className="mx-1 rounded bg-[#eef1f5] px-1">audit.read</code>.
         </p>
       </section>
@@ -78,9 +85,9 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
     <section className="rounded-xl border border-[#d8dde5] bg-white">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-black">Privilege changes</h2>
+          <h2 className="text-sm font-black">{t("access.privilegeChanges")}</h2>
           <p className="mt-0.5 text-[10px] text-[#6a7483]">
-            Every change, its author, and what it did. Append-only.
+            {t("access.auditBlurb")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -90,10 +97,10 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
             onChange={(event) => setAction(event.target.value)}
             value={action}
           >
-            <option value="">All changes</option>
-            {Object.entries(ACTION_LABELS).map(([value, label]) => (
+            <option value="">{t("access.allChanges")}</option>
+            {Object.entries(ACTION_LABELS).map(([value, labelKey]) => (
               <option key={value} value={value}>
-                {label}
+                {t(labelKey)}
               </option>
             ))}
           </select>
@@ -101,19 +108,18 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
             className="inline-flex h-9 items-center rounded-lg border border-[#c7d0dc] px-3 text-xs font-black text-[#233144]"
             href={`/api/access/audit?format=csv${action ? `&action=${encodeURIComponent(action)}` : ""}`}
           >
-            Export CSV
+            {t("common.exportCsv")}
           </a>
         </div>
       </header>
 
       <div className="max-h-[60dvh] overflow-y-auto">
         {query.isLoading ? (
-          <p className="px-4 py-4 text-[11px] text-[#6a7483]">Loading...</p>
+          <p className="px-4 py-4 text-[11px] text-[#6a7483]">{t("common.loading")}</p>
         ) : null}
         {!query.isLoading && (query.data?.entries.length ?? 0) === 0 ? (
           <p className="px-4 py-4 text-[11px] text-[#6a7483]">
-            Nothing yet. Every role edit, assignment and override from here on
-            lands in this list.
+            {t("access.auditEmpty")}
           </p>
         ) : null}
         <ul className="divide-y divide-[#eef1f5]">
@@ -121,7 +127,9 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
             <li className="px-4 py-2.5" key={entry.id}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-xs font-black text-[#17202a]">
-                  {ACTION_LABELS[entry.action] ?? entry.action}
+                  {ACTION_LABELS[entry.action]
+                    ? t(ACTION_LABELS[entry.action])
+                    : entry.action}
                   {entry.subjectName ? (
                     <span className="font-semibold text-[#536172]">
                       {" "}
@@ -130,11 +138,11 @@ export function AuditPanel({ canRead }: { canRead: boolean }) {
                   ) : null}
                 </span>
                 <span className="text-[10px] text-[#6a7483]">
-                  {auditDateFormatter.format(new Date(entry.createdAt))}
+                  {dates.dateTime(entry.createdAt)}
                 </span>
               </div>
               <p className="mt-0.5 text-[10px] text-[#6a7483]">
-                by {entry.actorName}
+                {t("access.by")} {entry.actorName}
                 {formatDetail(entry.detail)
                   ? ` — ${formatDetail(entry.detail)}`
                   : ""}

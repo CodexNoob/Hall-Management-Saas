@@ -1,9 +1,110 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createHmac } from "node:crypto";
 import { expect, test as setup } from "@playwright/test";
 import { waitForHydration } from "./hydration";
 
 const authDirectory = path.resolve("playwright/.auth");
+const MFA_DIALOG_TITLE = "Two-factor authentication";
+
+function base32Decode(input: string) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const normalized = input
+    .replace(/[\s=-]/g, "")
+    .toUpperCase();
+  const bytes: number[] = [];
+  let bits = 0;
+  let value = 0;
+
+  for (const char of normalized) {
+    const index = alphabet.indexOf(char);
+
+    if (index === -1) {
+      throw new Error("TOTP secret must be base32 encoded.");
+    }
+
+    value = (value << 5) | index;
+    bits += 5;
+
+    if (bits >= 8) {
+      bytes.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+
+  return Buffer.from(bytes);
+}
+
+function totp(secret: string, at = Date.now()) {
+  const counter = Math.floor(at / 30_000);
+  const message = Buffer.alloc(8);
+  message.writeBigUInt64BE(BigInt(counter));
+  const digest = createHmac("sha1", base32Decode(secret))
+    .update(message)
+    .digest();
+  const offset = digest[digest.length - 1] & 0x0f;
+  const binary =
+    ((digest[offset] & 0x7f) << 24) |
+    ((digest[offset + 1] & 0xff) << 16) |
+    ((digest[offset + 2] & 0xff) << 8) |
+    (digest[offset + 3] & 0xff);
+
+  return String(binary % 1_000_000).padStart(6, "0");
+}
+
+async function maybeCompleteMfa(
+  page: import("@playwright/test").Page,
+  email: string,
+  totpSecret?: string
+) {
+  const dialog = page.getByRole("dialog", { name: MFA_DIALOG_TITLE });
+
+  // Whichever comes first: the dashboard (no code owed) or the 2FA dialog.
+  // The sign-in form asks the SERVER whether a code is owed before it opens the
+  // dialog - a trusted device may not owe one - and that /api/auth/session
+  // call makes several Supabase round trips (more on a cold or reused dev
+  // server), so a short fixed wait gave up before the dialog appeared and the
+  // code was never entered. Each branch swallows its own timeout so the loser
+  // cannot reject unhandled.
+  const outcome = await Promise.race([
+    dialog
+      .waitFor({ state: "visible", timeout: 45_000 })
+      .then(() => "mfa" as const)
+      .catch(() => null),
+    page
+      .waitForURL(/\/dashboard/, { timeout: 45_000 })
+      .then(() => "dashboard" as const)
+      .catch(() => null)
+  ]);
+
+  if (outcome !== "mfa") return;
+
+  if (!totpSecret) {
+    throw new Error(
+      [
+        `Signing in as ${email} requires 2FA.`,
+        "Set the matching E2E_*_TOTP_SECRET environment variable for this test account,",
+        "or use a dedicated E2E account without MFA for the broad suite."
+      ].join(" ")
+    );
+  }
+
+  const codeInput = dialog.getByLabel("Authentication code");
+  const verify = dialog.getByRole("button", { name: "Verify" });
+
+  await codeInput.fill(totp(totpSecret));
+  await verify.click();
+
+  try {
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+  } catch {
+    // A code generated at the edge of its 30-second window can expire between
+    // fill and verify. Try the next window once before surfacing the failure.
+    await codeInput.fill(totp(totpSecret, Date.now() + 30_000));
+    await verify.click();
+    await expect(page).toHaveURL(/\/dashboard/, { timeout: 15_000 });
+  }
+}
 
 // Authentication includes the initial dev-server compilation, Supabase login,
 // user synchronization, dashboard navigation, and storage-state serialization.
@@ -15,7 +116,8 @@ async function authenticate(
   page: import("@playwright/test").Page,
   email: string,
   password: string,
-  stateFile: string
+  stateFile: string,
+  totpSecret?: string
 ) {
   await page.addInitScript(() => {
     window.localStorage.removeItem("hms.authSession");
@@ -34,6 +136,7 @@ async function authenticate(
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Remember me").check();
   await page.getByRole("button", { name: "Login", exact: true }).click();
+  await maybeCompleteMfa(page, email, totpSecret);
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 45_000 });
 
   const state = await page.context().storageState({ path: stateFile });
@@ -81,7 +184,8 @@ setup("create read-only authenticated state", async ({ page }) => {
     page,
     email!,
     password!,
-    path.join(authDirectory, "readonly.json")
+    path.join(authDirectory, "readonly.json"),
+    process.env.E2E_READONLY_TOTP_SECRET
   );
 });
 
@@ -94,7 +198,8 @@ setup("create mutation-account authenticated state", async ({ page }) => {
     page,
     email!,
     password!,
-    path.join(authDirectory, "mutation.json")
+    path.join(authDirectory, "mutation.json"),
+    process.env.E2E_MUTATION_TOTP_SECRET
   );
 });
 
@@ -125,6 +230,7 @@ setup("create restricted-account authenticated state", async ({ page }) => {
     page,
     email!,
     password!,
-    path.join(authDirectory, "restricted.json")
+    path.join(authDirectory, "restricted.json"),
+    process.env.E2E_RESTRICTED_TOTP_SECRET
   );
 });

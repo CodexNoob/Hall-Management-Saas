@@ -122,7 +122,9 @@ export const GET = withRoute(
           prisma.holidayBlockedDate.findMany({
             where: {
               ...tenant(actor),
-              isBlocked: true
+              isBlocked: true,
+              startDate: { lte: endDate },
+              endDate: { gte: startDate }
             },
             orderBy: [{ startDate: "asc" }, { endDate: "asc" }]
           })

@@ -11,6 +11,7 @@ import {
   summarizeSeats,
   type MapObject
 } from "@/features/hall-room-map/components/hall-map-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * A printable sheet for the setup crew: the layout scaled to fit one page,
@@ -32,6 +33,7 @@ export function HallMapPrintSheet({
   objects: MapObject[];
   onClose: () => void;
 }) {
+  const { t } = useAppLanguage();
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
@@ -69,21 +71,21 @@ export function HallMapPrintSheet({
 
       <div className="mx-auto max-w-5xl rounded-xl bg-white p-6 shadow-2xl print:max-w-none print:rounded-none print:p-0 print:shadow-none">
         <div className="flex items-start justify-between gap-4 print:hidden">
-          <h2 className="text-base font-black text-[#17202a]">Print preview</h2>
+          <h2 className="text-base font-black text-[#17202a]">{t("hallMap.printPreview")}</h2>
           <div className="flex gap-2">
             <button
               className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f]"
               onClick={() => window.print()}
               type="button"
             >
-              Print
+              {t("hallMap.print")}
             </button>
             <button
               className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black hover:bg-[#eef4fa]"
               onClick={onClose}
               type="button"
             >
-              Close
+              {t("hallMap.close")}
             </button>
           </div>
         </div>

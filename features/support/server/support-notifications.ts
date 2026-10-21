@@ -1,5 +1,7 @@
 import "server-only";
 import { log } from "@/lib/logging/context";
+import { escapeHtml, sendTransactionalEmail } from "@/lib/email/send";
+// Still needed for the optional Slack/Teams webhook below, which is not email.
 import { trackedFetch } from "@/lib/logging/outbound";
 
 type TicketNotification = {
@@ -12,54 +14,27 @@ type TicketNotification = {
   reporterEmail: string;
 };
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;"
-    };
-    return entities[character] ?? character;
-  });
-}
-
-async function sendEmail({ to, subject, html, replyTo }: {
-  to: string;
-  subject: string;
-  html: string;
-  replyTo?: string;
-}) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.SUPPORT_EMAIL_FROM;
-  if (!apiKey || !from) return false;
-  const response = await trackedFetch(
-    { vendor: "resend", operation: "emails.send" },
-    "https://api.resend.com/emails",
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject, html, reply_to: replyTo })
-    }
-  );
-  if (!response.ok) throw new Error(`Support email failed (${response.status}).`);
-  return true;
-}
-
+/**
+ * Support email goes through the shared sender now.
+ *
+ * It used to post to Resend directly with its own copy of the request, and
+ * RESEND_API_KEY was never configured - so every support ticket silently
+ * emailed nobody while the beta notifications, which use Brevo, went out fine.
+ * One provider, one helper, one place the key is read.
+ */
 export async function notifySupportTicketCreated(ticket: TicketNotification) {
   const safeReference = escapeHtml(ticket.reference);
   const safeSubject = escapeHtml(ticket.subject);
   const tasks: Promise<unknown>[] = [];
   if (process.env.SUPPORT_EMAIL) {
-    tasks.push(sendEmail({
+    tasks.push(sendTransactionalEmail({
       to: process.env.SUPPORT_EMAIL,
       replyTo: ticket.reporterEmail,
       subject: `[${ticket.priority}] ${ticket.reference}: ${ticket.subject}`,
       html: `<h2>New Event Core support ticket</h2><p><strong>Reference:</strong> ${safeReference}</p><p><strong>Organization:</strong> ${escapeHtml(ticket.organizationName)}</p><p><strong>Reporter:</strong> ${escapeHtml(ticket.reporterName)} (${escapeHtml(ticket.reporterEmail)})</p><p><strong>Category:</strong> ${escapeHtml(ticket.category)}</p><p><strong>Subject:</strong> ${safeSubject}</p>`
     }));
   }
-  tasks.push(sendEmail({
+  tasks.push(sendTransactionalEmail({
     to: ticket.reporterEmail,
     subject: `${ticket.reference}: We received your Event Core support request`,
     html: `<h2>Support request received</h2><p>We received your request: <strong>${safeSubject}</strong>.</p><p>Your reference number is <strong>${safeReference}</strong>.</p>`
@@ -101,14 +76,14 @@ export async function notifyPublicSupportRequest(request: {
 }) {
   const tasks: Promise<unknown>[] = [];
   if (process.env.SUPPORT_EMAIL) {
-    tasks.push(sendEmail({
+    tasks.push(sendTransactionalEmail({
       to: process.env.SUPPORT_EMAIL,
       replyTo: request.email,
       subject: `[Public support] ${request.reference}: ${request.name}`,
       html: `<h2>New Event Core contact request</h2><p><strong>Reference:</strong> ${escapeHtml(request.reference)}</p><p><strong>From:</strong> ${escapeHtml(request.name)} (${escapeHtml(request.email)})</p><p><strong>Company:</strong> ${escapeHtml(request.company || "Not provided")}</p><p><strong>Message:</strong></p><p>${escapeHtml(request.message).replaceAll("\n", "<br>")}</p>`
     }));
   }
-  tasks.push(sendEmail({
+  tasks.push(sendTransactionalEmail({
     to: request.email,
     subject: `${request.reference}: We received your Event Core support request`,
     html: `<h2>Support request received</h2><p>Thank you, ${escapeHtml(request.name)}. Your request was received.</p><p>Your reference number is <strong>${escapeHtml(request.reference)}</strong>.</p>`

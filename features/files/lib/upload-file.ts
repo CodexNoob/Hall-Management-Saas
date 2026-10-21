@@ -3,6 +3,7 @@
 import { getCachedAuthSession } from "@/lib/auth/client";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 /** Matches MAX_FILE_SIZE_BYTES in app/api/files/route.ts. */
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -70,10 +71,16 @@ export function formatFileSize(bytes: number) {
 
 export function describeUnacceptableFile(file: File) {
   if (!ACCEPTED_CONTENT_TYPES.includes(file.type as never)) {
-    return `${file.name} is not a supported file type. Allowed: ${ACCEPTED_LABEL}.`;
+    return ambientTranslate("files.unsupportedType", {
+      allowed: ACCEPTED_LABEL,
+      name: file.name
+    });
   }
   if (file.size > MAX_FILE_BYTES) {
-    return `${file.name} is ${formatFileSize(file.size)}. The limit is 50 MB.`;
+    return ambientTranslate("files.overSizeLimit", {
+      name: file.name,
+      size: formatFileSize(file.size)
+    });
   }
   return null;
 }
@@ -110,7 +117,7 @@ export async function uploadOrganizationFile(file: File, bucket: string) {
 
   const organizationId = getCachedAuthSession()?.activeOrganizationId;
   if (!organizationId) {
-    throw new Error("Your session has expired. Please sign in again.");
+    throw new Error(ambientTranslate("files.sessionExpired"));
   }
 
   const path = `${organizationId}/files/${crypto.randomUUID()}-${safeStorageName(file.name)}`;
@@ -142,11 +149,11 @@ export async function openStoredFile(fileId: string) {
     `/api/files?fileId=${encodeURIComponent(fileId)}`
   );
   if (!response.ok) {
-    throw new Error("That file could not be opened.");
+    throw new Error(ambientTranslate("files.couldNotOpen"));
   }
 
   const { url } = (await response.json()) as { url?: string };
-  if (!url) throw new Error("That file could not be opened.");
+  if (!url) throw new Error(ambientTranslate("files.couldNotOpen"));
 
   window.open(url, "_blank", "noopener,noreferrer");
 }

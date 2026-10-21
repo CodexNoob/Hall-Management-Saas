@@ -22,6 +22,7 @@ import {
   MENU_ITEM_KINDS,
   type MenuItemKind
 } from "@/features/menu/lib/service-style";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * Matches `menuItemFieldsSchema.name`. Checked here rather than left to the
@@ -83,6 +84,11 @@ export type MenuCsvField =
   | "notes"
   | "kind";
 
+export type MenuCsvTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
+
 export type MenuCsvColumn = {
   /** The spreadsheet column the operator sees, so the guide can label it. */
   letter: string;
@@ -90,7 +96,7 @@ export type MenuCsvColumn = {
   field: MenuCsvField;
   required: boolean;
   /** One line in the guide, stating what the cell accepts. */
-  help: string;
+  helpKey: MessageKey;
 };
 
 /**
@@ -103,42 +109,42 @@ export const MENU_CSV_COLUMNS = [
     header: "Item Name",
     field: "name",
     required: true,
-    help: "Required. The dish name, up to 200 characters."
+    helpKey: "menu.csv.helpName"
   },
   {
     letter: "B",
     header: "Category",
     field: "category",
     required: false,
-    help: "Appetizer, Soup, Main, Side, Drink, Dessert - or your own. Leave blank to file it under More."
+    helpKey: "menu.csv.helpCategory"
   },
   {
     letter: "C",
     header: "Kashrut Type",
     field: "kosherType",
     required: false,
-    help: "Parve, Fleishig or Milchig. Dairy and Meat are understood too."
+    helpKey: "menu.csv.helpKashrut"
   },
   {
     letter: "D",
     header: "Allergies",
     field: "allergens",
     required: false,
-    help: "Several in one cell, separated by commas. Type them straight into the cell - saving as CSV adds the quotes for you."
+    helpKey: "menu.csv.helpAllergies"
   },
   {
     letter: "E",
     header: "Description",
     field: "notes",
     required: false,
-    help: "Free text, for your own reference."
+    helpKey: "menu.csv.helpDescription"
   },
   {
     letter: "F",
     header: "Food or Drink",
     field: "kind",
     required: false,
-    help: "Food or Drink. Blank means Food."
+    helpKey: "menu.csv.helpKind"
   }
 ] as const satisfies readonly MenuCsvColumn[];
 
@@ -324,7 +330,10 @@ function isHeaderRow(row: readonly string[]) {
  * wrong columns, and nothing downstream would notice - a category reading
  * "Parve" is not a validation error, just a wrong menu.
  */
-function readHeaderMismatch(row: readonly string[]): string | null {
+function readHeaderMismatch(
+  row: readonly string[],
+  t?: MenuCsvTranslate
+): string | null {
   const misplaced = MENU_CSV_COLUMNS.filter(
     (column, index) =>
       readCell(row, index).toLowerCase() !== column.header.toLowerCase()
@@ -336,10 +345,12 @@ function readHeaderMismatch(row: readonly string[]): string | null {
     (column) => `${column.letter}: ${column.header}`
   ).join(", ");
 
-  return `The header row does not match the expected order. Columns should be ${expected}. Every row will be read by position, so reorder the sheet before importing.`;
+  return t
+    ? t("menu.csv.headerMismatch", { expected })
+    : `The header row does not match the expected order. Columns should be ${expected}. Every row will be read by position, so reorder the sheet before importing.`;
 }
 
-function readKosherType(raw: string) {
+function readKosherType(raw: string, t?: MenuCsvTranslate) {
   if (!raw) return { ok: true as const, value: undefined };
 
   const match = KOSHER_ALIASES[raw.toLowerCase()];
@@ -347,14 +358,23 @@ function readKosherType(raw: string) {
   if (!match) {
     return {
       ok: false as const,
-      message: `Kashrut type "${raw}" is not one of ${KOSHER_TYPES.join(", ")}.`
+      message: t
+        ? t("menu.csv.badKashrut", {
+            allowed: KOSHER_TYPES.join(", "),
+            value: raw
+          })
+        : `Kashrut type "${raw}" is not one of ${KOSHER_TYPES.join(", ")}.`
     };
   }
 
   return { ok: true as const, value: match };
 }
 
-function readKind(raw: string, fallback: MenuItemKind) {
+function readKind(
+  raw: string,
+  fallback: MenuItemKind,
+  t?: MenuCsvTranslate
+) {
   if (!raw) return { ok: true as const, value: fallback };
 
   const match = MENU_ITEM_KINDS.find(
@@ -364,7 +384,12 @@ function readKind(raw: string, fallback: MenuItemKind) {
   if (!match) {
     return {
       ok: false as const,
-      message: `"${raw}" is not ${MENU_ITEM_KINDS.join(" or ")}.`
+      message: t
+        ? t("menu.csv.badKind", {
+            allowed: MENU_ITEM_KINDS.join(" or "),
+            value: raw
+          })
+        : `"${raw}" is not ${MENU_ITEM_KINDS.join(" or ")}.`
     };
   }
 
@@ -386,12 +411,19 @@ export function parseMenuCsv(
   text: string,
   {
     existingNames = [],
-    defaultKind = "Food"
-  }: { existingNames?: readonly string[]; defaultKind?: MenuItemKind } = {}
+    defaultKind = "Food",
+    t
+  }: {
+    existingNames?: readonly string[];
+    defaultKind?: MenuItemKind;
+    t?: MenuCsvTranslate;
+  } = {}
 ): MenuCsvParseResult {
   const table = parseCsv(text).filter((row) => !isBlankRow(row));
   const headerPresent = table.length > 0 && isHeaderRow(table[0]);
-  const headerMismatch = headerPresent ? readHeaderMismatch(table[0]) : null;
+  const headerMismatch = headerPresent
+    ? readHeaderMismatch(table[0], t)
+    : null;
   // A file may legitimately arrive without headers, so the header is skipped
   // when it is there rather than required.
   const dataRows = headerPresent ? table.slice(1) : table;
@@ -409,8 +441,8 @@ export function parseMenuCsv(
     .map((row, index): MenuCsvRow => {
       const line = index + headerOffset;
       const name = readCell(row, 0);
-      const kosher = readKosherType(readCell(row, 2));
-      const kind = readKind(readCell(row, 5), defaultKind);
+      const kosher = readKosherType(readCell(row, 2), t);
+      const kind = readKind(readCell(row, 5), defaultKind, t);
 
       const parsed: MenuCsvRow = {
         line,
@@ -429,9 +461,15 @@ export function parseMenuCsv(
         message
       });
 
-      if (!name) return fail("Item name is empty.");
+      if (!name) {
+        return fail(t ? t("menu.csv.nameEmpty") : "Item name is empty.");
+      }
       if (name.length > MAX_NAME_LENGTH) {
-        return fail(`Item name is longer than ${MAX_NAME_LENGTH} characters.`);
+        return fail(
+          t
+            ? t("menu.csv.nameTooLong", { max: MAX_NAME_LENGTH })
+            : `Item name is longer than ${MAX_NAME_LENGTH} characters.`
+        );
       }
       if (!kosher.ok) return fail(kosher.message);
       if (!kind.ok) return fail(kind.message);
@@ -442,7 +480,7 @@ export function parseMenuCsv(
         return {
           ...parsed,
           status: "duplicate",
-          message: "Already in your menu."
+          message: t ? t("menu.csv.alreadyInMenu") : "Already in your menu."
         };
       }
 
@@ -450,7 +488,9 @@ export function parseMenuCsv(
         return {
           ...parsed,
           status: "duplicate",
-          message: "Repeated earlier in this file."
+          message: t
+            ? t("menu.csv.repeatedInFile")
+            : "Repeated earlier in this file."
         };
       }
 

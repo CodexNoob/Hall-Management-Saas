@@ -12,6 +12,8 @@ import {
 import { RoleBadge } from "@/features/access/components/role-editor";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import { useDateFormatters } from "@/features/dashboard/hooks/use-regional-settings";
 
 /**
  * Assigning a role to one person, with scope and an optional expiry.
@@ -28,9 +30,10 @@ type ScopeOption = { id: string; name: string };
 type HallsResponse = { halls?: ScopeOption[] };
 type EventTypesResponse = { eventTypes?: ScopeOption[] };
 
-const assignmentDateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium"
-});
+// A role assignment's expiry is a DATE-ONLY value - the day the grant lapses,
+// with no time of day to it - so it is read in UTC and can never drift to the
+// day before. It follows the organization's Date Format like every other date
+// on screen; the `en-US` constant that used to sit here did not.
 
 type AssignmentDialogProps = {
   staff: StaffEntry;
@@ -51,6 +54,8 @@ export function AssignmentDialog({
   onSaved,
   onClose
 }: AssignmentDialogProps) {
+  const { t } = useAppLanguage();
+  const dates = useDateFormatters();
   const [roleId, setRoleId] = useState(roles[0]?.id ?? "");
   const [scopeType, setScopeType] = useState<"org" | "hall" | "event_type">(
     "org"
@@ -112,7 +117,7 @@ export function AssignmentDialog({
           .json()
           .catch(() => null)) as ApiError | null;
 
-        setError(describeApiError(payload));
+        setError(describeApiError(payload, t));
 
         /**
          * A 409 means somebody else committed first, and the epoch this dialog
@@ -137,7 +142,7 @@ export function AssignmentDialog({
       onSaved();
       onClose();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Assignment failed.");
+      setError(caught instanceof Error ? caught.message : t("access.assignmentFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -157,14 +162,14 @@ export function AssignmentDialog({
           .json()
           .catch(() => null)) as ApiError | null;
 
-        setError(describeApiError(payload));
+        setError(describeApiError(payload, t));
         if (payload?.code === "epoch_stale") onSaved();
         return;
       }
 
       onSaved();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Revoke failed.");
+      setError(caught instanceof Error ? caught.message : t("access.revokeFailed"));
     }
   };
 
@@ -186,18 +191,17 @@ export function AssignmentDialog({
             onClick={onClose}
             type="button"
           >
-            Close
+            {t("common.close")}
           </button>
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
           <h3 className="mb-2 text-[11px] font-black uppercase tracking-wide text-[#39465a]">
-            Holds now
+            {t("access.holdsNow")}
           </h3>
           {staff.assignments.length === 0 ? (
             <p className="rounded-lg border border-[#eef1f5] px-3 py-3 text-[11px] text-[#6a7483]">
-              Nothing yet. This person can sign in and see nothing until they are
-              given a role - which is the correct default, not a bug.
+              {t("access.nothingYetPerson")}
             </p>
           ) : (
             <ul className="space-y-1.5">
@@ -209,14 +213,12 @@ export function AssignmentDialog({
                   <span className="flex min-w-0 flex-wrap items-center gap-2">
                     <RoleBadge name={assignment.roleName} />
                     <span className="text-[10px] text-[#536172]">
-                      {describeScope(assignment)}
+                      {describeScope(assignment, t)}
                     </span>
                     {assignment.expiresAt ? (
                       <span className="rounded border border-[#efd39d] bg-[#fff7e8] px-1.5 py-0.5 text-[9px] font-black text-[#a45f00]">
-                        Until{" "}
-                        {assignmentDateFormatter.format(
-                          new Date(assignment.expiresAt)
-                        )}
+                        {t("access.until")}{" "}
+                        {dates.dateOnly(assignment.expiresAt)}
                       </span>
                     ) : null}
                     {assignment.source !== "manual" ? (
@@ -234,7 +236,7 @@ export function AssignmentDialog({
                     onClick={() => revoke(assignment.id)}
                     type="button"
                   >
-                    Revoke
+                    {t("access.revoke")}
                   </button>
                 </li>
               ))}
@@ -242,11 +244,11 @@ export function AssignmentDialog({
           )}
 
           <h3 className="mb-2 mt-5 text-[11px] font-black uppercase tracking-wide text-[#39465a]">
-            Add a role
+            {t("access.addRole")}
           </h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-              Role
+              {t("access.role")}
               <select
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canChooseRole}
@@ -256,7 +258,7 @@ export function AssignmentDialog({
               >
                 {roles.length === 0 ? (
                   <option value="">
-                    {isRolesLoading ? "Loading roles..." : "No roles available"}
+                    {isRolesLoading ? t("access.loadingRoles") : t("access.noRolesAvailable")}
                   </option>
                 ) : (
                   roles.map((role) => (
@@ -268,7 +270,7 @@ export function AssignmentDialog({
               </select>
             </label>
             <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-              Scope
+              {t("access.scope")}
               <select
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canAssign}
@@ -280,14 +282,14 @@ export function AssignmentDialog({
                 }
                 value={scopeType}
               >
-                <option value="org">Whole organization</option>
-                <option value="hall">One hall</option>
-                <option value="event_type">One event type</option>
+                <option value="org">{t("access.wholeOrganization")}</option>
+                <option value="hall">{t("access.oneHall")}</option>
+                <option value="event_type">{t("access.oneEventType")}</option>
               </select>
             </label>
             {scopeType !== "org" ? (
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                {scopeType === "hall" ? "Hall" : "Event type"}
+                {scopeType === "hall" ? "Hall" : t("access.eventType")}
                 <select
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                   disabled={!canAssign}
@@ -295,7 +297,7 @@ export function AssignmentDialog({
                   onChange={(event) => setScopeId(event.target.value)}
                   value={scopeId}
                 >
-                  <option value="">Choose one</option>
+                  <option value="">{t("access.chooseOne")}</option>
                   {scopeOptions.map((option) => (
                     <option key={option.id} value={option.id}>
                       {option.name}
@@ -305,7 +307,7 @@ export function AssignmentDialog({
               </label>
             ) : null}
             <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-              Expires (optional)
+              {t("access.expiresOptional")}
               <input
                 className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
                 disabled={!canAssign}
@@ -317,8 +319,7 @@ export function AssignmentDialog({
             </label>
           </div>
           <p className="mt-2 text-[10px] text-[#6a7483]">
-            Assignments add up. Two hall-scoped rows mean both halls; one
-            organization-wide row means everywhere. They never narrow each other.
+            {t("access.assignmentsAddUp")}
           </p>
         </div>
 
@@ -334,7 +335,7 @@ export function AssignmentDialog({
               onClick={onClose}
               type="button"
             >
-              Done
+              {t("common.done")}
             </button>
             <button
               className="h-9 rounded-lg bg-[#17202a] px-4 text-xs font-black text-white disabled:opacity-50"
@@ -348,7 +349,7 @@ export function AssignmentDialog({
               onClick={submit}
               type="button"
             >
-              {isSaving ? "Assigning..." : "Assign"}
+              {isSaving ? t("access.assigning") : "Assign"}
             </button>
           </div>
         </footer>

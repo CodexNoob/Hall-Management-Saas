@@ -10,13 +10,18 @@ import {
 } from "@/lib/auth/client";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getDashboardLoginPath } from "@/lib/auth/redirect";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export function DashboardAuthGuard() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(
     null
   );
-  const [status, setStatus] = useState("Preparing your dashboard...");
+  const [statusKey, setStatusKey] = useState<MessageKey>(
+    "shell.preparingDashboard"
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -33,7 +38,7 @@ export function DashboardAuthGuard() {
     async function loadUser() {
       try {
         if (isMounted) {
-          setStatus("Checking your session...");
+          setStatusKey("shell.checkingSession");
         }
 
         // The 30-day "Remember me" ceiling used to be enforced here and by a
@@ -50,7 +55,7 @@ export function DashboardAuthGuard() {
         }
 
         if (isMounted) {
-          setStatus("Loading dashboard data...");
+          setStatusKey("shell.loadingDashboardData");
         }
 
         const nextSession = await fetchAuthSession(data.session.access_token);
@@ -75,7 +80,7 @@ export function DashboardAuthGuard() {
       <main
         className="min-h-screen bg-[#f5f6f8]"
         aria-busy="true"
-        aria-label={status}
+        aria-label={t(statusKey)}
       />
     );
   }

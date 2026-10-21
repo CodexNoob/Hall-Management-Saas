@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
@@ -23,6 +23,7 @@ import {
 } from "@/features/administration/components/staff-dialog";
 import {
   LineIcon,
+  PresenceIndicator,
   SectionHeader,
   StatusBadge,
   secondaryButtonClass
@@ -42,6 +43,8 @@ import {
   visibleStaffTabs,
   type StaffTab
 } from "@/features/administration/components/staff-tabs";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import { useDateFormatters } from "@/features/dashboard/hooks/use-regional-settings";
 
 /**
  * Staff management, in four tabs: WHO WORKS HERE, what they may do, who has not
@@ -61,11 +64,11 @@ import {
  */
 
 const STAFF_URL = "/api/staff";
-const invitationDateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium"
-});
+// When an invitation was sent - a REAL TIMESTAMP, in the venue's timezone.
 
 export function StaffPage() {
+  const { t } = useAppLanguage();
+  const dates = useDateFormatters();
   const access = useDashboardAccess();
   const canViewStaff = access.hasPermission("staff.read");
   const canInvite = access.hasPermission("staff.invite");
@@ -116,6 +119,34 @@ export function StaffPage() {
     statusFilter,
     totalPages
   } = useStaffDirectory(staffQuery.data, searchQuery);
+
+  /*
+   * Online status goes stale by the minute, so the list reads itself back
+   * while somebody is looking at it - thirty seconds, and only while the tab is
+   * in front, the same shape as the sessions panel and the kitchen board. Only
+   * for viewers who receive presence at all; for anyone else nothing on this
+   * screen changes fast enough to be worth a request.
+   */
+  const showsPresence = canEditProfiles;
+  const refetchStaff = staffQuery.refetch;
+
+  useEffect(() => {
+    if (!showsPresence) return;
+
+    const poll = () => {
+      if (document.visibilityState !== "visible") return;
+
+      void refetchStaff();
+    };
+
+    const timer = setInterval(poll, 30_000);
+    document.addEventListener("visibilitychange", poll);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", poll);
+    };
+  }, [refetchStaff, showsPresence]);
 
   const assigningStaff = staffQuery.data?.staff.find(
     (entry) => entry.principalId === assigningPrincipalId
@@ -178,9 +209,9 @@ export function StaffPage() {
 
     try {
       await navigator.clipboard.writeText(link);
-      showNotice("Invitation link copied.");
+      showNotice(t("staff.invitationLinkCopied"));
     } catch {
-      showNotice("Copy failed - select the link and copy it by hand.");
+      showNotice(t("staff.copyFailed"));
     }
   }
 
@@ -208,7 +239,7 @@ export function StaffPage() {
         if (payload?.assignmentErrors?.length) {
           setMutationError(payload.assignmentErrors.join(" "));
         } else {
-          showNotice("Invitations sent.");
+          showNotice(t("staff.invitationsSent"));
           setDialogMode(null);
         }
       } else if (dialogMode === "edit" && editingPrincipalId) {
@@ -225,14 +256,14 @@ export function StaffPage() {
           }
         );
         await readMutationResponse(response);
-        showNotice("Profile saved.");
+        showNotice(t("staff.profileSaved"));
         setDialogMode(null);
       }
 
       refresh();
     } catch (caught) {
       setMutationError(
-        caught instanceof Error ? caught.message : "The change failed."
+        caught instanceof Error ? caught.message : t("staff.changeFailed")
       );
     } finally {
       setIsSaving(false);
@@ -248,11 +279,11 @@ export function StaffPage() {
         { method: "POST", body: JSON.stringify({ isActive }) }
       );
       await readMutationResponse(response);
-      showNotice(isActive ? "Access restored." : "Access revoked.");
+      showNotice(isActive ? t("staff.accessRestored") : t("staff.accessRevoked"));
       refresh();
     } catch (caught) {
       setMutationError(
-        caught instanceof Error ? caught.message : "The change failed."
+        caught instanceof Error ? caught.message : t("staff.changeFailed")
       );
     }
   }
@@ -269,12 +300,12 @@ export function StaffPage() {
   if (!tab) {
     return (
       <DashboardPageState
-        emptyMessage="Staff management needs the staff.read permission for the directory, or role.read for roles and permissions."
-        emptyTitle="Access restricted"
+        emptyMessage={t("staff.accessRestrictedBody")}
+        emptyTitle={t("staff.accessRestricted")}
         isEmpty
         showNewBookingAction={false}
         subtitle=""
-        title="Staff"
+        title={t("staff.title")}
       />
     );
   }
@@ -286,7 +317,7 @@ export function StaffPage() {
         onTodayNotes={() => setIsTodayNotesOpen(true)}
         showNewBookingAction={false}
         subtitle={`${staffMembers.length} people`}
-        title="Staff"
+        title={t("staff.title")}
       />
       <TodayNotesDrawer
         onClose={() => setIsTodayNotesOpen(false)}
@@ -294,7 +325,7 @@ export function StaffPage() {
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
-        <nav aria-label="Staff management" className="mb-3 flex flex-wrap gap-1.5">
+        <nav aria-label={t("staff.management")} className="mb-3 flex flex-wrap gap-1.5">
           {tabs.map((entry) => (
             <button
               aria-current={tab === entry.value ? "page" : undefined}
@@ -307,7 +338,7 @@ export function StaffPage() {
               onClick={() => openTab(entry.value)}
               type="button"
             >
-              {entry.label}
+              {t(entry.labelKey)}
             </button>
           ))}
         </nav>
@@ -325,8 +356,7 @@ export function StaffPage() {
         {undeliveredInvites.length > 0 ? (
           <div className="mb-3 rounded-lg border border-[#efd39d] bg-[#fff7e8] px-3 py-2">
             <p className="text-[11px] font-black text-[#a45f00]">
-              Some invitations could not be emailed. Send these links yourself -
-              this is the only time they are shown.
+              {t("staff.invitationLinksOnce")}
             </p>
             <ul className="mt-1.5 space-y-1">
               {undeliveredInvites.map((invite) => (
@@ -341,7 +371,7 @@ export function StaffPage() {
                       onClick={() => copyInviteLink(invite.inviteLink)}
                       type="button"
                     >
-                      Copy link
+                      {t("common.copyLink")}
                     </button>
                   ) : (
                     <span className="text-[#a52a3d]">{invite.error}</span>
@@ -373,16 +403,16 @@ export function StaffPage() {
                   type="button"
                 >
                   <LineIcon name="plus" />
-                  Invite
+                  {t("staff.invite")}
                 </button>
               }
-              subtitle="Sent, and not signed in yet. An invitation is a staff row nobody has arrived at."
-              title="Invitations"
+              subtitle={t("staff.invitationsBlurb")}
+              title={t("staff.invitations")}
             />
 
             {pendingInvitations.length === 0 ? (
               <p className="px-4 py-6 text-[11px] text-[#6a7483]">
-                Everybody invited has signed in at least once.
+                {t("staff.allSignedIn")}
               </p>
             ) : (
               <ul className="divide-y divide-[#eef1f5]">
@@ -395,15 +425,13 @@ export function StaffPage() {
                       <p className="text-xs font-black">{entry.name}</p>
                       <p className="mt-0.5 truncate text-[10px] text-[#6a7483]">
                         {entry.email} · invited{" "}
-                        {invitationDateFormatter.format(
-                          new Date(entry.createdAt)
-                        )}
+                        {dates.date(entry.createdAt)}
                       </p>
                     </div>
                     <span className="flex flex-wrap items-center gap-1.5">
                       {entry.assignments.length === 0 ? (
                         <span className="rounded border border-[#efd39d] bg-[#fff7e8] px-1.5 py-0.5 text-[9px] font-black text-[#a45f00]">
-                          No role yet
+                          {t("staff.noRoleYet")}
                         </span>
                       ) : (
                         entry.assignments.map((assignment) => (
@@ -421,7 +449,7 @@ export function StaffPage() {
                         }
                         type="button"
                       >
-                        Access
+                        {t("access.title")}
                       </button>
                     </span>
                   </li>
@@ -431,8 +459,7 @@ export function StaffPage() {
 
             <footer className="border-t border-[#eef1f5] px-4 py-3">
               <p className="text-[10px] text-[#6a7483]">
-                An invitation that could not be emailed shows its link at the top
-                of this page, once. It is the only copy.
+                {t("staff.invitationLinkFooter")}
               </p>
             </footer>
           </section>
@@ -465,9 +492,9 @@ export function StaffPage() {
                   }
                   value={statusFilter}
                 >
-                  <option value="All">All statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
+                  <option value="All">{t("staff.allStatuses")}</option>
+                  <option value="Active">{t("common.active")}</option>
+                  <option value="Inactive">{t("common.inactive")}</option>
                 </select>
                 {/* A tab away, not a page away. Hidden entirely without
                     `role.read`, the same key the old Access route was gated on -
@@ -480,7 +507,7 @@ export function StaffPage() {
                     type="button"
                   >
                     <LineIcon name="shield" />
-                    Manage access
+                    {t("staff.manageAccess")}
                   </button>
                 ) : null}
                 <button
@@ -496,23 +523,23 @@ export function StaffPage() {
                   type="button"
                 >
                   <LineIcon name="plus" />
-                  Invite
+                  {t("staff.invite")}
                 </button>
               </div>
             }
-            subtitle="Profiles here, privileges under Roles & Permissions."
-            title="Directory"
+            subtitle={t("staff.directoryBlurb")}
+            title={t("staff.directory")}
           />
 
           <div className="overflow-x-auto">
             <table className="w-full min-w-180 text-left">
               <thead>
                 <tr className="border-b border-[#eef1f5] text-[10px] uppercase tracking-wide text-[#6a7483]">
-                  <th className="px-4 py-2 font-black">Person</th>
-                  <th className="px-4 py-2 font-black">Holds</th>
-                  <th className="px-4 py-2 font-black">Department</th>
-                  <th className="px-4 py-2 font-black">Status</th>
-                  <th className="px-4 py-2 font-black">Last sign-in</th>
+                  <th className="px-4 py-2 font-black">{t("staff.person")}</th>
+                  <th className="px-4 py-2 font-black">{t("staff.holds")}</th>
+                  <th className="px-4 py-2 font-black">{t("staff.department")}</th>
+                  <th className="px-4 py-2 font-black">{t("common.status")}</th>
+                  <th className="px-4 py-2 font-black">{t("staff.lastSignIn")}</th>
                   <th className="px-4 py-2" />
                 </tr>
               </thead>
@@ -550,7 +577,7 @@ export function StaffPage() {
                       <span className="flex flex-wrap gap-1">
                         {staff.assignments.length === 0 ? (
                           <span className="text-[10px] text-[#6a7483]">
-                            No role
+                            {t("staff.noRole")}
                           </span>
                         ) : (
                           staff.assignments.map((assignment) => (
@@ -566,10 +593,31 @@ export function StaffPage() {
                       {staff.department}
                     </td>
                     <td className="px-4 py-2.5">
-                      <StatusBadge status={staff.status} />
+                      <span className="flex flex-col items-start gap-1">
+                        <StatusBadge status={staff.status} />
+                        {staff.presence ? (
+                          <PresenceIndicator
+                            detail={
+                              staff.presence !== "online" && staff.lastSeenAt
+                                ? t("settings.lastSeen", {
+                                    when: dates.dateTime(staff.lastSeenAt)
+                                  })
+                                : undefined
+                            }
+                            label={
+                              staff.presence === "online"
+                                ? t("staff.presenceOnline")
+                                : staff.presence === "away"
+                                  ? t("staff.presenceAway")
+                                  : t("staff.presenceOffline")
+                            }
+                            presence={staff.presence}
+                          />
+                        ) : null}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-[10px] text-[#6a7483]">
-                      {staff.lastLogin}
+                      {staff.lastLogin || t("common.never")}
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="flex justify-end gap-1.5">
@@ -584,7 +632,7 @@ export function StaffPage() {
                           }}
                           type="button"
                         >
-                          Edit
+                          {t("common.edit")}
                         </button>
                         <button
                           className="rounded-lg border border-[#c7d0dc] px-2 py-1 text-[10px] font-black disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
@@ -594,7 +642,7 @@ export function StaffPage() {
                           }
                           type="button"
                         >
-                          Access
+                          {t("access.title")}
                         </button>
                         <button
                           className="rounded-lg border border-[#f2b7ba] px-2 py-1 text-[10px] font-black text-[#d63740] disabled:border-[#e3e8ee] disabled:text-[#9aa5b4]"
@@ -628,7 +676,7 @@ export function StaffPage() {
                 onClick={() => setCurrentPage(currentPage - 1)}
                 type="button"
               >
-                Previous
+                {t("common.previous")}
               </button>
               <span className="text-[10px] text-[#6a7483]">
                 {currentPage} / {totalPages} ({rowsPerPage} per page)
@@ -639,7 +687,7 @@ export function StaffPage() {
                 onClick={() => setCurrentPage(currentPage + 1)}
                 type="button"
               >
-                Next
+                {t("common.next")}
               </button>
             </div>
           </footer>

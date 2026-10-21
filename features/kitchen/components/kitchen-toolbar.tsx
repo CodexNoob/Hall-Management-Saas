@@ -1,6 +1,7 @@
 "use client";
 
 import { LineIcon } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function KitchenToolbar({
   canAddKitchenEvent,
@@ -41,6 +42,7 @@ export function KitchenToolbar({
    */
   showWorkersOnly?: boolean;
 }) {
+  const { t } = useAppLanguage();
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2 border border-dashed border-[#eef0f3] bg-white/95 p-3">
       <button
@@ -50,7 +52,7 @@ export function KitchenToolbar({
         type="button"
       >
         <LineIcon className="h-4 w-4" name="plus" />
-        Add kitchen event
+        {t("kitchen.addEvent")}
       </button>
 
       {/* Beside the board rather than under Staff: these are names on a
@@ -63,7 +65,7 @@ export function KitchenToolbar({
           type="button"
         >
           <LineIcon className="h-4 w-4" name="user" />
-          Manage workers
+          {t("kitchen.manageWorkers")}
         </button>
       ) : null}
 
@@ -81,7 +83,7 @@ export function KitchenToolbar({
             type="checkbox"
           />
 
-          <span className="leading-tight">Show only my assigned items</span>
+          <span className="leading-tight">{t("kitchen.onlyAssigned")}</span>
         </label>
       ) : null}
 
@@ -93,10 +95,10 @@ export function KitchenToolbar({
       {onRefresh ? (
         <div className="inline-flex h-10 w-full items-center justify-between gap-2 border border-[#d8dde5] bg-white px-3 text-xs font-black text-[#061126] sm:w-auto">
           <span className="truncate text-[#637085]" role="status">
-            {isRefreshing ? "Refreshing…" : freshnessLabel}
+            {isRefreshing ? t("kitchen.refreshing") : freshnessLabel}
           </span>
           <button
-            aria-label="Refresh the kitchen board"
+            aria-label={t("kitchen.refresh")}
             className="inline-flex h-7 w-7 shrink-0 items-center justify-center border border-[#d8dde5] bg-white text-[#061126] transition hover:bg-[#f7f7f7] disabled:cursor-not-allowed disabled:opacity-45"
             disabled={isRefreshing}
             onClick={onRefresh}

@@ -7,6 +7,7 @@ import {
   TopAction,
   type BillingResponse
 } from "@/features/billing/components/billing-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 function money(cents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -26,6 +27,7 @@ export function EventBillingTab({
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }) {
+  const { t } = useAppLanguage();
   const [balanceFilter, setBalanceFilter] = useState("All events");
   const [selectedId, setSelectedId] = useState(data.events[0]?.id ?? "");
   const eventBalances = useMemo(
@@ -87,34 +89,34 @@ export function EventBillingTab({
   return (
     <div className="grid min-w-0 gap-4 p-2 sm:p-4 xl:grid-cols-[430px_minmax(0,1fr)]">
       <section className="min-w-0 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
-        <h2 className="font-black">Event Billing</h2>
+        <h2 className="font-black">{t("billing.eventBilling")}</h2>
         <p className="text-sm text-[#6a7483]">
-          Open a specific event billing workspace.
+          {t("billing.openEventWorkspace")}
         </p>
         <input
           className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Client, hall, date, status"
+          placeholder={t("billing.eventSearch")}
           type="search"
           value={searchQuery}
         />
         <select
-          aria-label="Event billing balance filter"
+          aria-label={t("billing.eventBillingFilter")}
           className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           onChange={(event) => setBalanceFilter(event.target.value)}
           value={balanceFilter}
         >
-          <option>All events</option>
-          <option>Open balance</option>
+          <option value="All events">{t("billing.allEvents")}</option>
+          <option value="Open balance">{t("billing.openBalance")}</option>
         </select>
         <div className="mt-3 space-y-2">
           {!visibleEvents.length ? (
             <div className="rounded-xl border border-dashed border-[#b9c2cf] p-8 text-center">
               <p className="font-black">
-                {data.events.length ? "No matching events" : "No events yet"}
+                {data.events.length ? t("billing.noMatchingEvents") : t("billing.noEventsYet")}
               </p>
               <p className="mt-1 text-sm text-[#6a7483]">
-                Event billing becomes available after an event is created.
+                {t("billing.eventBillingAfterCreate")}
               </p>
             </div>
           ) : (
@@ -133,11 +135,11 @@ export function EventBillingTab({
                   </div>
                   <p className="text-xs text-[#6a7483]">
                     {new Date(event.eventDate).toLocaleDateString()} ·{" "}
-                    {event.eventType || "Event"} · {event.hallName || "No hall"}
+                    {event.eventType || "Event"} · {event.hallName || t("billing.noHall")}
                   </p>
                   <div className="mt-2 flex gap-2">
                     <Pill tone={balance > 0 ? "gold" : "green"}>
-                      {balance > 0 ? "Open balance" : "No balance"}
+                      {balance > 0 ? t("billing.openBalance") : t("billing.noBalance")}
                     </Pill>
                     <Pill>{event.eventStatus}</Pill>
                   </div>
@@ -155,42 +157,44 @@ export function EventBillingTab({
               <p className="text-sm text-[#6a7483]">
                 {selected.eventType || "Event"} ·{" "}
                 {new Date(selected.eventDate).toLocaleDateString()} ·{" "}
-                {selected.hallName || "No hall"}
+                {selected.hallName || t("billing.noHall")}
               </p>
             </div>
-            <TopAction label="Create invoice" onClick={onCreateInvoice} />
+            <TopAction label={t("billing.createInvoice")} onClick={onCreateInvoice} />
           </div>
           <div className="grid gap-2 p-4 sm:grid-cols-3">
             <StatCard
-              label="Invoices"
+              label={t("billing.invoices")}
               value={money(invoicedCents)}
-              note={`${selectedInvoices.length} invoice records`}
+              note={t("billing.invoiceRecords", {
+                count: selectedInvoices.length
+              })}
             />
             <StatCard
-              label="Paid"
+              label={t("billing.statusPaid")}
               value={money(paidCents)}
-              note="Recorded payments"
+              note={t("billing.recordedPayments")}
               tone="green"
             />
             <StatCard
-              label="Open Balance"
+              label={t("billing.openBalance")}
               value={money(balanceCents)}
-              note="Amount outstanding"
+              note={t("billing.amountOutstanding")}
               tone="gold"
             />
           </div>
           <div className="p-4 pt-0">
             <article className="rounded-xl border border-[#d8dde5] p-4">
-              <h3 className="font-black">Event billing summary</h3>
+              <h3 className="font-black">{t("billing.eventBillingSummary")}</h3>
               <dl className="mt-4 grid grid-cols-[140px_1fr] gap-3 text-sm">
-                <dt className="font-black uppercase text-[#6a7483]">Client</dt>
+                <dt className="font-black uppercase text-[#6a7483]">{t("common.client")}</dt>
                 <dd className="font-black">{selected.clientName}</dd>
-                <dt className="font-black uppercase text-[#6a7483]">Status</dt>
+                <dt className="font-black uppercase text-[#6a7483]">{t("common.status")}</dt>
                 <dd className="font-black">{selected.eventStatus}</dd>
-                <dt className="font-black uppercase text-[#6a7483]">Payment</dt>
+                <dt className="font-black uppercase text-[#6a7483]">{t("billing.payment")}</dt>
                 <dd className="font-black">{selected.paymentStatus}</dd>
                 <dt className="font-black uppercase text-[#6a7483]">
-                  Amount due
+                  {t("billing.amountDue")}
                 </dt>
                 <dd className="font-black">
                   {money(Math.round(Number(selected.amountDue) * 100))}
@@ -202,9 +206,9 @@ export function EventBillingTab({
       ) : (
         <section className="flex min-h-80 items-center justify-center rounded-xl border border-[#d8dde5] bg-white p-8 text-center">
           <div>
-            <h2 className="font-black">Select an event</h2>
+            <h2 className="font-black">{t("billing.selectEvent")}</h2>
             <p className="text-sm text-[#6a7483]">
-              Billing details will appear here.
+              {t("billing.billingDetailsHere")}
             </p>
           </div>
         </section>

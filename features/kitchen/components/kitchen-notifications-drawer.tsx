@@ -1,8 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { KitchenResponse } from "@/features/kitchen/components/kitchen-shared";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type KitchenNotification = KitchenResponse["notifications"][number];
 
@@ -10,11 +12,11 @@ type NotificationFilter = "all" | "unacknowledged" | "acknowledged";
 
 const NOTIFICATION_FILTERS: Array<{
   id: NotificationFilter;
-  label: string;
+  labelKey: MessageKey;
 }> = [
-  { id: "all", label: "All" },
-  { id: "unacknowledged", label: "Needs action" },
-  { id: "acknowledged", label: "Acknowledged" }
+  { id: "all", labelKey: "kitchen.filterAll" },
+  { id: "unacknowledged", labelKey: "kitchen.filterNeedsAction" },
+  { id: "acknowledged", labelKey: "kitchen.filterAcknowledged" }
 ];
 
 function matchesFilter(
@@ -108,6 +110,7 @@ export function KitchenNotificationsDrawer({
   onClearNotifications,
   onClose
 }: KitchenNotificationsDrawerProps) {
+  const { t } = useAppLanguage();
   const hasUnacknowledged = notifications.some((item) => !item.acknowledged);
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [filter, setFilter] = useState<NotificationFilter>("all");
@@ -122,7 +125,7 @@ export function KitchenNotificationsDrawer({
   return (
     <div className="fixed inset-0 z-100 bg-[#061126]/55">
       <aside
-        aria-label="Kitchen Notifications"
+        aria-label={t("kitchen.notificationsTitle")}
         aria-modal="true"
         className="fixed bottom-0 right-0 top-0 z-101 flex w-full max-w-130 flex-col bg-white shadow-2xl shadow-black/30"
         role="dialog"
@@ -131,16 +134,16 @@ export function KitchenNotificationsDrawer({
           <div>
             <h2 className="text-xl font-black leading-tight">
               <BellIcon />
-              Kitchen Notifications
+              {t("kitchen.notificationsTitle")}
             </h2>
             <p className="mt-1 text-sm font-semibold text-[#cbd5e1]">
               {seesWholeKitchen
-                ? "Change history & acknowledgments"
-                : "Changes to the events you're cooking"}
+                ? t("kitchen.changeHistory")
+                : t("kitchen.yourEventChanges")}
             </p>
           </div>
           <button
-            aria-label="Close kitchen notifications"
+            aria-label={t("kitchen.closeNotifications")}
             // Hover inverts rather than tinting. A translucent white wash over
             // the navy header lightened the square to roughly the colour of the
             // glyph on it, so the × faded out exactly when the pointer was on
@@ -163,8 +166,8 @@ export function KitchenNotificationsDrawer({
               type="button"
             >
               {bulkAction === "acknowledge-all"
-                ? "Acknowledging..."
-                : "Acknowledge all"}
+                ? t("kitchen.acknowledging")
+                : t("kitchen.acknowledgeAll")}
             </button>
             <button
               className="h-9 border border-[#efb5ad] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
@@ -172,7 +175,7 @@ export function KitchenNotificationsDrawer({
               onClick={() => setIsConfirmingClear(true)}
               type="button"
             >
-              {bulkAction === "clear" ? "Clearing..." : "Clear notifications"}
+              {bulkAction === "clear" ? t("kitchen.clearing") : t("kitchen.clearNotifications")}
             </button>
           </div>
         ) : null}
@@ -184,11 +187,11 @@ export function KitchenNotificationsDrawer({
           chronological list looking for green chips is not an answer.
         */}
         <div
-          aria-label="Notification filter"
+          aria-label={t("kitchen.notificationFilter")}
           className="flex shrink-0 gap-2 border-b border-[#e2e8f0] px-5 py-3"
           role="group"
         >
-          {NOTIFICATION_FILTERS.map(({ id, label }) => {
+          {NOTIFICATION_FILTERS.map(({ id, labelKey }) => {
             const isActive = filter === id;
 
             return (
@@ -203,7 +206,7 @@ export function KitchenNotificationsDrawer({
                 onClick={() => setFilter(id)}
                 type="button"
               >
-                {label} ({countFor(id)})
+                {t(labelKey)} ({countFor(id)})
               </button>
             );
           })}
@@ -237,8 +240,8 @@ export function KitchenNotificationsDrawer({
                about the state of the kitchen. */
             <div className="border border-[#d8dde5] bg-[#f8fafc] px-4 py-8 text-center text-sm font-bold text-[#64748b]">
               {filter === "acknowledged"
-                ? "Nothing has been acknowledged yet."
-                : "Nothing is waiting to be acknowledged."}
+                ? t("kitchen.nothingAcknowledged")
+                : t("kitchen.nothingWaiting")}
               <span className="mt-1 block font-semibold text-[#94a3b8]">
                 {notifications.length} notification
                 {notifications.length === 1 ? "" : "s"} in all - choose All to
@@ -253,12 +256,12 @@ export function KitchenNotificationsDrawer({
                same reason. */
             <div className="border border-[#d8dde5] bg-[#f8fafc] px-4 py-8 text-center text-sm font-bold text-[#64748b]">
               {seesWholeKitchen ? (
-                "No kitchen notifications."
+                t("kitchen.noNotifications")
               ) : (
                 <>
-                  Nothing here needs you.
+                  {t("kitchen.nothingNeedsYou")}
                   <span className="mt-1 block font-semibold text-[#94a3b8]">
-                    Changes to events you&apos;re cooking will appear here.
+                    {t("kitchen.changesWillAppear")}
                   </span>
                 </>
               )}
@@ -286,20 +289,22 @@ export function KitchenNotificationsDrawer({
         one-line native prompt is a thin thing to stand in front of that.
       */}
       <ConfirmDialog
-        // Not "Clear notifications", which is the toolbar button behind it:
+        // Not t("kitchen.clearNotifications"), which is the toolbar button behind it:
         // two controls a click apart reading the same is how somebody confirms
         // something they thought they were opening.
-        confirmLabel="Clear all notifications"
-        description={`Clear all ${notifications.length} kitchen notifications? This deletes them for everyone in the organization, along with the record of who acknowledged what. It cannot be undone.`}
-        fallbackErrorMessage="The notifications could not be cleared. Please try again."
+        confirmLabel={t("kitchen.clearAllNotifications")}
+        description={t("kitchen.clearAllConfirm", {
+          count: notifications.length
+        })}
+        fallbackErrorMessage={t("kitchen.clearFailed")}
         onClose={() => setIsConfirmingClear(false)}
         onConfirm={async () => {
           await onClearNotifications();
           setIsConfirmingClear(false);
         }}
         open={isConfirmingClear}
-        pendingLabel="Clearing…"
-        title="Clear every notification?"
+        pendingLabel={t("kitchen.clearingEllipsis")}
+        title={t("kitchen.clearEveryNotification")}
       />
     </div>
   );
@@ -316,6 +321,7 @@ function NotificationCard({
   notification: KitchenNotification;
   seesWholeKitchen: boolean;
 }) {
+  const { t } = useAppLanguage();
   const [showChanges, setShowChanges] = useState(false);
   // Which day, which hall, whose event - the first thing a cook needs and the
   // last thing they should have to open a panel for. A supervisor reading the
@@ -325,10 +331,10 @@ function NotificationCard({
     .filter((part) => part && part !== "—")
     .join(" · ");
   const changedItem =
-    notification.title === "Menu Changed"
-      ? "Menu status"
-      : notification.title === "Sudden Event"
-        ? "Event schedule"
+    notification.title === t("kitchen.menuChanged")
+      ? t("kitchen.menuStatus")
+      : notification.title === t("kitchen.suddenEvent")
+        ? t("kitchen.eventSchedule")
         : notification.title;
 
   return (
@@ -352,7 +358,7 @@ function NotificationCard({
             "Acknowledged"
           ) : (
             <>
-              <AlertIcon /> Unacknowledged
+              <AlertIcon /> {t("kitchen.unacknowledged")}
             </>
           )}
         </span>
@@ -384,7 +390,7 @@ function NotificationCard({
       {showChanges ? (
         <section className="mt-3 border border-[#d8dde5] bg-white p-3">
           <h4 className="text-xs font-black uppercase tracking-[0.06em] text-[#1f4d73]">
-            Change made by Event Manager
+            {t("kitchen.changeByEventManager")}
           </h4>
 
           {/* The cook's version holds only what the face of their card does not
@@ -393,19 +399,19 @@ function NotificationCard({
           <dl className="mt-3 grid gap-3">
             {seesWholeKitchen ? (
               <>
-                <Meta label="Event" value={notification.event} />
-                <Meta label="Hall" value={notification.hall} />
-                <Meta label="Date" value={notification.date} />
+                <Meta label={t("common.event")} value={notification.event} />
+                <Meta label={t("kitchen.hall")} value={notification.hall} />
+                <Meta label={t("common.date")} value={notification.date} />
               </>
             ) : null}
-            <Meta label="Changed item" value={changedItem} />
+            <Meta label={t("kitchen.changedItem")} value={changedItem} />
             {seesWholeKitchen ? (
               <>
                 <CleanChangeSummary notification={notification} />
-                <Meta label="Changed by" value={notification.by} />
+                <Meta label={t("kitchen.changedBy")} value={notification.by} />
               </>
             ) : null}
-            <Meta label="Changed at" value={notification.when} />
+            <Meta label={t("kitchen.changedAt")} value={notification.when} />
           </dl>
         </section>
       ) : null}
@@ -418,7 +424,7 @@ function NotificationCard({
         }`}
       >
         <p className="text-xs font-black uppercase tracking-wider text-[#64748b]">
-          Kitchen response
+          {t("kitchen.response")}
         </p>
         <p className="mt-1 text-sm font-black text-[#17202a]">
           {notification.acknowledgedBy
@@ -427,7 +433,7 @@ function NotificationCard({
                   ? ` — ${notification.acknowledgedAt}`
                   : ""
               }`
-            : "Waiting for kitchen acknowledgment"}
+            : t("kitchen.waitingForAck")}
         </p>
       </div>
 
@@ -444,7 +450,7 @@ function NotificationCard({
           {notification.acknowledgedBy ? (
             <>
               <p className="text-xs font-black uppercase tracking-wider text-[#64748b]">
-                Acknowledged by:
+                {t("kitchen.acknowledgedBy")}
               </p>
               <p className="mt-1 text-xs font-bold">
                 {notification.acknowledgedBy}
@@ -459,7 +465,7 @@ function NotificationCard({
           ) : null}
 
           {/* Read aloud rather than seen, so it spells the word out where the
-              visible copy above uses its "Email:" label - the glyph that used
+              visible copy above uses its t("kitchen.emailLabel") label - the glyph that used
               to stand in for it here was announced as its character name. Held
               back from a cook for the same reason the visible one is: withheld
               on screen but still announced would be no restriction at all. */}
@@ -477,7 +483,7 @@ function NotificationCard({
           onClick={() => setShowChanges((current) => !current)}
           type="button"
         >
-          {showChanges ? "Hide changes" : "View changes"}
+          {showChanges ? t("kitchen.hideChanges") : t("kitchen.viewChanges")}
         </button>
 
         {!notification.acknowledged ? (
@@ -487,7 +493,7 @@ function NotificationCard({
             onClick={() => void onAcknowledge(notification.id)}
             type="button"
           >
-            {acknowledging ? "Saving acknowledgment..." : "Acknowledge now"}
+            {acknowledging ? t("kitchen.savingAcknowledgment") : t("kitchen.acknowledgeNow")}
           </button>
         ) : null}
       </div>
@@ -524,11 +530,13 @@ function CleanChangeSummary({
 }: {
   notification: KitchenNotification;
 }) {
+  const { t } = useAppLanguage();
+
   if (!notification.changeSummary) {
     return (
       <div className="grid gap-2 sm:grid-cols-2">
-        <ChangeValue label="Before" value={notification.oldValue} />
-        <ChangeValue label="After" value={notification.newValue} />
+        <ChangeValue label={t("kitchen.before")} value={notification.oldValue} />
+        <ChangeValue label={t("kitchen.after")} value={notification.newValue} />
       </div>
     );
   }
@@ -544,9 +552,9 @@ function CleanChangeSummary({
   return (
     <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
       <div className="grid gap-2 sm:grid-cols-3">
-        <MiniChangeStat label="Before" value={beforeStatus ?? "—"} />
-        <MiniChangeStat label="After" value={afterStatus ?? "—"} />
-        <MiniChangeStat label="Meal" value={meal ?? "—"} />
+        <MiniChangeStat label={t("kitchen.before")} value={beforeStatus ?? "—"} />
+        <MiniChangeStat label={t("kitchen.after")} value={afterStatus ?? "—"} />
+        <MiniChangeStat label={t("kitchen.meal")} value={meal ?? "—"} />
       </div>
 
       {items.length === 0 && otherDishes > 0 ? (
@@ -554,8 +562,9 @@ function CleanChangeSummary({
         // an empty panel here would read as "the menu is empty" when what
         // happened is that this change is somebody else's work.
         <p className="mt-3 border-t border-[#d8dde5] pt-3 text-xs font-bold text-[#64748b]">
-          None of this event&apos;s {otherDishes}{" "}
-          {otherDishes === 1 ? "dish is" : "dishes are"} assigned to you.
+          {otherDishes === 1
+            ? t("kitchen.otherDishOne", { count: otherDishes })
+            : t("kitchen.otherDishMany", { count: otherDishes })}
         </p>
       ) : null}
 
@@ -563,8 +572,8 @@ function CleanChangeSummary({
         <div className="mt-3 border-t border-[#d8dde5] pt-3">
           <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
             {otherItemCount === undefined
-              ? "Menu items now on this event"
-              : "Your dishes on this event"}
+              ? t("kitchen.menuItemsOnEvent")
+              : t("kitchen.yourDishesOnEvent")}
           </p>
           <ul className="mt-2 grid gap-1.5">
             {items.map((item, index) => (

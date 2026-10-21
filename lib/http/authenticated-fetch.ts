@@ -2,6 +2,7 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { getCachedAuthSession } from "@/lib/auth/client";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 /**
  * Kept as a module and a signature rather than deleted, so the ~73 call sites
@@ -36,15 +37,9 @@ export async function authenticatedFetch(
   input: RequestInfo | URL,
   init: RequestInit = {}
 ) {
-  const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase.auth.getSession();
-
-  if (error || !data.session?.access_token) {
-    throw new Error("Your session has expired. Please sign in again.");
-  }
-
   const headers = new Headers(init.headers);
-  const activeOrganizationId = getCachedAuthSession()?.activeOrganizationId;
+  const cachedSession = getCachedAuthSession();
+  const activeOrganizationId = cachedSession?.activeOrganizationId;
 
   // Minted here rather than left to the server, so the id exists even when the
   // response never arrives. A request that times out or dies in the network is
@@ -67,9 +62,24 @@ export async function authenticatedFetch(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await fetch(input, { ...init, headers });
+  let response = await fetch(input, { ...init, headers });
 
-  await refreshSessionIfEpochAdvanced(response, data.session.access_token);
+  if (response.status === 401) {
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error || !data.session?.access_token) {
+      throw new Error(ambientTranslate("files.sessionExpired"));
+    }
+
+    response = await fetch(input, { ...init, headers });
+
+    if (response.status === 401) {
+      throw new Error(ambientTranslate("files.sessionExpired"));
+    }
+  }
+
+  await refreshSessionIfEpochAdvanced(response);
 
   return response;
 }
@@ -91,10 +101,7 @@ export async function authenticatedFetch(
  * a button whose 403 it will discover on click, which is exactly what the
  * server-side re-decide exists to catch.
  */
-async function refreshSessionIfEpochAdvanced(
-  response: Response,
-  accessToken: string
-) {
+async function refreshSessionIfEpochAdvanced(response: Response) {
   if (!response.headers.get("content-type")?.includes("application/json")) {
     return;
   }
@@ -108,6 +115,12 @@ async function refreshSessionIfEpochAdvanced(
     if (typeof payload.epoch !== "number" || payload.epoch <= cached.epoch) {
       return;
     }
+
+    const supabase = createSupabaseBrowserClient();
+    const { data, error } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+
+    if (error || !accessToken) return;
 
     const { fetchAuthSession } = await import("@/lib/auth/client");
     await fetchAuthSession(accessToken, { force: true });

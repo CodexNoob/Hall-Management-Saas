@@ -20,7 +20,9 @@ import {
   type ClientStatus,
   type ClientsResponse
 } from "@/features/clients/components/clients-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function ClientsPage() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const canEdit = useDashboardPermission("client.update");
   const query = useAuthenticatedQuery<ClientsResponse>("/api/clients");
@@ -66,14 +68,14 @@ export function ClientsPage() {
   return (
     <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
-        title="Clients"
-        subtitle="Manage client contacts, event history, and internal notes."
+        title={t("clients.title")}
+        subtitle={t("clients.blurb")}
         actionsSlot={
           <button
             className="h-10 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white"
             disabled={!canEdit}
             onClick={() => setIsNewClientOpen(true)}
-            title={canEdit ? "Create client" : "You have read-only access"}
+            title={canEdit ? t("clients.create") : t("clients.readOnly")}
             type="button"
           >
             + New client
@@ -97,46 +99,46 @@ export function ClientsPage() {
               }`}
             >
               <Metric
-                label="Total clients"
+                label={t("clients.total")}
                 value={String(clients.length)}
-                note="Organization client records"
+                note={t("clients.orgRecords")}
               />
               <Metric
-                label="Active clients"
+                label={t("clients.active")}
                 value={String(
                   clients.filter((client) => client.status === "Active").length
                 )}
-                note="Currently active"
+                note={t("clients.currentlyActive")}
               />
               <Metric
-                label="Upcoming events"
+                label={t("clients.upcomingEvents")}
                 value={String(upcomingEvents)}
-                note="Scheduled client events"
+                note={t("clients.scheduledEvents")}
               />
               {showBillingReadouts ? (
                 <Metric
-                  label="Outstanding"
+                  label={t("clients.outstanding")}
                   value={money(outstanding)}
-                  note="Across open invoices"
+                  note={t("clients.acrossOpenInvoices")}
                 />
               ) : null}
             </section>
             {clients.length === 0 ? (
               <AsyncState
                 isEmpty
-                emptyTitle="No clients yet"
-                emptyMessage="Create the first client or create an event to populate the directory."
+                emptyTitle={t("clients.noneYet")}
+                emptyMessage={t("clients.noneYetBody")}
               />
             ) : (
               <div className="grid gap-4 xl:grid-cols-[minmax(360px,0.8fr)_minmax(0,1.2fr)]">
                 <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
                   <header className="border-b border-[#d8dde5] p-4">
-                    <h2 className="font-black">Client directory</h2>
+                    <h2 className="font-black">{t("clients.directory")}</h2>
                     <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_130px]">
                       <input
                         className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Search name, email, phone or tag"
+                        placeholder={t("clients.search")}
                         type="search"
                         value={search}
                       />
@@ -147,10 +149,10 @@ export function ClientsPage() {
                         }
                         value={status}
                       >
-                        <option>All</option>
-                        <option>Active</option>
-                        <option>Lead</option>
-                        <option>Inactive</option>
+                        <option value="All">{t("common.all")}</option>
+                        <option value="Active">{t("common.active")}</option>
+                        <option value="Lead">{t("clients.lead")}</option>
+                        <option value="Inactive">{t("common.inactive")}</option>
                       </select>
                     </div>
                   </header>
@@ -170,7 +172,7 @@ export function ClientsPage() {
                             <span className="mt-1 block truncate text-xs text-[#6a7483]">
                               {client.email ??
                                 client.phone ??
-                                "No contact details"}
+                                t("clients.noContactDetails")}
                             </span>
                           </div>
                           <StatusBadge status={client.status} />
@@ -188,8 +190,8 @@ export function ClientsPage() {
                     {filtered.length === 0 ? (
                       <AsyncState
                         isEmpty
-                        emptyTitle="No matching clients"
-                        emptyMessage="Adjust your search or status filter."
+                        emptyTitle={t("clients.noMatching")}
+                        emptyMessage={t("clients.noMatchingBody")}
                       />
                     ) : null}
                   </div>
@@ -206,8 +208,8 @@ export function ClientsPage() {
                             <StatusBadge status={selected.status} />
                           </div>
                           <p className="mt-2 text-sm text-[#6a7483]">
-                            {selected.email ?? "No email"} ·{" "}
-                            {selected.phone ?? "No phone"}
+                            {selected.email ?? t("clients.noEmail")} ·{" "}
+                            {selected.phone ?? t("clients.noPhone")}
                           </p>
                           {selected.tags.length ? (
                             <div className="mt-2 flex flex-wrap gap-1">
@@ -237,7 +239,7 @@ export function ClientsPage() {
                           >
                             {selected.status === "Inactive"
                               ? "Activate"
-                              : "Mark inactive"}
+                              : t("clients.markInactive")}
                           </button>
                           <button
                             className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
@@ -248,7 +250,7 @@ export function ClientsPage() {
                             }
                             type="button"
                           >
-                            Open events
+                            {t("clients.openEvents")}
                           </button>
                         </div>
                       </div>
@@ -260,34 +262,34 @@ export function ClientsPage() {
                           {showBillingReadouts ? (
                             <>
                               <Metric
-                                label="Billed"
+                                label={t("clients.billed")}
                                 value={money(selected.totalBilledCents)}
-                                note="All invoices"
+                                note={t("clients.allInvoices")}
                               />
                               <Metric
-                                label="Paid"
+                                label={t("clients.paid")}
                                 value={money(selected.totalPaidCents)}
-                                note="Paid transactions"
+                                note={t("clients.paidTransactions")}
                               />
                               <Metric
-                                label="Outstanding"
+                                label={t("clients.outstanding")}
                                 value={money(selected.outstandingCents)}
-                                note="Open balances"
+                                note={t("clients.openBalances")}
                               />
                             </>
                           ) : null}
                           {showFileReadouts ? (
                             <Metric
-                              label="Files"
+                              label={t("clients.files")}
                               value={String(selected.fileCount)}
-                              note="Linked documents"
+                              note={t("clients.linkedDocuments")}
                             />
                           ) : null}
                         </div>
                       ) : null}
                       {selected.notes ? (
                         <div className="mt-4 rounded-lg bg-[#f8fafc] p-3 text-sm">
-                          <strong>Internal notes</strong>
+                          <strong>{t("clients.internalNotes")}</strong>
                           <p className="mt-1 text-[#536172]">
                             {selected.notes}
                           </p>
@@ -297,7 +299,7 @@ export function ClientsPage() {
                     <div className="grid gap-4 lg:grid-cols-2">
                       <article className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
                         <header className="border-b border-[#d8dde5] p-4">
-                          <h2 className="font-black">Events</h2>
+                          <h2 className="font-black">{t("clients.events")}</h2>
                         </header>
                         <div className="space-y-2 p-3">
                           {selected.events.map((event) => (
@@ -314,7 +316,7 @@ export function ClientsPage() {
                                 </span>
                               </div>
                               <p className="mt-1 text-xs text-[#6a7483]">
-                                {event.hallName ?? "Hall not assigned"} ·{" "}
+                                {event.hallName ?? t("clients.hallNotAssigned")} ·{" "}
                                 {event.eventStatus}
                               </p>
                             </button>
@@ -322,15 +324,15 @@ export function ClientsPage() {
                           {selected.events.length === 0 ? (
                             <AsyncState
                               isEmpty
-                              emptyTitle="No events"
-                              emptyMessage="Create an event for this client."
+                              emptyTitle={t("clients.noEvents")}
+                              emptyMessage={t("clients.noEventsBody")}
                             />
                           ) : null}
                         </div>
                       </article>
                       <article className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
                         <header className="border-b border-[#d8dde5] p-4">
-                          <h2 className="font-black">Recent activity</h2>
+                          <h2 className="font-black">{t("clients.recentActivity")}</h2>
                         </header>
                         <div className="space-y-3 p-4">
                           {selected.activityLogs.map((activity) => (
@@ -352,8 +354,8 @@ export function ClientsPage() {
                           {selected.activityLogs.length === 0 ? (
                             <AsyncState
                               isEmpty
-                              emptyTitle="No activity yet"
-                              emptyMessage="Client changes and linked actions will appear here."
+                              emptyTitle={t("clients.noActivity")}
+                              emptyMessage={t("clients.noActivityBody")}
                             />
                           ) : null}
                         </div>

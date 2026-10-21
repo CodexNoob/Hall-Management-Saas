@@ -25,7 +25,9 @@ import {
   type VendorsResponse,
   type VendorStatus
 } from "@/features/vendors/components/vendors-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function VendorsPage() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const canEdit = useDashboardPermission("vendor.manage");
   const vendorsQuery = useAuthenticatedQuery<VendorsResponse>("/api/vendors");
@@ -49,9 +51,9 @@ export function VendorsPage() {
         name: vendor.name,
         description: vendor.description ?? vendor.category,
         category: vendor.category,
-        contact: vendor.contactName ?? "Not provided",
-        phone: vendor.phone ?? "Not provided",
-        email: vendor.email ?? "Not provided",
+        contact: vendor.contactName ?? t("vendors.notProvided"),
+        phone: vendor.phone ?? t("vendors.notProvided"),
+        email: vendor.email ?? t("vendors.notProvided"),
         status:
           vendor.status === "Active"
             ? "Active"
@@ -63,7 +65,7 @@ export function VendorsPage() {
           index % 4
         ]
       })),
-    [vendorsQuery.data]
+    [vendorsQuery.data, t]
   );
 
   const categories = useMemo(
@@ -99,7 +101,7 @@ export function VendorsPage() {
       body: JSON.stringify({ name, category, status: "Active" })
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error ?? "Unable to create vendor.");
+    if (!response.ok) throw new Error(payload.error ?? t("vendors.createFailed"));
     await vendorsQuery.refetch();
   };
 
@@ -114,7 +116,7 @@ export function VendorsPage() {
       }
     );
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error ?? "Unable to update vendor.");
+    if (!response.ok) throw new Error(payload.error ?? t("vendors.updateFailed"));
     await vendorsQuery.refetch();
   };
 
@@ -154,7 +156,7 @@ export function VendorsPage() {
             vendors.length === 0
           }
           isLoading={vendorsQuery.isLoading}
-          emptyTitle="No vendors yet"
+          emptyTitle={t("vendors.noneYet")}
           onRetry={vendorsQuery.refetch}
         />
         {!vendorsQuery.isLoading && !vendorsQuery.error && !selectedVendor ? (
@@ -163,7 +165,7 @@ export function VendorsPage() {
             onClick={() => setVendorDialogMode("create")}
             type="button"
           >
-            Add vendor
+            {t("vendors.add")}
           </button>
         ) : null}
       </main>
@@ -179,8 +181,8 @@ export function VendorsPage() {
         open={vendorDialogMode !== null}
       />
       <DashboardTopbar
-        title="Vendors"
-        subtitle="Manage suppliers, service providers, contacts, contracts, and vendor activity."
+        title={t("vendors.title")}
+        subtitle={t("vendors.blurb")}
         actionsSlot={
           <>
             <button
@@ -188,7 +190,7 @@ export function VendorsPage() {
               onClick={() => setIsTodayNotesOpen(true)}
               type="button"
             >
-              Today notes
+              {t("common.todayNotes")}
             </button>
             <button
               className={secondaryButton}
@@ -197,7 +199,7 @@ export function VendorsPage() {
               type="button"
             >
               <Icon name="export" />
-              Export
+              {t("common.export")}
             </button>
             <button
               className={secondaryButton}
@@ -205,7 +207,7 @@ export function VendorsPage() {
               type="button"
             >
               <Icon name="users" />
-              Assign to event
+              {t("vendors.assignToEvent")}
             </button>
             <button
               className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
@@ -214,7 +216,7 @@ export function VendorsPage() {
               type="button"
             >
               <Icon name="plus" />
-              Add vendor
+              {t("vendors.add")}
             </button>
           </>
         }
@@ -225,34 +227,34 @@ export function VendorsPage() {
           <div className="min-w-0 space-y-4">
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <MetricCard
-                label="Total vendors"
+                label={t("vendors.total")}
                 value={String(vendors.length)}
-                description="All vendor records"
+                description={t("vendors.allRecords")}
               />
               <MetricCard
-                label="Active vendors"
+                label={t("vendors.active")}
                 value={String(
                   vendors.filter((vendor) => vendor.status === "Active").length
                 )}
-                description="Verified and active"
+                description={t("vendors.verifiedActive")}
               />
               <MetricCard
-                label="Inactive vendors"
+                label={t("vendors.inactive")}
                 value={String(
                   vendors.filter((vendor) => vendor.status !== "Active").length
                 )}
-                description="Pending or inactive"
+                description={t("vendors.pendingInactive")}
               />
               <MetricCard
-                label="Categories"
+                label={t("vendors.categories")}
                 value={String(Math.max(0, categories.length - 1))}
-                description="Service categories"
+                description={t("vendors.serviceCategories")}
               />
             </section>
 
             <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
               <SectionHeader
-                title="Vendor directory"
+                title={t("vendors.directory")}
                 subtitle={`${vendors.length} vendors`}
                 action={
                   <div className="flex gap-2">
@@ -274,7 +276,7 @@ export function VendorsPage() {
                       onClick={() => setVendorDialogMode("create")}
                       type="button"
                     >
-                      New vendor
+                      {t("vendors.new")}
                     </button>
                   </div>
                 }
@@ -291,7 +293,7 @@ export function VendorsPage() {
                     id="vendor-search"
                     name="vendorSearch"
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search vendors"
+                    placeholder={t("vendors.search")}
                     type="search"
                     value={searchQuery}
                   />
@@ -304,7 +306,7 @@ export function VendorsPage() {
                 >
                   {categories.map((category) => (
                     <option key={category} value={category}>
-                      {category === "All" ? "All categories" : category}
+                      {category === "All" ? t("vendors.allCategories") : category}
                     </option>
                   ))}
                 </select>
@@ -316,9 +318,9 @@ export function VendorsPage() {
                   }
                   value={statusFilter}
                 >
-                  <option value="All">All status</option>
-                  <option value="Active">Active</option>
-                  <option value="Pending">Pending</option>
+                  <option value="All">{t("vendors.allStatus")}</option>
+                  <option value="Active">{t("common.active")}</option>
+                  <option value="Pending">{t("vendors.pending")}</option>
                 </select>
                 <select
                   className="h-9 rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs font-bold"
@@ -326,12 +328,12 @@ export function VendorsPage() {
                   onChange={(event) => setRatingFilter(event.target.value)}
                   value={ratingFilter}
                 >
-                  <option value="All">All ratings</option>
-                  <option value="4">4+ stars</option>
-                  <option value="3">3+ stars</option>
+                  <option value="All">{t("vendors.allRatings")}</option>
+                  <option value="4">{t("vendors.stars4")}</option>
+                  <option value="3">{t("vendors.stars3")}</option>
                 </select>
                 <button
-                  aria-label="Additional filters"
+                  aria-label={t("vendors.additionalFilters")}
                   className="flex h-9 items-center justify-center rounded-lg border border-[#c7d0dc] bg-white"
                   type="button"
                   onClick={() =>
@@ -346,13 +348,13 @@ export function VendorsPage() {
                 <table className="w-full min-w-212.5 border-collapse text-left">
                   <thead className="bg-[#fbfcfd] text-[9px] font-black uppercase tracking-[0.08em] text-[#687588]">
                     <tr>
-                      <th className="px-4 py-3">Vendor</th>
-                      <th className="px-3 py-3">Category</th>
-                      <th className="px-3 py-3">Contact</th>
-                      <th className="px-3 py-3">Phone</th>
-                      <th className="px-3 py-3">Status</th>
-                      <th className="px-3 py-3">Rating</th>
-                      <th className="px-3 py-3 text-center">Actions</th>
+                      <th className="px-4 py-3">{t("events.vendor")}</th>
+                      <th className="px-3 py-3">{t("vendors.category")}</th>
+                      <th className="px-3 py-3">{t("vendors.contact")}</th>
+                      <th className="px-3 py-3">{t("common.phone")}</th>
+                      <th className="px-3 py-3">{t("common.status")}</th>
+                      <th className="px-3 py-3">{t("vendors.rating")}</th>
+                      <th className="px-3 py-3 text-center">{t("common.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -404,7 +406,7 @@ export function VendorsPage() {
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <button
-                            aria-label={`Actions for ${vendor.name}`}
+                            aria-label={t("vendors.actionsFor", { name: vendor.name })}
                             disabled={!canEdit}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-[#eef4fa]"
                             onClick={(event) => event.stopPropagation()}
@@ -458,7 +460,7 @@ export function VendorsPage() {
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <SectionHeader title="Linked events (next 60 days)" />
+                <SectionHeader title={t("vendors.linkedEvents60")} />
                 <div className="space-y-3 p-4 text-[10px]">
                   {[
                     ["Friedman Wedding", "Jul 8, 2026 · Grand Hall"],
@@ -476,7 +478,7 @@ export function VendorsPage() {
                 </div>
               </section>
               <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <SectionHeader title="Vendor history (recent)" />
+                <SectionHeader title={t("vendors.history")} />
                 <div className="space-y-4 p-4 text-[10px]">
                   <div>
                     <strong>Invoice #INV-2031 paid</strong>
@@ -495,7 +497,7 @@ export function VendorsPage() {
                 </div>
               </section>
               <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <SectionHeader title="Contract reminder" />
+                <SectionHeader title={t("vendors.contractReminder")} />
                 <div className="m-3 rounded-lg border border-[#e3b76d] bg-[#fff8eb] p-4">
                   <div className="flex gap-3 text-[#a45f00]">
                     <Icon name="warning" />
@@ -514,7 +516,7 @@ export function VendorsPage() {
                 </div>
               </section>
               <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                <SectionHeader title="Categories overview" />
+                <SectionHeader title={t("vendors.categoriesOverview")} />
                 <div className="space-y-3 p-4 text-[10px]">
                   {[
                     ["Catering", 4],
@@ -559,7 +561,7 @@ export function VendorsPage() {
                   </div>
                 </div>
                 <button
-                  aria-label="Vendor actions"
+                  aria-label={t("vendors.actions")}
                   className="flex h-8 w-8 items-center justify-center"
                   type="button"
                   onClick={() => setSelectedVendorId(selectedVendor.id)}
@@ -570,41 +572,41 @@ export function VendorsPage() {
               <dl className="space-y-4 p-4 text-[10px]">
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="users" />
-                  <dt>Contact person</dt>
+                  <dt>{t("vendors.contactPerson")}</dt>
                   <dd>{selectedVendor.contact}</dd>
                 </div>
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="phone" />
-                  <dt>Phone</dt>
+                  <dt>{t("common.phone")}</dt>
                   <dd>{selectedVendor.phone}</dd>
                 </div>
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="mail" />
-                  <dt>Email</dt>
+                  <dt>{t("common.email")}</dt>
                   <dd className="truncate">{selectedVendor.email}</dd>
                 </div>
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="briefcase" />
-                  <dt>Service type</dt>
+                  <dt>{t("vendors.serviceType")}</dt>
                   <dd>{selectedVendor.description}</dd>
                 </div>
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="calendar" />
-                  <dt>Contract status</dt>
+                  <dt>{t("vendors.contractStatus")}</dt>
                   <dd>
-                    <strong className="text-[#147653]">Active</strong> · Expires
+                    <strong className="text-[#147653]">{t("common.active")}</strong> · Expires
                     Aug 31, 2026
                   </dd>
                 </div>
                 <div className="grid grid-cols-[20px_90px_1fr] gap-2">
                   <Icon name="calendar" />
-                  <dt>Linked events</dt>
+                  <dt>{t("vendors.linkedEvents")}</dt>
                   <dd className="font-black text-[#1f4d73]">5 upcoming</dd>
                 </div>
               </dl>
             </section>
             <section className="rounded-xl border border-[#d8dde5] bg-white p-4 shadow-sm">
-              <h2 className="text-sm font-black">Quick actions</h2>
+              <h2 className="text-sm font-black">{t("vendors.quickActions")}</h2>
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <button
                   className={secondaryButton}
@@ -613,7 +615,7 @@ export function VendorsPage() {
                   type="button"
                 >
                   <Icon name="edit" />
-                  Edit vendor
+                  {t("vendors.edit")}
                 </button>
                 <button
                   className={secondaryButton}
@@ -626,19 +628,19 @@ export function VendorsPage() {
                   type="button"
                 >
                   <Icon name="users" />
-                  Assign to event
+                  {t("vendors.assignToEvent")}
                 </button>
                 <button
                   className={secondaryButton}
                   onClick={() =>
                     window.location.assign(
-                      `mailto:${selectedVendor.email === "Not provided" ? "" : selectedVendor.email}`
+                      `mailto:${selectedVendor.email === t("vendors.notProvided") ? "" : selectedVendor.email}`
                     )
                   }
                   type="button"
                 >
                   <Icon name="history" />
-                  View history
+                  {t("vendors.viewHistory")}
                 </button>
                 <button
                   className={secondaryButton}
@@ -647,7 +649,7 @@ export function VendorsPage() {
                   type="button"
                 >
                   <Icon name="more" />
-                  More actions
+                  {t("vendors.moreActions")}
                 </button>
               </div>
             </section>

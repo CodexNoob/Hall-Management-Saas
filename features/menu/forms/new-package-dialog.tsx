@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { moneySchema } from "@/lib/validation/number";
 import { readNumericFields } from "@/lib/validation/numeric-form";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewPackageFormValues = {
   name: string;
@@ -41,6 +42,7 @@ function PackageIcon() {
 }
 
 export function NewPackageDialog({ initialValues: editValues, open, onClose, onSave }: NewPackageDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   // Tracks the closed -> open edge. Seeding on every run of the effect instead
@@ -96,13 +98,13 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
     const prices = readNumericFields<"basePrice" | "perCouplePrice">({
       basePrice: {
         raw: values.basePrice,
-        schema: moneySchema({ label: "Base price" }),
-        emptyMessage: "Enter a base price."
+        schema: moneySchema({ label: t("menu.basePrice"), t }),
+        emptyMessage: t("menu.enterBasePrice")
       },
       perCouplePrice: {
         raw: values.perCouplePrice,
-        schema: moneySchema({ label: "Per couple price" }),
-        emptyMessage: "Enter a per couple price."
+        schema: moneySchema({ label: t("settings.perCouplePrice"), t }),
+        emptyMessage: t("menu.enterPerCouplePrice")
       }
     });
 
@@ -125,7 +127,7 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
       setSaveError(
         error instanceof Error && error.message
           ? error.message
-          : "The package could not be saved. Please try again."
+          : t("menu.packageSaveFailed")
       );
     } finally {
       setIsSaving(false);
@@ -150,7 +152,7 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
             <PackageIcon />
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>{editValues ? "Edit package" : "New package"}</h2>
           </div>
-          <button aria-label="Close package" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
+          <button aria-label={t("menu.closePackage")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
             <svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg>
           </button>
         </header>
@@ -158,28 +160,28 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
         <form onSubmit={handleSubmit}>
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Package name
+              {t("menu.packageName")}
               <input className={`${controlClass} mt-1`} name="packageName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Package type
+              {t("menu.packageType")}
               <select className={`${controlClass} mt-1`} name="packageType" onChange={(event) => updateValue("type", event.target.value)} value={values.type}>
-                <option>Dinner</option>
-                <option>Dairy</option>
-                <option>Shabbos</option>
-                <option>Lunch</option>
-                <option>Brunch</option>
+                <option value="Dinner">{t("menu.typeDinner")}</option>
+                <option value="Dairy">{t("menu.typeDairy")}</option>
+                <option value="Shabbos">{t("menu.typeShabbos")}</option>
+                <option value="Lunch">{t("menu.typeLunch")}</option>
+                <option value="Brunch">{t("menu.typeBrunch")}</option>
               </select>
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Base price
+              {t("menu.basePrice")}
               <input aria-describedby={fieldErrors.basePrice ? "package-base-price-error" : undefined} aria-invalid={fieldErrors.basePrice ? true : undefined} className={`${controlClass} mt-1`} inputMode="decimal" name="basePrice" onChange={(event) => updateValue("basePrice", event.target.value)} required type="text" value={values.basePrice} />
               {fieldErrors.basePrice ? (
                 <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#c2410c]" id="package-base-price-error" role="alert">{fieldErrors.basePrice}</p>
               ) : null}
             </label>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Per couple
+              {t("menu.perCouple")}
               <input aria-describedby={fieldErrors.perCouplePrice ? "package-per-couple-error" : undefined} aria-invalid={fieldErrors.perCouplePrice ? true : undefined} className={`${controlClass} mt-1`} inputMode="decimal" name="perCouplePrice" onChange={(event) => updateValue("perCouplePrice", event.target.value)} required type="text" value={values.perCouplePrice} />
               {fieldErrors.perCouplePrice ? (
                 <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#c2410c]" id="package-per-couple-error" role="alert">{fieldErrors.perCouplePrice}</p>
@@ -192,10 +194,10 @@ export function NewPackageDialog({ initialValues: editValues, open, onClose, onS
               <p className="mr-auto text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
             ) : null}
             <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={onClose} type="button">
-              Cancel
+              {t("common.cancel")}
             </button>
             <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} type="submit">
-              {isSaving ? "Saving…" : "Save package"}
+              {isSaving ? t("common.savingChar") : t("menu.savePackage")}
             </button>
           </footer>
         </form>

@@ -94,7 +94,7 @@ describe("Kitchen default view", () => {
     await mountBoard({ defaultView: "today" });
 
     expect(openRange()).toBe("Today");
-    expect(screen.getAllByText("Wednesday, July 15, 2026").length).toBe(1);
+    expect(screen.getAllByText("Wednesday, Jul 15, 2026").length).toBe(1);
   });
 
   it("opens on the four-week grid when Settings says so", async () => {

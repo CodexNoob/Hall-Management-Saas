@@ -4,10 +4,14 @@ import { useState } from "react";
 
 import {
   ACTIVITY_MODULES,
+  activityActionLabelKey,
   activityActions,
+  activityModuleLabelKey,
   type ActivityModule
 } from "@/lib/audit/activity-actions";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import { useDateFormatters } from "@/features/dashboard/hooks/use-regional-settings";
 
 /**
  * What this organization did, most recent first.
@@ -40,10 +44,8 @@ type ActivityResponse = {
   includesPrivilegeTrail: boolean;
 };
 
-const timestampFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-  timeStyle: "short"
-});
+// An activity row is a REAL TIMESTAMP - it happened - so it is shown in the
+// organization's own timezone, Date Format and Time Format.
 
 /**
  * The action filter, grouped by module so the list reads as the sidebar does.
@@ -67,6 +69,8 @@ function exportHref(module: string, action: string) {
 }
 
 export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
+  const { t } = useAppLanguage();
+  const dates = useDateFormatters();
   const [module, setModule] = useState("");
   const [action, setAction] = useState("");
 
@@ -84,7 +88,7 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
     return (
       <section className="rounded-xl border border-[#d8dde5] bg-white px-4 py-6">
         <p className="text-[11px] text-[#6a7483]">
-          Reading the activity history needs
+          {t("settings.activityNeeds")}
           <code className="mx-1 rounded bg-[#eef1f5] px-1">activity.read</code>.
         </p>
       </section>
@@ -97,17 +101,17 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
     <section className="rounded-xl border border-[#d8dde5] bg-white">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-black">Activity</h2>
+          <h2 className="text-sm font-black">{t("settings.activity")}</h2>
           <p className="mt-0.5 text-[10px] text-[#6a7483]">
-            Every change, its author, and what it did. Append-only.
+            {t("settings.activityBlurb")}
             {query.data && !query.data.includesPrivilegeTrail
-              ? " Privilege changes need audit.read and are not shown."
+              ? t("settings.privilegeTrailNote")
               : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
-            aria-label="Filter by module"
+            aria-label={t("settings.filterByModule")}
             className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
             name="activityModuleFilter"
             onChange={(event) => {
@@ -118,7 +122,7 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
             }}
             value={module}
           >
-            <option value="">All modules</option>
+            <option value="">{t("settings.allModules")}</option>
             {ACTIVITY_MODULES.map((name) => (
               <option key={name} value={name}>
                 {name}
@@ -126,20 +130,26 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
             ))}
           </select>
           <select
-            aria-label="Filter by action"
+            aria-label={t("settings.filterByAction")}
             className="h-9 rounded-lg border border-[#c7d0dc] px-2 text-xs font-semibold"
             name="activityActionFilter"
             onChange={(event) => setAction(event.target.value)}
             value={action}
           >
-            <option value="">All actions</option>
+            <option value="">{t("settings.allActions")}</option>
             {actionsByModule
               .filter((group) => !module || group.module === module)
               .map((group) => (
-                <optgroup key={group.module} label={group.module}>
+                <optgroup
+                  key={group.module}
+                  label={t(activityModuleLabelKey(group.module))}
+                >
                   {group.actions.map((entry) => (
                     <option key={entry.key} value={entry.key}>
-                      {entry.label}
+                      {t(
+                        activityActionLabelKey(entry.key) ??
+                          "activity.module.Other"
+                      )}
                     </option>
                   ))}
                 </optgroup>
@@ -149,19 +159,18 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
             className="inline-flex h-9 items-center rounded-lg border border-[#c7d0dc] px-3 text-xs font-black text-[#233144]"
             href={exportHref(module, action)}
           >
-            Export CSV
+            {t("common.exportCsv")}
           </a>
         </div>
       </header>
 
       <div className="max-h-[60dvh] overflow-y-auto">
         {query.isLoading ? (
-          <p className="px-4 py-4 text-[11px] text-[#6a7483]">Loading...</p>
+          <p className="px-4 py-4 text-[11px] text-[#6a7483]">{t("common.loading")}</p>
         ) : null}
         {!query.isLoading && entries.length === 0 ? (
           <p className="px-4 py-4 text-[11px] text-[#6a7483]">
-            Nothing yet. Every edit to an event, menu, hall, kitchen job or
-            setting from here on lands in this list.
+            {t("settings.activityEmpty")}
           </p>
         ) : null}
         <ul className="divide-y divide-[#eef1f5]">
@@ -169,20 +178,26 @@ export function ActivitySettingsPanel({ canRead }: { canRead: boolean }) {
             <li className="px-4 py-2.5" key={`${entry.source}-${entry.id}`}>
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <span className="text-xs font-black text-[#17202a]">
-                  {entry.label}
+                  {(() => {
+                    const labelKey = activityActionLabelKey(entry.action);
+
+                    return labelKey ? t(labelKey) : entry.label;
+                  })()}
                   <span className="ml-2 rounded bg-[#eef1f5] px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                    {entry.module}
+                    {t(activityModuleLabelKey(entry.module))}
                   </span>
                 </span>
                 <span className="text-[10px] text-[#6a7483]">
-                  {timestampFormatter.format(new Date(entry.createdAt))}
+                  {dates.dateTime(entry.createdAt)}
                 </span>
               </div>
               <p className="mt-0.5 text-[11px] font-semibold leading-4 text-[#233144]">
                 {entry.message}
               </p>
               <p className="mt-0.5 text-[10px] text-[#6a7483]">
-                {entry.actorName ? `by ${entry.actorName}` : "by a service account"}
+                {entry.actorName
+                  ? t("settings.byActor", { name: entry.actorName })
+                  : t("settings.byServiceAccount")}
               </p>
             </li>
           ))}

@@ -18,7 +18,16 @@ import { log } from "@/lib/logging/context";
  * Bounded on purpose. A log platform groups by this field, and a free string
  * would let one call site quietly become a thousand distinct series.
  */
-type Vendor = "stripe" | "plaid" | "google" | "resend" | "webhook";
+// `resend` is kept although nothing targets it any more: historical log lines
+// carry it, and a dashboard grouping by vendor should not lose them.
+type Vendor =
+  | "stripe"
+  | "plaid"
+  | "google"
+  | "resend"
+  | "brevo"
+  | "webhook"
+  | "supabase";
 
 export type OutboundCall = {
   vendor: Vendor;

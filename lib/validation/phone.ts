@@ -7,6 +7,8 @@ import {
 } from "libphonenumber-js";
 import { z } from "zod";
 
+import type { ValidationTranslate } from "@/lib/validation/number";
+
 /**
  * Shared phone vocabulary for forms and route handlers, the string counterpart
  * to `lib/validation/number.ts`.
@@ -56,9 +58,15 @@ export function parsePhoneInput(
   raw: string,
   {
     country,
-    label = "Phone number"
-  }: { country?: CountryCode; label?: string } = {}
+    label,
+    t
+  }: {
+    country?: CountryCode;
+    label?: string;
+    t?: ValidationTranslate;
+  } = {}
 ): PhoneParseResult {
+  const name = label ?? (t ? t("common.phoneNumber") : "Phone number");
   const trimmed = raw.trim();
 
   if (trimmed === "") return { status: "empty" };
@@ -68,14 +76,21 @@ export function parsePhoneInput(
   if (trimmed.length > 40 || /[a-z]/i.test(trimmed)) {
     return {
       status: "invalid",
-      message: `${label} must contain only digits and phone punctuation.`
+      message: t
+        ? t("validation.phonePunctuation", { label: name })
+        : `${name} must contain only digits and phone punctuation.`
     };
   }
 
   const parsed = parsePhoneNumberFromString(trimmed, country);
 
   if (!parsed) {
-    return { status: "invalid", message: `Enter a valid ${lower(label)}.` };
+    return {
+      status: "invalid",
+      message: t
+        ? t("validation.enterValidPhone", { label: lower(name) })
+        : `Enter a valid ${lower(name)}.`
+    };
   }
 
   if (!parsed.isValid()) {
@@ -88,8 +103,12 @@ export function parsePhoneInput(
     return {
       status: "invalid",
       message: region
-        ? `That is not a valid ${regionName(region)} phone number.`
-        : `Enter a valid ${lower(label)}.`
+        ? t
+          ? t("validation.notValidRegionPhone", { region: regionName(region) })
+          : `That is not a valid ${regionName(region)} phone number.`
+        : t
+          ? t("validation.enterValidPhone", { label: lower(name) })
+          : `Enter a valid ${lower(name)}.`
     };
   }
 

@@ -24,6 +24,7 @@ import type {
   CreateOrganizationResponse,
   OnboardingPlanId
 } from "@/features/onboarding/validations/onboarding.schema";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const planOptions = [freeTrialPlan, ...subscriptionPlans];
 
@@ -45,6 +46,7 @@ function getPlanPriceLabel(planId: OnboardingPlanId) {
  * the rest of the dashboard.
  */
 export function CreateOrganizationPage() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { toast } = useToast();
   const fieldId = useId();
@@ -94,7 +96,7 @@ export function CreateOrganizationPage() {
   // never reached a route and so have nothing to correlate.
   const fail = (message: string, requestId = "") => {
     setError(message);
-    toast.error(message, { title: "Setup failed", requestId });
+    toast.error(message, { title: t("onboarding.setupFailed"), requestId });
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -104,20 +106,21 @@ export function CreateOrganizationPage() {
     const fullName = form.fullName.trim();
 
     if (organizationName.length < 2) {
-      fail("Please enter your organization name.");
+      fail(t("onboarding.enterOrganizationName"));
       return;
     }
 
     if (fullName.length < 2) {
-      fail("Please enter your full name.");
+      fail(t("onboarding.enterFullName"));
       return;
     }
 
     // Validated here as well as on the server, so a bad number is caught
     // before the round trip. Both layers call the same parser.
     const parsedPhone = parsePhoneInput(form.phone, {
+      t,
       country: form.country,
-      label: "Phone number"
+      label: t("common.phoneNumber")
     });
 
     if (parsedPhone.status === "invalid") {
@@ -142,16 +145,17 @@ export function CreateOrganizationPage() {
         await fetchAuthSession(data.session.access_token, { force: true });
       }
 
-      toast.success(`${organizationName} is ready.`, {
-        title: "Organization created"
-      });
+      toast.success(
+        t("onboarding.organizationReady", { name: organizationName }),
+        { title: t("onboarding.organizationCreated") }
+      );
       router.replace(MVP_LANDING_ROUTE);
       router.refresh();
     } catch (mutationError) {
       fail(
         mutationError instanceof Error
           ? mutationError.message
-          : "Unable to create your organization. Please try again.",
+          : t("onboarding.createFailed"),
         readApiErrorRequestId(mutationError)
       );
     }
@@ -166,8 +170,8 @@ export function CreateOrganizationPage() {
       router.refresh();
     } catch {
       setIsSigningOut(false);
-      toast.error("Unable to sign out. Please try again.", {
-        title: "Sign-out failed"
+      toast.error(t("onboarding.signOutFailed"), {
+        title: t("onboarding.signOutFailedTitle")
       });
     }
   };
@@ -176,7 +180,7 @@ export function CreateOrganizationPage() {
     <main className="dashboard-font min-h-dvh bg-[#f5f6f8] px-4 py-10 text-[#17202a] sm:px-6 sm:py-14">
       <div className="mx-auto w-full max-w-3xl">
         <p className="text-xs font-black uppercase tracking-[0.28em] text-[#1F4D73]">
-          Step 2 of 2
+          {t("onboarding.step2of2")}
         </p>
 
         <form
@@ -190,11 +194,10 @@ export function CreateOrganizationPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
-                  Create a new organization
+                  {t("onboarding.createOrganization")}
                 </h1>
                 <p className="mt-2 text-sm leading-6 text-[#64748b]">
-                  An organization holds your halls, bookings, staff, and billing
-                  settings. You can invite your team once it exists.
+                  {t("onboarding.blurb")}
                 </p>
               </div>
             </div>
@@ -206,7 +209,7 @@ export function CreateOrganizationPage() {
                 className="text-sm font-black text-[#17202a]"
                 htmlFor={`${fieldId}-organization-name`}
               >
-                Organization name
+                {t("onboarding.organizationName")}
               </label>
               <div>
                 <input
@@ -222,8 +225,7 @@ export function CreateOrganizationPage() {
                   value={form.organizationName}
                 />
                 <p className="mt-2 text-sm text-[#64748b]">
-                  What&apos;s the name of your company or venue? You can change
-                  this later.
+                  {t("onboarding.nameHint")}
                 </p>
               </div>
             </div>
@@ -233,7 +235,7 @@ export function CreateOrganizationPage() {
                 className="text-sm font-black text-[#17202a]"
                 htmlFor={`${fieldId}-full-name`}
               >
-                Your full name
+                {t("onboarding.fullName")}
               </label>
               <div>
                 <input
@@ -249,7 +251,7 @@ export function CreateOrganizationPage() {
                   value={form.fullName}
                 />
                 <p className="mt-2 text-sm text-[#64748b]">
-                  Shown to your team on bookings and activity history.
+                  {t("onboarding.organizationNameHint")}
                 </p>
               </div>
             </div>
@@ -259,7 +261,7 @@ export function CreateOrganizationPage() {
                 className="text-sm font-black text-[#17202a]"
                 htmlFor={`${fieldId}-phone`}
               >
-                Phone number
+                {t("common.phoneNumber")}
               </label>
               <div>
                 <PhoneField
@@ -275,7 +277,7 @@ export function CreateOrganizationPage() {
                   value={form.phone}
                 />
                 <p className="mt-2 text-sm text-[#64748b]">
-                  Optional. Used for booking confirmations and account recovery.
+                  {t("onboarding.phoneHint")}
                 </p>
               </div>
             </div>
@@ -285,7 +287,7 @@ export function CreateOrganizationPage() {
                 className="text-sm font-black text-[#17202a]"
                 htmlFor={`${fieldId}-plan`}
               >
-                Plan
+                {t("onboarding.plan")}
               </label>
               <div>
                 <select
@@ -311,25 +313,23 @@ export function CreateOrganizationPage() {
                   ))}
                 </select>
                 <p className="mt-2 text-sm text-[#64748b]">
-                  Which plan fits your organization best? Every organization
-                  starts with a {TRIAL_DAYS}-day free trial &mdash; you only pay
-                  when you activate billing in Settings.
+                  {t("onboarding.planHint", { days: TRIAL_DAYS })}
                 </p>
                 {selectedPlan ? (
                   <div className="mt-3 rounded-2xl border border-[#dbe3ec] bg-[#f8fbff] p-4">
                     <p className="text-sm font-black text-[#17202a]">
                       {selectedPlan.name}
                       <span className="ml-2 font-semibold text-[#64748b]">
-                        {selectedPlan.description}
+                        {t(selectedPlan.descriptionKey)}
                       </span>
                     </p>
                     <ul className="mt-2 grid gap-1 sm:grid-cols-2">
-                      {selectedPlan.features.map((feature) => (
+                      {selectedPlan.featureKeys.map((feature) => (
                         <li
                           className="text-sm leading-6 text-[#64748b]"
                           key={feature}
                         >
-                          &bull; {feature}
+                          &bull; {t(feature)}
                         </li>
                       ))}
                     </ul>
@@ -355,7 +355,9 @@ export function CreateOrganizationPage() {
               onClick={signOut}
               type="button"
             >
-              {isSigningOut ? "Signing out..." : "Sign out"}
+              {isSigningOut
+                ? t("onboarding.signingOut")
+                : t("onboarding.signOut")}
             </button>
             <button
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1f557d] px-6 text-sm font-black text-white shadow-lg shadow-[#1f557d]/20 transition hover:bg-[#174362] disabled:cursor-not-allowed disabled:opacity-70"
@@ -363,7 +365,9 @@ export function CreateOrganizationPage() {
               type="submit"
             >
               {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {isPending ? "Creating organization..." : "Create organization"}
+              {isPending
+                ? t("onboarding.creatingOrganization")
+                : t("onboarding.createOrganizationButton")}
             </button>
           </footer>
         </form>

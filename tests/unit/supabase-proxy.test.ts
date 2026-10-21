@@ -238,6 +238,42 @@ describe("the anonymous-only gate", () => {
 });
 
 describe("session refresh", () => {
+  it("clears an unverified session on public pages without clearing an OAuth verifier", async () => {
+    currentClaims = null;
+
+    const response = await run(
+      requestFor("/", {
+        "sb-testproject-auth-token": "dead-token",
+        "sb-testproject-auth-token-code-verifier": "pending-verifier"
+      })
+    );
+
+    expect(response.headers.get("location")).toBeNull();
+    expect(setCookieHeader(response)).toContain("sb-testproject-auth-token=");
+    expect(setCookieHeader(response)).toMatch(/Max-Age=0/i);
+    expect(setCookieHeader(response)).not.toContain(
+      "sb-testproject-auth-token-code-verifier="
+    );
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("clears an unverified session before redirecting a protected route", async () => {
+    currentClaims = null;
+
+    const response = await run(
+      requestFor("/dashboard/events", {
+        "sb-testproject-auth-token": "dead-token"
+      })
+    );
+
+    expect(new URL(response.headers.get("location") as string).pathname).toBe(
+      "/login"
+    );
+    expect(setCookieHeader(response)).toContain("sb-testproject-auth-token=");
+    expect(setCookieHeader(response)).toMatch(/Max-Age=0/i);
+    expect(response.headers.get("cache-control")).toContain("no-store");
+  });
+
   /**
    * The failure this guards against does not look like an error - the refresh
    * succeeds, the response drops the cookie, and the user is silently signed

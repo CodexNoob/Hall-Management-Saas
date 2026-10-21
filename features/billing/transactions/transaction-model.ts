@@ -2,6 +2,7 @@ import type {
   BillingResponse,
   IconName
 } from "@/features/billing/components/billing-shared";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type SortKey = "date" | "amount" | "customer" | "status";
 export type ReviewFilter = "All" | "Needs review" | "Matched" | "Paid";
@@ -70,11 +71,21 @@ function normalizeTransactionStatus(status: string): TransactionStatus {
   return "Pending";
 }
 
-export function buildTransactionRows(data: BillingResponse): TransactionRow[] {
+export type BillingTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
+
+export function buildTransactionRows(
+  data: BillingResponse,
+  t?: BillingTranslate
+): TransactionRow[] {
   return data.transactions.map((transaction, index) => {
     const amount = transaction.amountCents / 100;
     const createdAt = new Date(transaction.createdAt);
-    const customer = transaction.event?.clientName || "Unassigned customer";
+    const customer =
+      transaction.event?.clientName ||
+      (t ? t("billing.unassignedCustomer") : "Unassigned customer");
     const status = normalizeTransactionStatus(transaction.status);
     const eventDate = transaction.event?.eventDate
       ? new Date(transaction.event.eventDate)
@@ -88,9 +99,14 @@ export function buildTransactionRows(data: BillingResponse): TransactionRow[] {
       phone: "",
       event: transaction.event?.clientName
         ? `${transaction.event.clientName} Event`
-        : "Unassigned event",
-      eventType: amount < 0 ? "Refund" : "Event payment",
-      venue: "Not linked",
+        : t
+          ? t("billing.unassignedEvent")
+          : "Unassigned event",
+      eventType:
+        amount < 0
+          ? (t ? t("billing.refundLabel") : "Refund")
+          : (t ? t("billing.eventPayment") : "Event payment"),
+      venue: t ? t("billing.notLinked") : "Not linked",
       venueLocation: "",
       venueCapacity: "",
       type: amount < 0 ? "Refund" : "Payment",
@@ -109,19 +125,24 @@ export function buildTransactionRows(data: BillingResponse): TransactionRow[] {
       endTime: "",
       amount,
       paidAmount: status === "Paid" ? amount : 0,
-      paymentMethod: transaction.provider || "Manual entry",
+      paymentMethod:
+        transaction.provider || (t ? t("billing.manualEntry") : "Manual entry"),
       referenceNo: transaction.providerReference || transaction.id,
       status,
-      notes: transaction.note || "No transaction note.",
+      notes:
+        transaction.note ||
+        (t ? t("billing.noTransactionNote") : "No transaction note."),
       activity: [
         {
           actor: "Event Core",
-          description: `Transaction recorded with status ${status}.`,
+          description: t
+            ? t("billing.recordedWithStatus", { status })
+            : `Transaction recorded with status ${status}.`,
           time: createdAt.toLocaleString("en-US", {
             dateStyle: "medium",
             timeStyle: "short"
           }),
-          title: "Transaction recorded"
+          title: t ? t("billing.transactionRecorded") : "Transaction recorded"
         }
       ]
     };

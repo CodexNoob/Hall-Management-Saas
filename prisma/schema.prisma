@@ -85,6 +85,7 @@ model Organization {
   invoiceBalances               InvoiceBalance[]
   settings                      OrganizationSetting?
   notificationPreferences       NotificationPreference[]
+  notificationDeliveries        NotificationDelivery[]
   clients                       Client[]
   bookingReservations           BookingReservation[]
   todayNotes                    TodayNote[]
@@ -145,28 +146,28 @@ model ContactSupportRequest {
 /// Google path safe: signing in with Google after registering by password must
 /// find the existing request rather than open a second one.
 model BetaAccessRequest {
-  id     String @id @default(uuid()) @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
   /// Lower-cased and trimmed by the application before it is written.
-  email  String @unique
+  email          String    @unique
   /// Null until an authenticated identity claims this request - the public form
   /// records one before Supabase has issued a session. Unique so two identities
   /// can never share a request.
-  supabaseAuthId String? @unique @map("supabase_auth_id")
-  status         String  @default("PENDING")
+  supabaseAuthId String?   @unique @map("supabase_auth_id")
+  status         String    @default("PENDING")
   /// "email_password" or "google", when the recording path can tell. Null when
   /// it cannot, which is why the notification says "if available".
-  signupMethod String?   @map("signup_method")
-  requestedAt  DateTime  @default(now()) @map("requested_at")
+  signupMethod   String?   @map("signup_method")
+  requestedAt    DateTime  @default(now()) @map("requested_at")
   /// When the team was told. Best-effort: mail is sent after the row commits,
   /// so a delivery failure leaves this NULL rather than losing the request.
-  notifiedAt   DateTime? @map("notified_at")
-  decidedAt    DateTime? @map("decided_at")
+  notifiedAt     DateTime? @map("notified_at")
+  decidedAt      DateTime? @map("decided_at")
   /// Free text naming whoever decided. Not a foreign key: the decision is made
   /// from a script, by a person who may have no row in this database at all.
-  decidedBy    String?   @map("decided_by")
-  notes        String?
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  decidedBy      String?   @map("decided_by")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([status, requestedAt])
   @@map("beta_access_requests")
@@ -230,6 +231,16 @@ model User {
   email          String    @unique
   phone          String?
   venueName      String?   @map("venue_name")
+  /// This person's own dashboard language, or null to follow whatever the
+  /// organization is set to.
+  ///
+  /// Null rather than a default on purpose: the organization's setting has to
+  /// keep applying to everyone who has never expressed a preference, including
+  /// people who join later, and a column defaulted to "en-US" could not tell
+  /// "I want English" apart from "I never chose". It lives on the user rather
+  /// than on the membership because it is a fact about the person, and somebody
+  /// who reads Spanish reads Spanish in both of the halls they work for.
+  language       String?
   /// Job title, shown in the staff directory. NOT a privilege - a person in two
   /// organizations has one of these and two sets of grants, which is why the
   /// old global `role` column had to go: `POST /api/staff` wrote an invite's
@@ -238,6 +249,20 @@ model User {
   title          String?
   isActive       Boolean   @default(true) @map("is_active")
   passwordSetAt  DateTime? @map("password_set_at")
+  /// When a verified AND TRUSTED second factor was last observed on this
+  /// account, or null for none. A MIRROR of Supabase's factor list filtered
+  /// through `mfa_trusted_factors`, not the authority for either - the factors
+  /// themselves live in `auth.mfa_factors` and only Supabase verifies a code.
+  ///
+  /// "Trusted" matters: a factor somebody attached with a stolen password is
+  /// verified in Supabase and still does not count here (lib/auth/mfa-trust.ts).
+  ///
+  /// Kept here because enforcement has to ask "does this person owe a second
+  /// factor?" on every authenticated request, and the alternative is a round
+  /// trip to the Auth server on the hottest path in the application. Written
+  /// only by server code that has just read the real list out of Supabase with
+  /// the user's own token - never from a value the browser reported.
+  mfaEnrolledAt  DateTime? @map("mfa_enrolled_at")
   // Mirrors Supabase's own last_sign_in_at. Provisioning compares the two to
   // tell a genuine new session from a browser cache miss, so the
   // "auth.login.success" audit entry is written once per sign-in rather than
@@ -247,6 +272,10 @@ model User {
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
   organization                         Organization                  @relation("PrimaryOrganization", fields: [organizationId], references: [id])
+  sessions                             UserSession[]
+  emailSecurityCodes                   EmailSecurityCode[]
+  mfaTrustedFactors                    MfaTrustedFactor[]
+  devices                              UserDevice[]
   memberships                          OrganizationMembership[]
   createdEvents                        Event[]                       @relation("EventCreatedBy")
   updatedEvents                        Event[]                       @relation("EventUpdatedBy")
@@ -691,6 +720,7 @@ model EventType {
   events       Event[]
 
   @@index([organizationId, isActive])
+  @@index([organizationId, isActive, name])
   @@index([isActive])
   @@map("event_types")
 }
@@ -975,6 +1005,7 @@ model AddOn {
   eventMenuLines EventMenuLine[]
 
   @@index([organizationId, isActive])
+  @@index([organizationId, name])
   @@index([isActive])
   @@map("add_ons")
 }
@@ -1277,6 +1308,7 @@ model MenuCategory {
 
   @@unique([organizationId, name])
   @@index([organizationId, isActive, sortOrder])
+  @@index([organizationId, sortOrder, name])
   @@index([isActive])
   @@map("menu_categories")
 }
@@ -1405,10 +1437,246 @@ model HolidayBlockedDate {
   hall         Hall?        @relation(fields: [hallId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, startDate, endDate])
+  @@index([organizationId, isBlocked, startDate, endDate])
   @@index([organizationId, hallId, startDate, endDate])
   @@index([startDate, endDate])
   @@index([isBlocked])
   @@map("holiday_blocked_dates")
+}
+
+/// Where a person is signed in, so they can see it and act on it.
+///
+/// Supabase owns the real sessions, and its admin API can revoke broadly -
+/// `signOut(jwt, "others")` - but cannot ENUMERATE them: the whole surface is
+/// signOut, invite, generateLink, createUser, listUsers, getUserById,
+/// updateUserById, deleteUser. A list therefore has to be recorded here or not
+/// exist at all.
+///
+/// Deliberately NOT tenant-scoped. A session belongs to a person, not to one of
+/// the organizations they work for - somebody in two halls signs in once and
+/// gets one row, and seeing their own devices is not an act inside either
+/// tenant. That is also why RLS on this table is deny-all rather than the usual
+/// organization predicate: nothing reads it from the browser, only the API.
+model UserSession {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @map("user_id") @db.Uuid
+  deviceId String? @map("device_id") @db.Uuid
+
+  /// The `session_id` claim on the Supabase access token.
+  ///
+  /// The join between our row and the session Supabase actually holds, which is
+  /// what lets the list mark "this device" and lets a refreshed token update
+  /// the row it already has rather than creating a second one. Unique, because
+  /// one Supabase session is one row by definition.
+  sessionId String @unique @map("session_id")
+
+  /// What the browser said it was. Parsed for display, stored raw - a
+  /// user-agent this build cannot parse should still be shown to its owner
+  /// rather than reduced to "Unknown".
+  userAgent String? @map("user_agent")
+
+  /// Personal data, stored on purpose and only here: it is the field that
+  /// makes "that is not me" answerable. Never logged - see docs/logging.md,
+  /// which keeps identifying detail out of the log stream by construction.
+  ipAddress String? @map("ip_address")
+
+  /// Roughly where the request came from, as the edge already resolved it.
+  ///
+  /// Read from the platform's own headers rather than by asking a geolocation
+  /// service: the answer is on the request already, so no IP address leaves
+  /// our infrastructure to get it and there is no key, cost or vendor to
+  /// track. It also means these are null in local development, where there is
+  /// no edge in front of the app.
+  ///
+  /// Approximate by nature - an IP resolves to a network, not a person - and
+  /// the screen says so. It is here to answer "was that me?", where being
+  /// roughly right is the whole value.
+  city    String? @map("city")
+  /// State or province, where the edge resolved one.
+  ///
+  /// It earns its place where a city name is ambiguous across states -
+  /// Springfield, Portland, Columbus - which is most of the United States. In a
+  /// country with one Manila it adds nothing, and being null there is correct
+  /// rather than a gap.
+  ///
+  /// Deliberately NOT accompanied by latitude and longitude. Both are on the
+  /// request too, and both come from the same IP lookup as the city - so they
+  /// are no more accurate, buy nothing without a map to plot them on, and would
+  /// put a precise-looking number against a named employee for no reason.
+  region  String? @map("region")
+  /// ISO 3166-1 alpha-2. Stored as the code and named at render, so the same
+  /// row reads "Philippines" or "Filipinas" depending on who is looking.
+  country String? @map("country")
+
+  /// When somebody last actually DID something on this session.
+  ///
+  /// Distinct from `lastSeenAt` below, and the distinction is the feature.
+  /// `lastSeenAt` is touched by the session sync, which the dashboard polls
+  /// every sixty seconds while the tab is visible - so it says "this session is
+  /// alive", which a screen left open on a desk says forever. This is written
+  /// only by a deliberate interaction ping, so it says "a person was here".
+  ///
+  /// Null means "no activity has ever been recorded", which reads as ACTIVE.
+  /// Every session that predates this column has one, and treating null as
+  /// stale would sign out every open session the moment it deployed.
+  lastActiveAt DateTime? @map("last_active_at")
+
+  /// A screen that is unattended on purpose - the kitchen board on the wall.
+  ///
+  /// Exempt from the inactivity timeout. Per device rather than per role: it is
+  /// a fact about the screen, not the person, and the same cook on their own
+  /// phone should time out like anybody else.
+  sharedDevice Boolean @default(false) @map("shared_device")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  /// Touched by the session sync, which the dashboard calls on every cold load
+  /// past its five-minute cache. That is the heartbeat "last seen" reads.
+  lastSeenAt DateTime  @default(now()) @map("last_seen_at")
+  revokedAt  DateTime? @map("revoked_at")
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device UserDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, lastSeenAt])
+  @@index([deviceId])
+  @@map("user_sessions")
+}
+
+/// A six-digit code emailed to the account's own address, and - once it has
+/// been entered correctly - the short-lived GRANT it turns into.
+///
+/// WHY IT EXISTS. Setting up an authenticator is a conversation between the
+/// browser and Supabase, and Supabase will enroll a factor for any session that
+/// holds the password. Without this, a stolen password was enough to attach
+/// the thief's own authenticator. The grant is how the server tells an
+/// authenticator the account owner set up (they could read their email) from
+/// one somebody else attached - see lib/auth/mfa-trust.ts.
+///
+/// THE CODE IS NEVER STORED. `codeHash` is an HMAC keyed with a server secret
+/// and salted with the row id, so a copy of this table does not hand over a
+/// live code, and six digits cannot be brute-forced offline without the key.
+///
+/// TIED TO ONE SUPABASE SESSION. `sessionId` is the `session_id` claim of the
+/// token that asked; the grant only counts for that same session.
+model EmailSecurityCode {
+  id             String    @id @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  /// The organization the request was made in, for the audit trail. Not a
+  /// foreign key: the row belongs to the person and goes with their account.
+  organizationId String    @map("organization_id") @db.Uuid
+  /// What the code is FOR - "MFA_ENROLLMENT" or "DEVICE_TRUST". Text rather
+  /// than an enum, like every other kind column in this schema;
+  /// `SecurityCodePurpose` in lib/auth/security-codes.ts is the closed list.
+  purpose        String
+  sessionId      String    @map("session_id")
+  codeHash       String    @map("code_hash")
+  /// Wrong entries so far. Five and the code is dead.
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @map("expires_at")
+  /// Set when the right code was entered. From then until `grantExpiresAt`
+  /// this row IS the grant.
+  verifiedAt     DateTime? @map("verified_at")
+  grantExpiresAt DateTime? @map("grant_expires_at")
+  /// Spent - by trusting a factor, or by being replaced by a newer code. A
+  /// consumed row can never be verified or used again.
+  consumedAt     DateTime? @map("consumed_at")
+  ipAddress      String?   @map("ip_address")
+  userAgent      String?   @map("user_agent")
+  /// For a DEVICE_TRUST code, the device it confirms. A code for one browser
+  /// can never confirm another.
+  deviceId       String?   @map("device_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device UserDevice? @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  /// The two lookups: "the live code for this person and purpose", and the
+  /// hourly send count.
+  @@index([userId, purpose, createdAt])
+  @@index([deviceId])
+  @@map("email_security_codes")
+}
+
+/// A browser this person has signed in from - KNOWN once seen, CONFIRMED once
+/// they verify the email code, and TRUSTED only when it is the primary device.
+///
+/// Identified by a random secret in an httpOnly cookie; only an HMAC of it is
+/// stored here (lib/auth/device-identity.ts), so this table cannot be used to
+/// impersonate a device. Scoped per user: one browser shared by two people is
+/// two rows, and trusting it for one says nothing about the other.
+///
+/// Confirmation clears the device gate but never replaces the password or
+/// second factor. `trustedAt` identifies the confirmed primary device that
+/// bulk sign-out preserves; it does not skip any authentication step.
+///
+/// Separate from `user_sessions`: a session ends at sign-out, a device outlives
+/// many sessions.
+model UserDevice {
+  id                 String    @id @default(uuid()) @db.Uuid
+  userId             String    @map("user_id") @db.Uuid
+  deviceHash         String    @map("device_hash")
+  firstSeenAt        DateTime  @default(now()) @map("first_seen_at")
+  lastSeenAt         DateTime  @default(now()) @map("last_seen_at")
+  /// The single device retained by "sign out everywhere". The database
+  /// assigns this to the first device sighting for each user.
+  isPrimary          Boolean   @default(false) @map("is_primary")
+  /// When the owner last confirmed this browser with the emailed code.
+  /// Trust lasts until `trustExpiresAt` (lib/auth/device-trust-policy.ts).
+  confirmedAt        DateTime? @map("confirmed_at")
+  /// The primary device's confirmation - what "sign out on untrusted
+  /// devices" preserves. Not what the device gate reads.
+  trustedAt          DateTime? @map("trusted_at")
+  /// Fixed from the confirmation; using the device does not extend it. After
+  /// it, the browser is verified again like a new one.
+  trustExpiresAt     DateTime? @map("trust_expires_at")
+  /// When the authenticator code was last entered on this device during its
+  /// current trust period. Lets a sign-in here skip the code, unless the
+  /// organization requires 2FA. Cleared by revocation and re-confirmation.
+  mfaVerifiedAt      DateTime? @map("mfa_verified_at")
+  /// Removed from My Account. The same browser returning is treated as new
+  /// again: untrusted, and confirmed from scratch.
+  revokedAt          DateTime? @map("revoked_at")
+  /// When the new-device email went out - so it goes out once, not on every
+  /// page load.
+  confirmationSentAt DateTime? @map("confirmation_sent_at")
+  userAgent          String?   @map("user_agent")
+  ipAddress          String?   @map("ip_address")
+  city               String?   @map("city")
+  region             String?   @map("region")
+  country            String?   @map("country")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user     User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codes    EmailSecurityCode[]
+  sessions UserSession[]
+
+  @@unique([userId, deviceHash])
+  @@index([userId, lastSeenAt])
+  @@map("user_devices")
+}
+
+/// Supabase MFA factors this application TRUSTS.
+///
+/// A factor being `verified` in Supabase means somebody proved they hold the
+/// secret. It does not mean the account owner put it there - anyone signed in
+/// with the password can enroll one directly against Supabase. Only a factor
+/// listed here satisfies two-factor authentication in this app, and a factor
+/// only gets here through an email-verified enrollment grant (or the one-off
+/// backfill of factors that existed before this table did).
+model MfaTrustedFactor {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// `auth.mfa_factors.id`. Unique: one factor, one trust decision.
+  factorId  String   @unique @map("factor_id") @db.Uuid
+  /// "email_verified" or "legacy_backfill".
+  source    String
+  trustedAt DateTime @default(now()) @map("trusted_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("mfa_trusted_factors")
 }
 
 model ActivityLog {
@@ -1876,6 +2144,36 @@ model NotificationPreference {
   @@unique([organizationId, userId])
   @@index([userId])
   @@map("notification_preferences")
+}
+
+/// One row per notification actually sent, so a replay cannot send it twice.
+///
+/// `kitchen_notifications` carries its own `emailSent` flag and that works
+/// because the row IS the thing being emailed. Event confirmations have no such
+/// row - created, updated and cancelled are three notifications against one
+/// event - so the record lives here, keyed on what the notification WAS.
+///
+/// DELIBERATELY HOLDS NO PERSONAL DATA. A count, never a recipient list: this
+/// answers "was it sent, and to how many", which is what a support question
+/// needs. Storing who would put a list of email addresses against every booking
+/// change, for a question nobody asks.
+model NotificationDelivery {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  /// e.g. "event.created:<eventId>:<idempotency key>". Unique per tenant, which
+  /// is what makes a retried request send one email rather than two.
+  dedupeKey      String   @map("dedupe_key")
+  /// The `NotificationKind`. Text, because a new kind should be a code change
+  /// rather than a migration, and nothing branches on it.
+  kind           String
+  recipientCount Int      @default(0) @map("recipient_count")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, dedupeKey], map: "notification_deliveries_org_key")
+  @@index([organizationId, createdAt], map: "notification_deliveries_org_created")
+  @@map("notification_deliveries")
 }
 
 model TodayNote {

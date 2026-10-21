@@ -7,6 +7,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewEventFolderFormValues = {
   clientName: string;
@@ -39,6 +40,7 @@ export function NewEventFolderDialog({
   onClose,
   onCreate,
 }: NewEventFolderDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const clientNameId = useId();
   const eventTypeId = useId();
@@ -125,11 +127,11 @@ export function NewEventFolderDialog({
       >
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-            New event folder
+            {t("files.newEventFolder")}
           </h2>
 
           <button
-            aria-label="Close new event folder"
+            aria-label={t("files.closeNewEventFolder")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]"
             onClick={closeDialog}
             type="button"
@@ -141,7 +143,7 @@ export function NewEventFolderDialog({
         <form onSubmit={handleSubmit}>
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={clientNameId}>
-              Client
+              {t("common.client")}
               <input
                 ref={clientInputRef}
                 autoComplete="name"
@@ -149,14 +151,14 @@ export function NewEventFolderDialog({
                 id={clientNameId}
                 name="clientName"
                 onChange={(event) => updateValue("clientName", event.target.value)}
-                placeholder="Client name"
+                placeholder={t("clients.name")}
                 required
                 value={values.clientName}
               />
             </label>
 
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={eventTypeId}>
-              Event type
+              {t("bookings.eventType")}
               <input
                 className={controlClass}
                 id={eventTypeId}
@@ -169,7 +171,7 @@ export function NewEventFolderDialog({
             </label>
 
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={dateId}>
-              Date
+              {t("common.date")}
               <input
                 className={controlClass}
                 id={dateId}
@@ -182,7 +184,7 @@ export function NewEventFolderDialog({
             </label>
 
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={hallId}>
-              Hall
+              {t("calendar.hall")}
               <input
                 className={controlClass}
                 id={hallId}
@@ -195,8 +197,7 @@ export function NewEventFolderDialog({
             </label>
 
             <p className="rounded-full border border-[#bfd8ed] bg-[#eef7ff] px-3 py-1 text-[10px] font-bold text-[#1f4d73] sm:col-span-2">
-              Creates only the folders that normally need files: Invoicing,
-              Hall Layout, Footage, Pictures, Videos and Documents.
+              {t("files.eventFolderBlurb")}
             </p>
           </div>
 
@@ -206,14 +207,14 @@ export function NewEventFolderDialog({
               onClick={closeDialog}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
 
             <button
               className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm transition hover:bg-[#15344f]"
               type="submit"
             >
-              Create event folder
+              {t("files.createEventFolder")}
             </button>
           </footer>
         </form>

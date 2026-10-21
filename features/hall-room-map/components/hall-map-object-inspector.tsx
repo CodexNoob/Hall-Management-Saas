@@ -15,6 +15,7 @@ import {
   type SeatingUse
 } from "@/features/hall-room-map/components/hall-map-shared";
 import { mapObjectFieldSchemas } from "@/features/hall-room-map/validations/hall-map.schema";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const inputClass =
   "h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm disabled:bg-[#f5f6f8]";
@@ -68,6 +69,7 @@ export function HallMapObjectInspector({
   selectedObject,
   onUpdateSelectedObject
 }: HallMapObjectInspectorProps) {
+  const { t } = useAppLanguage();
   const disabled = !selectedObject;
   // Remount the numeric boxes when the selection changes so a half-typed value
   // never carries over to a different object.
@@ -76,10 +78,10 @@ export function HallMapObjectInspector({
   return (
     <Panel className="order-3 block md:block">
       <header className="border-b border-[#d8dde5] px-3 py-2">
-        <h2 className="text-sm font-black">Object inspector</h2>
+        <h2 className="text-sm font-black">{t("hallMap.objectInspector")}</h2>
 
         <p className="mt-1 text-[10px] text-[#617086]">
-          Selected shape settings.
+          {t("hallMap.selectedShapeSettings")}
         </p>
       </header>
 
@@ -91,7 +93,7 @@ export function HallMapObjectInspector({
             </strong>
 
             <span className="mt-2 block text-[9px] font-black uppercase text-[#617086]">
-              Type
+              {t("common.type")}
             </span>
           </div>
 
@@ -101,13 +103,13 @@ export function HallMapObjectInspector({
             </strong>
 
             <span className="mt-2 block text-[9px] font-black uppercase text-[#617086]">
-              Rotation
+              {t("hallMap.rotation")}
             </span>
           </div>
         </div>
 
         <div className="mt-3">
-          <InspectorField htmlFor="object-name">Name</InspectorField>
+          <InspectorField htmlFor="object-name">{t("common.name")}</InspectorField>
 
           <input
             className={inputClass}
@@ -117,7 +119,7 @@ export function HallMapObjectInspector({
             onChange={(event) =>
               onUpdateSelectedObject({ name: event.target.value })
             }
-            placeholder="Select object"
+            placeholder={t("hallMap.selectObject")}
             value={selectedObject?.name ?? ""}
           />
         </div>
@@ -127,7 +129,7 @@ export function HallMapObjectInspector({
             disabled={disabled}
             id="object-width"
             key={`${selectionKey}-width`}
-            label="Width"
+            label={t("hallMap.width")}
             name="objectWidth"
             onCommit={(width) => onUpdateSelectedObject({ width })}
             schema={mapObjectFieldSchemas.width}
@@ -138,7 +140,7 @@ export function HallMapObjectInspector({
             disabled={disabled}
             id="object-height"
             key={`${selectionKey}-height`}
-            label="Height"
+            label={t("hallMap.height")}
             name="objectHeight"
             onCommit={(height) => onUpdateSelectedObject({ height })}
             schema={mapObjectFieldSchemas.height}
@@ -149,7 +151,7 @@ export function HallMapObjectInspector({
             disabled={disabled}
             id="object-seats"
             key={`${selectionKey}-seats`}
-            label="Seats"
+            label={t("hallMap.seats")}
             name="objectSeats"
             onCommit={(seats) => onUpdateSelectedObject({ seats })}
             schema={mapObjectFieldSchemas.seats}
@@ -157,7 +159,7 @@ export function HallMapObjectInspector({
           />
 
           <div>
-            <InspectorField htmlFor="seating-use">Seating use</InspectorField>
+            <InspectorField htmlFor="seating-use">{t("hallMap.seatingUse")}</InspectorField>
 
             <CompactSelect
               disabled={disabled}
@@ -168,10 +170,10 @@ export function HallMapObjectInspector({
                 })
               }
               options={[
-                { label: "No seating", value: "none" },
-                { label: "Adult seating", value: "adult" },
-                { label: "Kids seating", value: "kids" },
-                { label: "Head table", value: "head" }
+                { label: t("hallMap.noSeating"), value: "none" },
+                { label: t("hallMap.adultSeating"), value: "adult" },
+                { label: t("hallMap.kidsSeating"), value: "kids" },
+                { label: t("hallMap.headTable"), value: "head" }
               ]}
               value={selectedObject?.seatingUse ?? "none"}
             />
@@ -182,7 +184,7 @@ export function HallMapObjectInspector({
           {selectedObject && !isTableShape(selectedObject.type) ? (
             <div>
               <InspectorField htmlFor="seating-sides">
-                Seating sides
+                {t("hallMap.seatingSides")}
               </InspectorField>
 
               <CompactSelect
@@ -194,9 +196,9 @@ export function HallMapObjectInspector({
                   })
                 }
                 options={[
-                  { label: "One side", value: "1" },
-                  { label: "Two sides", value: "2" },
-                  { label: "Four sides", value: "4" }
+                  { label: t("hallMap.oneSide"), value: "1" },
+                  { label: t("hallMap.twoSides"), value: "2" },
+                  { label: t("hallMap.fourSides"), value: "4" }
                 ]}
                 value={String(
                   selectedObject.seatingSides ??
@@ -234,7 +236,7 @@ export function HallMapObjectInspector({
             disabled={disabled}
             id="object-rotation"
             key={`${selectionKey}-rotation`}
-            label="Rotation"
+            label={t("hallMap.rotation")}
             name="objectRotation"
             onCommit={(rotation) => onUpdateSelectedObject({ rotation })}
             schema={mapObjectFieldSchemas.rotation}
@@ -250,8 +252,7 @@ export function HallMapObjectInspector({
         ) : null}
 
         <p className="mt-3 text-[10px] leading-5 text-[#617086]">
-          The inspector updates one selected object. Tables have a seat count
-          and seating use. Edit the name field to rename a shape.
+          {t("hallMap.inspectorHint")}
         </p>
 
       </div>

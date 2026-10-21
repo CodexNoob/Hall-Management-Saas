@@ -5,10 +5,18 @@ import { StatCard, TopAction, type BillingResponse } from "@/features/billing/co
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { InvoiceEditDialog } from "@/features/billing/components/invoice-edit-dialog";
 import { RecordPaymentDialog } from "@/features/billing/components/record-payment-dialog";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Invoice = BillingResponse["invoices"][number];
 function money(cents: number, currency = "USD") { return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
-function date(value: string | null) { return value ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(value)) : "Not set"; }
+function date(t: (key: MessageKey) => string, value: string | null) {
+  return value
+    ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
+        new Date(value)
+      )
+    : t("common.notSet");
+}
 export function InvoiceDetails({
   canManagePayments,
   history,
@@ -20,6 +28,7 @@ export function InvoiceDetails({
   invoice: Invoice;
   onRefresh: () => Promise<BillingResponse | null>;
 }) {
+  const { t } = useAppLanguage();
   const [dialog, setDialog] = useState<"edit" | "payment" | null>(null);
   const [actionError, setActionError] = useState("");
   const [isActing, setIsActing] = useState(false);
@@ -34,11 +43,11 @@ export function InvoiceDetails({
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(payload.error ?? "Unable to update invoice.");
+        throw new Error(payload.error ?? t("billing.updateInvoiceFailed"));
       await onRefresh();
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "Unable to update invoice."
+        error instanceof Error ? error.message : t("billing.updateInvoiceFailed")
       );
     } finally {
       setIsActing(false);
@@ -58,15 +67,15 @@ export function InvoiceDetails({
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(payload.error ?? "Unable to start Stripe Checkout.");
+        throw new Error(payload.error ?? t("billing.stripeStartFailed"));
       if (!payload.checkoutUrl)
-        throw new Error("Stripe did not return a checkout URL.");
+        throw new Error(t("billing.stripeNoUrl"));
       window.location.assign(payload.checkoutUrl);
     } catch (error) {
       setActionError(
         error instanceof Error
           ? error.message
-          : "Unable to start Stripe Checkout."
+          : t("billing.stripeStartFailed")
       );
       setIsActing(false);
     }
@@ -91,7 +100,7 @@ export function InvoiceDetails({
               <TopAction
                 disabled={!canManagePayments || isActing}
                 icon="upload"
-                label="Send invoice"
+                label={t("billing.sendInvoice")}
                 onClick={() => void changeStatus("Sent")}
               />
             ) : null}
@@ -102,7 +111,7 @@ export function InvoiceDetails({
                 invoice.status === "Cancelled"
               }
               icon="edit"
-              label="Edit"
+              label={t("common.edit")}
               onClick={() => setDialog("edit")}
             />
             <TopAction
@@ -114,7 +123,7 @@ export function InvoiceDetails({
                 ["Draft", "Paid", "Cancelled"].includes(invoice.status)
               }
               icon="payment"
-              label="Pay with Stripe"
+              label={t("billing.payWithStripe")}
               onClick={() => void openStripeCheckout()}
             />
             <TopAction
@@ -124,7 +133,7 @@ export function InvoiceDetails({
                 ["Paid", "Cancelled"].includes(invoice.status)
               }
               icon="back"
-              label="Cancel invoice"
+              label={t("billing.cancelInvoice")}
               onClick={() => void changeStatus("Cancelled")}
             />
             <TopAction
@@ -135,12 +144,12 @@ export function InvoiceDetails({
                 invoice.status === "Cancelled"
               }
               icon="payment"
-              label="Record payment"
+              label={t("billing.recordPayment")}
               onClick={() => setDialog("payment")}
             />
             <TopAction
               icon="print"
-              label="Print"
+              label={t("common.print")}
               onClick={() => window.print()}
             />
           </div>
@@ -152,32 +161,32 @@ export function InvoiceDetails({
         ) : null}
         <div className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-5">
           <StatCard
-            label="Total"
+            label={t("common.total")}
             value={money(invoice.totalCents, invoice.currency)}
             note=""
           />
           <StatCard
-            label="Payments"
+            label={t("billing.payments")}
             value={money(invoice.amountPaidCents, invoice.currency)}
             note=""
             tone="green"
           />
           <StatCard
-            label="Balance"
+            label={t("billing.balance")}
             value={money(invoice.balanceDueCents, invoice.currency)}
             note=""
             tone="gold"
           />
-          <StatCard label="Status" value={invoice.status} note="" />
-          <StatCard label="Due" value={date(invoice.dueDate)} note="" />
+          <StatCard label={t("common.status")} value={invoice.status} note="" />
+          <StatCard label={t("billing.due")} value={date(t, invoice.dueDate)} note="" />
         </div>
         <div className="grid gap-4 p-4 pt-0 xl:grid-cols-2">
           <article className="rounded-xl border border-[#d8dde5] p-4">
-            <h3 className="font-black">Line items</h3>
+            <h3 className="font-black">{t("billing.lineItems")}</h3>
             <div className="mt-4 divide-y divide-[#d8dde5]">
               {!invoice.lineItems.length ? (
                 <p className="py-4 text-sm text-[#6a7483]">
-                  No line items recorded.
+                  {t("billing.noLineItems")}
                 </p>
               ) : (
                 invoice.lineItems.map((item) => (
@@ -199,22 +208,22 @@ export function InvoiceDetails({
             </div>
           </article>
           <article className="rounded-xl border border-[#d8dde5] p-4">
-            <h3 className="font-black">Invoice summary</h3>
+            <h3 className="font-black">{t("billing.invoiceSummary")}</h3>
             <dl className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between">
-                <dt>Client</dt>
+                <dt>{t("common.client")}</dt>
                 <dd className="font-black">{invoice.clientName}</dd>
               </div>
               <div className="flex justify-between">
-                <dt>Issued</dt>
-                <dd className="font-black">{date(invoice.issuedAt)}</dd>
+                <dt>{t("billing.issued")}</dt>
+                <dd className="font-black">{date(t, invoice.issuedAt)}</dd>
               </div>
               <div className="flex justify-between">
-                <dt>Due</dt>
-                <dd className="font-black">{date(invoice.dueDate)}</dd>
+                <dt>{t("billing.due")}</dt>
+                <dd className="font-black">{date(t, invoice.dueDate)}</dd>
               </div>
               <div className="flex justify-between border-t border-[#d8dde5] pt-3 text-lg">
-                <dt className="font-black">Total</dt>
+                <dt className="font-black">{t("common.total")}</dt>
                 <dd className="font-black">
                   {money(invoice.totalCents, invoice.currency)}
                 </dd>
@@ -227,7 +236,7 @@ export function InvoiceDetails({
             ) : null}
           </article>
           <article className="rounded-xl border border-[#d8dde5] p-4 xl:col-span-2">
-            <h3 className="font-black">Status history</h3>
+            <h3 className="font-black">{t("billing.statusHistory")}</h3>
             <div className="mt-3 divide-y divide-[#edf0f4]">
               {history.length ? (
                 history.map((entry) => (
@@ -242,13 +251,13 @@ export function InvoiceDetails({
                       </p>
                     </div>
                     <time className="text-xs text-[#6a7483]">
-                      {date(entry.createdAt)}
+                      {date(t, entry.createdAt)}
                     </time>
                   </div>
                 ))
               ) : (
                 <p className="py-3 text-sm text-[#6a7483]">
-                  No lifecycle changes recorded yet.
+                  {t("billing.noLifecycleChanges")}
                 </p>
               )}
             </div>

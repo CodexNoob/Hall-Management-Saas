@@ -9,6 +9,8 @@ import { signOutCurrentSession, type SessionUser } from "@/lib/auth/client";
 import { clearAuthenticatedQueryCache } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { DashboardSidebarMobileHeader } from "@/components/layout/dashboard-sidebar-mobile-header";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 import {
   SidebarIcon,
@@ -16,9 +18,9 @@ import {
   sidebarSections
 } from "@/components/layout/dashboard-sidebar-shared";
 
-const EditProfileDialog = dynamic(() =>
-  import("@/components/forms/edit-profile-dialog").then(
-    (module) => module.EditProfileDialog
+const AccountDialog = dynamic(() =>
+  import("@/features/account/components/account-dialog").then(
+    (module) => module.AccountDialog
   )
 );
 const LogoutConfirmationDialog = dynamic(() =>
@@ -45,6 +47,27 @@ type DashboardSidebarProps = {
   forceOverlay?: boolean;
 };
 
+const sidebarTranslationKeys: Record<string, MessageKey> = {
+  Workspace: "nav.workspace",
+  Operations: "nav.operations",
+  Office: "nav.office",
+  Dashboard: "nav.dashboard",
+  Kitchen: "nav.kitchen",
+  Calendar: "nav.calendar",
+  Events: "nav.events",
+  Menu: "nav.menu",
+  "Dining Manager": "nav.dining",
+  "Hall Room Map": "nav.hallMap",
+  Files: "nav.files",
+  Billing: "nav.billing",
+  Staff: "nav.staff",
+  Settings: "nav.settings",
+  "Upgrade Plan": "profile.upgrade",
+  "My Account": "profile.myAccount",
+  Help: "profile.help",
+  Logout: "profile.logout"
+};
+
 export function DashboardSidebar({
   user,
   roleLabel,
@@ -55,15 +78,19 @@ export function DashboardSidebar({
   // default naming no section would highlight nothing.
   activeLabel = "Events"
 }: DashboardSidebarProps) {
+  const { t } = useAppLanguage();
+  const translated = (value: string) => {
+    const key = sidebarTranslationKeys[value];
+    return key ? t(key) : value;
+  };
   const router = useRouter();
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const [profileName, setProfileName] = useState(user.name);
-  const [profileUsername, setProfileUsername] = useState(
-    user.email.split("@")[0] || user.name.toLowerCase().replace(/\s+/g, "")
-  );
+  // Straight from the session, which My Account refreshes after a save - so a
+  // renamed person sees the new name here without reloading.
+  const profileName = user.name;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [isEditProfileDialogOpen, setIsEditProfileDialogOpen] = useState(false);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
   const [helpDialogKind, setHelpDialogKind] = useState<HelpPageKind | null>(
     null
@@ -92,7 +119,11 @@ export function DashboardSidebar({
         route: null
       },
       {
-        label: "Profile",
+        // The person's own account, where every SaaS keeps it: under their
+        // name. A dialog rather than a page, so it never takes anybody away
+        // from what they were doing. Not permission-gated - it reaches only
+        // their own rows.
+        label: "My Account",
         iconSrc: "/images/icons/profile-menu/profile.png",
         route: null
       },
@@ -112,10 +143,47 @@ export function DashboardSidebar({
   const [expandedSidebarSections, setExpandedSidebarSections] = useState(() =>
     visibleSidebarSections.map((section) => section.title)
   );
+  /**
+   * Sections this component has offered before, so a NEW one arrives open.
+   *
+   * The initialiser above runs once. That was invisible while everybody signed
+   * in already holding their permissions - but an invited user signs in before
+   * anybody has given them a role, mounts this with no sections at all, and is
+   * then granted one. Without this, the section header appeared and its items
+   * did not: the title was never in `expandedSidebarSections`, so it rendered
+   * collapsed, and the only way to see the pages somebody had just been given
+   * was to click a heading nobody would think to click.
+   *
+   * A set of titles rather than a length comparison, so a section the user
+   * COLLAPSED ON PURPOSE is not re-opened every time the session refreshes.
+   * Seen once, left alone thereafter.
+   */
+  const knownSidebarSections = useRef<Set<string> | null>(null);
+
+  if (knownSidebarSections.current === null) {
+    knownSidebarSections.current = new Set(
+      visibleSidebarSections.map((section) => section.title)
+    );
+  }
+
+  useEffect(() => {
+    const known = knownSidebarSections.current;
+
+    if (!known) return;
+
+    const unseen = visibleSidebarSections
+      .map((section) => section.title)
+      .filter((title) => !known.has(title));
+
+    if (unseen.length === 0) return;
+
+    for (const title of unseen) known.add(title);
+    setExpandedSidebarSections((current) => [...current, ...unseen]);
+  }, [visibleSidebarSections]);
   const [isSidebarTransitionReady, setIsSidebarTransitionReady] =
     useState(false);
   const initials = getInitials(profileName);
-  const isUpgradePrompt = profileSubtitle === "Upgrade Now";
+  const isUpgradePrompt = profileSubtitle === t("shell.upgradeNow");
 
   useEffect(() => {
     const toggleMobileSidebar = (event: Event) => {
@@ -354,7 +422,7 @@ export function DashboardSidebar({
   return (
     <>
       <button
-        aria-label="Close navigation"
+        aria-label={t("nav.closeNavigation")}
         // No backdrop blur behind the kitchen's drawer. Blurring a full-screen
         // board of cards is the most expensive thing on the frame, and it was
         // being animated alongside the panel's slide; the dim alone reads the
@@ -425,7 +493,7 @@ export function DashboardSidebar({
                   }
                   type="button"
                 >
-                  <span>{section.title}</span>
+                  <span>{translated(section.title)}</span>
                   <span
                     aria-hidden="true"
                     className={`text-sm leading-none transition-transform ${
@@ -470,7 +538,7 @@ export function DashboardSidebar({
                         onClick={() => {
                           if (item.route) openNavigationDestination(item.route);
                         }}
-                        aria-label={item.label}
+                        aria-label={translated(item.label)}
                       >
                         {isActive ? (
                           <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-white" />
@@ -511,11 +579,11 @@ export function DashboardSidebar({
 
                         {!showCollapsed ? (
                           <span className="min-w-0 flex-1 truncate text-sm font-normal">
-                            {item.label}
+                              {translated(item.label)}
                           </span>
                         ) : (
                           <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-bold text-white shadow-xl group-hover:block">
-                            {item.label}
+                            {translated(item.label)}
                           </span>
                         )}
                       </button>
@@ -536,7 +604,7 @@ export function DashboardSidebar({
           >
             {isProfileMenuOpen ? (
               <div
-                aria-label="Profile menu"
+                aria-label={t("nav.profileMenu")}
                 className={`absolute z-80 rounded-2xl border border-white/15 bg-[#061126] p-2 text-white shadow-[0_16px_40px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)] ${
                   showCollapsed
                     ? "bottom-2 left-[calc(100%+0.5rem)] w-48"
@@ -551,7 +619,7 @@ export function DashboardSidebar({
                     }
                     aria-haspopup={item.label === "Help" ? "menu" : undefined}
                     className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white ${
-                      item.label === "Profile"
+                      item.label === "My Account"
                         ? "mb-1 after:absolute after:-bottom-0.5 after:left-3 after:right-3 after:h-px after:bg-white/25 after:content-['']"
                         : ""
                     }`}
@@ -564,10 +632,10 @@ export function DashboardSidebar({
                         return;
                       }
 
-                      if (item.label === "Profile") {
+                      if (item.label === "My Account") {
                         setIsProfileMenuOpen(false);
                         closeFloatingSidebar();
-                        setIsEditProfileDialogOpen(true);
+                        setIsAccountDialogOpen(true);
                         return;
                       }
 
@@ -596,7 +664,7 @@ export function DashboardSidebar({
                       src={item.iconSrc}
                       width={18}
                     />
-                    {item.label}
+                    {translated(item.label)}
                     {item.label === "Help" ? (
                       <span
                         aria-hidden="true"
@@ -612,7 +680,7 @@ export function DashboardSidebar({
 
                 {isHelpMenuOpen ? (
                   <div
-                    aria-label="Help links"
+                    aria-label={t("nav.helpLinks")}
                     className={`absolute z-90 w-44 whitespace-nowrap rounded-2xl border border-white/15 bg-[#061126] p-1.5 text-white shadow-[0_16px_40px_rgba(0,0,0,0.45),0_0_0_1px_rgba(255,255,255,0.08)] max-lg:bottom-13 max-lg:left-32 ${
                       showCollapsed
                         ? "bottom-13 left-full"
@@ -623,20 +691,20 @@ export function DashboardSidebar({
                     {(
                       [
                         {
-                          label: "Report a problem",
+                          label: t("shell.reportProblem"),
                           kind: "report-problem"
                         },
-                        { label: "Help Center", kind: "help-center" },
+                        { label: t("shell.helpCenter"), kind: "help-center" },
                         {
-                          label: "Release Notes",
+                          label: t("shell.releaseNotes"),
                           kind: "release-notes"
                         },
                         {
-                          label: "Terms of Service",
+                          label: t("shell.termsOfService"),
                           kind: "terms-of-service"
                         },
                         {
-                          label: "Privacy Policy",
+                          label: t("shell.privacyPolicy"),
                           kind: "privacy-policy"
                         }
                       ] satisfies Array<{ label: string; kind: HelpPageKind }>
@@ -709,7 +777,7 @@ export function DashboardSidebar({
         ) : (
           <div className="border-t border-white/10 p-2">
             <button
-              aria-label={`Open ${profileName} profile menu`}
+              aria-label={t("shell.openProfileMenu", { name: profileName })}
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="menu"
               className="group relative flex h-12 w-full items-center justify-center rounded-xl transition hover:bg-white/10"
@@ -730,21 +798,8 @@ export function DashboardSidebar({
         )}
       </aside>
 
-      {isEditProfileDialogOpen ? (
-        <EditProfileDialog
-          initialValues={{
-            displayName: profileName,
-            username: profileUsername
-          }}
-          initials={initials}
-          onClose={() => setIsEditProfileDialogOpen(false)}
-          onSave={(values) => {
-            setProfileName(values.displayName);
-            setProfileUsername(values.username);
-            setIsEditProfileDialogOpen(false);
-          }}
-          open
-        />
+      {isAccountDialogOpen ? (
+        <AccountDialog onClose={() => setIsAccountDialogOpen(false)} />
       ) : null}
       {isLogoutDialogOpen ? (
         <LogoutConfirmationDialog

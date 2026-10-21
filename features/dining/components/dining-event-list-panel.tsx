@@ -9,6 +9,7 @@ import {
   eventTitle,
   type DiningEvent
 } from "@/features/dining/components/dining-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type DiningEventListPanelProps = {
   eventPage: number;
@@ -35,18 +36,19 @@ export function DiningEventListPanel({
   onSetEventPage,
   onToggleExpanded
 }: DiningEventListPanelProps) {
+  const { t } = useAppLanguage();
   return (
     <Panel>
       <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-3 py-2">
         <div>
-          <h2 className="text-sm font-black">Events</h2>
+          <h2 className="text-sm font-black">{t("dining.events")}</h2>
           <p className="mt-1 text-xs text-[#617086]">
-            Select an organization event.
+            {t("dining.selectOrgEvent")}
           </p>
         </div>
         <button
           aria-expanded={isExpanded}
-          aria-label={isExpanded ? "Collapse events" : "Expand events"}
+          aria-label={isExpanded ? t("dining.collapseEvents") : t("dining.expandEvents")}
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] lg:hidden"
           onClick={onToggleExpanded}
           type="button"
@@ -81,7 +83,7 @@ export function DiningEventListPanel({
                 {eventTitle(event)}
               </strong>
               <p className="mt-1 text-xs leading-5 text-[#55708d]">
-                {event.hall.name} · {eventSchedule(event)} ·{" "}
+                {event.hall.name} · {eventSchedule(event, t)} ·{" "}
                 {counts.adults + counts.children} guests
               </p>
               <div className="mt-2 flex flex-wrap gap-1">
@@ -90,7 +92,7 @@ export function DiningEventListPanel({
                 </span>
                 {event.diningPlan ? (
                   <span className="rounded-full border border-[#b9c2cf] bg-white px-2 py-0.5 text-[10px] font-black">
-                    Plan saved
+                    {t("dining.planSaved")}
                   </span>
                 ) : null}
               </div>
@@ -99,16 +101,16 @@ export function DiningEventListPanel({
         })}
         {visibleEventsCount === 0 ? (
           <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#617086]">
-            No events match the search.
+            {t("dining.noEventsMatch")}
           </p>
         ) : null}
         {visibleEventsCount > 0 ? (
           <nav
-            aria-label="Dining event pages"
+            aria-label={t("dining.eventPages")}
             className="flex flex-wrap items-center justify-center gap-1 border-t border-[#d8dde5] pt-3"
           >
             <button
-              aria-label="Previous event page"
+              aria-label={t("dining.previousEventPage")}
               className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black enabled:hover:bg-[#eef4fa] disabled:opacity-40"
               disabled={eventPage === 1}
               onClick={() =>
@@ -134,7 +136,7 @@ export function DiningEventListPanel({
               </button>
             ))}
             <button
-              aria-label="Next event page"
+              aria-label={t("dining.nextEventPage")}
               className="flex h-8 min-w-8 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black enabled:hover:bg-[#eef4fa] disabled:opacity-40"
               disabled={eventPage === eventPageCount}
               onClick={() =>

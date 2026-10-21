@@ -71,6 +71,94 @@ let fetchInFlight: {
   promise: Promise<AuthSessionResponse>;
 } | null = null;
 
+/**
+ * THE CACHE IS OBSERVABLE, and this is the half that was missing.
+ *
+ * `cacheAuthSession` wrote to localStorage and stopped there. Nothing could
+ * notice, so a session refetched after an administrator granted a role updated
+ * the storage and left every rendered component showing what it read at mount -
+ * which is why the only way to see a new permission was to sign out and back in.
+ *
+ * Deliberately a listener set rather than a React context. This module is
+ * imported from places that are not components at all (the fetch wrapper, the
+ * realtime sync), and they have to be able to publish a change without one.
+ */
+const authSessionListeners = new Set<() => void>();
+
+/**
+ * A snapshot with a STABLE IDENTITY, which `useSyncExternalStore` requires.
+ *
+ * `getCachedAuthSession` parses the JSON on every call and therefore returns a
+ * new object every time. Handing that to `useSyncExternalStore` is an infinite
+ * render loop: React compares snapshots by reference, sees a different one each
+ * pass, and re-renders forever. So the parsed value is held here and replaced
+ * only when the underlying string actually differs.
+ */
+let snapshot: { raw: string | null; value: AuthSessionResponse | null } = {
+  raw: null,
+  value: null
+};
+
+function notifyAuthSessionListeners() {
+  // The snapshot is invalidated rather than recomputed: the listeners are about
+  // to read it, and recomputing here would parse the payload even when nothing
+  // is currently subscribed.
+  snapshot = { raw: null, value: null };
+
+  for (const listener of authSessionListeners) listener();
+}
+
+/**
+ * Subscribe to cached-session changes. Returns the unsubscribe function, in the
+ * shape `useSyncExternalStore` expects.
+ *
+ * Also listens for `storage`, so a second tab that refetches after a permission
+ * change updates this one too - the event does not fire in the tab that wrote
+ * it, which is why the in-process listener set above exists as well.
+ */
+export function subscribeToAuthSession(listener: () => void) {
+  authSessionListeners.add(listener);
+
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === null || event.key === AUTH_SESSION_CACHE_KEY) {
+      snapshot = { raw: null, value: null };
+      listener();
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", onStorage);
+  }
+
+  return () => {
+    authSessionListeners.delete(listener);
+
+    if (typeof window !== "undefined") {
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
+/** The reference-stable snapshot. Never call this to READ - use it to SUBSCRIBE. */
+export function getAuthSessionSnapshot(): AuthSessionResponse | null {
+  if (typeof window === "undefined") return null;
+
+  const raw =
+    window.localStorage.getItem(AUTH_SESSION_CACHE_KEY) ??
+    window.sessionStorage.getItem(AUTH_SESSION_CACHE_KEY);
+
+  if (snapshot.raw === raw) return snapshot.value;
+
+  snapshot = { raw, value: getCachedAuthSession() };
+
+  return snapshot.value;
+}
+
+/** The server-render snapshot. There is no browser storage, so there is nothing. */
+export function getAuthSessionServerSnapshot(): AuthSessionResponse | null {
+  return null;
+}
+
 function getAccessTokenSubject(accessToken: string) {
   try {
     const encodedPayload = accessToken.split(".")[1];
@@ -109,6 +197,10 @@ export function cacheAuthSession(
   if (subject) {
     window.localStorage.setItem(AUTH_SESSION_SUBJECT_KEY, subject);
   }
+
+  // Everything reading permissions re-renders from here. Last, so a listener
+  // that reads the cache synchronously sees the value that was just written.
+  notifyAuthSessionListeners();
 }
 
 export function setActiveOrganization(organizationId: string) {
@@ -163,6 +255,7 @@ export function clearCachedAuthSession() {
   // alone: this also runs on a transient sync failure, and wiping the
   // preference there would silently downgrade a 30-day session.
   setActiveOrganizationCookie(null);
+  notifyAuthSessionListeners();
 }
 
 /**

@@ -4,8 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { z } from "zod";
 import {
   parseNumericInput,
-  type NumericParseResult
+  type NumericParseResult,
+  type ValidationTranslate
 } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type NumberFieldProps = {
   id?: string;
@@ -52,19 +54,23 @@ export function NumberField({
   onChange,
   onValidChange,
   allowEmpty = false,
-  emptyMessage = "Enter a number.",
+  emptyMessage,
   spinner = false,
   className,
   placeholder,
   disabled,
   serverError
 }: NumberFieldProps) {
+  const { t } = useAppLanguage();
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const errorId = `${fieldId}-error`;
   const [touched, setTouched] = useState(false);
+  // Defaulted here rather than in the parameter list, which is evaluated
+  // before any hook has run and so could only ever be English.
+  const blankMessage = emptyMessage ?? t("shell.enterANumber");
 
-  const result = evaluate(value, schema, allowEmpty, emptyMessage);
+  const result = evaluate(value, schema, allowEmpty, blankMessage, t);
   // Only complain once the user has left the field, so it does not scream
   // while a number is still being typed.
   const localError = touched && result.status === "invalid" ? result.message : "";
@@ -73,7 +79,7 @@ export function NumberField({
   const handleChange = (raw: string) => {
     onChange(raw);
 
-    const next = evaluate(raw, schema, allowEmpty, emptyMessage);
+    const next = evaluate(raw, schema, allowEmpty, blankMessage, t);
 
     if (next.status === "valid") onValidChange?.(next.value);
     else if (next.status === "empty" && allowEmpty) onValidChange?.(null);
@@ -136,6 +142,7 @@ export function LiveNumberField({
   className,
   errorClassName = "mt-1 text-[10px] font-bold text-[#c2410c]"
 }: LiveNumberFieldProps) {
+  const { t } = useAppLanguage();
   const externalText = value === null || value === undefined ? "" : String(value);
   const [raw, setRaw] = useState(externalText);
   const [editing, setEditing] = useState(false);
@@ -148,12 +155,12 @@ export function LiveNumberField({
     if (!editing) setRaw(externalText);
   }, [externalText, editing]);
 
-  const result = parseNumericInput(raw, schema);
+  const result = parseNumericInput(raw, schema, t);
   const error =
     editing && result.status === "invalid"
       ? result.message
       : editing && result.status === "empty"
-        ? "Enter a number."
+        ? t("shell.enterANumber")
         : "";
 
   return (
@@ -173,7 +180,7 @@ export function LiveNumberField({
           // behind: typing "60" into a 1-50 field commits 6 on the first
           // keystroke, then stops once "60" is out of range. Roll back to what
           // the parent held before the edit rather than keeping that 6.
-          const parsed = parseNumericInput(raw, schema);
+          const parsed = parseNumericInput(raw, schema, t);
 
           if (parsed.status !== "valid" && valueBeforeEdit.current !== null) {
             onCommit(valueBeforeEdit.current);
@@ -192,7 +199,7 @@ export function LiveNumberField({
           setEditing(true);
           setRaw(next);
 
-          const parsed = parseNumericInput(next, schema);
+          const parsed = parseNumericInput(next, schema, t);
           if (parsed.status === "valid") onCommit(parsed.value);
         }}
         type="text"
@@ -211,9 +218,10 @@ function evaluate(
   raw: string,
   schema: z.ZodType<number>,
   allowEmpty: boolean,
-  emptyMessage: string
+  emptyMessage: string,
+  t: ValidationTranslate
 ): NumericParseResult {
-  const result = parseNumericInput(raw, schema);
+  const result = parseNumericInput(raw, schema, t);
 
   if (result.status === "empty" && !allowEmpty) {
     return { status: "invalid", message: emptyMessage };

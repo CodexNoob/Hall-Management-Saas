@@ -9,6 +9,7 @@ import {
   LineIcon,
   type EventFile
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const EVENT_MAP_ASPECT_RATIO = 760 / 520;
 const EVENT_MAP_PADDING = 44;
@@ -55,6 +56,7 @@ function getFittedMapFrame(
 }
 
 export function HallMapContent({ event }: { event: EventFile }) {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const preset = event.diningHallMapPreset;
   const objects = validPresetObjects(preset?.objects);
@@ -125,7 +127,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
             <div className="flex items-center gap-2">
               <LineIcon name="map" />
               <h2 className="text-sm font-black text-[#17202a]">
-                Dining hall map
+                {t("events.diningHallMap")}
               </h2>
             </div>
             <button
@@ -134,7 +136,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
               onClick={() => router.push("/dashboard/dining-manager")}
             >
               <LineIcon name="fork" />
-              Open dining
+              {t("events.openDining")}
             </button>
           </header>
           <div className="space-y-3 p-3 text-sm leading-5 text-[#17202a]">
@@ -142,13 +144,13 @@ export function HallMapContent({ event }: { event: EventFile }) {
               <>
                 <div className="rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-3">
                   <p className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
-                    Saved preset
+                    {t("events.savedPreset")}
                   </p>
                   <p className="mt-1 text-sm font-black text-[#17202a]">
                     {preset.name}
                   </p>
                   <p className="mt-1 text-xs font-medium text-[#617086]">
-                    Pulled from the Dining Manager plan saved for this event.
+                    {t("events.hallMapFromDining")}
                   </p>
                 </div>
                 <div className="rounded-lg border border-[#d8dde5] bg-white p-3 text-xs font-bold text-[#516174]">
@@ -157,8 +159,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
               </>
             ) : (
               <p>
-                No Dining Manager hall map preset has been saved for this event
-                yet.
+                {t("events.noPresetSaved")}
               </p>
             )}
           </div>
@@ -166,12 +167,10 @@ export function HallMapContent({ event }: { event: EventFile }) {
 
         <section className="rounded-lg border border-[#d8dde5] bg-white p-3 text-sm leading-5 text-[#17202a]">
           <span className="md:hidden">
-            Hall map is view-only on phone screens. Use Dining Manager on a
-            tablet, laptop, or desktop to adjust and save the dining layout.
+            {t("events.hallMapPhoneHint")}
           </span>
           <span className="hidden md:inline">
-            This is a read-only event view of the Hall Map Preset selected in
-            Dining Manager.
+            {t("events.hallMapReadOnlyHint")}
           </span>
         </section>
 
@@ -181,7 +180,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
           onClick={() => router.push("/dashboard/dining-manager")}
         >
           <LineIcon name="fork" />
-          Update in Dining Manager
+          {t("events.updateInDining")}
         </button>
       </aside>
 
@@ -190,17 +189,17 @@ export function HallMapContent({ event }: { event: EventFile }) {
           <div className="flex min-w-0 items-center gap-2">
             <LineIcon name="map" />
             <h2 className="truncate text-sm font-black text-[#17202a]">
-              {preset?.name ?? "Dining hall map"}
+              {preset?.name ?? t("events.diningHallMap")}
             </h2>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             {objects.length ? (
               <div
-                aria-label="Hall map preview zoom controls"
+                aria-label={t("events.hallMapZoomControls")}
                 className="hidden overflow-hidden rounded-lg border border-[#b9c2cf] bg-white text-xs font-black text-[#17202a] md:inline-flex"
               >
                 <button
-                  aria-label="Zoom hall map preview out"
+                  aria-label={t("events.hallMapZoomOut")}
                   className="h-8 w-8 hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={zoom <= EVENT_MAP_MIN_ZOOM}
                   type="button"
@@ -209,7 +208,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
                   -
                 </button>
                 <button
-                  aria-label="Fit hall map preview"
+                  aria-label={t("events.hallMapFit")}
                   className="h-8 min-w-16 border-x border-[#d8dde5] px-2 text-[10px] hover:bg-[#eef4fa]"
                   type="button"
                   onClick={fitLayout}
@@ -217,7 +216,7 @@ export function HallMapContent({ event }: { event: EventFile }) {
                   {Math.round(zoom * 100)}%
                 </button>
                 <button
-                  aria-label="Zoom hall map preview in"
+                  aria-label={t("events.hallMapZoomIn")}
                   className="h-8 w-8 hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={zoom >= EVENT_MAP_MAX_ZOOM}
                   type="button"
@@ -228,10 +227,10 @@ export function HallMapContent({ event }: { event: EventFile }) {
               </div>
             ) : null}
             <span className="inline-flex rounded-full border border-[#b9c2cf] bg-[#f5f6f8] px-2 py-1 text-[10px] font-black uppercase text-[#516174] md:hidden">
-              View only
+              {t("events.viewOnly")}
             </span>
             <Badge tone={preset ? "green" : "gold"}>
-              {preset ? "Saved dining layout" : "Needs dining layout"}
+              {preset ? t("events.savedDiningLayout") : t("events.needsDiningLayout")}
             </Badge>
           </div>
         </header>
@@ -312,11 +311,10 @@ export function HallMapContent({ event }: { event: EventFile }) {
               <div className="flex min-h-72 flex-col items-center justify-center rounded-lg bg-white/80 p-6 text-center">
                 <LineIcon name="map" className="h-8 w-8 text-[#8a94a3]" />
                 <h3 className="mt-3 text-sm font-black text-[#17202a]">
-                  No saved dining hall map yet
+                  {t("events.noSavedHallMap")}
                 </h3>
                 <p className="mt-2 max-w-md text-sm leading-6 text-[#617086]">
-                  Select a Hall Map Preset in Dining Manager, save the dining
-                  plan, then return here to view the exact event layout.
+                  {t("events.noSavedHallMapBody")}
                 </p>
               </div>
             )}

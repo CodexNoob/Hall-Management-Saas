@@ -166,6 +166,54 @@ describe("every API route reaches a guard", () => {
     }
   });
 
+  /**
+   * THE ROUTES AN UNCONFIRMED BROWSER CAN REACH. Every other route refuses it
+   * with `device_confirmation_required`. Adding one here is a visible diff
+   * that has to say why refusing it would leave the person no way forward.
+   */
+  it("pins which routes answer before the device is confirmed", () => {
+    const exempt = routes
+      .filter((route) => /allowUnconfirmedDevice:\s*true/.test(route.source))
+      .map((route) => route.relative)
+      .sort();
+
+    expect(exempt).toEqual([
+      // Records the password an invite or recovery link was opened to set.
+      // The dashboard holds the person on /set-password until it has, so a
+      // refusal here loops them there before any gate can show.
+      "auth/password-set/route.ts",
+      // The two routes that clear the device gate.
+      "me/devices/confirm/route.ts",
+      "me/devices/resend/route.ts",
+      // 2FA comes BEFORE the device gate, so its set-up and its recording
+      // must answer on a browser that is not confirmed yet.
+      "me/mfa/route.ts",
+      "me/security-code/send/route.ts",
+      "me/security-code/verify/route.ts"
+    ]);
+  });
+
+  /**
+   * THE ROUTES A SESSION THAT OWES ITS SECOND FACTOR CAN REACH. Same rule as
+   * the device list: each one would otherwise leave the person no way to
+   * comply, and none serves organization data.
+   */
+  it("pins which routes answer before the second factor is satisfied", () => {
+    const exempt = routes
+      .filter((route) => /allowUnsatisfiedMfa:\s*true/.test(route.source))
+      .map((route) => route.relative)
+      .sort();
+
+    expect(exempt).toEqual([
+      // See the device list above: invite and recovery password bookkeeping.
+      "auth/password-set/route.ts",
+      // Protected enrolment: the email code, then recording the new factor.
+      "me/mfa/route.ts",
+      "me/security-code/send/route.ts",
+      "me/security-code/verify/route.ts"
+    ]);
+  });
+
   it("lists which routes are member-gated rather than permission-gated", () => {
     // `authorizeMember` is a real decision - it denies strangers, deactivated
     // accounts and members of other tenants - but it is not keyed on a
@@ -177,6 +225,60 @@ describe("every API route reaches a guard", () => {
 
     expect(memberGated).toEqual([
       "auth/password-set/route.ts",
+      // Reads the caller's own role assignments and effective permissions for
+      // the My Account page. Read-only, and there is no id in the request - an
+      // employee may always see what they themselves are allowed to do.
+      "me/access/route.ts",
+      // Writes only the caller's own `users.language`. Keying it on a
+      // permission would put a preference about somebody's own screen behind
+      // `settings.update`, which the people who need a second language do not
+      // hold - see components/forms/profile-language-field.tsx.
+      // Stamps "a person just did something" on the caller's own session, and
+      // marks that session a shared display. Both are facts about the device
+      // in front of the person making the request; there is no id here that
+      // could name somebody else's, and no permission it could sensibly be
+      // keyed on - every employee's session times out.
+      "me/activity/route.ts",
+      // The caller's own browsers: list and remove (me/devices, removal needing
+      // the code from me/devices/removal-code), and confirm or resend for THIS
+      // browser only, identified by its httpOnly cookie. Every id in a request
+      // is looked up under the caller's own user id, so none can reach another
+      // person's device.
+      "me/devices/confirm/route.ts",
+      "me/devices/removal-code/route.ts",
+      "me/devices/resend/route.ts",
+      "me/devices/route.ts",
+      "me/language/route.ts",
+      // Records that the caller's own second factor changed, by asking
+      // Supabase rather than by believing the browser. Every employee enrols
+      // their own account, so there is no permission this could sensibly be
+      // keyed on - and gating it would mean an administrator had to be present
+      // for somebody to turn on 2FA.
+      "me/mfa/route.ts",
+      // The caller's own notification switches - the row Settings has always
+      // edited, reachable without `settings.read`, which the people being
+      // emailed mostly do not hold.
+      "me/notifications/route.ts",
+      // Emails the caller's own reset link, to the address on their own row -
+      // "forgot my current password" from inside My Account. Nothing in the
+      // request names a person or an address.
+      "me/password-reset/route.ts",
+      // Changes the caller's own password after proving the current one.
+      // Rate-limited; there is no id here that could name another account.
+      "me/password/route.ts",
+      // Name and phone on the caller's own user row, through a strict schema
+      // that refuses title, department and anything touching privilege.
+      "me/profile/route.ts",
+      // Protected 2FA enrolment: email a code to the caller's OWN address, and
+      // check it - turning it into a short-lived grant bound to this session.
+      // Both are exempt from the two-factor check like me/mfa, because they
+      // are the first steps of getting a factor. Neither names another person.
+      "me/security-code/send/route.ts",
+      "me/security-code/verify/route.ts",
+      // Ends the caller's own other sessions and nothing else. Gating it on a
+      // permission would put the response to "my laptop was stolen" behind an
+      // administrator.
+      "me/sessions/route.ts",
       "support/tickets/[ticketId]/messages/route.ts",
       "support/tickets/route.ts",
       "today-notes/route.ts"

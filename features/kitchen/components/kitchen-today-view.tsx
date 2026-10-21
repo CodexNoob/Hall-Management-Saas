@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 import {
   type KitchenDay,
   type KitchenEvent
@@ -32,6 +33,7 @@ export function TodayView({
    */
   seesWholeBoard?: boolean;
 }) {
+  const { t } = useAppLanguage();
   return (
     <section className="dashboard-panel-enter min-h-0 flex-1">
       {day.events?.length ? (
@@ -48,9 +50,7 @@ export function TodayView({
           className="flex min-h-28 w-full items-center justify-center border border-[#e8e8e8] bg-white px-4 py-8 text-center text-2xl font-black text-[#637085] sm:text-3xl"
           role="status"
         >
-          {seesWholeBoard
-            ? "No kitchen items scheduled for this day."
-            : "Nothing assigned to you for this day."}
+          {seesWholeBoard ? t("kitchen.noItems") : t("kitchen.noneAssigned")}
         </div>
       )}
     </section>

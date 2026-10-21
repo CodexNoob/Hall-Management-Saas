@@ -55,7 +55,9 @@ const NOT_LOGGED: Record<string, string> = {
   "staff/route.ts":
     "PRIVILEGE, NOT PROFILE. Inviting somebody writes an `authorization_audit` row inside the same transaction as the membership (INV-7, lib/authz/admin/audit.ts). The Activity feed unions that table, so an entry here would duplicate it.",
   "staff/[principalId]/deactivate/route.ts":
-    "Deactivate and restore both write `authorization_audit` rows in the privilege transaction, for the same reason as the invite above."
+    "Deactivate and restore both write `authorization_audit` rows in the privilege transaction, for the same reason as the invite above.",
+  "staff/[principalId]/password-reset/route.ts":
+    "An administrator issuing somebody's password reset is authority over that person, so it writes a `staff.password.reset` row to `authorization_audit` like deactivation does. The Activity feed unions that table; an entry here would show it twice."
 };
 
 function* walk(directory: string): Generator<string> {

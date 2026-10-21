@@ -138,12 +138,15 @@ describe("DashboardSidePanels events timeline", () => {
     window.localStorage.clear();
   });
 
-  it("is shown for every shipped role", () => {
+  // Every role that reads events, which is no longer every shipped role: the
+  // two kitchen roles hold neither `event.read` nor `calendar.read` any more,
+  // so they are the real-world instance of the "is hidden without either event
+  // view permission" case directly below rather than an exception to this one.
+  it("is shown for every role that reads events", () => {
     for (const role of [
       "owner",
       "administrator",
       "event-manager",
-      "kitchen-staff",
       "viewer"
     ] as const) {
       window.localStorage.clear();

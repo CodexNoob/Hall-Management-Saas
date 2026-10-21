@@ -11,6 +11,8 @@ import {
 import { LineQuantity } from "@/features/kitchen/components/kitchen-line-presentation";
 import { resolveReplacementStyle } from "@/features/kitchen/components/kitchen-shared";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * Swapping one dish for another, from the board.
@@ -47,15 +49,22 @@ function replacementGroup(line: EventKitchenLine) {
   return "other" as const;
 }
 
-function styleNote(option: ReplacementOption) {
-  if (option.isOnMenu) return "Already on this menu";
-  if (option.kind === "add-on") return "Add-on";
-  if (option.landsAs) return `Will be served ${option.landsAs.toLowerCase()}`;
+function styleNote(
+  option: ReplacementOption,
+  t: (key: MessageKey, values?: Record<string, string | number>) => string
+) {
+  if (option.isOnMenu) return t("kitchen.alreadyOnMenu");
+  if (option.kind === "add-on") return t("kitchen.addOnLabel");
+  if (option.landsAs) {
+    return t("kitchen.willBeServed", {
+      style: option.landsAs.toLowerCase()
+    });
+  }
   if (option.styles.length > 1) {
-    return "Served both ways - needs a style set on the Menu tab";
+    return t("kitchen.servedBothWays");
   }
 
-  return "No counting rule, so there is no quantity to cook to";
+  return t("kitchen.noRuleNoQuantity");
 }
 
 export function KitchenReplaceDishDrawer({
@@ -79,6 +88,7 @@ export function KitchenReplaceDishDrawer({
   ) => Promise<void>;
   usedMenuItemIds: Set<string>;
 }) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const searchId = useId();
   const libraryQuery = useAuthenticatedQuery<EventMenuResponse>("/api/menu");
@@ -185,7 +195,7 @@ export function KitchenReplaceDishDrawer({
       // justify those would train people to type "x" into the box.
       if (
         replaceError instanceof Error &&
-        replaceError.message.includes("Say why it is being replaced")
+        replaceError.message.includes(t("kitchen.sayWhyReplaced"))
       ) {
         setNeedsReason(true);
       }
@@ -196,7 +206,7 @@ export function KitchenReplaceDishDrawer({
       setMessage(
         replaceError instanceof Error
           ? replaceError.message
-          : "Could not replace the dish."
+          : t("kitchen.replaceFailed")
       );
     }
   }
@@ -220,15 +230,15 @@ export function KitchenReplaceDishDrawer({
               className="truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Replace {line.kind === "AddOn" ? "an add-on" : "a dish"}
+              Replace {line.kind === "AddOn" ? t("kitchen.anAddOn") : "a dish"}
             </h2>
             <p className="mt-0.5 text-xs text-[#6a7483]">
-              Pick another item from the same menu section.
+              {t("kitchen.pickAnotherItem")}
             </p>
           </div>
 
           <button
-            aria-label="Close replacement picker"
+            aria-label={t("kitchen.closeReplacement")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -242,7 +252,7 @@ export function KitchenReplaceDishDrawer({
               no doubt about which card this drawer was opened from. */}
           <section className="rounded-xl border border-[#e5c894] bg-[#fffaf1] p-3">
             <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#8a6414]">
-              Coming off
+              {t("kitchen.comingOff")}
             </p>
             <div className="mt-2 flex min-w-0 items-center gap-2.5">
               <MenuThumbnail
@@ -265,20 +275,18 @@ export function KitchenReplaceDishDrawer({
               className="mt-2 rounded-lg border border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2 text-xs leading-5 text-[#8a6414]"
               role="status"
             >
-              This menu is confirmed, so the client has already been shown it.
-              Replacing a dish changes what they were promised - tell whoever is
-              running the event.
+              {t("kitchen.confirmedMenuWarning")}
             </p>
           ) : null}
 
           <label className="mt-3 block" htmlFor={searchId}>
-            <span className="sr-only">Search the menu library</span>
+            <span className="sr-only">{t("kitchen.searchMenuLibrary")}</span>
             <input
               autoComplete="off"
               className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-semibold text-[#17202a] placeholder:font-normal placeholder:text-[#6a7483] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73]"
               id={searchId}
               onChange={(changeEvent) => setSearch(changeEvent.target.value)}
-              placeholder="Search dishes"
+              placeholder={t("kitchen.searchDishes")}
               type="search"
               value={search}
             />
@@ -295,8 +303,8 @@ export function KitchenReplaceDishDrawer({
           ) : options.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
               {search.trim()
-                ? `Nothing in the menu library matches "${search.trim()}".`
-                : "There is no other item in this section to swap this one for."}
+                ? t("kitchen.nothingMatchesSearch", { query: search.trim() })
+                : t("kitchen.noOtherItem")}
             </p>
           ) : (
             <ul className="mt-3 grid gap-2.5 sm:grid-cols-2">
@@ -328,7 +336,7 @@ export function KitchenReplaceDishDrawer({
                               : "text-[#6a7483]"
                           }`}
                         >
-                          {styleNote(option)}
+                          {styleNote(option, t)}
                         </span>
                       </span>
                     </button>
@@ -356,14 +364,14 @@ export function KitchenReplaceDishDrawer({
           {needsReason ? (
             <label className="mb-2 block">
               <span className="mb-1 block text-xs font-black text-[#17202a]">
-                Why is this being replaced?
+                {t("kitchen.whyReplaced")}
               </span>
               <input
                 autoFocus
                 className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 text-xs font-black text-[#17202a] transition hover:border-[#1f4d73]"
                 maxLength={500}
                 onChange={(changeEvent) => setReason(changeEvent.target.value)}
-                placeholder="Delivery was short"
+                placeholder={t("kitchen.deliveryShort")}
                 type="text"
                 value={reason}
               />
@@ -397,7 +405,7 @@ export function KitchenReplaceDishDrawer({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
@@ -406,7 +414,7 @@ export function KitchenReplaceDishDrawer({
               type="button"
             >
               {isSaving
-                ? "Replacing…"
+                ? t("kitchen.replacing")
                 : `Replace ${line.kind === "AddOn" ? "add-on" : "dish"}`}
             </button>
           </div>

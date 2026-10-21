@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   REALTIME_TABLES,
   TABLE_ENDPOINTS,
+  affectsAuthorization,
   endpointsForTable,
   endpointsForTables
 } from "@/lib/realtime/table-subscriptions";
@@ -17,6 +18,55 @@ describe("realtime table map", () => {
       "/api/dining",
       "/api/events"
     ]);
+  });
+
+  /**
+   * The session list is pushed by proxy. `user_sessions` is deny-all and has no
+   * `organization_id`, so it can be neither published nor filtered - but a new
+   * sign-in writes `auth.login.success` in the same request that records the
+   * session row, and that table is already published and tenant-scoped.
+   *
+   * If this mapping is dropped, the Security panel silently stops updating and
+   * only the thirty-second poll keeps it honest.
+   */
+  it("refreshes the session list when a sign-in is recorded", () => {
+    expect(endpointsForTable("activity_logs")).toContain("/api/me/sessions");
+  });
+
+  /**
+   * How a permission change reaches a browser that is already open.
+   *
+   * `organizations` is published for one reason: all three privilege tables
+   * bump its `permissions_epoch` through triggers, so one row covers a role
+   * assigned, a role removed, a department moved, a direct override and a
+   * role's own permission set being edited. It carries no query endpoint
+   * because what it triggers is a session refetch, not a list refresh.
+   */
+  it("treats an organization row as an authorization signal", () => {
+    expect(affectsAuthorization(["organizations"])).toBe(true);
+    expect(endpointsForTable("organizations")).toEqual([]);
+    expect(REALTIME_TABLES).toContain("organizations");
+  });
+
+  it("publishes no table that holds a grant", () => {
+    // RLS on with NO POLICY at all, by design. Publishing one would deliver
+    // nothing; adding a policy so a sidebar could refresh would be inventing
+    // read access to the grants themselves.
+    for (const table of [
+      "principal_roles",
+      "principal_permissions",
+      "role_permissions",
+      "roles",
+      "permissions"
+    ]) {
+      expect(REALTIME_TABLES, table).not.toContain(table);
+    }
+  });
+
+  it("does not try to subscribe to the session table itself", () => {
+    // Publishing it would mean granting the browser direct SELECT on rows
+    // holding IP addresses, which is exactly what its deny-all RLS prevents.
+    expect(REALTIME_TABLES).not.toContain("user_sessions");
   });
 
   it("ignores a table nothing reads instead of refetching everything", () => {
@@ -180,6 +230,8 @@ describe("realtime sync lifecycle", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
+    vi.unstubAllEnvs();
+    vi.stubEnv("NODE_ENV", "test");
     vi.doMock("@/lib/supabase/browser", () => ({
       createSupabaseBrowserClient: () => supabase
     }));
@@ -197,9 +249,25 @@ describe("realtime sync lifecycle", () => {
     expect(channel.subscribe).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * ANOTHER TENANT CANNOT MOVE THIS USER'S PERMISSIONS.
+   *
+   * Two independent reasons, and this pins the first. Every subscription -
+   * including the `organizations` one that carries the authorization signal -
+   * is filtered to the caller's own organization, and Realtime enforces RLS on
+   * top of that, so another tenant's row never arrives at all.
+   *
+   * The second is that the payload is never read: an event only causes a
+   * refetch of `POST /api/auth/session`, which recomputes the permission set
+   * server-side for the authenticated user. Even a forged event could not widen
+   * anybody's access, because nothing about what a person may do is taken off
+   * the wire.
+   */
   it("scopes every subscription to the caller's organization", async () => {
     const { startRealtimeSync } = await import("@/lib/realtime/realtime-sync");
     startRealtimeSync("org-1");
+
+    expect(channel.on.mock.calls.length).toBe(REALTIME_TABLES.length);
 
     for (const call of channel.on.mock.calls) {
       expect(call[1].filter).toBe("organization_id=eq.org-1");
@@ -243,6 +311,31 @@ describe("realtime sync lifecycle", () => {
     startRealtimeSync("");
 
     expect(supabase.channel).not.toHaveBeenCalled();
+  });
+
+  it("keeps local development quiet unless realtime is explicitly enabled", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    const { startRealtimeSync, isRealtimeSyncEnabled } = await import(
+      "@/lib/realtime/realtime-sync"
+    );
+
+    expect(isRealtimeSyncEnabled()).toBe(false);
+    startRealtimeSync("org-1");
+
+    expect(supabase.channel).not.toHaveBeenCalled();
+  });
+
+  it("allows local development to opt back into realtime", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("NEXT_PUBLIC_ENABLE_REALTIME_SYNC", "true");
+    const { startRealtimeSync, isRealtimeSyncEnabled } = await import(
+      "@/lib/realtime/realtime-sync"
+    );
+
+    expect(isRealtimeSyncEnabled()).toBe(true);
+    startRealtimeSync("org-1");
+
+    expect(supabase.channel).toHaveBeenCalledTimes(1);
   });
 
   it("collapses a burst of changes into one refetch per endpoint", async () => {

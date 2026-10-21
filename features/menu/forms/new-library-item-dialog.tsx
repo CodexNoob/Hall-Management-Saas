@@ -17,6 +17,7 @@ import {
   type ServiceStyle,
   type ServiceStyleFormValues
 } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewLibraryItemFormValues = {
   name: string;
@@ -170,6 +171,7 @@ function LibraryIcon() {
 }
 
 export function NewLibraryItemDialog({ initialValues: editValues, currentPictureUrl, defaultServiceStyle, defaultKind, isDismissBlocked = false, open, onClose, onRemove, onSave }: NewLibraryItemDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   // One list for both style blocks - the suggestions are the same, and a
   // per-style copy would only duplicate eight options in the DOM.
@@ -340,7 +342,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
         onClick={() => setOpenRuleStyles((current) => [...current, style])}
         type="button"
       >
-        Add a counting rule (optional)
+        {t("menu.addCountingRule")}
       </button>
     );
 
@@ -373,7 +375,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
       setSaveError(
         error instanceof Error
           ? error.message
-          : "The item could not be saved. Please try again."
+          : t("menu.itemSaveFailed")
       );
     } finally {
       setIsSaving(false);
@@ -393,18 +395,18 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
           <div className="flex items-center gap-3">
             <LibraryIcon />
             {/* Names what is being made, which for a scoped create is the
-                style - "Buffet item", opened from the Buffet Menu. Otherwise
+                style - t("menu.buffetItem"), opened from the Buffet Menu. Otherwise
                 it is the kind, which an edit takes from the row rather than
                 from the tab the card happened to be clicked on. */}
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>{isEditing ? `Edit ${isDrink ? "drink" : "library"} item` : scopedLabel ? `${scopedLabel} item` : `${isDrink ? "Drink" : "Library"} item`}</h2>
           </div>
-          <button aria-label="Close library item" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
+          <button aria-label={t("menu.closeLibraryItem")} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button"><svg aria-hidden="true" className="h-6 w-6" fill="none" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" strokeLinecap="round" strokeWidth="2.25" /></svg></button>
         </header>
 
         <form onSubmit={handleSubmit}>
           <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Item name
+              {t("menu.itemName")}
               <input className={`${controlClass} mt-1`} name="libraryItemName" onChange={(event) => updateValue("name", event.target.value)} ref={firstInputRef} required value={values.name} />
             </label>
             {/* A drink is asked one question where a dish is asked two, and it
@@ -420,7 +422,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                 given an answer it was never asked for. */}
             {isDrink ? (
               <div className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                Alcohol
+                {t("menu.alcohol")}
                 {/* The whole row is the switch, not the 36px track at the end of
                     it: this sits three columns from the edge of a phone, and the
                     track alone is the hardest part of the field to hit. */}
@@ -438,7 +440,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                   type="button"
                 >
                   <span className="text-xs font-black normal-case tracking-normal text-[#17202a]">
-                    Contains alcohol
+                    {t("menu.containsAlcohol")}
                   </span>
                   <span
                     className={`relative h-5 w-9 shrink-0 rounded-full transition ${values.containsAlcohol ? "bg-[#1f4d73]" : "bg-[#b9c2cf]"}`}
@@ -452,24 +454,24 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
             ) : (
               <>
                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                  Category
+                  {t("common.category")}
                   <select className={`${controlClass} mt-1`} name="libraryItemCategory" onChange={(event) => updateValue("category", event.target.value)} value={values.category}>
-                    <option>Appetizer</option><option>Soup</option><option>Main</option><option>Side</option><option>Drink</option><option>Dessert</option><option>More</option>
+                    <option value="Appetizer">{t("menu.categoryAppetizer")}</option><option value="Soup">{t("menu.categorySoup")}</option><option value="Main">{t("menu.categoryMain")}</option><option value="Side">{t("menu.categorySide")}</option><option value="Drink">{t("menu.categoryDrink")}</option><option value="Dessert">{t("menu.categoryDessert")}</option><option value="More">{t("menu.more")}</option>
                   </select>
                 </label>
                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                  Kashrut type
+                  {t("menu.kashrutType")}
                   <select className={`${controlClass} mt-1`} name="kashrutType" onChange={(event) => updateValue("kashrutType", event.target.value)} value={values.kashrutType}>
-                    <option>Parve</option><option>Fleishig</option><option>Milchig</option>
+                    <option value="Parve">{t("menu.parve")}</option><option value="Fleishig">{t("menu.fleishig")}</option><option value="Milchig">{t("menu.milchig")}</option>
                   </select>
                 </label>
               </>
             )}
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-              Allergies
-              <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder="Nuts, gluten, dairy, sesame" value={values.allergies} />
+              {t("menu.allergies")}
+              <input className={`${controlClass} mt-1`} name="allergies" onChange={(event) => updateValue("allergies", event.target.value)} placeholder={t("menu.allergiesHint")} value={values.allergies} />
             </label>
-            {/* The "Food or drink" select used to sit here, on an edit and on a
+            {/* The t("menu.foodOrDrink") select used to sit here, on an edit and on a
                 create the picker had not already answered. It is gone from
                 both - see `defaultKind`. The kind chooses which questions this
                 form asks, so it cannot also be one of them. */}
@@ -482,7 +484,7 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                 plate rule for the plated menu at the same time. */}
             <fieldset className="sm:col-span-2">
               <legend className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                {scopedLabel ? `${scopedLabel} rule` : "Served as"}
+                {scopedLabel ? `${scopedLabel} rule` : t("menu.servedAs")}
               </legend>
               {scopedLabel ? (
                 /* Said, not asked. The tab already decided this, so the line
@@ -490,8 +492,9 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                    choice whose other answer files it somewhere the operator
                    cannot see from where they are standing. */
                 <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
-                  Served {scopedLabel.toLowerCase()}, and listed on that menu.
-                  Price stays on the package.
+                  {t("menu.servedScoped", {
+                    style: scopedLabel.toLowerCase()
+                  })}
                 </p>
               ) : (
                 /* Two sentences, because the two kinds answer differently. A
@@ -502,8 +505,8 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                    to put out, and which group of the Drink Menu it sits in. */
                 <p className="mt-1 text-[10px] font-bold normal-case tracking-normal text-[#6a7483]">
                   {isDrink
-                    ? "Drinks stay on the Drink Menu either way. This sets how much to put out - by table, or by guests for a self-serve station - and which group of that tab it sits under."
-                    : "Decides which service tabs list it, and how much to cook for each. Price stays on the package."}
+                    ? t("menu.drinkServiceHint")
+                    : t("menu.dishServiceHint")}
                 </p>
               )}
               {/* The escape hatch, said out loud. Leaving the rule blank has
@@ -549,11 +552,11 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
               <CountingUnitsDatalist id={unitListId} />
             </fieldset>
             <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2">
-              Description
-              <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" name="description" onChange={(event) => updateValue("description", event.target.value)} placeholder="Short description for reference" value={values.description} />
+              {t("common.description")}
+              <textarea className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15" name="description" onChange={(event) => updateValue("description", event.target.value)} placeholder={t("menu.shortDescription")} value={values.description} />
             </label>
             {/* The current picture, not just a file input: an item that already
-                has a photo used to say "No file chosen" beside it. */}
+                has a photo used to say t("menu.noFileChosen") beside it. */}
             <div className="sm:col-span-2">
               <PictureField
                 currentPictureUrl={currentPictureUrl}
@@ -588,13 +591,13 @@ export function NewLibraryItemDialog({ initialValues: editValues, currentPicture
                   at the far end from Save so a destructive click is a
                   deliberate one, never a slip off the primary button. */}
               {isEditing && onRemove ? (
-                <button className="h-9 rounded-lg border border-[#efb6b6] bg-white px-4 text-xs font-black text-[#b42318] transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} onClick={onRemove} type="button">Remove item</button>
+                <button className="h-9 rounded-lg border border-[#efb6b6] bg-white px-4 text-xs font-black text-[#b42318] transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} onClick={onRemove} type="button">{t("menu.removeItem")}</button>
               ) : null}
               {saveError ? (
                 <p className="text-xs font-bold text-[#b42318]" role="alert">{saveError}</p>
               ) : null}
             </div>
-            <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button">Cancel</button>
+            <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]" onClick={closeAndReset} type="button">{t("common.cancel")}</button>
             <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-60" disabled={isSaving} type="submit">{isSaving ? "Saving…" : isEditing ? "Save changes" : "Save item"}</button>
           </footer>
         </form>

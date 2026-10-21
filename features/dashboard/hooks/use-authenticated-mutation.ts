@@ -8,6 +8,7 @@ import {
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { ApiRequestError, readApiError } from "@/lib/http/api-request-error";
 import type { ZodFieldErrors } from "@/lib/http/zod-error-message";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 export function useAuthenticatedMutation<TInput, TOutput>(
   url: string,
@@ -61,7 +62,7 @@ export function useAuthenticatedMutation<TInput, TOutput>(
         const message =
           mutationError instanceof Error
             ? mutationError.message
-            : "Unable to save changes.";
+            : ambientTranslate("common.unableToSaveChanges");
         setError(message);
         if (mutationError instanceof ApiRequestError) {
           setFieldErrors(mutationError.fieldErrors);

@@ -13,6 +13,7 @@ import {
   type ShapeLibraryItem,
   type ShapeType
 } from "@/features/hall-room-map/components/hall-map-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type HallOption = {
   id: string;
@@ -89,6 +90,7 @@ export function HallMapLibraryPanel({
   onSelectMap,
   onUploadFloorPlan
 }: HallMapLibraryPanelProps) {
+  const { t } = useAppLanguage();
   const [isNewTableOpen, setIsNewTableOpen] = useState(false);
   const [rowsForm, setRowsForm] = useState({
     count: "8",
@@ -109,12 +111,12 @@ export function HallMapLibraryPanel({
     const seats = Number(newTableForm.seats);
 
     if (!newTableForm.name.trim() || !Number.isFinite(size) || size < 10) {
-      setNewTableError("Enter a table name and size.");
+      setNewTableError(t("hallMap.enterTableNameAndSize"));
       return;
     }
 
     if (!Number.isFinite(seats) || seats < 0) {
-      setNewTableError("Enter a valid capacity.");
+      setNewTableError(t("hallMap.enterValidCapacity"));
       return;
     }
 
@@ -136,7 +138,7 @@ export function HallMapLibraryPanel({
       });
     } catch (error) {
       setNewTableError(
-        error instanceof Error ? error.message : "Unable to save this table."
+        error instanceof Error ? error.message : t("hallMap.tableSaveFailed")
       );
     }
   }
@@ -145,9 +147,9 @@ export function HallMapLibraryPanel({
     <>
       <Panel className="order-2 block md:block xl:order-1">
         <header className="border-b border-[#d8dde5] px-3 py-2">
-          <h2 className="text-sm font-black">Shape library</h2>
+          <h2 className="text-sm font-black">{t("hallMap.shapeLibrary")}</h2>
           <p className="mt-1 text-[10px] text-[#617086]">
-            Click to add to the map.
+            {t("hallMap.clickToAdd")}
           </p>
         </header>
 
@@ -157,7 +159,7 @@ export function HallMapLibraryPanel({
               <ShapeButton
                 disabled={!hasSelectedMap}
                 key={shape.type}
-                label={shape.label}
+                label={t(shape.labelKey)}
                 onClick={() => onAddObject(shape.type)}
                 type={shape.type}
               />
@@ -171,7 +173,7 @@ export function HallMapLibraryPanel({
             type="button"
           >
             <ShapePreview type="divider" />
-            Mechitza divider
+            {t("hallMap.mechitzaDivider")}
           </button>
 
           <button
@@ -180,15 +182,15 @@ export function HallMapLibraryPanel({
             onClick={() => setIsNewTableOpen(true)}
             type="button"
           >
-            New table
+            {t("hallMap.newTable")}
           </button>
 
           <section className="mt-3 rounded-lg border border-[#d8dde5] p-2 max-md:pointer-events-none max-md:opacity-60">
-            <h3 className="text-[10px] font-black">Add in rows</h3>
+            <h3 className="text-[10px] font-black">{t("hallMap.addInRows")}</h3>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <label className="min-w-0">
                 <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
-                  Tables
+                  {t("hallMap.tables")}
                 </span>
                 <input
                   className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
@@ -205,7 +207,7 @@ export function HallMapLibraryPanel({
               </label>
               <label className="min-w-0">
                 <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
-                  Per row
+                  {t("hallMap.perRow")}
                 </span>
                 <input
                   className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
@@ -223,16 +225,16 @@ export function HallMapLibraryPanel({
               <label className="min-w-0">
                 {/* Visible text is short so all three labels stay on one line
                     and the inputs align. The accessible name stays
-                    "Seats per table" - a bare "Seats" would collide with the
+                    t("hallMap.seatsPerTable") - a bare "Seats" would collide with the
                     inspector's field of the same name. */}
                 <span
                   aria-hidden="true"
                   className="block whitespace-nowrap text-[9px] font-black uppercase tracking-wide text-[#59677c]"
                 >
-                  Seats
+                  {t("hallMap.seats")}
                 </span>
                 <input
-                  aria-label="Seats per table"
+                  aria-label={t("hallMap.seatsPerTable")}
                   className="mt-1 h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs"
                   inputMode="numeric"
                   name="rowTablesSeats"
@@ -263,12 +265,12 @@ export function HallMapLibraryPanel({
               }
               type="button"
             >
-              Add round tables in rows
+              {t("hallMap.addRoundInRows")}
             </button>
           </section>
 
           <section className="mt-3 rounded-lg border border-[#d8dde5] p-2">
-            <h3 className="text-[10px] font-black">Custom tables</h3>
+            <h3 className="text-[10px] font-black">{t("hallMap.customTables")}</h3>
             {shapeLibrary.length ? (
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {shapeLibrary.map((shape) => (
@@ -283,19 +285,19 @@ export function HallMapLibraryPanel({
               </div>
             ) : (
               <p className="mt-2 text-[10px] text-[#617086]">
-                Saved tables will appear here.
+                {t("hallMap.savedTablesHere")}
               </p>
             )}
           </section>
 
           <section className="mt-3 rounded-lg border border-[#d8dde5] p-2">
-            <h3 className="text-[10px] font-black">Hall presets</h3>
+            <h3 className="text-[10px] font-black">{t("hallMap.hallPresets")}</h3>
 
             <label
               className="mt-2 block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
               htmlFor="hall-preset"
             >
-              Preset
+              {t("hallMap.preset")}
             </label>
 
             <CompactSelect
@@ -309,7 +311,7 @@ export function HallMapLibraryPanel({
               }}
               options={
                 selectedHallMaps.length === 0
-                  ? [{ label: "No presets for this hall", value: "" }]
+                  ? [{ label: t("hallMap.noPresetsForHall"), value: "" }]
                   : selectedHallMaps.map((map) => ({
                       label: map.name,
                       value: map.id
@@ -322,14 +324,14 @@ export function HallMapLibraryPanel({
               className="mt-2 block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
               htmlFor="assigned-hall"
             >
-              Assigned hall
+              {t("hallMap.assignedHall")}
             </label>
             <CompactSelect
               disabled={halls.length === 0}
               id="assigned-hall"
               onChange={onSelectHall}
               options={[
-                { label: "Select a hall", value: "" },
+                { label: t("hallMap.selectHall"), value: "" },
                 ...halls.map((hall) => ({
                   label: hall.name,
                   value: hall.id
@@ -345,7 +347,7 @@ export function HallMapLibraryPanel({
                 onClick={onLoadPreset}
                 type="button"
               >
-                Load preset
+                {t("hallMap.loadPreset")}
               </button>
 
               <button
@@ -354,7 +356,7 @@ export function HallMapLibraryPanel({
                 onClick={onSavePreset}
                 type="button"
               >
-                Save preset
+                {t("hallMap.savePreset")}
               </button>
             </div>
 
@@ -363,7 +365,7 @@ export function HallMapLibraryPanel({
               onClick={onNewMap}
               type="button"
             >
-              New hall room map
+              {t("hallMap.newMap")}
             </button>
 
             <div className="mt-2 grid grid-cols-2 gap-2 max-md:pointer-events-none max-md:opacity-60">
@@ -373,7 +375,7 @@ export function HallMapLibraryPanel({
                 onClick={onRenameMap}
                 type="button"
               >
-                Rename
+                {t("hallMap.rename")}
               </button>
               <button
                 className="h-9 whitespace-nowrap rounded-lg border border-[#efb5ad] bg-white px-1 text-[10px] font-black text-[#c3291b] enabled:hover:bg-[#fff4f2] disabled:cursor-not-allowed disabled:opacity-50"
@@ -381,7 +383,7 @@ export function HallMapLibraryPanel({
                 onClick={onDeleteMap}
                 type="button"
               >
-                Delete map
+                {t("hallMap.deleteMap")}
               </button>
             </div>
 
@@ -391,7 +393,7 @@ export function HallMapLibraryPanel({
                   className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]"
                   htmlFor="copy-map-target"
                 >
-                  Copy this map to
+                  {t("hallMap.copyMapTo")}
                 </label>
                 <div className="mt-1 flex gap-2">
                   <div className="min-w-0 flex-1">
@@ -400,7 +402,7 @@ export function HallMapLibraryPanel({
                       id="copy-map-target"
                       onChange={setCopyTargetHallId}
                       options={[
-                        { label: "Choose a hall", value: "" },
+                        { label: t("hallMap.chooseHall"), value: "" },
                         ...halls
                           .filter((hall) => hall.id !== selectedHallId)
                           .map((hall) => ({
@@ -420,7 +422,7 @@ export function HallMapLibraryPanel({
                     }}
                     type="button"
                   >
-                    Copy
+                    {t("hallMap.copy")}
                   </button>
                 </div>
               </div>
@@ -428,7 +430,7 @@ export function HallMapLibraryPanel({
 
             <div className="mt-2 max-md:pointer-events-none max-md:opacity-60">
               <span className="block text-[9px] font-black uppercase tracking-wide text-[#59677c]">
-                Floor plan
+                {t("hallMap.floorPlan")}
               </span>
               <div className="mt-1 flex gap-2">
                 <label
@@ -440,10 +442,10 @@ export function HallMapLibraryPanel({
                     hasSelectedMap ? "" : "pointer-events-none opacity-50"
                   }`}
                 >
-                  {hasFloorPlan ? "Replace image" : "Upload image"}
+                  {hasFloorPlan ? t("hallMap.replaceImage") : t("hallMap.uploadImage")}
                   <input
                     accept="image/jpeg,image/png,image/webp"
-                    aria-label="Upload floor plan image"
+                    aria-label={t("hallMap.uploadFloorPlan")}
                     className="sr-only"
                     disabled={!hasSelectedMap}
                     onChange={(event) => {
@@ -460,19 +462,18 @@ export function HallMapLibraryPanel({
                     onClick={onRemoveFloorPlan}
                     type="button"
                   >
-                    Remove
+                    {t("common.remove")}
                   </button>
                 ) : null}
               </div>
               <p className="mt-1 text-[9px] leading-4 text-[#617086]">
-                Drawn under the shapes so you can lay tables over the
-                hall&apos;s real plan.
+                {t("hallMap.floorPlanHint")}
               </p>
             </div>
           </section>
 
           <section className="mt-3 rounded-lg border border-[#d8dde5] p-2 max-md:pointer-events-none max-md:opacity-60">
-            <h3 className="text-[10px] font-black">Actions</h3>
+            <h3 className="text-[10px] font-black">{t("common.actions")}</h3>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
               <button
@@ -481,7 +482,7 @@ export function HallMapLibraryPanel({
                 onClick={onDuplicateSelectedObject}
                 type="button"
               >
-                Duplicate
+                {t("hallMap.duplicate")}
               </button>
 
               <button
@@ -490,7 +491,7 @@ export function HallMapLibraryPanel({
                 onClick={onDeleteSelectedObject}
                 type="button"
               >
-                Delete
+                {t("common.delete")}
               </button>
             </div>
           </section>
@@ -518,10 +519,10 @@ export function HallMapLibraryPanel({
                 className="min-w-0 flex-1 text-lg font-black"
                 id="new-table-dialog-title"
               >
-                New table
+                {t("hallMap.newTable")}
               </h2>
               <button
-                aria-label="Close"
+                aria-label={t("common.close")}
                 className="flex h-9 w-9 items-center justify-center rounded-md text-2xl leading-none hover:bg-[#eef4fa]"
                 onClick={() => setIsNewTableOpen(false)}
                 type="button"
@@ -540,7 +541,7 @@ export function HallMapLibraryPanel({
                 className="block text-xs font-black uppercase tracking-wide text-[#59677c]"
                 htmlFor="new-table-name"
               >
-                Table name
+                {t("hallMap.tableName")}
               </label>
               <input
                 autoFocus
@@ -552,7 +553,7 @@ export function HallMapLibraryPanel({
                     name: event.target.value
                   }))
                 }
-                placeholder="Example: 60 inch round table"
+                placeholder={t("hallMap.tableNameExample")}
                 required
                 value={newTableForm.name}
               />
@@ -561,7 +562,7 @@ export function HallMapLibraryPanel({
                 className="block text-xs font-black uppercase tracking-wide text-[#59677c]"
                 htmlFor="new-table-shape"
               >
-                Shape
+                {t("hallMap.shape")}
               </label>
               <select
                 className="h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
@@ -577,15 +578,15 @@ export function HallMapLibraryPanel({
                 }}
                 value={newTableForm.shapeType}
               >
-                <option value="round-table">Round table</option>
-                <option value="rect-table">Square table</option>
+                <option value="round-table">{t("hallMap.roundTable")}</option>
+                <option value="rect-table">{t("hallMap.squareTable")}</option>
               </select>
 
               <label
                 className="block text-xs font-black uppercase tracking-wide text-[#59677c]"
                 htmlFor="new-table-size"
               >
-                Real size
+                {t("hallMap.realSize")}
               </label>
               <input
                 className="h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
@@ -612,7 +613,7 @@ export function HallMapLibraryPanel({
                 className="block text-xs font-black uppercase tracking-wide text-[#59677c]"
                 htmlFor="new-table-capacity"
               >
-                Capacity / seats
+                {t("hallMap.capacitySeats")}
               </label>
               <input
                 className="h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
@@ -625,7 +626,7 @@ export function HallMapLibraryPanel({
                     seats: event.target.value
                   }))
                 }
-                placeholder="Number of seats"
+                placeholder={t("hallMap.numberOfSeats")}
                 required
                 type="number"
                 value={newTableForm.seats}
@@ -643,13 +644,13 @@ export function HallMapLibraryPanel({
                   onClick={() => setIsNewTableOpen(false)}
                   type="button"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   className="h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white hover:bg-[#15344f]"
                   type="submit"
                 >
-                  Save table
+                  {t("hallMap.saveTable")}
                 </button>
               </div>
             </form>

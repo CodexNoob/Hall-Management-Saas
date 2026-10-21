@@ -19,7 +19,41 @@ import { AuthorizationError } from "@/lib/auth/errors";
  * routes.
  */
 
-export type AuthIdentity = { id: string; email: string };
+/**
+ * `aal2` once a second factor has been cleared on this session, `aal1` before
+ * it, and null when the token carries no claim at all - an older token, or a
+ * shape we do not recognise.
+ *
+ * Null is treated as `aal1` by everything that enforces. The safe reading of
+ * "this token does not say whether a factor was cleared" is that one was not.
+ */
+export type AssuranceLevel = "aal1" | "aal2";
+
+export type AuthIdentity = {
+  id: string;
+  email: string;
+  /**
+   * Read from the VERIFIED claims, which is the only way it may be read.
+   *
+   * `readSessionId` decodes a token's payload without checking the signature,
+   * and that is fine for what it does - matching a session to a row we already
+   * own. Doing the same here would be an authorization bypass with a
+   * base64 encoder for an exploit: anyone can mint a payload that says `aal2`.
+   */
+  assuranceLevel: AssuranceLevel | null;
+  /**
+   * The `session_id` claim, from the VERIFIED claims.
+   *
+   * Which of this account's sessions is making the request - what the
+   * inactivity check needs in order to ask "when did somebody last do something
+   * on THIS device", rather than on any device the account owns.
+   *
+   * Null when the token carries no claim. Everything downstream treats that as
+   * "cannot tell", which fails open: a session we cannot identify is never one
+   * we sign out.
+   */
+  sessionId: string | null;
+};
 
 export function getBearerToken(request: Request): string | null {
   const authorization = request.headers.get("authorization");
@@ -29,6 +63,44 @@ export function getBearerToken(request: Request): string | null {
   }
 
   return authorization.slice("Bearer ".length).trim() || null;
+}
+
+/**
+ * The caller's access token, from whichever transport they used.
+ *
+ * Almost nothing needs this - a route wants to know WHO is calling, and
+ * `authorize` answers that without the token ever being handled. The exception
+ * is talking to Supabase about the caller's own session: `auth.admin.signOut`
+ * takes a JWT, and the `session_id` claim is what identifies one session among
+ * several.
+ *
+ * Both transports, because the dashboard uses neither consistently. The session
+ * sync sends an explicit `Authorization` header; every other call from the
+ * browser sends none at all and relies on the cookie, which is the design
+ * `lib/http/authenticated-fetch.ts` settled on - the token travels once, not
+ * twice. A route that assumed the header was always there would work in tests,
+ * work for the Playwright fixture, and fail for every real browser.
+ *
+ * `getSession` rather than `getUser`, and only because this is not an identity
+ * check: the caller has already been authenticated by the time anything calls
+ * this, and what is wanted here is the token string itself, which `getUser`
+ * does not return. Never use this to decide who somebody is.
+ */
+export async function resolveAccessToken(
+  request: Request
+): Promise<string | null> {
+  const bearer = getBearerToken(request);
+
+  if (bearer) return bearer;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getSession();
+
+    return data.session?.access_token ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -82,7 +154,9 @@ export async function resolveAuthIdentity(
 }
 
 function toIdentity(claims: unknown, error: unknown): AuthIdentity {
-  const parsed = claims as { sub?: unknown; email?: unknown } | undefined;
+  const parsed = claims as
+    | { sub?: unknown; email?: unknown; aal?: unknown; session_id?: unknown }
+    | undefined;
 
   if (
     error ||
@@ -92,7 +166,64 @@ function toIdentity(claims: unknown, error: unknown): AuthIdentity {
     throw new AuthorizationError(401, "Invalid or expired session.");
   }
 
-  return { id: parsed.sub, email: parsed.email };
+  return {
+    id: parsed.sub,
+    email: parsed.email,
+    assuranceLevel: toAssuranceLevel(parsed.aal),
+    sessionId:
+      typeof parsed.session_id === "string" && parsed.session_id
+        ? parsed.session_id
+        : null
+  };
+}
+
+/**
+ * Anything other than the two levels Supabase actually issues is null rather
+ * than a guess. A token claiming "aal3" is not a stronger session, it is a
+ * token we do not understand - and everything that enforces reads null as
+ * `aal1`.
+ */
+function toAssuranceLevel(aal: unknown): AssuranceLevel | null {
+  if (aal === "aal2") return "aal2";
+  if (aal === "aal1") return "aal1";
+
+  return null;
+}
+
+/**
+ * The assurance level of a specific token, verified.
+ *
+ * For the session sync, which holds a bearer token and has to report what that
+ * session still owes rather than decide anything about the current request.
+ *
+ * Deliberately `getClaims` and not a base64 decode of the payload. The claim
+ * being read is the one the entire two-factor feature turns on, and anybody
+ * can write `"aal":"aal2"` into a payload - it is the signature that makes it
+ * mean something. This route runs on a cold load rather than on every request,
+ * so the verification is affordable, and with asymmetric signing keys it does
+ * not leave the process anyway.
+ */
+export async function resolveAssuranceLevel(
+  token: string
+): Promise<AssuranceLevel | null> {
+  try {
+    const supabase = createSupabaseTokenVerifier();
+    const { data, error } = await supabase.auth.getClaims(token);
+
+    if (error) return null;
+
+    return toAssuranceLevel(
+      (data?.claims as { aal?: unknown } | undefined)?.aal
+    );
+  } catch {
+    // Never fails its caller. The one caller is the session sync, which is how
+    // the dashboard loads AT ALL - a throw here would turn "we could not read
+    // one claim" into "nobody can sign in", and this claim only decides which
+    // screen to show. Null is the safe answer: everything downstream reads it
+    // as `aal1`, so a reader that breaks asks for a code rather than skipping
+    // one.
+    return null;
+  }
 }
 
 /**

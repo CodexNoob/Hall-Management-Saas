@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { countSchema } from "@/lib/validation/number";
 import { readNumericFields } from "@/lib/validation/numeric-form";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type EventCountField = "guests" | "couples" | "children";
 
@@ -76,6 +77,7 @@ export function NewEventDialog({
   onClose,
   onCreate
 }: NewEventDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const clientNameId = useId();
   const eventTypeId = useId();
@@ -128,18 +130,18 @@ export function NewEventDialog({
     const counts = readNumericFields<EventCountField>({
       guests: {
         raw: values.guests,
-        schema: countSchema({ label: "Guests" }),
-        emptyMessage: "Enter a guest count."
+        schema: countSchema({ label: t("bookings.guests"), t }),
+        emptyMessage: t("events.enterGuestCount")
       },
       couples: {
         raw: values.couples,
-        schema: countSchema({ label: "Couples" }),
-        emptyMessage: "Enter a couples count."
+        schema: countSchema({ label: t("bookings.couples"), t }),
+        emptyMessage: t("events.enterCouplesCount")
       },
       children: {
         raw: values.children,
-        schema: countSchema({ label: "Children" }),
-        emptyMessage: "Enter a children count."
+        schema: countSchema({ label: t("bookings.children"), t }),
+        emptyMessage: t("events.enterChildrenCount")
       }
     });
 
@@ -172,11 +174,11 @@ export function NewEventDialog({
               +
             </span>
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              New booking
+              {t("common.newBooking")}
             </h2>
           </div>
           <button
-            aria-label="Close new booking"
+            aria-label={t("bookings.close")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -201,7 +203,7 @@ export function NewEventDialog({
           <div className="max-h-[calc(100dvh-150px)] overflow-y-auto px-4 py-3">
             <div className="grid gap-x-3 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
               <label>
-                <FieldLabel>Client name</FieldLabel>
+                <FieldLabel>{t("bookings.clientName")}</FieldLabel>
                 <input
                   autoComplete="name"
                   className={`${controlClass} mt-1`}
@@ -216,7 +218,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Event type</FieldLabel>
+                <FieldLabel>{t("bookings.eventType")}</FieldLabel>
                 <input
                   autoComplete="off"
                   className={`${controlClass} mt-1`}
@@ -230,7 +232,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Status</FieldLabel>
+                <FieldLabel>{t("common.status")}</FieldLabel>
                 <select
                   className={`${controlClass} mt-1`}
                   id={statusId}
@@ -240,12 +242,12 @@ export function NewEventDialog({
                   }
                   value={values.status}
                 >
-                  <option>Hold</option>
-                  <option>Confirmed</option>
+                  <option value="Hold">{t("bookings.statusHold")}</option>
+                  <option value="Confirmed">{t("bookings.statusConfirmed")}</option>
                 </select>
               </label>
               <label>
-                <FieldLabel>Date</FieldLabel>
+                <FieldLabel>{t("common.date")}</FieldLabel>
                 <input
                   autoComplete="off"
                   className={`${controlClass} mt-1`}
@@ -258,7 +260,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Setup starts</FieldLabel>
+                <FieldLabel>{t("bookings.setupStarts")}</FieldLabel>
                 <input
                   autoComplete="off"
                   className={`${controlClass} mt-1`}
@@ -273,7 +275,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Event starts</FieldLabel>
+                <FieldLabel>{t("bookings.eventStarts")}</FieldLabel>
                 <input
                   className={`${controlClass} mt-1`}
                   id={startTimeId}
@@ -287,7 +289,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Event ends</FieldLabel>
+                <FieldLabel>{t("bookings.eventEnds")}</FieldLabel>
                 <input
                   className={`${controlClass} mt-1`}
                   id={endTimeId}
@@ -301,7 +303,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Cleanup ends</FieldLabel>
+                <FieldLabel>{t("bookings.cleanupEnds")}</FieldLabel>
                 <input
                   className={`${controlClass} mt-1`}
                   id={cleanupTimeId}
@@ -315,7 +317,7 @@ export function NewEventDialog({
                 />
               </label>
               <label>
-                <FieldLabel>Hall / room</FieldLabel>
+                <FieldLabel>{t("bookings.hallRoom")}</FieldLabel>
                 <select
                   className={`${controlClass} mt-1`}
                   id={roomId}
@@ -331,7 +333,7 @@ export function NewEventDialog({
                 </select>
               </label>
               <label>
-                <FieldLabel>Guests</FieldLabel>
+                <FieldLabel>{t("bookings.guests")}</FieldLabel>
                 <input
                   aria-describedby={
                     countErrors.guests ? `${guestsId}-error` : undefined
@@ -359,7 +361,7 @@ export function NewEventDialog({
                 ) : null}
               </label>
               <label>
-                <FieldLabel>Couples</FieldLabel>
+                <FieldLabel>{t("bookings.couples")}</FieldLabel>
                 <input
                   aria-describedby={
                     countErrors.couples ? `${couplesId}-error` : undefined
@@ -387,7 +389,7 @@ export function NewEventDialog({
                 ) : null}
               </label>
               <label>
-                <FieldLabel>Children</FieldLabel>
+                <FieldLabel>{t("bookings.children")}</FieldLabel>
                 <input
                   aria-describedby={
                     countErrors.children ? `${childrenId}-error` : undefined
@@ -417,7 +419,7 @@ export function NewEventDialog({
             </div>
 
             <label className="mt-2 block">
-              <FieldLabel>Initial notes</FieldLabel>
+              <FieldLabel>{t("bookings.initialNotes")}</FieldLabel>
               <textarea
                 className="mt-1 min-h-20 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                 id={initialNotesId}
@@ -436,14 +438,14 @@ export function NewEventDialog({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f]"
               type="submit"
             >
               <SaveIcon />
-              Create booking
+              {t("bookings.createBooking")}
             </button>
           </footer>
         </form>

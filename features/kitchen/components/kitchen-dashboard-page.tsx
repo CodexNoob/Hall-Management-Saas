@@ -24,6 +24,7 @@ import {
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardPageSearch } from "@/features/dashboard/hooks/use-dashboard-page-search";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 import { FourWeeksView } from "@/features/kitchen/components/kitchen-four-week-view";
 import {
@@ -34,12 +35,16 @@ import {
 } from "@/features/kitchen/components/kitchen-event-details-dialog";
 import { KitchenHeader } from "@/features/kitchen/components/kitchen-header";
 import { KitchenNotificationsDrawer } from "@/features/kitchen/components/kitchen-notifications-drawer";
+import { KitchenRegionProvider } from "@/features/kitchen/components/kitchen-region-context";
 import { KitchenToolbar } from "@/features/kitchen/components/kitchen-toolbar";
 import { ManageWorkersDialog } from "@/features/kitchen/forms/manage-workers-dialog";
 import { TodayView } from "@/features/kitchen/components/kitchen-today-view";
 import { WeekView } from "@/features/kitchen/components/kitchen-week-view";
 import {
-  dayNames,
+  formatKitchenDayLabel,
+  formatKitchenWeekday,
+  kitchenRegionalSettings,
+  type KitchenRegionalSettings,
   type KitchenDay,
   type KitchenEvent,
   type KitchenResponse,
@@ -64,14 +69,19 @@ const BOARD_POLL_MS = 30_000;
  * the question being asked is "is this thing still live", and a value that
  * visibly moves answers it.
  */
-function formatFreshness(updatedAt: number) {
-  if (!updatedAt) return "Not loaded yet";
+function formatFreshnessTime(
+  updatedAt: number,
+  regionalSettings: KitchenRegionalSettings
+) {
+  if (!updatedAt) return null;
 
-  return `Updated ${new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(regionalSettings.language, {
     hour: "numeric",
+    hour12: regionalSettings.timeFormat === "12-hour",
     minute: "2-digit",
-    second: "2-digit"
-  }).format(new Date(updatedAt))}`;
+    second: "2-digit",
+    timeZone: regionalSettings.timeZone
+  }).format(new Date(updatedAt));
 }
 
 type KitchenAssignmentAction = Extract<
@@ -178,6 +188,7 @@ function applyKitchenAssignment(
   return changed ? { ...data, events } : null;
 }
 export function KitchenDashboardPage() {
+  const { t } = useAppLanguage();
   const [pageSearchQuery] = useDashboardPageSearch("Kitchen");
   /*
    * Null until the range tabs are used, and only then does it win.
@@ -224,7 +235,49 @@ export function KitchenDashboardPage() {
    * until then: it is right for the hall's own screens, and correcting it a
    * moment later is better than opening on a day nothing has confirmed.
    */
-  const venueTimeZone = kitchenQuery.data?.kitchenSettings?.timeZone;
+  const reportedTimeZone = kitchenQuery.data?.kitchenSettings?.timeZone;
+  /*
+   * Latched, because it has to survive the board changing its own query key.
+   *
+   * `kitchenQueryUrl` carries the anchor date, so moving the anchor is a
+   * different cache entry and `kitchenQuery.data` is null until that entry
+   * resolves. Read straight off the response, the timezone therefore vanished
+   * for a render in the middle of every date change - and the rollover below,
+   * seeing none, fell back to the BROWSER's day, wrote it to the anchor,
+   * changed the key again, found the venue's day waiting in the cache, and
+   * wrote that back. On any screen whose own date differs from the hall's -
+   * a manager abroad, anyone east of the venue after their local midnight -
+   * those two days are not the same day and the two writes chase each other
+   * until React gives up with "Maximum update depth exceeded".
+   *
+   * Keeping the last timezone seen breaks the cycle at its source: the answer
+   * to "which day is it" stops depending on whether a request happens to be in
+   * flight. It still tracks a genuine change to the setting, because a response
+   * that carries a new zone latches that one instead.
+   */
+  const [venueTimeZone, setVenueTimeZone] = useState<string | undefined>(
+    reportedTimeZone
+  );
+
+  useEffect(() => {
+    if (reportedTimeZone) setVenueTimeZone(reportedTimeZone);
+  }, [reportedTimeZone]);
+
+  // Memoised for its identity, not its cost: it is a dependency of the board
+  // memo below and the value of a context every card reads, so a fresh object
+  // each render would rebuild the whole board on every render.
+  const kitchenSettings = kitchenQuery.data?.kitchenSettings;
+  const regionalSettings = useMemo(
+    () => kitchenRegionalSettings(kitchenSettings),
+    [kitchenSettings]
+  );
+  const freshnessTime = formatFreshnessTime(
+    kitchenQuery.updatedAt,
+    regionalSettings
+  );
+  const freshnessLabel = freshnessTime
+    ? t("kitchen.updated", { time: freshnessTime })
+    : "";
   const refetchBoard = kitchenQuery.refetch;
 
   /*
@@ -455,11 +508,11 @@ export function KitchenDashboardPage() {
 
       return {
         dateKey: key,
-        dayName: key === todayKey ? "Today" : dayNames[date.getDay()],
-        dateLabel: new Intl.DateTimeFormat("en-US", {
-          month: "short",
-          day: "numeric"
-        }).format(date),
+        dayName:
+          key === todayKey
+            ? t("kitchen.today")
+            : formatKitchenWeekday(date, regionalSettings),
+        dateLabel: formatKitchenDayLabel(date, regionalSettings),
         dayNumber: date.getDate(),
         shabbos: date.getDay() === 6,
         selected: isSelectedDate,
@@ -470,7 +523,15 @@ export function KitchenDashboardPage() {
     });
 
     return { days, eventsById };
-  }, [anchorDate, kitchenQuery.data, pageSearchQuery, today, workersOnly]);
+  }, [
+    anchorDate,
+    kitchenQuery.data,
+    pageSearchQuery,
+    regionalSettings,
+    t,
+    today,
+    workersOnly
+  ]);
 
   const canAddKitchenEvent =
     kitchenQuery.data?.permissions.canAddKitchenEvents ?? false;
@@ -584,7 +645,7 @@ export function KitchenDashboardPage() {
           error?: string;
         } | null;
         throw new Error(
-          payload?.error ?? "Could not acknowledge notification."
+          payload?.error ?? t("kitchen.ackFailed")
         );
       }
 
@@ -593,7 +654,7 @@ export function KitchenDashboardPage() {
       setAcknowledgmentError(
         error instanceof Error
           ? error.message
-          : "Could not acknowledge notification."
+          : t("kitchen.ackFailed")
       );
     } finally {
       setAcknowledgingNotificationId(null);
@@ -616,8 +677,8 @@ export function KitchenDashboardPage() {
         throw new Error(
           payload?.error ??
             (action === "acknowledge-all"
-              ? "Could not acknowledge all notifications."
-              : "Could not clear notifications.")
+              ? t("kitchen.ackAllFailed")
+              : t("kitchen.clearAllFailed"))
         );
       }
       await kitchenQuery.refetch();
@@ -625,7 +686,7 @@ export function KitchenDashboardPage() {
       setAcknowledgmentError(
         error instanceof Error
           ? error.message
-          : "Could not update notifications."
+          : t("kitchen.updateNotificationsFailed")
       );
     } finally {
       setNotificationBulkAction(null);
@@ -806,7 +867,7 @@ export function KitchenDashboardPage() {
         error?: string;
       } | null;
 
-      throw new Error(payload?.error ?? "Could not delete this kitchen event.");
+      throw new Error(payload?.error ?? t("kitchen.deleteEventFailed"));
     }
 
     // Only the board holds these: a standalone job appears on no other screen,
@@ -832,7 +893,7 @@ export function KitchenDashboardPage() {
         error?: string;
       } | null;
 
-      throw new Error(payload?.error ?? "Could not cancel this event.");
+      throw new Error(payload?.error ?? t("kitchen.cancelEventFailed"));
     }
 
     /*
@@ -854,7 +915,8 @@ export function KitchenDashboardPage() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#a8a8a6] text-[#061126]">
+    <KitchenRegionProvider value={regionalSettings}>
+      <div className="flex h-dvh min-h-0 w-full max-w-full flex-col overflow-hidden bg-[#a8a8a6] text-[#061126]">
       <div className="shrink-0 overflow-x-hidden">
         <KitchenHeader
           activeView={activeView}
@@ -879,7 +941,7 @@ export function KitchenDashboardPage() {
           <KitchenToolbar
             canAddKitchenEvent={canAddOnSelectedDate}
             canManageWorkers={canManageWorkers}
-            freshnessLabel={formatFreshness(kitchenQuery.updatedAt)}
+            freshnessLabel={freshnessLabel}
             isRefreshing={kitchenQuery.isFetching}
             onAddKitchenEvent={() => openAddKitchenEvent(dateKey(anchorDate))}
             onManageWorkers={() => setIsManageWorkersOpen(true)}
@@ -983,6 +1045,7 @@ export function KitchenDashboardPage() {
         currentWorkerId={kitchenQuery.data?.currentWorkerId ?? null}
         workers={kitchenQuery.data?.workers ?? []}
       />
-    </div>
+      </div>
+    </KitchenRegionProvider>
   );
 }

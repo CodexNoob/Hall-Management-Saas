@@ -8,6 +8,8 @@
  * features/settings/server/organization-reset.ts.
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export const RESET_SCOPES = [
   "events",
   "events-and-menus",
@@ -36,6 +38,69 @@ export type ResetDescription = {
   summary: string;
   removes: string[];
   keeps: string[];
+};
+
+/**
+ * The same four descriptions, as catalog keys.
+ *
+ * The English below stays where it is: the reset route writes the scope's title
+ * into the activity log, which is a record rather than a screen, and a log line
+ * that changes language with whoever happened to press the button is not a
+ * record anybody can search. The panel reads these instead.
+ */
+export const RESET_DESCRIPTION_KEYS: Record<
+  ResetScope,
+  {
+    title: MessageKey;
+    summary: MessageKey;
+    removes: MessageKey[];
+    keeps: MessageKey[];
+  }
+> = {
+  events: {
+    title: "reset.events.title",
+    summary: "reset.events.summary",
+    removes: [
+      "reset.events.removes1",
+      "reset.events.removes2",
+      "reset.events.removes3",
+      "reset.events.removes4"
+    ],
+    keeps: ["reset.events.keeps1", "reset.events.keeps2"]
+  },
+  "events-and-menus": {
+    title: "reset.events-and-menus.title",
+    summary: "reset.events-and-menus.summary",
+    removes: [
+      "reset.events-and-menus.removes1",
+      "reset.events-and-menus.removes2",
+      "reset.events-and-menus.removes3",
+      "reset.events-and-menus.removes4"
+    ],
+    keeps: ["reset.events-and-menus.keeps1"]
+  },
+  settings: {
+    title: "reset.settings.title",
+    summary: "reset.settings.summary",
+    removes: [
+      "reset.settings.removes1",
+      "reset.settings.removes2",
+      "reset.settings.removes3",
+      "reset.settings.removes4"
+    ],
+    keeps: ["reset.settings.keeps1", "reset.settings.keeps2"]
+  },
+  "full-account": {
+    title: "reset.full-account.title",
+    summary: "reset.full-account.summary",
+    removes: [
+      "reset.full-account.removes1",
+      "reset.full-account.removes2",
+      "reset.full-account.removes3",
+      "reset.full-account.removes4"
+    ],
+    keeps: ["reset.full-account.keeps1", "reset.full-account.keeps2"]
+  }
 };
 
 export const RESET_DESCRIPTIONS: Record<ResetScope, ResetDescription> = {

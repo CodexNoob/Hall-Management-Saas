@@ -5,6 +5,7 @@ import { invalidateAuthenticatedQueryPrefix } from "@/features/dashboard/hooks/u
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import {
   REALTIME_TABLES,
+  affectsAuthorization,
   endpointsForTables
 } from "@/lib/realtime/table-subscriptions";
 
@@ -28,6 +29,20 @@ type SyncState = {
 
 let state: SyncState | null = null;
 
+export function isRealtimeSyncEnabled() {
+  const configured = process.env.NEXT_PUBLIC_ENABLE_REALTIME_SYNC?.trim().toLowerCase();
+
+  if (configured === "true" || configured === "1" || configured === "yes") {
+    return true;
+  }
+
+  if (configured === "false" || configured === "0" || configured === "no") {
+    return false;
+  }
+
+  return process.env.NODE_ENV !== "development";
+}
+
 function flush() {
   if (!state) return;
 
@@ -37,6 +52,26 @@ function flush() {
 
   for (const endpoint of endpointsForTables(tables)) {
     invalidateAuthenticatedQueryPrefix(endpoint);
+  }
+
+  /**
+   * Permissions may have moved. Re-read them from the server.
+   *
+   * Imported lazily so the realtime module does not pull the Supabase auth
+   * client into every bundle that merely wants table invalidation, and so the
+   * two suites can be tested apart.
+   *
+   * The coalescing above already collapses a burst - saving a role with eleven
+   * permissions bumps the epoch eleven times - and `refreshAuthorization` has
+   * its own minimum interval behind that. Two guards rather than one, because
+   * each catches a different shape: this one collapses events that arrive
+   * together, and that one collapses bursts that arrive just far enough apart
+   * to get past it.
+   */
+  if (affectsAuthorization(tables)) {
+    void import("@/lib/auth/authorization-refresh").then(
+      ({ refreshAuthorization }) => refreshAuthorization()
+    );
   }
 }
 
@@ -63,6 +98,7 @@ function queueTable(table: string) {
  */
 export function startRealtimeSync(organizationId: string) {
   if (!organizationId) return;
+  if (!isRealtimeSyncEnabled()) return;
 
   // Already watching this organization. Switching organizations tears the old
   // channel down first, so a stale subscription cannot keep refetching against

@@ -10,6 +10,7 @@ import {
   transactionShortDate,
   type TransactionRow
 } from "@/features/billing/transactions/transaction-model";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function DesktopTransactionSidePanel({
   onCancel,
@@ -24,6 +25,8 @@ export function DesktopTransactionSidePanel({
   onPrint: () => void;
   transaction: TransactionRow;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="pointer-events-none absolute inset-0 z-20 hidden md:block">
       <div className="absolute inset-0 bg-[#0f172a]/40" />
@@ -31,7 +34,7 @@ export function DesktopTransactionSidePanel({
         <header className="bg-[#061126] px-6 pb-4 pt-5 text-white">
           <div className="flex items-center justify-between">
             <button
-              aria-label="Back to transactions"
+              aria-label={t("billing.backToTransactions")}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-white/15"
               onClick={onBack}
               type="button"
@@ -42,7 +45,7 @@ export function DesktopTransactionSidePanel({
               {transaction.status} transaction
             </h2>
             <button
-              aria-label="Cancel transaction"
+              aria-label={t("billing.cancelTransaction")}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-white/15"
               onClick={onCancel}
               type="button"
@@ -99,29 +102,29 @@ export function DesktopTransactionSidePanel({
           <div className="mt-5 divide-y divide-[#edf0f4]">
             <DesktopTransactionDetailRow
               icon="more"
-              label="Transaction type*"
+              label={t("billing.typeRequired")}
               value={
                 transaction.type === "Payment" ? "Expense" : transaction.type
               }
             />
             <DesktopTransactionDetailRow
               icon="invoice"
-              label="Category*"
-              value={transaction.eventType || "Supplies & materials - COGS"}
+              label={t("billing.categoryRequired")}
+              value={transaction.eventType || t("billing.supplies")}
             />
             <DesktopTransactionDetailRow
               icon="settings"
-              label="Split transaction"
+              label={t("billing.splitTransaction")}
               value="Select"
             />
             <DesktopTransactionDetailRow
               icon="payment"
-              label="From/To"
+              label={t("billing.fromTo")}
               value={`${transaction.customer} Corp`}
             />
             <DesktopTransactionDetailRow
               icon="upload"
-              label="Billable"
+              label={t("billing.billable")}
               trailing={
                 <span className="relative h-6 w-11 rounded-full bg-[#b9c2cf]">
                   <span className="absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow" />
@@ -131,17 +134,17 @@ export function DesktopTransactionSidePanel({
             />
             <DesktopTransactionDetailRow
               icon="bank"
-              label="Customer/Project"
-              value="Select a customer or project"
+              label={t("billing.customerProject")}
+              value={t("billing.selectCustomerProject")}
             />
             <DesktopTransactionDetailRow
               icon="upload"
-              label="Attachment"
+              label={t("billing.attachment")}
               value="0 attached"
             />
             <DesktopTransactionDetailRow
               icon="invoice"
-              label="Memo"
+              label={t("billing.memo")}
               value={transaction.notes}
             />
           </div>
@@ -149,7 +152,7 @@ export function DesktopTransactionSidePanel({
 
         <footer className="flex items-center gap-3 border-t border-[#d8dde5] bg-white px-6 py-4">
           <button
-            aria-label="Cancel"
+            aria-label={t("common.cancel")}
             className="flex h-12 w-12 items-center justify-center rounded-lg border border-[#ffb3a8] text-[#d63a2f] transition hover:bg-[#fff0ee]"
             onClick={onCancel}
             type="button"
@@ -163,7 +166,7 @@ export function DesktopTransactionSidePanel({
             onClick={onPost}
             type="button"
           >
-            Post & next
+            {t("billing.postAndNext")}
           </button>
         </footer>
       </aside>
@@ -209,13 +212,15 @@ export function TransactionDetailsView({
   onPost: () => void;
   transaction: TransactionRow;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="bg-white md:bg-[#f4f7fa] md:p-4">
       <section className="mx-auto min-h-[calc(100dvh-5.25rem)] max-w-4xl overflow-hidden bg-white md:min-h-0 md:rounded-xl md:border md:border-[#d8dde5] md:shadow-sm">
         <header className="bg-[#1f4d73] px-3 pb-12 pt-3 text-white md:px-5 md:pb-16 md:pt-5">
           <div className="flex items-center justify-between">
             <button
-              aria-label="Back to transactions"
+              aria-label={t("billing.backToTransactions")}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-white/10 md:h-10 md:w-10"
               onClick={onBack}
               type="button"
@@ -226,7 +231,7 @@ export function TransactionDetailsView({
               {transaction.status} transaction
             </h2>
             <button
-              aria-label="Cancel transaction"
+              aria-label={t("billing.cancelTransaction")}
               className="flex h-9 w-9 items-center justify-center rounded-lg transition hover:bg-white/10 md:h-10 md:w-10"
               onClick={onCancel}
               type="button"
@@ -271,42 +276,42 @@ export function TransactionDetailsView({
               onClick={onPost}
               type="button"
             >
-              Categorize
+              {t("billing.categorize")}
             </button>
             <button
               className="h-8 border-l border-[#b9c2cf] bg-white md:h-11"
               type="button"
               onClick={onPost}
             >
-              Match
+              {t("billing.match")}
             </button>
           </div>
 
           <div className="mt-3 divide-y divide-[#edf0f4] md:mt-5 md:rounded-xl md:border md:border-[#edf0f4] md:px-4">
             <MobileTransactionDetailRow
               icon="more"
-              label="Transaction type*"
+              label={t("billing.typeRequired")}
               value={transaction.type}
             />
             <MobileTransactionDetailRow
               icon="invoice"
-              label="Category*"
+              label={t("billing.categoryRequired")}
               value={transaction.eventType}
             />
             <MobileTransactionDetailRow
               icon="settings"
-              label="Split transaction"
+              label={t("billing.splitTransaction")}
               muted
-              value="Not split"
+              value={t("billing.notSplit")}
             />
             <MobileTransactionDetailRow
               icon="payment"
-              label="From/To"
+              label={t("billing.fromTo")}
               value={`${transaction.customer} \u2022 ${transaction.paymentMethod}`}
             />
             <MobileTransactionDetailRow
               icon="invoice"
-              label="Billable"
+              label={t("billing.billable")}
               trailing={
                 <span className="relative h-4 w-8 rounded-full bg-[#d8dde5]">
                   <span className="absolute left-0.5 top-0.5 h-3 w-3 rounded-full bg-white shadow" />
@@ -316,24 +321,24 @@ export function TransactionDetailsView({
             />
             <MobileTransactionDetailRow
               icon="bank"
-              label="Customer/Project"
+              label={t("billing.customerProject")}
               value={transaction.event}
             />
             <MobileTransactionDetailRow
               icon="upload"
-              label="Attachment"
+              label={t("billing.attachment")}
               value="0 attached"
             />
             <MobileTransactionDetailRow
               icon="invoice"
-              label="Memo"
+              label={t("billing.memo")}
               value={transaction.notes}
             />
           </div>
 
           <section className="mt-4 border-t border-[#edf0f4] pt-3 md:rounded-xl md:border md:border-[#edf0f4] md:p-4">
             <p className="text-xs font-semibold text-[#6a7483] md:text-sm">
-              Full bank description
+              {t("billing.fullBankDescription")}
             </p>
             <p className="mt-1 text-xs font-bold leading-5 text-[#526274] md:text-sm">
               {transaction.referenceNo} {"\u2022"} {transaction.customer}{" "}
@@ -347,7 +352,7 @@ export function TransactionDetailsView({
             onClick={onPost}
             type="button"
           >
-            Post
+            {t("billing.post")}
           </button>
         </div>
       </section>

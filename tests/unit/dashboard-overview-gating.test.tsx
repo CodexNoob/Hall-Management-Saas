@@ -118,18 +118,29 @@ const cases: Array<{
     tiles: ["Kitchen", "Calendar", "Events"]
   },
   {
-    // Menu and kitchen reads but no invoice.read, and /dashboard/events is
-    // reachable through calendar.read.
+    /*
+     * The overview is an EVENTS page, and this role no longer reads events.
+     *
+     * Every section on it is a count, a timeline or a schedule of bookings,
+     * gated on `event.read` or `calendar.read` - and both came off the kitchen
+     * roles, because they opened the office's booking workspace and calendar
+     * rather than anything the kitchen cooks from. What is left is nothing,
+     * which is the correct answer for a cook looking at a bookings overview:
+     * their screen is the Kitchen board, and the Kitchen tile is still here to
+     * reach it.
+     *
+     * The page is MVP-hidden in any case (lib/ui/mvp-features.ts), so no cook
+     * arrives here by navigating - this pins the gating rather than a screen
+     * anyone sees.
+     */
     role: "kitchen-staff",
-    sections: [
-      "totalEvents",
-      "bookedEvents",
-      "operatingSchedule",
-      "eventsTimeline",
-      "quickActions"
-    ],
-    actions: ["Kitchen board"],
-    tiles: ["Kitchen", "Calendar", "Events"]
+    sections: [],
+    actions: [],
+    // Empty for the same reason: the module-link row is drawn inside the
+    // overview's own body, and this role renders none of it. The Kitchen is
+    // still reachable from the sidebar, which is a different component with a
+    // different test (dashboard-module-links.test.tsx asserts ["Kitchen"]).
+    tiles: []
   },
   {
     // Somebody who handles money and nothing operational. No shipped starter
@@ -268,12 +279,19 @@ describe("DashboardOverview role gating", () => {
     expect(visibleModuleTiles()).toEqual([]);
   });
 
-  it("keeps the /dashboard/events affordances clickable for every shipped role", () => {
+  /**
+   * Every role that reads events, which is no longer every shipped role.
+   *
+   * `kitchen-staff` and `kitchen-manager` were dropped from this list when
+   * `event.read` came off them: these affordances all open /dashboard/events,
+   * and offering a cook a button to a page that answers "Access restricted" is
+   * worse than not drawing it. The test below pins the other side of that.
+   */
+  it("keeps the /dashboard/events affordances clickable for every role that reads events", () => {
     for (const role of [
       "owner",
       "administrator",
       "event-manager",
-      "kitchen-staff",
       "viewer"
     ] as const) {
       window.localStorage.clear();
@@ -291,6 +309,32 @@ describe("DashboardOverview role gating", () => {
       expect(
         screen.getAllByRole("button", { name: "Open Event Manager" })
       ).toHaveLength(2);
+
+      unmount();
+    }
+  });
+
+  /**
+   * The other side of it, and the assertion the original report was about: a
+   * kitchen role is offered nothing that opens the Events workspace.
+   *
+   * A hidden button is only a courtesy - `GET /api/events` refuses the request
+   * underneath either way - but a courtesy that names a page the person cannot
+   * open is worse than no courtesy at all.
+   */
+  it("offers a kitchen role no route into Events at all", () => {
+    for (const role of ["kitchen-manager", "kitchen-staff"] as const) {
+      window.localStorage.clear();
+      cacheTestSessionForStarterRole(role);
+      const { unmount } = renderOverview();
+
+      expect(
+        screen.queryByRole("button", { name: /Next upcoming event/ })
+      ).toBeNull();
+      expect(screen.queryByRole("button", { name: "Open events" })).toBeNull();
+      expect(
+        screen.queryAllByRole("button", { name: "Open Event Manager" })
+      ).toHaveLength(0);
 
       unmount();
     }

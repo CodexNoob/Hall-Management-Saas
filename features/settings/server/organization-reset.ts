@@ -122,9 +122,17 @@ async function deleteEventData(tx: Tx, organizationId: string) {
   deleted.fileFolders = (
     await tx.fileFolder.deleteMany({ where: linked })
   ).count;
-  deleted.activityLogs = (
-    await tx.activityLog.deleteMany({ where: linked })
-  ).count;
+  // NOT the activity log. Read the dialog this scope draws: it promises menus,
+  // kitchen progress, invoices, documents, files and dining plans, and says
+  // nothing about the history. Only the full-account reset offers that, and it
+  // does it in `deleteVenueAndRecords`.
+  //
+  // Deleting them here was also the reason three of the four resets returned a
+  // 500: `activity_logs` is append-only, so the statement raised and took the
+  // whole transaction with it. The rows stay, and the event delete below
+  // detaches them - `event_id` goes to NULL and the entry goes on reading
+  // correctly, because the message and `user_name` were snapshotted when it
+  // was written.
 
   // The kitchen's view of the event.
   deleted.kitchenNotifications = (
@@ -415,6 +423,17 @@ export async function resetOrganization({
       }
 
       if (scope === "full-account") {
+        // The one scope whose dialog promises the activity history goes, so it
+        // is the one transaction allowed to delete from an append-only table.
+        // Transaction-local (`set_config`'s third argument), so it cannot leak
+        // onto the next statement that borrows this pooled connection - see
+        // prisma/migrations/20260925110000_activity_logs_allow_reset_detach.
+        // `set_config` rather than `SET LOCAL`, and `$queryRaw` rather than
+        // `$executeRaw`: this goes out over the extended protocol as an
+        // ordinary SELECT of a function, which a connection pooler in
+        // transaction mode handles like any other statement. A bare `SET`
+        // is a utility statement and not every pooler forwards one intact.
+        await tx.$queryRaw`SELECT set_config('app.activity_log_purge', 'on', true)`;
         record(await deleteVenueAndRecords(tx, organizationId));
       }
 

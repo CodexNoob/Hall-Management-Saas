@@ -29,7 +29,23 @@ export const AUDIT_ACTIONS = [
   "override.replaced",
   "staff.invited",
   "staff.deactivated",
-  "staff.restored"
+  "staff.restored",
+  /**
+   * An administrator ended somebody else's device session.
+   *
+   * Its own action rather than folded into `staff.deactivated`: the account is
+   * still active and the person still works here, so recording it as a
+   * deactivation would be wrong twice over - it would overstate what happened
+   * and it would make the trail unreadable for the case it exists to explain,
+   * which is "their phone was stolen on Tuesday".
+   */
+  "staff.session.revoked",
+  /**
+   * An administrator sent somebody a password-reset link, by email or as a
+   * link to hand over. Recorded because it is a way into another person's
+   * account: "who reset my password?" must always have an answer.
+   */
+  "staff.password.reset"
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

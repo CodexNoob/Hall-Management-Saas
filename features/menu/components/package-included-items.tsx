@@ -2,6 +2,8 @@
 
 import { MenuItemCard } from "@/features/menu/components/menu-cards";
 import type { MenuLibraryItem } from "@/features/menu/components/menu-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type PackageIncludedItemsProps = {
   includedItems: MenuLibraryItem[];
@@ -22,7 +24,7 @@ type PackageIncludedItemsProps = {
  * a name on each, neither a screen reader nor a test can tell the item that IS
  * included from the one that COULD be.
  */
-const INCLUDED_GRID_LABEL = "Items in this package";
+const INCLUDED_GRID_LABEL: MessageKey = "menu.itemsInPackage";
 
 /**
  * What the open package holds.
@@ -41,11 +43,12 @@ export function PackageIncludedItems({
   pendingItemIds,
   selectedItemIds
 }: PackageIncludedItemsProps) {
+  const { t } = useAppLanguage();
   if (includedItems.length === 0) {
     return (
-      <section aria-label={INCLUDED_GRID_LABEL}>
+      <section aria-label={t(INCLUDED_GRID_LABEL)}>
         <p className="m-3 rounded-lg border border-dashed border-[#d8dde5] bg-[#fbfcfd] px-3 py-6 text-center text-xs text-[#516174]">
-          No items in this package yet. Pick them from the library below.
+          {t("menu.noItemsInPackage")}
         </p>
       </section>
     );
@@ -56,7 +59,7 @@ export function PackageIncludedItems({
   );
 
   return (
-    <section aria-label={INCLUDED_GRID_LABEL}>
+    <section aria-label={t(INCLUDED_GRID_LABEL)}>
       {!isDisabled ? (
         <div className="flex items-center justify-end px-3 pt-3">
           <button
@@ -68,7 +71,7 @@ export function PackageIncludedItems({
             }
             type="button"
           >
-            {areAllTicked ? "Select none" : "Select all"}
+            {areAllTicked ? t("menu.selectNone") : t("menu.selectAll")}
           </button>
         </div>
       ) : null}
@@ -84,7 +87,7 @@ export function PackageIncludedItems({
             isTicked={selectedItemIds.has(item.id)}
             name={item.name}
             onToggleTick={() => onToggle(item.id)}
-            pendingLabel={pendingItemIds.has(item.id) ? "Saving…" : null}
+            pendingLabel={pendingItemIds.has(item.id) ? t("common.savingChar") : null}
             pictureUrl={item.pictureUrl}
           />
         ))}

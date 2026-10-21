@@ -1,5 +1,8 @@
 import type { z } from "zod";
-import { parseNumericInput } from "@/lib/validation/number";
+import {
+  parseNumericInput,
+  type ValidationTranslate
+} from "@/lib/validation/number";
 
 export type NumericFieldSpec = {
   /** Raw input text as the user typed it. */
@@ -24,7 +27,8 @@ export type NumericFormResult<TKey extends string> =
  * back as a number.
  */
 export function readNumericFields<TKey extends string>(
-  fields: Record<TKey, NumericFieldSpec>
+  fields: Record<TKey, NumericFieldSpec>,
+  t?: ValidationTranslate
 ): NumericFormResult<TKey> {
   const values = {} as Record<TKey, number | null>;
   const errors: Partial<Record<TKey, string>> = {};
@@ -32,7 +36,7 @@ export function readNumericFields<TKey extends string>(
 
   for (const key of Object.keys(fields) as TKey[]) {
     const { raw, schema, allowEmpty = false, emptyMessage } = fields[key];
-    const result = parseNumericInput(raw, schema);
+    const result = parseNumericInput(raw, schema, t);
 
     if (result.status === "valid") {
       values[key] = result.value;
@@ -45,7 +49,9 @@ export function readNumericFields<TKey extends string>(
         continue;
       }
 
-      const message = emptyMessage ?? "Enter a number.";
+      const message =
+        emptyMessage ??
+        (t ? t("validation.enterNumber") : "Enter a number.");
       errors[key] = message;
       firstError ||= message;
       continue;

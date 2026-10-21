@@ -11,6 +11,8 @@ import {
   describeUnacceptableLogo,
   describeUnacceptablePortalHeaderImage
 } from "@/features/settings/lib/upload-organization-branding";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type BrandingImageFieldProps = {
   /** The field's own heading - "Logo", "Header image". */
@@ -19,7 +21,7 @@ type BrandingImageFieldProps = {
    * The same thing in a sentence, lowercase: every line this field writes about
    * the file names it, and two of these sit on the General screen at once.
    */
-  subject: string;
+  subjectKey: MessageKey;
   /** What the empty state says about what will be accepted. */
   hint: string;
   /** Why a picked file cannot be used, or null - see the upload module. */
@@ -72,7 +74,7 @@ const actionClass =
  */
 export function BrandingImageField({
   label,
-  subject,
+  subjectKey,
   hint,
   describeUnacceptable,
   inputName,
@@ -87,8 +89,10 @@ export function BrandingImageField({
   onClearStored,
   onRestoreStored
 }: BrandingImageFieldProps) {
+  const { t } = useAppLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [rejection, setRejection] = useState<string | null>(null);
+  const subject = t(subjectKey);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -201,12 +205,14 @@ export function BrandingImageField({
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-black text-[#17202a]">
-                {file ? file.name : `Current ${subject}`}
+                {file ? file.name : t("settings.currentSubject", { subject })}
               </p>
               <p className="mt-0.5 text-[10px] font-medium text-[#6a7483]">
                 {file
-                  ? `${formatFileSize(file.size)} - uploads when you save`
-                  : "Saved for this organization"}
+                  ? t("settings.uploadsWhenYouSave", {
+                      size: formatFileSize(file.size)
+                    })
+                  : t("settings.savedForOrganization")}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -215,7 +221,7 @@ export function BrandingImageField({
                   onClick={openPicker}
                   type="button"
                 >
-                  Change
+                  {t("settings.change")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#efb6b6] bg-white px-3 text-xs font-black text-[#b42318] transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
@@ -223,7 +229,7 @@ export function BrandingImageField({
                   onClick={handleRemove}
                   type="button"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             </div>
@@ -240,7 +246,7 @@ export function BrandingImageField({
           >
             <Icon className="h-6 w-6 text-[#8a94a3]" name="upload" />
             <span className="mt-1 text-xs font-black text-[#17202a]">
-              Drop an image here or click to browse
+              {t("settings.dropImage")}
             </span>
             <span className="text-[10px] font-medium text-[#8a94a3]">
               {hint}
@@ -253,14 +259,14 @@ export function BrandingImageField({
             reachable for as long as that is true. */}
         {isCleared && !file ? (
           <p className="mt-2 text-[10px] font-bold text-[#6a7483]">
-            The current {subject} will be removed when you save.{" "}
+            {t("settings.subjectWillBeRemoved", { subject })}{" "}
             <button
               className="font-black text-[#1f4d73] underline disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isDisabled}
               onClick={onRestoreStored}
               type="button"
             >
-              Undo
+              {t("settings.undo")}
             </button>
           </p>
         ) : null}
@@ -285,7 +291,7 @@ export function BrandingImageField({
         </p>
       ) : hasStoredImage && file ? (
         <p className="mt-1 text-[10px] font-bold text-[#6a7483]">
-          Saving replaces the {subject} this organization has now.
+          {t("settings.savingReplacesSubject", { subject })}
         </p>
       ) : null}
     </div>
@@ -297,7 +303,7 @@ export function LogoField(
   props: Omit<
     BrandingImageFieldProps,
     | "label"
-    | "subject"
+    | "subjectKey"
     | "hint"
     | "describeUnacceptable"
     | "inputName"
@@ -305,14 +311,19 @@ export function LogoField(
     | "previewClassName"
   >
 ) {
+  const { t } = useAppLanguage();
+
   return (
     <BrandingImageField
       {...props}
       describeUnacceptable={describeUnacceptableLogo}
-      hint={`Optional. ${BRANDING_ACCEPTED_LABEL}, up to ${MAX_LOGO_BYTES / (1024 * 1024)} MB.`}
+      hint={t("settings.imageHint", {
+        formats: BRANDING_ACCEPTED_LABEL,
+        mb: MAX_LOGO_BYTES / (1024 * 1024)
+      })}
       inputName="organizationLogo"
-      label="Logo"
-      subject="logo"
+      label={t("settings.logo")}
+      subjectKey="settings.subjectLogo"
     />
   );
 }
@@ -322,7 +333,7 @@ export function PortalHeaderImageField(
   props: Omit<
     BrandingImageFieldProps,
     | "label"
-    | "subject"
+    | "subjectKey"
     | "hint"
     | "describeUnacceptable"
     | "inputName"
@@ -330,16 +341,21 @@ export function PortalHeaderImageField(
     | "previewClassName"
   >
 ) {
+  const { t } = useAppLanguage();
+
   return (
     <BrandingImageField
       {...props}
       describeUnacceptable={describeUnacceptablePortalHeaderImage}
-      hint={`${BRANDING_ACCEPTED_LABEL}, up to ${MAX_PORTAL_HEADER_BYTES / (1024 * 1024)} MB. Wide images read best.`}
+      hint={t("settings.imageHintRequired", {
+        formats: BRANDING_ACCEPTED_LABEL,
+        mb: MAX_PORTAL_HEADER_BYTES / (1024 * 1024)
+      })}
       inputName="portalHeaderImage"
-      label="Header image"
+      label={t("settings.headerImage")}
       previewClassName="h-16 w-28"
       previewFit="cover"
-      subject="header image"
+      subjectKey="settings.subjectHeaderImage"
     />
   );
 }

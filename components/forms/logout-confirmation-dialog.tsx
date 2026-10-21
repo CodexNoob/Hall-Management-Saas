@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type LogoutConfirmationDialogProps = {
   open: boolean;
@@ -13,6 +14,7 @@ export function LogoutConfirmationDialog({
   onClose,
   onConfirm
 }: LogoutConfirmationDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const descriptionId = useId();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -50,7 +52,7 @@ export function LogoutConfirmationDialog({
     try {
       await onConfirm();
     } catch {
-      setErrorMessage("Unable to log out. Please try again.");
+      setErrorMessage(t("shell.logoutFailed"));
       isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -74,13 +76,13 @@ export function LogoutConfirmationDialog({
       >
         <div className="p-5 sm:p-6">
           <h2 className="text-xl font-black text-[#17202a]" id={titleId}>
-            Confirm logout
+            {t("profile.confirmLogout")}
           </h2>
           <p
             className="mt-2 text-sm leading-6 text-[#6a7483]"
             id={descriptionId}
           >
-            Are you sure you want to log out of your account?
+            {t("profile.logoutQuestion")}
           </p>
 
           {errorMessage ? (
@@ -101,7 +103,7 @@ export function LogoutConfirmationDialog({
             ref={cancelButtonRef}
             type="button"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="h-10 rounded-lg bg-[#b42318] px-4 text-sm font-black text-white transition hover:bg-[#951b12] disabled:cursor-not-allowed disabled:opacity-60"
@@ -109,7 +111,7 @@ export function LogoutConfirmationDialog({
             onClick={() => void confirmLogout()}
             type="button"
           >
-            {isSubmitting ? "Logging out..." : "Logout"}
+            {isSubmitting ? t("shell.loggingOut") : t("profile.logout")}
           </button>
         </footer>
       </section>

@@ -18,6 +18,7 @@ import {
 import { RoleBadge, RoleEditor } from "@/features/access/components/role-editor";
 import { EffectivePanel } from "@/features/access/components/effective-panel";
 import { AuditPanel } from "@/features/access/components/audit-panel";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * Settings -> Access. The screen that makes roles data.
@@ -32,6 +33,7 @@ import { AuditPanel } from "@/features/access/components/audit-panel";
 type Tab = "roles" | "people" | "audit";
 
 export function AccessPage() {
+  const { t } = useAppLanguage();
   const access = useDashboardAccess();
   const [tab, setTab] = useState<Tab>("roles");
   const [editing, setEditing] = useState<RoleSummary | null>(null);
@@ -87,7 +89,8 @@ export function AccessPage() {
       if (!response.ok) {
         setError(
           describeApiError(
-            (await response.json().catch(() => null)) as ApiError | null
+            (await response.json().catch(() => null)) as ApiError | null,
+            t
           )
         );
         return;
@@ -102,13 +105,13 @@ export function AccessPage() {
   if (!canRead) {
     return (
       <DashboardPageState
-        emptyMessage="Reading roles needs the role.read permission. Ask whoever manages access in your organization."
-        emptyTitle="Access restricted"
+        emptyMessage={t("access.restrictedBody")}
+        emptyTitle={t("access.restricted")}
         isEmpty
         showNewBookingAction={false}
         showSearch={false}
         subtitle=""
-        title="Access"
+        title={t("access.title")}
       />
     );
   }
@@ -119,8 +122,8 @@ export function AccessPage() {
         compactMobileActions
         showNewBookingAction={false}
         showSearch={false}
-        subtitle="Roles, assignments, and who can do what"
-        title="Access"
+        subtitle={t("access.blurb")}
+        title={t("access.title")}
       />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-4">
@@ -157,7 +160,7 @@ export function AccessPage() {
           <section className="rounded-xl border border-[#d8dde5] bg-white">
             <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-3">
               <div className="min-w-0">
-                <h2 className="text-sm font-black">Roles</h2>
+                <h2 className="text-sm font-black">{t("access.roles")}</h2>
                 <p className="mt-0.5 text-[10px] text-[#6a7483]">
                   {roles.length} roles. Adding one is a row, not a release.
                 </p>
@@ -168,7 +171,7 @@ export function AccessPage() {
                 onClick={() => setIsCreating(true)}
                 type="button"
               >
-                New role
+                {t("access.newRole")}
               </button>
             </header>
 
@@ -188,7 +191,7 @@ export function AccessPage() {
                       </span>
                       {role.isSystem ? (
                         <span className="rounded border border-[#cdd5df] bg-[#f4f6f8] px-1.5 py-0.5 text-[9px] font-black text-[#536172]">
-                          Starter
+                          {t("access.starter")}
                         </span>
                       ) : null}
                     </div>
@@ -216,14 +219,14 @@ export function AccessPage() {
                       onClick={() => removeRole(role)}
                       title={
                         role.isSystem
-                          ? "Starter roles cannot be deleted. Edit what this one grants instead."
+                          ? t("access.starterCannotDelete")
                           : role.holderCount > 0
-                            ? "Reassign the people holding this role first."
+                            ? t("access.reassignFirst")
                             : undefined
                       }
                       type="button"
                     >
-                      Delete
+                      {t("common.delete")}
                     </button>
                   </div>
                 </li>
@@ -232,8 +235,7 @@ export function AccessPage() {
 
             <footer className="border-t border-[#eef1f5] px-4 py-3">
               <p className="text-[10px] text-[#6a7483]">
-                A role can never hand out more than you hold yourself, and never
-                at or above your own rank. Both refusals name what stopped them.
+                {t("access.ceilingNote")}
               </p>
             </footer>
           </section>
@@ -243,9 +245,9 @@ export function AccessPage() {
           <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
             <section className="rounded-xl border border-[#d8dde5] bg-white">
               <header className="border-b border-[#d8dde5] px-4 py-3">
-                <h2 className="text-sm font-black">People</h2>
+                <h2 className="text-sm font-black">{t("access.people")}</h2>
                 <p className="mt-0.5 text-[10px] text-[#6a7483]">
-                  Pick somebody to see exactly what they can do, and why.
+                  {t("access.pickSomebody")}
                 </p>
               </header>
               <ul className="max-h-[60dvh] divide-y divide-[#eef1f5] overflow-y-auto">
@@ -268,7 +270,7 @@ export function AccessPage() {
                           ? entry.assignments
                               .map((assignment) => assignment.roleName)
                               .join(", ")
-                          : "No role yet"}
+                          : t("staff.noRoleYet")}
                       </span>
                     </button>
                   </li>
@@ -286,7 +288,7 @@ export function AccessPage() {
             ) : (
               <section className="rounded-xl border border-[#d8dde5] bg-white px-4 py-6">
                 <p className="text-[11px] text-[#6a7483]">
-                  Nobody to show yet.
+                  {t("access.nobodyYet")}
                 </p>
               </section>
             )}

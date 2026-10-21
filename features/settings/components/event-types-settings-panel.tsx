@@ -7,6 +7,7 @@ import {
   useAuthenticatedQuery
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type EventType = {
   id: string;
@@ -39,6 +40,7 @@ const emptyForm: EventTypeInput = {
  * type: deactivating is the removal that actually happens.
  */
 export function EventTypesSettingsPanel() {
+  const { t } = useAppLanguage();
   const { hasPermission } = useDashboardAccess();
   const canCreate = hasPermission("eventtype.create");
   const canUpdate = hasPermission("eventtype.update");
@@ -107,7 +109,7 @@ export function EventTypesSettingsPanel() {
       refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to save event type."
+        error instanceof Error ? error.message : t("settings.eventTypeSaveFailed")
       );
     }
   }
@@ -122,7 +124,7 @@ export function EventTypesSettingsPanel() {
       refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to update event type."
+        error instanceof Error ? error.message : t("settings.eventTypeUpdateFailed")
       );
     }
   }
@@ -134,7 +136,7 @@ export function EventTypesSettingsPanel() {
       refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to delete event type."
+        error instanceof Error ? error.message : t("settings.eventTypeDeleteFailed")
       );
     }
   }
@@ -144,10 +146,9 @@ export function EventTypesSettingsPanel() {
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <header className="flex items-center gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-black">Event types</h2>
+            <h2 className="text-sm font-black">{t("settings.eventTypes")}</h2>
             <p className="mt-1 text-[10px] text-[#6a7483]">
-              Active event types appear in New Booking, Calendar, and Event
-              forms.
+              {t("settings.activeEventTypesBlurb")}
             </p>
           </div>
           <button
@@ -166,7 +167,7 @@ export function EventTypesSettingsPanel() {
         ) : null}
         {query.isLoading ? (
           <p className="p-5 text-center text-xs text-[#617086]">
-            Loading event types...
+            {t("settings.loadingEventTypes")}
           </p>
         ) : query.error ? (
           <div className="p-4 text-center">
@@ -176,14 +177,14 @@ export function EventTypesSettingsPanel() {
               onClick={query.refetch}
               type="button"
             >
-              Try again
+              {t("common.tryAgain")}
             </button>
           </div>
         ) : !query.data?.eventTypes.length ? (
           <div className="p-8 text-center">
-            <p className="text-sm font-black">No event types yet</p>
+            <p className="text-sm font-black">{t("settings.noEventTypes")}</p>
             <p className="mt-1 text-xs text-[#6a7483]">
-              Add one before creating a booking.
+              {t("settings.addOneBeforeBooking")}
             </p>
           </div>
         ) : (
@@ -199,7 +200,7 @@ export function EventTypesSettingsPanel() {
                     <p className="mt-1 text-[10px] text-[#617086]">
                       {item.validDays.length
                         ? item.validDays.map((day) => days[day]).join(", ")
-                        : "All days"}{" "}
+                        : t("settings.allDays")}{" "}
                       · {item._count.events} events
                     </p>
                   </div>
@@ -214,7 +215,7 @@ export function EventTypesSettingsPanel() {
                     onClick={() => openEdit(item)}
                     type="button"
                   >
-                    Edit
+                    {t("common.edit")}
                   </button>
                   <button
                     className="h-8 rounded-lg border text-[10px] font-black"
@@ -230,7 +231,7 @@ export function EventTypesSettingsPanel() {
                     onClick={() => void remove(item)}
                     type="button"
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               </article>
@@ -253,14 +254,16 @@ export function EventTypesSettingsPanel() {
             <header className="flex justify-between border-b px-5 py-4">
               <div>
                 <p className="text-[10px] font-black uppercase text-[#1f4d73]">
-                  Booking settings
+                  {t("settings.bookingSettings")}
                 </p>
                 <h2 className="text-lg font-black">
-                  {form.id ? "Edit event type" : "Add event type"}
+                  {form.id
+                  ? t("settings.editEventType")
+                  : t("settings.addEventType")}
                 </h2>
               </div>
               <button
-                aria-label="Close"
+                aria-label={t("common.close")}
                 className="h-10 w-10 rounded-full text-xl hover:bg-[#eef4fa]"
                 onClick={() => setDialogOpen(false)}
                 type="button"
@@ -270,7 +273,7 @@ export function EventTypesSettingsPanel() {
             </header>
             <div className="space-y-4 p-5">
               <label className="block text-xs font-black uppercase text-[#64748b]">
-                Name
+                {t("common.name")}
                 <input
                   autoFocus
                   className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium normal-case"
@@ -288,10 +291,10 @@ export function EventTypesSettingsPanel() {
               </label>
               <fieldset>
                 <legend className="text-xs font-black uppercase text-[#64748b]">
-                  Allowed booking days
+                  {t("settings.allowedBookingDays")}
                 </legend>
                 <p className="mt-1 text-[10px] text-[#6a7483]">
-                  Leave every day unchecked to allow all days.
+                  {t("settings.allDaysHint")}
                 </p>
                 <div className="mt-2 grid grid-cols-4 gap-2 sm:grid-cols-7">
                   {days.map((label, day) => (
@@ -336,7 +339,7 @@ export function EventTypesSettingsPanel() {
                   }
                   type="checkbox"
                 />
-                Active and available for booking
+                {t("settings.activeForBooking")}
               </label>
               <label className="flex items-center gap-2 text-xs font-bold">
                 <input
@@ -350,7 +353,7 @@ export function EventTypesSettingsPanel() {
                   }
                   type="checkbox"
                 />
-                Shabbos Sheva Brachos event
+                {t("settings.shevaBrachosEvent")}
               </label>
             </div>
             <footer className="flex justify-end gap-2 border-t bg-[#fbfcfd] px-5 py-4">
@@ -359,7 +362,7 @@ export function EventTypesSettingsPanel() {
                 onClick={() => setDialogOpen(false)}
                 type="button"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white disabled:opacity-45"
@@ -371,7 +374,9 @@ export function EventTypesSettingsPanel() {
                 onClick={() => void save()}
                 type="button"
               >
-                {pending ? "Saving..." : "Save event type"}
+                {pending
+                    ? t("common.savingEllipsis")
+                    : t("settings.saveEventType")}
               </button>
             </footer>
           </section>

@@ -45,8 +45,10 @@ export function useStaffDirectory(
         status: staff.status,
         lastLogin: staff.lastLoginAt
           ? staffDateTimeFormatter.format(new Date(staff.lastLoginAt))
-          : "Never",
-        phone: staff.phone ?? "Not provided",
+          : "",
+        presence: staff.presence,
+        lastSeenAt: staff.lastSeenAt,
+        phone: staff.phone ?? "",
         color: ["bg-[#397fc2]", "bg-[#4eb18c]", "bg-[#e4a332]", "bg-[#7665d5]"][
           index % 4
         ],

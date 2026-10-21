@@ -8,6 +8,13 @@ import {
 } from "@/features/administration/components/staff-shared";
 import { RoleBadge } from "@/features/access/components/role-editor";
 import { describeScope } from "@/features/access/components/access-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import {
+  useAccess,
+  useAuthSession
+} from "@/features/dashboard/hooks/use-dashboard-permission";
+import { StaffSessionsPanel } from "@/features/administration/components/staff-sessions-panel";
+import { StaffPasswordResetPanel } from "@/features/administration/components/staff-password-reset-panel";
 
 export function StaffProfileDialog({
   onClose,
@@ -16,6 +23,12 @@ export function StaffProfileDialog({
   onClose: () => void;
   staff: StaffMember;
 }) {
+  const { t } = useAppLanguage();
+  const canEndSessions = useAccess("staff.deactivate");
+  const canResetPassword = useAccess("staff.update");
+  // Your own password is changed on My Account, with the current password or
+  // your own email - not by issuing yourself an administrator's reset.
+  const isSelf = useAuthSession()?.user.id === staff.userId;
   const open = true;
   useEffect(() => {
     if (!open) return;
@@ -34,11 +47,11 @@ export function StaffProfileDialog({
   if (!open) return null;
 
   const details = [
-    ["Email", staff.email],
-    ["Phone", staff.phone],
-    ["Department", staff.department],
-    ["Job title", staff.title ?? ""],
-    ["Last login", staff.lastLogin]
+    [t("common.email"), staff.email],
+    [t("common.phone"), staff.phone || t("common.notProvided")],
+    [t("common.department"), staff.department],
+    [t("staff.jobTitle"), staff.title ?? ""],
+    [t("staff.lastLogin"), staff.lastLogin || t("common.never")]
   ];
 
   return (
@@ -77,7 +90,7 @@ export function StaffProfileDialog({
             </div>
           </div>
           <button
-            aria-label="Close staff profile"
+            aria-label={t("staff.closeProfile")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -97,7 +110,7 @@ export function StaffProfileDialog({
                   {label}
                 </dt>
                 <dd className="mt-1 wrap-break-word text-sm font-bold text-[#17202a]">
-                  {value || "Not provided"}
+                  {value || t("staff.notProvided")}
                 </dd>
               </div>
             ))}
@@ -105,7 +118,7 @@ export function StaffProfileDialog({
 
           <section className="rounded-lg border border-[#d8dde5] p-3">
             <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#6a7483]">
-              Access
+              {t("access.title")}
             </h3>
             {/* What they HOLD, not what that resolves to. The full key-by-key
                 answer is one tab away under Roles & Permissions, and duplicating
@@ -119,13 +132,13 @@ export function StaffProfileDialog({
                   >
                     <RoleBadge name={assignment.roleName} />
                     <span className="text-xs text-[#536172]">
-                      {describeScope(assignment)}
+                      {describeScope(assignment, t)}
                     </span>
                   </div>
                 ))
               ) : (
                 <span className="text-sm text-[#6a7483]">
-                  No role yet, so nothing is permitted.
+                  {t("staff.noRoleNothingPermitted")}
                 </span>
               )}
             </div>
@@ -133,9 +146,28 @@ export function StaffProfileDialog({
               className="mt-3 inline-block text-xs font-black text-[#1769aa]"
               href="/dashboard/staff?tab=roles"
             >
-              See exactly what this resolves to
+              {t("staff.seeResolution")}
             </a>
           </section>
+
+          {/* Only for somebody who could act on it. The server refuses either
+              way - `staff.deactivate` gates the list and the revoke, and the
+              rank ceiling stops an administrator signing the owner out - so
+              this is about not offering a button that will answer 403. */}
+          {canResetPassword && !isSelf && staff.status === "Active" ? (
+            <StaffPasswordResetPanel
+              principalId={staff.principalId}
+              staffEmail={staff.email}
+              staffName={staff.name}
+            />
+          ) : null}
+
+          {canEndSessions ? (
+            <StaffSessionsPanel
+              principalId={staff.principalId}
+              staffName={staff.name}
+            />
+          ) : null}
         </div>
       </section>
     </div>

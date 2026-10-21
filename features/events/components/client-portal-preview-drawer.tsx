@@ -8,6 +8,7 @@ import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authentica
 import type { ClientPortalEvent } from "@/features/events/types/client-portal";
 import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
 import { copyText } from "@/lib/ui/copy-text";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type ClientPortalPreviewDrawerProps = {
   event: EventFile;
@@ -36,8 +37,9 @@ export function ClientPortalPreviewDrawer({
   open,
   onClose
 }: ClientPortalPreviewDrawerProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
-  const [copyLabel, setCopyLabel] = useState("Copy link");
+  const [copyLabel, setCopyLabel] = useState(t("common.copyLink"));
   // Same payload the public page renders, so the preview matches what the
   // client actually sees. Only fetched while the drawer is open.
   const portalQuery = useAuthenticatedQuery<{
@@ -69,8 +71,8 @@ export function ClientPortalPreviewDrawer({
 
   const copyPortalLink = async () => {
     const copied = await copyText(portalUrl);
-    setCopyLabel(copied ? "Copied!" : "Copy failed");
-    window.setTimeout(() => setCopyLabel("Copy link"), 1600);
+    setCopyLabel(copied ? t("events.copied") : t("events.copyFailed"));
+    window.setTimeout(() => setCopyLabel(t("common.copyLink")), 1600);
   };
 
   return (
@@ -91,7 +93,7 @@ export function ClientPortalPreviewDrawer({
             <PortalIcon />
             <div>
               <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-                Client portal preview
+                {t("events.portalPreview")}
               </h2>
               <p className="text-xs font-semibold text-[#64748b]">
                 This is the client-facing view for {event.title}.
@@ -99,7 +101,7 @@ export function ClientPortalPreviewDrawer({
             </div>
           </div>
           <button
-            aria-label="Close client portal preview"
+            aria-label={t("events.closePortalPreview")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -136,12 +138,12 @@ export function ClientPortalPreviewDrawer({
             className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f]"
             onClick={() => {
               window.location.href = `mailto:?subject=${encodeURIComponent(
-                `Event portal: ${event.title}`
+                t("events.portalSubject", { name: event.title })
               )}&body=${encodeURIComponent(portalUrl)}`;
             }}
             type="button"
           >
-            Send to client
+            {t("events.sendToClient")}
           </button>
         </footer>
       </aside>

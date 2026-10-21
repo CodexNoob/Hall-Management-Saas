@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
@@ -10,6 +11,7 @@ import {
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { countSchema, moneySchema } from "@/lib/validation/number";
 import { readNumericFields } from "@/lib/validation/numeric-form";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type Hall = {
   id: string;
@@ -122,31 +124,31 @@ const priceFields: {
   key: Exclude<HallNumericField, "capacity">;
   id: string;
   name: string;
-  label: string;
+  labelKey: MessageKey;
 }[] = [
   {
     key: "basePrice",
     id: "hall-base-price",
     name: "hallBasePrice",
-    label: "Regular base price"
+    labelKey: "settings.regularBasePrice"
   },
   {
     key: "perCouplePrice",
     id: "hall-per-couple-price",
     name: "hallPerCouplePrice",
-    label: "Regular per couple"
+    labelKey: "settings.regularPerCouple"
   },
   {
     key: "memberBasePrice",
     id: "hall-member-base-price",
     name: "hallMemberBasePrice",
-    label: "Member base price"
+    labelKey: "settings.memberBasePrice"
   },
   {
     key: "memberPerCouplePrice",
     id: "hall-member-per-couple-price",
     name: "hallMemberPerCouplePrice",
-    label: "Member per couple"
+    labelKey: "settings.memberPerCouple"
   }
 ];
 
@@ -197,8 +199,11 @@ function PriceInput({
   );
 }
 
-function formatMoney(value: string | number | null) {
-  if (value === null) return "Not set";
+function formatMoney(
+  value: string | number | null,
+  t: (key: MessageKey) => string
+) {
+  if (value === null) return t("common.notSet");
 
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -239,6 +244,7 @@ function useHallPermissions() {
 }
 
 export function HallsSettingsPanel() {
+  const { t } = useAppLanguage();
   const { canCreate, canUpdate, canPrice, canRetire } = useHallPermissions();
   const hallsQuery = useAuthenticatedQuery<HallsResponse>("/api/halls");
   const createMutation = useAuthenticatedMutation<
@@ -279,7 +285,7 @@ export function HallsSettingsPanel() {
   function openCreate() {
     if (reachedActiveHallLimit) {
       setMessage(
-        "Free trial organizations can only use 1 active hall. Upgrade your plan to add more halls."
+        t("settings.trialHallLimitLong")
       );
       return;
     }
@@ -317,7 +323,7 @@ export function HallsSettingsPanel() {
   async function saveHall() {
     const name = form.name.trim();
     if (!name) {
-      setMessage("Enter a hall name.");
+      setMessage(t("settings.enterHallName"));
       return;
     }
 
@@ -326,36 +332,37 @@ export function HallsSettingsPanel() {
     const numbers = readNumericFields<HallNumericField>({
       capacity: {
         raw: form.capacity,
-        schema: countSchema({ min: 1, label: "Capacity" }),
+        schema: countSchema({ min: 1, label: t("settings.capacity"), t }),
         allowEmpty: true
       },
       dailyEventLimit: {
         raw: form.dailyEventLimit,
         schema: countSchema({
+          t,
           min: 1,
           max: 50,
-          label: "Events allowed per day"
+          label: t("calendar.eventsPerDay")
         }),
         allowEmpty: true
       },
       basePrice: {
         raw: form.basePrice,
-        schema: moneySchema({ label: "Base price" }),
+        schema: moneySchema({ label: t("menu.basePrice"), t }),
         allowEmpty: true
       },
       perCouplePrice: {
         raw: form.perCouplePrice,
-        schema: moneySchema({ label: "Per couple price" }),
+        schema: moneySchema({ label: t("settings.perCouplePrice"), t }),
         allowEmpty: true
       },
       memberBasePrice: {
         raw: form.memberBasePrice,
-        schema: moneySchema({ label: "Member base price" }),
+        schema: moneySchema({ label: t("settings.memberBasePrice"), t }),
         allowEmpty: true
       },
       memberPerCouplePrice: {
         raw: form.memberPerCouplePrice,
-        schema: moneySchema({ label: "Member per couple price" }),
+        schema: moneySchema({ label: t("settings.memberPerCouplePrice"), t }),
         allowEmpty: true
       }
     });
@@ -404,7 +411,7 @@ export function HallsSettingsPanel() {
       refreshHallConsumers();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to save this hall."
+        error instanceof Error ? error.message : t("settings.hallSaveFailed")
       );
     }
   }
@@ -420,7 +427,7 @@ export function HallsSettingsPanel() {
       refreshHallConsumers();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to update this hall."
+        error instanceof Error ? error.message : t("settings.hallUpdateFailed")
       );
     }
   }
@@ -433,7 +440,7 @@ export function HallsSettingsPanel() {
       refreshHallConsumers();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Unable to delete this hall."
+        error instanceof Error ? error.message : t("settings.hallDeleteFailed")
       );
     }
   }
@@ -443,9 +450,9 @@ export function HallsSettingsPanel() {
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <header className="flex flex-wrap items-center gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-black">Halls and rooms</h2>
+            <h2 className="text-sm font-black">{t("settings.hallsAndRooms")}</h2>
             <p className="mt-1 text-[10px] text-[#6a7483]">
-              Active, bookable halls appear in booking and map-assignment forms.
+              {t("settings.hallsBlurb")}
             </p>
             {activeHallLimit !== null ? (
               <p className="mt-1 text-[10px] font-bold text-[#b26a00]">
@@ -461,7 +468,7 @@ export function HallsSettingsPanel() {
             type="button"
             title={
               reachedActiveHallLimit
-                ? "Free trial organizations can only use 1 active hall."
+                ? t("settings.trialHallLimit")
                 : undefined
             }
           >
@@ -471,7 +478,7 @@ export function HallsSettingsPanel() {
 
         {hallsQuery.isLoading ? (
           <p className="p-5 text-center text-xs text-[#617086]">
-            Loading halls...
+            {t("settings.loadingHalls")}
           </p>
         ) : hallsQuery.error ? (
           <div className="p-4 text-center">
@@ -483,7 +490,7 @@ export function HallsSettingsPanel() {
               onClick={hallsQuery.refetch}
               type="button"
             >
-              Try again
+              {t("common.tryAgain")}
             </button>
           </div>
         ) : (
@@ -507,20 +514,20 @@ export function HallsSettingsPanel() {
                       {hall.name}
                     </strong>
                     <p className="mt-1 text-[10px] text-[#617086]">
-                      Capacity: {hall.capacity ?? "Not set"} ·{" "}
-                      {hall.isBookable ? "Bookable" : "Not bookable"}
+                      Capacity: {hall.capacity ?? t("common.notSet")} ·{" "}
+                      {hall.isBookable ? "Bookable" : t("settings.notBookable")}
                     </p>
                     <p className="mt-1 text-[9px] text-[#718096]">
                       {hall._count.events} events ·{" "}
                       {hall._count.hallMapPresets} map presets
                     </p>
                     <p className="mt-2 text-[9px] leading-4 text-[#526173]">
-                      Regular: {formatMoney(hall.basePrice)} base ·{" "}
-                      {formatMoney(hall.perCouplePrice)} / couple
+                      Regular: {formatMoney(hall.basePrice, t)} base ·{" "}
+                      {formatMoney(hall.perCouplePrice, t)} / couple
                     </p>
                     <p className="text-[9px] leading-4 text-[#526173]">
-                      Member: {formatMoney(hall.memberBasePrice)} base ·{" "}
-                      {formatMoney(hall.memberPerCouplePrice)} / couple
+                      Member: {formatMoney(hall.memberBasePrice, t)} base ·{" "}
+                      {formatMoney(hall.memberPerCouplePrice, t)} / couple
                     </p>
                   </div>
                   <span
@@ -540,7 +547,7 @@ export function HallsSettingsPanel() {
                     onClick={() => openEdit(hall)}
                     type="button"
                   >
-                    Edit
+                    {t("common.edit")}
                   </button>
                   <button
                     className="h-8 rounded-lg border border-[#b9c2cf] bg-white text-[10px] font-black enabled:hover:bg-[#eef4fa] disabled:opacity-45"
@@ -553,7 +560,7 @@ export function HallsSettingsPanel() {
                     type="button"
                     title={
                       !hall.isActive && reachedActiveHallLimit
-                        ? "Free trial organizations can only use 1 active hall."
+                        ? t("settings.trialHallLimit")
                         : undefined
                     }
                   >
@@ -565,14 +572,14 @@ export function HallsSettingsPanel() {
                     onClick={() => void deleteHall(hall)}
                     type="button"
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               </article>
             ))}
             {halls.length === 0 ? (
               <p className="rounded-xl border border-dashed border-[#c7d0dc] p-6 text-center text-xs text-[#617086] sm:col-span-2">
-                No halls yet. Add the first hall to start accepting bookings.
+                {t("settings.noHalls")}
               </p>
             ) : null}
           </div>
@@ -602,10 +609,10 @@ export function HallsSettingsPanel() {
           >
             <header className="flex items-center border-b border-[#d8dde5] px-5 py-4">
               <h2 className="min-w-0 flex-1 text-lg font-black" id="hall-dialog-title">
-                {form.id ? "Edit hall" : "Add hall"}
+                {form.id ? t("settings.editHall") : t("settings.addHall")}
               </h2>
               <button
-                aria-label="Close"
+                aria-label={t("common.close")}
                 className="flex h-9 w-9 items-center justify-center rounded-md text-2xl hover:bg-[#eef4fa]"
                 disabled={pending}
                 onClick={() => setDialogOpen(false)}
@@ -622,7 +629,7 @@ export function HallsSettingsPanel() {
               }}
             >
               <label className="block text-xs font-black">
-                Hall / room name
+                {t("settings.hallName")}
                 <input
                   autoFocus
                   className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm"
@@ -635,13 +642,13 @@ export function HallsSettingsPanel() {
                       name: event.target.value
                     }))
                   }
-                  placeholder="Example: Grand Ballroom"
+                  placeholder={t("settings.hallNameExample")}
                   value={form.name}
                 />
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-xs font-black">
-                  Capacity
+                  {t("settings.capacity")}
                   <input
                     aria-describedby={
                       fieldErrors.capacity ? "hall-capacity-error" : undefined
@@ -669,7 +676,7 @@ export function HallsSettingsPanel() {
                   ) : null}
                 </label>
                 <label className="block text-xs font-black">
-                  Calendar color
+                  {t("settings.calendarColor")}
                   <input
                     className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] bg-white px-2"
                     id="hall-color"
@@ -687,12 +694,12 @@ export function HallsSettingsPanel() {
               </div>
               <div className="rounded-xl border border-[#d8dde5] bg-[#f8fafc] p-3">
                 <p className="text-xs font-black text-[#1f3148]">
-                  Pricing
+                  {t("settings.pricing")}
                 </p>
                 <p className="mt-1 text-[10px] text-[#617086]">
                   {canPrice
-                    ? "Used as the default hall pricing when creating packages, proposals, or event billing."
-                    : "Read-only: setting what a hall costs needs the hall pricing permission. Everything else on this form is yours to change."}
+                    ? t("settings.hallPricingHint")
+                    : t("settings.hallPricingReadOnly")}
                 </p>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {priceFields.map((field) => (
@@ -701,7 +708,7 @@ export function HallsSettingsPanel() {
                       error={fieldErrors[field.key]}
                       id={field.id}
                       key={field.key}
-                      label={field.label}
+                      label={t(field.labelKey)}
                       name={field.name}
                       onChange={(value) => updateField(field.key, value)}
                       value={form[field.key]}
@@ -730,7 +737,7 @@ export function HallsSettingsPanel() {
                   }
                   type="checkbox"
                 />
-                Available for new bookings
+                {t("settings.availableForBookings")}
               </label>
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -739,7 +746,7 @@ export function HallsSettingsPanel() {
                   onClick={() => setDialogOpen(false)}
                   type="button"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
                 <button
                   className="h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white disabled:opacity-45"
@@ -750,7 +757,11 @@ export function HallsSettingsPanel() {
                   }
                   type="submit"
                 >
-                  {pending ? "Saving..." : form.id ? "Save changes" : "Create hall"}
+                  {pending
+                    ? t("common.savingEllipsis")
+                    : form.id
+                      ? t("common.saveChanges")
+                      : t("settings.createHall")}
                 </button>
               </div>
             </form>

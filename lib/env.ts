@@ -41,7 +41,18 @@ const envSchema = z.object({
   ENCRYPTION_KEY: z.string().optional(),
   SESSION_SECRET: z.string().optional(),
   SUPPORT_EMAIL: z.string().email().optional(),
-  RESEND_API_KEY: z.string().optional(),
+  /**
+   * Removed. Every email now goes through Brevo via `lib/email/send.ts`.
+   *
+   * The layer used to be split - support tickets and booking notifications
+   * against Resend, beta access against Brevo - and because only the Brevo key
+   * was ever configured, the Resend senders checked for a key they did not have
+   * and silently returned. Nothing failed and nothing was sent.
+   *
+   * Left out of the schema entirely rather than kept optional: a variable that
+   * validates but reaches no code is one somebody will set and then wonder why
+   * nothing happens.
+   */
   BREVO_API_KEY: z.string().optional(),
   SUPPORT_EMAIL_FROM: z.string().optional(),
   SUPPORT_WEBHOOK_URL: z.string().url().optional(),

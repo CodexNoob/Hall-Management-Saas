@@ -2,6 +2,7 @@
 
 import { DashboardPageState } from "@/components/layout/dashboard-page-state";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type Reports = {
   revenueCents: number;
@@ -22,6 +23,7 @@ const money = (cents: number) =>
   );
 
 export function BillingReportsTab() {
+  const { t } = useAppLanguage();
   const query = useAuthenticatedQuery<Reports>("/api/billing/reports");
   if (query.isLoading || query.error || !query.data) {
     return (
@@ -29,8 +31,8 @@ export function BillingReportsTab() {
         isLoading={query.isLoading}
         error={query.error}
         onRetry={query.refetch}
-        subtitle="Revenue, outstanding balances, refunds, and aging."
-        title="Billing reports"
+        subtitle={t("billing.reportsBlurb")}
+        title={t("billing.reports")}
       />
     );
   }
@@ -38,7 +40,7 @@ export function BillingReportsTab() {
   function exportCsv() {
     const rows = [
       ["Metric", "Amount"],
-      ["Net revenue", report.revenueCents],
+      [t("billing.netRevenue"), report.revenueCents],
       ["Refunds", report.refundedCents],
       ["Outstanding", report.outstandingCents],
       ["Current", report.aging.current],
@@ -61,21 +63,21 @@ export function BillingReportsTab() {
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#d8dde5] bg-white p-4">
         <div>
           <p className="text-xs font-black uppercase tracking-wider text-[#6a7483]">
-            Financial reporting
+            {t("billing.financialReporting")}
           </p>
-          <h2 className="text-xl font-black">Billing reports</h2>
+          <h2 className="text-xl font-black">{t("billing.reports")}</h2>
         </div>
         <button
           className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white"
           onClick={exportCsv}
           type="button"
         >
-          Export CSV
+          {t("common.exportCsv")}
         </button>
       </header>
       <section className="grid gap-3 sm:grid-cols-3">
         {[
-          ["Net revenue", report.revenueCents],
+          [t("billing.netRevenue"), report.revenueCents],
           ["Outstanding", report.outstandingCents],
           ["Refunded", report.refundedCents]
         ].map(([label, value]) => (
@@ -91,7 +93,7 @@ export function BillingReportsTab() {
         ))}
       </section>
       <section className="rounded-xl border border-[#d8dde5] bg-white p-4">
-        <h3 className="font-black">Accounts receivable aging</h3>
+        <h3 className="font-black">{t("billing.aging")}</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-4">
           {[
             ["Current", report.aging.current],

@@ -27,7 +27,17 @@ export const POST = withRoute(
       });
       if (limited) return limited;
 
-      const actor = await authorizeMember(request);
+      // EXEMPT FROM THE 2FA AND DEVICE GATES - and it has to be. An invitee's
+      // browser is always new, and a recovery link is often opened on one.
+      // Supabase has already saved the password by the time this runs; this
+      // only records that it did. Refused here, `passwordSetAt` stays empty,
+      // the dashboard sends the person back to /set-password before it can
+      // show the 2FA or device step, and they loop. Those gates still stand
+      // in front of every route that serves data.
+      const actor = await authorizeMember(request, {
+        allowUnsatisfiedMfa: true,
+        allowUnconfirmedDevice: true
+      });
       // Setting a password is something a person does to their own account, so a
       // service credential has no business here even though it authenticates fine.
       const userId = requireUserActor(actor);

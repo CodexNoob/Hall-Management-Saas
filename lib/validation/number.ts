@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 /**
  * Shared numeric vocabulary for forms and route handlers.
  *
@@ -21,23 +23,76 @@ export const MAX_COUNT = 100_000;
 /** Money columns are `Decimal(12, 2)`; this stays well inside that. */
 export const MAX_MONEY = 100_000_000;
 
+/**
+ * The translator, when the caller has one.
+ *
+ * This module is imported by route handlers as well as by forms, and a route
+ * handler has no locale: the language is a per-organization setting the API
+ * never reads, and an error message it returns is the same for every caller.
+ * So translation is opt-in rather than ambient - a client form passes `t` and
+ * gets its own language, a route handler passes nothing and keeps the English
+ * its tests and its API consumers already expect.
+ */
+export type ValidationTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
+
 type NumericOptions = {
   min?: number;
   max?: number;
   label?: string;
+  t?: ValidationTranslate;
 };
+
+/** Every sentence this module can produce, in whichever language applies. */
+function frames(t: ValidationTranslate | undefined, label: string) {
+  return {
+    number: t
+      ? t("validation.mustBeNumber", { label })
+      : `${label} must be a number.`,
+    whole: t
+      ? t("validation.mustBeWholeNumber", { label })
+      : `${label} must be a whole number.`,
+    wholeCents: t
+      ? t("validation.mustBeWholeCents", { label })
+      : `${label} must be a whole number of cents.`,
+    real: t
+      ? t("validation.mustBeRealNumber", { label })
+      : `${label} must be a real number.`,
+    twoDecimals: t
+      ? t("validation.atMostTwoDecimals", { label })
+      : `${label} can have at most 2 decimal places.`,
+    threeDecimals: t
+      ? t("validation.atMostThreeDecimals", { label })
+      : `${label} can have at most 3 decimal places.`,
+    positive: t
+      ? t("validation.greaterThanZero", { label })
+      : `${label} must be greater than zero.`,
+    atLeast: (min: number) =>
+      t
+        ? t("validation.atLeast", { label, min })
+        : `${label} must be at least ${min}.`,
+    atMost: (max: number) =>
+      t ? t("validation.atMost", { label, max }) : `${label} must be ${max} or less.`
+  };
+}
 
 /** Whole, non-negative quantities: guest counts, seats, capacity. */
 export function countSchema({
   min = 0,
   max = MAX_COUNT,
-  label = "This field"
+  label,
+  t
 }: NumericOptions = {}) {
+  const name = label ?? (t ? t("validation.thisField") : "This field");
+  const say = frames(t, name);
+
   return z
-    .number({ invalid_type_error: `${label} must be a number.` })
-    .int(`${label} must be a whole number.`)
-    .min(min, `${label} must be at least ${min}.`)
-    .max(max, `${label} must be ${max} or less.`);
+    .number({ invalid_type_error: say.number })
+    .int(say.whole)
+    .min(min, say.atLeast(min))
+    .max(max, say.atMost(max));
 }
 
 /**
@@ -51,53 +106,68 @@ export function countSchema({
 export function moneySchema({
   min = 0,
   max = MAX_MONEY,
-  label = "Amount"
+  label,
+  t
 }: NumericOptions = {}) {
+  const name = label ?? (t ? t("validation.amount") : "Amount");
+  const say = frames(t, name);
+
   return z
-    .number({ invalid_type_error: `${label} must be a number.` })
-    .finite(`${label} must be a real number.`)
-    .multipleOf(0.01, `${label} can have at most 2 decimal places.`)
-    .min(min, `${label} must be at least ${min}.`)
-    .max(max, `${label} must be ${max} or less.`);
+    .number({ invalid_type_error: say.number })
+    .finite(say.real)
+    .multipleOf(0.01, say.twoDecimals)
+    .min(min, say.atLeast(min))
+    .max(max, say.atMost(max));
 }
 
 /** Money already reduced to integer cents, including computed totals. */
 export function centsSchema({
   min = 0,
   max = MAX_MONEY * 100,
-  label = "Amount"
+  label,
+  t
 }: NumericOptions = {}) {
+  const name = label ?? (t ? t("validation.amount") : "Amount");
+  const say = frames(t, name);
+
   return z
-    .number({ invalid_type_error: `${label} must be a number.` })
-    .int(`${label} must be a whole number of cents.`)
-    .min(min, `${label} must be at least ${min}.`)
-    .max(max, `${label} must be ${max} or less.`);
+    .number({ invalid_type_error: say.number })
+    .int(say.wholeCents)
+    .min(min, say.atLeast(min))
+    .max(max, say.atMost(max));
 }
 
 /** Canvas geometry: positions, sizes, rotation. Fractional values are fine. */
 export function dimensionSchema({
   min = 0,
   max = 10_000,
-  label = "Value"
+  label,
+  t
 }: NumericOptions = {}) {
+  const name = label ?? (t ? t("validation.value") : "Value");
+  const say = frames(t, name);
+
   return z
-    .number({ invalid_type_error: `${label} must be a number.` })
-    .finite(`${label} must be a real number.`)
-    .min(min, `${label} must be at least ${min}.`)
-    .max(max, `${label} must be ${max} or less.`);
+    .number({ invalid_type_error: say.number })
+    .finite(say.real)
+    .min(min, say.atLeast(min))
+    .max(max, say.atMost(max));
 }
 
 /**
  * Invoice line-item quantities. Deliberately NOT `.int()`: the column is
  * `Decimal(12, 3)`, so partial units are a supported billing case.
  */
-export function quantitySchema({ label = "Quantity" }: NumericOptions = {}) {
+export function quantitySchema({ label, t }: NumericOptions = {}) {
+  const name = label ?? (t ? t("validation.quantity") : "Quantity");
+  const say = frames(t, name);
+
   return z
-    .number({ invalid_type_error: `${label} must be a number.` })
-    .finite(`${label} must be a real number.`)
-    .multipleOf(0.001, `${label} can have at most 3 decimal places.`)
-    .positive(`${label} must be greater than zero.`)
-    .max(999_999.999, `${label} must be 999999.999 or less.`);
+    .number({ invalid_type_error: say.number })
+    .finite(say.real)
+    .multipleOf(0.001, say.threeDecimals)
+    .positive(say.positive)
+    .max(999_999.999, say.atMost(999_999.999));
 }
 
 export type NumericParseResult =
@@ -122,14 +192,18 @@ const NUMERIC_TEXT = /^-?(\d+(\.\d+)?|\.\d+)$/;
  */
 export function parseNumericInput(
   raw: string,
-  schema: z.ZodType<number>
+  schema: z.ZodType<number>,
+  t?: ValidationTranslate
 ): NumericParseResult {
   const trimmed = raw.trim();
 
   if (trimmed === "") return { status: "empty" };
 
   if (!NUMERIC_TEXT.test(trimmed)) {
-    return { status: "invalid", message: "Enter a number." };
+    return {
+      status: "invalid",
+      message: t ? t("validation.enterNumber") : "Enter a number."
+    };
   }
 
   const parsed = schema.safeParse(Number(trimmed));
@@ -138,6 +212,10 @@ export function parseNumericInput(
 
   return {
     status: "invalid",
-    message: parsed.error.issues[0]?.message ?? "Enter a valid number."
+    // The schema's own message, which carries whichever language it was built
+    // with. The fallback only fires for an issue with no message at all.
+    message:
+      parsed.error.issues[0]?.message ??
+      (t ? t("validation.enterValidNumber") : "Enter a valid number.")
   };
 }

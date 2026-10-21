@@ -26,7 +26,9 @@ import {
   type BillingResponse,
   type BillingTab
 } from "@/features/billing/components/billing-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function BillingPage() {
+  const { t } = useAppLanguage();
   const [pageSearchQuery, setPageSearchQuery] =
     useDashboardPageSearch("Billing");
   const { canAccessRoute, hasPermission } = useDashboardAccess();
@@ -54,7 +56,7 @@ export function BillingPage() {
           // Signed: an imported debit is negative.
           const parsed = parseNumericInput(
             amount ?? "",
-            moneySchema({ min: -MAX_MONEY, label: "Amount" })
+            moneySchema({ min: -MAX_MONEY, label: t("common.amount"), t })
           );
 
           if (!date || !description || parsed.status !== "valid") return null;
@@ -70,7 +72,7 @@ export function BillingPage() {
 
       if (!rows.length)
         throw new Error(
-          "The CSV must contain date, description, amount, and optional currency columns."
+          t("billing.csvColumnsRequired")
         );
 
       const skipped = dataLines.length - rows.length;
@@ -81,14 +83,21 @@ export function BillingPage() {
       if (!response.ok) throw await readApiError(response);
       const payload = await response.json().catch(() => ({}));
       setImportMessage(
-        skipped > 0
-          ? `${payload.imported} bank transactions imported. ${skipped} ${skipped === 1 ? "row was" : "rows were"} skipped because the date, description, or amount could not be read.`
-          : `${payload.imported} bank transactions imported.`
+        skipped === 0
+          ? t("billing.imported", { count: payload.imported })
+          : skipped === 1
+            ? t("billing.importedWithSkippedOne", {
+                count: payload.imported
+              })
+            : t("billing.importedWithSkipped", {
+                count: payload.imported,
+                skipped
+              })
       );
       setActiveTab("Transactions");
     } catch (error) {
       setImportMessage(
-        error instanceof Error ? error.message : "Unable to import bank file."
+        error instanceof Error ? error.message : t("billing.importFailed")
       );
     }
   }
@@ -96,14 +105,14 @@ export function BillingPage() {
   const saveInvoice = async (values: NewInvoiceFormValues) => {
     const parsedAmount = parseNumericInput(
       values.amount,
-      moneySchema({ label: "Amount" })
+      moneySchema({ label: t("common.amount"), t })
     );
 
     if (parsedAmount.status !== "valid") {
       throw new Error(
         parsedAmount.status === "invalid"
           ? parsedAmount.message
-          : "Enter an invoice amount."
+          : t("billing.enterInvoiceAmount")
       );
     }
 
@@ -137,15 +146,15 @@ export function BillingPage() {
         emptyMessage={
           canViewBilling
             ? undefined
-            : "You do not have permission to view billing. Contact an administrator if you need access."
+            : t("billing.noViewPermission")
         }
-        emptyTitle={canViewBilling ? undefined : "Access restricted"}
+        emptyTitle={canViewBilling ? undefined : t("common.accessRestricted")}
         error={canViewBilling ? billingQuery.error : null}
         isEmpty={!canViewBilling}
         isLoading={canViewBilling && billingQuery.isLoading}
         onRetry={canViewBilling ? billingQuery.refetch : undefined}
-        subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
-        title="Billing"
+        subtitle={t("billing.blurb")}
+        title={t("billing.title")}
       />
     );
   }
@@ -154,15 +163,15 @@ export function BillingPage() {
     <div className="dashboard-readable-page flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         compactMobileActions
-        title="Billing"
-        subtitle="Transactions, invoices, event billing, payments, and financial dashboard."
+        title={t("billing.title")}
+        subtitle={t("billing.blurb")}
         actionsSlot={
           <>
             <TopAction
               compactOnMobile
               disabled={!canManagePayments}
               icon="upload"
-              label="Import bank file"
+              label={t("billing.importBankFile")}
               onClick={() => importInputRef.current?.click()}
             />
             <TopAction
@@ -171,13 +180,13 @@ export function BillingPage() {
                 !canManagePayments || !billingQuery.data.transactions.length
               }
               icon="payment"
-              label="Review recent transaction"
+              label={t("billing.reviewRecentTransaction")}
               onClick={() => setIsModalOpen(true)}
             />
             <TopAction
               compactOnMobile
               icon="plus"
-              label="New invoice"
+              label={t("billing.newInvoice")}
               disabled={!canManagePayments}
               onClick={() => setIsNewInvoiceOpen(true)}
               tone="primary"

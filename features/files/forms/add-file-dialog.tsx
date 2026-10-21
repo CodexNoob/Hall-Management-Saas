@@ -12,6 +12,7 @@ import {
     CUSTOM_SECTION,
     EVENT_FOLDER_SECTIONS
 } from "@/features/files/lib/event-folders";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 function formatEventDate(value: string) {
     const parsed = new Date(value);
@@ -88,6 +89,7 @@ export function AddFileDialog({
     onClose,
     onSave,
 }: AddFileDialogProps) {
+  const { t } = useAppLanguage();
     const titleId = useId();
     const fileId = useId();
     const fileNameId = useId();
@@ -181,12 +183,12 @@ export function AddFileDialog({
             event.preventDefault();
 
             if (!selectedFile) {
-                setFileError("Choose a file to upload.");
+                setFileError(t("files.chooseFileToUpload"));
                 return;
             }
 
             if (!resolvedSection) {
-                setFileError("Name the folder this file belongs in.");
+                setFileError(t("files.nameTheFolder"));
                 return;
             }
 
@@ -218,10 +220,10 @@ export function AddFileDialog({
                 >    
                     <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
                         <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-                            Add File
+                            {t("files.addFile")}
                         </h2>
 
-                        <button aria-label="Close add file" className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button">
+                        <button aria-label={t("files.closeAddFile")} className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button">
                             <span aria-hidden="true">×</span>
                             </button>
                         </header> 
@@ -230,7 +232,7 @@ export function AddFileDialog({
                             <div className="grid gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-2">
                                 <div className="sm:col-span-2">
                                     <span className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                                        Upload files
+                                        {t("files.uploadFiles")}
                                     </span>
 
                                     {/* A drop target rather than a bare file input: the whole
@@ -267,7 +269,7 @@ export function AddFileDialog({
                                             <span className="mt-1 text-sm font-black normal-case tracking-normal text-[#17202a]">
                                                 {selectedFile
                                                     ? selectedFile.name
-                                                    : "Drop files here or click to browse"}
+                                                    : t("files.dropFilesHere")}
                                             </span>
                                             <span className="text-xs font-medium normal-case tracking-normal text-[#8a94a3]">
                                                 {selectedFile
@@ -279,7 +281,7 @@ export function AddFileDialog({
                                         <input
                                             ref={fileInputRef}
                                             accept={ACCEPT_ATTRIBUTE}
-                                            aria-label="Upload files"
+                                            aria-label={t("files.uploadFiles")}
                                             className="sr-only"
                                             id={fileId}
                                             name="file"
@@ -297,10 +299,10 @@ export function AddFileDialog({
                                     ) : null}
                                 </div>
                                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={fileNameId}>
-                                    File Name
-                                    <input aria-label="File name" id={fileNameId} name="fileName" className={[controlClass, "mt-1"].join(" ")}
+                                    {t("files.fileName")}
+                                    <input aria-label={t("files.fileName")} id={fileNameId} name="fileName" className={[controlClass, "mt-1"].join(" ")}
                                     onChange={(event) => setFileName(event.target.value)} 
-                                    placeholder="file name"
+                                    placeholder={t("files.fileName")}
                                     required
                                     value={fileName}
                                     />
@@ -309,8 +311,8 @@ export function AddFileDialog({
                                 {/* What kind of document this is, which is also
                                     the folder it is filed into. */}
                                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={sectionId}>
-                                    Folder
-                                    <select aria-label="Folder" id={sectionId} name="section" className={[controlClass, "mt-1"].join(" ")}
+                                    {t("files.folder")}
+                                    <select aria-label={t("files.folder")} id={sectionId} name="section" className={[controlClass, "mt-1"].join(" ")}
                                     onChange={(changeEvent) => setSection(changeEvent.target.value)}
                                     value={section}
                                     >
@@ -324,10 +326,10 @@ export function AddFileDialog({
 
                                 {isCustomSection ? (
                                     <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={customSectionId}>
-                                        Folder name
-                                        <input aria-label="Folder name" id={customSectionId} name="customSection" className={[controlClass, "mt-1"].join(" ")}
+                                        {t("files.folderName")}
+                                        <input aria-label={t("files.folderName")} id={customSectionId} name="customSection" className={[controlClass, "mt-1"].join(" ")}
                                         onChange={(changeEvent) => setCustomSection(changeEvent.target.value)}
-                                        placeholder="e.g. Insurance"
+                                        placeholder={t("files.folderNameExample")}
                                         value={customSection}
                                         />
                                     </label>
@@ -339,12 +341,12 @@ export function AddFileDialog({
                                     attach documents to an arbitrary event. */}
                                 {events.length > 0 && !lockedEventId ? (
                                     <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={eventId}>
-                                        Event
-                                        <select aria-label="Event" id={eventId} name="eventId" className={[controlClass, "mt-1"].join(" ")}
+                                        {t("common.event")}
+                                        <select aria-label={t("common.event")} id={eventId} name="eventId" className={[controlClass, "mt-1"].join(" ")}
                                         onChange={(changeEvent) => setSelectedEventId(changeEvent.target.value)}
                                         value={selectedEventId}
                                         >
-                                            <option value="">No event - general filing</option>
+                                            <option value="">{t("files.noEventGeneral")}</option>
                                             {events.map((option) => (
                                                 <option key={option.id} value={option.id}>
                                                     {`${option.clientName}${option.eventType ? ` ${option.eventType}` : ""} - ${formatEventDate(option.eventDate)}`}
@@ -355,11 +357,11 @@ export function AddFileDialog({
                                 ) : null}
 
                                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b] sm:col-span-2" htmlFor={notesId}>
-                                    Notes
+                                    {t("common.notes")}
 
                                     <textarea id={notesId} name="notes" className="mt-1 min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm font-medium normal-case tracking-normal text-[#17202a] outline-none placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                                     onChange={(event) => setNotes(event.target.value)}
-                                    placeholder="Optional Notes"
+                                    placeholder={t("files.optionalNotes")}
                                     value={notes}
                                     />
                                 </label>
@@ -377,14 +379,14 @@ export function AddFileDialog({
                                 onClick={closeDialog}
                                 type="button"
                                 >
-                                    Cancel
+                                    {t("common.cancel")}
                                 </button>
 
                                 <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
                                 disabled={isSaving}
                                 type="submit"
                                 >
-                                    {isSaving ? "Uploading..." : "Save file"}
+                                    {isSaving ? t("files.uploading") : t("files.saveFile")}
                                 </button>
                             </footer>
                         </form>

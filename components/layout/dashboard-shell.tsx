@@ -35,11 +35,13 @@ import {
   type DashboardEventsResponse,
   type TimeFilter
 } from "@/components/layout/dashboard-shell-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function DashboardShell({
   activeOrganizationId,
   organizations,
   user
 }: DashboardShellProps) {
+  const { t } = useAppLanguage();
   const access = useDashboardAccess();
   const [pageSearchQuery] = useDashboardPageSearch("Dashboard");
   const [isTodayNotesOpen, setIsTodayNotesOpen] = useState(false);
@@ -105,7 +107,7 @@ export function DashboardShell({
   );
   const scheduleRows = useMemo(() => {
     const normalizedQuery = pageSearchQuery.trim().toLowerCase();
-    const rows = dashboardEvents.map(toScheduleRow);
+    const rows = dashboardEvents.map((event) => toScheduleRow(event, t));
 
     if (!normalizedQuery) return rows;
     return rows.filter((row) =>
@@ -123,7 +125,7 @@ export function DashboardShell({
         .toLowerCase()
         .includes(normalizedQuery)
     );
-  }, [dashboardEvents, pageSearchQuery]);
+  }, [dashboardEvents, pageSearchQuery, t]);
   const schedulePageCount = Math.max(1, Math.ceil(scheduleRows.length / 10));
   const visibleScheduleRows = scheduleRows.slice(
     (schedulePage - 1) * 10,
@@ -140,16 +142,18 @@ export function DashboardShell({
   const timelineGroups = useMemo(() => {
     const visibleIds = new Set(scheduleRows.map((row) => row.id));
     return groupEventsByDate(
-      dashboardEvents.filter((event) => visibleIds.has(event.id))
+      dashboardEvents.filter((event) => visibleIds.has(event.id)),
+      t
     );
-  }, [dashboardEvents, scheduleRows]);
+  }, [dashboardEvents, scheduleRows, t]);
   const totalEvents = dashboardQuery.data?.summary.totalEvents ?? 0;
   const rangeLabel = `${formatEventDate(dashboardDateRange.startDate)} - ${formatEventDate(dashboardDateRange.endDate)}`;
   const annualEvents = annualDashboardQuery.data?.events ?? [];
   const annualTimelineGroups = groupEventsByMonthRange(
     annualEvents,
     annualDateRange.startDate,
-    annualDateRange.endDate
+    annualDateRange.endDate,
+    t
   );
   const annualTotalEvents = annualDashboardQuery.data?.summary.totalEvents ?? 0;
   const annualRangeLabel = `${formatEventDate(annualDateRange.startDate)} - ${formatEventDate(annualDateRange.endDate)}`;
@@ -206,8 +210,8 @@ export function DashboardShell({
             the actions row too wide to sit beside the title and pushed it onto
             a second line on phones. */}
         <DashboardTopbar
-          title="Dashboard"
-          subtitle="Current operating day overview for halls, kitchen, dining, events, billing, and staff."
+          title={t("nav.dashboard")}
+          subtitle={t("shell.dashboardSubtitle")}
           onTodayNotes={openTodayNotes}
           showNewBookingAction={false}
           todayNotesNeedRevision={todayNotesNeedRevision}
@@ -219,13 +223,13 @@ export function DashboardShell({
       <UpgradePlanDialog
         description={
           trialDaysRemaining === 0
-            ? "Your 14-day free trial has ended. Choose a subscription plan to continue using Event Core."
-            : "Choose a subscription plan to continue using Event Core."
+            ? t("shell.trialEndedLong")
+            : t("shell.choosePlanToContinue")
         }
         forceSelection={trialExpired}
         onClose={() => {}}
         open={trialExpired}
-        title="Your free trial has ended"
+        title={t("shell.trialEnded")}
       />
 
       <main className="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">

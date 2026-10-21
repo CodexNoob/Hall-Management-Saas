@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import {
   authorize,
   requireUserActor,
@@ -11,6 +12,8 @@ import {
   expireOrganizationHolds
 } from "@/features/bookings/services/booking.service";
 import { createShortNoticeKitchenNotification } from "@/features/kitchen/server/kitchen-notifications";
+import { sendNotification } from "@/lib/notifications/send";
+import { bookingConfirmedEmail } from "@/lib/notifications/templates";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { prisma } from "@/lib/prisma";
 import { enforceRateLimit } from "@/lib/security/rate-limit";
@@ -161,218 +164,321 @@ const UUID_PATTERN =
 const EVENT_LIST_LIMIT = 1000;
 const INACTIVE_BOOKING_STATUSES = ["CANCELLED", "COMPLETED", "EXPIRED"];
 
-const eventListInclude = {
-  hall: true,
-  package: true,
-  client: true,
-  coordinator: { select: { id: true, user: { select: { name: true } } } }
-} as const;
+type EventListRow = Prisma.EventGetPayload<object>;
+type EventCoordinatorRow = {
+  id: string;
+  user: { name: string };
+};
 
-export const GET = withRoute(
-  "GET /api/events",
-  async (request: Request) => {
-    try {
-      const actor = await authorize(request, "event.read");
-      // The list below is capped, so an event a caller opened by id can fall
-      // outside it - the workspace then had nothing to select and quietly showed
-      // a different event instead. Naming it here guarantees it is in the answer.
-      const requestedEventId =
-        new URL(request.url).searchParams.get("eventId") ?? "";
+function uniqueIds(ids: Array<string | null>) {
+  return [...new Set(ids.filter((id): id is string => Boolean(id)))];
+}
 
-      await expireOrganizationHolds(actor.organizationId);
-      const baseEventWhere = {
-        ...tenant(actor),
-        deleted: false,
-        ...scoped(actor, "hall")
-      };
-      const [activeEvents, halls, eventTypes, packages, settings, coordinators] =
-        await Promise.all([
-          prisma.event.findMany({
-            where: {
-              ...baseEventWhere,
-              bookingStatus: { notIn: INACTIVE_BOOKING_STATUSES }
-            },
-            orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
-            include: eventListInclude,
-            take: EVENT_LIST_LIMIT
-          }),
-          prisma.hall.findMany({
-            where: {
-              ...tenant(actor),
-              isActive: true,
-              isBookable: true,
-              ...scoped(actor, "hall", { field: "id" })
-            },
-            orderBy: { name: "asc" }
-          }),
-          prisma.eventType.findMany({
-            where: { ...tenant(actor), isActive: true },
-            orderBy: { name: "asc" }
-          }),
-          prisma.eventPackage.findMany({
-            where: { ...tenant(actor), isActive: true },
-            orderBy: { name: "asc" }
-          }),
-          prisma.organizationSetting.upsert({
-            where: { ...tenant(actor) },
-            update: {},
-            create: { organizationId: actor.organizationId }
-          }),
-          // Assignable staff, served beside the halls and event types because they
-          // answer the same question the booking form asks. Reading them from
-          // /api/staff instead would put the coordinator field behind `staff.read`,
-          // and somebody allowed to edit an event should not need the staff
-          // directory open to say who is running it.
-          //
-          // Active memberships only: an inactive seat is somebody who has been
-          // taken off this organization, and offering them would be offering a name
-          // nobody can act as.
-          prisma.organizationMembership.findMany({
-            where: { ...tenant(actor), isActive: true },
-            select: { id: true, user: { select: { name: true } } },
-            orderBy: { user: { name: "asc" } }
-          })
-        ]);
+async function listEventRelations(
+  organizationId: string,
+  events: EventListRow[]
+) {
+  const hallIds = uniqueIds(events.map((event) => event.hallId));
+  const packageIds = uniqueIds(events.map((event) => event.packageId));
+  const clientIds = uniqueIds(events.map((event) => event.clientId));
+  const coordinatorIds = uniqueIds(
+    events.map((event) => event.coordinatorMembershipId)
+  );
 
-      const historicalEvents =
-        activeEvents.length >= EVENT_LIST_LIMIT
-          ? []
-          : await prisma.event.findMany({
-              where: {
-                ...baseEventWhere,
-                bookingStatus: { in: INACTIVE_BOOKING_STATUSES }
-              },
-              orderBy: [{ startsAt: "desc" }, { eventDate: "desc" }],
-              include: eventListInclude,
-              take: EVENT_LIST_LIMIT - activeEvents.length
-            });
+  const [halls, packages, clients, coordinators] = await Promise.all([
+    hallIds.length
+      ? prisma.hall.findMany({
+          where: { organizationId, id: { in: hallIds } }
+        })
+      : [],
+    packageIds.length
+      ? prisma.eventPackage.findMany({
+          where: { organizationId, id: { in: packageIds } }
+        })
+      : [],
+    clientIds.length
+      ? prisma.client.findMany({
+          where: { organizationId, id: { in: clientIds } }
+        })
+      : [],
+    coordinatorIds.length
+      ? prisma.organizationMembership.findMany({
+          where: { organizationId, id: { in: coordinatorIds } },
+          select: { id: true, user: { select: { name: true } } }
+        })
+      : []
+  ]);
 
-      const events = [...activeEvents, ...historicalEvents];
+  return {
+    hallsById: new Map(halls.map((hall) => [hall.id, hall])),
+    packagesById: new Map(
+      packages.map((eventPackage) => [eventPackage.id, eventPackage])
+    ),
+    clientsById: new Map(clients.map((client) => [client.id, client])),
+    coordinatorsById: new Map(
+      (coordinators as EventCoordinatorRow[]).map((coordinator) => [
+        coordinator.id,
+        coordinator
+      ])
+    )
+  };
+}
 
-      if (
-        UUID_PATTERN.test(requestedEventId) &&
-        !events.some((event) => event.id === requestedEventId)
-      ) {
-        const requested = await prisma.event.findFirst({
+function attachEventRelations(
+  event: EventListRow,
+  relations: Awaited<ReturnType<typeof listEventRelations>>
+) {
+  return {
+    ...event,
+    hall: relations.hallsById.get(event.hallId) ?? {
+      id: event.hallId,
+      name: event.hallName ?? "Unknown hall"
+    },
+    package: event.packageId
+      ? (relations.packagesById.get(event.packageId) ?? null)
+      : null,
+    client: event.clientId
+      ? (relations.clientsById.get(event.clientId) ?? null)
+      : null,
+    coordinator: event.coordinatorMembershipId
+      ? (relations.coordinatorsById.get(event.coordinatorMembershipId) ?? null)
+      : null
+  };
+}
+
+export const GET = withRoute("GET /api/events", async (request: Request) => {
+  try {
+    const actor = await authorize(request, "event.read");
+    // The list below is capped, so an event a caller opened by id can fall
+    // outside it - the workspace then had nothing to select and quietly showed
+    // a different event instead. Naming it here guarantees it is in the answer.
+    const requestedEventId =
+      new URL(request.url).searchParams.get("eventId") ?? "";
+
+    await expireOrganizationHolds(actor.organizationId);
+    const baseEventWhere = {
+      ...tenant(actor),
+      deleted: false,
+      ...scoped(actor, "hall")
+    };
+    const [activeEvents, halls, eventTypes, packages, settings, coordinators] =
+      await Promise.all([
+        prisma.event.findMany({
           where: {
-            id: requestedEventId,
-            ...tenant(actor),
-            deleted: false,
-            // Still behind the same hall restriction: naming an id is not a way
-            // around what this actor is allowed to see.
-            ...scoped(actor, "hall")
+            ...baseEventWhere,
+            bookingStatus: { notIn: INACTIVE_BOOKING_STATUSES }
           },
-          include: eventListInclude
-        });
-
-        if (requested) events.push(requested);
-      }
-
-      const detailedEventIds = UUID_PATTERN.test(requestedEventId)
-        ? events
-            .filter((event) => event.id === requestedEventId)
-            .map((event) => event.id)
-        : [];
-      const [
-        diningManagerNotesByEventId,
-        diningHallMapPresetByEventId,
-        activityLogsByEventId
-      ] = await Promise.all([
-        listDiningManagerNotes(actor.organizationId, detailedEventIds),
-        listDiningHallMapPresets(actor.organizationId, detailedEventIds),
-        listEventActivityLogs(actor.organizationId, detailedEventIds)
+          orderBy: [{ startsAt: "asc" }, { eventDate: "asc" }],
+          take: EVENT_LIST_LIMIT
+        }),
+        prisma.hall.findMany({
+          where: {
+            ...tenant(actor),
+            isActive: true,
+            isBookable: true,
+            ...scoped(actor, "hall", { field: "id" })
+          },
+          orderBy: { name: "asc" }
+        }),
+        prisma.eventType.findMany({
+          where: { ...tenant(actor), isActive: true },
+          orderBy: { name: "asc" }
+        }),
+        prisma.eventPackage.findMany({
+          where: { ...tenant(actor), isActive: true },
+          orderBy: { name: "asc" }
+        }),
+        prisma.organizationSetting.upsert({
+          where: { ...tenant(actor) },
+          update: {},
+          create: { organizationId: actor.organizationId }
+        }),
+        // Assignable staff, served beside the halls and event types because they
+        // answer the same question the booking form asks. Reading them from
+        // /api/staff instead would put the coordinator field behind `staff.read`,
+        // and somebody allowed to edit an event should not need the staff
+        // directory open to say who is running it.
+        //
+        // Active memberships only: an inactive seat is somebody who has been
+        // taken off this organization, and offering them would be offering a name
+        // nobody can act as.
+        prisma.organizationMembership.findMany({
+          where: { ...tenant(actor), isActive: true },
+          select: { id: true, user: { select: { name: true } } },
+          orderBy: { user: { name: "asc" } }
+        })
       ]);
 
-      return NextResponse.json({
-        events: events.map((event) => {
-          const diningHallMapPreset = diningHallMapPresetByEventId.get(event.id);
+    const historicalEvents =
+      activeEvents.length >= EVENT_LIST_LIMIT
+        ? []
+        : await prisma.event.findMany({
+            where: {
+              ...baseEventWhere,
+              bookingStatus: { in: INACTIVE_BOOKING_STATUSES }
+            },
+            orderBy: [{ startsAt: "desc" }, { eventDate: "desc" }],
+            take: EVENT_LIST_LIMIT - activeEvents.length
+          });
 
-          return {
-            ...event,
-            diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null,
-            activityLogs: activityLogsByEventId.get(event.id) ?? [],
-            diningHallMapPreset:
-              diningHallMapPreset?.hallMapPresetId &&
-              diningHallMapPreset.hallMapPresetName
-                ? {
-                    id: diningHallMapPreset.hallMapPresetId,
-                    name: diningHallMapPreset.hallMapPresetName,
-                    objects: Array.isArray(
-                      diningHallMapPreset.hallMapPresetObjects
-                    )
-                      ? diningHallMapPreset.hallMapPresetObjects
-                      : []
-                  }
-                : null
-          };
-        }),
-        halls,
-        eventTypes,
-        packages,
-        coordinators: coordinators.map((membership) => ({
-          id: membership.id,
-          name: membership.user.name
-        })),
-        calendarSettings: {
-          dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations)
-        }
-      });
-    } catch (error) {
-      return createApiErrorResponse(error);
-    }
-  }
-);
+    const events = [...activeEvents, ...historicalEvents];
 
-export const POST = withRoute(
-  "POST /api/events",
-  async (request: Request) => {
-    try {
-      const limited = await enforceRateLimit(request, {
-        scope: "event-create",
-        limit: 30,
-        windowMs: 60 * 1000
-      });
-      if (limited) return limited;
-
-      const actor = await authorize(request, "booking.create");
-      const body = (await request.json()) as Record<string, unknown>;
-      const headerKey = request.headers.get("idempotency-key") ?? undefined;
-      const input = createBookingSchema.parse({
-        ...body,
-        idempotencyKey: headerKey ?? body.idempotencyKey
-      });
-      if (input.newEventTypeName) {
-        const eventTypeActor = await authorize(request, "eventtype.create");
-        if (eventTypeActor.organizationId !== actor.organizationId) {
-          throw new Error(
-            "The active organization changed during this request."
-          );
-        }
-      }
-      const result = await createBooking(input, {
-        id: requireUserActor(actor),
-        name: actor.actorName,
-        ...tenant(actor),
-        hallScope: actor.scope.hallIds
-      });
-
-      if (!result.replayed && result.event.bookingStatus === "CONFIRMED") {
-        await createShortNoticeKitchenNotification({
+    if (
+      UUID_PATTERN.test(requestedEventId) &&
+      !events.some((event) => event.id === requestedEventId)
+    ) {
+      const requested = await prisma.event.findFirst({
+        where: {
+          id: requestedEventId,
           ...tenant(actor),
-          eventId: result.event.id,
-          eventType: result.event.eventType ?? result.event.clientName,
-          eventDate: result.event.eventDate,
-          hallOrRoom: result.event.hall?.name ?? result.event.hallName,
-          changedById: requireUserActor(actor)
-        });
-      }
-
-      return NextResponse.json(result, {
-        status: result.replayed ? 200 : 201,
-        headers: result.replayed ? { "Idempotent-Replay": "true" } : undefined
+          deleted: false,
+          // Still behind the same hall restriction: naming an id is not a way
+          // around what this actor is allowed to see.
+          ...scoped(actor, "hall")
+        }
       });
-    } catch (error) {
-      return createApiErrorResponse(error);
+
+      if (requested) events.push(requested);
     }
+
+    const eventRelations = await listEventRelations(
+      actor.organizationId,
+      events
+    );
+    const detailedEventIds = UUID_PATTERN.test(requestedEventId)
+      ? events
+          .filter((event) => event.id === requestedEventId)
+          .map((event) => event.id)
+      : [];
+    const [
+      diningManagerNotesByEventId,
+      diningHallMapPresetByEventId,
+      activityLogsByEventId
+    ] = await Promise.all([
+      listDiningManagerNotes(actor.organizationId, detailedEventIds),
+      listDiningHallMapPresets(actor.organizationId, detailedEventIds),
+      listEventActivityLogs(actor.organizationId, detailedEventIds)
+    ]);
+
+    return NextResponse.json({
+      events: events.map((event) => {
+        const eventWithRelations = attachEventRelations(event, eventRelations);
+        const diningHallMapPreset = diningHallMapPresetByEventId.get(event.id);
+
+        return {
+          ...eventWithRelations,
+          diningManagerNotes: diningManagerNotesByEventId.get(event.id) ?? null,
+          activityLogs: activityLogsByEventId.get(event.id) ?? [],
+          diningHallMapPreset:
+            diningHallMapPreset?.hallMapPresetId &&
+            diningHallMapPreset.hallMapPresetName
+              ? {
+                  id: diningHallMapPreset.hallMapPresetId,
+                  name: diningHallMapPreset.hallMapPresetName,
+                  objects: Array.isArray(
+                    diningHallMapPreset.hallMapPresetObjects
+                  )
+                    ? diningHallMapPreset.hallMapPresetObjects
+                    : []
+                }
+              : null
+        };
+      }),
+      halls,
+      eventTypes,
+      packages,
+      coordinators: coordinators.map((membership) => ({
+        id: membership.id,
+        name: membership.user.name
+      })),
+      calendarSettings: {
+        dailyEventLimit: dailyEventLimitFromIntegrations(settings.integrations)
+      }
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
   }
-);
+});
+
+export const POST = withRoute("POST /api/events", async (request: Request) => {
+  try {
+    const limited = await enforceRateLimit(request, {
+      scope: "event-create",
+      limit: 30,
+      windowMs: 60 * 1000
+    });
+    if (limited) return limited;
+
+    const actor = await authorize(request, "booking.create");
+    const body = (await request.json()) as Record<string, unknown>;
+    const headerKey = request.headers.get("idempotency-key") ?? undefined;
+    const input = createBookingSchema.parse({
+      ...body,
+      idempotencyKey: headerKey ?? body.idempotencyKey
+    });
+    if (input.newEventTypeName) {
+      const eventTypeActor = await authorize(request, "eventtype.create");
+      if (eventTypeActor.organizationId !== actor.organizationId) {
+        throw new Error("The active organization changed during this request.");
+      }
+    }
+    const result = await createBooking(input, {
+      id: requireUserActor(actor),
+      name: actor.actorName,
+      ...tenant(actor),
+      hallScope: actor.scope.hallIds
+    });
+
+    if (!result.replayed && result.event.bookingStatus === "CONFIRMED") {
+      await createShortNoticeKitchenNotification({
+        ...tenant(actor),
+        eventId: result.event.id,
+        eventType: result.event.eventType ?? result.event.clientName,
+        eventDate: result.event.eventDate,
+        hallOrRoom: result.event.hall?.name ?? result.event.hallName,
+        changedById: requireUserActor(actor)
+      });
+    }
+
+    /**
+     * Tell the people entitled to know, and only them.
+     *
+     * OUTSIDE THE REPLAY GUARD ABOVE ON PURPOSE. That one skips a replay
+     * outright; this one hands the dedupe key to `sendNotification`, which
+     * claims it against a unique index before sending anything. The difference
+     * matters for the case the guard cannot see: two concurrent retries of a
+     * timed-out request, where both find `replayed` false because neither has
+     * committed yet. The index settles it; a boolean could not.
+     *
+     * Awaited but never able to fail this request - `sendNotification` returns
+     * a result rather than throwing, because the booking is already created and
+     * a 500 here would tell somebody it was not.
+     */
+    if (result.event.bookingStatus === "CONFIRMED") {
+      await sendNotification({
+        context: {
+          ...tenant(actor),
+          epoch: BigInt(actor.epoch),
+          eventId: result.event.id,
+          hallId: result.event.hallId ?? null,
+          coordinatorMembershipId: result.event.coordinatorMembershipId ?? null
+        },
+        subject: {
+          kind: "event.created",
+          hallId: result.event.hallId ?? null
+        },
+        // The client's own key when it sent one, and the event id otherwise -
+        // which is equally unique for a booking that is only created once.
+        dedupeKey: `event.created:${result.event.id}:${input.idempotencyKey ?? result.event.id}`,
+        email: bookingConfirmedEmail(result.event)
+      });
+    }
+
+    return NextResponse.json(result, {
+      status: result.replayed ? 200 : 201,
+      headers: result.replayed ? { "Idempotent-Replay": "true" } : undefined
+    });
+  } catch (error) {
+    return createApiErrorResponse(error);
+  }
+});

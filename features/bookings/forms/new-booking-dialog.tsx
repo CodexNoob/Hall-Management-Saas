@@ -8,6 +8,7 @@ import type { CountryCode } from "libphonenumber-js";
 import { PhoneField } from "@/components/ui/phone-field";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
 import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewBookingFormValues = {
   clientName: string;
@@ -108,6 +109,7 @@ export function NewBookingDialog({
   onClose,
   onSubmit
 }: NewBookingDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const firstInputRef = useRef<HTMLInputElement>(null);
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -197,14 +199,15 @@ export function NewBookingDialog({
 
     const parsedGuests = parseNumericInput(
       values.guestCount,
-      countSchema({ min: 1, label: "Guests" })
+      countSchema({ min: 1, label: t("bookings.guests"), t }),
+      t
     );
 
     if (parsedGuests.status !== "valid") {
       setGuestCountError(
         parsedGuests.status === "invalid"
           ? parsedGuests.message
-          : "Enter a guest count."
+          : t("bookings.enterGuestCount")
       );
       return;
     }
@@ -214,8 +217,9 @@ export function NewBookingDialog({
     // Same parser the route handler runs, so a number cannot pass here and be
     // refused there. Blank stays allowed - the schema treats it as absent.
     const parsedPhone = parsePhoneInput(values.phone, {
+      t,
       country: phoneCountry,
-      label: "Phone number"
+      label: t("common.phoneNumber")
     });
 
     if (parsedPhone.status === "invalid") {
@@ -251,7 +255,7 @@ export function NewBookingDialog({
         month: "long",
         day: "numeric"
       }).format(new Date(`${values.eventDate}T00:00:00`))
-    : "the selected date";
+    : t("bookings.theSelectedDate");
   const displayedEventDate = values.eventDate
     ? new Intl.DateTimeFormat("en-US", {
         day: "2-digit",
@@ -284,15 +288,14 @@ export function NewBookingDialog({
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
           <div>
             <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
-              New booking
+              {t("common.newBooking")}
             </h2>
             <p className="mt-1 text-sm text-[#64748b]">
-              Create a client, check availability, prepare proposal, and confirm
-              the event.
+              {t("bookings.dialogBlurb")}
             </p>
           </div>
           <button
-            aria-label="Close new booking"
+            aria-label={t("bookings.close")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-4xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -333,7 +336,7 @@ export function NewBookingDialog({
             <div className="mt-4 grid gap-x-4 gap-y-3 sm:grid-cols-2">
               <div>
                 <FieldLabel htmlFor="booking-client-name">
-                  Client name
+                  {t("bookings.clientName")}
                 </FieldLabel>
                 <input
                   className={controlClass}
@@ -348,7 +351,7 @@ export function NewBookingDialog({
                 />
               </div>
               <div>
-                <FieldLabel htmlFor="booking-phone">Phone</FieldLabel>
+                <FieldLabel htmlFor="booking-phone">{t("common.phone")}</FieldLabel>
                 <PhoneField
                   country={phoneCountry}
                   countryClassName={countryClass}
@@ -363,7 +366,7 @@ export function NewBookingDialog({
                 />
               </div>
               <div>
-                <FieldLabel htmlFor="booking-email">Email</FieldLabel>
+                <FieldLabel htmlFor="booking-email">{t("common.email")}</FieldLabel>
                 <input
                   className={controlClass}
                   id="booking-email"
@@ -374,7 +377,7 @@ export function NewBookingDialog({
                 />
               </div>
               <div>
-                <FieldLabel htmlFor="booking-event-type">Event type</FieldLabel>
+                <FieldLabel htmlFor="booking-event-type">{t("bookings.eventType")}</FieldLabel>
                 <select
                   className={controlClass}
                   disabled={eventsQuery.isLoading || eventTypes.length === 0}
@@ -387,10 +390,10 @@ export function NewBookingDialog({
                   value={values.eventType}
                 >
                   <option disabled value="">
-                    Select event type
+                    {t("bookings.selectEventType")}
                   </option>
                   {!eventTypes.length ? (
-                    <option value="">No event types configured</option>
+                    <option value="">{t("bookings.noEventTypes")}</option>
                   ) : null}
                   {eventTypes.map((eventType) => (
                     <option key={eventType.id} value={eventType.name}>
@@ -400,16 +403,15 @@ export function NewBookingDialog({
                 </select>
                 {!eventsQuery.isLoading && eventTypes.length === 0 ? (
                   <p className="mt-1.5 text-xs font-semibold text-[#b26a00]">
-                    Add an event type in the Settings modal before creating a
-                    booking.
+                    {t("bookings.addEventTypeFirst")}
                   </p>
                 ) : null}
               </div>
               <div>
-                <FieldLabel htmlFor="booking-date">Date</FieldLabel>
+                <FieldLabel htmlFor="booking-date">{t("common.date")}</FieldLabel>
                 <div className="relative">
                   <button
-                    aria-label="Open booking date calendar"
+                    aria-label={t("bookings.openDateCalendar")}
                     className={`${controlClass} flex items-center justify-between pr-10 text-left`}
                     onClick={openDatePicker}
                     type="button"
@@ -453,7 +455,7 @@ export function NewBookingDialog({
                 </div>
               </div>
               <div>
-                <FieldLabel htmlFor="booking-hall">Hall / room</FieldLabel>
+                <FieldLabel htmlFor="booking-hall">{t("bookings.hallRoom")}</FieldLabel>
                 <select
                   className={controlClass}
                   disabled={eventsQuery.isLoading || halls.length === 0}
@@ -469,7 +471,7 @@ export function NewBookingDialog({
               </div>
               <div>
                 <FieldLabel htmlFor="booking-guests">
-                  Guests / couples
+                  {t("bookings.guestsCouples")}
                 </FieldLabel>
                 <input
                   aria-describedby={
@@ -499,7 +501,7 @@ export function NewBookingDialog({
                 ) : null}
               </div>
               <div>
-                <FieldLabel htmlFor="booking-package">Package</FieldLabel>
+                <FieldLabel htmlFor="booking-package">{t("bookings.package")}</FieldLabel>
                 <select
                   className={controlClass}
                   disabled={eventsQuery.isLoading || packages.length === 0}
@@ -510,7 +512,7 @@ export function NewBookingDialog({
                   }
                   value={values.eventPackage}
                 >
-                  <option value="">No package</option>
+                  <option value="">{t("bookings.noPackage")}</option>
                   {packages.map((eventPackage) => (
                     <option key={eventPackage.id}>{eventPackage.name}</option>
                   ))}
@@ -519,18 +521,17 @@ export function NewBookingDialog({
             </div>
 
             <p className="mt-4 rounded-lg border border-[#c9dced] bg-[#f2f7fb] px-3 py-3 text-xs leading-5 text-[#315573]">
-              <strong>Availability check:</strong> {values.hall} will be checked
+              <strong>{t("bookings.availabilityCheck")}</strong> {values.hall} will be checked
               for {formattedDate} before the booking is confirmed.
             </p>
             <p className="mt-2 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs leading-5 text-[#80500c]">
-              <strong>Workflow:</strong> Saving continues to the event workflow,
+              <strong>{t("bookings.workflow")}</strong> Saving continues to the event workflow,
               where availability, pricing, proposal, and retainer details are
               finalized.
             </p>
             {!canCreateBooking ? (
               <p className="mt-2 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
-                You do not have permission to create bookings. Contact an
-                administrator if you need access.
+                {t("bookings.noPermission")}
               </p>
             ) : null}
             {eventsQuery.error || bookingMutation.error ? (
@@ -547,7 +548,7 @@ export function NewBookingDialog({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] hover:bg-[#eef4fa] sm:w-auto sm:px-4"
@@ -561,7 +562,7 @@ export function NewBookingDialog({
               type="submit"
               value="proposal"
             >
-              Create proposal
+              {t("bookings.createProposal")}
             </button>
             <button
               className="col-span-2 h-10 w-full rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-sm hover:bg-[#15344f] sm:w-auto"
@@ -575,7 +576,9 @@ export function NewBookingDialog({
               type="submit"
               value="save"
             >
-              {bookingMutation.isPending ? "Saving..." : "Save booking"}
+              {bookingMutation.isPending
+                ? t("common.savingEllipsis")
+                : t("bookings.saveBooking")}
             </button>
           </footer>
         </form>

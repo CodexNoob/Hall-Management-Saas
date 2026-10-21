@@ -2,11 +2,23 @@
 
 import { type ReactNode } from "react";
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type SettingsResponse = {
   organization: { id: string; name: string };
   settings: {
     language: string;
     timezone: string;
+    /**
+     * Whether everyone in this organization has to hold a second factor.
+     *
+     * Stored and audited since the settings table was written, and returned by
+     * the route all along through the `...settings` spread - it simply had no
+     * control and no entry here, so nothing could read it.
+     */
+    twoFactorRequired: boolean;
+    /** How long an idle session lasts, in minutes. */
+    sessionTimeoutMinutes: number;
     calendar?: { dailyEventLimit: number };
     controlCenter: ControlCenterSettings;
   };
@@ -93,55 +105,70 @@ export type ModalSettingsSection =
   | "Billing"
   | "Access"
   | "Activity"
+  | "Security"
   | "Branding"
   | "Integrations"
   | "Reset";
 
 export type ModalSettingsNavItem = {
+  /**
+   * The section identifier. Stays English on purpose - the page and the
+   * sidebar switch on it, so it is a key, not copy. `labelKey` is what gets
+   * drawn.
+   */
   label: ModalSettingsSection;
-  description: string;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
   icon: IconName;
 };
 
 export const modalSettingsNavItems: ModalSettingsNavItem[] = [
   {
     label: "General",
-    description: "Organization profile and account basics.",
+    labelKey: "settings.section.general",
+    descriptionKey: "settings.sectionDesc.general",
     icon: "gear"
   },
   {
     label: "Halls",
-    description: "Rooms, halls, capacity, and setup.",
+    labelKey: "settings.section.halls",
+    descriptionKey: "settings.sectionDesc.halls",
     icon: "hall"
   },
   {
     label: "Event Types",
-    description: "Booking categories, valid days, and availability.",
+    labelKey: "settings.section.eventTypes",
+    descriptionKey: "settings.sectionDesc.eventTypes",
     icon: "calendar"
   },
   {
     label: "Calendar",
-    description: "Booking calendar behavior and date defaults.",
+    labelKey: "settings.section.calendar",
+    descriptionKey: "settings.sectionDesc.calendar",
     icon: "calendar"
   },
   {
     label: "Kitchen",
-    description: "Kitchen dashboard defaults and alerts.",
+    labelKey: "settings.section.kitchen",
+    descriptionKey: "settings.sectionDesc.kitchen",
     icon: "kitchen"
   },
   {
     label: "Notifications",
-    description: "Email, kitchen, booking, and system alerts.",
+    labelKey: "settings.section.notifications",
+    descriptionKey: "settings.sectionDesc.notifications",
     icon: "mail"
   },
   {
     label: "Billing",
-    description: "Simple payment settings and client payment link.",
+    labelKey: "settings.section.billing",
+    descriptionKey: "settings.sectionDesc.billing",
     icon: "billing"
   },
   {
     label: "Access",
-    description: "Staff, roles, permissions, and invites.",
+    labelKey: "settings.section.access",
+    descriptionKey: "settings.sectionDesc.access",
     icon: "access"
   },
   {
@@ -149,24 +176,37 @@ export const modalSettingsNavItems: ModalSettingsNavItem[] = [
     // questions: who may do things, and what was done. Gated on `activity.read`
     // in settings-page.tsx, the same way Reset is gated on `organization.reset`.
     label: "Activity",
-    description: "What was changed across the organization, and by whom.",
+    labelKey: "settings.section.activity",
+    descriptionKey: "settings.sectionDesc.activity",
     icon: "activity"
   },
   {
+    // After Access and Activity, which is the order the three questions are
+    // usually asked in: who may do things, what was done, and how hard it is
+    // to become one of those people in the first place.
+    label: "Security",
+    labelKey: "settings.section.security",
+    descriptionKey: "settings.sectionDesc.security",
+    icon: "shield"
+  },
+  {
     label: "Branding",
-    description: "Logo, client portal copy, and PDF identity.",
+    labelKey: "settings.section.branding",
+    descriptionKey: "settings.sectionDesc.branding",
     icon: "file"
   },
   {
     label: "Integrations",
-    description: "Connected services and coming-soon channels.",
+    labelKey: "settings.section.integrations",
+    descriptionKey: "settings.sectionDesc.integrations",
     icon: "link"
   },
   // Last, and it stays last. Everything above it is a preference somebody can
   // change back; this one empties the account.
   {
     label: "Reset",
-    description: "Permanently clear events, menus, configuration or access.",
+    labelKey: "settings.section.reset",
+    descriptionKey: "settings.sectionDesc.reset",
     icon: "gear"
   }
 ];
@@ -331,19 +371,23 @@ export function PanelHeader({
 export function Toggle({
   checked,
   onChange,
-  label
+  label,
+  /** For a policy somebody may read but not change - see the Security section. */
+  disabled = false
 }: {
   checked: boolean;
   onChange: () => void;
   label: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       aria-label={label}
       aria-pressed={checked}
-      className={`relative h-5 w-9 rounded-full transition ${
+      className={`relative h-5 w-9 rounded-full transition disabled:cursor-not-allowed disabled:opacity-50 ${
         checked ? "bg-[#347db4]" : "bg-[#cbd3dc]"
       }`}
+      disabled={disabled}
       onClick={onChange}
       type="button"
     >

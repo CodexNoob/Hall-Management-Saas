@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 
@@ -19,6 +19,7 @@ import { getClientPortalUrl } from "@/lib/ui/client-portal-url";
 import { copyText } from "@/lib/ui/copy-text";
 import { formatMoney } from "@/lib/ui/format-money";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type PortalResponse = {
   portal: ClientPortalEvent;
@@ -163,6 +164,7 @@ function OptionSection({
   disabled: boolean;
   onSelect: (option: ClientPortalOption, checked: boolean) => void;
 }) {
+  const { t } = useAppLanguage();
   const [query, setQuery] = useState("");
   // A section that still needs an answer opens itself; one that is already
   // answered collapses to its answer, so a long portal is a short list of what
@@ -214,8 +216,13 @@ function OptionSection({
             <h2 className="text-sm font-black text-[#17202a]">{title}</h2>
             <span className="text-xs font-semibold text-[#6a7483]">
               {selectedCount > 0
-                ? `${selectedCount} of ${options.length} selected`
-                : `${options.length} option${options.length === 1 ? "" : "s"}`}
+                ? t("events.ofSelected", {
+                    selected: selectedCount,
+                    total: options.length
+                  })
+                : options.length === 1
+                  ? t("events.oneOption")
+                  : t("events.optionCount", { count: options.length })}
             </span>
             {badge ? <Badge tone="green">{badge}</Badge> : null}
           </span>
@@ -228,7 +235,7 @@ function OptionSection({
           ) : null}
           {!open && !selectedNames ? (
             <span className="mt-1 block text-xs font-semibold text-[#9a5b00]">
-              Nothing selected yet
+              {t("events.nothingSelected")}
             </span>
           ) : null}
         </span>
@@ -240,7 +247,7 @@ function OptionSection({
             aria-label={`Search ${title.toLowerCase()}`}
             className="h-8 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs sm:max-w-64"
             onChange={(changeEvent) => setQuery(changeEvent.target.value)}
-            placeholder={`Search ${title.toLowerCase()}...`}
+            placeholder={t("events.searchIn", { section: title.toLowerCase() })}
             type="search"
             value={query}
           />
@@ -318,6 +325,7 @@ export function ClientPortalPreviewContent({
   paymentUrl?: string | null;
   interactive?: boolean;
 }) {
+  const { t } = useAppLanguage();
   const [packages, setPackages] = useState(portal.packages);
   const [menuItems, setMenuItems] = useState(portal.menuItems);
   const [drinks, setDrinks] = useState(portal.drinks);
@@ -417,11 +425,11 @@ export function ClientPortalPreviewContent({
 
       setSaveMessage(
         response.ok
-          ? "Your selections were saved."
-          : (payload?.error ?? "Could not save your selections.")
+          ? t("events.selectionsSaved")
+          : (payload?.error ?? t("events.selectionsSaveFailed"))
       );
     } catch {
-      setSaveMessage("Could not save your selections.");
+      setSaveMessage(t("events.selectionsSaveFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -441,15 +449,15 @@ export function ClientPortalPreviewContent({
       />
       <div className="min-w-0 space-y-3 p-3 sm:p-4">
         <section className="min-w-0 rounded-lg border border-[#d8dde5] p-3 sm:p-4">
-          <h2 className="text-sm font-black">Event details</h2>
+          <h2 className="text-sm font-black">{t("events.eventDetails")}</h2>
           <p className="mt-1 text-xs text-[#6a7483]">
-            Contact the venue to change the guest count.
+            {t("events.contactVenueForGuests")}
           </p>
           <div className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-3">
-            <DetailTile label="Status" value={portal.status} />
-            <DetailTile label="Hall" value={portal.room} />
-            <DetailTile label="Couples" value={portal.couples} />
-            <DetailTile label="Children" value={portal.children} />
+            <DetailTile label={t("common.status")} value={portal.status} />
+            <DetailTile label={t("calendar.hall")} value={portal.room} />
+            <DetailTile label={t("bookings.couples")} value={portal.couples} />
+            <DetailTile label={t("bookings.children")} value={portal.children} />
           </div>
         </section>
 
@@ -458,44 +466,43 @@ export function ClientPortalPreviewContent({
             className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 text-sm font-semibold text-[#516174]"
             role="status"
           >
-            Your menu has been confirmed by the venue. Contact them directly to
-            make further changes.
+            {t("events.menuConfirmedByVenue")}
           </p>
         ) : null}
 
         {hasOptions ? (
           <>
             <OptionSection
-              badge={locked ? undefined : "client selectable"}
+              badge={locked ? undefined : t("events.clientSelectable")}
               disabled={locked}
               group="menu-package"
               onSelect={(option, checked) =>
                 setPackages((current) => selectSingle(current, option, checked))
               }
               options={packages}
-              title="Package"
+              title={t("bookings.package")}
               type="radio"
             />
             <OptionSection
-              badge={locked ? undefined : "client selectable"}
+              badge={locked ? undefined : t("events.clientSelectable")}
               disabled={locked}
               group="menu-item"
               onSelect={(option, checked) =>
                 setMenuItems((current) => selectMany(current, option, checked))
               }
               options={menuItems}
-              title="Menu selection"
+              title={t("events.menuSelection")}
               type="checkbox"
             />
             <OptionSection
-              badge={locked ? undefined : "client selectable"}
+              badge={locked ? undefined : t("events.clientSelectable")}
               disabled={locked}
               group="drink"
               onSelect={(option, checked) =>
                 setDrinks((current) => selectMany(current, option, checked))
               }
               options={drinks}
-              title="Drinks"
+              title={t("events.drinks")}
               type="checkbox"
             />
             <OptionSection
@@ -507,7 +514,7 @@ export function ClientPortalPreviewContent({
                 )
               }
               options={tablecloths}
-              title="Tablecloth options"
+              title={t("events.tableclothOptions")}
               type="radio"
             />
             <OptionSection
@@ -517,13 +524,13 @@ export function ClientPortalPreviewContent({
                 setAddOns((current) => selectMany(current, option, checked))
               }
               options={addOns}
-              title="Add-ons"
+              title={t("events.addOns")}
               type="checkbox"
             />
           </>
         ) : (
           <p className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3 text-sm text-[#6a7483]">
-            Your venue has not published menu selections yet.
+            {t("events.noPublishedMenu")}
           </p>
         )}
 
@@ -536,7 +543,9 @@ export function ClientPortalPreviewContent({
               type="button"
             >
               <LineIcon name="document" />
-              {isSaving ? "Saving..." : "Save my selections"}
+              {isSaving
+                  ? t("common.savingEllipsis")
+                  : t("events.saveMySelections")}
             </button>
             {saveMessage ? (
               <span
@@ -551,7 +560,7 @@ export function ClientPortalPreviewContent({
 
         {showBillingReadouts ? (
           <section className="rounded-lg border border-[#d8dde5] p-4">
-            <h2 className="text-sm font-black">Payment</h2>
+            <h2 className="text-sm font-black">{t("billing.payment")}</h2>
             {paymentUrl ? (
               <a
                 className="mt-3 inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white! transition-colors hover:bg-[#15344f] hover:text-white! visited:text-white!"
@@ -560,15 +569,14 @@ export function ClientPortalPreviewContent({
                 target="_blank"
               >
                 <LineIcon name="document" />
-                Pay balance
+                {t("events.payBalance")}
               </a>
             ) : (
               // No global fallback: an unconfigured organization shows no
               // button rather than sending the client to another venue's
               // merchant.
               <p className="mt-3 text-sm text-[#6a7483]">
-                Online payment is not set up for this event. Please contact the
-                venue to arrange payment.
+                {t("events.noOnlinePayment")}
               </p>
             )}
           </section>
@@ -577,13 +585,13 @@ export function ClientPortalPreviewContent({
         {showBillingReadouts && portal.totals ? (
           <div className="space-y-2 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm text-[#17202a]">Invoice total</span>
+              <span className="text-sm text-[#17202a]">{t("events.invoiceTotal")}</span>
               <strong className="text-lg text-[#17202a]">
                 {formatMoney(portal.totals.totalCents, portal.totals.currency)}
               </strong>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="text-sm text-[#17202a]">Balance due</span>
+              <span className="text-sm text-[#17202a]">{t("events.balanceDue")}</span>
               <strong className="text-xl text-[#17202a]">
                 {formatMoney(
                   portal.totals.balanceDueCents,
@@ -599,6 +607,7 @@ export function ClientPortalPreviewContent({
 }
 
 export function ClientPortalContent({ event }: { event: EventFile }) {
+  const { t } = useAppLanguage();
   // The URL is derived from the event id - there is no token to mint - so it is
   // filled in on mount rather than behind a "Generate link" button that only
   // ever produced the one value.
@@ -606,7 +615,7 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
   const [copyMessage, setCopyMessage] = useState("");
   const [sharing, setSharing] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      portalChecklist.map(([label, shared]) => [label, shared])
+      portalChecklist.map(([label, , shared]) => [label, shared])
     )
   );
   const portalQuery = useAuthenticatedQuery<PortalResponse>(
@@ -622,13 +631,13 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
       <aside className="min-w-0 space-y-3">
         <section className="min-w-0 overflow-hidden rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
           <h2 className="text-sm font-black text-[#17202a]">
-            Client portal link
+            {t("events.portalLink")}
           </h2>
           <p className="mt-1 text-xs text-[#6a7483]">
-            Anyone with this link can open the portal for this event.
+            {t("events.portalLinkBlurb")}
           </p>
           <input
-            aria-label="Client portal link"
+            aria-label={t("events.portalLink")}
             className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
             readOnly
             value={portalUrl}
@@ -643,12 +652,12 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
               onClick={async () => {
                 const copied = await copyText(portalUrl);
                 setCopyMessage(
-                  copied ? "Link copied." : "Unable to copy the link."
+                  copied ? t("events.linkCopied") : t("events.linkCopyFailed")
                 );
               }}
             >
               <LineIcon name="files" />
-              Copy link
+              {t("common.copyLink")}
             </button>
             {portalUrl ? (
               <a
@@ -658,7 +667,7 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
                 target="_blank"
               >
                 <LineIcon name="document" />
-                Open portal
+                {t("events.openPortal")}
               </a>
             ) : null}
             {copyMessage ? (
@@ -673,11 +682,11 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
           <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
             <LineIcon name="files" />
             <h2 className="text-sm font-black text-[#17202a]">
-              Client sharing checklist
+              {t("events.sharingChecklist")}
             </h2>
           </header>
           <div className="space-y-1.5 p-3">
-            {portalChecklist.map(([label]) => {
+            {portalChecklist.map(([label, labelKey]) => {
               const shared = sharing[label];
 
               return (
@@ -701,7 +710,9 @@ export function ClientPortalContent({ event }: { event: EventFile }) {
                     }
                     name={`portal-section-${label.toLowerCase().replaceAll(" ", "-")}`}
                   />
-                  <span className="min-w-0 flex-1 leading-tight">{label}</span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    {t(labelKey)}
+                  </span>
                   <span
                     className={`shrink-0 text-xs font-medium ${
                       shared ? "text-[#146c43]" : "text-[#6a7483]"

@@ -8,6 +8,7 @@ import {
   LineIcon,
   type IconName
 } from "@/features/menu/components/menu-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * What a card draws where a picture would be.
@@ -101,6 +102,7 @@ export function MenuItemCard({
   pictureIcon?: IconName;
   pictureUrl?: string | null;
 }) {
+  const { t } = useAppLanguage();
   const isPending = Boolean(pendingLabel);
   const isTickable = Boolean(onToggleTick);
   const hasActions = actions.length > 0 && !isPending && !isTickable;
@@ -242,7 +244,7 @@ export function MenuItemCard({
         <div className="absolute right-1.5 top-1.5 sm:right-2 sm:top-2">
           <ActionsMenu
             items={actions}
-            label={`More actions for ${name}`}
+            label={t("menu.moreActionsFor", { name })}
             triggerClassName="flex h-7 w-7 items-center justify-center rounded-full border border-[#d8dde5] bg-white/90 text-[#6a7483] shadow-sm backdrop-blur-sm transition hover:bg-white hover:text-[#17202a] [&_svg]:h-4 [&_svg]:w-4"
           />
         </div>
@@ -252,6 +254,8 @@ export function MenuItemCard({
 }
 
 export function AddItemCard({ onClick }: { onClick: () => void }) {
+  const { t } = useAppLanguage();
+
   return (
     <button
       className="dashboard-hover-card flex h-50 overflow-hidden rounded-xl border border-dashed border-[#b9c2cf] bg-[#fbfcfd] text-[#17202a] hover:bg-[#eef4fa]"
@@ -265,7 +269,7 @@ export function AddItemCard({ onClick }: { onClick: () => void }) {
           </span>
         </div>
         <div className="flex h-12 items-center justify-center border-t border-[#d8dde5] text-sm font-black">
-          Add item
+          {t("menu.addItem")}
         </div>
       </div>
     </button>

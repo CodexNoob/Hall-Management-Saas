@@ -47,6 +47,8 @@ export function cacheTestSession(
       name: overrides.userName ?? "Test User",
       phone: null,
       venueName: null,
+      // No personal preference, so the organization's language applies.
+      language: null,
       title: overrides.userTitle ?? "Team member",
       organizationId: "org-1"
     },

@@ -4,39 +4,48 @@ import { useRouter } from "next/navigation";
 
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const moduleLinks = [
   {
     eyebrow: "Live",
     title: "Kitchen",
-    description: "Menu production, quantities, workers, and completion status.",
-    actionLabel: "Open kitchen board",
+    descriptionKey: "dashboard.module.kitchenBlurb",
+    actionLabelKey: "dashboard.module.openKitchen",
     route: "/dashboard/kitchen"
   },
   {
     eyebrow: "Booking",
     title: "Calendar",
-    description: "Month view with room availability and closed-date rules.",
-    actionLabel: "Open calendar",
+    descriptionKey: "dashboard.module.calendarBlurb",
+    actionLabelKey: "dashboard.module.openCalendar",
     route: "/dashboard/calendar"
   },
   {
     eyebrow: "Manage",
     title: "Events",
-    description: "Full event file: client, menu, kitchen, staff, and vendors.",
-    actionLabel: "Open event files",
+    descriptionKey: "dashboard.module.eventsBlurb",
+    actionLabelKey: "dashboard.module.openEvents",
     route: "/dashboard/events"
   },
   {
     eyebrow: "Office",
     title: "Billing",
-    description: "Retainers, invoices, payment links, and balances due.",
-    actionLabel: "Open billing",
+    descriptionKey: "dashboard.module.billingBlurb",
+    actionLabelKey: "dashboard.module.openBilling",
     route: "/dashboard/billing"
   }
-];
+] satisfies Array<{
+  eyebrow: string;
+  title: string;
+  descriptionKey: MessageKey;
+  actionLabelKey: MessageKey;
+  route: string;
+}>;
 
 export function DashboardModuleLinks() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Same filter as dashboard-sidebar.tsx's nav items, so a tile is offered
@@ -50,7 +59,7 @@ export function DashboardModuleLinks() {
 
   return (
     <section
-      aria-label="Module shortcuts"
+      aria-label={t("dashboard.moduleShortcuts")}
       className="mt-6 grid grid-flow-col auto-cols-[minmax(12rem,1fr)] gap-4 overflow-x-auto pb-6 pt-2"
     >
       {visibleLinks.map((item) => (
@@ -69,10 +78,10 @@ export function DashboardModuleLinks() {
             {item.title}
           </h3>
           <p className="mt-2 text-sm font-medium leading-6 text-[#6a7483]">
-            {item.description}
+            {t(item.descriptionKey)}
           </p>
           <p className="mt-4 whitespace-nowrap text-sm font-black text-[#1f4d73]">
-            {item.actionLabel}
+            {t(item.actionLabelKey)}
           </p>
         </button>
       ))}

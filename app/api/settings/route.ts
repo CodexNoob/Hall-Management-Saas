@@ -22,6 +22,7 @@ import {
   DEFAULT_PORTAL_HEADER_COLOR,
   isPortalHeaderColor
 } from "@/lib/ui/portal-header-theme";
+import { isTimeZone } from "@/lib/dates/time-zones";
 import { countSchema } from "@/lib/validation/number";
 import { withRoute } from "@/lib/http/with-route";
 
@@ -40,13 +41,36 @@ const paymentLinkSchema = z
 const settingsSchema = z.object({
   organizationName: z.string().trim().min(1).max(200).optional(),
   language: z.enum(["en-US", "en-GB", "he-IL", "es-US"]).optional(),
-  timezone: z.string().trim().min(1).optional(),
+  // Checked against the runtime's own IANA database rather than merely being
+  // non-empty. A zone nothing recognises does not throw anywhere - it makes
+  // `dateKeyInTimeZone` fall back to the server's zone - so the venue's idea of
+  // which day it is moves silently, and bookings start being refused as past.
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(isTimeZone, "That is not a recognised timezone.")
+    .optional(),
   twoFactorRequired: z.boolean().optional(),
-  sessionTimeoutMinutes: countSchema({
-    min: 5,
-    max: 1440,
-    label: "Session timeout"
-  }).optional(),
+  /**
+   * Zero is "Never", and it has to be accepted explicitly.
+   *
+   * The bound used to be 5-1440, which meant the Settings screen could offer a
+   * "Never" option that the API would reject - a control that looks like a
+   * choice and answers 422. A union rather than `min: 0` so 1 to 4 stay
+   * invalid: those are not a policy, they are a typo.
+   *
+   * The lower bound of the range stays at 5 rather than rising to 60 with the
+   * dropdown, so an organization that stored 15 or 30 before the choices
+   * changed can still save its settings without being told its own value is
+   * out of range.
+   */
+  sessionTimeoutMinutes: z
+    .union([
+      z.literal(0),
+      countSchema({ min: 5, max: 1440, label: "Session timeout" })
+    ])
+    .optional(),
   dailyEventLimit: countSchema({
     min: 1,
     max: 50,

@@ -23,7 +23,7 @@ import { cacheTestSessionForStarterRole } from "./auth-session-fixture";
  * that date went with it.
  */
 
-function respondWith() {
+function respondWith(timeZone?: string) {
   vi.mocked(authenticatedFetch).mockImplementation(
     async () =>
       ({
@@ -44,7 +44,7 @@ function respondWith() {
             canCancelEvents: true,
             seesWholeBoard: true
           },
-          kitchenSettings: { defaultView: "week" as const }
+          kitchenSettings: { defaultView: "week" as const, timeZone }
         })
       }) as unknown as Response
   );
@@ -100,6 +100,54 @@ describe("Kitchen board across midnight", () => {
     // moved rather than being duplicated or left behind.
     expect(todayHeadings()).toHaveLength(1);
     expect(screen.getByText("Tue")).toBeInTheDocument();
+  });
+
+  /**
+   * The venue's own day, on a screen that is not in the venue.
+   *
+   * The board's query URL carries the anchor date, so moving the anchor is a
+   * different cache entry and the response - with the timezone in it - is
+   * briefly absent. The rollover used to read the timezone straight off that
+   * response, so for one render it had none, fell back to the browser's day,
+   * and wrote it to the anchor; the next render found the venue's day again
+   * and wrote that back. Two days that are not the same day, each re-triggering
+   * the other, until React refuses.
+   *
+   * The zone is chosen against the runner's own, rather than hardcoded, so the
+   * two dates genuinely differ wherever this suite is run.
+   */
+  it("settles on the venue's day when the browser is on another date", async () => {
+    const instant = new Date("2026-09-01T12:00:00Z");
+    vi.setSystemTime(instant);
+
+    const dayIn = (timeZone: string) =>
+      new Intl.DateTimeFormat("en-CA", { timeZone }).format(instant);
+    const localDay = new Intl.DateTimeFormat("en-CA").format(instant);
+    // 25 hours apart, so at any instant one of them is on a different calendar
+    // day from the runner's zone whatever that zone is.
+    const venueTimeZone =
+      dayIn("Pacific/Kiritimati") === localDay
+        ? "Pacific/Midway"
+        : "Pacific/Kiritimati";
+
+    expect(dayIn(venueTimeZone)).not.toBe(localDay);
+    respondWith(venueTimeZone);
+
+    // A render that loops throws "Maximum update depth exceeded" out of `act`,
+    // so reaching the assertions at all is most of what this is checking.
+    await act(async () => {
+      render(<KitchenDashboardPage />);
+    });
+
+    expect(todayHeadings()).toHaveLength(1);
+
+    // And it stays settled once the rollover timer has fired, rather than
+    // thrashing a minute later.
+    await act(async () => {
+      vi.advanceTimersByTime(60_000);
+    });
+
+    expect(todayHeadings()).toHaveLength(1);
   });
 
   it("leaves the date alone while the clock stays on the same day", async () => {

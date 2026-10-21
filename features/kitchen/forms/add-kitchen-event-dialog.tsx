@@ -9,6 +9,7 @@ import {
   type FormEvent
 } from "react";
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type AddKitchenEventFormValues = {
   menuId: string;
@@ -97,6 +98,7 @@ export function AddKitchenEventDialog({
   onClose,
   onSave
 }: AddKitchenEventDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const eventNameId = useId();
   const portionsId = useId();
@@ -224,7 +226,7 @@ export function AddKitchenEventDialog({
     };
 
     if (!eventName) {
-      setMenuError("Enter an event name.");
+      setMenuError(t("kitchen.enterEventName"));
       return;
     }
 
@@ -233,20 +235,21 @@ export function AddKitchenEventDialog({
       selectedQuickItems.length === 0 &&
       selectedAddOnIds.length === 0
     ) {
-      setMenuError("Choose food items, drinks, add-ons, or a menu template.");
+      setMenuError(t("kitchen.chooseItems"));
       return;
     }
 
     const parsedPortions = parseNumericInput(
       normalizedValues.portions,
-      countSchema({ min: 1, label: "Portions" })
+      countSchema({ min: 1, label: t("kitchen.portions"), t }),
+      t
     );
 
     if (parsedPortions.status !== "valid") {
       setPortionsError(
         parsedPortions.status === "invalid"
           ? parsedPortions.message
-          : "Enter a portion count."
+          : t("kitchen.enterPortionCount")
       );
       return;
     }
@@ -263,7 +266,7 @@ export function AddKitchenEventDialog({
       setSubmitError(
         error instanceof Error
           ? error.message
-          : "Unable to save this kitchen event."
+          : t("kitchen.saveEventFailed")
       );
     } finally {
       setIsSubmitting(false);
@@ -289,7 +292,7 @@ export function AddKitchenEventDialog({
               className="text-base font-black leading-none text-[#061126]"
               id={titleId}
             >
-              Add Kitchen Event
+              {t("kitchen.addEventTitle")}
             </h2>
             <p className="mt-2 text-sm font-bold text-[#1f4d73]">
               {formatDateLabel(date)}
@@ -297,7 +300,7 @@ export function AddKitchenEventDialog({
           </div>
 
           <button
-            aria-label="Close add kitchen event"
+            aria-label={t("kitchen.closeAddEvent")}
             className="flex h-8 w-8 items-center justify-center border border-[#b9c2cf] bg-white text-xl leading-none text-[#061126] hover:bg-[#eef4fa]"
             onClick={closeDialog}
             type="button"
@@ -311,7 +314,7 @@ export function AddKitchenEventDialog({
             <div className="grid gap-3 sm:grid-cols-[1fr_140px]">
               <div>
                 <label htmlFor={eventNameId}>
-                  <FieldLabel>Event name *</FieldLabel>
+                  <FieldLabel>{t("kitchen.eventNameRequired")}</FieldLabel>
                 </label>
                 <input
                   ref={firstInputRef}
@@ -325,7 +328,7 @@ export function AddKitchenEventDialog({
                   onChange={(event) =>
                     updateValue("quickMenuName", event.target.value)
                   }
-                  placeholder="e.g. School Lunch, Staff Meal..."
+                  placeholder={t("kitchen.eventNamePlaceholder")}
                   type="text"
                   value={values.quickMenuName}
                 />
@@ -333,7 +336,7 @@ export function AddKitchenEventDialog({
 
               <div>
                 <label htmlFor={portionsId}>
-                  <FieldLabel>Portions</FieldLabel>
+                  <FieldLabel>{t("kitchen.portions")}</FieldLabel>
                 </label>
                 <input
                   aria-describedby={
@@ -376,7 +379,7 @@ export function AddKitchenEventDialog({
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div>
-                <FieldLabel>Packages</FieldLabel>
+                <FieldLabel>{t("kitchen.packages")}</FieldLabel>
                 <div className="mt-2 grid max-h-52 gap-2 overflow-y-auto pr-1 text-sm font-bold text-[#111827]">
                   {menus.length ? (
                     menus.map((menu) => (
@@ -399,7 +402,7 @@ export function AddKitchenEventDialog({
                     ))
                   ) : (
                     <p className="text-xs font-bold text-[#6b7280]">
-                      No saved packages yet.
+                      {t("kitchen.noSavedPackages")}
                     </p>
                   )}
                 </div>
@@ -407,7 +410,7 @@ export function AddKitchenEventDialog({
 
               <CheckboxList
                 items={buffetOptions}
-                label="Buffet Menu"
+                label={t("kitchen.buffetMenu")}
                 maxHeightClass="max-h-52"
                 onToggle={(item) => {
                   setMenuError("");
@@ -421,7 +424,7 @@ export function AddKitchenEventDialog({
 
               <CheckboxList
                 items={platedOptions}
-                label="Plated Menu"
+                label={t("kitchen.platedMenu")}
                 maxHeightClass="max-h-52"
                 onToggle={(item) => {
                   setMenuError("");
@@ -435,7 +438,7 @@ export function AddKitchenEventDialog({
 
               <CheckboxList
                 items={drinkOptions}
-                label="Drink Menu"
+                label={t("kitchen.drinkMenu")}
                 maxHeightClass="max-h-52"
                 onToggle={(item) => {
                   setMenuError("");
@@ -449,7 +452,7 @@ export function AddKitchenEventDialog({
 
               <CheckboxList
                 items={addOns}
-                label="Add-ons"
+                label={t("kitchen.addOns")}
                 maxHeightClass="max-h-52"
                 onToggle={(item) => {
                   setMenuError("");
@@ -465,7 +468,7 @@ export function AddKitchenEventDialog({
 
             <div className="mt-4">
               <label htmlFor={kitchenNoteId}>
-                <FieldLabel>Note (optional)</FieldLabel>
+                <FieldLabel>{t("kitchen.noteOptional")}</FieldLabel>
               </label>
               <textarea
                 className="mt-2 h-18 w-full resize-y border border-[#b9c2cf] bg-white px-3 py-3 text-sm font-semibold text-[#111827] outline-none placeholder:text-[#9ca3af] focus:border-[#1f4d73] focus:ring-1 focus:ring-[#1f4d73]"
@@ -474,15 +477,14 @@ export function AddKitchenEventDialog({
                 onChange={(event) =>
                   updateValue("kitchenNote", event.target.value)
                 }
-                placeholder="Any kitchen notes..."
+                placeholder={t("kitchen.notePlaceholder")}
                 value={values.kitchenNote}
               />
             </div>
 
             {!canSave ? (
               <p className="mt-4 border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
-                You do not have permission to add kitchen events. Contact an
-                administrator if you need access.
+                {t("kitchen.noPermissionAddEvent")}
               </p>
             ) : null}
             {submitError ? (
@@ -501,14 +503,16 @@ export function AddKitchenEventDialog({
               onClick={closeDialog}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-11 bg-[#061126] px-6 text-sm font-black text-white enabled:hover:bg-[#10203d] disabled:cursor-not-allowed disabled:opacity-45"
               disabled={!canSave || isSubmitting}
               type="submit"
             >
-              {isSubmitting ? "Saving..." : "Save Event"}
+              {isSubmitting
+                ? t("common.savingEllipsis")
+                : t("kitchen.saveEvent")}
             </button>
           </footer>
         </form>

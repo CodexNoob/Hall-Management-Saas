@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { MenuItemCard } from "@/features/menu/components/menu-cards";
 import type { MenuLibraryItem } from "@/features/menu/components/menu-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type PackageItemPickerProps = {
   /** Library items not already in the package. */
@@ -57,6 +58,7 @@ export function PackageItemPicker({
   pendingItemIds,
   selectedItemIds
 }: PackageItemPickerProps) {
+  const { t } = useAppLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const normalizedSearch = searchQuery.trim().toLowerCase();
   const visibleItems = availableItems.filter(
@@ -82,7 +84,7 @@ export function PackageItemPicker({
     >
       <header className="flex min-h-11 flex-col gap-2 border-b border-[#d8dde5] px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
         <h3 className="text-sm font-black text-[#17202a]" id={HEADING_ID}>
-          Add items from the Menu Library
+          {t("menu.addFromLibrary")}
         </h3>
         {availableItems.length > 0 ? (
           <div className="flex items-center gap-2">
@@ -96,15 +98,15 @@ export function PackageItemPicker({
                 }
                 type="button"
               >
-                {areAllVisibleTicked ? "Select none" : "Select all"}
+                {areAllVisibleTicked ? t("menu.selectNone") : t("menu.selectAll")}
               </button>
             ) : null}
             <input
-              aria-label="Search library items to add"
+              aria-label={t("menu.searchLibraryToAdd")}
               className="h-8 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none placeholder:text-[#6a7483] focus:border-[#1f4d73] sm:w-56"
               name="packageItemSearch"
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search items"
+              placeholder={t("menu.searchItems")}
               type="search"
               value={searchQuery}
             />
@@ -115,11 +117,11 @@ export function PackageItemPicker({
       {availableItems.length === 0 ? (
         <EmptyState>
           {libraryItemCount === 0
-            ? "The Menu Library is empty. Create an item there first, then add it here."
-            : "Every library item is already in this package."}
+            ? t("menu.libraryEmpty")
+            : t("menu.everyItemInPackage")}
         </EmptyState>
       ) : visibleItems.length === 0 ? (
-        <EmptyState>No library items match that search.</EmptyState>
+        <EmptyState>{t("menu.noLibraryMatches")}</EmptyState>
       ) : (
         // The same grid and the same card as the included list above it, so an
         // item looks like itself on both sides of the panel and the two halves
@@ -133,7 +135,7 @@ export function PackageItemPicker({
               isTicked={selectedItemIds.has(item.id)}
               name={item.name}
               onToggleTick={() => onToggle(item.id)}
-              pendingLabel={pendingItemIds.has(item.id) ? "Saving…" : null}
+              pendingLabel={pendingItemIds.has(item.id) ? t("common.savingChar") : null}
               pictureUrl={item.pictureUrl}
             />
           ))}

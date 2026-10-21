@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 function getCurrentSidebarCollapsed() {
   if (typeof document === "undefined") {
@@ -34,6 +35,7 @@ function setDashboardSidebarState(collapsed: boolean) {
 }
 
 export function DashboardTopbarBrand() {
+  const { t } = useAppLanguage();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     getCurrentSidebarCollapsed
   );
@@ -110,11 +112,11 @@ export function DashboardTopbarBrand() {
 
   const sidebarToggleLabel = isMobileViewport
     ? isMobileSidebarOpen
-      ? "Close navigation"
-      : "Open navigation"
+      ? t("nav.closeNavigation")
+      : t("nav.openNavigation")
     : isSidebarCollapsed
-      ? "Expand sidebar"
-      : "Close Sidebar";
+      ? t("shell.expandSidebar")
+      : t("shell.closeSidebar");
 
   return (
     <div className="dashboard-topbar-brand fixed left-0 top-0 z-60 flex h-14 shrink-0 items-center justify-center gap-3 border-b border-r border-white/10 bg-[#061126] px-4 backdrop-blur-xl sm:px-6 lg:h-20 lg:justify-between">

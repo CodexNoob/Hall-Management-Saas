@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
 import { serviceStyleLabel } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * Picking the package an event is served from.
@@ -44,15 +46,18 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 });
 
 /** What the dish's rules say this line will be when the package is applied. */
-function styleLabel(item: PackageSelectorItem) {
+function styleLabel(
+  item: PackageSelectorItem,
+  t: (key: MessageKey) => string
+) {
   // "Table" rather than "Plated" when the item is a drink - the preview should
   // read the way the menu it is about to land on will.
   if (item.styles.length === 1) {
     return serviceStyleLabel(item.styles[0], item.itemKind ?? "Food");
   }
-  if (item.styles.length > 1) return "Needs a style";
+  if (item.styles.length > 1) return t("events.needsAStyle");
 
-  return "No service rule";
+  return t("events.noServiceRule");
 }
 
 function styleTone(item: PackageSelectorItem) {
@@ -82,6 +87,7 @@ export function PackageSelectorDrawer({
   onApply: (option: PackageOption) => void;
   onClose: () => void;
 }) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const [chosenId, setChosenId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -148,12 +154,12 @@ export function PackageSelectorDrawer({
               className="min-w-0 truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Add a package
+              {t("events.addPackage")}
             </h2>
           </div>
 
           <button
-            aria-label="Close package selector"
+            aria-label={t("events.closePackageSelector")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -164,16 +170,15 @@ export function PackageSelectorDrawer({
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
           <p className="text-xs text-[#6a7483]">
-            Every dish in the package is added to this menu at once. Dishes you
-            added by hand are left alone.
+            {t("events.packageAddsAll")}
           </p>
 
           {packages.length > 4 ? (
             <input
-              aria-label="Search packages"
+              aria-label={t("events.searchPackages")}
               className="mt-3 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm text-[#17202a] placeholder:text-[#8a95a5] focus:border-[#1f4d73] focus:outline-none"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search packages or the dishes in them"
+              placeholder={t("events.searchPackagesHint")}
               type="search"
               value={search}
             />
@@ -206,7 +211,7 @@ export function PackageSelectorDrawer({
                     <span className="flex items-center gap-2">
                       {isApplied ? (
                         <span className="rounded-full bg-[#e7f6ed] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-[#167442]">
-                          On this event
+                          {t("events.onThisEvent")}
                         </span>
                       ) : null}
                       {option.price === null ? null : (
@@ -239,15 +244,14 @@ export function PackageSelectorDrawer({
                             {item.name}
                           </span>
                           <span className="shrink-0 opacity-75">
-                            {styleLabel(item)}
+                            {styleLabel(item, t)}
                           </span>
                         </span>
                       ))}
                     </span>
                   ) : (
                     <span className="mt-2 block text-xs text-[#8a6414]">
-                      Nothing active to add. Put items in this package on the
-                      Packages tab of the menu library.
+                      {t("events.packageEmpty")}
                     </span>
                   )}
                 </button>
@@ -258,8 +262,8 @@ export function PackageSelectorDrawer({
           {visiblePackages.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
               {packages.length === 0
-                ? "No packages have been set up yet. Build one on the Packages tab of the menu library."
-                : "No package matches that search."}
+                ? t("events.noPackagesSetUp")
+                : t("events.noPackageMatches")}
             </p>
           ) : null}
         </div>
@@ -278,7 +282,7 @@ export function PackageSelectorDrawer({
               onClick={onClose}
               type="button"
             >
-              Close
+              {t("common.close")}
             </button>
             <button
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
@@ -288,10 +292,10 @@ export function PackageSelectorDrawer({
             >
               <LineIcon name="check" />
               {isSaving
-                ? "Adding..."
+                ? t("events.adding")
                 : chosen
-                  ? `Add ${chosen.name}`
-                  : "Add package"}
+                  ? t("events.addNamed", { name: chosen.name })
+                  : t("events.addPackageButton")}
             </button>
           </div>
         </footer>

@@ -22,3 +22,8 @@ public/images/menu-samples/drink-pitcher-and-tumbler.png
 public/images/menu-samples/food-buffet-tray.png
 public/images/menu-samples/food-plated-main.png
 scripts/generate-menu-sample-pictures.mjs
+
+# The translation review sheet, written by `npm run i18n:export` and read back
+# by `npm run i18n:import`. A work file passed to a reviewer, not a source of
+# truth - the namespaces under lib/i18n are that.
+translations.csv

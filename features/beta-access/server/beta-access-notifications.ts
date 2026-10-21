@@ -1,6 +1,7 @@
 import "server-only";
 
 import { log } from "@/lib/logging/context";
+import { escapeHtml, sendTransactionalEmail } from "@/lib/email/send";
 import type {
   BetaAccessStatus,
   BetaSignupMethod
@@ -29,62 +30,14 @@ const SIGNUP_METHOD_LABELS: Record<BetaSignupMethod, string> = {
   google: "Google"
 };
 
-function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => {
-    const entities: Record<string, string> = {
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      "'": "&#39;",
-      '"': "&quot;"
-    };
-    return entities[character] ?? character;
-  });
-}
-
-async function sendEmail({
-  to,
-  subject,
-  html
-}: {
-  to: string;
-  subject: string;
-  html: string;
-}) {
-  const apiKey = process.env.BREVO_API_KEY;
-  const from = process.env.SUPPORT_EMAIL_FROM;
-
-  if (!apiKey || !from) return false;
-
-  const senderMatch = from.match(/^\s*(.*?)\s*<([^<>]+)>\s*$/);
-  const sender = senderMatch
-    ? {
-        email: senderMatch[2].trim(),
-        ...(senderMatch[1].trim() ? { name: senderMatch[1].trim() } : {})
-      }
-    : { email: from.trim() };
-
-  const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-    method: "POST",
-    headers: {
-      "api-key": apiKey,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      sender,
-      to: [{ email: to }],
-      subject,
-      htmlContent: html
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Beta access email failed (${response.status}).`);
-  }
-
-  return true;
-}
-
+/**
+ * Beta email goes through the shared sender now.
+ *
+ * It had its own copy of the Brevo request - and it was the one outbound call
+ * in the repository made with a bare `fetch`, so it had no duration, no status
+ * and no attribution in the logs, which AGENTS.md forbids. Same provider, same
+ * behaviour, now tracked like everything else.
+ */
 export type BetaAccessNotification = {
   email: string;
   signupMethod: BetaSignupMethod | null;
@@ -122,7 +75,7 @@ export async function notifyBetaAccessRequested(
   const requestedAt = request.requestedAt.toISOString();
 
   try {
-    return await sendEmail({
+    return await sendTransactionalEmail({
       to,
       // Named as what it is, so it is filterable and cannot be mistaken for a
       // support ticket.

@@ -3,6 +3,7 @@
 import { getCachedAuthSession } from "@/lib/auth/client";
 import { HALL_FLOOR_PLAN_BUCKET } from "@/lib/storage/buckets";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 /**
  * A floor plan is a photo or an exported PDF page rendered to an image; give
@@ -30,16 +31,16 @@ const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
 export async function uploadHallFloorPlan(file: File) {
   const extension = EXTENSION_BY_CONTENT_TYPE[file.type];
   if (!extension) {
-    throw new Error("Floor plans must be a JPEG, PNG or WebP image.");
+    throw new Error(ambientTranslate("files.floorPlanType"));
   }
 
   if (file.size > MAX_FLOOR_PLAN_BYTES) {
-    throw new Error("Floor plans must be 10 MB or smaller.");
+    throw new Error(ambientTranslate("files.floorPlanSize"));
   }
 
   const organizationId = getCachedAuthSession()?.activeOrganizationId;
   if (!organizationId) {
-    throw new Error("Your session has expired. Please sign in again.");
+    throw new Error(ambientTranslate("files.sessionExpired"));
   }
 
   const path = `${organizationId}/hall-maps/${crypto.randomUUID()}.${extension}`;

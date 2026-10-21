@@ -3,6 +3,7 @@
 import { type Dispatch, type SetStateAction } from "react";
 import { CompactSelect } from "@/components/ui/compact-select";
 import { type HallMapsResponse } from "@/features/hall-room-map/components/hall-map-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type Hall = HallMapsResponse["halls"][number];
 
@@ -31,6 +32,7 @@ export function HallMapDialog({
   setMapName: Dispatch<SetStateAction<string>>;
   setOpen: Dispatch<SetStateAction<boolean>>;
 }) {
+  const { t } = useAppLanguage();
   const mapDialogMode = mode;
   const setIsMapDialogOpen = setOpen;
   const submitMapDialog = onSubmit;
@@ -56,11 +58,11 @@ export function HallMapDialog({
             id="hall-map-dialog-title"
           >
             {mapDialogMode === "create"
-              ? "New hall room map"
-              : "Rename hall room map"}
+              ? t("hallMap.newMap")
+              : t("hallMap.renameMap")}
           </h2>
           <button
-            aria-label="Close"
+            aria-label={t("common.close")}
             className="flex h-9 w-9 items-center justify-center rounded-md text-2xl leading-none hover:bg-[#eef4fa]"
             onClick={() => setIsMapDialogOpen(false)}
             type="button"
@@ -79,27 +81,27 @@ export function HallMapDialog({
             className="text-xs font-black uppercase tracking-wide text-[#59677c]"
             htmlFor="hall-map-name"
           >
-            Map name
+            {t("hallMap.mapName")}
           </label>
           <input
             autoFocus
             className="mt-2 h-11 w-full rounded-xl border border-[#b9c2cf] px-3 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
             id="hall-map-name"
             onChange={(event) => setMapName(event.target.value)}
-            placeholder="Example: Main Ballroom"
+            placeholder={t("hallMap.mapNameExample")}
             value={mapName}
           />
           <label
             className="mt-4 block text-xs font-black uppercase tracking-wide text-[#59677c]"
             htmlFor="hall-map-assignment"
           >
-            Assign to hall
+            {t("hallMap.assignToHall")}
           </label>
           <CompactSelect
             id="hall-map-assignment"
             onChange={(value) => setMapHallId(value)}
             options={[
-              { label: "Select a hall", value: "" },
+              { label: t("hallMap.selectHall"), value: "" },
               ...(halls ?? []).map((hall) => ({
                 label: hall.name,
                 value: hall.id
@@ -113,7 +115,7 @@ export function HallMapDialog({
               onClick={() => setIsMapDialogOpen(false)}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-10 rounded-xl bg-[#1f4d73] px-4 text-sm font-bold text-white hover:bg-[#15344f] disabled:opacity-50"
@@ -122,7 +124,7 @@ export function HallMapDialog({
               }
               type="submit"
             >
-              {mapDialogMode === "create" ? "Create map" : "Save name"}
+              {mapDialogMode === "create" ? t("hallMap.createMap") : t("hallMap.saveName")}
             </button>
           </div>
         </form>

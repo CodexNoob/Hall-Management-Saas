@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   type FormEvent,
@@ -41,6 +41,7 @@ import {
   getEventReadinessSummary,
   getScopedEventReadinessItems
 } from "@/features/events/components/event-readiness";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function Field({
   label,
@@ -96,6 +97,7 @@ export function ClientContact({
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
+  const { t } = useAppLanguage();
   const [editing, setEditing] = useState<ContactField | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function ClientContact({
     ].safeParse(draft);
 
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "That value is not valid.");
+      setError(parsed.error.issues[0]?.message ?? t("events.valueNotValid"));
       return;
     }
 
@@ -142,7 +144,7 @@ export function ClientContact({
       setError(null);
     } catch (saveError) {
       setError(
-        saveError instanceof Error ? saveError.message : "Could not save."
+        saveError instanceof Error ? saveError.message : t("events.couldNotSave")
       );
     } finally {
       setIsSaving(false);
@@ -153,9 +155,9 @@ export function ClientContact({
     {
       field: "phone" as const,
       icon: "phone" as IconName,
-      label: event.phone || "Phone not provided",
+      label: event.phone || t("events.phoneNotProvided"),
       href: event.phone ? `tel:${event.phone}` : undefined,
-      editLabel: "Edit phone",
+      editLabel: t("events.editPhone"),
       // The national part, which is what the field is typed in - the same hop
       // the booking form makes.
       draftFrom: () => nationalFromE164(event.phone)
@@ -163,9 +165,9 @@ export function ClientContact({
     {
       field: "email" as const,
       icon: "mail" as IconName,
-      label: event.email || "Email not provided",
+      label: event.email || t("events.emailNotProvided"),
       href: event.email ? `mailto:${event.email}` : undefined,
-      editLabel: "Edit email",
+      editLabel: t("events.editEmail"),
       draftFrom: () => event.email
     }
   ];
@@ -174,7 +176,7 @@ export function ClientContact({
     <section className="rounded-lg border border-[#d8dde5] bg-white">
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="user" />
-        <h2 className="text-sm font-black text-[#17202a]">Client contact</h2>
+        <h2 className="text-sm font-black text-[#17202a]">{t("events.clientContact")}</h2>
       </header>
       <div className="space-y-3 p-3">
         {rows.map((row) => {
@@ -219,7 +221,7 @@ export function ClientContact({
                 </div>
 
                 <button
-                  aria-label="Save"
+                  aria-label={t("common.save")}
                   className="shrink-0 rounded-md px-2 py-1 text-xs font-black text-[#1f4d73] hover:bg-[#eef4fa] disabled:opacity-45"
                   disabled={isSaving}
                   onClick={() => void save(row.field)}
@@ -228,13 +230,13 @@ export function ClientContact({
                   {isSaving ? "…" : "Save"}
                 </button>
                 <button
-                  aria-label="Cancel"
+                  aria-label={t("common.cancel")}
                   className="shrink-0 rounded-md px-2 py-1 text-xs font-black text-[#6a7483] hover:bg-[#eef4fa] disabled:opacity-45"
                   disabled={isSaving}
                   onClick={() => setEditing(null)}
                   type="button"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             );
@@ -269,7 +271,7 @@ export function ClientContact({
                 onClick={() => startEditing(row.field, row.draftFrom())}
                 type="button"
               >
-                Edit
+                {t("common.edit")}
               </button>
             </div>
           );
@@ -280,6 +282,7 @@ export function ClientContact({
 }
 
 export function ReadinessPanel({ event }: { event: EventFile }) {
+  const { t } = useAppLanguage();
   const rows = getScopedEventReadinessItems(event, "event");
   const summary = getEventReadinessSummary(event, "event");
 
@@ -288,7 +291,7 @@ export function ReadinessPanel({ event }: { event: EventFile }) {
       <header className="flex min-h-11 items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-2">
         <div className="flex items-center gap-2">
           <LineIcon name="files" />
-          <h2 className="text-sm font-black text-[#17202a]">Readiness</h2>
+          <h2 className="text-sm font-black text-[#17202a]">{t("events.readiness")}</h2>
         </div>
         <span
           className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] ${
@@ -316,9 +319,9 @@ export function ReadinessPanel({ event }: { event: EventFile }) {
               {row.done ? <LineIcon name="check" className="h-4 w-4" /> : null}
             </span>
             <span className="min-w-0">
-              <span className="block leading-4">{row.label}</span>
+              <span className="block leading-4">{t(row.labelKey)}</span>
               <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#64748b]">
-                {row.helper}
+                {t(row.helperKey, row.helperValues)}
               </span>
             </span>
           </div>
@@ -345,11 +348,12 @@ const activityTimestamp = (value: string) =>
  * as an audit trail. Named accordingly.
  */
 export function ActivityPanel({ event }: { event: EventFile }) {
+  const { t } = useAppLanguage();
   return (
     <section className="rounded-lg border border-[#d8dde5] bg-white">
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="clock" />
-        <h2 className="text-sm font-black text-[#17202a]">Recent activity</h2>
+        <h2 className="text-sm font-black text-[#17202a]">{t("events.recentActivity")}</h2>
       </header>
       <div className="space-y-3 p-3">
         {event.activityLogs.map((entry) => (
@@ -371,7 +375,7 @@ export function ActivityPanel({ event }: { event: EventFile }) {
         ))}
         {event.activityLogs.length === 0 ? (
           <p className="text-xs font-semibold text-[#6a7483]">
-            No activity recorded yet. Changes to this event will appear here.
+            {t("events.noActivity")}
           </p>
         ) : null}
       </div>
@@ -482,6 +486,7 @@ export function EventInformation({
   halls: EventHallOption[];
   onEventSaved: () => Promise<unknown>;
 }) {
+  const { t } = useAppLanguage();
   const [values, setValues] = useState<BookingFormValues>(() =>
     createBookingFormValues(event)
   );
@@ -513,10 +518,10 @@ export function EventInformation({
   // changing the hall and the date in one edit has to be checked against where
   // the event is going.
   const selectedHallName =
-    halls.find((hall) => hall.id === values.hallId)?.name ?? "this hall";
+    halls.find((hall) => hall.id === values.hallId)?.name ?? t("events.thisHall");
   const eventDateLabel = values.eventDate
     ? eventDateLabelFormatter.format(new Date(`${values.eventDate}T00:00:00`))
-    : "Choose a date";
+    : t("events.chooseADate");
 
   function updateValue(field: keyof BookingFormValues, value: string) {
     const next = { ...values, [field]: value };
@@ -564,7 +569,7 @@ export function EventInformation({
       setErrors(toFieldErrors(parsed.error));
       setFeedback({
         tone: "error",
-        text: "Fix the highlighted fields before saving."
+        text: t("events.fixHighlighted")
       });
       return;
     }
@@ -603,14 +608,14 @@ export function EventInformation({
         tone: "success",
         text:
           intent === "confirm"
-            ? "Event confirmed. The details were saved first."
-            : "Event details saved successfully."
+            ? t("events.confirmedAndSaved")
+            : t("events.detailsSaved")
       });
     } catch (error) {
       setFeedback({
         tone: "error",
         text:
-          error instanceof Error ? error.message : "Could not save this event."
+          error instanceof Error ? error.message : t("events.saveEventFailed")
       });
     } finally {
       setPendingIntent(null);
@@ -633,7 +638,7 @@ export function EventInformation({
     >
       <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
         <LineIcon name="calendar" />
-        <h2 className="text-sm font-black text-[#17202a]">Event information</h2>
+        <h2 className="text-sm font-black text-[#17202a]">{t("events.information")}</h2>
       </header>
 
       <div className="p-3">
@@ -691,7 +696,9 @@ export function EventInformation({
             type="submit"
           >
             <LineIcon name="save" className="h-4 w-4" />
-            {pendingIntent === "save" ? "Saving..." : "Save event details"}
+            {pendingIntent === "save"
+              ? t("common.savingEllipsis")
+              : t("events.saveEventDetails")}
           </button>
 
           <button
@@ -700,13 +707,15 @@ export function EventInformation({
             onClick={() => void submit("confirm")}
             title={
               canConfirm
-                ? "Save these details and confirm the booking"
-                : "This event is no longer waiting to be confirmed."
+                ? t("events.saveAndConfirm")
+                : t("events.alreadyConfirmed")
             }
             type="button"
           >
             <LineIcon name="check" className="h-4 w-4" />
-            {pendingIntent === "confirm" ? "Confirming..." : "Confirm event"}
+            {pendingIntent === "confirm"
+              ? t("events.confirming")
+              : t("events.confirmEvent")}
           </button>
 
           {feedback ? (

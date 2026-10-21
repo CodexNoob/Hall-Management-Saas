@@ -51,9 +51,13 @@ function visibleTiles() {
 const cases: Array<{ role: string; expected: string[] }> = [
   { role: "administrator", expected: ["Kitchen", "Calendar", "Events"] },
   { role: "event-manager", expected: ["Kitchen", "Calendar", "Events"] },
-  // calendar.read makes /dashboard/events reachable on its own, which is why
-  // Events survives for Kitchen Staff.
-  { role: "kitchen-staff", expected: ["Kitchen", "Calendar", "Events"] },
+  // Kitchen only. `event.read` and `calendar.read` came off both kitchen roles
+  // - they opened the office's booking workspace and booking calendar, and the
+  // kitchen's own Today / Week / 4 Weeks views are its production schedule.
+  // This line is the assertion the original bug report was about: a kitchen
+  // role was arriving with Events in its navigation.
+  { role: "kitchen-staff", expected: ["Kitchen"] },
+  { role: "kitchen-manager", expected: ["Kitchen"] },
   { role: "viewer", expected: ["Kitchen", "Calendar", "Events"] }
 ];
 

@@ -10,10 +10,11 @@ import {
 } from "@/features/settings/components/settings-shared";
 import {
   RESET_CONFIRMATIONS,
-  RESET_DESCRIPTIONS,
+  RESET_DESCRIPTION_KEYS,
   RESET_SCOPES,
   type ResetScope
 } from "@/features/settings/lib/organization-reset-scopes";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type ResetOutcome = { scope: ResetScope; deleted: Record<string, number> };
 
@@ -30,6 +31,7 @@ type ResetOutcome = { scope: ResetScope; deleted: Record<string, number> };
  * getting the permission, which is not a conversation this screen should start.
  */
 export function ResetSettingsPanel() {
+  const { t } = useAppLanguage();
   const { hasPermission } = useDashboardAccess();
   const canReset = hasPermission("organization.reset");
   const [armed, setArmed] = useState<ResetScope | null>(null);
@@ -63,29 +65,29 @@ export function ResetSettingsPanel() {
         0
       );
       setMessage(
-        `${RESET_DESCRIPTIONS[scope].title} finished. ${total} record${
-          total === 1 ? "" : "s"
-        } removed. Reload the page to see the empty workspace.`
+        t(total === 1 ? "reset.finishedOne" : "reset.finishedMany", {
+          count: total,
+          title: t(RESET_DESCRIPTION_KEYS[scope].title)
+        })
       );
       close();
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : "The reset did not run."
+        caught instanceof Error ? caught.message : t("settings.resetDidNotRun")
       );
     }
   };
 
   return (
     <section className="overflow-hidden rounded-xl border border-[#e6b8b1] bg-white shadow-sm">
-      <PanelHeader title="Reset" icon="gear" />
+      <PanelHeader title={t("settings.reset")} icon="gear" />
 
       <div className="border-b border-[#e6b8b1] bg-[#fff6f4] px-4 py-3">
         <p className="text-[11px] font-black text-[#b42318]">
-          Everything on this panel is permanent.
+          {t("settings.resetPermanent")}
         </p>
         <p className="mt-1 text-[10px] leading-4 text-[#7c5b56]">
-          There is no undo and no export first. Take a backup outside Event Core
-          if the data still matters to anybody.
+          {t("settings.resetNoUndo")}
         </p>
       </div>
 
@@ -100,7 +102,7 @@ export function ResetSettingsPanel() {
 
       <div className="grid gap-3 p-4">
         {RESET_SCOPES.map((scope) => {
-          const description = RESET_DESCRIPTIONS[scope];
+          const description = RESET_DESCRIPTION_KEYS[scope];
           const isArmed = armed === scope;
 
           return (
@@ -113,22 +115,22 @@ export function ResetSettingsPanel() {
               key={scope}
             >
               <h3 className="text-[11px] font-black text-[#17202a]">
-                {description.title}
+                {t(description.title)}
               </h3>
               <p className="mt-1 text-[10px] leading-4 text-[#6a7483]">
-                {description.summary}
+                {t(description.summary)}
               </p>
 
               <dl className="mt-3 grid gap-3 sm:grid-cols-2">
                 <div>
                   <dt className="text-[9px] font-black uppercase tracking-[0.08em] text-[#b42318]">
-                    Deletes
+                    {t("settings.deletes")}
                   </dt>
                   <dd>
                     <ul className="mt-1 grid gap-1">
                       {description.removes.map((line) => (
                         <li className="text-[10px] leading-4" key={line}>
-                          {line}
+                          {t(line)}
                         </li>
                       ))}
                     </ul>
@@ -136,13 +138,13 @@ export function ResetSettingsPanel() {
                 </div>
                 <div>
                   <dt className="text-[9px] font-black uppercase tracking-[0.08em] text-[#147653]">
-                    Keeps
+                    {t("settings.keeps")}
                   </dt>
                   <dd>
                     <ul className="mt-1 grid gap-1">
                       {description.keeps.map((line) => (
                         <li className="text-[10px] leading-4" key={line}>
-                          {line}
+                          {t(line)}
                         </li>
                       ))}
                     </ul>
@@ -193,7 +195,7 @@ export function ResetSettingsPanel() {
                       type="button"
                     >
                       {resetMutation.isPending
-                        ? "Resetting..."
+                        ? t("settings.resetting")
                         : `Run ${description.title.toLowerCase()}`}
                     </button>
                     <button
@@ -202,7 +204,7 @@ export function ResetSettingsPanel() {
                       onClick={close}
                       type="button"
                     >
-                      Cancel
+                      {t("common.cancel")}
                     </button>
                   </div>
                 </div>
@@ -217,7 +219,7 @@ export function ResetSettingsPanel() {
                   }}
                   type="button"
                 >
-                  {description.title}
+                  {t(description.title)}
                 </button>
               )}
             </article>

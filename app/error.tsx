@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { captureException } from "@/lib/logging/report";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The boundary that did not exist before this.
@@ -26,6 +27,7 @@ export default function AppError({
   retry: () => void;
 }) {
   const [eventId, setEventId] = useState<string | null>(null);
+  const { t } = useAppLanguage();
 
   useEffect(() => {
     setEventId(captureException(error));
@@ -45,23 +47,24 @@ export default function AppError({
   return (
     <main className="flex min-h-dvh items-center justify-center overflow-x-hidden bg-white px-6 text-[#0F172A]">
       <div className="w-full max-w-md text-center">
-        <h1 className="text-2xl font-semibold">Something went wrong</h1>
+        <h1 className="text-2xl font-semibold">
+          {t("shell.somethingWentWrong")}
+        </h1>
         <p className="mt-3 text-sm text-[#475569]">
-          This page failed to load. The problem has been reported. You can try
-          again, and if it keeps happening send us the reference below.
+          {t("shell.pageFailedToLoad")}
         </p>
         <button
           type="button"
           onClick={() => retry()}
           className="mt-6 rounded-lg bg-[#0F172A] px-5 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0F172A]"
         >
-          Try again
+          {t("common.tryAgain")}
         </button>
         {reference ? (
           // Selectable, wrapping and monospaced, matching how the error toast
           // renders a request id: its only job is to be copied or read out.
           <p className="mt-6 font-mono text-[11px] break-all text-[#64748B]">
-            Reference: {reference}
+            {t("shell.reference")}: {reference}
           </p>
         ) : null}
       </div>

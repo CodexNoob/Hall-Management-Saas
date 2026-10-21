@@ -5,6 +5,7 @@ import {
   hasOpenAvailability,
   type CalendarDayMeta
 } from "@/features/calendar/components/calendar-day-model";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const columnWeekdayFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short"
@@ -34,6 +35,7 @@ export function CalendarWeekView({
   showAvailability: boolean;
   showHebrewDate: boolean;
 }) {
+  const { t } = useAppLanguage();
   return (
     <div className="w-full min-w-0 max-w-full overflow-x-auto overscroll-x-contain px-3 pb-3">
       <div className="grid min-w-212.5 grid-cols-7 overflow-hidden rounded-xl border border-[#d8dde5]">
@@ -98,9 +100,9 @@ export function CalendarWeekView({
 
               <div className="pointer-events-none relative z-1 px-2 pb-2 text-right text-[9px] font-black">
                 {day.isBlocked ? (
-                  <span className="text-[#b42318]">Blocked</span>
+                  <span className="text-[#b42318]">{t("calendar.blocked")}</span>
                 ) : day.fullyBooked ? (
-                  <span className="text-[#516071]">Fully booked</span>
+                  <span className="text-[#516071]">{t("calendar.fullyBooked")}</span>
                 ) : showAvailability && hasOpenAvailability(day) ? (
                   <span className="text-[#087047]">{day.openSlots} open</span>
                 ) : null}

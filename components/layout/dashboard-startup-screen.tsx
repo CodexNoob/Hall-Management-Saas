@@ -2,11 +2,13 @@
 
 import { DashboardLoadingIndicator } from "@/components/ui/dashboard-loading-indicator";
 import { useEffect, useRef, useState } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const MINIMUM_VISIBLE_MS = 350;
 const MAXIMUM_VISIBLE_MS = 12_000;
 
 export function DashboardStartupScreen({ routeKey }: { routeKey: string }) {
+  const { t } = useAppLanguage();
   const [isMounted, setIsMounted] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
   const [isFullScreen, setIsFullScreen] = useState(true);
@@ -67,7 +69,7 @@ export function DashboardStartupScreen({ routeKey }: { routeKey: string }) {
 
   return (
     <div
-      aria-label="Loading dashboard"
+      aria-label={t("shell.loadingDashboard")}
       aria-live="polite"
       className={`flex items-center justify-center bg-[#f5f6f8] transition-opacity duration-300 ${
         isFullScreen
@@ -79,7 +81,7 @@ export function DashboardStartupScreen({ routeKey }: { routeKey: string }) {
       role="status"
     >
       <DashboardLoadingIndicator />
-      <span className="sr-only">Loading dashboard…</span>
+      <span className="sr-only">{t("shell.loadingDashboard")}</span>
     </div>
   );
 }

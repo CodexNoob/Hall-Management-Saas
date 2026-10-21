@@ -1,0 +1,28 @@
+-- The state or province a session signed in from.
+--
+-- The same source as `city` and `country` - a header the CDN edge already put
+-- on the request, resolved from its IP. No outbound call, no vendor, no key and
+-- no per-lookup cost, which is what made the original pair worth having and is
+-- unchanged here.
+--
+-- WHAT IT IS FOR. "Manila, Philippines" and "Manila, Metro Manila, Philippines"
+-- read the same in a country with one Manila. The column earns its place where
+-- a city name is ambiguous across states - Springfield, Portland, Columbus -
+-- which is most of the United States.
+--
+-- STILL APPROXIMATE, and this column does not change that. IP geolocation
+-- resolves the NETWORK, not the person: a mobile carrier's gateway or a VPN can
+-- place somebody in a different city, occasionally a different country. It is a
+-- useful signal for "was that me?" and it is not evidence of where anybody
+-- physically was. Nothing in the application decides anything from it.
+--
+-- NO COORDINATES. `x-vercel-ip-latitude` and `x-vercel-ip-longitude` are on the
+-- request too and are deliberately not stored. They are no more accurate than
+-- the city - the same IP lookup produces both - so they would buy nothing
+-- except a more precise-looking number against a named employee, and there is
+-- no map in the product to plot them on. Adding one later is one column.
+--
+-- Nullable with no default, like the two beside it: a session recorded before
+-- this ran, or one behind an edge that could not resolve a region, reads as
+-- "unknown" rather than as a guess.
+ALTER TABLE "user_sessions" ADD COLUMN "region" TEXT;

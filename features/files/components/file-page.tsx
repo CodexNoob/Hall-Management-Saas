@@ -42,7 +42,9 @@ import {
   type FilesResponse,
   type Folder
 } from "@/features/files/components/file-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function FilePage() {
+  const { t } = useAppLanguage();
   const canEdit = useDashboardPermission("file.create");
   const filesQuery = useAuthenticatedQuery<FilesResponse>("/api/files");
   // Reports whether this deployment actually has Drive credentials, so the
@@ -223,7 +225,7 @@ export function FilePage() {
   async function uploadFile(values: AddFileFormValues) {
     const bucket = filesQuery.data?.bucket;
     if (!bucket) {
-      setUploadError("Storage is unavailable. Reload the page and try again.");
+      setUploadError(t("files.storageUnavailable"));
       return;
     }
 
@@ -270,7 +272,7 @@ export function FilePage() {
       setUploadError(
         error instanceof Error
           ? error.message
-          : "That file could not be uploaded."
+          : t("files.uploadFailed")
       );
     } finally {
       setIsUploading(false);
@@ -287,7 +289,7 @@ export function FilePage() {
       await openStoredFile(fileId);
     } catch (error) {
       setOpenFileError(
-        error instanceof Error ? error.message : "That file could not be opened."
+        error instanceof Error ? error.message : t("files.openFailed")
       );
     }
   }
@@ -402,8 +404,8 @@ export function FilePage() {
         error={filesQuery.error}
         isLoading={filesQuery.isLoading}
         onRetry={filesQuery.refetch}
-        subtitle="Master file explorer with practical folders only."
-        title="Files"
+        subtitle={t("files.blurb")}
+        title={t("files.title")}
       />
     );
   }
@@ -411,12 +413,12 @@ export function FilePage() {
   const folderPanel = (
     <section className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex min-h-14 items-center justify-between gap-3 border-b border-[#d8dde5] px-4">
-        <h2 className="text-sm font-black text-[#17202a]">Folders</h2>
+        <h2 className="text-sm font-black text-[#17202a]">{t("files.folders")}</h2>
         <DriveSyncBadge status={driveQuery.data} />
       </div>
 
       <nav
-        aria-label="File folders"
+        aria-label={t("files.fileFolders")}
         className="min-h-0 flex-1 overflow-y-auto p-3"
       >
         <div className="space-y-1">{renderFolderTree(null)}</div>
@@ -428,12 +430,12 @@ export function FilePage() {
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
         compactMobileActions
-        title="Files"
-        subtitle="Master file explorer with practical folders only."
+        title={t("files.title")}
+        subtitle={t("files.blurb")}
         actionsSlot={
           <>
             <button
-              aria-label="New event folder"
+              aria-label={t("files.newEventFolder")}
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#17202a] transition hover:text-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-50 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-5 lg:text-sm lg:font-bold lg:shadow-sm lg:hover:border-[#1f4d73]/60 lg:hover:bg-[#eef4fa]"
               disabled={!canEdit || !filesQuery.data?.bucket}
               type="button"
@@ -450,11 +452,11 @@ export function FilePage() {
                 <path d="M3 6.5h6l2 2h10v10.5H3z" />
                 <path d="M12 11v5M9.5 13.5h5" />
               </svg>
-              <span className="hidden lg:inline">New Event Folder</span>
+              <span className="hidden lg:inline">{t("files.newEventFolder")}</span>
             </button>
 
             <button
-              aria-label="Add file"
+              aria-label={t("files.addFile")}
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-50 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-5 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:hover:bg-[#15344f]"
               disabled={!canEdit || !filesQuery.data?.bucket}
               type="button"
@@ -471,7 +473,7 @@ export function FilePage() {
                 <path d="M6 3h8l4 4v14H6z" />
                 <path d="M14 3v5h4M12 11v6M9 14h6" />
               </svg>
-              <span className="hidden lg:inline">Add File</span>
+              <span className="hidden lg:inline">{t("files.addFile")}</span>
             </button>
           </>
         }
@@ -486,7 +488,7 @@ export function FilePage() {
           {isMobileFoldersOpen ? (
             <>
               <button
-                aria-label="Close folder navigation"
+                aria-label={t("files.closeFolderNavigation")}
                 className="fixed inset-0 z-60 bg-[#17202a]/35 backdrop-blur-sm lg:hidden"
                 onClick={() => setIsMobileFoldersOpen(false)}
                 type="button"
@@ -494,10 +496,10 @@ export function FilePage() {
 
               <aside className="fixed bottom-0 left-0 top-0 z-70 w-[min(76vw,17rem)] overflow-hidden border-r border-[#d8dde5] bg-white shadow-2xl lg:hidden">
                 <div className="flex items-center justify-between border-b border-[#d8dde5] p-3">
-                  <strong className="text-sm">Folder navigation</strong>
+                  <strong className="text-sm">{t("files.folderNavigation")}</strong>
 
                   <button
-                    aria-label="Close folder navigation"
+                    aria-label={t("files.closeFolderNavigation")}
                     className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-0 bg-transparent leading-none text-[#17202a] hover:bg-[#eef4fa]"
                     onClick={() => setIsMobileFoldersOpen(false)}
                     type="button"
@@ -532,7 +534,7 @@ export function FilePage() {
                   type="button"
                 >
                   <FolderIcon className="h-4 w-4" />
-                  Folders
+                  {t("files.folders")}
                 </button>
 
                 <h1 className="truncate text-sm font-black">
@@ -548,20 +550,20 @@ export function FilePage() {
             <div className="flex flex-col gap-3 border-b border-[#d8dde5] p-3 md:flex-row md:items-center">
               <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(180px,260px)_150px]">
                 <label className="sr-only" htmlFor="folder-search">
-                  Search this folder
+                  {t("files.searchThisFolder")}
                 </label>
 
                 <input
                   id="folder-search"
                   className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm outline-none transition placeholder:text-[#6a7483] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/10"
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search this folder"
+                  placeholder={t("files.searchThisFolder")}
                   type="search"
                   value={searchQuery}
                 />
 
                 <label className="sr-only" htmlFor="file-type">
-                  Filter by file type
+                  {t("files.filterByType")}
                 </label>
 
                 <select
@@ -570,14 +572,14 @@ export function FilePage() {
                   onChange={(event) => setFileType(event.target.value)}
                   value={fileType}
                 >
-                  <option value="all">All types</option>
-                  <option value="pdf">PDF</option>
-                  <option value="image">Image</option>
-                  <option value="video">Video</option>
-                  <option value="audio">Audio</option>
-                  <option value="spreadsheet">Spreadsheet</option>
-                  <option value="document">Document</option>
-                  <option value="other">Other</option>
+                  <option value="all">{t("files.allTypes")}</option>
+                  <option value="pdf">{t("files.typePdf")}</option>
+                  <option value="image">{t("files.typeImage")}</option>
+                  <option value="video">{t("files.typeVideo")}</option>
+                  <option value="audio">{t("files.typeAudio")}</option>
+                  <option value="spreadsheet">{t("files.typeSpreadsheet")}</option>
+                  <option value="document">{t("files.typeDocument")}</option>
+                  <option value="other">{t("files.typeOther")}</option>
                 </select>
               </div>
 
@@ -588,7 +590,7 @@ export function FilePage() {
                   onClick={() => setIsNewFolderOpen(true)}
                   type="button"
                 >
-                  New folder
+                  {t("files.newFolder")}
                 </button>
 
                 <button
@@ -597,7 +599,7 @@ export function FilePage() {
                   onClick={() => setIsAddFileOpen(true)}
                   type="button"
                 >
-                  Add file
+                  {t("files.addFile")}
                 </button>
               </div>
             </div>
@@ -617,7 +619,7 @@ export function FilePage() {
                         >
                           <FolderIcon className="h-6 w-6 shrink-0 text-[#6a7483]" />
                           <input
-                            aria-label={`Folder name for ${folder.name}`}
+                            aria-label={t("files.folderNameFor", { name: folder.name })}
                             autoFocus
                             className="h-9 min-w-0 flex-1 rounded-lg border border-[#8fbce3] px-2 text-sm font-bold outline-none focus:ring-2 focus:ring-[#1f4d73]/15"
                             name="folderName"
@@ -630,14 +632,14 @@ export function FilePage() {
                             className="h-9 rounded-lg bg-[#1f4d73] px-3 text-xs font-black text-white"
                             type="submit"
                           >
-                            Save
+                            {t("common.save")}
                           </button>
                           <button
                             className="h-9 rounded-lg border border-[#b9c2cf] px-3 text-xs font-black"
                             onClick={() => setEditingFolderId(null)}
                             type="button"
                           >
-                            Cancel
+                            {t("common.cancel")}
                           </button>
                         </form>
                       ) : (
@@ -664,7 +666,7 @@ export function FilePage() {
                               <button
                                 aria-expanded={openFolderMenuId === folder.id}
                                 aria-haspopup="menu"
-                                aria-label={`More actions for ${folder.name}`}
+                                aria-label={t("files.moreActionsFor", { name: folder.name })}
                                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6a7483] transition hover:bg-[#eef4fa] hover:text-[#17202a]"
                                 onClick={() =>
                                   setOpenFolderMenuId((current) =>
@@ -688,7 +690,7 @@ export function FilePage() {
                                     role="menuitem"
                                     type="button"
                                   >
-                                    Edit
+                                    {t("common.edit")}
                                   </button>
                                   <button
                                     className="flex h-9 w-full items-center rounded-md px-3 text-left text-sm font-bold text-[#c3291b] hover:bg-[#fff4f2]"
@@ -697,7 +699,7 @@ export function FilePage() {
                                     role="menuitem"
                                     type="button"
                                   >
-                                    Delete
+                                    {t("common.delete")}
                                   </button>
                                 </div>
                               ) : null}
@@ -714,12 +716,11 @@ export function FilePage() {
                     <FolderIcon className="h-10 w-10 text-[#6a7483]" />
 
                     <h2 className="mt-4 text-base font-black">
-                      Nothing in this folder
+                      {t("files.emptyFolder")}
                     </h2>
 
                     <p className="mt-2 max-w-md text-sm text-[#6a7483]">
-                      Add a file, or try changing the search or file-type
-                      filter.
+                      {t("files.emptyFolderBody")}
                     </p>
                   </div>
                 ) : null
@@ -749,7 +750,7 @@ export function FilePage() {
                           </span>
                         </span>
                         <span className="shrink-0 text-xs font-black text-[#1f4d73]">
-                          Open
+                          {t("files.open")}
                         </span>
                       </button>
                     </li>

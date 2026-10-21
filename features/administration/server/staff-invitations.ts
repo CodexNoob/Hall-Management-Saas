@@ -116,6 +116,23 @@ export async function sendStaffInvitations(
   return invitations;
 }
 
+/**
+ * A password-reset link for somebody who already has an account, to hand over
+ * by any channel. Same /auth/confirm shape as the invitation links, and the
+ * same caveat: generating it replaces any reset token already emailed.
+ */
+export async function generatePasswordResetLink(
+  admin: Pick<StaffInviteClient, "generateLink">,
+  email: string,
+  redirectTo: string
+) {
+  return buildInviteLink(
+    await admin.generateLink({ type: "recovery", email, options: { redirectTo } }),
+    "recovery",
+    redirectTo
+  );
+}
+
 export function staffInviteRedirectTo(appUrl: string) {
   // No query string: the email template composes the link as
   // `{{ .RedirectTo }}?token_hash=...&type=invite`, and buildInviteLink above

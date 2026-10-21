@@ -26,9 +26,19 @@ import {
   type TransactionStatus
 } from "@/features/billing/transactions/transaction-model";
 import { useTransactionTable } from "@/features/billing/transactions/use-transaction-table";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 function statusBadge(status: TransactionStatus) {
   return <Pill tone={statusTone[status]}>{status}</Pill>;
+}
+
+function escapeHtml(value: string | number) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 export function TransactionsTab({
@@ -40,6 +50,7 @@ export function TransactionsTab({
   onRefresh: () => Promise<BillingResponse | null>;
   searchQuery: string;
 }) {
+  const { t } = useAppLanguage();
   const isFilterPanelOpen = true;
   const [actionMessage, setActionMessage] = useState("");
   const [isPlaidDialogOpen, setIsPlaidDialogOpen] = useState(false);
@@ -108,13 +119,13 @@ export function TransactionsTab({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error ?? "Unable to start bank connection.");
+        throw new Error(payload.error ?? t("billing.bankConnectFailed"));
       }
 
       const { linkToken } = await response.json();
 
       if (!linkToken) {
-        throw new Error("Plaid link token was not returned.");
+        throw new Error(t("billing.plaidNoToken"));
       }
 
       const plaidScript = await ensurePlaidScript();
@@ -126,8 +137,8 @@ export function TransactionsTab({
       if (!plaid?.create) {
         throw new Error(
           plaidScript
-            ? "Plaid Link could not be initialized."
-            : "Plaid is not available in this browser session."
+            ? t("billing.plaidInitFailed")
+            : t("billing.plaidUnavailable")
         );
       }
 
@@ -161,18 +172,18 @@ export function TransactionsTab({
             if (!exchangeResponse.ok) {
               const payload = await exchangeResponse.json().catch(() => ({}));
               throw new Error(
-                payload.error ?? "Unable to save the bank connection."
+                payload.error ?? t("billing.bankSaveFailed")
               );
             }
 
             setIsBankConnected(true);
             setIsPlaidDialogOpen(false);
-            showActionMessage("Bank account connected for this organization.");
+            showActionMessage(t("billing.bankConnected"));
           } catch (error) {
             showActionMessage(
               error instanceof Error
                 ? error.message
-                : "Could not complete the connection."
+                : t("billing.connectionIncomplete")
             );
           } finally {
             setIsPlaidBusy(false);
@@ -189,23 +200,23 @@ export function TransactionsTab({
       showActionMessage(
         error instanceof Error
           ? error.message
-          : "Could not start the connection flow."
+          : t("billing.connectionStartFailed")
       );
     }
   }
 
   function exportTransactions(targetRows = filteredRows) {
     const headers = [
-      "Transaction ID",
-      "Booking ID",
-      "Customer",
-      "Event",
-      "Venue",
-      "Type",
-      "Date",
-      "Amount",
-      "Payment Method",
-      "Status"
+      t("billing.transactionId"),
+      t("billing.bookingId"),
+      t("billing.customer"),
+      t("common.event"),
+      t("billing.venue"),
+      t("common.type"),
+      t("common.date"),
+      t("common.amount"),
+      t("billing.paymentMethodColumn"),
+      t("common.status")
     ];
     const csvRows = targetRows.map((row) =>
       [
@@ -232,21 +243,22 @@ export function TransactionsTab({
     link.download = "event-core-transactions.csv";
     link.click();
     URL.revokeObjectURL(url);
-    showActionMessage("Transactions exported.");
+    showActionMessage(t("billing.transactionsExported"));
   }
 
   function printTransactions(targetRows = filteredRows) {
     const printWindow = window.open("", "_blank", "width=900,height=700");
 
     if (!printWindow) {
-      showActionMessage("Allow popups to print transactions.");
+      showActionMessage(t("billing.allowPopups"));
       return;
     }
 
+    printWindow.opener = null;
     printWindow.document.write(`
       <html>
         <head>
-          <title>Event Core Transactions</title>
+          <title>${t("billing.eventCoreTransactions")}</title>
           <style>
             body { font-family: Arial, sans-serif; color: #17202a; padding: 24px; }
             h1 { margin: 0 0 16px; }
@@ -257,16 +269,16 @@ export function TransactionsTab({
           </style>
         </head>
         <body>
-          <h1>Event Core Transactions</h1>
+          <h1>${t("billing.eventCoreTransactions")}</h1>
           <table>
             <thead>
-              <tr><th>ID</th><th>Customer</th><th>Event</th><th>Venue</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+              <tr><th>${t("billing.idShort")}</th><th>${t("billing.customer")}</th><th>${t("common.event")}</th><th>${t("billing.venue")}</th><th>${t("common.date")}</th><th>${t("common.amount")}</th><th>${t("common.status")}</th></tr>
             </thead>
             <tbody>
               ${targetRows
                 .map(
                   (row) =>
-                    `<tr><td>${row.bookingId}</td><td>${row.customer}</td><td>${row.event}</td><td>${row.venue}</td><td>${row.date}</td><td class="amount">${formatCurrency(row.amount)}</td><td>${row.status}</td></tr>`
+                    `<tr><td>${escapeHtml(row.bookingId)}</td><td>${escapeHtml(row.customer)}</td><td>${escapeHtml(row.event)}</td><td>${escapeHtml(row.venue)}</td><td>${escapeHtml(row.date)}</td><td class="amount">${escapeHtml(formatCurrency(row.amount))}</td><td>${escapeHtml(row.status)}</td></tr>`
                 )
                 .join("")}
             </tbody>
@@ -277,7 +289,7 @@ export function TransactionsTab({
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-    showActionMessage("Print view opened.");
+    showActionMessage(t("billing.printViewOpened"));
   }
 
   async function updateTransactionStatus(
@@ -305,7 +317,7 @@ export function TransactionsTab({
           );
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(payload.error ?? "Unable to update transaction.");
+            throw new Error(payload.error ?? t("billing.updateTransactionFailed"));
           }
         })
       );
@@ -314,7 +326,7 @@ export function TransactionsTab({
       showActionMessage(message);
     } catch (error) {
       showActionMessage(
-        error instanceof Error ? error.message : "Unable to update transaction."
+        error instanceof Error ? error.message : t("billing.updateTransactionFailed")
       );
     }
   }
@@ -328,7 +340,7 @@ export function TransactionsTab({
               updateTransactionStatus(
                 [detailsTransaction.id],
                 "Cancelled",
-                "Transaction cancelled."
+                t("billing.transactionCancelled")
               )
             }
             onBack={() => setDetailsTransactionId(null)}
@@ -336,7 +348,7 @@ export function TransactionsTab({
               updateTransactionStatus(
                 [detailsTransaction.id],
                 "Paid",
-                "Transaction posted and marked as paid."
+                t("billing.transactionPosted")
               )
             }
             transaction={detailsTransaction}
@@ -357,11 +369,11 @@ export function TransactionsTab({
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6a7483]">
-              Transaction Center
+              {t("billing.transactionCenter")}
             </p>
-            <h2 className="text-xl font-black text-[#17202a]">Transactions</h2>
+            <h2 className="text-xl font-black text-[#17202a]">{t("billing.transactions")}</h2>
             <p className="text-sm text-[#6a7483]">
-              Review, match, update, and track event-related payments.
+              {t("billing.transactionsBlurb")}
             </p>
           </div>
         </header>
@@ -371,7 +383,7 @@ export function TransactionsTab({
           onConnect={() => setIsPlaidDialogOpen(true)}
           onDisconnect={() => {
             setIsBankConnected(false);
-            showActionMessage("Bank connection preview disconnected.");
+            showActionMessage(t("billing.previewDisconnected"));
           }}
           onManage={() => setIsPlaidDialogOpen(true)}
           onSync={async () => {
@@ -385,18 +397,18 @@ export function TransactionsTab({
               if (!response.ok) {
                 const payload = await response.json().catch(() => ({}));
                 throw new Error(
-                  payload.error ?? "Unable to sync transactions."
+                  payload.error ?? t("billing.syncFailed")
                 );
               }
 
               showActionMessage(
-                "Bank transactions sync started for this organization."
+                t("billing.syncStarted")
               );
             } catch (error) {
               showActionMessage(
                 error instanceof Error
                   ? error.message
-                  : "Unable to sync transactions."
+                  : t("billing.syncFailed")
               );
             } finally {
               setIsPlaidBusy(false);
@@ -418,7 +430,9 @@ export function TransactionsTab({
               }}
               type="button"
             >
-              Pending ({reviewCounts["Needs review"]})
+              {t("billing.pendingCount", {
+                count: reviewCounts["Needs review"]
+              })}
             </button>
             <button
               className={`relative h-14 px-5 text-sm font-black transition ${
@@ -432,7 +446,7 @@ export function TransactionsTab({
               }}
               type="button"
             >
-              Paid ({reviewCounts.Paid})
+              {t("billing.paidCount", { count: reviewCounts.Paid })}
             </button>
           </div>
 
@@ -450,7 +464,9 @@ export function TransactionsTab({
                 }}
                 type="button"
               >
-                Pending ({reviewCounts["Needs review"]})
+                {t("billing.pendingCount", {
+                  count: reviewCounts["Needs review"]
+                })}
               </button>
               <button
                 className={`relative h-10 transition ${
@@ -464,13 +480,13 @@ export function TransactionsTab({
                 }}
                 type="button"
               >
-                Paid
+                {t("billing.statusPaid")}
               </button>
             </div>
 
             <div className="flex items-center gap-2 bg-white px-3 py-2">
               <select
-                aria-label="Sort mobile transactions"
+                aria-label={t("billing.sortMobile")}
                 className="h-8 rounded-md border border-[#b9c2cf] bg-[#f6f8fa] px-2 text-xs font-bold text-[#526274] outline-none"
                 onChange={(event) => {
                   const [key, direction] = event.target.value.split(":") as [
@@ -483,13 +499,13 @@ export function TransactionsTab({
                 }}
                 value={`${sortKey}:${sortDirection}`}
               >
-                <option value="date:desc">Sort by: Date</option>
-                <option value="amount:desc">Sort by: Amount</option>
-                <option value="customer:asc">Sort by: Customer</option>
-                <option value="status:asc">Sort by: Status</option>
+                <option value="date:desc">{t("billing.sortByDate")}</option>
+                <option value="amount:desc">{t("billing.sortByAmount")}</option>
+                <option value="customer:asc">{t("billing.sortByCustomer")}</option>
+                <option value="status:asc">{t("billing.sortByStatus")}</option>
               </select>
               <select
-                aria-label="Filter mobile transactions"
+                aria-label={t("billing.filterMobile")}
                 className="h-8 rounded-md border border-[#b9c2cf] bg-[#f6f8fa] px-2 text-xs font-bold text-[#526274] outline-none"
                 onChange={(event) => {
                   setStatusFilter(event.target.value);
@@ -497,12 +513,12 @@ export function TransactionsTab({
                 }}
                 value={statusFilter}
               >
-                <option value="All statuses">Filter by: All</option>
-                <option value="Pending">Pending</option>
-                <option value="Confirmed">Confirmed</option>
-                <option value="Paid">Paid</option>
-                <option value="Cancelled">Cancelled</option>
-                <option value="Refunded">Refunded</option>
+                <option value="All statuses">{t("billing.filterByAll")}</option>
+                <option value="Pending">{t("billing.statusPending")}</option>
+                <option value="Confirmed">{t("billing.statusConfirmed")}</option>
+                <option value="Paid">{t("billing.statusPaid")}</option>
+                <option value="Cancelled">{t("billing.statusCancelled")}</option>
+                <option value="Refunded">{t("billing.statusRefunded")}</option>
               </select>
             </div>
           </div>
@@ -513,7 +529,7 @@ export function TransactionsTab({
             }`}
           >
             <select
-              aria-label="Sort transactions"
+              aria-label={t("billing.sortTransactions")}
               className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#526274] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/10"
               onChange={(event) => {
                 const [key, direction] = event.target.value.split(":") as [
@@ -526,14 +542,14 @@ export function TransactionsTab({
               }}
               value={`${sortKey}:${sortDirection}`}
             >
-              <option value="date:desc">Sort: Newest</option>
-              <option value="date:asc">Sort: Oldest</option>
-              <option value="amount:desc">Sort: Amount high</option>
-              <option value="amount:asc">Sort: Amount low</option>
-              <option value="customer:asc">Sort: Customer</option>
+              <option value="date:desc">{t("billing.sortNewest")}</option>
+              <option value="date:asc">{t("billing.sortOldest")}</option>
+              <option value="amount:desc">{t("billing.sortAmountHigh")}</option>
+              <option value="amount:asc">{t("billing.sortAmountLow")}</option>
+              <option value="customer:asc">{t("billing.sortCustomer")}</option>
             </select>
             <select
-              aria-label="Status filter"
+              aria-label={t("billing.statusFilter")}
               className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#526274] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/10"
               onChange={(event) => {
                 setStatusFilter(event.target.value);
@@ -541,15 +557,15 @@ export function TransactionsTab({
               }}
               value={statusFilter}
             >
-              <option value="All statuses">Status: All</option>
-              <option value="Pending">Pending</option>
-              <option value="Confirmed">Confirmed</option>
-              <option value="Paid">Paid</option>
-              <option value="Cancelled">Cancelled</option>
-              <option value="Refunded">Refunded</option>
+              <option value="All statuses">{t("billing.statusAll")}</option>
+              <option value="Pending">{t("billing.statusPending")}</option>
+              <option value="Confirmed">{t("billing.statusConfirmed")}</option>
+              <option value="Paid">{t("billing.statusPaid")}</option>
+              <option value="Cancelled">{t("billing.statusCancelled")}</option>
+              <option value="Refunded">{t("billing.statusRefunded")}</option>
             </select>
             <select
-              aria-label="Transaction type filter"
+              aria-label={t("billing.typeFilter")}
               className="h-10 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#526274] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/10"
               onChange={(event) => {
                 setTypeFilter(event.target.value);
@@ -557,7 +573,7 @@ export function TransactionsTab({
               }}
               value={typeFilter}
             >
-              <option value="All types">Filter: All</option>
+              <option value="All types">{t("billing.filterAll")}</option>
               {typeOptions.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -581,7 +597,7 @@ export function TransactionsTab({
                   }
                   type="button"
                 >
-                  Print
+                  {t("common.print")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
@@ -592,7 +608,7 @@ export function TransactionsTab({
                   }
                   type="button"
                 >
-                  Export
+                  {t("common.export")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
@@ -600,12 +616,12 @@ export function TransactionsTab({
                     updateTransactionStatus(
                       selectedIds,
                       "Paid",
-                      "Selected transactions marked as paid."
+                      t("billing.selectedMarkedPaid")
                     )
                   }
                   type="button"
                 >
-                  Mark as Paid
+                  {t("billing.markAsPaid")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black transition hover:bg-[#eef4fa]"
@@ -613,12 +629,12 @@ export function TransactionsTab({
                     updateTransactionStatus(
                       selectedIds,
                       "Confirmed",
-                      "Selected transactions matched."
+                      t("billing.selectedMatched")
                     )
                   }
                   type="button"
                 >
-                  Match
+                  {t("billing.match")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#e3b4ad] bg-white px-3 text-xs font-black text-[#b22920] transition hover:bg-[#fff0ee]"
@@ -626,12 +642,12 @@ export function TransactionsTab({
                     updateTransactionStatus(
                       selectedIds,
                       "Cancelled",
-                      "Selected transactions cancelled."
+                      t("billing.selectedCancelled")
                     )
                   }
                   type="button"
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </div>
             </div>
@@ -707,11 +723,10 @@ export function TransactionsTab({
                   <LineIcon className="h-6 w-6" name="payment" />
                 </div>
                 <h3 className="mt-4 text-lg font-black">
-                  No transactions found
+                  {t("billing.noTransactions")}
                 </h3>
                 <p className="mt-1 max-w-md text-sm text-[#6a7483]">
-                  Adjust your filters or create a new transaction to begin
-                  tracking payments.
+                  {t("billing.noTransactionsBody")}
                 </p>
               </div>
             ) : null}
@@ -789,7 +804,7 @@ export function TransactionsTab({
               <tr>
                 <th className="w-10 px-4 py-3">
                   <input
-                    aria-label="Select all visible transactions"
+                    aria-label={t("billing.selectAllVisible")}
                     checked={
                       pageRows.length > 0 &&
                       pageRows.every((row) => selectedIds.includes(row.id))
@@ -813,15 +828,15 @@ export function TransactionsTab({
                   />
                 </th>
                 {[
-                  ["Transaction ID", "date"],
-                  ["Customer", "customer"],
-                  ["Event", "customer"],
-                  ["Venue", "customer"],
-                  ["Type", "customer"],
-                  ["Date", "date"],
-                  ["Amount", "amount"],
-                  ["Payment Method", "customer"],
-                  ["Status", "status"]
+                  [t("billing.transactionId"), "date"],
+                  [t("billing.customer"), "customer"],
+                  [t("common.event"), "customer"],
+                  [t("billing.venue"), "customer"],
+                  [t("common.type"), "customer"],
+                  [t("common.date"), "date"],
+                  [t("common.amount"), "amount"],
+                  [t("billing.paymentMethodColumn"), "customer"],
+                  [t("common.status"), "status"]
                 ].map(([label, key]) => (
                   <th className="px-4 py-3" key={label}>
                     <button
@@ -840,7 +855,7 @@ export function TransactionsTab({
                     </button>
                   </th>
                 ))}
-                <th className="w-12 px-4 py-3 text-right">Actions</th>
+                <th className="w-12 px-4 py-3 text-right">{t("common.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -897,7 +912,7 @@ export function TransactionsTab({
                   </td>
                   <td className="border-b border-[#eef1f4] px-4 py-3 text-right">
                     <button
-                      aria-label={`Actions for transaction ${row.referenceNo}`}
+                      aria-label={t("billing.actionsForTransaction", { id: row.referenceNo })}
                       className="rounded-md px-2 py-1 text-lg font-black leading-none text-[#17202a] hover:bg-[#eef4fa]"
                       onClick={(event) => event.stopPropagation()}
                       type="button"
@@ -915,10 +930,9 @@ export function TransactionsTab({
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#eef4fa] text-[#1f4d73]">
                 <LineIcon className="h-6 w-6" name="payment" />
               </div>
-              <h3 className="mt-4 text-lg font-black">No transactions found</h3>
+              <h3 className="mt-4 text-lg font-black">{t("billing.noTransactions")}</h3>
               <p className="mt-1 max-w-md text-sm text-[#6a7483]">
-                Adjust your filters or create a new transaction to begin
-                tracking payments.
+                {t("billing.noTransactionsHint")}
               </p>
             </div>
           ) : null}
@@ -975,7 +989,7 @@ export function TransactionsTab({
             updateTransactionStatus(
               [detailsTransaction.id],
               "Cancelled",
-              "Transaction cancelled."
+              t("billing.transactionCancelled")
             )
           }
           onBack={() => setDetailsTransactionId(null)}
@@ -983,7 +997,7 @@ export function TransactionsTab({
             updateTransactionStatus(
               [detailsTransaction.id],
               "Paid",
-              "Transaction posted and marked as paid."
+              t("billing.transactionPosted")
             )
           }
           onPrint={() => printTransactions([detailsTransaction])}

@@ -3,6 +3,7 @@
 import { getCachedAuthSession } from "@/lib/auth/client";
 import { MENU_IMAGE_BUCKET } from "@/lib/storage/buckets";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 /**
  * A card thumbnail, not a document - the 50 MB ceiling on /api/files is sized
@@ -44,11 +45,11 @@ export const PICTURE_ACCEPTED_LABEL = "JPEG, PNG or WebP";
  */
 export function describeUnacceptablePicture(file: File) {
   if (!EXTENSION_BY_CONTENT_TYPE[file.type]) {
-    return "Pictures must be a JPEG, PNG or WebP image.";
+    return ambientTranslate("files.pictureType");
   }
 
   if (file.size > MAX_PICTURE_BYTES) {
-    return "Pictures must be 5 MB or smaller.";
+    return ambientTranslate("files.pictureSize");
   }
 
   return null;
@@ -77,7 +78,7 @@ export async function uploadMenuPicture(file: File) {
 
   const organizationId = getCachedAuthSession()?.activeOrganizationId;
   if (!organizationId) {
-    throw new Error("Your session has expired. Please sign in again.");
+    throw new Error(ambientTranslate("files.sessionExpired"));
   }
 
   // A fresh UUID per upload is what makes `upsert: false` safe.

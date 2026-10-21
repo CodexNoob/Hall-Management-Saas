@@ -32,7 +32,11 @@ import { usePackageSelection } from "@/features/menu/hooks/use-package-selection
 import { parseAllergens } from "@/features/menu/lib/allergens";
 import { uploadMenuPicture } from "@/features/menu/lib/upload-menu-picture";
 import { updateMenuPackage } from "@/features/menu/services/menu-packages";
-import { moneySchema, parseNumericInput } from "@/lib/validation/number";
+import {
+  moneySchema,
+  parseNumericInput,
+  type ValidationTranslate
+} from "@/lib/validation/number";
 
 import {
   AddItemCard,
@@ -60,6 +64,7 @@ import {
   toServiceRules,
   type ServiceStyle
 } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const MENU_URL = "/api/menu";
 const MENU_FAST_URL = `${MENU_URL}?pictures=0`;
@@ -98,13 +103,18 @@ function mergeMenuPictures(
  * means a caller skipped that check - throw rather than send `NaN`, which
  * JSON.stringify would quietly turn into `null`.
  */
-function readPrice(raw: string, label: string) {
-  const parsed = parseNumericInput(raw, moneySchema({ label }));
+function readPrice(
+  raw: string,
+  label: string,
+  requiredMessage: string,
+  t: ValidationTranslate
+) {
+  const parsed = parseNumericInput(raw, moneySchema({ label, t }), t);
 
   if (parsed.status === "valid") return parsed.value;
 
   throw new Error(
-    parsed.status === "invalid" ? parsed.message : `${label} is required.`
+    parsed.status === "invalid" ? parsed.message : requiredMessage
   );
 }
 
@@ -124,6 +134,7 @@ function menuTabForChoice({ kind, serviceStyle }: NewItemMenuChoice) {
 }
 
 export function MenuPage() {
+  const { t } = useAppLanguage();
   const [pageSearchQuery, setPageSearchQuery] = useDashboardPageSearch("Menu");
   const deferredSearchQuery = useDeferredValue(pageSearchQuery);
   const menuQuery = useAuthenticatedQuery<MenuResponse>(MENU_FAST_URL);
@@ -207,14 +218,16 @@ export function MenuPage() {
         name: item.name,
         includedMenuItemIds: item.includedMenuItemIds,
         type: "Package",
-        summary: `${item.includedMenuItemIds.length} included items`,
+        summary: t("menu.includedItems", {
+          count: item.includedMenuItemIds.length
+        }),
         // Kept beside the formatted string rather than derived back out of it:
         // the edit dialog needs the number, and stripping the currency symbols
         // off `price` to get it back is a round trip through a lossy format.
         regularPrice: Number(item.regularPrice ?? 0),
         price: currencyFormatter.format(Number(item.regularPrice ?? 0))
       })),
-    [menuData]
+    [menuData, t]
   );
   const addOns = useMemo(
     () =>
@@ -253,7 +266,9 @@ export function MenuPage() {
   const isRuleMenu = activeTab === "Buffet Menu" || activeTab === "Plated Menu";
   const isPlatedMenu = activeTab === "Plated Menu";
   const isDrinkMenu = activeTab === "Drink Menu";
-  const ruleMode = isPlatedMenu ? "plated" : "buffet";
+  const ruleMode = isPlatedMenu
+    ? t("menu.ruleModePlated")
+    : t("menu.ruleModeBuffet");
   const serviceStyle: ServiceStyle = isPlatedMenu ? "Plated" : "Buffet";
   /**
    * What a create opens as - the picker's answer on the library tab, the tab's
@@ -450,14 +465,14 @@ export function MenuPage() {
     () => [
       {
         id: "All",
-        label: "All",
-        hint: "Every drink, however it is served.",
+        label: t("menu.drinkViewAll"),
+        hint: t("menu.everyDrink"),
         items: visibleItems
       },
       {
         id: "Buffet",
-        label: "Buffet",
-        hint: "A drinks station guests help themselves from. Counted per guests.",
+        label: t("menu.drinkViewBuffet"),
+        hint: t("menu.drinksStationHint"),
         items: visibleItems.filter((item) =>
           servesStyle(item.services, "Buffet")
         )
@@ -466,8 +481,8 @@ export function MenuPage() {
         // "Table" to the operator, `Plated` in the column - the same rename
         // `serviceStyleLabel` does everywhere else a drink's style is shown.
         id: "Table",
-        label: "Table",
-        hint: "Bottles set out on each table. Counted per table.",
+        label: t("menu.drinkViewTable"),
+        hint: t("menu.bottlesPerTable"),
         items: visibleItems.filter((item) =>
           servesStyle(item.services, "Plated")
         )
@@ -479,14 +494,14 @@ export function MenuPage() {
         ? [
             {
               id: "NoRule",
-              label: "No rule yet",
-              hint: "Still available to put on an event, which is where the rule gets asked for.",
+              label: t("menu.noRuleYet"),
+              hint: t("menu.noRuleYetHint"),
               items: rulelessDrinks
             }
           ]
         : [])
     ],
-    [rulelessDrinks, visibleItems]
+    [rulelessDrinks, t, visibleItems]
   );
   // Falls back rather than trusting the state: answering the last outstanding
   // rule removes the tab the operator is standing on, and a dangling id would
@@ -504,8 +519,8 @@ export function MenuPage() {
         onRetry={refetchMenu}
         showDefaultActions={false}
         showSearch={false}
-        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
-        title="Menu"
+        subtitle={t("menu.blurb")}
+        title={t("menu.title")}
       />
     );
   }
@@ -513,13 +528,13 @@ export function MenuPage() {
   /** The rule line under a drink's name, for whichever tab is open. */
   const describeDrink = (item: MenuLibraryItem) => {
     if (activeDrinkView.id === "NoRule" || item.services.length === 0) {
-      return "Not counted yet";
+      return t("menu.notCountedYet");
     }
 
     if (activeDrinkView.id === "Buffet" || activeDrinkView.id === "Table") {
       const style = activeDrinkView.id === "Buffet" ? "Buffet" : "Plated";
 
-      return formatServiceRule(findRuleForStyle(item.services, style));
+      return formatServiceRule(findRuleForStyle(item.services, style), t);
     }
 
     // On All, a drink served both ways has two rules and one line to say them
@@ -531,7 +546,7 @@ export function MenuPage() {
 
     return styles.length > 1
       ? styles.map((style) => serviceStyleLabel(style, "Drink")).join(" and ")
-      : formatServiceRule(findRuleForStyle(item.services, styles[0]));
+      : formatServiceRule(findRuleForStyle(item.services, styles[0]), t);
   };
 
   const toRuleCard = (item: MenuLibraryItem) => ({
@@ -541,7 +556,10 @@ export function MenuPage() {
     badge: item.kosherType ?? item.category,
     // The rule for the tab you are on, which is the whole reason these live on
     // their own rows - the same dish reads differently under Buffet and Plated.
-    rule: formatServiceRule(findRuleForStyle(item.services, serviceStyle)),
+    rule: formatServiceRule(
+      findRuleForStyle(item.services, serviceStyle),
+      t
+    ),
     pictureUrl: item.pictureUrl
   });
   // Read off once so the remove button below closes over an id rather than over
@@ -549,7 +567,13 @@ export function MenuPage() {
   const editingItemId = libraryItemActions.editingItem?.id ?? null;
 
   const savePackage = async (values: NewPackageFormValues) => {
-    const regularPrice = readPrice(values.basePrice, "Base price");
+    const basePriceLabel = t("menu.basePrice");
+    const regularPrice = readPrice(
+      values.basePrice,
+      basePriceLabel,
+      t("common.fieldRequired", { field: basePriceLabel }),
+      t
+    );
 
     if (isEditingPackage && activePackage) {
       // Name and price only. The items are edited from the panel behind this
@@ -584,7 +608,13 @@ export function MenuPage() {
   const saveAddOn = async (values: NewAddOnValues) => {
     // Priced first, then uploaded: a price the parser rejects should not cost an
     // upload, the same order `saveLibraryItem` below works in.
-    const price = readPrice(values.price, "Price");
+    const priceLabel = t("menu.price");
+    const price = readPrice(
+      values.price,
+      priceLabel,
+      t("common.fieldRequired", { field: priceLabel }),
+      t
+    );
     // Uploaded before the row is created, so a failure anywhere in here leaves
     // an unreferenced object in the bucket rather than an add-on pointing at
     // nothing.
@@ -655,8 +685,8 @@ export function MenuPage() {
   return (
     <div className="flex h-dvh w-full max-w-full flex-col overflow-hidden bg-[#f5f6f8] text-[#17202a]">
       <DashboardTopbar
-        title="Menu"
-        subtitle="Menu library, packages, buffet, plated, drinks and add-ons."
+        title={t("menu.title")}
+        subtitle={t("menu.blurb")}
         compactMobileActions
         showSearch={false}
         /* Bulk upload only. Creating an item or a package is done from the tab
@@ -669,14 +699,14 @@ export function MenuPage() {
           <>
             {canEditMenu ? (
               <button
-                aria-label="Bulk upload menu items"
+                aria-label={t("menu.bulkUploadItems")}
                 className="inline-flex h-9 w-8 shrink-0 items-center justify-center bg-transparent p-0 text-[#17202a] hover:text-[#1f4d73] [&_svg]:h-6 [&_svg]:w-6 lg:h-11 lg:w-auto lg:gap-2 lg:rounded-xl lg:border lg:border-[#b9c2cf] lg:bg-white lg:px-4 lg:text-sm lg:font-black lg:[&_svg]:h-4 lg:[&_svg]:w-4"
                 onClick={() => setIsBulkUploadOpen(true)}
-                title="Bulk upload"
+                title={t("menu.bulkUpload")}
                 type="button"
               >
                 <LineIcon name="upload" />
-                <span className="hidden lg:inline">Bulk upload</span>
+                <span className="hidden lg:inline">{t("menu.bulkUpload")}</span>
               </button>
             ) : null}
           </>
@@ -710,7 +740,7 @@ export function MenuPage() {
               }}
             >
               <LineIcon name={tab.icon} className="h-4 w-4 text-[#516174]" />
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </nav>
@@ -799,14 +829,16 @@ export function MenuPage() {
           not repeat the editor's "Remove item" - the two buttons are on screen
           together, and only one of them deletes anything. */}
       <ConfirmDialog
-        confirmLabel="Remove from library"
-        description={`"${libraryItemActions.removingItem?.name ?? ""}" will be removed from the menu library. This cannot be undone.`}
-        fallbackErrorMessage="The item could not be removed. Please try again."
+        confirmLabel={t("menu.removeFromLibrary")}
+        description={t("menu.removeFromLibraryConfirm", {
+          name: libraryItemActions.removingItem?.name ?? ""
+        })}
+        fallbackErrorMessage={t("menu.removeFailed")}
         onClose={libraryItemActions.cancelRemove}
         onConfirm={libraryItemActions.confirmRemove}
         open={Boolean(libraryItemActions.removingItem)}
-        pendingLabel="Removing…"
-        title="Remove menu item"
+        pendingLabel={t("menu.removingEllipsis")}
+        title={t("menu.removeMenuItem")}
       />
 
       <main className="min-h-0 w-full min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto p-2 sm:p-3">
@@ -824,7 +856,7 @@ export function MenuPage() {
                 <div className="flex items-center gap-2">
                   <LineIcon name="box" className="h-4 w-4 text-[#17202a]" />
                   <h2 className="text-sm font-black text-[#17202a]">
-                    Packages
+                    {t("menu.packages")}
                   </h2>
                 </div>
                 <button
@@ -832,7 +864,7 @@ export function MenuPage() {
                   onClick={() => setIsNewPackageOpen(true)}
                   type="button"
                 >
-                  New
+                  {t("menu.new")}
                 </button>
               </header>
 
@@ -906,7 +938,7 @@ export function MenuPage() {
                       onClick={() => { setIsEditingPackage(true); setIsNewPackageOpen(true); }}
                       type="button"
                     >
-                      Edit package
+                      {t("menu.editPackage")}
                     </button>
                   </header>
 
@@ -925,7 +957,7 @@ export function MenuPage() {
                         onClick={packageItemActions.dismissError}
                         type="button"
                       >
-                        Dismiss
+                        {t("menu.dismiss")}
                       </button>
                     </div>
                   ) : null}
@@ -967,11 +999,10 @@ export function MenuPage() {
                     <LineIcon name="box" className="h-5 w-5" />
                   </span>
                   <h2 className="mt-4 text-base font-black text-[#17202a]">
-                    No packages yet
+                    {t("menu.noPackages")}
                   </h2>
                   <p className="mt-2 max-w-sm text-sm text-[#6a7483]">
-                    Create a package to bundle menu items for weddings, buffets,
-                    and other events.
+                    {t("menu.noPackagesBody")}
                   </p>
                   <button
                     className="mt-5 inline-flex h-10 items-center justify-center rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white shadow-md shadow-[#1f4d73]/20 hover:bg-[#173a56]"
@@ -1013,7 +1044,7 @@ export function MenuPage() {
                     </h2>
                   </div>
                   <p className="mt-1 text-xs text-[#6a7483]">
-                    Select a Menu Library item, then add the rule and price.
+                    {t("menu.pickLibraryItem")}
                   </p>
                 </div>
                 <button
@@ -1021,15 +1052,18 @@ export function MenuPage() {
                   onClick={startCreate}
                   type="button"
                 >
-                  Add {ruleMode} item
+                  {t("menu.addSectionItem", { section: ruleMode })}
                 </button>
               </header>
 
               {!servedItems.length ? (
                 <p className="px-3 py-6 text-xs text-[#516174]">
                   {normalizedSearch
-                    ? `No ${ruleMode} items match "${pageSearchQuery.trim()}".`
-                    : `No items are served ${ruleMode} yet. Add one here, or open a library item and set its service style.`}
+                    ? t("menu.noItemsMatchSearch", {
+                        section: ruleMode,
+                        query: pageSearchQuery.trim()
+                      })
+                    : t("menu.noItemsServedYet", { section: ruleMode })}
                 </p>
               ) : (
                 // Ungrouped, on both tabs: the cards sit in one grid rather
@@ -1075,11 +1109,10 @@ export function MenuPage() {
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <LineIcon name="dollar" className="h-4 w-4 text-[#17202a]" />
-                  <h2 className="text-sm font-black text-[#17202a]">Add-ons</h2>
+                  <h2 className="text-sm font-black text-[#17202a]">{t("menu.addOns")}</h2>
                 </div>
                 <p className="mt-1 text-xs text-[#6a7483]">
-                  Separate add-on items. Add-ons are not pulled from Buffet Menu
-                  or Plated Menu.
+                  {t("menu.addOnsBlurb")}
                 </p>
               </div>
               <button
@@ -1087,7 +1120,7 @@ export function MenuPage() {
                 type="button"
                 onClick={() => setIsNewAddOnOpen(true)}
               >
-                New add-on
+                {t("menu.newAddOn")}
               </button>
             </header>
 
@@ -1126,13 +1159,15 @@ export function MenuPage() {
                         className="h-4 w-4 text-[#17202a]"
                       />
                       <h1 className="text-sm font-black text-[#17202a]">
-                        {isDrinkMenu ? "Drink Menu" : "Menu Library"}
+                        {isDrinkMenu
+                          ? t("menu.tab.drinks")
+                          : t("menu.tab.library")}
                       </h1>
                     </div>
                     <p className="mt-1 text-xs text-[#6a7483]">
                       {isDrinkMenu
-                        ? "Drinks only. Serving rules are set on the item; price stays on the package."
-                        : "Base food items only. No rules, no prices, no hall usage."}
+                        ? t("menu.drinksOnlyHint")
+                        : t("menu.baseItemsHint")}
                     </p>
                   </div>
                   <button
@@ -1140,7 +1175,7 @@ export function MenuPage() {
                     onClick={startCreate}
                     type="button"
                   >
-                    {isDrinkMenu ? "New drink" : "New item"}
+                    {isDrinkMenu ? t("menu.newDrink") : t("menu.newItem")}
                   </button>
                 </header>
 
@@ -1153,7 +1188,9 @@ export function MenuPage() {
                         setPageSearchQuery(event.target.value)
                       }
                       placeholder={
-                        isDrinkMenu ? "Search drinks" : "Search menu items"
+                        isDrinkMenu
+                          ? t("menu.searchDrinks")
+                          : t("menu.searchMenuItems")
                       }
                       type="search"
                       value={pageSearchQuery}
@@ -1194,7 +1231,7 @@ export function MenuPage() {
                   <div className="flex min-h-0 flex-1 flex-col">
                     <div className="shrink-0 border-b border-[#d8dde5] px-3 py-2">
                       <div
-                        aria-label="Filter drinks by how they are served"
+                        aria-label={t("menu.filterDrinks")}
                         className="scrollbar-none flex flex-nowrap gap-2 overflow-x-auto"
                         role="tablist"
                       >

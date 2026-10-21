@@ -12,8 +12,10 @@ import {
   authCookieMaxAge,
   isRememberWindowExpired,
   isSupabaseAuthCookieName,
+  isSupabaseSessionCookieName,
   mergeAuthCookieOptions
 } from "@/lib/supabase/cookie-policy";
+import { log } from "@/lib/logging/context";
 
 /**
  * Server-side session refresh, run before every navigation. Backs the `proxy`
@@ -149,7 +151,8 @@ function dashboardRedirect(request: NextRequest, carrier: NextResponse) {
 function expireAuthCookies(
   request: NextRequest,
   response: NextResponse,
-  isSecure: boolean
+  isSecure: boolean,
+  includeCodeVerifier = true
 ) {
   const expire = (name: string) =>
     response.cookies.set(name, "", {
@@ -161,7 +164,12 @@ function expireAuthCookies(
     });
 
   for (const cookie of request.cookies.getAll()) {
-    if (isSupabaseAuthCookieName(cookie.name)) expire(cookie.name);
+    if (
+      isSupabaseAuthCookieName(cookie.name) &&
+      (includeCodeVerifier || isSupabaseSessionCookieName(cookie.name))
+    ) {
+      expire(cookie.name);
+    }
   }
 
   expire(REMEMBER_AUTH_COOKIE);
@@ -260,6 +268,20 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
 
   if (!data?.claims) {
+    const hasUnverifiedSession = request.cookies.getAll().some(
+      (cookie) =>
+        isSupabaseSessionCookieName(cookie.name) && cookie.value.length > 0
+    );
+
+    if (hasUnverifiedSession) {
+      // Do not expire the PKCE verifier here: OAuth's callback still needs it
+      // when there is no session yet. A token cookie that failed verification,
+      // on the other hand, makes the landing page advertise a dead session.
+      expireAuthCookies(request, response, isSecure, false);
+      applyHeaders(response, NO_STORE_HEADERS);
+      log.warn({}, "unverified_auth_session_cleared");
+    }
+
     return isProtected ? loginRedirect(request, response) : response;
   }
 

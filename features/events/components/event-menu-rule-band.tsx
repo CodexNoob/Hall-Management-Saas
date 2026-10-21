@@ -22,6 +22,7 @@ import {
   type ServiceStyle
 } from "@/features/menu/lib/service-style";
 import { updateMenuItem } from "@/features/menu/services/menu-items";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type CatalogItem = EventMenuResponse["items"][number];
 
@@ -83,6 +84,7 @@ export function EventMenuRuleBand({
   /// Re-reads the menu so a line whose rule just landed leaves this band.
   onSaved: () => Promise<unknown>;
 }) {
+  const { t } = useAppLanguage();
   const unitListId = useId();
   // Writing a rule is a library edit, which is a different permission from the
   // one that lets someone edit this event's menu. Every stock role holds both
@@ -145,7 +147,7 @@ export function EventMenuRuleBand({
       // to read. Refuse instead, and say which dish to go and look at.
       if (existing.length !== item.services.length) {
         throw new Error(
-          `${item.name} has a counting rule this page cannot read. Open it in the menu library before setting another.`
+          t("events.unreadableRule", { name: item.name })
         );
       }
 
@@ -174,7 +176,7 @@ export function EventMenuRuleBand({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "The counting rule could not be saved. Please try again."
+          : t("events.ruleSaveFailed")
       );
     } finally {
       setSavingLineId(null);
@@ -184,12 +186,12 @@ export function EventMenuRuleBand({
   return (
     <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
       <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
-        Needs a counting rule
+        {t("events.needsCountingRule")}
       </h3>
       <p className="mt-1 text-xs text-[#6a7483]">
         {canEditMenu
-          ? "These dishes have no rule for the way they are served here, so the kitchen has no quantity to cook to. The answer is saved to the menu library and used by every event."
-          : "These dishes have no rule for the way they are served here, so the kitchen has no quantity to cook to. Setting one is a menu library change, which your access does not cover."}
+          ? t("events.noRuleEditable")
+          : t("events.noRuleReadOnly")}
       </p>
 
       {error ? (
@@ -240,7 +242,7 @@ export function EventMenuRuleBand({
                     onClick={() => void save(line)}
                     type="button"
                   >
-                    {isSaving ? "Saving..." : "Save rule"}
+                    {isSaving ? t("common.savingEllipsis") : t("events.saveRule")}
                   </button>
                 </div>
               ) : null}

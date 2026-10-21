@@ -67,18 +67,23 @@ const expectations: Expected[] = [
     tiles: ["Kitchen", "Calendar", "Events", "Billing"]
   },
   {
-    // No canViewPaymentInfo, so no income timeline and no attention panel;
-    // /dashboard/events is still reachable through canViewCalendar.
+    /*
+     * Nothing, and that is the expected answer.
+     *
+     * The overview is a BOOKINGS page - every section on it is a count, a
+     * timeline or a schedule of events - and this role holds neither
+     * `event.read` nor `calendar.read` any more. Both came off the kitchen
+     * roles because they opened the office's workspace and calendar rather
+     * than anything a cook works from; the production schedule is the Kitchen
+     * board's own Today / Week / 4 Weeks views.
+     *
+     * A cook never arrives here in practice: the overview is MVP-hidden, and
+     * `resolveLandingRoute` puts them on the Kitchen at sign-in.
+     */
     role: "kitchen-staff",
-    sections: [
-      "Total Events",
-      "Booked Events",
-      "Operating schedule",
-      "Events timeline",
-      "Quick actions"
-    ],
-    actions: ["Kitchen board", "Dining sheets"],
-    tiles: ["Kitchen", "Calendar", "Events"]
+    sections: [],
+    actions: [],
+    tiles: []
   },
   {
     // Read-only: sees the operational surfaces it can open, no payment data,

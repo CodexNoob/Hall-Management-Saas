@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   getEventReadinessSummary,
   getScopedEventReadinessItems
@@ -92,9 +92,12 @@ describe("event readiness", () => {
       const items = getScopedEventReadinessItems(event, scope);
 
       expect(items.map((item) => item.id)).not.toContain("kitchen-packet");
-      expect(
-        items.map((item) => item.label)
-      ).not.toContain("Operations notes ready");
+      // Asserted on the message key rather than the English sentence: the row
+      // is drawn through the translation catalog now, so the wording is not
+      // what identifies it.
+      expect(items.map((item) => item.labelKey)).not.toContain(
+        "events.ready.operationsLabel"
+      );
     }
   });
 
@@ -146,7 +149,7 @@ describe("event readiness", () => {
 
     expect(menuItems.find((item) => item.id === "menu")).toMatchObject({
       done: false,
-      helper: "Review and confirm the event menu."
+      helperKey: "events.ready.menuTodo"
     });
 
     const confirmedMenuItems = getScopedEventReadinessItems(
@@ -161,7 +164,7 @@ describe("event readiness", () => {
       confirmedMenuItems.find((item) => item.id === "menu")
     ).toMatchObject({
       done: true,
-      helper: "Menu has been reviewed and confirmed."
+      helperKey: "events.ready.menuDone"
     });
   });
 });

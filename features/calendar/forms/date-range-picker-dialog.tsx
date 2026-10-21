@@ -9,6 +9,7 @@ import {
   weekStartDayIndex,
   type WeekStartsOn
 } from "@/lib/dates/calendar-date";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type DateRange = {
   startDate: Date;
@@ -48,6 +49,7 @@ export function DateRangePickerDialog({
   startDate,
   weekStartsOn = "sunday"
 }: DateRangePickerDialogProps) {
+  const { t } = useAppLanguage();
   const pickerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   const [visibleMonth, setVisibleMonth] = useState(() =>
@@ -150,7 +152,7 @@ export function DateRangePickerDialog({
 
   return (
     <div
-      aria-label="Select date range"
+      aria-label={t("calendar.selectDateRange")}
       className={`absolute top-[calc(100%+0.5rem)] z-50 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-[#cfd8e3] bg-white p-3 shadow-xl ${
         mobileCentered
           ? "left-1/2 -translate-x-1/2 lg:left-auto lg:right-0 lg:translate-x-0"
@@ -165,7 +167,7 @@ export function DateRangePickerDialog({
           onClick={() => setVisibleMonth((current) => addMonths(current, -1))}
           type="button"
         >
-          Previous
+          {t("common.previous")}
         </button>
 
         <strong className="text-center text-sm text-[#17202a]">
@@ -177,7 +179,7 @@ export function DateRangePickerDialog({
           onClick={() => setVisibleMonth((current) => addMonths(current, 1))}
           type="button"
         >
-          Next
+          {t("common.next")}
         </button>
       </div>
 
@@ -226,8 +228,8 @@ export function DateRangePickerDialog({
 
       <p className="mt-3 text-xs text-[#617086]">
         {selectionStep === "start"
-          ? "Select the start date."
-          : "Select the end date."}
+          ? t("calendar.selectStartDate")
+          : t("calendar.selectEndDate")}
       </p>
     </div>
   );

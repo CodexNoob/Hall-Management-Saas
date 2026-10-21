@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useId, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
@@ -11,6 +11,8 @@ import {
   formatAsYouType,
   parsePhoneInput
 } from "@/lib/validation/phone";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type PhoneFieldProps = {
   id?: string;
@@ -69,7 +71,7 @@ type PhoneFieldProps = {
 export function PhoneField({
   id,
   name,
-  label = "Phone number",
+  label,
   country,
   onCountryChange,
   value,
@@ -87,6 +89,10 @@ export function PhoneField({
   errorClassName = "mt-1 text-xs font-bold text-[#c2410c]",
   noticeClassName = "mt-1 text-xs font-semibold text-[#64748b]"
 }: PhoneFieldProps) {
+  const { t } = useAppLanguage();
+  // Defaulted here rather than in the parameter list, where it would be
+  // evaluated before the language context is readable.
+  const fieldLabel = label ?? t("common.phoneNumber");
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const errorId = `${fieldId}-error`;
@@ -115,19 +121,23 @@ export function PhoneField({
     code: country,
     callingCode: ""
   };
-  const result = parsePhoneInput(value, { country, label });
+  const result = parsePhoneInput(value, { country, label: fieldLabel, t });
   const localError =
     result.status === "invalid"
       ? result.message
       : required && result.status === "empty"
-        ? `${label} is required.`
+        ? t("common.fieldRequired", { field: fieldLabel })
         : "";
   // Only complain once the field has been left, so it does not scream at a
   // number that is merely half typed.
   const error = touched ? localError : serverError ?? "";
 
   const emit = (raw: string, nextCountry: CountryCode) => {
-    const next = parsePhoneInput(raw, { country: nextCountry, label });
+    const next = parsePhoneInput(raw, {
+      country: nextCountry,
+      label: fieldLabel,
+      t
+    });
 
     if (next.status === "valid") onValidChange?.(next.value);
     else if (next.status === "empty") onValidChange?.(null);
@@ -218,7 +228,7 @@ export function PhoneField({
             <ChevronDown aria-hidden="true" className="ml-auto size-3.5 shrink-0 opacity-60" />
 
             <select
-              aria-label="Country"
+              aria-label={t("common.country")}
               autoComplete="tel-country-code"
               className="absolute inset-0 size-full cursor-[inherit] opacity-0"
               disabled={disabled}
@@ -257,7 +267,7 @@ export function PhoneField({
             setNotice("");
           }}
           onChange={(event) => handleChange(event.target.value)}
-          placeholder={placeholder ?? examplePlaceholder(country)}
+          placeholder={placeholder ?? examplePlaceholder(country, t)}
           type="tel"
           value={value}
         />
@@ -330,11 +340,11 @@ function digits(value: string) {
  * Shows the shape of a real number for the chosen country, derived from the
  * metadata so it cannot drift from what the validator will accept.
  */
-function examplePlaceholder(country: CountryCode) {
+function examplePlaceholder(country: CountryCode, t: (key: MessageKey) => string) {
   const sample =
     country === DEFAULT_PHONE_COUNTRY ? "2125550123" : SAMPLES[country];
 
-  return sample ? formatAsYouType(sample, country) : "Phone number";
+  return sample ? formatAsYouType(sample, country) : t("common.phoneNumber");
 }
 
 /**

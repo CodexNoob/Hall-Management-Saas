@@ -11,6 +11,8 @@ import {
   type ReactNode
 } from "react";
 import { createPortal } from "react-dom";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type ToastVariant = "error" | "success" | "info";
 
@@ -132,13 +134,15 @@ function ToastIcon({ variant }: { variant: ToastVariant }) {
   );
 }
 
-const DEFAULT_TOAST_TITLES: Record<ToastVariant, string> = {
-  error: "Something went wrong",
-  success: "Success",
-  info: "Heads up"
+/** Module scope, so it holds keys the provider resolves as it renders. */
+const DEFAULT_TOAST_TITLES: Record<ToastVariant, MessageKey> = {
+  error: "shell.somethingWentWrong",
+  success: "shell.success",
+  info: "shell.headsUp"
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useAppLanguage();
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -190,7 +194,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const duration =
         options?.duration ??
         (variant === "error" ? ERROR_DURATION_MS : DEFAULT_DURATION_MS);
-      const title = options?.title?.trim() || DEFAULT_TOAST_TITLES[variant];
+      const title =
+        options?.title?.trim() || t(DEFAULT_TOAST_TITLES[variant]);
       const requestId = options?.requestId?.trim() ?? "";
 
       let targetId = "";
@@ -239,7 +244,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         scheduleDismiss(targetId, duration);
       }
     },
-    [clearTimer, scheduleDismiss]
+    // `t` supplies the default title, so a language change has to produce a
+    // fresh `push` rather than one closed over the old wording.
+    [clearTimer, scheduleDismiss, t]
   );
 
   const api = useMemo<ToastApi>(
@@ -285,7 +292,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               // modal's close button, which lives in the top-right corner.
               className="pointer-events-none fixed bottom-3 right-3 z-10001 flex w-[calc(100vw-1.5rem)] max-w-sm flex-col gap-3 sm:bottom-6 sm:right-6"
               role="region"
-              aria-label="Notifications"
+              aria-label={t("shell.notifications")}
             >
               {toasts.map((toast) => (
                 <div
@@ -315,7 +322,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <button
                     className="event-toast-dismiss"
                     type="button"
-                    aria-label="Dismiss notification"
+                    aria-label={t("shell.dismissNotification")}
                     onClick={() => dismiss(toast.id)}
                   >
                     <DismissIcon />

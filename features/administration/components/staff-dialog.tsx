@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { normalizeInviteEmails } from "@/features/administration/components/staff-invite-utils";
 import type { StaffMember } from "@/features/administration/components/staff-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * Invite somebody, or edit their profile. TWO DIALOGS, NEITHER OF WHICH TOUCHES
@@ -45,7 +46,7 @@ export function staffToForm(staff: StaffMember): StaffFormState {
   return {
     name: staff.name,
     email: staff.email,
-    phone: staff.phone === "Not provided" ? "" : staff.phone,
+    phone: staff.phone,
     department: staff.department,
     title: staff.title ?? ""
   };
@@ -69,7 +70,11 @@ export type StaffInvitation = {
   error: string | null;
 };
 
-export async function readMutationResponse(response: Response) {
+export async function readMutationResponse(
+  response: Response,
+  /** What to throw when the API sends no message of its own. */
+  fallbackMessage = "The change could not be saved."
+) {
   const payload = (await response.json().catch(() => null)) as {
     error?: string;
     code?: string;
@@ -78,7 +83,7 @@ export async function readMutationResponse(response: Response) {
   } | null;
 
   if (!response.ok) {
-    throw new Error(payload?.error ?? "The change could not be saved.");
+    throw new Error(payload?.error ?? fallbackMessage);
   }
 
   return payload;
@@ -113,6 +118,7 @@ export function StaffDialog({
   onSubmit,
   onClose
 }: StaffDialogProps) {
+  const { t } = useAppLanguage();
   const [localInvite, setLocalInvite] = useState(inviteInput);
 
   useEffect(() => {
@@ -136,12 +142,12 @@ export function StaffDialog({
         <header className="flex items-start justify-between gap-3 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0">
             <h2 className="text-sm font-black">
-              {mode === "add" ? "Invite staff" : `Edit ${form.name}`}
+              {mode === "add" ? t("staff.inviteStaff") : `Edit ${form.name}`}
             </h2>
             <p className="mt-0.5 text-[10px] text-[#6a7483]">
               {mode === "add"
-                ? "They arrive with no permissions. Give them a role from Access when they are ready."
-                : "Profile only. What this person can do lives in Roles & Permissions."}
+                ? t("staff.arriveWithNoPermissions")
+                : t("staff.profileOnly")}
             </p>
           </div>
           <button
@@ -149,7 +155,7 @@ export function StaffDialog({
             onClick={onClose}
             type="button"
           >
-            Close
+            {t("common.close")}
           </button>
         </header>
 
@@ -157,13 +163,13 @@ export function StaffDialog({
           {mode === "add" ? (
             <>
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Email addresses
+                {t("staff.emailAddresses")}
                 <textarea
                   className="mt-1 min-h-20 w-full rounded-lg border border-[#c7d0dc] px-3 py-2 text-xs"
                   name="inviteEmails"
                   onBlur={(event) => commitInvites(event.target.value)}
                   onChange={(event) => setLocalInvite(event.target.value)}
-                  placeholder="one@example.com, two@example.com"
+                  placeholder={t("staff.emailPlaceholder")}
                   value={localInvite}
                 />
               </label>
@@ -174,7 +180,7 @@ export function StaffDialog({
                 </p>
               ) : null}
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Department
+                {t("staff.department")}
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   name="inviteDepartment"
@@ -188,7 +194,7 @@ export function StaffDialog({
           ) : (
             <>
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Name
+                {t("common.name")}
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   name="staffName"
@@ -199,7 +205,7 @@ export function StaffDialog({
                 />
               </label>
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Phone
+                {t("common.phone")}
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   name="staffPhone"
@@ -210,7 +216,7 @@ export function StaffDialog({
                 />
               </label>
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Department
+                {t("staff.department")}
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   name="staffDepartment"
@@ -221,14 +227,14 @@ export function StaffDialog({
                 />
               </label>
               <label className="block text-[10px] font-black uppercase tracking-wide text-[#6a7483]">
-                Job title
+                {t("staff.jobTitle")}
                 <input
                   className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                   name="staffJobTitle"
                   onChange={(event) =>
                     onChangeForm({ ...form, title: event.target.value })
                   }
-                  placeholder="Shown in the sidebar. Not a permission."
+                  placeholder={t("staff.jobTitleHint")}
                   value={form.title}
                 />
               </label>
@@ -248,7 +254,7 @@ export function StaffDialog({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-9 rounded-lg bg-[#17202a] px-4 text-xs font-black text-white disabled:opacity-50"
@@ -259,10 +265,10 @@ export function StaffDialog({
               type="submit"
             >
               {isSaving
-                ? "Saving..."
+                ? t("common.savingEllipsis")
                 : mode === "add"
-                  ? "Send invitations"
-                  : "Save"}
+                  ? t("staff.sendInvitations")
+                  : t("common.save")}
             </button>
           </div>
         </footer>

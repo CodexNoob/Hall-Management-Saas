@@ -7,6 +7,7 @@ import {
   type BillingResponse,
   type BillingTab
 } from "@/features/billing/components/billing-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function BillingDashboardTab({
   setActiveTab,
@@ -15,6 +16,7 @@ export function BillingDashboardTab({
   setActiveTab: (tab: BillingTab) => void;
   data: BillingResponse;
 }) {
+  const { t } = useAppLanguage();
   const currency = (cents: number) =>
     new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -35,33 +37,33 @@ export function BillingDashboardTab({
     <div className="max-w-full min-w-0 space-y-4 overflow-x-hidden p-2 sm:p-4">
       <div className="grid min-w-0 grid-cols-1 gap-3 min-[380px]:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          label="Paid Income"
+          label={t("billing.paidIncome")}
           value={currency(data.summary.paidCents)}
-          note="Paid transactions"
+          note={t("billing.paidTransactions")}
           tone="green"
         />
         <StatCard
-          label="Transactions"
+          label={t("billing.transactions")}
           value={String(data.transactions.length)}
-          note="Imported or recorded"
+          note={t("billing.importedOrRecorded")}
         />
         <StatCard
-          label="Invoices"
+          label={t("billing.invoices")}
           value={String(data.invoices.length)}
-          note="All invoice records"
+          note={t("billing.allInvoiceRecords")}
         />
         <StatCard
-          label="Open Invoices"
+          label={t("billing.openInvoices")}
           value={currency(data.summary.openInvoiceCents)}
           note={`${data.summary.openInvoices} invoices`}
           tone="gold"
         />
         <StatCard
-          label="Needs Review"
+          label={t("billing.needsReview")}
           value={String(
             data.transactions.filter((item) => item.status !== "paid").length
           )}
-          note="Pending transactions"
+          note={t("billing.pendingTransactions")}
         />
       </div>
 
@@ -69,28 +71,32 @@ export function BillingDashboardTab({
         <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
           <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="min-w-0">
-              <h2 className="font-black text-[#17202a]">Billing dashboard</h2>
+              <h2 className="font-black text-[#17202a]">{t("billing.dashboard")}</h2>
               <p className="text-sm text-[#6a7483]">
-                Daily office view for the finance team.
+                {t("billing.dashboardBlurb")}
               </p>
             </div>
             <TopAction
-              label="Review transactions"
+              label={t("billing.reviewTransactions")}
               onClick={() => setActiveTab("Transactions")}
             />
           </div>
           <div className="grid gap-3 p-4 md:grid-cols-3">
             {[
-              "Assign card batch payout to the correct events or split it across events.",
-              `${data.summary.openInvoices} invoice${data.summary.openInvoices === 1 ? " has" : "s have"} an open balance.`,
-              "Review payroll and linen transactions before closing the week."
+              t("billing.assignCardBatch"),
+              data.summary.openInvoices === 1
+                ? t("billing.oneInvoiceOpen")
+                : t("billing.invoicesOpen", {
+                    count: data.summary.openInvoices
+                  }),
+              t("billing.reviewPayroll")
             ].map((text, index) => (
               <article
                 key={text}
                 className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-4"
               >
                 <h3 className="font-black text-[#17202a]">
-                  {["Next action", "Invoice action", "Profit check"][index]}
+                  {[t("billing.nextAction"), t("billing.invoiceAction"), t("billing.profitCheck")][index]}
                 </h3>
                 <p className="mt-2 text-sm leading-6 text-[#17202a]">{text}</p>
               </article>
@@ -101,15 +107,15 @@ export function BillingDashboardTab({
         <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
           <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="min-w-0">
-              <h2 className="font-black text-[#17202a]">Cash movement</h2>
-              <p className="text-sm text-[#6a7483]">Sample weekly activity.</p>
+              <h2 className="font-black text-[#17202a]">{t("billing.cashMovement")}</h2>
+              <p className="text-sm text-[#6a7483]">{t("billing.sampleWeekly")}</p>
             </div>
             <button
               className="rounded-lg border border-[#b9c2cf] px-4 py-2 text-sm font-black"
               type="button"
               onClick={() => setActiveTab("Event Billing")}
             >
-              Open event billing
+              {t("billing.openEventBilling")}
             </button>
           </div>
           <div className="flex h-52 min-w-0 items-end gap-2 p-3 sm:gap-3 sm:p-6">
@@ -131,10 +137,10 @@ export function BillingDashboardTab({
         <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
           <div className="border-b border-[#d8dde5] p-4">
             <h2 className="font-black text-[#17202a]">
-              Recent bank transactions
+              {t("billing.recentBankTransactions")}
             </h2>
             <p className="text-sm text-[#6a7483]">
-              Imported from connected bank or file upload.
+              {t("billing.importedFrom")}
             </p>
           </div>
           <div className="max-w-full overflow-x-auto p-3 sm:p-4">
@@ -177,9 +183,9 @@ export function BillingDashboardTab({
         <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
           <div className="flex flex-col items-stretch gap-3 border-b border-[#d8dde5] p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
             <div className="min-w-0">
-              <h2 className="font-black text-[#17202a]">Open balances</h2>
+              <h2 className="font-black text-[#17202a]">{t("billing.openBalances")}</h2>
               <p className="text-sm text-[#6a7483]">
-                Invoices that still need payment.
+                {t("billing.invoicesNeedPayment")}
               </p>
             </div>
             <button
@@ -187,7 +193,7 @@ export function BillingDashboardTab({
               type="button"
               onClick={() => setActiveTab("Invoices")}
             >
-              Open invoices
+              {t("billing.openInvoices")}
             </button>
           </div>
           <div className="space-y-3 p-4">

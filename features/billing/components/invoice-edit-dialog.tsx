@@ -9,6 +9,7 @@ import {
   parseNumericInput,
   quantitySchema
 } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 type Invoice = BillingResponse["invoices"][number];
 function money(cents: number, currency = "USD") { return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
 
@@ -33,6 +34,7 @@ export function InvoiceEditDialog({
   onSaved: () => Promise<void>;
   open: boolean;
 }) {
+  const { t } = useAppLanguage();
   const [clientName, setClientName] = useState(invoice.clientName);
   const [status, setStatus] = useState<"Draft" | "Sent">(
     invoice.status === "Sent" ? "Sent" : "Draft"
@@ -67,10 +69,10 @@ export function InvoiceEditDialog({
   // guard for the save, so the two could legitimately differ.
   const parsedItems = items.map((item) => ({
     description: item.description.trim(),
-    quantity: parseNumericInput(item.quantity, quantitySchema()),
+    quantity: parseNumericInput(item.quantity, quantitySchema({ t }), t),
     unitAmount: parseNumericInput(
       item.unitAmount,
-      moneySchema({ label: "Amount" })
+      moneySchema({ label: t("common.amount"), t })
     )
   }));
   const computedTotal = parsedItems.reduce(
@@ -85,12 +87,12 @@ export function InvoiceEditDialog({
     setError("");
 
     if (!clientName.trim()) {
-      setError("Enter a client name.");
+      setError(t("billing.enterClientName"));
       return;
     }
 
     if (!parsedItems.length) {
-      setError("Add at least one line item.");
+      setError(t("billing.addLineItem"));
       return;
     }
 
@@ -110,7 +112,7 @@ export function InvoiceEditDialog({
             : "";
       setError(
         detail ||
-          "Complete every line item with a valid description, quantity, and amount."
+          t("billing.completeLineItems")
       );
       return;
     }
@@ -145,7 +147,7 @@ export function InvoiceEditDialog({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Unable to update invoice."
+          : t("billing.updateInvoiceFailed")
       );
     } finally {
       setSaving(false);
@@ -166,11 +168,11 @@ export function InvoiceEditDialog({
           <div>
             <h2 className="font-black">Edit {invoice.invoiceNumber}</h2>
             <p className="text-sm text-[#6a7483]">
-              Update invoice details and line items.
+              {t("billing.updateInvoiceBlurb")}
             </p>
           </div>
           <button
-            aria-label="Close invoice editor"
+            aria-label={t("billing.closeInvoiceEditor")}
             className="h-10 w-10 rounded-full text-2xl hover:bg-[#eef4fa]"
             disabled={saving}
             onClick={onClose}
@@ -181,7 +183,7 @@ export function InvoiceEditDialog({
         </header>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Client
+            {t("common.client")}
             <input
               className={modalControlClass()}
               onChange={(event) => setClientName(event.target.value)}
@@ -189,7 +191,7 @@ export function InvoiceEditDialog({
             />
           </label>
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Status
+            {t("common.status")}
             <select
               className={modalControlClass()}
               onChange={(event) =>
@@ -197,12 +199,12 @@ export function InvoiceEditDialog({
               }
               value={status}
             >
-              <option>Draft</option>
-              <option>Sent</option>
+              <option value="Draft">{t("billing.statusDraft")}</option>
+              <option value="Sent">{t("billing.statusSent")}</option>
             </select>
           </label>
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Due date
+            {t("billing.dueDate")}
             <input
               className={modalControlClass()}
               onChange={(event) => setDueDate(event.target.value)}
@@ -211,7 +213,7 @@ export function InvoiceEditDialog({
             />
           </label>
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Notes
+            {t("common.notes")}
             <input
               className={modalControlClass()}
               onChange={(event) => setNotes(event.target.value)}
@@ -221,7 +223,7 @@ export function InvoiceEditDialog({
         </div>
         <div className="border-t border-[#d8dde5] p-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-black">Line items</h3>
+            <h3 className="font-black">{t("billing.lineItems")}</h3>
             <button
               className="rounded-lg border border-[#b9c2cf] px-3 py-2 text-xs font-black"
               onClick={() =>
@@ -232,7 +234,7 @@ export function InvoiceEditDialog({
               }
               type="button"
             >
-              Add item
+              {t("billing.addItem")}
             </button>
           </div>
           <div className="mt-3 space-y-3">
@@ -242,7 +244,7 @@ export function InvoiceEditDialog({
                 key={index}
               >
                 <input
-                  aria-label={`Line ${index + 1} description`}
+                  aria-label={t("billing.lineDescription", { number: index + 1 })}
                   className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
                   onChange={(event) =>
                     setItems((current) =>
@@ -253,14 +255,14 @@ export function InvoiceEditDialog({
                       )
                     )
                   }
-                  placeholder="Description"
+                  placeholder={t("common.description")}
                   value={item.description}
                 />
                 <input
                   aria-invalid={
                     parsedItems[index]?.quantity.status === "invalid" || undefined
                   }
-                  aria-label={`Line ${index + 1} quantity`}
+                  aria-label={t("billing.lineQuantity", { number: index + 1 })}
                   className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
                   inputMode="decimal"
                   onChange={(event) =>
@@ -280,7 +282,7 @@ export function InvoiceEditDialog({
                     parsedItems[index]?.unitAmount.status === "invalid" ||
                     undefined
                   }
-                  aria-label={`Line ${index + 1} amount`}
+                  aria-label={t("billing.lineAmount", { number: index + 1 })}
                   className="h-10 rounded-lg border border-[#b9c2cf] px-3 text-sm"
                   inputMode="decimal"
                   onChange={(event) =>
@@ -296,7 +298,7 @@ export function InvoiceEditDialog({
                   value={item.unitAmount}
                 />
                 <button
-                  aria-label={`Remove line ${index + 1}`}
+                  aria-label={t("billing.removeLine", { number: index + 1 })}
                   className="h-10 rounded-lg px-3 text-sm font-black text-[#a62b24] hover:bg-[#fff1f0]"
                   disabled={items.length === 1}
                   onClick={() =>
@@ -306,7 +308,7 @@ export function InvoiceEditDialog({
                   }
                   type="button"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             ))}
@@ -317,7 +319,7 @@ export function InvoiceEditDialog({
           </p>
           {invoice.discountCents || invoice.taxCents ? (
             <p className="mt-1 text-right text-xs text-[#6a7483]">
-              Existing discounts and taxes remain applied.
+              {t("billing.discountsRemain")}
             </p>
           ) : null}
           {error ? (
@@ -336,7 +338,7 @@ export function InvoiceEditDialog({
             onClick={onClose}
             type="button"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white disabled:opacity-60"
@@ -344,7 +346,7 @@ export function InvoiceEditDialog({
             onClick={save}
             type="button"
           >
-            {saving ? "Saving\u2026" : "Save invoice"}
+            {saving ? "Saving\u2026" : t("billing.saveInvoice")}
           </button>
         </footer>
       </section>

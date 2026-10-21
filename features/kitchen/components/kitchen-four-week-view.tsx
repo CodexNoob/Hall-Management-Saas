@@ -6,6 +6,7 @@ import {
   type KitchenDay,
   type KitchenEvent
 } from "@/features/kitchen/components/kitchen-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function FourWeekDay({
   canAddKitchenEvent,
@@ -18,6 +19,7 @@ export function FourWeekDay({
   onAddKitchenEvent: (dateKey: string) => void;
   onSelectEvent: (event: KitchenEvent) => void;
 }) {
+  const { t } = useAppLanguage();
   const highlighted = day.today;
 
   return (
@@ -60,7 +62,7 @@ export function FourWeekDay({
 
         <PlusButton
           disabled={!canAddKitchenEvent || day.past}
-          label={`Add kitchen event on ${day.dateLabel}`}
+          label={t("kitchen.addEventOn", { date: day.dateLabel })}
           onClick={() => onAddKitchenEvent(day.dateKey)}
         />
         {/*

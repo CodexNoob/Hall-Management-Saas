@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AsyncState } from "@/components/ui/async-state";
@@ -9,15 +9,18 @@ import {
   type EventKitchenResponse
 } from "@/features/events/components/event-manager-shared";
 import { LineQuantity } from "@/features/kitchen/components/kitchen-line-presentation";
+import { useKitchenRegion } from "@/features/kitchen/components/kitchen-region-context";
 import { KitchenReplaceDishDrawer } from "@/features/kitchen/components/kitchen-replace-dish-drawer";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
 import {
   formatOtherMeals,
+  type KitchenTranslate,
   formatServeTime,
   mealLabel,
   type KitchenEvent,
   type KitchenResponse
 } from "@/features/kitchen/components/kitchen-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * One event's production, opened from a card on the board.
@@ -170,11 +173,14 @@ function nextStatus(status: EventKitchenLine["status"]) {
  * cards said the shorter "Pending" and "Complete", so a cook and a manager
  * reading the same screen were reading different vocabularies.
  */
-function statusLabel(status: EventKitchenLine["status"]) {
-  if (status === "COMPLETE") return "Complete / Ready";
-  if (status === "PENDING") return "Pending / In prep";
+function statusLabel(
+  status: EventKitchenLine["status"],
+  t: KitchenTranslate
+) {
+  if (status === "COMPLETE") return t("kitchen.completeReady");
+  if (status === "PENDING") return t("kitchen.pendingInPrep");
 
-  return "Not started";
+  return t("kitchen.notStarted");
 }
 
 /**
@@ -318,6 +324,7 @@ function DishCard({
   preview?: boolean;
   workers: KitchenResponse["workers"];
 }) {
+  const { t } = useAppLanguage();
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [showingNotStartedNotice, setShowingNotStartedNotice] = useState(false);
   const [resetStatus, setResetStatus] = useState<"PENDING" | "COMPLETE" | null>(
@@ -455,7 +462,7 @@ function DishCard({
         exists, not a working card, and a truncated allergen is worse than none.
 
         Allergens first: it is the only line here that can send somebody to
-        hospital, so it does not sit below a "serve separately".
+        hospital, so it does not sit below a t("kitchen.serveSeparately").
       */}
       {!preview && line.allergens && line.allergens.length > 0 ? (
         <span className="mt-1 block text-[10px] font-black uppercase leading-tight tracking-[0.06em] text-[#a62b24]">
@@ -487,7 +494,7 @@ function DishCard({
         <span
           className={`block text-center text-[10px] font-black uppercase tracking-[0.08em] ${line.notes ? "mt-2" : ""} ${CARD_STATUS_TEXT[statusKey(visibleStatus)]}`}
         >
-          {statusLabel(visibleStatus)}
+          {statusLabel(visibleStatus, t)}
         </span>
       </span>
     </>
@@ -499,7 +506,10 @@ function DishCard({
     >
       {canTick ? (
         <button
-          aria-label={`${line.name} — ${statusLabel(visibleStatus)}. Click to move on, double-click to request a reset.`}
+          aria-label={t("kitchen.dishAria", {
+              dish: line.name,
+              status: statusLabel(visibleStatus, t)
+            })}
           className={`flex flex-1 flex-col border text-left transition hover:border-[#1f4d73] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] disabled:cursor-not-allowed disabled:opacity-60 ${cardHeight} ${cardPadding} ${CARD_STATUS_TONE[statusKey(visibleStatus)]}`}
           disabled={isSaving}
           onClick={handleClick}
@@ -544,7 +554,7 @@ function DishCard({
                 }
                 value={line.assignedWorkerId ?? ""}
               >
-                <option value="">Unassigned</option>
+                <option value="">{t("kitchen.unassigned")}</option>
                 {workers.map((worker) => (
                   <option key={worker.id} value={worker.id}>
                     {worker.name}
@@ -562,16 +572,19 @@ function DishCard({
               onClick={() => onReplace(line)}
               type="button"
             >
-              Replace
+              {t("kitchen.replace")}
             </button>
           ) : null}
         </div>
       ) : null}
 
       <ConfirmDialog
-        confirmLabel="Reset dish status"
-        description={`Reset “${line.name}” from ${statusLabel(resetStatus ?? visibleStatus)} to Not started? This removes its recorded progress.`}
-        fallbackErrorMessage="The dish status could not be reset. Please try again."
+        confirmLabel={t("kitchen.resetDishStatus")}
+        description={t("kitchen.resetDescription", {
+          dish: line.name,
+          status: statusLabel(resetStatus ?? visibleStatus, t)
+        })}
+        fallbackErrorMessage={t("kitchen.resetFailed")}
         onClose={closeResetConfirmation}
         onConfirm={async () => {
           await reset();
@@ -580,16 +593,16 @@ function DishCard({
           closeResetConfirmation();
         }}
         open={confirmingReset}
-        pendingLabel="Resetting…"
-        title="Reset dish status?"
+        pendingLabel={t("kitchen.resettingEllipsis")}
+        title={t("kitchen.resetDishStatusQuestion")}
       />
       <ConfirmDialog
-        confirmLabel="Close"
+        confirmLabel={t("common.close")}
         description={`“${line.name}” is still Not started, so there is no recorded progress to reset. Click the dish once to mark it Pending.`}
         mode="notice"
         onClose={() => setShowingNotStartedNotice(false)}
         open={showingNotStartedNotice}
-        title="Dish not started yet"
+        title={t("kitchen.dishNotStarted")}
       />
     </article>
   );
@@ -609,6 +622,8 @@ function KitchenEventDetails({
   workersOnly,
   workers
 }: DetailsProps) {
+  const regionalSettings = useKitchenRegion();
+  const { t } = useAppLanguage();
   const titleId = useId();
   const asideTitleId = useId();
   const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
@@ -669,12 +684,12 @@ function KitchenEventDetails({
   const dishSections = [
     {
       id: "plated",
-      label: "Plated items",
+      label: t("kitchen.platedItems"),
       dishes: visibleFood.filter((line) => line.serviceStyle === "Plated")
     },
     {
       id: "buffet",
-      label: "Buffet items",
+      label: t("kitchen.buffetItems"),
       dishes: visibleFood.filter((line) => line.serviceStyle === "Buffet")
     },
     {
@@ -684,7 +699,7 @@ function KitchenEventDetails({
     },
     {
       id: "other",
-      label: "Other items",
+      label: t("kitchen.otherItems"),
       dishes: visibleFood.filter(
         (line) =>
           line.serviceStyle !== "Plated" && line.serviceStyle !== "Buffet"
@@ -794,7 +809,7 @@ function KitchenEventDetails({
         id: Date.now(),
         tone: "error",
         text:
-          error instanceof Error ? error.message : "That change was not saved."
+          error instanceof Error ? error.message : t("kitchen.changeNotSaved")
       });
 
       // Rethrown so the replace drawer can print the server's own reason
@@ -810,7 +825,7 @@ function KitchenEventDetails({
               workers.find((worker) => worker.id === input.assignedWorkerId)
                 ?.name ?? "a worker"
             }.`
-          : "Worker assignment removed."
+          : t("kitchen.workerRemoved")
         : null);
 
     if (message) {
@@ -913,14 +928,20 @@ function KitchenEventDetails({
               <p className="hidden mt-2 flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#64748b]">
                 <span>{event.totalGuests} portions</span>
                 <span aria-hidden="true">•</span>
-                <span>Serves {formatServeTime(event.startsAt)}</span>
+                <span>
+                  Serves {formatServeTime(event.startsAt, regionalSettings)}
+                </span>
                 <span aria-hidden="true">•</span>
-                <span>{mealLabel(sheet?.meal ?? "Main")} meal</span>
+                <span>
+                  {t("kitchen.mealSuffix", {
+                    meal: mealLabel(sheet?.meal ?? "Main", t)
+                  })}
+                </span>
               </p>
             </div>
 
             <button
-              aria-label="Close kitchen event details"
+              aria-label={t("kitchen.closeDetails")}
               className="flex h-9 shrink-0 items-center justify-center border border-[#d8dde5] px-3 text-sm font-bold text-[#111827] transition hover:bg-[#eef4fa]"
               onClick={onClose}
               type="button"
@@ -994,10 +1015,13 @@ function KitchenEventDetails({
               <p
                 className={`${preview ? "truncate text-[9px]" : "text-xs"} font-black uppercase tracking-[0.08em] text-[#6a7483] ${embedded ? "mt-2" : "mt-6"}`}
               >
-                {event.eventType ?? `${mealLabel(sheet?.meal ?? "Main")} meal`}
+                {event.eventType ??
+                  t("kitchen.mealSuffix", {
+                    meal: mealLabel(sheet?.meal ?? "Main", t)
+                  })}
               </p>
               <p className="hidden mt-2 text-xs font-bold text-[#6a7483]">
-                Serves {formatServeTime(event.startsAt)}
+                Serves {formatServeTime(event.startsAt, regionalSettings)}
               </p>
 
               {/*
@@ -1015,7 +1039,7 @@ function KitchenEventDetails({
                   onClick={() => setIsConfirmingCancel(true)}
                   type="button"
                 >
-                  Delete Event
+                  {t("kitchen.deleteEvent")}
                 </button>
               ) : null}
             </aside>
@@ -1026,7 +1050,7 @@ function KitchenEventDetails({
                 A container, so the dish grid counts columns against the space
                 it actually has instead of against the window. The same panel
                 is drawn at the full width of the board and at a seventh of it
-                in a week column - a viewport breakpoint says "wide screen" in
+                in a week column - a viewport breakpoint says t("kitchen.wideScreen") in
                 both, and would put five columns of dishes in 7rem.
               */}
             <div className="@container min-w-0 lg:flex-1">
@@ -1035,7 +1059,7 @@ function KitchenEventDetails({
                   hold ? "bg-[#d88a00]" : "bg-[#1f4d73]"
                 }`}
               >
-                {event.past ? <span>Past event</span> : null}
+                {event.past ? <span>{t("kitchen.pastEvent")}</span> : null}
                 {event.past ? (
                   <span className="text-white/70" aria-hidden="true">
                     •
@@ -1043,7 +1067,7 @@ function KitchenEventDetails({
                 ) : null}
                 <span>
                   {event.status ??
-                    (hold ? "On hold - not confirmed" : "Kitchen")}
+                    (hold ? t("kitchen.onHoldNotConfirmed") : "Kitchen")}
                 </span>
                 <span className="text-white/70" aria-hidden="true">
                   •
@@ -1063,41 +1087,44 @@ function KitchenEventDetails({
               <div className="min-h-full overflow-hidden border border-[#c8daf2] bg-[#dceaff]">
                 <div className="hidden grid-cols-1 gap-3 border-b border-[#d8dde5] bg-white p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
                   <StatTile
-                    label="Serves"
+                    label={t("kitchen.serves")}
                     note={
-                      event.startsAt ? "Event start time" : "No start time set"
+                      event.startsAt ? t("kitchen.eventStartTime") : t("kitchen.noStartTime")
                     }
                     tone="blue"
-                    value={formatServeTime(event.startsAt)}
+                    value={formatServeTime(event.startsAt, regionalSettings)}
                   />
                   <StatTile
-                    label="Portions"
+                    label={t("kitchen.portions")}
                     note={
                       sheet && sheet.counts.waiters > 0
-                        ? `${sheet.counts.waiters} waiters not counted`
-                        : "Guests, waiters excluded"
+                        ? t("kitchen.waitersNotCounted", { count: sheet.counts.waiters })
+                        : t("kitchen.guestsExcludingWaiters")
                     }
                     value={event.totalGuests}
                   />
                   <StatTile
-                    label="Prepared"
+                    label={t("kitchen.prepared")}
                     note={
                       summary
-                        ? `${summary.pending} pending · ${summary.notStarted} not started`
-                        : "No menu behind this event"
+                        ? t("kitchen.pendingNotStarted", {
+                        pending: summary.pending,
+                        notStarted: summary.notStarted
+                      })
+                        : t("kitchen.noMenuBehindEvent")
                     }
                     value={
                       summary ? `${summary.complete}/${summary.dishes}` : "—"
                     }
                   />
                   <StatTile
-                    label="Needs attention"
+                    label={t("kitchen.needsAttention")}
                     note={
                       !summary
-                        ? "Nothing to count"
+                        ? t("kitchen.nothingToCount")
                         : summary.needsAttention === 0
-                          ? "Every dish has a quantity"
-                          : "Dishes with no quantity to cook to"
+                          ? t("kitchen.everyDishHasQuantity")
+                          : t("kitchen.dishesWithoutQuantity")
                     }
                     value={summary ? summary.needsAttention : "—"}
                   />
@@ -1107,25 +1134,25 @@ function KitchenEventDetails({
                   <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:p-4">
                     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                        Dish workflow
+                        {t("kitchen.dishWorkflow")}
                       </h3>
                       <p className="text-xs font-semibold text-[#64748b]">
-                        Tap a dish card to move it forward
+                        {t("kitchen.tapDishHint")}
                       </p>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-3">
                       <WorkflowStep
-                        label="Not started"
+                        label={t("kitchen.notStarted")}
                         tone="none"
                         value={summary.notStarted}
                       />
                       <WorkflowStep
-                        label="Pending / In prep"
+                        label={t("kitchen.pendingInPrep")}
                         tone="pending"
                         value={summary.pending}
                       />
                       <WorkflowStep
-                        label="Complete / Ready"
+                        label={t("kitchen.completeReady")}
                         tone="complete"
                         value={summary.complete}
                       />
@@ -1144,7 +1171,7 @@ function KitchenEventDetails({
                 {timeline.length > 0 ? (
                   <div className="hidden border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:block sm:p-4">
                     <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                      Timeline
+                      {t("kitchen.timeline")}
                     </h3>
                     <ul className="flex flex-col gap-1.5">
                       {timeline.map((row) => (
@@ -1177,9 +1204,9 @@ function KitchenEventDetails({
                     className="hidden border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
                     role="status"
                   >
-                    {formatOtherMeals(otherMeals)}{" "}
+                    {formatOtherMeals(otherMeals, t)}{" "}
                     {otherMeals.length === 1 ? "is" : "are"} not shown here.
-                    This sheet is the {mealLabel(sheet?.meal ?? "Main")} meal
+                    This sheet is the {mealLabel(sheet?.meal ?? "Main", t)} meal
                     only.
                   </p>
                 ) : null}
@@ -1201,16 +1228,16 @@ function KitchenEventDetails({
                 {!hasSheet ? (
                   <div className="p-4">
                     <AsyncState
-                      emptyMessage="This kitchen event does not have any dishes to track yet."
-                      emptyTitle="No production sheet"
+                      emptyMessage={t("kitchen.noProductionSheetBody")}
+                      emptyTitle={t("kitchen.noProductionSheet")}
                       isEmpty
                     />
                   </div>
                 ) : !sheet && !shouldFetchSheet ? (
                   <div className="p-4">
                     <AsyncState
-                      emptyMessage="Open this event to load its full production sheet."
-                      emptyTitle="Production summary loaded"
+                      emptyMessage={t("kitchen.summaryLoadedBody")}
+                      emptyTitle={t("kitchen.summaryLoaded")}
                       isEmpty
                     />
                   </div>
@@ -1227,13 +1254,13 @@ function KitchenEventDetails({
                     <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
                       <p className="text-sm font-black text-[#111827]">
                         {workersOnly
-                          ? "No assigned dishes on this menu yet"
-                          : "No dishes on this menu yet"}
+                          ? t("kitchen.noAssignedDishes")
+                          : t("kitchen.noDishesOnMenu")}
                       </p>
                       <p className="mt-3 text-xs text-[#64748b]">
                         {workersOnly
-                          ? "Assign a worker to a dish to make it appear in this filtered view."
-                          : "Add dishes on the event’s Menu tab and this sheet fills in with what to cook."}
+                          ? t("kitchen.assignWorkerHint")
+                          : t("kitchen.addDishesHint")}
                       </p>
                     </div>
                   </div>
@@ -1243,7 +1270,7 @@ function KitchenEventDetails({
                       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                           <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-                            Worker ownership
+                            {t("kitchen.workerOwnership")}
                           </h3>
                           <p className="mt-1 text-xs text-[#64748b]">
                             {assignedToMeCount} assigned to me ·{" "}
@@ -1253,12 +1280,12 @@ function KitchenEventDetails({
                         </div>
                         <div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-3 lg:flex lg:flex-wrap">
                           {[
-                            { id: "all", label: "All dishes" },
+                            { id: "all", label: t("kitchen.allDishes") },
                             {
                               id: "mine",
                               label: currentWorkerId
-                                ? "My assigned"
-                                : "Assigned dishes"
+                                ? t("kitchen.myAssigned")
+                                : t("kitchen.assignedDishes")
                             },
                             { id: "unassigned", label: "Unassigned" }
                           ].map((item) => (
@@ -1285,11 +1312,10 @@ function KitchenEventDetails({
                       <div className="p-4">
                         <div className="border border-dashed border-[#cbd5e1] bg-[#fbfcfd] px-4 py-9 text-center">
                           <p className="text-sm font-black text-[#111827]">
-                            No dishes in this filter
+                            {t("kitchen.noDishesInFilter")}
                           </p>
                           <p className="mt-3 text-xs text-[#64748b]">
-                            Choose another ownership filter or assign workers to
-                            the dish cards below.
+                            {t("kitchen.chooseAnotherFilter")}
                           </p>
                         </div>
                       </div>
@@ -1385,7 +1411,7 @@ function KitchenEventDetails({
                 {addOns.length > 0 ? (
                   <section className="border-t border-[#c8daf2] bg-[#dceaff] px-3 py-3 sm:px-4">
                     <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                      Add-ons
+                      {t("kitchen.addOns")}
                     </h3>
                     {/* Statusless on purpose: KitchenItemStatus is keyed by menu
                     item, so an add-on line has nowhere to record one. */}
@@ -1420,18 +1446,16 @@ function KitchenEventDetails({
                 <footer className="hidden border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3 text-xs leading-5 text-[#64748b]">
                   {permissions.canUpdateKitchenStatus ? (
                     <p>
-                      Click a dish to move it on — not started, then pending,
-                      then complete. Double-click to put it back to not started.
+                      {t("kitchen.clickDishHint")}
                     </p>
                   ) : null}
                   <p
                     className={permissions.canUpdateKitchenStatus ? "mt-1" : ""}
                   >
-                    Quantities come from the counting rules on the event&rsquo;s
-                    Menu tab.
+                    {t("kitchen.quantitiesFromMenu")}
                     {permissions.canUpdateKitchenStatus
-                      ? " Replace swaps one dish for another on that same menu, so the change reaches everyone reading it. Adding and removing dishes is still done there."
-                      : " That tab is also where dishes are added and removed."}
+                      ? t("kitchen.replaceHint")
+                      : t("kitchen.menuTabHint")}
                   </p>
                 </footer>
               </div>
@@ -1458,17 +1482,19 @@ function KitchenEventDetails({
       */}
       <ConfirmDialog
         confirmLabel={
-          isStandalone ? "Delete this kitchen event" : "Cancel this event"
+          isStandalone ? t("kitchen.deleteThisEvent") : t("kitchen.cancelThisEvent")
         }
         description={
           isStandalone
-            ? `Delete “${event.title}”? A kitchen event belongs to no booking, so this removes it outright, along with any progress recorded against its dishes. It cannot be undone.`
-            : `Cancel “${event.clientName ?? event.title}”? It leaves the kitchen board and the calendar, and everything it holds stays in the system - menu, guest counts, invoices and history. Cancelling cannot be undone from here.`
+            ? t("kitchen.deleteEventConfirm", { name: event.title })
+            : t("kitchen.cancelEventConfirm", {
+                name: event.clientName ?? event.title
+              })
         }
         fallbackErrorMessage={
           isStandalone
-            ? "The kitchen event could not be deleted. Please try again."
-            : "The event could not be cancelled. Please try again."
+            ? t("kitchen.deleteFailed")
+            : t("kitchen.cancelFailed")
         }
         onClose={() => setIsConfirmingCancel(false)}
         onConfirm={async () => {
@@ -1477,9 +1503,13 @@ function KitchenEventDetails({
           onClose();
         }}
         open={isConfirmingCancel}
-        pendingLabel={isStandalone ? "Deleting…" : "Cancelling…"}
+        pendingLabel={
+          isStandalone
+            ? t("common.deletingEllipsis")
+            : t("kitchen.cancelling")
+        }
         title={
-          isStandalone ? "Delete this kitchen event?" : "Cancel this event?"
+          isStandalone ? t("kitchen.deleteThisEventQuestion") : t("kitchen.cancelThisEventQuestion")
         }
       />
     </>
@@ -1519,13 +1549,17 @@ export function KitchenEventPreview({
   onOpen,
   ...props
 }: DetailsProps & { onOpen: () => void }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="relative h-36 w-full overflow-hidden bg-[#dceaff]">
-      <div aria-hidden="true" className="min-w-150 pointer-events-none" inert>
+      <div aria-hidden="true" className="min-w-150 pointer-events-none" inert={true}>
         <KitchenEventDetails {...props} preview key={props.event.id} />
       </div>
       <button
-        aria-label={`Open ${props.event.clientName ?? props.event.title} kitchen event`}
+        aria-label={t("kitchen.openEvent", {
+          name: props.event.clientName ?? props.event.title
+        })}
         className="absolute inset-0 z-10 cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#1f4d73]"
         onClick={onOpen}
         type="button"

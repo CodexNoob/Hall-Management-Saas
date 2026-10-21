@@ -15,6 +15,7 @@ import {
   hallDayStatus,
   type HallDayStatus
 } from "@/lib/bookings/hall-day-availability";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * How far ahead the list runs. One request covers the whole window, so the
@@ -109,6 +110,7 @@ export function EventDatePickerDialog({
   open: boolean;
   selectedDate: string;
 }) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const today = useMemo(() => startOfDay(new Date()), []);
   const rangeUrl = `/api/calendar?startDate=${dateKey(today)}&endDate=${dateKey(
@@ -204,7 +206,7 @@ export function EventDatePickerDialog({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-                Move this event
+                {t("events.moveThisEvent")}
               </h2>
               <p className="mt-1 text-xs text-[#6a7483]">
                 The next {WINDOW_DAYS} days in {hallName}. A day with an event
@@ -213,7 +215,7 @@ export function EventDatePickerDialog({
             </div>
 
             <button
-              aria-label="Close"
+              aria-label={t("common.close")}
               className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#b9c2cf] text-[#516071] hover:bg-[#eef4fa]"
               onClick={onClose}
               type="button"
@@ -223,10 +225,10 @@ export function EventDatePickerDialog({
           </div>
 
           <div className="mt-3 flex flex-wrap gap-3">
-            <StatusDot color="bg-[#178151]" label="Available" />
-            <StatusDot color="bg-[#b66b00]" label="Hold" />
-            <StatusDot color="bg-[#94a1b1]" label="Full" />
-            <StatusDot color="bg-[#c3291b]" label="Blocked" />
+            <StatusDot color="bg-[#178151]" label={t("calendar.available")} />
+            <StatusDot color="bg-[#b66b00]" label={t("calendar.hold")} />
+            <StatusDot color="bg-[#94a1b1]" label={t("calendar.full")} />
+            <StatusDot color="bg-[#c3291b]" label={t("calendar.blocked")} />
           </div>
         </header>
 
@@ -272,8 +274,10 @@ export function EventDatePickerDialog({
                   <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
                     <span className="text-xs text-[#617086]">
                       {day.status === "blocked"
-                        ? "Not bookable"
-                        : `${day.openSlots} event slots available`}
+                        ? t("events.notBookable")
+                        : t("events.slotsAvailable", {
+                            count: day.openSlots
+                          })}
                     </span>
                     <span
                       className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${chrome.className}`}

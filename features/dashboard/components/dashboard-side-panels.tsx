@@ -10,6 +10,8 @@ import {
 } from "@/components/layout/dashboard-shell-shared";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type DashboardSidePanelsProps = {
   isLoading: boolean;
@@ -26,12 +28,24 @@ type DashboardSidePanelsProps = {
 // (features/bookings/forms/new-booking-dialog.tsx) - the difference is that the
 // topbar's copy stays visible-but-disabled, because that chrome is shared by
 // every dashboard route while this panel is home-page content.
-type QuickAction = { label: string; kind: "route"; route: string };
+type QuickAction = { labelKey: MessageKey; kind: "route"; route: string };
 
 const quickActions: QuickAction[] = [
-  { label: "Kitchen board", kind: "route", route: "/dashboard/kitchen" },
-  { label: "Open billing", kind: "route", route: "/dashboard/billing" },
-  { label: "Dining sheets", kind: "route", route: "/dashboard/dining-manager" }
+  {
+    labelKey: "dashboard.action.kitchenBoard",
+    kind: "route",
+    route: "/dashboard/kitchen"
+  },
+  {
+    labelKey: "dashboard.module.openBilling",
+    kind: "route",
+    route: "/dashboard/billing"
+  },
+  {
+    labelKey: "dashboard.action.diningSheets",
+    kind: "route",
+    route: "/dashboard/dining-manager"
+  }
 ];
 
 export function DashboardSidePanels({
@@ -88,6 +102,7 @@ function EventsTimelinePanel({
   timelineGroups,
   totalEvents
 }: DashboardSidePanelsProps) {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Navigation affordances use the any-of route check, so the page never hides
@@ -97,9 +112,12 @@ function EventsTimelinePanel({
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
       <div className="border-b border-[#d8dde5] p-5">
-        <h2 className="text-base font-black text-[#17202a]">Events timeline</h2>
+        <h2 className="text-base font-black text-[#17202a]">{t("dashboard.eventsTimeline")}</h2>
         <p className="mt-1 text-xs font-medium text-[#6a7483]">
-          {totalEvents} events from {rangeLabel}.
+          {t("dashboard.eventsFromRange", {
+            count: totalEvents,
+            range: rangeLabel
+          })}
         </p>
       </div>
 
@@ -107,8 +125,8 @@ function EventsTimelinePanel({
         {timelineGroups.length === 0 ? (
           <p className="rounded-xl border border-dashed border-[#c7d0dc] p-4 text-sm font-bold text-[#6a7483]">
             {isLoading
-              ? "Loading timeline..."
-              : "No timeline items for this filter."}
+              ? t("dashboard.loadingTimeline")
+              : t("dashboard.noTimelineItems")}
           </p>
         ) : (
           timelineGroups.map((group) => (
@@ -188,29 +206,31 @@ function TimelineGroupCard({
 }
 
 function AttentionNeededPanel() {
+  const { t } = useAppLanguage();
+
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
       <div className="border-b border-[#d8dde5] p-5">
         <h2 className="text-base font-black text-[#17202a]">
-          Attention needed
+          {t("dashboard.attentionNeeded")}
         </h2>
         <p className="mt-1 text-xs font-medium text-[#6a7483]">
-          Issues blocking a clean operating day.
+          {t("dashboard.attentionBlurb")}
         </p>
       </div>
 
       <div className="space-y-2.5 p-4">
         <div className="rounded-xl border border-[#9a5b00] bg-[#fbfcfd] p-3 text-xs leading-5 text-[#9a5b00]">
-          <strong>Nachlas Yehuda menu lock:</strong> Second room booking must
-          follow the first menu for the night.
+          <strong>{t("dashboard.attention.menuLockLabel")}</strong>{" "}
+          {t("dashboard.attention.menuLockBody")}
         </div>
         <div className="rounded-xl border border-[#a62b24] bg-[#fbfcfd] p-3 text-xs leading-5 text-[#a62b24]">
-          <strong>Friedman Dinner:</strong> Final balance remains open. Event
-          starts 8:30 PM.
+          <strong>{t("dashboard.attention.balanceLabel")}</strong>{" "}
+          {t("dashboard.attention.balanceBody")}
         </div>
         <div className="rounded-xl border border-[#b9c2cf] bg-[#eef4fa] p-3 text-xs leading-5 text-[#1f4d73]">
-          <strong>Vendor delivery:</strong> Linen order for Grand Hall marked
-          ready, not received.
+          <strong>{t("dashboard.attention.vendorLabel")}</strong>{" "}
+          {t("dashboard.attention.vendorBody")}
         </div>
       </div>
     </section>
@@ -218,6 +238,7 @@ function AttentionNeededPanel() {
 }
 
 function QuickActionsPanel({ actions }: { actions: QuickAction[] }) {
+  const { t } = useAppLanguage();
   const router = useRouter();
 
   if (actions.length === 0) return null;
@@ -225,20 +246,20 @@ function QuickActionsPanel({ actions }: { actions: QuickAction[] }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/4">
       <div className="border-b border-[#d8dde5] p-5">
-        <h2 className="text-base font-black text-[#17202a]">Quick actions</h2>
+        <h2 className="text-base font-black text-[#17202a]">{t("dashboard.quickActions")}</h2>
       </div>
 
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         {actions.map((item) => (
           <button
             className="h-10 rounded-lg border border-[#b9c2cf] bg-white px-4 text-sm font-black text-[#17202a] transition hover:border-[#1f4d73] hover:bg-[#eef4fa]"
-            key={item.label}
+            key={item.labelKey}
             type="button"
             onClick={() => {
               router.push(item.route as Parameters<typeof router.push>[0]);
             }}
           >
-            {item.label}
+            {t(item.labelKey)}
           </button>
         ))}
       </div>

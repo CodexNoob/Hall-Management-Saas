@@ -10,6 +10,8 @@ import {
   COUNT_BASIS_LABELS,
   type CountBasis
 } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * How one line of a kitchen sheet is drawn.
@@ -72,23 +74,29 @@ export function basisLabel(basis: string) {
  * Why a line has no number. Said plainly, because each of the three has a
  * different person to go and ask.
  */
-export function countStateNote(line: EventKitchenLine) {
+export function countStateNote(
+  line: EventKitchenLine,
+  t: (key: MessageKey, values?: Record<string, string | number>) => string
+) {
   switch (line.countState) {
     case "Unresolved":
       return line.unresolvedBases.includes("Tables")
-        ? "Needs the dining plan"
-        : `Needs ${line.unresolvedBases.map(basisLabel).join(", ")}`;
+        ? t("kitchen.needsDiningPlan")
+        : t("kitchen.needsBases", {
+            bases: line.unresolvedBases.map(basisLabel).join(", ")
+          });
     case "NeedsStyle":
-      return "Needs a service style";
+      return t("kitchen.needsServiceStyle");
     case "NoRule":
-      return "No counting rule set";
+      return t("kitchen.noCountingRuleSet");
     default:
       return null;
   }
 }
 
 export function LineQuantity({ line }: { line: EventKitchenLine }) {
-  const note = countStateNote(line);
+  const { t } = useAppLanguage();
+  const note = countStateNote(line, t);
   const multiplier = line.quantityMultiplier;
 
   // An add-on and a dish with no rule both still say how many were ordered -
@@ -98,7 +106,7 @@ export function LineQuantity({ line }: { line: EventKitchenLine }) {
     return (
       <span className="text-xs text-[#6a7483]">
         <QuantityChip multiplier={multiplier} />
-        Not cooked to a rule
+        {t("kitchen.notCookedToRule")}
       </span>
     );
   }
@@ -154,17 +162,19 @@ export function LineQuantity({ line }: { line: EventKitchenLine }) {
 }
 
 export function LineStatus({ status }: { status: EventKitchenLine["status"] }) {
-  if (status === "COMPLETE") return <Badge tone="green">Complete</Badge>;
-  if (status === "PENDING") return <Badge tone="gold">Pending</Badge>;
+  const { t } = useAppLanguage();
+  if (status === "COMPLETE") return <Badge tone="green">{t("kitchen.complete")}</Badge>;
+  if (status === "PENDING") return <Badge tone="gold">{t("kitchen.pending")}</Badge>;
 
   return (
     <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-      Not started
+      {t("kitchen.notStarted")}
     </span>
   );
 }
 
 export function LineName({ line }: { line: EventKitchenLine }) {
+  const { t } = useAppLanguage();
   return (
     <span className="flex min-w-0 items-center gap-2.5">
       <MenuThumbnail className="h-9 w-9" pictureUrl={line.pictureUrl} />
@@ -187,7 +197,7 @@ export function LineName({ line }: { line: EventKitchenLine }) {
         ) : null}
         {line.isRetired ? (
           <span className="mt-0.5 block text-[11px] font-black text-[#9a5b00]">
-            Retired from the library
+            {t("kitchen.retiredFromLibrary")}
           </span>
         ) : null}
       </span>

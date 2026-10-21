@@ -1,4 +1,5 @@
 ﻿import type { SeatingSides } from "@/lib/hall-map/seating";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type TableSide = "men" | "women" | "kids" | "head";
 
@@ -543,7 +544,10 @@ export function eventTitle(event: DiningEvent) {
   return `${event.clientName}${event.eventType ? ` ${event.eventType}` : ""}`;
 }
 
-export function eventSchedule(event: DiningEvent) {
+export function eventSchedule(
+  event: DiningEvent,
+  t?: (key: MessageKey) => string
+) {
   const date = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -560,7 +564,9 @@ export function eventSchedule(event: DiningEvent) {
         minute: "2-digit",
         timeZone: "UTC"
       }).format(new Date(event.startsAt))
-    : "Time not set";
+    : t
+      ? t("dining.timeNotSet")
+      : "Time not set";
   return `${date} · ${time}`;
 }
 

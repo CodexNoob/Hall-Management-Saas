@@ -5,6 +5,7 @@ import {
   modalSettingsNavItems,
   type ModalSettingsSection
 } from "@/features/settings/components/settings-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function SettingsSidebar({
   activeSection,
@@ -13,14 +14,15 @@ export function SettingsSidebar({
   activeSection: ModalSettingsSection;
   onSectionChange: (section: ModalSettingsSection) => void;
 }) {
+  const { t } = useAppLanguage();
   return (
     <aside className="hidden min-h-0 flex-col border-r border-white/10 bg-[#061126] text-white lg:flex">
       <div className="shrink-0 border-b border-white/10 px-5 py-4">
-        <h3 className="text-sm font-black">Settings</h3>
+        <h3 className="text-sm font-black">{t("settings.title")}</h3>
       </div>
 
       <nav
-        aria-label="Settings sections"
+        aria-label={t("settings.sections")}
         className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-3"
       >
         {modalSettingsNavItems.map((item) => (
@@ -32,11 +34,11 @@ export function SettingsSidebar({
             }`}
             key={item.label}
             onClick={() => onSectionChange(item.label)}
-            title={item.description}
+            title={t(item.descriptionKey)}
             type="button"
           >
             <Icon className="h-4 w-4 shrink-0" name={item.icon} />
-            <span className="min-w-0 truncate">{item.label}</span>
+            <span className="min-w-0 truncate">{t(item.labelKey)}</span>
           </button>
         ))}
       </nav>

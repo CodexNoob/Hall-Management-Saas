@@ -84,15 +84,24 @@ const kitchenRangeSchema = z
  * would open a board its own Settings page disagrees with.
  */
 function kitchenBoardSettingsFromIntegrations(integrations: unknown) {
-  const kitchen =
+  const controlCenter =
     integrations &&
     typeof integrations === "object" &&
-    "controlCenter" in integrations
-      ? (
-          (integrations as { controlCenter?: { kitchen?: unknown } })
-            .controlCenter ?? {}
-        ).kitchen
-      : undefined;
+    "controlCenter" in integrations &&
+    (integrations as { controlCenter?: unknown }).controlCenter &&
+    typeof (integrations as { controlCenter?: unknown }).controlCenter ===
+      "object"
+      ? (integrations as { controlCenter: Record<string, unknown> })
+          .controlCenter
+      : {};
+  const kitchen =
+    "kitchen" in controlCenter ? controlCenter.kitchen : undefined;
+  const general =
+    "general" in controlCenter &&
+    controlCenter.general &&
+    typeof controlCenter.general === "object"
+      ? (controlCenter.general as Record<string, unknown>)
+      : {};
   const defaultView =
     kitchen && typeof kitchen === "object"
       ? (kitchen as { defaultView?: unknown }).defaultView
@@ -102,7 +111,16 @@ function kitchenBoardSettingsFromIntegrations(integrations: unknown) {
     defaultView:
       defaultView === "today" || defaultView === "four-weeks"
         ? defaultView
-        : ("week" as const)
+        : ("week" as const),
+    dateFormat:
+      general.dateFormat === "MM/dd/yyyy" ||
+      general.dateFormat === "dd/MM/yyyy"
+        ? general.dateFormat
+        : ("MMM d, yyyy" as const),
+    timeFormat:
+      general.timeFormat === "24-hour"
+        ? ("24-hour" as const)
+        : ("12-hour" as const)
   };
 }
 
@@ -114,11 +132,12 @@ function kitchenBoardSettingsFromIntegrations(integrations: unknown) {
 async function readKitchenSettings(organizationId: string) {
   const settings = await prisma.organizationSetting.findUnique({
     where: { organizationId },
-    select: { integrations: true, timezone: true }
+    select: { integrations: true, language: true, timezone: true }
   });
 
   return {
     integrations: settings?.integrations ?? null,
+    language: settings?.language || "en-US",
     timeZone: settings?.timezone || DEFAULT_TIME_ZONE
   };
 }
@@ -511,7 +530,7 @@ export const GET = withRoute("GET /api/kitchen", async (request: Request) => {
     // decides which day the window opens on, and an unanchored `new Date()`
     // opens it on the UTC day - which is tomorrow at a New York hall from
     // eight in the evening.
-    const { integrations, timeZone } = await readKitchenSettings(
+    const { integrations, language, timeZone } = await readKitchenSettings(
       actor.organizationId
     );
     const start = new Date(
@@ -893,6 +912,7 @@ export const GET = withRoute("GET /api/kitchen", async (request: Request) => {
       },
       kitchenSettings: {
         ...kitchenBoardSettingsFromIntegrations(integrations),
+        language,
         // Sent so the board marks the same day "Today" that the writes below
         // will accept. The two used to work it out separately - the browser
         // locally, the server in UTC - and disagreed for the last four hours

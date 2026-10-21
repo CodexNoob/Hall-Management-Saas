@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { getCachedAuthSession } from "@/lib/auth/client";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { ambientTranslate } from "@/lib/i18n/ambient";
 
 /**
  * One client-side cache for every authenticated GET the dashboard makes.
@@ -159,7 +160,10 @@ async function readJson<T>(response: Response) {
 
   if (!response.ok) {
     throw new Error(
-      payload?.error ?? `Request failed with status ${response.status}.`
+      payload?.error ??
+        ambientTranslate("common.requestFailedWithStatus", {
+          status: response.status
+        })
     );
   }
 
@@ -217,7 +221,7 @@ function runQuery<T>(key: string, url: string): Promise<T | null> {
             ? null
             : error instanceof Error
               ? error.message
-              : "Unable to load data.",
+              : ambientTranslate("common.unableToLoadData"),
           isFetching: false
         });
       }

@@ -23,6 +23,7 @@ import {
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 import { DEFAULT_PHONE_COUNTRY } from "@/lib/validation/phone";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const OTHER_EVENT_TYPE_ID = "calendar-other-event-type";
 
@@ -81,6 +82,7 @@ export function CalendarBookingDialog({
   onEventTypesChanged,
   onSaved
 }: CalendarBookingDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
 
   const bookingMutation = useAuthenticatedMutation<
@@ -207,7 +209,7 @@ export function CalendarBookingDialog({
     if (isNewEventType && !newEventTypeName) {
       setErrors((current) => ({
         ...current,
-        eventTypeId: "Enter the new event type name."
+        eventTypeId: t("calendar.enterNewEventTypeName")
       }));
       return;
     }
@@ -274,12 +276,12 @@ export function CalendarBookingDialog({
             <CalendarIcon />
 
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              New booking
+              {t("common.newBooking")}
             </h2>
           </div>
 
           <button
-            aria-label="Close calendar booking"
+            aria-label={t("calendar.closeBooking")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -328,7 +330,7 @@ export function CalendarBookingDialog({
                 values.eventTypeId === OTHER_EVENT_TYPE_ID ? (
                   <div className="mt-2">
                     <input
-                      aria-label="Other event type"
+                      aria-label={t("calendar.otherEventType")}
                       className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
                       maxLength={100}
                       onChange={(event) => {
@@ -339,12 +341,11 @@ export function CalendarBookingDialog({
                         }));
                         setOtherEventTypeName(event.target.value);
                       }}
-                      placeholder="Type new event type"
+                      placeholder={t("calendar.typeNewEventType")}
                       value={otherEventTypeName}
                     />
                     <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
-                      This type will be saved to Event Type Settings when the
-                      booking is saved.
+                      {t("calendar.newTypeSavedHint")}
                     </p>
                   </div>
                 ) : null
@@ -368,7 +369,7 @@ export function CalendarBookingDialog({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
 
             <button
@@ -376,7 +377,9 @@ export function CalendarBookingDialog({
               disabled={bookingMutation.isPending}
               type="submit"
             >
-              {bookingMutation.isPending ? "Saving..." : "Save booking"}
+              {bookingMutation.isPending
+                ? t("common.savingEllipsis")
+                : t("calendar.saveBooking")}
             </button>
           </footer>
         </form>

@@ -238,6 +238,13 @@ async function readBoard(response: Response) {
       summary: { dishes: number; addOns: number };
     }>;
     permissions: Record<string, boolean>;
+    kitchenSettings: {
+      defaultView: string;
+      language: string;
+      timeZone: string;
+      dateFormat: string;
+      timeFormat: string;
+    };
   };
 }
 
@@ -300,6 +307,32 @@ describe("kitchen dashboard route", () => {
       organizationId,
       deleted: false,
       bookingStatus: "CONFIRMED"
+    });
+  });
+
+  it("sends the organization regional settings with the board", async () => {
+    vi.mocked(prisma.organizationSetting.findUnique).mockResolvedValue({
+      language: "en-GB",
+      timezone: "Europe/London",
+      integrations: {
+        controlCenter: {
+          general: {
+            dateFormat: "dd/MM/yyyy",
+            timeFormat: "24-hour"
+          },
+          kitchen: { defaultView: "today" }
+        }
+      }
+    } as never);
+
+    const board = await readBoard(await GET(request()));
+
+    expect(board.kitchenSettings).toEqual({
+      defaultView: "today",
+      language: "en-GB",
+      timeZone: "Europe/London",
+      dateFormat: "dd/MM/yyyy",
+      timeFormat: "24-hour"
     });
   });
 

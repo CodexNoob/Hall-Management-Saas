@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useEffect, useState } from "react";
 import { ClientPortalHeader } from "@/features/events/components/client-portal-header";
 import { PortalHeaderImageField } from "@/features/settings/components/branding-image-field";
@@ -12,6 +13,7 @@ import {
   isPortalHeaderColor,
   resolvePortalHeaderColor
 } from "@/lib/ui/portal-header-theme";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type PortalHeaderSettings = ControlCenterSettings["general"]["portalHeader"];
 
@@ -38,15 +40,19 @@ type PortalHeaderPanelProps = {
 const styleOptions = [
   {
     style: "color" as const,
-    label: "Solid colour",
-    description: "One colour behind the event name."
+    labelKey: "settings.solidColour",
+    descriptionKey: "settings.solidColourHint"
   },
   {
     style: "image" as const,
-    label: "Image",
-    description: "A photograph, dimmed so the text stays readable."
+    labelKey: "settings.styleImage",
+    descriptionKey: "settings.styleImageHint"
   }
-];
+] as const satisfies ReadonlyArray<{
+  style: "color" | "image";
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
+}>;
 
 /**
  * The background of the client portal's header, set here because the portal is
@@ -75,6 +81,7 @@ export function PortalHeaderPanel({
   onImageClearStored,
   onImageRestoreStored
 }: PortalHeaderPanelProps) {
+  const { t } = useAppLanguage();
   const committedColor = resolvePortalHeaderColor(value.color);
   // The hex box is typed into a character at a time, and "#1f4" is not a colour
   // - so it holds its own text and only hands up what parses.
@@ -110,12 +117,11 @@ export function PortalHeaderPanel({
 
   return (
     <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-      <PanelHeader title="Client portal header" icon="eye" />
+      <PanelHeader title={t("settings.portalHeader")} icon="eye" />
 
       <div className="space-y-4 p-4">
         <p className="text-[10px] leading-4 text-[#6a7483]">
-          What clients see behind the event name when they open their portal.
-          Saved with the rest of this page.
+          {t("settings.portalHeaderHint")}
         </p>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -142,10 +148,10 @@ export function PortalHeaderPanel({
                 />
                 <span className="min-w-0">
                   <span className="block text-[11px] font-black text-[#17202a]">
-                    {option.label}
+                    {t(option.labelKey)}
                   </span>
                   <span className="mt-0.5 block text-[10px] leading-4 text-[#6a7483]">
-                    {option.description}
+                    {t(option.descriptionKey)}
                   </span>
                 </span>
               </label>
@@ -157,9 +163,9 @@ export function PortalHeaderPanel({
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <label className="text-[10px] font-bold text-[#17202a]">
-                Colour
+                {t("settings.colour")}
                 <input
-                  aria-label="Header colour"
+                  aria-label={t("settings.headerColour")}
                   className="mt-1 block h-9 w-16 cursor-pointer rounded-lg border border-[#c7d0dc] bg-white p-1 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!canEdit}
                   name="portalHeaderColor"
@@ -169,12 +175,12 @@ export function PortalHeaderPanel({
                 />
               </label>
               <label className="text-[10px] font-bold text-[#17202a]">
-                Hex
+                {t("settings.hex")}
                 {/* Typed as well as picked: a venue with a brand colour has the
                     hex written down somewhere, and reproducing it by eye in the
                     swatch picker is not something to ask of anyone. */}
                 <input
-                  aria-label="Header colour hex value"
+                  aria-label={t("settings.headerColourHex")}
                   className="mt-1 block h-9 w-28 rounded-lg border border-[#c7d0dc] bg-white px-3 font-mono text-xs uppercase disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={!canEdit}
                   maxLength={7}
@@ -223,7 +229,7 @@ export function PortalHeaderPanel({
         )}
 
         <div>
-          <span className="text-[10px] font-bold text-[#17202a]">Preview</span>
+          <span className="text-[10px] font-bold text-[#17202a]">{t("settings.preview")}</span>
           <div className="mt-1 overflow-hidden rounded-lg border border-[#d8dde5]">
             {/* Placeholder copy, not a real event and not this organization's
                 name: the preview is here to answer "is my text readable on
@@ -232,8 +238,8 @@ export function PortalHeaderPanel({
             <ClientPortalHeader
               background={{ color: committedColor, imageUrl: shownImageUrl }}
               logoUrl={logoUrl}
-              subtitle="Date - Time - Hall"
-              title="Event name"
+              subtitle={t("settings.dateTimeHall")}
+              title={t("settings.eventName")}
               venueName=""
             />
           </div>

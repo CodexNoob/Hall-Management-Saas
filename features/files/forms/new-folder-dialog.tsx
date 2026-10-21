@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewFolderFormValues = { folderName: string };
 
@@ -11,6 +12,7 @@ type NewFolderDialogProps = {
 };
 
 export function NewFolderDialog({ open, onClose, onCreate }: NewFolderDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const folderNameId = useId();
   const folderInputRef = useRef<HTMLInputElement>(null);
@@ -69,13 +71,13 @@ export function NewFolderDialog({ open, onClose, onCreate }: NewFolderDialogProp
         role="dialog"
       >
         <header className="flex items-center justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
-          <h2 className="text-base font-black text-[#17202a]" id={titleId}>New folder</h2>
-          <button aria-label="Close new folder" className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button"><span aria-hidden="true">×</span></button>
+          <h2 className="text-base font-black text-[#17202a]" id={titleId}>{t("files.newFolder")}</h2>
+          <button aria-label={t("files.closeNewFolder")} className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button"><span aria-hidden="true">×</span></button>
         </header>
 
         <form onSubmit={handleSubmit}>
           <div className="px-4 py-3">
-            <label className="block text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={folderNameId}>Folder name</label>
+            <label className="block text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]" htmlFor={folderNameId}>{t("files.folderName")}</label>
             <input
               ref={folderInputRef}
               autoComplete="off"
@@ -83,15 +85,15 @@ export function NewFolderDialog({ open, onClose, onCreate }: NewFolderDialogProp
               id={folderNameId}
               name="folderName"
               onChange={(event) => setFolderName(event.target.value)}
-              placeholder="Folder name"
+              placeholder={t("files.folderName")}
               required
               value={folderName}
             />
           </div>
 
           <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-4 py-3">
-            <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button">Cancel</button>
-            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm transition hover:bg-[#15344f]" type="submit">Create folder</button>
+            <button className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] transition hover:bg-[#eef4fa]" onClick={closeDialog} type="button">{t("common.cancel")}</button>
+            <button className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm transition hover:bg-[#15344f]" type="submit">{t("files.createFolder")}</button>
           </footer>
         </form>
       </section>

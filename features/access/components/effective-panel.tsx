@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   describeApiError,
+  permissionLabel,
   epochHeaders,
   type ApiError,
   type EffectiveResponse,
@@ -10,6 +11,7 @@ import {
 } from "@/features/access/components/access-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * "Why can they do that?", on screen.
@@ -37,6 +39,7 @@ export function EffectivePanel({
   canOverride,
   onChanged
 }: EffectivePanelProps) {
+  const { t } = useAppLanguage();
   const [showHeldOnly, setShowHeldOnly] = useState(true);
   const [error, setError] = useState("");
   const [pendingKey, setPendingKey] = useState("");
@@ -96,7 +99,8 @@ export function EffectivePanel({
       if (!response.ok) {
         setError(
           describeApiError(
-            (await response.json().catch(() => null)) as ApiError | null
+            (await response.json().catch(() => null)) as ApiError | null,
+            t
           )
         );
         return;
@@ -105,7 +109,7 @@ export function EffectivePanel({
       query.refetch();
       onChanged();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Update failed.");
+      setError(caught instanceof Error ? caught.message : t("access.updateFailed"));
     } finally {
       setPendingKey("");
     }
@@ -130,7 +134,7 @@ export function EffectivePanel({
             onChange={(event) => setShowHeldOnly(event.target.checked)}
             type="checkbox"
           />
-          Only what matters
+          {t("access.onlyWhatMatters")}
         </label>
       </header>
 
@@ -142,7 +146,7 @@ export function EffectivePanel({
 
       <div className="max-h-[60dvh] overflow-y-auto px-3 py-2">
         {query.isLoading ? (
-          <p className="px-1 py-3 text-[11px] text-[#6a7483]">Resolving...</p>
+          <p className="px-1 py-3 text-[11px] text-[#6a7483]">{t("access.resolving")}</p>
         ) : null}
         <ul className="space-y-1">
           {permissions.map((permission) => (
@@ -162,7 +166,7 @@ export function EffectivePanel({
                     }`}
                   />
                   <span className="text-xs font-black text-[#17202a]">
-                    {permission.label}
+                    {permissionLabel(permission, t)}
                   </span>
                   <code className="rounded bg-[#eef1f5] px-1 py-0.5 text-[9px] text-[#536172]">
                     {permission.key}
@@ -190,7 +194,7 @@ export function EffectivePanel({
                           onClick={() => setOverride(permission.key, effect)}
                           type="button"
                         >
-                          {effect === "NONE" ? "Role only" : effect}
+                          {effect === "NONE" ? t("access.roleOnly") : effect}
                         </button>
                       );
                     })}
@@ -200,9 +204,9 @@ export function EffectivePanel({
 
               <p className="mt-1 text-[10px] text-[#6a7483]">
                 {permission.deniedByOverride
-                  ? "Denied for this person. A DENY is final - nothing overrides it, including a role that grants it."
+                  ? t("access.deniedForPerson")
                   : permission.viaGrantOverride
-                    ? "Granted directly to this person, organization-wide."
+                    ? t("access.grantedDirectly")
                     : permission.viaRoles.length > 0
                       ? `Via ${permission.viaRoles
                           .map(
@@ -210,8 +214,8 @@ export function EffectivePanel({
                           )
                           .join(", ")}`
                       : permission.expiredOnly
-                        ? "The only assignment that carried this has expired."
-                        : "Not held."}
+                        ? t("access.assignmentExpired")
+                        : t("access.notHeld")}
               </p>
             </li>
           ))}

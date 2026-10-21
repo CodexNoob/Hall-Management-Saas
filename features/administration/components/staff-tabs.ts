@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { DashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
 
 /**
@@ -18,31 +19,35 @@ import type { DashboardAccess } from "@/features/dashboard/hooks/use-dashboard-p
 export const STAFF_TABS = [
   {
     value: "people",
-    label: "People",
+    labelKey: "staff.tab.people",
     /// The directory. What `/dashboard/staff` always was.
     permission: "staff.read"
   },
   {
     value: "roles",
-    label: "Roles & Permissions",
+    labelKey: "staff.tab.roles",
     /// What `/dashboard/access` was, which is why the compatibility redirect
     /// points at this one.
     permission: "role.read"
   },
   {
     value: "invitations",
-    label: "Invitations",
+    labelKey: "staff.tab.invitations",
     /// Sending one is `staff.invite`; the tab shows who has not accepted yet,
     /// which is a fact about the directory.
     permission: "staff.read"
   },
   {
     value: "audit",
-    label: "Activity",
+    labelKey: "staff.tab.activity",
     /// The privilege trail. An audit nobody can read is storage, not a control.
     permission: "audit.read"
   }
-] as const;
+] as const satisfies ReadonlyArray<{
+  value: string;
+  labelKey: MessageKey;
+  permission: string;
+}>;
 
 export type StaffTab = (typeof STAFF_TABS)[number]["value"];
 

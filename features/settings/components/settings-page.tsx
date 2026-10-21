@@ -1,7 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
+import { getCachedAuthSession } from "@/lib/auth/client";
+import { DEFAULT_TIME_ZONE } from "@/lib/dates/calendar-date";
+import { groupedTimeZoneOptions } from "@/lib/dates/time-zones";
+import { resolvePortalHeaderColor } from "@/lib/ui/portal-header-theme";
+import { MfaSecurityPanel } from "@/features/settings/components/mfa-security-panel";
+import { SecuritySettingsPanel } from "@/features/settings/components/security-settings-panel";
+import { OtherSessionsPanel } from "@/features/settings/components/other-sessions-panel";
 import { DashboardTopbar } from "@/components/layout/dashboard-topbar";
 import { AsyncState } from "@/components/ui/async-state";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
@@ -32,6 +39,8 @@ import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import { DEFAULT_PORTAL_HEADER_COLOR } from "@/lib/ui/portal-header-theme";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
+import { APP_LANGUAGE_CHANGE_EVENT } from "@/components/providers/app-language-provider";
+import { refreshAuthorization } from "@/lib/auth/authorization-refresh";
 
 import {
   Icon,
@@ -44,6 +53,7 @@ import {
   type ModalSettingsSection,
   type SettingsResponse
 } from "@/features/settings/components/settings-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 type SettingsPageProps = {
   closeButtonRef?: RefObject<HTMLButtonElement | null>;
   displayMode?: "page" | "modal";
@@ -109,6 +119,7 @@ export function SettingsPage({
   displayMode = "page",
   onClose
 }: SettingsPageProps) {
+  const { t } = useAppLanguage();
   const isModal = displayMode === "modal";
   const { canAccessRoute, hasPermission } = useDashboardAccess();
   const canViewSettings = canAccessRoute("/dashboard/settings");
@@ -123,6 +134,8 @@ export function SettingsPage({
       SettingsResponse["notifications"] & {
         language: string;
         timezone: string;
+        twoFactorRequired: boolean;
+        sessionTimeoutMinutes: number;
         organizationName: string;
         controlCenter: ControlCenterSettings;
         payments: { paymentLink: string };
@@ -134,7 +147,13 @@ export function SettingsPage({
   const [eventConfirmations, setEventConfirmations] = useState(true);
   const [billingAlerts, setBillingAlerts] = useState(true);
   const [systemAnnouncements, setSystemAnnouncements] = useState(false);
-  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezone, setTimezone] = useState(DEFAULT_TIME_ZONE);
+  // Rebuilt only when the stored zone changes, because the list is four hundred
+  // entries and it is otherwise identical on every render.
+  const timeZoneGroups = useMemo(
+    () => groupedTimeZoneOptions(timezone),
+    [timezone]
+  );
   const [language, setLanguage] = useState("en-US");
   const [organizationName, setOrganizationName] = useState("");
   const [controlCenter, setControlCenter] = useState<ControlCenterSettings>({
@@ -180,6 +199,11 @@ export function SettingsPage({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [activeModalSection, setActiveModalSection] =
     useState<ModalSettingsSection>("General");
+  // The organization's sign-in policy. Both have been stored and audited since
+  // the settings table was written; neither had a control until the Security
+  // section existed.
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(30);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [paymentLink, setPaymentLink] = useState("");
   const [paymentMessage, setPaymentMessage] = useState("");
@@ -194,6 +218,10 @@ export function SettingsPage({
     );
     setLanguage(settingsQuery.data.settings.language);
     setTimezone(settingsQuery.data.settings.timezone);
+    setTwoFactorRequired(settingsQuery.data.settings.twoFactorRequired);
+    setSessionTimeoutMinutes(
+      settingsQuery.data.settings.sessionTimeoutMinutes
+    );
     setOrganizationName(settingsQuery.data.organization.name);
     setControlCenter(settingsQuery.data.settings.controlCenter);
     // What the server says is now what is stored, so a pending pick or a
@@ -218,14 +246,14 @@ export function SettingsPage({
       await settingsMutation.mutate({ payments: { paymentLink: trimmed } });
       setPaymentMessage(
         trimmed
-          ? "Payment link saved."
-          : "Payment link cleared. Pay balance is hidden on the client portal."
+          ? t("settings.paymentLinkSaved")
+          : t("settings.paymentLinkCleared")
       );
     } catch (error) {
       setPaymentMessage(
         error instanceof Error
           ? error.message
-          : "Could not save the payment link."
+          : t("settings.paymentLinkSaveFailed")
       );
     }
   };
@@ -243,7 +271,7 @@ export function SettingsPage({
       setNotificationMessage(
         error instanceof Error
           ? error.message
-          : "Could not save notification preference."
+          : t("settings.notificationSaveFailed")
       );
     }
   };
@@ -252,16 +280,35 @@ export function SettingsPage({
     input: Partial<{
       language: string;
       timezone: string;
+      twoFactorRequired: boolean;
+      sessionTimeoutMinutes: number;
     }>,
     rollback: () => void
   ) => {
     setSettingsMessage("");
     try {
       await settingsMutation.mutate(input);
+      // Only for the people who follow the organization. Somebody who has
+      // chosen their own language has not stopped choosing it because an
+      // administrator changed the hall's - applying it here would switch the
+      // screen out from under whoever happened to be on this page.
+      if (input.language && !getCachedAuthSession()?.user.language) {
+        window.dispatchEvent(
+          new CustomEvent(APP_LANGUAGE_CHANGE_EVENT, {
+            detail: { language: input.language }
+          })
+        );
+      }
+
+      // Language and timezone are part of how this organization writes a date,
+      // and the session is where that lives. Refetched forced, so every mounted
+      // screen re-renders against the new settings rather than waiting for the
+      // realtime event to come back round to the browser that made the change.
+      await refreshAuthorization({ force: true });
     } catch (error) {
       rollback();
       setSettingsMessage(
-        error instanceof Error ? error.message : "Could not save settings."
+        error instanceof Error ? error.message : t("settings.saveFailed")
       );
     }
   };
@@ -314,11 +361,15 @@ export function SettingsPage({
       setIsLogoCleared(false);
       setHeaderImageFile(null);
       setIsHeaderImageCleared(false);
-      setSettingsMessage("Settings saved.");
+      setSettingsMessage(t("settings.saved"));
       refreshQueriesCarrying(CONTROL_CENTER_QUERY_PREFIXES);
+      // Date Format and Time Format are saved in this block, and they live on
+      // the session rather than in a query - so the query invalidation above
+      // reaches the panels and this reaches every date on every mounted screen.
+      await refreshAuthorization({ force: true });
     } catch (error) {
       setSettingsMessage(
-        error instanceof Error ? error.message : "Could not save settings."
+        error instanceof Error ? error.message : t("settings.saveFailed")
       );
     }
   };
@@ -387,9 +438,9 @@ export function SettingsPage({
           emptyMessage={
             canViewSettings
               ? undefined
-              : "You do not have permission to view organization settings. Contact an administrator if you need access."
+              : t("settings.noViewPermission")
           }
-          emptyTitle={canViewSettings ? undefined : "Access restricted"}
+          emptyTitle={canViewSettings ? undefined : t("common.accessRestricted")}
           error={canViewSettings ? settingsQuery.error : null}
           isEmpty={!canViewSettings}
           isLoading={canViewSettings && settingsQuery.isLoading}
@@ -409,8 +460,8 @@ export function SettingsPage({
     >
       {!isModal ? (
         <DashboardTopbar
-          title="Settings"
-          subtitle="Manage organization, system, access, integrations, branding, and account plan."
+          title={t("settings.title")}
+          subtitle={t("settings.blurb")}
           showDefaultActions={false}
           showSearch={false}
         />
@@ -421,10 +472,10 @@ export function SettingsPage({
           {isModal ? (
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-[#d8dde5] bg-[#f5f6f8] px-4 sm:px-5">
               <h3 className="text-sm font-black text-[#17202a] lg:sr-only">
-                Settings
+                {t("settings.title")}
               </h3>
               <button
-                aria-label="Close settings"
+                aria-label={t("settings.close")}
                 className="group ml-auto flex h-8 w-8 items-center justify-center rounded-full border-0 bg-transparent text-[#233144] shadow-none transition hover:bg-[#e4edf5] hover:text-[#1f4d73] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/25"
                 onClick={onClose}
                 ref={closeButtonRef}
@@ -439,7 +490,7 @@ export function SettingsPage({
           ) : null}
 
           <nav
-            aria-label="Settings sections"
+            aria-label={t("settings.sections")}
             className="scrollbar-none flex shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-4 py-2"
           >
             {visibleModalNavItems.map((item) => (
@@ -457,7 +508,7 @@ export function SettingsPage({
                 type="button"
               >
                 <Icon className="h-4 w-4 shrink-0" name={item.icon} />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
           </nav>
@@ -476,11 +527,11 @@ export function SettingsPage({
                   name={activeModalNavItem.icon}
                 />
                 <h2 className="text-sm font-black text-[#17202a]">
-                  {activeModalNavItem.label}
+                  {t(activeModalNavItem.labelKey)}
                 </h2>
               </div>
               <p className="mt-1 text-xs leading-5 text-[#6a7483]">
-                {activeModalNavItem.description}
+                {t(activeModalNavItem.descriptionKey)}
               </p>
             </div>
 
@@ -492,7 +543,7 @@ export function SettingsPage({
               <aside className={isModal ? "contents" : "grid gap-4"}>
                 {showAllSettingsContent || activeModalSection === "General" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader title="Organization profile" />
+                    <PanelHeader title={t("settings.organizationProfile")} />
 
                     <div className="flex items-center gap-3 border-b border-[#d8dde5] p-4">
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#25292e] text-base font-bold text-white">
@@ -507,21 +558,21 @@ export function SettingsPage({
                             {settingsData.organization.name}
                           </h2>
                           <span className="rounded-full bg-[#edfbf4] px-2 py-1 text-[9px] font-black text-[#147653]">
-                            Organization
+                            {t("settings.organization")}
                           </span>
                         </div>
                         <p className="mt-1 text-[10px] text-[#6a7483]">
-                          Event Core workspace
+                          {t("settings.workspace")}
                         </p>
                         <p className="mt-1 truncate text-[10px] text-[#6a7483]">
-                          Organization details and primary contact
+                          {t("settings.organizationDetails")}
                         </p>
                       </div>
                     </div>
 
                     <div className="grid gap-3 p-4 sm:grid-cols-2">
                       <label className="text-[10px] font-bold sm:col-span-2">
-                        Organization name
+                        {t("settings.organizationName")}
                         <input
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-[#f5f6f8] px-3 text-xs"
                           disabled={!canEditSettings}
@@ -548,7 +599,7 @@ export function SettingsPage({
                         }}
                       />
                       <label className="text-[10px] font-bold sm:col-span-2">
-                        Contact email
+                        {t("settings.contactEmail")}
                         <input
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] px-3 text-xs"
                           name="organizationContactEmail"
@@ -600,13 +651,13 @@ export function SettingsPage({
                 {showAllSettingsContent ||
                 activeModalSection === "Notifications" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader title="Notification preferences" />
+                    <PanelHeader title={t("settings.notificationPreferences")} />
 
                     <div className="space-y-4 p-4">
                       {[
                         {
-                          title: "Email notifications",
-                          description: "Receive important updates via email.",
+                          title: t("settings.emailNotifications"),
+                          description: t("settings.emailNotificationsHint"),
                           icon: "mail" as const,
                           value: emailNotifications,
                           action: () => {
@@ -618,9 +669,9 @@ export function SettingsPage({
                           }
                         },
                         {
-                          title: "Event confirmations",
+                          title: t("settings.eventConfirmations"),
                           description:
-                            "New bookings, updates, and cancellations.",
+                            t("settings.eventConfirmationsHint"),
                           icon: "calendar" as const,
                           value: eventConfirmations,
                           action: () => {
@@ -632,8 +683,8 @@ export function SettingsPage({
                           }
                         },
                         {
-                          title: "Invoice & billing alerts",
-                          description: "Payment reminders and invoice updates.",
+                          title: t("settings.invoiceAlerts"),
+                          description: t("settings.invoiceAlertsHint"),
                           icon: "billing" as const,
                           value: billingAlerts,
                           action: () => {
@@ -645,9 +696,9 @@ export function SettingsPage({
                           }
                         },
                         {
-                          title: "System announcements",
+                          title: t("settings.systemAnnouncements"),
                           description:
-                            "Product updates and maintenance alerts.",
+                            t("settings.systemAnnouncementsHint"),
                           icon: "activity" as const,
                           value: systemAnnouncements,
                           action: () => {
@@ -667,7 +718,7 @@ export function SettingsPage({
                         .filter(
                           (notification) =>
                             showBillingReadouts ||
-                            notification.title !== "Invoice & billing alerts"
+                            notification.title !== t("settings.invoiceAlerts")
                         )
                         .map((notification) => (
                           <div
@@ -709,11 +760,11 @@ export function SettingsPage({
 
                 {showAllSettingsContent || activeModalSection === "General" ? (
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                    <PanelHeader title="Language & Region" icon="globe" />
+                    <PanelHeader title={t("settings.languageRegion")} icon="globe" />
 
                     <div className="space-y-3 p-4">
                       <label className="block text-[10px] font-bold">
-                        Language
+                        {t("settings.language")}
                         <select
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-[10px]"
                           name="settingsLanguage"
@@ -728,17 +779,17 @@ export function SettingsPage({
                           }}
                           value={language}
                         >
-                          <option value="en-US">English (United States)</option>
+                          <option value="en-US">{t("settings.langEnUs")}</option>
                           <option value="en-GB">
-                            English (United Kingdom)
+                            {t("settings.langEnGb")}
                           </option>
-                          <option value="he-IL">Hebrew</option>
-                          <option value="es-US">Spanish</option>
+                          <option value="he-IL">{t("settings.langHe")}</option>
+                          <option value="es-US">{t("settings.langEs")}</option>
                         </select>
                       </label>
 
                       <label className="block text-[10px] font-bold">
-                        Current timezone
+                        {t("settings.currentTimezone")}
                         <select
                           className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-[10px]"
                           name="settingsTimezone"
@@ -753,21 +804,21 @@ export function SettingsPage({
                           }}
                           value={timezone}
                         >
-                          <option value="America/New_York">
-                            (UTC-05:00) Eastern Time (US & Canada)
-                          </option>
-                          <option value="America/Chicago">
-                            (UTC-06:00) Central Time (US & Canada)
-                          </option>
-                          <option value="Asia/Manila">
-                            (UTC+08:00) Asia/Manila
-                          </option>
+                          {timeZoneGroups.map((group) => (
+                            <optgroup key={group.region} label={group.region}>
+                              {group.zones.map((zone) => (
+                                <option key={zone.id} value={zone.id}>
+                                  {zone.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
                         </select>
                       </label>
 
                       <div className="grid grid-cols-2 gap-3">
                         <label className="text-[10px] font-bold">
-                          Date format
+                          {t("settings.dateFormat")}
                           <select
                             className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
                             name="settingsDateFormat"
@@ -790,7 +841,7 @@ export function SettingsPage({
                         </label>
 
                         <label className="text-[10px] font-bold">
-                          Time format
+                          {t("settings.timeFormat")}
                           <select
                             className="mt-1 h-9 w-full rounded-lg border border-[#c7d0dc] bg-white px-2 text-[10px]"
                             name="settingsTimeFormat"
@@ -806,8 +857,8 @@ export function SettingsPage({
                             }
                             value={controlCenter.general.timeFormat}
                           >
-                            <option value="12-hour">12 Hour (1:30 PM)</option>
-                            <option value="24-hour">24 Hour (13:30)</option>
+                            <option value="12-hour">{t("settings.time12")}</option>
+                            <option value="24-hour">{t("settings.time24")}</option>
                           </select>
                         </label>
                       </div>
@@ -853,6 +904,40 @@ export function SettingsPage({
                 {activeModalSection === "Billing" ? (
                   <BillingBasicsPanel />
                 ) : null}
+                {activeModalSection === "Security" ? (
+                  <div className="grid gap-4">
+                    <SecuritySettingsPanel
+                      canEdit={canEditSettings}
+                      onChange={(next) => {
+                        const previous = {
+                          twoFactorRequired,
+                          sessionTimeoutMinutes
+                        };
+
+                        if (next.twoFactorRequired !== undefined) {
+                          setTwoFactorRequired(next.twoFactorRequired);
+                        }
+                        if (next.sessionTimeoutMinutes !== undefined) {
+                          setSessionTimeoutMinutes(next.sessionTimeoutMinutes);
+                        }
+
+                        void saveImmediateSetting(next, () => {
+                          setTwoFactorRequired(previous.twoFactorRequired);
+                          setSessionTimeoutMinutes(
+                            previous.sessionTimeoutMinutes
+                          );
+                        });
+                      }}
+                      sessionTimeoutMinutes={sessionTimeoutMinutes}
+                      twoFactorRequired={twoFactorRequired}
+                    />
+                    {/* Enrolling is the individual's, not the
+                        administrator's, so it is not gated on
+                        `settings.update` the way the policy above is. */}
+                    <MfaSecurityPanel />
+                    <OtherSessionsPanel />
+                  </div>
+                ) : null}
                 {activeModalSection === "Branding" ||
                 activeModalSection === "Integrations" ? (
                   <ComingSoonPanel section={activeModalSection} />
@@ -871,24 +956,50 @@ export function SettingsPage({
                   >
                     {showAllSettingsContent ? (
                       <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                        <PanelHeader title="Branding Preview" icon="eye" />
+                        <PanelHeader title={t("settings.brandingPreview")} icon="eye" />
 
+                        {/* The organization's own logo over its own header
+                            colour - a miniature of what a client sees at the
+                            top of the portal. It drew the Event Core product
+                            logo before, which is not a preview of anything the
+                            operator set and read as an upload that had failed.
+                            `storedLogoUrl` is resolved above for the same
+                            reason the portal signs it: the file is private. */}
                         <div className="flex flex-1 flex-col justify-between p-4">
-                          <Image
-                            alt="Hall Management SaaS"
-                            className="h-16 w-auto object-contain"
-                            height={408}
-                            src="/images/branding/hms-logo-header.png"
-                            unoptimized
-                            width={612}
-                          />
+                          <div
+                            className="flex h-20 items-center justify-center rounded-lg px-4"
+                            style={{
+                              backgroundColor: resolvePortalHeaderColor(
+                                controlCenter.general.portalHeader.color
+                              )
+                            }}
+                          >
+                            {storedLogoUrl ? (
+                              // Plain <img>: the URL is signed and rotates, so
+                              // the optimizer would cache a link that expires.
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                alt={t("settings.brandingPreview")}
+                                className="max-h-12 w-auto object-contain"
+                                src={storedLogoUrl}
+                              />
+                            ) : (
+                              <span className="text-xs font-black text-white/80">
+                                {organizationName || t("settings.yourVenue")}
+                              </span>
+                            )}
+                          </div>
 
                           <button
                             className={`${secondaryButton} mt-4 w-full`}
-                            onClick={() => setActiveModalSection("Branding")}
+                            // General, not Branding: that is where `LogoField`
+                            // and `PortalHeaderPanel` actually are. Sending
+                            // people to Branding took them to a "coming soon"
+                            // panel for something they had already set.
+                            onClick={() => setActiveModalSection("General")}
                             type="button"
                           >
-                            Customize Branding
+                            {t("settings.customizeBranding")}
                           </button>
                         </div>
                       </section>
@@ -900,7 +1011,7 @@ export function SettingsPage({
                           title={
                             isModal && activeModalSection !== "Integrations"
                               ? `${activeModalSection} Status`
-                              : "Integrations Status"
+                              : t("settings.integrationsStatus")
                           }
                           icon="link"
                         />
@@ -926,7 +1037,7 @@ export function SettingsPage({
                               </span>
 
                               <span className="shrink-0 rounded-full border border-[#a9dfc9] bg-[#effaf5] px-2 py-1 text-[9px] font-black text-[#147653]">
-                                Connected
+                                {t("settings.connected")}
                               </span>
                             </div>
                           ))}
@@ -939,7 +1050,7 @@ export function SettingsPage({
                     canManagePayments ? (
                       <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
                         <PanelHeader
-                          title="Client Payment Link"
+                          title={t("settings.clientPaymentLink")}
                           icon="billing"
                         />
 
@@ -948,7 +1059,7 @@ export function SettingsPage({
                             className="block text-[10px] font-black uppercase tracking-[0.08em] text-[#516174]"
                             htmlFor="organization-payment-link"
                           >
-                            Payment link
+                            {t("settings.paymentLink")}
                           </label>
                           <input
                             className="h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm"
@@ -962,8 +1073,7 @@ export function SettingsPage({
                             value={paymentLink}
                           />
                           <p className="text-[10px] text-[#6a7483]">
-                            Where the Pay balance button on your client portal
-                            sends clients. Leave this empty to hide that button.
+                            {t("settings.paymentLinkHint")}
                           </p>
                           <button
                             className={`${secondaryButton} w-full`}
@@ -972,8 +1082,8 @@ export function SettingsPage({
                             type="button"
                           >
                             {settingsMutation.isPending
-                              ? "Saving..."
-                              : "Save Payment Link"}
+                              ? t("common.savingEllipsis")
+                              : t("settings.savePaymentLink")}
                           </button>
                           {paymentMessage ? (
                             <p
@@ -989,21 +1099,21 @@ export function SettingsPage({
 
                     {showAllSettingsContent ? (
                       <section className="flex min-h-52 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-                        <PanelHeader title="Billing Cycle" icon="billing" />
+                        <PanelHeader title={t("settings.billingCycle")} icon="billing" />
 
                         <dl className="flex-1 space-y-4 p-4 text-[10px]">
                           <div className="flex justify-between gap-3">
-                            <dt>Current plan</dt>
+                            <dt>{t("settings.currentPlan")}</dt>
                             <dd className="rounded-full bg-[#eef6fd] px-2 py-1 font-black text-[#246b9f]">
-                              Professional
+                              {t("settings.planProfessional")}
                             </dd>
                           </div>
                           <div className="flex justify-between gap-3">
-                            <dt>Billing cycle</dt>
-                            <dd className="font-bold">Monthly</dd>
+                            <dt>{t("settings.billingCycle")}</dt>
+                            <dd className="font-bold">{t("settings.cycleMonthly")}</dd>
                           </div>
                           <div className="flex justify-between gap-3">
-                            <dt>Next billing date</dt>
+                            <dt>{t("settings.nextBillingDate")}</dt>
                             <dd className="font-bold">Aug 8, 2026</dd>
                           </div>
                         </dl>
@@ -1014,7 +1124,7 @@ export function SettingsPage({
                             onClick={() => setIsUpgradeOpen(true)}
                             type="button"
                           >
-                            Manage Subscription
+                            {t("settings.manageSubscription")}
                           </button>
                         </div>
                       </section>
@@ -1045,10 +1155,10 @@ export function SettingsPage({
                       type="button"
                     >
                       {isUploadingImage
-                        ? "Uploading images..."
+                        ? t("settings.uploadingImages")
                         : settingsMutation.isPending
-                          ? "Saving..."
-                          : "Save changes"}
+                          ? t("common.savingEllipsis")
+                          : t("common.saveChanges")}
                     </button>
                   </div>
                 ) : null}

@@ -13,6 +13,7 @@ import {
 } from "@/features/calendar/components/calendar-shared";
 import { LiveNumberField } from "@/components/ui/number-field";
 import { countSchema } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function CalendarSettingsView({
   dailyEventLimit,
@@ -54,6 +55,7 @@ export function CalendarSettingsView({
   onRemoveBlockedRange: (id: string) => Promise<void>;
   weekStartsOn?: WeekStartsOn;
 }) {
+  const { t } = useAppLanguage();
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   // Empty until one is chosen, which is what the Add button waits for: a range
   // closes one hall, and there is no sensible hall to guess on the reader's
@@ -91,7 +93,7 @@ export function CalendarSettingsView({
       // it does not have.
       hallLabel:
         hallAvailability.find((hall) => hall.id === range.hallId)?.name ??
-        "All halls",
+        t("calendar.allHallsOption"),
       startLabel: rangeDateFormatter.format(startDate),
       endLabel: isSingleBlockedDay
         ? undefined
@@ -107,34 +109,35 @@ export function CalendarSettingsView({
       <header className="border-b border-[#d8dde5] p-3">
         <div className="flex items-center gap-2">
           <SettingsIcon />
-          <h1 className="text-sm font-black">Calendar Settings</h1>
+          <h1 className="text-sm font-black">{t("calendar.settingsTitle")}</h1>
         </div>
         <p className="mt-1 text-xs text-[#6a7483]">
-          Manage blocked date ranges.
+          {t("calendar.manageBlockedRanges")}
         </p>
       </header>
 
       <div className="p-3">
         <div className="mb-3 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
           <div className="border-b border-[#d8dde5] px-3 py-2">
-            <h2 className="text-sm font-black">Daily event limit</h2>
+            <h2 className="text-sm font-black">{t("calendar.dailyEventLimit")}</h2>
             <p className="mt-1 text-xs text-[#6a7483]">
-              Choose how many active events can be booked on the same date.
+              {t("calendar.dailyLimitBlurb")}
             </p>
           </div>
           <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:justify-between">
             <label className="min-w-0 flex-1">
               <span className="mb-1 block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                Events allowed per day
+                {t("calendar.eventsPerDay")}
               </span>
               <LiveNumberField
                 className="h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] outline-none focus:border-[#1f4d73] focus:ring-3 focus:ring-[#1f4d73]/15 sm:max-w-56"
                 id="daily-event-limit"
                 onCommit={setDailyEventLimitDraft}
                 schema={countSchema({
+                  t,
                   min: 1,
                   max: 50,
-                  label: "Events allowed per day"
+                  label: t("calendar.eventsPerDay")
                 })}
                 value={dailyEventLimitDraft}
               />
@@ -149,7 +152,9 @@ export function CalendarSettingsView({
               onClick={() => onSaveDailyEventLimit(dailyEventLimitDraft)}
               type="button"
             >
-              {isSavingDailyEventLimit ? "Saving..." : "Save limit"}
+              {isSavingDailyEventLimit
+                ? t("common.savingEllipsis")
+                : t("calendar.saveLimit")}
             </button>
           </div>
           {saveDailyEventLimitError ? (
@@ -161,9 +166,9 @@ export function CalendarSettingsView({
 
         <div className="mb-3 overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
           <div className="border-b border-[#d8dde5] px-3 py-2">
-            <h2 className="text-sm font-black">Hall daily limits</h2>
+            <h2 className="text-sm font-black">{t("calendar.hallDailyLimits")}</h2>
             <p className="mt-1 text-xs text-[#6a7483]">
-              Each saved hall uses this daily booking limit.
+              {t("calendar.hallDailyLimitsBlurb")}
             </p>
           </div>
 
@@ -179,7 +184,7 @@ export function CalendarSettingsView({
                   </p>
                   {hall.usesDefaultLimit ? (
                     <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
-                      Uses Calendar default
+                      {t("calendar.usesDefault")}
                     </p>
                   ) : null}
                 </div>
@@ -192,7 +197,7 @@ export function CalendarSettingsView({
 
             {hallAvailability.length === 0 ? (
               <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
-                No bookable halls are saved yet. Add halls in Settings.
+                {t("calendar.noBookableHalls")}
               </p>
             ) : null}
           </div>
@@ -200,16 +205,16 @@ export function CalendarSettingsView({
 
         <div className="overflow-visible rounded-xl border border-[#d8dde5]">
           <div className="border-b border-[#d8dde5] px-3 py-2">
-            <h2 className="text-sm font-black">Blocked ranges</h2>
+            <h2 className="text-sm font-black">{t("calendar.blockedRanges")}</h2>
             <p className="mt-1 text-xs text-[#6a7483]">
-              Blocked ranges will not show in Availability and cannot be booked.
+              {t("calendar.blockedRangesBlurb")}
             </p>
           </div>
 
           <div className="p-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h3 className="text-base font-black">Add blocked range</h3>
+                <h3 className="text-base font-black">{t("calendar.addBlockedRange")}</h3>
                 <p className="text-xs font-bold text-[#617086]">
                   {blockedStartLabel} to {blockedEndLabel}
                 </p>
@@ -218,7 +223,7 @@ export function CalendarSettingsView({
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[180px_156px_156px_auto_auto]">
                 <label className="rounded-xl border border-[#b9c2cf] bg-white px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                    Hall
+                    {t("calendar.hall")}
                   </span>
                   <select
                     className="mt-1 h-5 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-black text-[#17202a] outline-none"
@@ -226,7 +231,7 @@ export function CalendarSettingsView({
                     onChange={(event) => setBlockedHallId(event.target.value)}
                     value={blockedHallId}
                   >
-                    <option value="">Select a hall</option>
+                    <option value="">{t("calendar.selectHall")}</option>
                     {hallAvailability.map((hall) => (
                       <option key={hall.id} value={hall.id}>
                         {hall.name}
@@ -236,7 +241,7 @@ export function CalendarSettingsView({
                 </label>
                 <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                    Start date
+                    {t("calendar.startDate")}
                   </span>
                   <strong className="mt-1 block text-sm">
                     {blockedStartLabel}
@@ -244,7 +249,7 @@ export function CalendarSettingsView({
                 </div>
                 <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
                   <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                    End date
+                    {t("calendar.endDate")}
                   </span>
                   <strong className="mt-1 block text-sm">
                     {blockedEndLabel}
@@ -256,7 +261,7 @@ export function CalendarSettingsView({
                     onClick={() => setIsRangePickerOpen((current) => !current)}
                     type="button"
                   >
-                    Select range
+                    {t("calendar.selectRange")}
                   </button>
                   <DateRangePickerDialog
                     endDate={blockedRangeDraft.endDate}
@@ -279,19 +284,18 @@ export function CalendarSettingsView({
                   title={
                     blockedHallId
                       ? undefined
-                      : "Choose the hall this range closes."
+                      : t("calendar.chooseHallToClose")
                   }
                   type="button"
                 >
-                  Add blocked range
+                  {t("calendar.addBlockedRange")}
                 </button>
               </div>
             </div>
 
             {!blockedHallId ? (
               <p className="mt-2 text-xs font-bold text-[#617086]">
-                Choose a hall to close. A range blocks the hall it names, not the
-                whole venue.
+                {t("calendar.blockHallHint")}
               </p>
             ) : null}
 
@@ -325,14 +329,14 @@ export function CalendarSettingsView({
                     onClick={() => void onRemoveBlockedRange(range.id)}
                     type="button"
                   >
-                    Remove
+                    {t("common.remove")}
                   </button>
                 </article>
               ))}
 
               {blockedRanges.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-[#b9c2cf] p-6 text-center text-sm text-[#6a7483]">
-                  No blocked date ranges.
+                  {t("calendar.noBlockedRanges")}
                 </p>
               ) : null}
               {blockedDateMutationError ? (

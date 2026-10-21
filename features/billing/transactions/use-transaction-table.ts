@@ -7,6 +7,7 @@ import {
   type ReviewFilter,
   type SortKey
 } from "@/features/billing/transactions/transaction-model";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const PAGE_SIZE = 10;
 
@@ -25,7 +26,8 @@ export function useTransactionTable(
     null
   );
 
-  const rows = useMemo(() => buildTransactionRows(data), [data]);
+  const { t } = useAppLanguage();
+  const rows = useMemo(() => buildTransactionRows(data, t), [data, t]);
   const filteredRows = useMemo(() => {
     const lowerSearch = searchQuery.trim().toLowerCase();
 

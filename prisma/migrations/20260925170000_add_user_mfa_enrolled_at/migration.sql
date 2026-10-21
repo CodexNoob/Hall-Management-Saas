@@ -1,0 +1,15 @@
+-- Whether this account has a verified second factor, and since when.
+--
+-- A mirror of Supabase's `auth.mfa_factors`, never the authority for it. The
+-- factors themselves, and the only code that can verify one, stay in Supabase.
+--
+-- It exists because enforcement asks "does this person owe a second factor?"
+-- on every authenticated request, and answering that from the Auth server
+-- would put a round trip on the hottest path in the application. The access
+-- token carries the `aal` claim - what it cannot carry is whether a factor
+-- exists at all, which is the other half of the question.
+--
+-- Nullable with no default, so an existing account reads as "no factor" until
+-- a request has actually looked. Only server code that has just read the real
+-- list out of Supabase with the user's own token writes here.
+ALTER TABLE "users" ADD COLUMN "mfa_enrolled_at" TIMESTAMP(3);

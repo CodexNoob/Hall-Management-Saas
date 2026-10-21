@@ -12,6 +12,7 @@ import {
 } from "@/features/calendar/components/calendar-shared";
 import { AvailabilityDaysSkeleton } from "@/features/calendar/components/calendar-skeleton";
 import { type WeekStartsOn } from "@/lib/dates/calendar-date";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function AvailabilityView({
   canManageBlockedDates,
@@ -56,6 +57,7 @@ export function AvailabilityView({
   startDateLabel: string;
   weekStartsOn?: WeekStartsOn;
 }) {
+  const { t } = useAppLanguage();
   const [isRangePickerOpen, setIsRangePickerOpen] = useState(false);
   const selectedHall = halls.find((hall) => hall.id === selectedHallId);
 
@@ -65,11 +67,10 @@ export function AvailabilityView({
         <div>
           <div className="flex items-center gap-2">
             <BuildingIcon />
-            <h1 className="text-sm font-black">Availability</h1>
+            <h1 className="text-sm font-black">{t("calendar.availability")}</h1>
           </div>
           <p className="mt-1 text-xs text-[#6a7483]">
-            Choose a hall, then open the range picker, select the start date and
-            select the end date from the same open calendar.
+            {t("calendar.availabilityHint")}
           </p>
         </div>
 
@@ -79,7 +80,7 @@ export function AvailabilityView({
             onClick={onNewBooking}
             type="button"
           >
-            New booking
+            {t("common.newBooking")}
           </button>
         ) : null}
       </header>
@@ -87,7 +88,7 @@ export function AvailabilityView({
       <div className="p-3">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-xl font-black">Availability Range</h2>
+            <h2 className="text-xl font-black">{t("calendar.availabilityRange")}</h2>
             <p className="text-xs font-bold text-[#617086]">
               {selectedHall ? `${selectedHall.name} · ` : ""}
               {startDateLabel} to {endDateLabel}
@@ -97,14 +98,14 @@ export function AvailabilityView({
           <div className="grid gap-2 sm:grid-cols-[180px_156px_156px_auto]">
             <label className="rounded-xl border border-[#b9c2cf] bg-white px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                Hall
+                {t("calendar.hall")}
               </span>
               <select
                 className="mt-1 h-6 w-full min-w-0 border-0 bg-transparent p-0 text-sm font-bold text-[#17202a] outline-none"
                 onChange={(event) => onHallChange(event.target.value)}
                 value={selectedHallId}
               >
-                <option value="">Select a hall</option>
+                <option value="">{t("calendar.selectHall")}</option>
                 {halls.map((hall) => (
                   <option key={hall.id} value={hall.id}>
                     {hall.name}
@@ -115,13 +116,13 @@ export function AvailabilityView({
 
             <div className="rounded-xl border border-[#8fbce3] bg-[#f1f7fc] px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                Start date
+                {t("calendar.startDate")}
               </span>
               <strong className="mt-1 block text-sm">{startDateLabel}</strong>
             </div>
             <div className="rounded-xl border border-[#d8dde5] bg-white px-3 py-2">
               <span className="block text-[10px] font-black uppercase tracking-wide text-[#617086]">
-                End date
+                {t("calendar.endDate")}
               </span>
               <strong className="mt-1 block text-sm">{endDateLabel}</strong>
             </div>
@@ -131,7 +132,7 @@ export function AvailabilityView({
                 onClick={() => setIsRangePickerOpen((current) => !current)}
                 type="button"
               >
-                Select range
+                {t("calendar.selectRange")}
               </button>
               <DateRangePickerDialog
                 endDate={endDate}
@@ -147,9 +148,9 @@ export function AvailabilityView({
         </div>
 
         <div className="mt-3 flex flex-wrap gap-3">
-          <StatusDot color="bg-[#178151]" label="Available" />
-          <StatusDot color="bg-[#b66b00]" label="Hold" />
-          <StatusDot color="bg-[#94a1b1]" label="Full" />
+          <StatusDot color="bg-[#178151]" label={t("calendar.available")} />
+          <StatusDot color="bg-[#b66b00]" label={t("calendar.hold")} />
+          <StatusDot color="bg-[#94a1b1]" label={t("calendar.full")} />
         </div>
 
         {isLoadingDays && selectedHallId ? <AvailabilityDaysSkeleton /> : null}
@@ -158,13 +159,13 @@ export function AvailabilityView({
           <div className="mt-3 rounded-xl border border-dashed border-[#c7d0dc] bg-[#fbfcfd] p-8 text-center">
             <p className="text-sm font-black text-[#17202a]">
               {halls.length === 0
-                ? "No bookable halls yet"
-                : "Choose a hall to see its availability"}
+                ? t("calendar.noBookableHallsYet")
+                : t("calendar.chooseHallToSee")}
             </p>
             <p className="mt-2 text-xs text-[#6a7483]">
               {halls.length === 0
-                ? "Add a bookable hall in Settings, then come back to read its open dates."
-                : "Every count on this tab - open slots, holds, blocked days - belongs to one hall, so there is nothing to show until you pick one."}
+                ? t("calendar.addHallInSettings")
+                : t("calendar.everyCountBelongsToHall")}
             </p>
           </div>
         ) : null}
@@ -192,8 +193,12 @@ export function AvailabilityView({
                 <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
                   <span className="text-xs text-[#617086]">
                     {isHold
-                      ? `1 hold · ${availabilityDay.roomsAvailable} event slots still available`
-                      : `${availabilityDay.roomsAvailable} event slots available`}
+                      ? t("calendar.oneHoldSlotsAvailable", {
+                          count: availabilityDay.roomsAvailable
+                        })
+                      : t("calendar.slotsAvailable", {
+                          count: availabilityDay.roomsAvailable
+                        })}
                   </span>
                   <span
                     className={`inline-flex min-w-22 justify-center rounded-full border px-3 py-1 text-[10px] font-black ${
@@ -212,7 +217,7 @@ export function AvailabilityView({
                       onClick={() => onRemoveDay(availabilityDay.dateKey)}
                       type="button"
                     >
-                      Block date
+                      {t("calendar.blockDate")}
                     </button>
                   ) : null}
                 </div>

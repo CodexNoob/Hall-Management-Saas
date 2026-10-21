@@ -1,4 +1,6 @@
 "use client";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type ScheduleRow = {
   id: string;
@@ -150,8 +152,10 @@ export function formatEventDate(value: string) {
  * the date beside it right, because every date label here is already pinned to
  * UTC.
  */
-export function formatEventTime(value: string | null) {
-  if (!value) return "All day";
+export type ShellTranslate = (key: MessageKey) => string;
+
+export function formatEventTime(value: string | null, t?: ShellTranslate) {
+  if (!value) return t ? t("shell.allDay") : "All day";
 
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
@@ -178,34 +182,46 @@ export function statusFromEvent(event: DashboardEvent): ScheduleRow["status"] {
   return "Confirmed";
 }
 
-export function toScheduleRow(event: DashboardEvent): ScheduleRow {
+export function toScheduleRow(
+  event: DashboardEvent,
+  t?: ShellTranslate
+): ScheduleRow {
   const guestCount = eventGuestCount(event);
   const status = statusFromEvent(event);
 
   return {
     id: event.id,
     date: event.eventDate.slice(0, 10),
-    time: formatEventTime(event.startsAt),
+    time: formatEventTime(event.startsAt, t),
     event: event.clientName,
     details:
       [event.eventType, guestCount ? `${guestCount} guests` : null]
         .filter(Boolean)
-        .join(" - ") || "Event details pending",
-    room: event.hallName ?? event.hall?.name ?? "Unassigned hall",
-    owner: event.createdBy?.name ?? "Unassigned",
+        .join(" - ") ||
+      (t ? t("shell.eventDetailsPending") : "Event details pending"),
+    room:
+      event.hallName ??
+      event.hall?.name ??
+      (t ? t("shell.unassignedHall") : "Unassigned hall"),
+    owner:
+      event.createdBy?.name ?? (t ? t("shell.unassigned") : "Unassigned"),
     status,
     next:
       status === "Balance due"
-        ? "Billing follow-up"
+        ? (t ? t("shell.nextBillingFollowUp") : "Billing follow-up")
         : status === "On hold"
-          ? "Confirm booking"
-          : (event.packageName ?? "Review event file")
+          ? (t ? t("shell.nextConfirmBooking") : "Confirm booking")
+          : (event.packageName ??
+            (t ? t("shell.nextReviewEventFile") : "Review event file"))
   };
 }
 
-export function groupEventsByDate(events: DashboardEvent[]) {
+export function groupEventsByDate(
+  events: DashboardEvent[],
+  t?: ShellTranslate
+) {
   return events.reduce<TimelineGroup[]>((groups, event) => {
-    const row = toScheduleRow(event);
+    const row = toScheduleRow(event, t);
     const existing = groups.find((group) => group.date === row.date);
 
     if (existing) {
@@ -223,6 +239,7 @@ export function EventCountGraph({
 }: {
   groups: Array<{ date: string; rows: ScheduleRow[] }>;
 }) {
+  const { t } = useAppLanguage();
   const largestCount = Math.max(0, ...groups.map((group) => group.rows.length));
   const maxCount = Math.max(4, Math.ceil(largestCount / 2) * 2);
   const ticks = Array.from({ length: 5 }, (_, index) =>
@@ -231,7 +248,7 @@ export function EventCountGraph({
 
   return (
     <div className="mt-5 border-t border-[#d8dde5] pt-5">
-      <h3 className="text-sm font-black text-[#17202a]">Events overview</h3>
+      <h3 className="text-sm font-black text-[#17202a]">{t("shell.eventsOverview")}</h3>
       <div className="mt-4 grid grid-cols-[1.75rem_minmax(0,1fr)] gap-2">
         <div className="flex h-44 flex-col justify-between pb-6 text-[10px] font-bold text-[#6a7483]">
           {ticks.map((value) => (
@@ -249,7 +266,7 @@ export function EventCountGraph({
           <div className="absolute inset-0 flex items-end gap-3 px-3">
             {groups.length === 0 ? (
               <div className="flex h-full w-full items-center justify-center pb-6 text-xs font-bold text-[#6a7483]">
-                No events in range
+                {t("shell.noEventsInRange")}
               </div>
             ) : (
               groups.map((group) => (
@@ -277,9 +294,12 @@ export function EventCountGraph({
   );
 }
 
-export function groupEventsByMonth(events: DashboardEvent[]) {
+export function groupEventsByMonth(
+  events: DashboardEvent[],
+  t?: ShellTranslate
+) {
   return events.reduce<TimelineGroup[]>((groups, event) => {
-    const row = toScheduleRow(event);
+    const row = toScheduleRow(event, t);
     const monthDate = `${row.date.slice(0, 7)}-01`;
     const existing = groups.find((group) => group.date === monthDate);
 
@@ -296,9 +316,10 @@ export function groupEventsByMonth(events: DashboardEvent[]) {
 export function groupEventsByMonthRange(
   events: DashboardEvent[],
   startDate: string,
-  endDate: string
+  endDate: string,
+  t?: ShellTranslate
 ) {
-  const groupedEvents = groupEventsByMonth(events);
+  const groupedEvents = groupEventsByMonth(events, t);
   const rowsByMonth = new Map(
     groupedEvents.map((group) => [group.date, group.rows])
   );
@@ -353,6 +374,7 @@ export function FinancialTimelineGraph({
   isLoading?: boolean;
   points: FinancialTimelinePoint[];
 }) {
+  const { t } = useAppLanguage();
   const maxValue = 1_500_000;
   const hasData = points.some(
     (point) => point.incomeCents > 0 || point.expenseCents > 0
@@ -367,11 +389,11 @@ export function FinancialTimelineGraph({
       <div className="mb-3 flex items-center gap-4 text-xs font-black text-[#6a7483]">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-4 rounded-sm bg-[#168a55]" />
-          Income
+          {t("shell.income")}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2.5 w-4 rounded-sm bg-[#c4382f]" />
-          Expenses
+          {t("shell.expenses")}
         </span>
       </div>
 
@@ -454,11 +476,10 @@ export function FinancialTimelineGraph({
         <div className="absolute inset-x-6 top-24 flex justify-center text-center">
           <div className="rounded-2xl border border-[#d8dde5] bg-white/95 px-5 py-4 shadow-sm">
             <p className="text-sm font-black text-[#17202a]">
-              No financial activity yet
+              {t("shell.noFinancialActivity")}
             </p>
             <p className="mt-1 max-w-sm text-xs font-medium text-[#6a7483]">
-              Paid invoices and processed refunds will appear here once billing
-              activity is recorded for this period.
+              {t("shell.noBillingActivity")}
             </p>
           </div>
         </div>
@@ -466,7 +487,15 @@ export function FinancialTimelineGraph({
     </div>
   );
 }
+const statusLabels: Record<ScheduleRow["status"], MessageKey> = {
+  Confirmed: "shell.statusConfirmed",
+  "Menu review": "shell.statusMenuReview",
+  "On hold": "shell.statusOnHold",
+  "Balance due": "shell.statusBalanceDue"
+};
+
 export function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
+  const { t } = useAppLanguage();
   const classes: Record<ScheduleRow["status"], string> = {
     Confirmed: "border-[#146c43] bg-[#eef4fa] text-[#146c43]",
     "Menu review": "border-[#9a5b00] bg-[#fbfcfd] text-[#9a5b00]",
@@ -478,7 +507,7 @@ export function StatusBadge({ status }: { status: ScheduleRow["status"] }) {
     <span
       className={`inline-flex whitespace-nowrap rounded-full border px-3 py-1 text-xs font-black ${classes[status]}`}
     >
-      {status}
+      {t(statusLabels[status])}
     </span>
   );
 }

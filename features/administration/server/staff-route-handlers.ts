@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { changedFields, recordActivity } from "@/lib/audit/activity-log";
-import { authorize, tenant } from "@/lib/authz/authorize";
+import { authorize, hasPermission, tenant } from "@/lib/authz/authorize";
 import { createApiErrorResponse } from "@/lib/http/api-error";
 import { withRoute } from "@/lib/http/with-route";
 import { prisma } from "@/lib/prisma";
@@ -13,6 +13,10 @@ import {
   sendStaffInvitations,
   staffInviteRedirectTo
 } from "@/features/administration/server/staff-invitations";
+import {
+  loadStaffPresence,
+  type StaffPresence
+} from "@/features/administration/server/staff-presence";
 import {
   createAssignment,
   listAssignments,
@@ -86,6 +90,12 @@ export type StaffDirectoryEntry = {
   assignments: AssignmentSummary[];
   lastLoginAt: string | null;
   createdAt: string;
+  /**
+   * Null when the caller may not see it, which is different from "offline".
+   * See the gate in `listStaff`.
+   */
+  presence: StaffPresence | null;
+  lastSeenAt: string | null;
 };
 
 function inviteStaff(inviteEmails: string[]) {
@@ -139,6 +149,16 @@ async function listStaff(request: Request) {
       memberships.map((membership) => membership.principalId)
     );
 
+    /*
+     * Who is online is a closer look at a colleague than the directory itself,
+     * so it goes to whoever may edit staff rather than to everyone who may read
+     * the list. Decided HERE rather than hidden in the browser: a reader without
+     * `staff.update` receives null, not a value the page chose not to draw.
+     */
+    const presence = (await hasPermission(actor, "staff.update"))
+      ? await loadStaffPresence(memberships.map((membership) => membership.user.id))
+      : null;
+
     const staff: StaffDirectoryEntry[] = memberships.map((membership) => ({
       userId: membership.user.id,
       principalId: membership.principalId,
@@ -154,7 +174,12 @@ async function listStaff(request: Request) {
       status: membership.isActive ? "Active" : "Inactive",
       assignments: assignments.get(membership.principalId) ?? [],
       lastLoginAt: membership.user.lastSignInAt?.toISOString() ?? null,
-      createdAt: membership.createdAt.toISOString()
+      createdAt: membership.createdAt.toISOString(),
+      // No live session row at all is simply offline, for anyone allowed to ask.
+      presence: presence
+        ? (presence.get(membership.user.id)?.presence ?? "offline")
+        : null,
+      lastSeenAt: presence?.get(membership.user.id)?.lastSeenAt ?? null
     }));
 
     return NextResponse.json({ staff, epoch: actor.epoch });

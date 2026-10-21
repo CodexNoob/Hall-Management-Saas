@@ -15,6 +15,7 @@ import {
 } from "@/features/access/components/access-shared";
 import { RoleBadge, RoleEditor } from "@/features/access/components/role-editor";
 import { EffectivePanel } from "@/features/access/components/effective-panel";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * Roles, and what they add up to for one person. The screen that makes roles
@@ -39,6 +40,7 @@ import { EffectivePanel } from "@/features/access/components/effective-panel";
  * "hand out privileges" are still two different permissions.
  */
 export function AccessRolesPanel() {
+  const { t } = useAppLanguage();
   const access = useDashboardAccess();
   const [editing, setEditing] = useState<RoleSummary | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -87,7 +89,8 @@ export function AccessRolesPanel() {
       if (!response.ok) {
         setError(
           describeApiError(
-            (await response.json().catch(() => null)) as ApiError | null
+            (await response.json().catch(() => null)) as ApiError | null,
+            t
           )
         );
         return;
@@ -114,12 +117,12 @@ export function AccessRolesPanel() {
         is not a landmark at all, so "the Roles list" was not addressable.
       */}
       <section
-        aria-label="Roles"
+        aria-label={t("access.roles")}
         className="rounded-xl border border-[#d8dde5] bg-white"
       >
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#d8dde5] px-4 py-3">
           <div className="min-w-0">
-            <h2 className="text-sm font-black">Roles</h2>
+            <h2 className="text-sm font-black">{t("access.roles")}</h2>
             <p className="mt-0.5 text-[10px] text-[#6a7483]">
               {roles.length} roles. Adding one is a row, not a release.
             </p>
@@ -130,7 +133,7 @@ export function AccessRolesPanel() {
             onClick={() => setIsCreating(true)}
             type="button"
           >
-            New role
+            {t("access.newRole")}
           </button>
         </header>
 
@@ -138,7 +141,7 @@ export function AccessRolesPanel() {
             names - these rows, and the people below them whose subtitle is the
             roles they hold. Unlabelled, "the row for Owner" is ambiguous to a
             screen reader walking the lists and to anything else looking one up. */}
-        <ul aria-label="Roles" className="divide-y divide-[#eef1f5]">
+        <ul aria-label={t("access.roles")} className="divide-y divide-[#eef1f5]">
           {roles.map((role) => (
             <li
               className="flex flex-wrap items-center justify-between gap-2 px-4 py-3"
@@ -154,7 +157,7 @@ export function AccessRolesPanel() {
                   </span>
                   {role.isSystem ? (
                     <span className="rounded border border-[#cdd5df] bg-[#f4f6f8] px-1.5 py-0.5 text-[9px] font-black text-[#536172]">
-                      Starter
+                      {t("access.starter")}
                     </span>
                   ) : null}
                 </div>
@@ -180,14 +183,14 @@ export function AccessRolesPanel() {
                   onClick={() => removeRole(role)}
                   title={
                     role.isSystem
-                      ? "Starter roles cannot be deleted. Edit what this one grants instead."
+                      ? t("access.starterCannotDelete")
                       : role.holderCount > 0
-                        ? "Reassign the people holding this role first."
+                        ? t("access.reassignFirst")
                         : undefined
                   }
                   type="button"
                 >
-                  Delete
+                  {t("common.delete")}
                 </button>
               </div>
             </li>
@@ -196,25 +199,24 @@ export function AccessRolesPanel() {
 
         <footer className="border-t border-[#eef1f5] px-4 py-3">
           <p className="text-[10px] text-[#6a7483]">
-            A role can never hand out more than you hold yourself, and never at
-            or above your own rank. Both refusals name what stopped them.
+            {t("access.ceilingNote")}
           </p>
         </footer>
       </section>
 
       <div className="grid gap-3 lg:grid-cols-[320px_1fr]">
         <section
-          aria-label="Permission summary"
+          aria-label={t("access.permissionSummary")}
           className="rounded-xl border border-[#d8dde5] bg-white"
         >
           <header className="border-b border-[#d8dde5] px-4 py-3">
-            <h2 className="text-sm font-black">Permission summary</h2>
+            <h2 className="text-sm font-black">{t("access.permissionSummary")}</h2>
             <p className="mt-0.5 text-[10px] text-[#6a7483]">
-              Pick somebody to see exactly what they can do, and why.
+              {t("access.pickSomebody")}
             </p>
           </header>
           <ul
-            aria-label="People"
+            aria-label={t("access.people")}
             className="max-h-[60dvh] divide-y divide-[#eef1f5] overflow-y-auto"
           >
             {staff.map((entry) => (
@@ -234,7 +236,7 @@ export function AccessRolesPanel() {
                       ? entry.assignments
                           .map((assignment) => assignment.roleName)
                           .join(", ")
-                      : "No role yet"}
+                      : t("staff.noRoleYet")}
                   </span>
                 </button>
               </li>
@@ -253,8 +255,8 @@ export function AccessRolesPanel() {
           <section className="rounded-xl border border-[#d8dde5] bg-white px-4 py-6">
             <p className="text-[11px] text-[#6a7483]">
               {access.hasPermission("staff.read")
-                ? "Nobody to show yet."
-                : "Seeing who holds what needs the staff.read permission as well."}
+                ? t("access.nobodyYet")
+                : t("access.seeingWhoHoldsWhat")}
             </p>
           </section>
         )}

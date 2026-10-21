@@ -5,6 +5,8 @@ import {
   updateMenuPackage,
   type MenuPackageChanges
 } from "@/features/menu/services/menu-packages";
+import { ambientTranslate } from "@/lib/i18n/ambient";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type ActivePackage = {
   id: string;
@@ -18,7 +20,7 @@ type UsePackageItemsInput = {
   onChanged: () => Promise<unknown> | void;
 };
 
-const FALLBACK_ERROR = "The package could not be updated. Please try again.";
+const FALLBACK_ERROR: MessageKey = "menu.packageUpdateFailed";
 
 // A stable reference for "no package is open", so the effect below is not woken
 // by a fresh empty array on every render.
@@ -124,7 +126,7 @@ export function usePackageItems({
           setErrorMessage(
             error instanceof Error && error.message
               ? error.message
-              : FALLBACK_ERROR
+              : ambientTranslate(FALLBACK_ERROR)
           );
           // The whole draft goes, not just this item's part of it. Earlier
           // writes in the queue already landed, so the refetch below is the

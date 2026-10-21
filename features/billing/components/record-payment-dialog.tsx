@@ -5,6 +5,7 @@ import type { BillingResponse } from "@/features/billing/components/billing-shar
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
 import { readApiError } from "@/lib/http/api-request-error";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 type Invoice = BillingResponse["invoices"][number];
 function money(cents: number, currency = "USD") { return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100); }
 function modalControlClass() { return "mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none focus:border-[#1f4d73]"; }
@@ -20,6 +21,7 @@ export function RecordPaymentDialog({
   onSaved: () => Promise<void>;
   open: boolean;
 }) {
+  const { t } = useAppLanguage();
   const [amount, setAmount] = useState(String(invoice.balanceDueCents / 100));
   const [method, setMethod] = useState("Manual");
   const [reference, setReference] = useState("");
@@ -38,13 +40,17 @@ export function RecordPaymentDialog({
   if (!open || !invoice.eventId) return null;
 
   async function save() {
-    const parsed = parseNumericInput(amount, moneySchema({ label: "Amount" }));
+    const parsed = parseNumericInput(
+      amount,
+      moneySchema({ label: t("common.amount"), t }),
+      t
+    );
 
     if (parsed.status !== "valid") {
       setError(
         parsed.status === "invalid"
           ? parsed.message
-          : "Enter a payment amount."
+          : t("billing.enterPaymentAmount")
       );
       return;
     }
@@ -53,7 +59,10 @@ export function RecordPaymentDialog({
 
     if (amountCents <= 0 || amountCents > invoice.balanceDueCents) {
       setError(
-        `Enter an amount between ${money(1, invoice.currency)} and ${money(invoice.balanceDueCents, invoice.currency)}.`
+        t("billing.enterAmountBetween", {
+          min: money(1, invoice.currency),
+          max: money(invoice.balanceDueCents, invoice.currency)
+        })
       );
       return;
     }
@@ -82,7 +91,7 @@ export function RecordPaymentDialog({
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Unable to record payment."
+          : t("billing.recordPaymentFailed")
       );
     } finally {
       setSaving(false);
@@ -98,14 +107,14 @@ export function RecordPaymentDialog({
       >
         <header className="flex items-center justify-between border-b border-[#d8dde5] p-4">
           <div>
-            <h2 className="font-black">Record payment</h2>
+            <h2 className="font-black">{t("billing.recordPayment")}</h2>
             <p className="text-sm text-[#6a7483]">
               {invoice.invoiceNumber} {"\u00b7"} Balance{" "}
               {money(invoice.balanceDueCents, invoice.currency)}
             </p>
           </div>
           <button
-            aria-label="Close payment dialog"
+            aria-label={t("billing.closePaymentDialog")}
             className="h-10 w-10 rounded-full text-2xl hover:bg-[#eef4fa]"
             disabled={saving}
             onClick={onClose}
@@ -116,7 +125,7 @@ export function RecordPaymentDialog({
         </header>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Amount
+            {t("common.amount")}
             <input
               autoFocus
               className={modalControlClass()}
@@ -127,31 +136,31 @@ export function RecordPaymentDialog({
             />
           </label>
           <label className="text-xs font-black uppercase text-[#64748b]">
-            Payment method
+            {t("billing.paymentMethod")}
             <select
               className={modalControlClass()}
               onChange={(event) => setMethod(event.target.value)}
               value={method}
             >
-              <option>Manual</option>
-              <option>Cash</option>
-              <option>Check</option>
-              <option>Card</option>
-              <option>Bank Transfer</option>
-              <option>ACH</option>
+              <option value="Manual">{t("billing.methodManual")}</option>
+              <option value="Cash">{t("billing.methodCash")}</option>
+              <option value="Check">{t("billing.methodCheck")}</option>
+              <option value="Card">{t("billing.methodCard")}</option>
+              <option value="Bank Transfer">{t("billing.methodBankTransfer")}</option>
+              <option value="ACH">{t("billing.methodAch")}</option>
             </select>
           </label>
           <label className="text-xs font-black uppercase text-[#64748b] sm:col-span-2">
-            Reference number
+            {t("billing.referenceNumber")}
             <input
               className={modalControlClass()}
               onChange={(event) => setReference(event.target.value)}
-              placeholder="Optional"
+              placeholder={t("common.optional")}
               value={reference}
             />
           </label>
           <label className="text-xs font-black uppercase text-[#64748b] sm:col-span-2">
-            Note
+            {t("common.note")}
             <textarea
               className="mt-1 min-h-24 w-full rounded-lg border border-[#b9c2cf] p-3 text-sm"
               onChange={(event) => setNote(event.target.value)}
@@ -174,7 +183,7 @@ export function RecordPaymentDialog({
             onClick={onClose}
             type="button"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white disabled:opacity-60"

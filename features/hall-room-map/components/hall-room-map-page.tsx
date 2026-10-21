@@ -51,12 +51,14 @@ import {
   getFloorPlanUrl,
   uploadHallFloorPlan
 } from "@/features/hall-room-map/lib/upload-floor-plan";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const MIN_MAP_SCALE = 0.05;
 const MAX_MAP_SCALE = 2;
 const MAP_ZOOM_FACTOR = 1.25;
 
 export function HallRoomMapPage() {
+  const { t } = useAppLanguage();
   const hallMapsQuery =
     useAuthenticatedQuery<HallMapsResponse>("/api/hall-maps");
   const createMapMutation = useAuthenticatedMutation<
@@ -507,7 +509,7 @@ export function HallRoomMapPage() {
 
   function showSaveConfirmation(preset: SavedHallMap) {
     setSaveConfirmation({
-      title: "Layout saved",
+      title: t("hallMap.layoutSaved"),
       detail: `${preset.name} is saved${preset.hall?.name ? ` to ${preset.hall.name}` : ""}.`
     });
 
@@ -607,6 +609,7 @@ export function HallRoomMapPage() {
     setSelectedObjectId,
     setSelectedObjectIds,
     showFeedback,
+    t,
     undoStackRef,
     zoomIn: () => zoomMap("in"),
     zoomOut: () => zoomMap("out"),
@@ -627,7 +630,7 @@ export function HallRoomMapPage() {
 
   function addObject(type: ShapeType) {
     if (!hasSelectedMap) {
-      showFeedback("Create or select a hall room map first.");
+      showFeedback(t("hallMap.selectMapFirst"));
       return;
     }
 
@@ -649,7 +652,7 @@ export function HallRoomMapPage() {
       type,
       name:
         type === "divider"
-          ? "Mechitza divider"
+          ? t("hallMap.mechitzaDivider")
           : type
               .split("-")
               .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -678,7 +681,7 @@ export function HallRoomMapPage() {
 
   function addShapeLibraryObject(shape: ShapeLibraryItem) {
     if (!hasSelectedMap) {
-      showFeedback("Create or select a hall room map first.");
+      showFeedback(t("hallMap.selectMapFirst"));
       return;
     }
 
@@ -722,7 +725,7 @@ export function HallRoomMapPage() {
     input: Pick<TableRowsInput, "type" | "count" | "perRow" | "seats">
   ) {
     if (!hasSelectedMap) {
-      showFeedback("Create or select a hall room map first.");
+      showFeedback(t("hallMap.selectMapFirst"));
       return;
     }
 
@@ -740,7 +743,7 @@ export function HallRoomMapPage() {
     setObjects((current) => [...current, ...added]);
     setSelectedObjectIds(added.map((object) => object.id));
     setSelectedObjectId(added.at(-1)?.id ?? null);
-    showFeedback(`${added.length} tables added in rows.`);
+    showFeedback(t("hallMap.tablesAddedInRows", { count: added.length }));
   }
 
   async function copyMapToHall(targetHallId: string) {
@@ -763,11 +766,14 @@ export function HallRoomMapPage() {
       });
       await hallMapsQuery.refetch();
       showFeedback(
-        `${result.preset.name} copied to ${targetHall.name}.`
+        t("hallMap.copiedToHall", {
+          name: result.preset.name,
+          hall: targetHall.name
+        })
       );
     } catch (error) {
       showFeedback(
-        error instanceof Error ? error.message : "Unable to copy this map."
+        error instanceof Error ? error.message : t("hallMap.copyFailed")
       );
     }
   }
@@ -782,12 +788,12 @@ export function HallRoomMapPage() {
         backgroundPath: path
       });
       await hallMapsQuery.refetch();
-      showFeedback("Floor plan added under the layout.");
+      showFeedback(t("hallMap.floorPlanAdded"));
     } catch (error) {
       showFeedback(
         error instanceof Error
           ? error.message
-          : "The floor plan could not be uploaded."
+          : t("hallMap.floorPlanUploadFailed")
       );
     }
   }
@@ -802,12 +808,12 @@ export function HallRoomMapPage() {
       });
       await hallMapsQuery.refetch();
       setFloorPlanUrl(null);
-      showFeedback("Floor plan removed.");
+      showFeedback(t("hallMap.floorPlanRemoved"));
     } catch (error) {
       showFeedback(
         error instanceof Error
           ? error.message
-          : "The floor plan could not be removed."
+          : t("hallMap.floorPlanRemoveFailed")
       );
     }
   }
@@ -822,7 +828,7 @@ export function HallRoomMapPage() {
     const { shape } = await createShapeMutation.mutate(input);
     setShapeLibrary((current) => [...current, shape]);
     await hallMapsQuery.refetch();
-    showFeedback(`${shape.name} saved to the shape library.`);
+    showFeedback(t("hallMap.savedToLibrary", { name: shape.name }));
   }
 
   /**
@@ -925,8 +931,8 @@ export function HallRoomMapPage() {
     setSelectedObjectId(nextIds.at(-1) ?? null);
     showFeedback(
       nextIds.length === 1
-        ? "1 shape selected."
-        : `${nextIds.length} shapes selected.`
+        ? t("hallMap.oneShapeSelected")
+        : t("hallMap.shapesSelected", { count: nextIds.length })
     );
     return true;
   }
@@ -1329,8 +1335,8 @@ export function HallRoomMapPage() {
     clearObjectSelection();
     showFeedback(
       activeIds.length === 1
-        ? "Shape deleted."
-        : `${activeIds.length} shapes deleted.`
+        ? t("hallMap.shapeDeleted")
+        : t("hallMap.shapesDeleted", { count: activeIds.length })
     );
   }
 
@@ -1338,13 +1344,13 @@ export function HallRoomMapPage() {
     if (!selectedMap || objects.length === 0) {
       return;
     }
-    if (!window.confirm("Clear every shape from this hall room map?")) {
+    if (!window.confirm(t("hallMap.clearEveryShape"))) {
       return;
     }
     rememberObjectsSnapshot();
     setObjects([]);
     clearObjectSelection();
-    showFeedback("Map cleared. Save the map to keep this change.");
+    showFeedback(t("hallMap.mapCleared"));
   }
 
   function loadPreset() {
@@ -1379,7 +1385,7 @@ export function HallRoomMapPage() {
       return;
     }
     if (!selectedMap.hallId) {
-      showFeedback("Assign this preset to a hall before saving.");
+      showFeedback(t("hallMap.assignPresetFirst"));
       return;
     }
 
@@ -1398,11 +1404,14 @@ export function HallRoomMapPage() {
       await hallMapsQuery.refetch();
       showSaveConfirmation(result.preset);
       showFeedback(
-        `${result.preset.name} saved to ${result.preset.hall?.name}.`
+        t("hallMap.presetSavedTo", {
+          name: result.preset.name,
+          hall: result.preset.hall?.name ?? ""
+        })
       );
     } catch (error) {
       showFeedback(
-        error instanceof Error ? error.message : "Unable to save this preset."
+        error instanceof Error ? error.message : t("hallMap.presetSaveFailed")
       );
     } finally {
       setIsSavingLayout(false);
@@ -1445,7 +1454,7 @@ export function HallRoomMapPage() {
         setSelectedHallId(result.preset.hallId);
         await hallMapsQuery.refetch();
         showSaveConfirmation(result.preset);
-        showFeedback(`Map renamed to ${trimmedName}.`);
+        showFeedback(t("hallMap.mapRenamedTo", { name: trimmedName }));
       } else {
         const result = await createMapMutation.mutate({
           name: trimmedName,
@@ -1458,14 +1467,19 @@ export function HallRoomMapPage() {
         clearObjectSelection();
         await hallMapsQuery.refetch();
         showSaveConfirmation(result.preset);
-        showFeedback(`${trimmedName} created for ${result.preset.hall?.name}.`);
+        showFeedback(
+          t("hallMap.createdForHall", {
+            name: trimmedName,
+            hall: result.preset.hall?.name ?? ""
+          })
+        );
       }
 
       setIsMapDialogOpen(false);
       setMapName("");
     } catch (error) {
       showFeedback(
-        error instanceof Error ? error.message : "Unable to save this map."
+        error instanceof Error ? error.message : t("hallMap.mapSaveFailed")
       );
     }
   }
@@ -1495,7 +1509,7 @@ export function HallRoomMapPage() {
       showFeedback(`${deletedMapName} deleted.`);
     } catch (error) {
       showFeedback(
-        error instanceof Error ? error.message : "Unable to delete this map."
+        error instanceof Error ? error.message : t("hallMap.mapDeleteFailed")
       );
     }
   }
@@ -1505,8 +1519,8 @@ export function HallRoomMapPage() {
       <DashboardTopbar
         compactMobileActions
         showSearch={false}
-        subtitle="Build default hall layouts with movable, resizable, rotatable objects."
-        title="Hall Room Map"
+        subtitle={t("hallMap.blurb")}
+        title={t("hallMap.title")}
         actionsSlot={
           <>
             {hasSelectedObject ? (
@@ -1515,11 +1529,11 @@ export function HallRoomMapPage() {
                 onClick={clearObjectSelection}
                 type="button"
               >
-                Clear selection
+                {t("hallMap.clearSelection")}
               </button>
             ) : null}
             <button
-              aria-label="Save layout"
+              aria-label={t("hallMap.saveLayout")}
               className="hidden h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 md:flex lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
               disabled={!hasSelectedMap || isSavingLayout}
               onClick={saveCurrentMap}
@@ -1536,7 +1550,7 @@ export function HallRoomMapPage() {
                 <path d="M5 4h12l2 2v14H5z" />
                 <path d="M8 4v6h8V4M8 20v-6h8v6" />
               </svg>
-              <span className="hidden lg:inline">Save layout</span>
+              <span className="hidden lg:inline">{t("hallMap.saveLayout")}</span>
             </button>
           </>
         }
@@ -1587,17 +1601,21 @@ export function HallRoomMapPage() {
           <Panel className="relative order-1 flex min-h-0 min-w-0 flex-col md:col-span-2 xl:order-2 xl:col-span-1">
             <header className="flex items-center gap-2 border-b border-[#d8dde5] p-2">
               <h2 className="min-w-0 flex-1 truncate text-sm font-black">
-                Hall Room Map
+                {t("hallMap.title")}
               </h2>
 
               <span
-                aria-label="Seat capacity"
+                aria-label={t("hallMap.seatCapacity")}
                 className={`hidden rounded-lg border px-3 py-2 text-[10px] font-black md:inline-flex ${
                   isOverCapacity
                     ? "border-[#f3b4ae] bg-[#fef2f1] text-[#b42318]"
                     : "border-[#d8dde5] bg-[#f8fafc] text-[#617086]"
                 }`}
-                title={`${seatSummary.adult} adult · ${seatSummary.kids} kids · ${seatSummary.head} head table`}
+                title={t("hallMap.seatSummary", {
+                  adult: seatSummary.adult,
+                  kids: seatSummary.kids,
+                  head: seatSummary.head
+                })}
               >
                 {seatSummary.total} seats
                 {typeof selectedHall?.capacity === "number" &&
@@ -1623,52 +1641,52 @@ export function HallRoomMapPage() {
                     : "border-[#b9c2cf] bg-white text-[#617086] hover:bg-[#eef4fa]"
                 }`}
                 onClick={() => setIsSnapEnabled((current) => !current)}
-                title="Snap dragged shapes to the grid. Hold Alt while dragging to bypass."
+                title={t("hallMap.snapToGrid")}
                 type="button"
               >
                 Snap {isSnapEnabled ? "on" : "off"}
               </button>
 
               <button
-                aria-label="Print map"
+                aria-label={t("hallMap.printMap")}
                 className="hidden h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-[10px] font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40 md:inline-flex md:items-center"
                 disabled={!hasSelectedMap || objects.length === 0}
                 onClick={() => setIsPrintOpen(true)}
                 type="button"
               >
-                Print
+                {t("common.print")}
               </button>
 
               <div
-                aria-label="Map zoom controls"
+                aria-label={t("hallMap.zoomControls")}
                 className="hidden shrink-0 items-center overflow-hidden rounded-lg border border-[#b9c2cf] bg-white md:flex"
                 role="group"
               >
                 <button
-                  aria-label="Zoom out"
+                  aria-label={t("hallMap.zoomOut")}
                   className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={mapScale <= MIN_MAP_SCALE}
                   onClick={() => zoomMap("out")}
-                  title="Zoom out"
+                  title={t("hallMap.zoomOut")}
                   type="button"
                 >
                   −
                 </button>
                 <button
-                  aria-label="Fit all shapes"
+                  aria-label={t("hallMap.fitAllShapes")}
                   className="h-9 min-w-14 border-x border-[#d8dde5] px-2 text-[10px] font-black hover:bg-[#eef4fa]"
                   onClick={fitAllShapes}
-                  title="Fit all shapes"
+                  title={t("hallMap.fitAllShapes")}
                   type="button"
                 >
                   {Math.round(mapScale * 100)}%
                 </button>
                 <button
-                  aria-label="Zoom in"
+                  aria-label={t("hallMap.zoomIn")}
                   className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
                   disabled={mapScale >= MAX_MAP_SCALE}
                   onClick={() => zoomMap("in")}
-                  title="Zoom in"
+                  title={t("hallMap.zoomIn")}
                   type="button"
                 >
                   +
@@ -1676,7 +1694,7 @@ export function HallRoomMapPage() {
               </div>
 
               <span className="ml-auto inline-flex rounded-lg border border-[#b9c2cf] bg-[#f5f6f8] px-3 py-2 text-[10px] font-black uppercase text-[#516174] md:hidden">
-                View only
+                {t("hallMap.viewOnly")}
               </span>
 
               <div className="ml-auto hidden shrink-0 gap-2 md:flex">
@@ -1686,7 +1704,7 @@ export function HallRoomMapPage() {
                   onClick={clearMap}
                   type="button"
                 >
-                  Clear
+                  {t("events.clear")}
                 </button>
 
                 <button
@@ -1695,7 +1713,7 @@ export function HallRoomMapPage() {
                   onClick={saveCurrentMap}
                   type="button"
                 >
-                  Save map
+                  {t("hallMap.saveMap")}
                 </button>
               </div>
             </header>
@@ -1715,7 +1733,7 @@ export function HallRoomMapPage() {
             */}
             <div className="relative min-h-90 min-w-0 flex-1 overflow-hidden rounded-lg border border-[#bdc9d6] bg-[#fbfdff] md:min-h-107.5 lg:min-h-125 xl:min-h-0">
               <div
-                aria-label="Hall map grid"
+                aria-label={t("hallMap.grid")}
                 className="absolute inset-0 cursor-grab touch-none overflow-hidden p-2 active:cursor-grabbing"
                 // Scoped to the board, never the document: right-click keeps
                 // working everywhere else in the app. The event fires on
@@ -1839,35 +1857,35 @@ export function HallRoomMapPage() {
               ref={shortcutsRef}
             >
               <summary
-                aria-label="Show hall map shortcuts"
+                aria-label={t("hallMap.showShortcuts")}
                 className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full bg-[#1f4d73] text-sm font-black text-white shadow-md transition hover:bg-[#15344f] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1f4d73] [&::-webkit-details-marker]:hidden"
-                title="Keyboard shortcuts"
+                title={t("hallMap.shortcuts")}
               >
                 ?
               </summary>
 
               <div className="absolute right-0 bottom-11 w-72 rounded-xl border border-[#bdc9d6] bg-white p-3 text-[#17202a] shadow-xl">
-                <p className="text-xs font-black">Hall map shortcuts</p>
+                <p className="text-xs font-black">{t("hallMap.shortcutsTitle")}</p>
                 <dl className="mt-2 grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 text-[10px] [&_dd]:text-right [&_kbd]:whitespace-nowrap [&_kbd]:rounded [&_kbd]:border [&_kbd]:border-[#d8dde5] [&_kbd]:bg-[#f5f6f8] [&_kbd]:px-1.5 [&_kbd]:py-0.5 [&_kbd]:font-mono [&_kbd]:font-bold">
-                  <dt>Zoom in</dt><dd><kbd>Ctrl/Cmd + +</kbd></dd>
-                  <dt>Zoom out</dt><dd><kbd>Ctrl/Cmd + −</kbd></dd>
-                  <dt>Reset zoom</dt><dd><kbd>Ctrl/Cmd + 0</kbd></dd>
-                  <dt>Fit all shapes</dt><dd><kbd>Shift + 1</kbd></dd>
-                  <dt>Zoom at pointer</dt><dd><kbd>Ctrl/Cmd + wheel</kbd></dd>
-                  <dt>Select all</dt><dd><kbd>Ctrl/Cmd + A</kbd></dd>
-                  <dt>Add to selection</dt><dd><kbd>Shift + click</kbd></dd>
-                  <dt>Clear selection</dt><dd><kbd>Esc</kbd></dd>
-                  <dt>Copy / paste</dt><dd><kbd>Ctrl/Cmd + C / V</kbd></dd>
-                  <dt>Undo</dt><dd><kbd>Ctrl/Cmd + Z</kbd></dd>
-                  <dt>Move shape</dt><dd><kbd>Arrow keys</kbd></dd>
-                  <dt>Move 10 units</dt><dd><kbd>Shift + arrows</kbd></dd>
-                  <dt>Rotate clockwise</dt><dd><kbd>R</kbd></dd>
-                  <dt>Rotate counterclockwise</dt><dd><kbd>Shift + R</kbd></dd>
-                  <dt>Reset rotation</dt><dd><kbd>Alt + R</kbd></dd>
-                  <dt>Delete shape</dt><dd><kbd>Delete</kbd></dd>
+                  <dt>{t("hallMap.zoomIn")}</dt><dd><kbd>Ctrl/Cmd + +</kbd></dd>
+                  <dt>{t("hallMap.zoomOut")}</dt><dd><kbd>Ctrl/Cmd + −</kbd></dd>
+                  <dt>{t("hallMap.resetZoom")}</dt><dd><kbd>Ctrl/Cmd + 0</kbd></dd>
+                  <dt>{t("hallMap.fitAllShapes")}</dt><dd><kbd>Shift + 1</kbd></dd>
+                  <dt>{t("hallMap.zoomAtPointer")}</dt><dd><kbd>Ctrl/Cmd + wheel</kbd></dd>
+                  <dt>{t("hallMap.selectAll")}</dt><dd><kbd>Ctrl/Cmd + A</kbd></dd>
+                  <dt>{t("hallMap.addToSelection")}</dt><dd><kbd>Shift + click</kbd></dd>
+                  <dt>{t("hallMap.clearSelection")}</dt><dd><kbd>Esc</kbd></dd>
+                  <dt>{t("hallMap.copyPaste")}</dt><dd><kbd>Ctrl/Cmd + C / V</kbd></dd>
+                  <dt>{t("hallMap.undo")}</dt><dd><kbd>Ctrl/Cmd + Z</kbd></dd>
+                  <dt>{t("hallMap.moveShape")}</dt><dd><kbd>Arrow keys</kbd></dd>
+                  <dt>{t("hallMap.move10Units")}</dt><dd><kbd>Shift + arrows</kbd></dd>
+                  <dt>{t("hallMap.rotateClockwise")}</dt><dd><kbd>R</kbd></dd>
+                  <dt>{t("hallMap.rotateCounterclockwise")}</dt><dd><kbd>Shift + R</kbd></dd>
+                  <dt>{t("hallMap.resetRotation")}</dt><dd><kbd>Alt + R</kbd></dd>
+                  <dt>{t("hallMap.deleteShape")}</dt><dd><kbd>Delete</kbd></dd>
                 </dl>
                 <p className="mt-3 border-t border-[#e2e7ee] pt-2 text-[9px] text-[#617086]">
-                  Use Ctrl on Windows and Linux. Use Cmd on macOS.
+                  {t("hallMap.modifierHint")}
                 </p>
               </div>
             </details>
@@ -1911,14 +1929,14 @@ export function HallRoomMapPage() {
         // animated indicator centred on the app ground, translucent so the
         // board stays visible underneath while the save round-trips.
         <div
-          aria-label="Saving layout"
+          aria-label={t("hallMap.savingLayout")}
           aria-live="polite"
           className="fixed inset-0 z-2000 flex flex-col items-center justify-center gap-4 bg-[#f5f6f8]/90"
           role="status"
         >
           <DashboardLoadingIndicator />
           <p className="text-sm font-black text-[#1f4d73]">
-            Saving your layout…
+            {t("hallMap.savingYourLayout")}
           </p>
         </div>
       ) : null}

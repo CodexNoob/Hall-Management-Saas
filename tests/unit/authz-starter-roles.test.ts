@@ -107,10 +107,16 @@ describe("starter roles", () => {
       // and up two for `hall.update` and `eventtype.update`, the middles of the
       // two lifecycles it may now correct without repricing or retiring.
       [EVENT_MANAGER, 42],
-      [KITCHEN_MANAGER, 15],
+      // Thirteen, down from fifteen: `event.read` and `calendar.read` came
+      // off. Both opened the office's screens - the whole booking workspace and
+      // the booking calendar - and neither was load-bearing, because every
+      // piece of event context the kitchen board draws arrives under
+      // `kitchen.read`. See prisma/kitchen-event-calendar-revoke.sql.
+      [KITCHEN_MANAGER, 13],
       // Eleven, down from fourteen: `kitchen.event.create`,
-      // `kitchen.worker.assign` and `eventmenu.confirm` moved to Kitchen Manager.
-      [KITCHEN_STAFF, 11],
+      // `kitchen.worker.assign` and `eventmenu.confirm` moved to Kitchen
+      // Manager. Then nine, for the same two removals as above.
+      [KITCHEN_STAFF, 9],
       [VIEWER, 15]
     ])("$key holds %i keys", (role, expected) => {
       expect(role.permissions).toHaveLength(expected as number);
@@ -252,6 +258,36 @@ describe("starter roles", () => {
         expect(holds(KITCHEN_MANAGER, key), `must not hold ${key}`).toBe(false);
       }
     });
+
+    /**
+     * The removal this role existed wrongly with for its whole life.
+     *
+     * `event.read` opens /dashboard/events - the office's booking workspace,
+     * with the client, the pricing and the documents on it - and
+     * `calendar.read` opens the booking calendar. Both were seeded onto this
+     * role, and because the sidebar is derived from route permissions, both
+     * duly appeared in a kitchen lead's navigation.
+     */
+    it("cannot reach the Events workspace or the booking calendar", () => {
+      expect(holds(KITCHEN_MANAGER, "event.read")).toBe(false);
+      expect(holds(KITCHEN_MANAGER, "calendar.read")).toBe(false);
+    });
+
+    /**
+     * And the other half of that removal: it has to stay able to do its job.
+     *
+     * Every one of these is how the production context actually arrives -
+     * `/api/kitchen` and `/api/events/[eventId]/kitchen` are both gated on
+     * `kitchen.read`, not on `event.read`. If this ever fails, the revocation
+     * above took something load-bearing with it.
+     */
+    it("still receives its production context, under kitchen.read", () => {
+      expect(holds(KITCHEN_MANAGER, "kitchen.read")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "kitchen.read.all")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "eventmenu.read")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "menu.read")).toBe(true);
+      expect(holds(KITCHEN_MANAGER, "hall.read")).toBe(true);
+    });
   });
 
   describe("Kitchen Staff", () => {
@@ -307,10 +343,21 @@ describe("starter roles", () => {
       }
     });
 
-    it("cannot write to the event record itself", () => {
-      expect(holds(KITCHEN_STAFF, "event.read")).toBe(true);
+    it("cannot reach the event record at all, read included", () => {
+      // `event.read` used to be here, and it was the bug: it opens
+      // /dashboard/events - the whole booking workspace, for every event in the
+      // organization, including the ones with none of this cook's dishes on
+      // them. Production context comes from `kitchen.read` instead.
+      expect(holds(KITCHEN_STAFF, "event.read")).toBe(false);
       expect(holds(KITCHEN_STAFF, "event.update")).toBe(false);
       expect(holds(KITCHEN_STAFF, "booking.create")).toBe(false);
+    });
+
+    it("has no booking calendar either", () => {
+      // The kitchen's own Today / Week / 4 Weeks views ARE the production
+      // schedule, and they are served by `/api/kitchen`. The booking calendar
+      // answers a question a cook does not ask.
+      expect(holds(KITCHEN_STAFF, "calendar.read")).toBe(false);
     });
   });
 

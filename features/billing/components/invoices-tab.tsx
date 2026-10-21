@@ -7,6 +7,8 @@ import {
   type BillingResponse
 } from "@/features/billing/components/billing-shared";
 import { InvoiceDetails } from "@/features/billing/components/invoice-details";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 function money(cents: number, currency = "USD") {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(
@@ -14,12 +16,12 @@ function money(cents: number, currency = "USD") {
   );
 }
 
-function date(value: string | null) {
+function date(t: (key: MessageKey) => string, value: string | null) {
   return value
     ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(
         new Date(value)
       )
-    : "Not set";
+    : t("common.notSet");
 }
 
 function statusTone(status: string) {
@@ -49,6 +51,7 @@ export function InvoicesTab({
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }) {
+  const { t } = useAppLanguage();
   const [status, setStatus] = useState("All invoices");
   const [selectedId, setSelectedId] = useState(data.invoices[0]?.id ?? "");
   const visibleInvoices = useMemo(() => {
@@ -83,51 +86,51 @@ export function InvoicesTab({
       <section className="min-w-0 overflow-hidden rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm sm:p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="font-black">Invoices</h2>
+            <h2 className="font-black">{t("billing.invoices")}</h2>
             <p className="text-sm text-[#6a7483]">
-              Draft, issue, and track payment.
+              {t("billing.invoicesBlurb")}
             </p>
           </div>
           <TopAction
             disabled={!canManagePayments}
             icon="plus"
-            label="New"
+            label={t("billing.statusNew")}
             onClick={onNewInvoice}
           />
         </div>
         <input
           className="mt-5 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Invoice, client, status"
+          placeholder={t("billing.invoiceSearch")}
           type="search"
           value={searchQuery}
         />
         <select
-          aria-label="Invoice status filter"
+          aria-label={t("billing.invoiceStatusFilter")}
           className="mt-3 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
           onChange={(event) => setStatus(event.target.value)}
           value={status}
         >
-          <option>All invoices</option>
-          <option>Draft</option>
-          <option>Sent</option>
-          <option>Partially Paid</option>
-          <option>Paid</option>
-          <option>Overdue</option>
-          <option>Cancelled</option>
+          <option value="All invoices">{t("billing.allInvoices")}</option>
+          <option value="Draft">{t("billing.statusDraft")}</option>
+          <option value="Sent">{t("billing.statusSent")}</option>
+          <option value="Partially Paid">{t("billing.statusPartiallyPaid")}</option>
+          <option value="Paid">{t("billing.statusPaid")}</option>
+          <option value="Overdue">{t("billing.statusOverdue")}</option>
+          <option value="Cancelled">{t("billing.statusCancelled")}</option>
         </select>
         <div className="mt-3 space-y-2">
           {!visibleInvoices.length ? (
             <div className="rounded-xl border border-dashed border-[#b9c2cf] px-4 py-10 text-center">
               <p className="font-black">
                 {data.invoices.length
-                  ? "No matching invoices"
-                  : "No invoices yet"}
+                  ? t("billing.noMatchingInvoices")
+                  : t("billing.noInvoicesYet")}
               </p>
               <p className="mt-1 text-sm text-[#6a7483]">
                 {data.invoices.length
-                  ? "Try another search or status."
-                  : "Create the first invoice from an event."}
+                  ? t("billing.tryAnotherSearch")
+                  : t("billing.createFirstInvoice")}
               </p>
               {!data.invoices.length ? (
                 <button
@@ -135,7 +138,7 @@ export function InvoicesTab({
                   onClick={onNewInvoice}
                   type="button"
                 >
-                  Create invoice
+                  {t("billing.createInvoice")}
                 </button>
               ) : null}
             </div>
@@ -156,8 +159,8 @@ export function InvoicesTab({
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-[#6a7483]">
-                  Created {date(invoice.createdAt)} · Due{" "}
-                  {date(invoice.dueDate)}
+                  Created {date(t, invoice.createdAt)} · Due{" "}
+                  {date(t, invoice.dueDate)}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Pill tone={statusTone(invoice.status)}>
@@ -184,9 +187,9 @@ export function InvoicesTab({
       ) : (
         <section className="flex min-h-80 items-center justify-center rounded-xl border border-[#d8dde5] bg-white p-8 text-center shadow-sm">
           <div>
-            <h2 className="font-black">Select an invoice</h2>
+            <h2 className="font-black">{t("billing.selectInvoice")}</h2>
             <p className="mt-1 text-sm text-[#6a7483]">
-              Invoice details will appear here.
+              {t("billing.invoiceDetailsHere")}
             </p>
           </div>
         </section>

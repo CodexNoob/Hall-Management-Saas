@@ -1,6 +1,7 @@
 "use client";
 
 import type { PermissionKey } from "@/lib/authz/catalog";
+import { hasMessage, type MessageKey } from "@/lib/i18n/messages";
 
 /**
  * The wire shapes the access screens read, and nothing else.
@@ -65,6 +66,9 @@ export type StaffEntry = {
   assignments: AssignmentSummary[];
   lastLoginAt: string | null;
   createdAt: string;
+  /** Null when the viewer lacks `staff.update` - not the same as offline. */
+  presence: "online" | "away" | "offline" | null;
+  lastSeenAt: string | null;
 };
 
 export type StaffResponse = { staff: StaffEntry[]; epoch: number };
@@ -122,8 +126,16 @@ export type ApiError = {
  * cannot say for itself: which keys caused an amplification refusal, and what
  * the current epoch is when somebody else got there first.
  */
-export function describeApiError(payload: ApiError | null): string {
-  if (!payload) return "Something went wrong. Please try again.";
+export type AccessTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
+
+export function describeApiError(
+  payload: ApiError | null,
+  t: AccessTranslate
+): string {
+  if (!payload) return t("access.somethingWentWrong");
 
   if (payload.code === "amplification") {
     const keys = payload.details?.permissions;
@@ -166,10 +178,49 @@ export function roleTone(name: string): string {
   return tones[hash % tones.length];
 }
 
-export function describeScope(assignment: AssignmentSummary): string {
-  if (assignment.scopeType === "org") return "Whole organization";
+/**
+ * A catalog entry's wording, in the reader's language.
+ *
+ * `GET /api/access/catalog` stays the only source of WHICH permissions exist -
+ * there is still no second list here, which is the point of the note at the top
+ * of this file. What these do is look the wording up by the key the server
+ * sent, and fall back to the English it sent alongside it. A permission from a
+ * newer build than this bundle therefore renders as itself rather than as a
+ * bare `authz.something.label`.
+ */
+export function permissionLabel(
+  entry: { key: string; label: string },
+  t: AccessTranslate
+): string {
+  const key = `authz.${entry.key}.label`;
 
-  const label = assignment.scopeLabel ?? "(deleted)";
+  return hasMessage(key) ? t(key) : entry.label;
+}
 
-  return assignment.scopeType === "hall" ? `Hall: ${label}` : `Type: ${label}`;
+export function permissionDescription(
+  entry: { key: string; description: string },
+  t: AccessTranslate
+): string {
+  const key = `authz.${entry.key}.desc`;
+
+  return hasMessage(key) ? t(key) : entry.description;
+}
+
+export function permissionGroupLabel(group: string, t: AccessTranslate): string {
+  const key = `authz.group.${group}`;
+
+  return hasMessage(key) ? t(key) : group;
+}
+
+export function describeScope(
+  assignment: AssignmentSummary,
+  t: AccessTranslate
+): string {
+  if (assignment.scopeType === "org") return t("access.wholeOrganization");
+
+  const name = assignment.scopeLabel ?? t("access.scopeDeleted");
+
+  return assignment.scopeType === "hall"
+    ? t("access.scopeHall", { name })
+    : t("access.scopeEventType", { name });
 }

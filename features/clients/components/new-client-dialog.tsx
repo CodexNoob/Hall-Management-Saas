@@ -5,6 +5,7 @@ import type { CountryCode } from "libphonenumber-js";
 import { PhoneField } from "@/components/ui/phone-field";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { DEFAULT_PHONE_COUNTRY, parsePhoneInput } from "@/lib/validation/phone";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function NewClientDialog({
   open,
@@ -15,6 +16,7 @@ export function NewClientDialog({
   onClose: () => void;
   onCreated: () => Promise<void>;
 }) {
+  const { t } = useAppLanguage();
   const mutation = useAuthenticatedMutation<
     Record<string, unknown>,
     { client: { id: string } }
@@ -34,8 +36,9 @@ export function NewClientDialog({
     // Same parser the route handler runs. Blank is still fine - a client
     // record does not need a number.
     const parsedPhone = parsePhoneInput(phone, {
+      t,
       country: phoneCountry,
-      label: "Phone number"
+      label: t("common.phoneNumber")
     });
 
     if (parsedPhone.status === "invalid") {
@@ -73,13 +76,13 @@ export function NewClientDialog({
       >
         <header className="flex items-center justify-between border-b border-[#d8dde5] p-4">
           <div>
-            <h2 className="font-black">New client</h2>
+            <h2 className="font-black">{t("clients.new")}</h2>
             <p className="mt-1 text-xs text-[#6a7483]">
-              Add a client to the organization directory.
+              {t("clients.addToDirectory")}
             </p>
           </div>
           <button
-            aria-label="Close client details"
+            aria-label={t("clients.closeDetails")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -89,7 +92,7 @@ export function NewClientDialog({
         </header>
         <div className="grid gap-3 p-4 sm:grid-cols-2">
           <label className="text-xs font-black">
-            Client name
+            {t("clients.name")}
             <input
               required
               className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 font-medium"
@@ -98,7 +101,7 @@ export function NewClientDialog({
             />
           </label>
           <label className="text-xs font-black">
-            Email
+            {t("common.email")}
             <input
               className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 font-medium"
               type="email"
@@ -107,7 +110,7 @@ export function NewClientDialog({
             />
           </label>
           <div className="text-xs font-black">
-            <label htmlFor="new-client-phone">Phone</label>
+            <label htmlFor="new-client-phone">{t("common.phone")}</label>
             <PhoneField
               country={phoneCountry}
               countryClassName="mt-1 h-10 w-[6.5rem] rounded-lg border border-[#b9c2cf] px-3 font-medium"
@@ -124,7 +127,7 @@ export function NewClientDialog({
             />
           </div>
           <label className="text-xs font-black sm:col-span-2">
-            Notes
+            {t("common.notes")}
             <textarea
               className="mt-1 min-h-24 w-full rounded-lg border border-[#b9c2cf] p-3 font-medium"
               value={notes}
@@ -143,14 +146,16 @@ export function NewClientDialog({
             onClick={onClose}
             type="button"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             className="h-10 rounded-lg bg-[#1f4d73] px-5 text-xs font-black text-white disabled:opacity-60"
             disabled={mutation.isPending}
             type="submit"
           >
-            {mutation.isPending ? "Saving…" : "Create client"}
+            {mutation.isPending
+              ? t("common.savingChar")
+              : t("clients.create")}
           </button>
         </footer>
       </form>

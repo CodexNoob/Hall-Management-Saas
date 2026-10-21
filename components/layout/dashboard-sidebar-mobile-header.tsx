@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The drawer's own header: the logo and the control that closes it.
@@ -19,9 +20,10 @@ export function DashboardSidebarMobileHeader({
   overlay?: boolean;
   onClose: () => void;
 }) {
+  const { t } = useAppLanguage();
   const closeButton = (
     <button
-      aria-label="Close navigation"
+      aria-label={t("nav.closeNavigation")}
       className={`flex items-center justify-center rounded-xl text-white transition hover:bg-white/10 ${
         overlay ? "h-10 w-10 shrink-0 sm:h-11 sm:w-11" : "h-10 w-10"
       }`}

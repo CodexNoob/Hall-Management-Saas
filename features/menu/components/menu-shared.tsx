@@ -103,17 +103,23 @@ export function LineIcon({
   return <svg {...common}>{paths[name]}</svg>;
 }
 
+import type { MessageKey } from "@/lib/i18n/messages";
 export const tabs = [
-  { label: "Menu Library", icon: "document" },
-  { label: "Packages", icon: "box" },
-  { label: "Buffet Menu", icon: "document" },
-  { label: "Plated Menu", icon: "document" },
+  { label: "Menu Library", labelKey: "menu.tab.library", icon: "document" },
+  { label: "Packages", labelKey: "menu.tab.packages", icon: "box" },
+  { label: "Buffet Menu", labelKey: "menu.tab.buffet", icon: "document" },
+  { label: "Plated Menu", labelKey: "menu.tab.plated", icon: "document" },
   // A view over the same catalog the library tab renders, filtered on `kind`
   // rather than on service style - which is what keeps a drink out of the food
   // library without giving it a table of its own.
-  { label: "Drink Menu", icon: "drink" },
-  { label: "Add-ons", icon: "dollar" }
-] satisfies Array<{ label: string; icon: IconName }>;
+  { label: "Drink Menu", labelKey: "menu.tab.drinks", icon: "drink" },
+  { label: "Add-ons", labelKey: "menu.tab.addOns", icon: "dollar" }
+] satisfies Array<{
+  /** Also the `activeTab` value the page switches on, so it stays English. */
+  label: string;
+  labelKey: MessageKey;
+  icon: IconName;
+}>;
 
 export type MenuResponse = {
   items: Array<{

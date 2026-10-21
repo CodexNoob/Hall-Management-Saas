@@ -6,6 +6,11 @@ try {
   // .env is optional locally; CI supplies E2E_* vars directly.
 }
 
+// The broad E2E suite tests the application behind an authenticated state. The
+// trusted-device gate has its own focused coverage; leaving it on here makes the
+// setup account depend on a real mailbox and blocks every unrelated spec.
+process.env.DEVICE_CONFIRMATION ??= "off";
+
 /**
  * Specs for the modules the MVP hides, listed here rather than renamed away.
  *

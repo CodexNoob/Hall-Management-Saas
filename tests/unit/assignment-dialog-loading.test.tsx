@@ -33,7 +33,9 @@ const staff: StaffEntry = {
   status: "Active",
   assignments: [],
   lastLoginAt: null,
-  createdAt: "2026-09-01T00:00:00.000Z"
+  createdAt: "2026-09-01T00:00:00.000Z",
+  presence: null,
+  lastSeenAt: null
 };
 
 const role: RoleSummary = {

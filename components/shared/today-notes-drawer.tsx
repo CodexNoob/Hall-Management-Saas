@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type TodayNotesDrawerProps = {
   open: boolean;
@@ -47,6 +48,7 @@ function formatOperatingDate() {
 }
 
 export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [newNote, setNewNote] = useState("");
@@ -114,14 +116,14 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-[#d8dde5] px-4 py-3">
           <div>
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              Today notes
+              {t("common.todayNotes")}
             </h2>
             <p className="mt-0.5 text-xs text-[#6a7483]">
               Internal notes for {formatOperatingDate()} operating day.
             </p>
           </div>
           <button
-            aria-label="Close today notes"
+            aria-label={t("shell.closeTodayNotes")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-4xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -147,7 +149,7 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
             <div className="space-y-3">
               {notesQuery.isLoading ? (
                 <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
-                  Loading today&apos;s notes...
+                  {t("shell.loadingTodayNotes")}
                 </p>
               ) : notesQuery.error ? (
                 <div className="rounded-lg border border-[#efb5ad] bg-[#fff4f2] p-4 text-xs text-[#a92217]">
@@ -157,12 +159,12 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
                     onClick={() => notesQuery.refetch()}
                     type="button"
                   >
-                    Try again
+                    {t("common.tryAgain")}
                   </button>
                 </div>
               ) : notes.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
-                  No notes have been added for today.
+                  {t("shell.noTodayNotes")}
                 </p>
               ) : (
                 notes.map((note) => (
@@ -176,7 +178,7 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
                   >
                     {note.message}
                     <p className="mt-2 text-[10px] font-bold text-[#7b8797]">
-                      {note.createdBy?.name ?? "Team member"} ·{" "}
+                      {note.createdBy?.name ?? t("shell.teamMember")} ·{" "}
                       {new Intl.DateTimeFormat("en-US", {
                         hour: "numeric",
                         minute: "2-digit"
@@ -191,13 +193,13 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
               className="mt-4 block text-xs font-black text-[#59677c]"
               htmlFor="today-note-message"
             >
-              Add note
+              {t("shell.addNote")}
             </label>
             <textarea
               className="mt-4 min-h-30 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-3 text-sm text-[#17202a] outline-none transition placeholder:text-[#8a94a3] focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
               id="today-note-message"
               onChange={(event) => setNewNote(event.target.value)}
-              placeholder="Type internal note"
+              placeholder={t("shell.typeInternalNote")}
               ref={textareaRef}
               value={newNote}
             />
@@ -214,7 +216,9 @@ export function TodayNotesDrawer({ open, onClose }: TodayNotesDrawerProps) {
               disabled={!newNote.trim() || noteMutation.isPending}
               type="submit"
             >
-              {noteMutation.isPending ? "Saving..." : "Save note"}
+              {noteMutation.isPending
+                ? t("common.savingEllipsis")
+                : t("shell.saveNote")}
             </button>
           </footer>
         </form>

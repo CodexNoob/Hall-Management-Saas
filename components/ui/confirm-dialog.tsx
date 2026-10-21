@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { readApiErrorDetails } from "@/lib/http/api-request-error";
 import { useScrollLock } from "@/lib/ui/use-scroll-lock";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -39,10 +40,14 @@ export function ConfirmDialog({
   confirmLabel,
   pendingLabel,
   mode = "confirm",
-  fallbackErrorMessage = "The action could not be completed. Please try again.",
+  fallbackErrorMessage,
   onClose,
   onConfirm
 }: ConfirmDialogProps) {
+  const { t } = useAppLanguage();
+  // Defaulted here, not in the parameter list: a default there is evaluated
+  // before the language context is readable.
+  const failureMessage = fallbackErrorMessage ?? t("shell.actionFailed");
   const titleId = useId();
   const descriptionId = useId();
   const cancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -95,7 +100,7 @@ export function ConfirmDialog({
       setErrorMessage(
         error instanceof Error && error.message
           ? error.message
-          : fallbackErrorMessage
+          : failureMessage
       );
       setErrorDetails(readApiErrorDetails(error));
     } finally {
@@ -159,7 +164,7 @@ export function ConfirmDialog({
               ref={cancelButtonRef}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
           ) : null}
           <button

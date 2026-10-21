@@ -14,26 +14,26 @@ import {
   TRIAL_DAYS
 } from "@/lib/subscription/trial";
 import { UpgradePlanDialog } from "@/components/forms/upgrade-plan-dialog";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type DashboardTrialProviderProps = {
   authSession: AuthSessionResponse;
   children: ReactNode;
 };
 
+// Only the numbers travel through the context. The wording is built in the
+// badge, where the language provider is in scope — a label frozen into state
+// here would keep whichever language was active when the session loaded.
 type TrialBadgeState = {
   daysRemaining: number | null;
   percentUsed: number;
   visible: boolean;
-  label: string;
-  compactLabel: string;
 };
 
 const DashboardTrialContext = createContext<TrialBadgeState>({
   daysRemaining: null,
   percentUsed: 0,
-  visible: false,
-  label: "",
-  compactLabel: ""
+  visible: false
 });
 
 function getTrialBadgeState(authSession: AuthSessionResponse): TrialBadgeState {
@@ -49,25 +49,11 @@ function getTrialBadgeState(authSession: AuthSessionResponse): TrialBadgeState {
     return {
       daysRemaining: null,
       percentUsed: 0,
-      visible: false,
-      label: "",
-      compactLabel: ""
+      visible: false
     };
   }
 
   const daysRemaining = getTrialDaysRemaining(activeOrganization.trialEndsAt);
-  const label =
-    daysRemaining === null
-      ? "Free trial"
-      : daysRemaining === 0
-        ? "Ends today"
-        : `${daysRemaining} day${daysRemaining === 1 ? "" : "s"} left`;
-  const compactLabel =
-    daysRemaining === null
-      ? "Free trial"
-      : daysRemaining === 0
-        ? "Today"
-        : `${daysRemaining}d`;
 
   const safeDaysRemaining = daysRemaining ?? TRIAL_DAYS;
   const daysUsed = Math.max(0, TRIAL_DAYS - safeDaysRemaining);
@@ -79,9 +65,7 @@ function getTrialBadgeState(authSession: AuthSessionResponse): TrialBadgeState {
   return {
     daysRemaining,
     percentUsed,
-    visible: true,
-    label,
-    compactLabel
+    visible: true
   };
 }
 
@@ -98,6 +82,21 @@ export function DashboardTrialProvider({
 
 export function DashboardTrialBadge() {
   const trial = useContext(DashboardTrialContext);
+  const { t } = useAppLanguage();
+  const label =
+    trial.daysRemaining === null
+      ? t("shell.trialFree")
+      : trial.daysRemaining === 0
+        ? t("shell.trialEndsToday")
+        : trial.daysRemaining === 1
+          ? t("shell.trialDayLeft")
+          : t("shell.trialDaysLeft", { count: trial.daysRemaining });
+  const compactLabel =
+    trial.daysRemaining === null
+      ? t("shell.trialFree")
+      : trial.daysRemaining === 0
+        ? t("shell.trialToday")
+        : t("shell.trialDaysShort", { count: trial.daysRemaining });
   const trialCardRef = useRef<HTMLDivElement>(null);
   const [isTrialCardOpen, setIsTrialCardOpen] = useState(false);
   const [isUpgradePlanDialogOpen, setIsUpgradePlanDialogOpen] =
@@ -140,21 +139,21 @@ export function DashboardTrialBadge() {
         <button
           aria-expanded={isTrialCardOpen}
           aria-haspopup="dialog"
-          aria-label={`Trial - ${trial.label}`}
+          aria-label={t("shell.trialAria", { label })}
           className="inline-flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-[#dfe4ea] bg-[#f5f6f8] px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[#6a7483] transition hover:border-[#c9d1da] hover:bg-[#eef0f4] hover:text-[#4a5563] focus:outline-none focus:ring-2 focus:ring-[#b9c2cf]/60 sm:gap-1.5 sm:px-2 sm:py-1 sm:text-xs sm:leading-none"
           onClick={() => setIsTrialCardOpen((current) => !current)}
           type="button"
         >
           <Crown className="h-3 w-3 shrink-0 text-[#a9b2c0] sm:h-3.5 sm:w-3.5" strokeWidth={2} />
-          <span>Trial</span>
+          <span>{t("shell.trial")}</span>
           {/* The title row keeps only ~176px between the mobile menu inset and
               the absolutely positioned action cluster, so the day count is
               dropped below 440px and the full wording waits until sm. */}
           <span className="hidden h-1 w-1 rounded-full bg-[#b9c2cf] min-[440px]:inline-flex" />
           <span className="hidden min-[440px]:inline sm:hidden">
-            {trial.compactLabel}
+            {compactLabel}
           </span>
-          <span className="hidden sm:inline">{trial.label}</span>
+          <span className="hidden sm:inline">{label}</span>
         </button>
 
         {isTrialCardOpen ? (
@@ -167,15 +166,17 @@ export function DashboardTrialBadge() {
                 <Crown className="h-4.5 w-4.5" strokeWidth={2.5} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-[#061126]">Trial Plan</p>
+                <p className="text-sm font-black text-[#061126]">
+                  {t("shell.trialPlan")}
+                </p>
                 <p className="mt-1 text-xs font-bold text-[#8A5700]">
                   {trial.daysRemaining === 0
-                    ? "Ends today"
-                    : `${trial.daysRemaining ?? TRIAL_DAYS} ${
-                        (trial.daysRemaining ?? TRIAL_DAYS) === 1
-                          ? "day"
-                          : "days"
-                      } remaining`}
+                    ? t("shell.trialEndsToday")
+                    : (trial.daysRemaining ?? TRIAL_DAYS) === 1
+                      ? t("shell.trialDayRemaining")
+                      : t("shell.trialDaysRemaining", {
+                          count: trial.daysRemaining ?? TRIAL_DAYS
+                        })}
                 </p>
               </div>
             </div>
@@ -189,7 +190,7 @@ export function DashboardTrialBadge() {
                 />
               </div>
               <p className="mt-1.5 text-center text-[11px] font-semibold text-[#66758A]">
-                {trial.percentUsed}% of trial period used
+                {t("shell.trialPercentUsed", { percent: trial.percentUsed })}
               </p>
             </div>
             <button
@@ -200,7 +201,7 @@ export function DashboardTrialBadge() {
               }}
               type="button"
             >
-              Upgrade Plan
+              {t("profile.upgrade")}
             </button>
           </div>
         ) : null}

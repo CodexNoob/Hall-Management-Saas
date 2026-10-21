@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { type ReactNode, useEffect, useId } from "react";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
@@ -12,6 +12,8 @@ import {
   getScopedEventReadinessItems
 } from "@/features/events/components/event-readiness";
 import { showBillingReadouts } from "@/lib/ui/mvp-features";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type PrintPacketDrawerProps = {
   event: EventFile;
@@ -63,11 +65,14 @@ function hasText(value: string | null | undefined) {
   return Boolean(value?.trim());
 }
 
-function fieldValue(value: string | number | null | undefined) {
+function fieldValue(
+  t: (key: MessageKey) => string,
+  value: string | number | null | undefined
+) {
   if (typeof value === "number") return String(value);
   if (hasText(value)) return value;
 
-  return "Not set";
+  return t("common.notSet");
 }
 
 function recordFrom(value: unknown) {
@@ -115,14 +120,17 @@ function formatUnits(units: number) {
   return String(Math.round(units * 100) / 100);
 }
 
-function formatQuantity(line: EventKitchenLine) {
-  if (line.countState === "NotCounted") return "Not cooked to a rule";
-  if (line.countState === "NeedsStyle") return "Needs service style";
-  if (line.countState === "NoRule") return "No counting rule set";
+function formatQuantity(
+  t: (key: MessageKey, values?: Record<string, string | number>) => string,
+  line: EventKitchenLine
+) {
+  if (line.countState === "NotCounted") return t("events.notCookedToRule");
+  if (line.countState === "NeedsStyle") return t("events.needsServiceStyleShort");
+  if (line.countState === "NoRule") return t("events.noCountingRuleSet");
   if (line.countState === "Unresolved") {
     return line.unresolvedBases.length > 0
-      ? `Needs ${line.unresolvedBases.join(", ")}`
-      : "Needs count details";
+      ? t("events.needsBases", { bases: line.unresolvedBases.join(", ") })
+      : t("events.needsCountDetails");
   }
 
   const quantity = line.quantities
@@ -132,18 +140,21 @@ function formatQuantity(line: EventKitchenLine) {
     })
     .join(" + ");
 
-  if (!quantity) return "No quantity";
+  if (!quantity) return t("events.noQuantity");
 
   return line.quantityMultiplier > 1
     ? `${line.quantityMultiplier}x ${quantity}`
     : quantity;
 }
 
-function statusLabel(status: EventKitchenLine["status"]) {
-  if (status === "COMPLETE") return "Complete";
-  if (status === "PENDING") return "Pending";
+function statusLabel(
+  t: (key: MessageKey) => string,
+  status: EventKitchenLine["status"]
+) {
+  if (status === "COMPLETE") return t("kitchen.complete");
+  if (status === "PENDING") return t("kitchen.pending");
 
-  return "Not started";
+  return t("events.notStartedStatus");
 }
 
 function PacketSection({
@@ -189,15 +200,16 @@ function KitchenPacket({
   isLoading: boolean;
   onRetry: () => void;
 }) {
+  const { t } = useAppLanguage();
   const sheet = data?.kitchen ?? null;
   const dishes = sheet?.lines.filter((line) => line.kind === "Dish") ?? [];
   const addOns = sheet?.lines.filter((line) => line.kind === "AddOn") ?? [];
 
   if (isLoading) {
     return (
-      <PacketSection title="Kitchen production">
+      <PacketSection title={t("events.kitchenProduction")}>
         <p className="text-sm font-semibold text-[#64748b]">
-          Loading kitchen sheet...
+          {t("events.loadingKitchenSheetShort")}
         </p>
       </PacketSection>
     );
@@ -205,7 +217,7 @@ function KitchenPacket({
 
   if (error) {
     return (
-      <PacketSection title="Kitchen production">
+      <PacketSection title={t("events.kitchenProduction")}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-semibold text-[#8a1f1f]">{error}</p>
           <button
@@ -213,7 +225,7 @@ function KitchenPacket({
             onClick={onRetry}
             type="button"
           >
-            Retry
+            {t("common.retry")}
           </button>
         </div>
       </PacketSection>
@@ -222,25 +234,25 @@ function KitchenPacket({
 
   if (!sheet || sheet.lines.length === 0) {
     return (
-      <PacketSection title="Kitchen production">
+      <PacketSection title={t("events.kitchenProduction")}>
         <p className="text-sm font-semibold text-[#64748b]">
-          No selected menu items are ready for the kitchen sheet yet.
+          {t("events.noKitchenSheetItems")}
         </p>
       </PacketSection>
     );
   }
 
   return (
-    <PacketSection title="Kitchen production">
+    <PacketSection title={t("events.kitchenProduction")}>
       <div className="grid gap-2 sm:grid-cols-4">
-        <DetailField label="Portions" value={sheet.counts.totalGuests} />
+        <DetailField label={t("events.portions")} value={sheet.counts.totalGuests} />
         <DetailField
-          label="Prepared"
+          label={t("events.prepared")}
           value={`${sheet.summary.complete}/${sheet.summary.dishes}`}
         />
-        <DetailField label="Pending" value={sheet.summary.pending} />
+        <DetailField label={t("events.pending")} value={sheet.summary.pending} />
         <DetailField
-          label="Needs attention"
+          label={t("events.needsAttention")}
           value={sheet.summary.needsAttention}
         />
       </div>
@@ -250,15 +262,15 @@ function KitchenPacket({
           <table className="w-full min-w-150 text-left text-xs">
             <thead className="bg-[#fbfcfd] text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
               <tr>
-                <th className="border-b border-[#d8dde5] px-3 py-2">Dish</th>
+                <th className="border-b border-[#d8dde5] px-3 py-2">{t("events.dish")}</th>
                 <th className="border-b border-[#d8dde5] px-3 py-2">
-                  Quantity
+                  {t("events.quantity")}
                 </th>
-                <th className="border-b border-[#d8dde5] px-3 py-2">Style</th>
+                <th className="border-b border-[#d8dde5] px-3 py-2">{t("events.style")}</th>
                 <th className="border-b border-[#d8dde5] px-3 py-2">
-                  Assigned
+                  {t("events.assigned")}
                 </th>
-                <th className="border-b border-[#d8dde5] px-3 py-2">Status</th>
+                <th className="border-b border-[#d8dde5] px-3 py-2">{t("common.status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -276,16 +288,16 @@ function KitchenPacket({
                     ) : null}
                   </td>
                   <td className="px-3 py-2 font-semibold text-[#17202a]">
-                    {formatQuantity(line)}
+                    {formatQuantity(t, line)}
                   </td>
                   <td className="px-3 py-2 text-[#64748b]">
-                    {line.serviceStyle ?? "Not set"}
+                    {line.serviceStyle ?? t("common.notSet")}
                   </td>
                   <td className="px-3 py-2 text-[#64748b]">
                     {line.assignedWorkerName ?? "Unassigned"}
                   </td>
                   <td className="px-3 py-2 text-[#64748b]">
-                    {statusLabel(line.status)}
+                    {statusLabel(t, line.status)}
                   </td>
                 </tr>
               ))}
@@ -294,14 +306,14 @@ function KitchenPacket({
         </div>
       ) : (
         <p className="mt-3 text-sm font-semibold text-[#64748b]">
-          No dishes on this menu yet.
+          {t("events.noDishes")}
         </p>
       )}
 
       {addOns.length > 0 ? (
         <div className="mt-3 border-t border-[#d8dde5] pt-3">
           <h4 className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-            Add-ons
+            {t("events.addOns")}
           </h4>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {addOns.map((line) => (
@@ -324,6 +336,7 @@ export function PrintPacketDrawer({
   open,
   onClose
 }: PrintPacketDrawerProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const readinessItems = getScopedEventReadinessItems(event, "print");
   const readinessSummary = getEventReadinessSummary(event, "print");
@@ -333,13 +346,13 @@ export function PrintPacketDrawer({
   );
   const timeline = timelineRows(event);
   const eventNotes = [
-    { label: "Event notes", value: event.notes.join("\n") },
-    { label: "Internal notes", value: event.internalNotes },
-    { label: "Dining manager notes", value: event.diningManagerNotes },
-    { label: "Davening note", value: event.daveningNote },
-    { label: "Member shul", value: event.memberShulName },
-    { label: "Side boxes", value: event.sideBoxes },
-    { label: "Shabbos setup", value: event.shabbosSetup }
+    { label: t("events.eventNotes"), value: event.notes.join("\n") },
+    { label: t("bookings.internalNotes"), value: event.internalNotes },
+    { label: t("events.diningManagerNotes"), value: event.diningManagerNotes },
+    { label: t("events.daveningNote"), value: event.daveningNote },
+    { label: t("events.memberShul"), value: event.memberShulName },
+    { label: t("events.sideBoxes"), value: event.sideBoxes },
+    { label: t("events.shabbosSetup"), value: event.shabbosSetup }
   ].filter((item) => hasText(item.value));
 
   useEffect(() => {
@@ -392,11 +405,11 @@ export function PrintPacketDrawer({
           <div className="flex items-center gap-3">
             <PacketIcon />
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              Print packet
+              {t("events.printPacket")}
             </h2>
           </div>
           <button
-            aria-label="Close print packet"
+            aria-label={t("events.closePrintPacket")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -408,7 +421,7 @@ export function PrintPacketDrawer({
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 print:block print:min-h-0 print:overflow-visible print:p-0">
           <section className="rounded-xl border border-[#d8dde5] bg-white p-4 print:break-inside-avoid">
             <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[#64748b]">
-              Internal event packet
+              {t("events.internalPacket")}
             </p>
             <h3 className="mt-1 wrap-break-word text-2xl font-black leading-tight text-[#17202a]">
               {event.title}
@@ -418,64 +431,64 @@ export function PrintPacketDrawer({
             </p>
           </section>
 
-          <PacketSection title="Event details">
+          <PacketSection title={t("events.eventDetails")}>
             <div className="grid gap-2 sm:grid-cols-3">
               <DetailField
-                label="Client"
-                value={fieldValue(event.clientName)}
+                label={t("common.client")}
+                value={fieldValue(t, event.clientName)}
               />
               <DetailField
-                label="Event type"
-                value={fieldValue(event.eventType)}
+                label={t("bookings.eventType")}
+                value={fieldValue(t, event.eventType)}
               />
-              <DetailField label="Status" value={fieldValue(event.status)} />
-              <DetailField label="Date" value={fieldValue(event.date)} />
-              <DetailField label="Start time" value={fieldValue(event.time)} />
-              <DetailField label="Hall" value={fieldValue(event.room)} />
-              <DetailField label="Guests" value={fieldValue(event.guests)} />
+              <DetailField label={t("common.status")} value={fieldValue(t, event.status)} />
+              <DetailField label={t("common.date")} value={fieldValue(t, event.date)} />
+              <DetailField label={t("events.startTime")} value={fieldValue(t, event.time)} />
+              <DetailField label={t("calendar.hall")} value={fieldValue(t, event.room)} />
+              <DetailField label={t("bookings.guests")} value={fieldValue(t, event.guests)} />
               <DetailField
-                label="Children"
-                value={fieldValue(event.children)}
-              />
-              <DetailField
-                label="Waiters"
-                value={fieldValue(event.waitersCount)}
+                label={t("bookings.children")}
+                value={fieldValue(t, event.children)}
               />
               <DetailField
-                label="Coordinator"
-                value={fieldValue(event.coordinator)}
+                label={t("events.waiters")}
+                value={fieldValue(t, event.waitersCount)}
               />
-              <DetailField label="Phone" value={fieldValue(event.phone)} />
-              <DetailField label="Email" value={fieldValue(event.email)} />
+              <DetailField
+                label={t("events.coordinator")}
+                value={fieldValue(t, event.coordinator)}
+              />
+              <DetailField label={t("common.phone")} value={fieldValue(t, event.phone)} />
+              <DetailField label={t("common.email")} value={fieldValue(t, event.email)} />
             </div>
           </PacketSection>
 
-          <PacketSection title="Setup and dining">
+          <PacketSection title={t("events.setupAndDining")}>
             <div className="grid gap-2 sm:grid-cols-3">
               <DetailField
-                label="Package"
-                value={fieldValue(event.packageName)}
+                label={t("bookings.package")}
+                value={fieldValue(t, event.packageName)}
               />
               <DetailField
-                label="Tablecloth"
-                value={fieldValue(event.tableclothName)}
+                label={t("events.tablecloth")}
+                value={fieldValue(t, event.tableclothName)}
               />
               <DetailField
-                label="Hall map"
-                value={event.diningHallMapPreset?.name ?? "Not attached"}
+                label={t("events.hallMap")}
+                value={event.diningHallMapPreset?.name ?? t("events.notAttached")}
               />
               <DetailField
-                label="Setup time"
-                value={fieldValue(event.setupTime)}
+                label={t("events.setupTime")}
+                value={fieldValue(t, event.setupTime)}
               />
               <DetailField
-                label="Washing time"
-                value={fieldValue(event.washingTime)}
+                label={t("events.washingTime")}
+                value={fieldValue(t, event.washingTime)}
               />
               {showBillingReadouts ? (
                 <DetailField
-                  label="Balance"
-                  value={fieldValue(event.balance)}
+                  label={t("billing.balance")}
+                  value={fieldValue(t, event.balance)}
                 />
               ) : null}
             </div>
@@ -488,7 +501,7 @@ export function PrintPacketDrawer({
             onRetry={() => void kitchenQuery.refetch()}
           />
 
-          <PacketSection title="Day-of timeline">
+          <PacketSection title={t("events.dayOfTimeline")}>
             {timeline.length > 0 ? (
               <ol className="divide-y divide-[#d8dde5] border border-[#d8dde5]">
                 {timeline.map((row) => (
@@ -497,7 +510,7 @@ export function PrintPacketDrawer({
                     key={row.id}
                   >
                     <p className="text-xs font-black text-[#17202a]">
-                      {row.cue ? `After ${row.cue}` : row.time || "No time"}
+                      {row.cue ? `After ${row.cue}` : row.time || t("events.noTime")}
                     </p>
                     <p className="wrap-break-word text-sm font-semibold text-[#17202a]">
                       {row.text}
@@ -510,12 +523,12 @@ export function PrintPacketDrawer({
               </ol>
             ) : (
               <p className="text-sm font-semibold text-[#64748b]">
-                No timeline instructions saved yet.
+                {t("events.noTimelineInstructions")}
               </p>
             )}
           </PacketSection>
 
-          <PacketSection title="Internal notes">
+          <PacketSection title={t("bookings.internalNotes")}>
             {eventNotes.length > 0 ? (
               <div className="space-y-2">
                 {eventNotes.map((item) => (
@@ -534,7 +547,7 @@ export function PrintPacketDrawer({
               </div>
             ) : (
               <p className="text-sm font-semibold text-[#64748b]">
-                No internal notes saved yet.
+                {t("events.noInternalNotes")}
               </p>
             )}
           </PacketSection>
@@ -544,7 +557,7 @@ export function PrintPacketDrawer({
               <ReadinessIcon />
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-black text-[#17202a]">
-                  Readiness before print
+                  {t("events.readinessBeforePrint")}
                 </h3>
                 <p className="text-xs font-semibold text-[#64748b]">
                   {readinessSummary.completed}/{readinessSummary.total} print
@@ -579,9 +592,9 @@ export function PrintPacketDrawer({
                     ) : null}
                   </span>
                   <span className="min-w-0">
-                    <span className="block leading-4">{item.label}</span>
+                    <span className="block leading-4">{t(item.labelKey)}</span>
                     <span className="mt-0.5 block text-xs font-semibold leading-4 text-[#64748b]">
-                      {item.helper}
+                      {t(item.helperKey, item.helperValues)}
                     </span>
                   </span>
                 </div>
@@ -596,7 +609,7 @@ export function PrintPacketDrawer({
             onClick={onClose}
             type="button"
           >
-            Close
+            {t("common.close")}
           </button>
           <button
             className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-sm hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
@@ -604,7 +617,7 @@ export function PrintPacketDrawer({
             onClick={() => window.print()}
             type="button"
           >
-            Print packet
+            {t("events.printPacket")}
           </button>
         </footer>
       </aside>

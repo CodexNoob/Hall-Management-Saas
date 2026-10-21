@@ -19,6 +19,8 @@ import {
   type EventsResponse,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const eventDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -33,7 +35,10 @@ const eventTimeFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC"
 });
 
-function toEventFile(event: EventsResponse["events"][number]): EventFile {
+function toEventFile(
+  event: EventsResponse["events"][number],
+  t: (key: MessageKey) => string
+): EventFile {
   const date = new Date(event.eventDate);
   const startsAt = event.startsAt ? new Date(event.startsAt) : null;
   const guestCount =
@@ -59,7 +64,9 @@ function toEventFile(event: EventsResponse["events"][number]): EventFile {
     // nobody edits the time, so it has to come out of the same frame it goes
     // back in on, or a save would walk the event around the clock by the
     // viewer's offset.
-    time: startsAt ? eventTimeFormatter.format(startsAt) : "Time not set",
+    time: startsAt
+      ? eventTimeFormatter.format(startsAt)
+      : t("events.timeNotSet"),
     timeInput: startsAt
       ? `${String(startsAt.getUTCHours()).padStart(2, "0")}:${String(
           startsAt.getUTCMinutes()
@@ -68,18 +75,21 @@ function toEventFile(event: EventsResponse["events"][number]): EventFile {
     hallId: event.hall.id,
     room: event.hall.name,
     packageId: event.packageId ?? "",
-    packageName: event.packageName ?? "Not assigned",
+    packageName: event.packageName ?? t("events.notAssigned"),
     guests: String(guestCount),
     children: String(event.kidsCount + event.boysCount + event.girlsCount),
     couples: String(event.couplesCount),
     // "Unassigned" is the reading of no coordinator, not a placeholder
     // standing in for one - which is all this was until the column existed.
     coordinator: event.coordinator?.user.name ?? "Unassigned",
-    balance: event.paymentStatus === "Paid in Full" ? "Paid" : "See billing",
+    balance:
+      event.paymentStatus === "Paid in Full"
+        ? t("billing.statusPaid")
+        : t("events.seeBilling"),
     status: event.eventStatus.toLowerCase().includes("confirm")
       ? "Confirmed"
       : "Hold",
-    paymentStatus: event.paymentStatus ?? "No invoice",
+    paymentStatus: event.paymentStatus ?? t("events.noInvoice"),
     version: event.version,
     cancelledAt: event.cancelledAt,
     completedAt: event.completedAt,
@@ -105,6 +115,7 @@ function toEventFile(event: EventsResponse["events"][number]): EventFile {
 }
 
 export function EventManagerPage() {
+  const { t } = useAppLanguage();
   // Plain state, not `useDashboardPageSearch`: the topbar no longer carries a
   // search box on this page, so nothing outside the event list can set it.
   const [pageSearchQuery, setPageSearchQuery] = useState("");
@@ -147,16 +158,18 @@ export function EventManagerPage() {
     Boolean(selectedDetailsEventId)
   );
   const allEvents = useMemo<EventFile[]>(
-    () => (eventsQuery.data?.events ?? []).map(toEventFile),
-    [eventsQuery.data]
+    () => (eventsQuery.data?.events ?? []).map((row) => toEventFile(row, t)),
+    // `t` changes identity with the locale, which is exactly when these rows
+    // have to be rebuilt - they carry translated status and balance text.
+    [eventsQuery.data, t]
   );
   const selectedEventDetails = useMemo(() => {
     const detailedEvent = selectedDetailsQuery.data?.events.find(
       (event) => event.id === selectedDetailsEventId
     );
 
-    return detailedEvent ? toEventFile(detailedEvent) : null;
-  }, [selectedDetailsEventId, selectedDetailsQuery.data]);
+    return detailedEvent ? toEventFile(detailedEvent, t) : null;
+  }, [selectedDetailsEventId, selectedDetailsQuery.data, t]);
 
   const deepLinkEvent = deepLinkEventId
     ? allEvents.find((event) => event.id === deepLinkEventId)
@@ -196,8 +209,8 @@ export function EventManagerPage() {
         isLoading
         showDefaultActions={false}
         showSearch={false}
-        subtitle="Select an event, then manage every connected section from one workspace."
-        title="Event Manager"
+        subtitle={t("events.managerBlurb")}
+        title={t("events.managerTitle")}
       />
     );
   }
@@ -205,15 +218,15 @@ export function EventManagerPage() {
   if (eventsQuery.error || allEvents.length === 0) {
     return (
       <DashboardPageState
-        emptyMessage="Create an event to start using the event workspace."
-        emptyTitle="No events yet"
+        emptyMessage={t("events.createToStart")}
+        emptyTitle={t("events.noEventsYet")}
         error={eventsQuery.error}
         isEmpty={!eventsQuery.error}
         onRetry={eventsQuery.refetch}
         showDefaultActions={false}
         showSearch={false}
-        subtitle="Select an event, then manage every connected section from one workspace."
-        title="Event Manager"
+        subtitle={t("events.managerBlurb")}
+        title={t("events.managerTitle")}
       />
     );
   }
@@ -221,14 +234,14 @@ export function EventManagerPage() {
   if (isDeepLinkMissing) {
     return (
       <DashboardPageState
-        emptyMessage="It may have been deleted, or it belongs to a hall you do not have access to."
-        emptyTitle="That event could not be opened"
+        emptyMessage={t("events.couldNotOpenBody")}
+        emptyTitle={t("events.couldNotOpen")}
         isEmpty
         onRetry={eventsQuery.refetch}
         showDefaultActions={false}
         showSearch={false}
-        subtitle="Select an event, then manage every connected section from one workspace."
-        title="Event Manager"
+        subtitle={t("events.managerBlurb")}
+        title={t("events.managerTitle")}
       />
     );
   }
@@ -283,8 +296,8 @@ export function EventManagerPage() {
           and a second one above it only split the same filter across two
           inputs. */}
       <DashboardTopbar
-        title="Event Manager"
-        subtitle="Select an event, then manage every connected section from one workspace."
+        title={t("events.managerTitle")}
+        subtitle={t("events.managerBlurb")}
         compactMobileActions
         showDefaultActions={false}
         showSearch={false}
@@ -297,7 +310,7 @@ export function EventManagerPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <LineIcon name="calendar" />
-                  <h2 className="text-sm font-black text-[#17202a]">Events</h2>
+                  <h2 className="text-sm font-black text-[#17202a]">{t("nav.events")}</h2>
                 </div>
                 <p className="mt-1 text-xs text-[#6a7483]">
                   {allEvents.length} records
@@ -308,8 +321,8 @@ export function EventManagerPage() {
                   aria-expanded={isEventListExpanded}
                   aria-label={
                     isEventListExpanded
-                      ? "Collapse event list"
-                      : "Expand event list"
+                      ? t("events.collapseList")
+                      : t("events.expandList")
                   }
                   className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[#1f4d73] hover:bg-[#eef4fa] xl:hidden"
                   onClick={() =>
@@ -338,7 +351,7 @@ export function EventManagerPage() {
                   type="button"
                 >
                   <LineIcon name="close" />
-                  Clear
+                  {t("events.clear")}
                 </button>
               </div>
             </header>
@@ -353,23 +366,23 @@ export function EventManagerPage() {
                   className="col-span-2 h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] xl:col-span-1"
                   name="eventSearch"
                   onChange={(event) => setPageSearchQuery(event.target.value)}
-                  placeholder="Search client, hall, type"
+                  placeholder={t("events.searchPlaceholder")}
                   type="search"
                   value={pageSearchQuery}
                 />
                 <select
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white pl-3 pr-8 text-sm text-[#17202a]"
-                  aria-label="Event filter"
+                  aria-label={t("events.eventFilter")}
                   name="eventFilter"
                   onChange={(event) => setEventStatusFilter(event.target.value)}
                   value={eventStatusFilter}
                 >
-                  <option>All events</option>
-                  <option>Confirmed</option>
-                  <option>Hold</option>
+                  <option value="All events">{t("events.allEvents")}</option>
+                  <option value="Confirmed">{t("events.statusConfirmed")}</option>
+                  <option value="Hold">{t("events.statusHold")}</option>
                 </select>
                 <select
-                  aria-label="Lifecycle filter"
+                  aria-label={t("events.lifecycleFilter")}
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
                   name="lifecycleFilter"
                   onChange={(event) =>
@@ -377,19 +390,19 @@ export function EventManagerPage() {
                   }
                   value={eventLifecycleFilter}
                 >
-                  <option>Active</option>
-                  <option>Completed</option>
-                  <option>Cancelled</option>
-                  <option>All</option>
+                  <option value="Active">{t("common.active")}</option>
+                  <option value="Completed">{t("events.statusCompleted")}</option>
+                  <option value="Cancelled">{t("events.statusCancelled")}</option>
+                  <option value="All">{t("common.all")}</option>
                 </select>
                 <select
                   className="h-9 min-w-0 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a]"
-                  aria-label="Room filter"
+                  aria-label={t("events.roomFilter")}
                   name="roomFilter"
                   onChange={(event) => setRoomFilter(event.target.value)}
                   value={roomFilter}
                 >
-                  <option>All rooms</option>
+                  <option value="All rooms">{t("events.allRooms")}</option>
                   {(eventsQuery.data?.halls ?? []).map((hall) => (
                     <option key={hall.id} value={hall.id}>
                       {hall.name}
@@ -434,7 +447,7 @@ export function EventManagerPage() {
               ))}
               {visibleEvents.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-[#c7d0dc] p-4 text-center text-xs font-bold text-[#6a7483]">
-                  No events match this search.
+                  {t("events.noMatches")}
                 </p>
               ) : null}
             </div>

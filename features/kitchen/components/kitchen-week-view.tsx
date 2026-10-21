@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 import { PlusButton } from "@/features/kitchen/components/kitchen-plus-button";
 import {
   type KitchenDay,
@@ -18,6 +19,7 @@ export function WeekDayColumn({
   onAddKitchenEvent: (dateKey: string) => void;
   renderEvent: (event: KitchenEvent) => ReactNode;
 }) {
+  const { t } = useAppLanguage();
   const highlighted = day.today;
 
   return (
@@ -55,7 +57,7 @@ export function WeekDayColumn({
 
           <PlusButton
             disabled={!canAddKitchenEvent || day.past}
-            label={`Add kitchen event on ${day.dateLabel}`}
+            label={t("kitchen.addEventOn", { date: day.dateLabel })}
             onClick={() => onAddKitchenEvent(day.dateKey)}
           />
           <p className="min-w-0 justify-self-end truncate text-sm font-black tabular-nums text-[#64748b]">
@@ -73,7 +75,7 @@ export function WeekDayColumn({
           ))
         ) : (
           <p className="px-1 py-4 text-sm font-black text-[#64748b]">
-            No events
+            {t("kitchen.noEvents")}
           </p>
         )}
       </div>

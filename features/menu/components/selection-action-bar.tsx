@@ -4,6 +4,7 @@ import {
   LineIcon,
   type IconName
 } from "@/features/menu/components/menu-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type SelectionActionBarProps = {
   /** Verb only - the count and the noun are appended here. */
@@ -48,6 +49,7 @@ export function SelectionActionBar({
   selectedCount,
   tone = "primary"
 }: SelectionActionBarProps) {
+  const { t } = useAppLanguage();
   if (selectedCount === 0) return null;
 
   const noun = selectedCount === 1 ? countLabel : `${countLabel}s`;
@@ -73,7 +75,7 @@ export function SelectionActionBar({
           onClick={onClear}
           type="button"
         >
-          Clear
+          {t("menu.clear")}
         </button>
         <button
           className={`inline-flex h-9 min-w-0 shrink items-center gap-1.5 rounded-lg px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -87,7 +89,7 @@ export function SelectionActionBar({
         >
           <LineIcon name={icon} className="h-3.5 w-3.5 shrink-0" />
           <span className="truncate">
-            {isBusy ? "Saving…" : `${actionLabel} ${selectedCount} ${noun}`}
+            {isBusy ? t("common.savingChar") : `${actionLabel} ${selectedCount} ${noun}`}
           </span>
         </button>
       </div>

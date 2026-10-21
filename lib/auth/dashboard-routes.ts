@@ -85,3 +85,90 @@ export function canAccessDashboardRoute(
 
   return keys.some((key) => permissions?.includes(key) ?? false);
 }
+
+/**
+ * Where to send somebody who has not asked for anywhere in particular.
+ *
+ * `MVP_LANDING_ROUTE` is `/dashboard/events`, which was a safe default only for
+ * as long as every role held `event.read`. Kitchen Manager and Kitchen Staff no
+ * longer do, and a fixed landing route would put every cook on "Access
+ * restricted" the moment they signed in - a dead end reached by doing nothing
+ * wrong.
+ *
+ * ORDER IS THE PREFERENCE, most general first. Events is still the front door
+ * for anybody who can open it; the kitchen is where a production role belongs;
+ * the rest are there so a narrowly-composed tenant role - a bookkeeper with
+ * `invoice.read` and nothing else - still lands somewhere it can read.
+ *
+ * THIS IS NOT A PERMISSION DECISION and must never become one. It only picks
+ * among routes the caller already holds the key for, and an explicit
+ * navigation to a route they do NOT hold is still refused by the layout's own
+ * check and by the API underneath it. Nothing here grants anything.
+ */
+const LANDING_PREFERENCE: readonly string[] = [
+  "/dashboard/events",
+  "/dashboard/kitchen",
+  "/dashboard/calendar",
+  "/dashboard/menu",
+  "/dashboard/clients",
+  "/dashboard/billing",
+  "/dashboard/staff",
+  "/dashboard/settings"
+];
+
+/**
+ * Where to send somebody whose access to the page they are ON has just been
+ * withdrawn - or null to leave them where they are.
+ *
+ * ONLY A REVOCATION, which is what `previous` is for. "They cannot open this
+ * route" and "they could open it a moment ago and now cannot" are different
+ * situations with different right answers: the first is somebody typing a url
+ * for a page they never had, and that gets the refusal card, because hiding
+ * navigation and refusing direct navigation are separate jobs. The second is
+ * somebody mid-task whose screen is about to turn into an error through no act
+ * of their own, and moving them somewhere usable is the kind thing to do.
+ *
+ * NOT A SECURITY CONTROL in either direction. The API refuses on its own
+ * authority whatever this returns; a redirect here only decides what the person
+ * looks at next.
+ *
+ * Null also covers "there is nowhere to send them" - somebody holding no key
+ * that opens any page. Falling through to the restricted-access state is the
+ * honest answer there; redirecting to another equally refused route would just
+ * move the dead end.
+ */
+export function resolveRevocationRedirect(input: {
+  pathname: string | null | undefined;
+  /** The permission set before this change, or null on the first render. */
+  previous: readonly string[] | null;
+  current: readonly string[];
+  isHidden?: (route: string) => boolean;
+}): string | null {
+  const { pathname, previous, current, isHidden } = input;
+
+  // Nothing to compare against yet. The first render is not a revocation.
+  if (!previous) return null;
+  if (canAccessDashboardRoute(pathname, current)) return null;
+  // They could not open this route before either, so nothing was taken away.
+  if (!canAccessDashboardRoute(pathname, previous)) return null;
+
+  const landing = resolveLandingRoute(current, isHidden);
+
+  return landing && landing !== pathname ? landing : null;
+}
+
+export function resolveLandingRoute(
+  permissions: readonly string[] | null | undefined,
+  /**
+   * Routes the product is not shipping, passed in rather than imported so this
+   * module stays free of the MVP feature flags - it is read by the login
+   * redirect sanitiser, which has its own reasons to know about them.
+   */
+  isHidden: (route: string) => boolean = () => false
+): string | null {
+  return (
+    LANDING_PREFERENCE.find(
+      (route) => !isHidden(route) && canAccessDashboardRoute(route, permissions)
+    ) ?? null
+  );
+}

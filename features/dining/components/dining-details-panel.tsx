@@ -13,6 +13,7 @@ import {
   type DiningTableData,
   type TableSide
 } from "@/features/dining/components/dining-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type SeatTotals = Record<TableSide, number>;
 
@@ -58,18 +59,19 @@ export function DiningDetailsPanel({
   onSetTables,
   onUpdateForm
 }: DiningDetailsPanelProps) {
+  const { t } = useAppLanguage();
   return (
     <Panel className="min-w-0 lg:col-span-2 xl:col-span-1">
       <header className="border-b border-[#d8dde5] px-3 py-2">
-        <h2 className="text-sm font-black">Dining details</h2>
+        <h2 className="text-sm font-black">{t("dining.details")}</h2>
         <p className="mt-1 text-xs text-[#617086]">
-          Event-specific setup saved to Supabase.
+          {t("dining.detailsBlurb")}
         </p>
       </header>
       <div className="space-y-3 p-3">
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <div>
-            <FieldLabel htmlFor="count-type">Count type</FieldLabel>
+            <FieldLabel htmlFor="count-type">{t("dining.countType")}</FieldLabel>
             <CompactSelect
               id="count-type"
               onChange={(value) =>
@@ -83,10 +85,10 @@ export function DiningDetailsPanel({
             />
           </div>
           {[
-            ["adultCount", "Adults"],
-            ["childrenCount", "Children"],
-            ["menWaiters", "Men waiters"],
-            ["womenWaiters", "Women waiters"]
+            ["adultCount", t("dining.adults")],
+            ["childrenCount", t("dining.children")],
+            ["menWaiters", t("dining.menWaiters")],
+            ["womenWaiters", t("dining.womenWaiters")]
           ].map(([field, label]) => (
             <div key={field}>
               <FieldLabel htmlFor={field}>{label}</FieldLabel>
@@ -106,6 +108,7 @@ export function DiningDetailsPanel({
                   )
                 }
                 schema={countSchema({
+                t,
                   max: field.endsWith("Waiters") ? 10_000 : 100_000,
                   label
                 })}
@@ -114,7 +117,7 @@ export function DiningDetailsPanel({
             </div>
           ))}
           <div>
-            <FieldLabel htmlFor="tablecloth">Tablecloth</FieldLabel>
+            <FieldLabel htmlFor="tablecloth">{t("dining.tablecloth")}</FieldLabel>
             <CompactSelect
               id="tablecloth"
               onChange={(value) => onUpdateForm("tablecloth", value)}
@@ -126,7 +129,7 @@ export function DiningDetailsPanel({
             />
           </div>
           <div>
-            <FieldLabel htmlFor="washing-time">Washing start time</FieldLabel>
+            <FieldLabel htmlFor="washing-time">{t("dining.washingStartTime")}</FieldLabel>
             <input
               className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
               id="washing-time"
@@ -142,14 +145,14 @@ export function DiningDetailsPanel({
         {selectedTableId ? (
           <div className="rounded-lg border border-[#d8dde5] bg-[#fbfcfd] p-3">
             <p className="mb-2 text-xs font-black text-[#17202a]">
-              {selectedTable?.name ?? "Selected table"}
+              {selectedTable?.name ?? t("dining.selectedTable")}
             </p>
             {hasPresetCoordinates ? (
               <p className="mb-3 text-[11px] font-medium text-[#617086]">
-                Loaded from Hall Room Map preset with saved position and size.
+                {t("dining.presetHint")}
               </p>
             ) : null}
-            <FieldLabel htmlFor="table-side">Selected table use</FieldLabel>
+            <FieldLabel htmlFor="table-side">{t("dining.selectedTableUse")}</FieldLabel>
             <CompactSelect
               id="table-side"
               onChange={(value) =>
@@ -169,7 +172,7 @@ export function DiningDetailsPanel({
                 { label: "Men", value: "men" },
                 { label: "Women", value: "women" },
                 { label: "Kids", value: "kids" },
-                { label: "Head table", value: "head" }
+                { label: t("dining.headTable"), value: "head" }
               ]}
               value={selectedTable?.side ?? "men"}
             />
@@ -178,45 +181,45 @@ export function DiningDetailsPanel({
 
         <section className="rounded-xl border border-[#d8dde5] bg-[#fbfcfd] p-3">
           <h3 className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
-            Seating check
+            {t("dining.seatingCheck")}
           </h3>
 
           {/* Sits above the seating rows because it is what their table counts
               are worked out from: a venue on 12-seat rounds needs fewer tables
               for the same guests than one on 10s. */}
           <div className="mt-3">
-            <FieldLabel htmlFor="seats-per-table">Seats per table</FieldLabel>
+            <FieldLabel htmlFor="seats-per-table">{t("dining.seatsPerTable")}</FieldLabel>
             <LiveNumberField
               className="h-8 w-full rounded-lg border border-[#b9c2cf] px-2 text-xs sm:h-9 sm:text-sm"
               id="seats-per-table"
               onCommit={(value) => onSeatsPerTableChange(value)}
               schema={countSchema({
-                label: "Seats per table",
+                t,
+                label: t("dining.seatsPerTable"),
                 max: MAX_SEATS_PER_TABLE,
                 min: MIN_SEATS_PER_TABLE
               })}
               value={seatsPerTable}
             />
             <p className="mt-1 text-[10px] font-medium text-[#617086]">
-              Used by Auto layout and the seating check. Read from your saved
-              tables.
+              {t("dining.seatsPerTableHint")}
             </p>
           </div>
 
           <div className="mt-3 space-y-3">
             <SeatingRow
               current={seatTotals.men}
-              label="Men"
+              label={t("dining.men")}
               maximum={menRequired}
             />
             <SeatingRow
               current={seatTotals.women}
-              label="Women"
+              label={t("dining.women")}
               maximum={womenRequired}
             />
             <SeatingRow
               current={seatTotals.kids}
-              label="Kids"
+              label={t("dining.kids")}
               maximum={form.childrenCount}
             />
           </div>
@@ -231,7 +234,7 @@ export function DiningDetailsPanel({
               onClick={onAutoLayoutTables}
               type="button"
             >
-              Auto layout
+              {t("dining.autoLayout")}
             </button>
             <button
               className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-2 text-[10px] font-black hover:bg-[#eef4fa]"
@@ -240,26 +243,26 @@ export function DiningDetailsPanel({
                   seatTotals.men >= menRequired &&
                     seatTotals.women >= womenRequired &&
                     seatTotals.kids >= form.childrenCount
-                    ? "Seating is sufficient for all guests."
-                    : "More seating is required."
+                    ? t("dining.seatingSufficient")
+                    : t("dining.moreSeatingRequired")
                 )
               }
               type="button"
             >
-              Check seating
+              {t("dining.checkSeating")}
             </button>
             <button
               className="h-9 min-w-0 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-[10px] font-black hover:bg-[#eef4fa]"
               onClick={onAddRequiredTables}
               type="button"
             >
-              Add required tables
+              {t("dining.addRequiredTables")}
             </button>
           </div>
         </section>
 
         <div>
-          <FieldLabel htmlFor="special-notes">Special notes</FieldLabel>
+          <FieldLabel htmlFor="special-notes">{t("dining.specialNotes")}</FieldLabel>
           <textarea
             className="min-h-20 w-full resize-y rounded-lg border border-[#b9c2cf] px-2 py-2 text-xs"
             id="special-notes"
@@ -274,15 +277,14 @@ export function DiningDetailsPanel({
         ) : null}
         <section className="rounded-lg border border-[#d8dde5] bg-[#f8fafc] p-3">
           <h3 className="text-[10px] font-black uppercase tracking-wider text-[#59677c]">
-            Plan actions
+            {t("dining.planActions")}
           </h3>
           <p className="mt-1 text-xs font-medium leading-5 text-[#617086]">
-            Use the top Save dining plan button to save seating, layout,
-            service details, and notes.
+            {t("dining.planActionsHint")}
           </p>
           {isSaving ? (
             <p className="mt-2 text-xs font-bold text-[#1f4d73]">
-              Saving dining plan...
+              {t("dining.savingPlan")}
             </p>
           ) : null}
         </section>

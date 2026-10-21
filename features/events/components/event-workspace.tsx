@@ -28,6 +28,7 @@ import {
   type EventTypeOption,
   type EventWorkspaceTab
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function EventWorkspace({
   activeTab,
@@ -46,6 +47,7 @@ export function EventWorkspace({
   /// which tab is open to decide what is worth warming when a row is hovered.
   onTabChange: (tab: EventWorkspaceTab) => void;
 }) {
+  const { t } = useAppLanguage();
   const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
   const [isPrintPacketOpen, setIsPrintPacketOpen] = useState(false);
   const [isPortalPreviewOpen, setIsPortalPreviewOpen] = useState(false);
@@ -80,8 +82,8 @@ export function EventWorkspace({
                 aria-expanded={isWorkspaceExpanded}
                 aria-label={
                   isWorkspaceExpanded
-                    ? "Collapse event sections"
-                    : "Expand event sections"
+                    ? t("events.collapseSections")
+                    : t("events.expandSections")
                 }
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] xl:hidden"
                 onClick={() =>
@@ -102,8 +104,8 @@ export function EventWorkspace({
               {showBillingReadouts ? (
                 <Badge tone="gold">Open balance {event.balance}</Badge>
               ) : null}
-              <Badge tone="gold">Today notes unread</Badge>
-              <Badge tone="gold">Needs review</Badge>
+              <Badge tone="gold">{t("events.todayNotesUnread")}</Badge>
+              <Badge tone="gold">{t("events.needsReview")}</Badge>
             </div>
           </div>
           <div
@@ -115,14 +117,14 @@ export function EventWorkspace({
               icon="document"
               onClick={() => setIsPortalPreviewOpen(true)}
             >
-              Preview portal
+              {t("events.previewPortal")}
             </ActionButton>
             <ActionButton
               icon="printer"
               onClick={() => setIsPrintPacketOpen(true)}
               primary
             >
-              Print packet
+              {t("events.printPacket")}
             </ActionButton>
           </div>
         </div>
@@ -143,7 +145,7 @@ export function EventWorkspace({
           without this the two navigations are indistinguishable to a screen
           reader - and to anything else looking a tab up by name. */}
       <nav
-        aria-label="Event workspace"
+        aria-label={t("events.workspace")}
         className={`scrollbar-none shrink-0 gap-1 overflow-x-auto border-b border-[#d8dde5] bg-white px-3 xl:flex ${
           isWorkspaceExpanded ? "flex" : "hidden"
         }`}
@@ -164,7 +166,7 @@ export function EventWorkspace({
             }}
           >
             <LineIcon name={tab.icon} className="h-3.5 w-3.5 text-[#516174]" />
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </nav>
@@ -189,10 +191,10 @@ export function EventWorkspace({
                     rows read as one form with a stray second pair of buttons,
                     so the column is ruled across between them. Decoration
                     only - the timeline card names itself again below. */}
-                <div className="flex items-center gap-3 pt-1" aria-hidden>
+                <div className="flex items-center gap-3 pt-1" aria-hidden="true">
                   <span className="h-px flex-1 bg-[#d8dde5]" />
                   <span className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                    Day-of schedule
+                    {t("events.dayOfSchedule")}
                   </span>
                   <span className="h-px flex-1 bg-[#d8dde5]" />
                 </div>

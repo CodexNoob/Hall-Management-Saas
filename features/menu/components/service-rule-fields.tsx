@@ -2,11 +2,13 @@
 
 import {
   COUNT_BASES,
-  COUNT_BASIS_LABELS,
+  COUNT_BASIS_KEYS,
   COUNTING_UNITS,
   ROUNDING_MODES,
+  ROUNDING_MODE_KEYS,
   type ServiceRuleFormValues
 } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * One counting rule, as a row of controls: `1 tray per 25 guests, round up,
@@ -54,13 +56,14 @@ export function ServiceRuleFields({
    */
   required?: boolean;
 }) {
+  const { t } = useAppLanguage();
   const controlClass =
     "h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm text-[#17202a] outline-none transition focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15 disabled:bg-[#f5f6f8] disabled:text-[#6a7483]";
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input
-        aria-label={`${label} quantity`}
+        aria-label={t("menu.quantityFor", { label: label })}
         className={`${controlClass} w-20`}
         disabled={disabled}
         inputMode="decimal"
@@ -73,7 +76,7 @@ export function ServiceRuleFields({
           the nearest wrong word. The list is still offered, as suggestions the
           field does not enforce. */}
       <input
-        aria-label={`${label} unit`}
+        aria-label={t("menu.unitFor", { label: label })}
         className={`${controlClass} w-28`}
         disabled={disabled}
         list={unitListId}
@@ -82,12 +85,12 @@ export function ServiceRuleFields({
         required={required}
         value={values.unit}
       />
-      <span className="text-xs font-black normal-case text-[#6a7483]">per</span>
+      <span className="text-xs font-black normal-case text-[#6a7483]">{t("menu.per")}</span>
       {/* A whole-event rule - one cake, however many guests - divides nothing,
           so the count is not asked for. */}
       {values.perBasis === "Event" ? null : (
         <input
-          aria-label={`${label} per quantity`}
+          aria-label={t("menu.perQuantity", { label: label })}
           className={`${controlClass} w-20`}
           disabled={disabled}
           inputMode="numeric"
@@ -97,7 +100,7 @@ export function ServiceRuleFields({
         />
       )}
       <select
-        aria-label={`${label} per basis`}
+        aria-label={t("menu.perBasis", { label: label })}
         className={`${controlClass} w-32`}
         disabled={disabled}
         onChange={(event) => onChange({ perBasis: event.target.value })}
@@ -105,12 +108,12 @@ export function ServiceRuleFields({
       >
         {COUNT_BASES.map((basis) => (
           <option key={basis} value={basis}>
-            {COUNT_BASIS_LABELS[basis]}
+            {t(COUNT_BASIS_KEYS[basis])}
           </option>
         ))}
       </select>
       <select
-        aria-label={`${label} rounding`}
+        aria-label={t("menu.roundingFor", { label: label })}
         className={`${controlClass} w-32`}
         disabled={disabled}
         onChange={(event) => onChange({ rounding: event.target.value })}
@@ -118,17 +121,17 @@ export function ServiceRuleFields({
       >
         {ROUNDING_MODES.map((mode) => (
           <option key={mode} value={mode}>
-            {mode === "Exact" ? "no rounding" : `round ${mode.toLowerCase()}`}
+            {t(ROUNDING_MODE_KEYS[mode])}
           </option>
         ))}
       </select>
       <input
-        aria-label={`${label} minimum`}
+        aria-label={t("menu.minimumFor", { label: label })}
         className={`${controlClass} w-28`}
         disabled={disabled}
         inputMode="numeric"
         onChange={(event) => onChange({ minimumUnits: event.target.value })}
-        placeholder="min (opt)"
+        placeholder={t("menu.minOpt")}
         value={values.minimumUnits}
       />
     </div>

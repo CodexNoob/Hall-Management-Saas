@@ -213,9 +213,30 @@ export const starterRoles: readonly StarterRole[] = [
       "Runs the kitchen. Staffs the board, raises production jobs and signs menus off as cookable.",
     rank: 350,
     permissions: [
-      "calendar.read",
-      "event.read",
-
+      /*
+       * NO `event.read`, AND NO `calendar.read`. Both were here, and both were
+       * the reason a Kitchen Manager arrived with Events and Calendar in their
+       * sidebar - the nav is derived from route permissions, so it was
+       * reporting the grant correctly and the grant was wrong.
+       *
+       * Neither is load-bearing. `event.read` opens `/dashboard/events` - the
+       * whole booking workspace, with its client tab, its pricing and its
+       * documents - and the kitchen needs none of it: every piece of event
+       * context the board draws comes from `/api/kitchen` and
+       * `/api/events/[id]/kitchen`, and BOTH are gated on `kitchen.read`.
+       * Event name and type, hall, guest counts, portions, service time,
+       * timeline, menu, allergens and kitchen notes all arrive through that
+       * key already.
+       *
+       * `calendar.read` opens the booking calendar, which answers a question
+       * this role does not ask. The kitchen's own Today / Week / 4 Weeks views
+       * are the production schedule, and they are served by `/api/kitchen`.
+       *
+       * A venue that genuinely wants their kitchen lead on the booking
+       * calendar ticks the key back on in the role editor - a grant made by a
+       * person, written to the audit trail, rather than one everybody gets by
+       * default and nobody chose.
+       */
       "menu.read",
       "eventmenu.read",
       // The kitchen's sign-off that a menu can be cooked as written. An approval,
@@ -256,9 +277,11 @@ export const starterRoles: readonly StarterRole[] = [
       "Cooks. Sees the dishes assigned to them and marks them done; directs nobody and touches nothing financial.",
     rank: 400,
     permissions: [
-      "calendar.read",
-      "event.read",
-
+      // Same removal as Kitchen Manager above, and more clearly right here: a
+      // cook holding `event.read` could open the full booking workspace for
+      // every event in the organization, including the ones with none of their
+      // dishes on them. The kitchen board already sends this role only what it
+      // is assigned, and it does so under `kitchen.read`.
       "menu.read",
       "eventmenu.read",
 

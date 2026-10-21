@@ -2,11 +2,12 @@
 
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import type { MapObject, SavedHallMap } from "@/features/hall-room-map/components/hall-map-shared";
+import type { MessageKey } from "@/lib/i18n/messages";
 type Options = {
- clampObjectPosition: (object: MapObject, x: number, y: number) => {x:number;y:number}; clearObjectSelection:()=>void; fitAllShapes:()=>void; getActiveObjectIds:()=>string[]; hasSelectedMap:boolean; latestObjectsRef:MutableRefObject<MapObject[]>; objectClipboardRef:MutableRefObject<MapObject[]>; objects:MapObject[]; redoStackRef:MutableRefObject<MapObject[][]>; rememberObjectsSnapshot:()=>void; resetMapZoom:()=>void; saveCurrentMap:()=>Promise<void>; selectedMap:SavedHallMap|null; selectedObjectId:string|null; selectedObjectIds:string[]; setObjects:Dispatch<SetStateAction<MapObject[]>>; setSelectedObjectId:Dispatch<SetStateAction<string|null>>; setSelectedObjectIds:Dispatch<SetStateAction<string[]>>; showFeedback:(message:string)=>void; undoStackRef:MutableRefObject<MapObject[][]>; zoomAtPointer:(direction:"in"|"out",clientX:number,clientY:number)=>void; zoomIn:()=>void; zoomOut:()=>void;
+ clampObjectPosition: (object: MapObject, x: number, y: number) => {x:number;y:number}; clearObjectSelection:()=>void; fitAllShapes:()=>void; getActiveObjectIds:()=>string[]; hasSelectedMap:boolean; latestObjectsRef:MutableRefObject<MapObject[]>; objectClipboardRef:MutableRefObject<MapObject[]>; objects:MapObject[]; redoStackRef:MutableRefObject<MapObject[][]>; rememberObjectsSnapshot:()=>void; resetMapZoom:()=>void; saveCurrentMap:()=>Promise<void>; selectedMap:SavedHallMap|null; selectedObjectId:string|null; selectedObjectIds:string[]; setObjects:Dispatch<SetStateAction<MapObject[]>>; setSelectedObjectId:Dispatch<SetStateAction<string|null>>; setSelectedObjectIds:Dispatch<SetStateAction<string[]>>; showFeedback:(message:string)=>void; t:(key:MessageKey,values?:Record<string,string|number>)=>string; undoStackRef:MutableRefObject<MapObject[][]>; zoomAtPointer:(direction:"in"|"out",clientX:number,clientY:number)=>void; zoomIn:()=>void; zoomOut:()=>void;
 };
 export function useHallMapKeyboardShortcuts(options: Options) {
- const { clampObjectPosition, clearObjectSelection, fitAllShapes, getActiveObjectIds, hasSelectedMap, latestObjectsRef, objectClipboardRef, objects, redoStackRef, rememberObjectsSnapshot, resetMapZoom, saveCurrentMap, selectedMap, selectedObjectId, selectedObjectIds, setObjects, setSelectedObjectId, setSelectedObjectIds, showFeedback, undoStackRef, zoomAtPointer, zoomIn, zoomOut } = options;
+ const { clampObjectPosition, clearObjectSelection, fitAllShapes, getActiveObjectIds, hasSelectedMap, latestObjectsRef, objectClipboardRef, objects, redoStackRef, rememberObjectsSnapshot, resetMapZoom, saveCurrentMap, selectedMap, selectedObjectId, selectedObjectIds, setObjects, setSelectedObjectId, setSelectedObjectIds, showFeedback, t, undoStackRef, zoomAtPointer, zoomIn, zoomOut } = options;
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
       if (!(target instanceof HTMLElement)) {
@@ -83,7 +84,7 @@ export function useHallMapKeyboardShortcuts(options: Options) {
       if (event.key === "Escape") {
         event.preventDefault();
         clearObjectSelection();
-        showFeedback("Selection cleared.");
+        showFeedback(t("hallMap.selectionCleared"));
         return;
       }
 
@@ -108,10 +109,13 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         );
         showFeedback(
           event.altKey
-            ? `${activeIds.length} shape rotation reset.`
-            : `${activeIds.length} shape rotated ${
-                event.shiftKey ? "counterclockwise" : "clockwise"
-              }.`
+            ? t("hallMap.rotationReset", { count: activeIds.length })
+            : t(
+                event.shiftKey
+                  ? "hallMap.rotatedCounterclockwise"
+                  : "hallMap.rotatedClockwise",
+                { count: activeIds.length }
+              )
         );
         return;
       }
@@ -123,8 +127,8 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         setSelectedObjectId(allIds.at(-1) ?? null);
         showFeedback(
           allIds.length
-            ? `${allIds.length} shapes selected.`
-            : "No shapes to select."
+            ? t("hallMap.shapesSelected", { count: allIds.length })
+            : t("hallMap.noShapesToSelect")
         );
         return;
       }
@@ -135,7 +139,11 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         objectClipboardRef.current = latestObjectsRef.current
           .filter((object) => activeIdSet.has(object.id))
           .map((object) => ({ ...object }));
-        showFeedback(`${objectClipboardRef.current.length} shape copied.`);
+        showFeedback(
+          t("hallMap.shapeCopied", {
+            count: objectClipboardRef.current.length
+          })
+        );
         return;
       }
 
@@ -161,7 +169,9 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         setObjects((current) => [...current, ...pastedObjects]);
         setSelectedObjectIds(pastedObjects.map((object) => object.id));
         setSelectedObjectId(pastedObjects.at(-1)?.id ?? null);
-        showFeedback(`${pastedObjects.length} shape pasted.`);
+        showFeedback(
+          t("hallMap.shapePasted", { count: pastedObjects.length })
+        );
         return;
       }
 
@@ -184,7 +194,7 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         ];
         setObjects(nextSnapshot.map((object) => ({ ...object })));
         clearObjectSelection();
-        showFeedback("Redo applied.");
+        showFeedback(t("hallMap.redoApplied"));
         return;
       }
 
@@ -199,7 +209,7 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         ];
         setObjects(previousSnapshot.map((object) => ({ ...object })));
         clearObjectSelection();
-        showFeedback("Undo applied.");
+        showFeedback(t("hallMap.undoApplied"));
         return;
       }
 
@@ -213,8 +223,8 @@ export function useHallMapKeyboardShortcuts(options: Options) {
         clearObjectSelection();
         showFeedback(
           activeIds.length === 1
-            ? "Shape deleted."
-            : `${activeIds.length} shapes deleted.`
+            ? t("hallMap.shapeDeleted")
+            : t("hallMap.shapesDeleted", { count: activeIds.length })
         );
         return;
       }

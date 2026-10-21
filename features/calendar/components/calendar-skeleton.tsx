@@ -2,6 +2,7 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { type CalendarView } from "@/features/calendar/components/calendar-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The calendar's body while another period's bookings are on their way.
@@ -21,9 +22,11 @@ export function CalendarBodySkeleton({
   /** The real headings - they are known before the events are. */
   weekDayLabels: string[];
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading this period&rsquo;s bookings…</span>
+      <span className="sr-only">{t("calendar.loadingPeriodBookings")}</span>
       {view === "agenda" ? (
         <AgendaSkeleton />
       ) : view === "week" ? (
@@ -146,9 +149,11 @@ function AgendaSkeleton() {
  * showing the day before's numbers under the new day's heading.
  */
 export function CalendarSelectedDaySkeleton() {
+  const { t } = useAppLanguage();
+
   return (
     <div aria-busy="true" aria-live="polite" className="space-y-3 p-3">
-      <span className="sr-only">Loading this date&rsquo;s bookings…</span>
+      <span className="sr-only">{t("calendar.loadingDateBookings")}</span>
       <Skeleton className="h-16 w-full rounded-xl" />
 
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
@@ -179,9 +184,11 @@ export function CalendarSelectedDaySkeleton() {
  * either one again without waiting for the request they just started.
  */
 export function AvailabilityDaysSkeleton() {
+  const { t } = useAppLanguage();
+
   return (
     <div aria-busy="true" aria-live="polite" className="mt-3 space-y-2">
-      <span className="sr-only">Loading availability for this range…</span>
+      <span className="sr-only">{t("calendar.loadingAvailability")}</span>
       {Array.from({ length: 6 }).map((_, index) => (
         <div
           className="flex min-h-16 items-center justify-between gap-3 rounded-xl border border-[#d8dde5] px-3 py-2"

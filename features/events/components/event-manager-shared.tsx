@@ -1,5 +1,6 @@
 "use client";
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import { type ReactNode } from "react";
 
 import {
@@ -196,15 +197,20 @@ export type EventsResponse = {
 /// its branch for it - which is what makes re-listing the label the whole cost
 /// of turning the tab back on.
 const allTabs = [
-  { label: "Event details", icon: "calendar" },
-  { label: "Menu", icon: "document" },
-  { label: "Client portal", icon: "files" },
-  { label: "Billing", icon: "document" },
-  { label: "Hall map", icon: "map" },
-  { label: "Kitchen", icon: "fork" },
-  { label: "Vendors", icon: "store" },
-  { label: "Files", icon: "files" }
-] satisfies Array<{ label: string; icon: IconName }>;
+  { label: "Event details", labelKey: "events.tab.details", icon: "calendar" },
+  { label: "Menu", labelKey: "events.tab.menu", icon: "document" },
+  { label: "Client portal", labelKey: "events.tab.portal", icon: "files" },
+  { label: "Billing", labelKey: "events.tab.billing", icon: "document" },
+  { label: "Hall map", labelKey: "events.tab.hallMap", icon: "map" },
+  { label: "Kitchen", labelKey: "events.tab.kitchen", icon: "fork" },
+  { label: "Vendors", labelKey: "events.tab.vendors", icon: "store" },
+  { label: "Files", labelKey: "events.tab.files", icon: "files" }
+] satisfies Array<{
+  /** Also the tab identifier the workspace switches on, so it stays English. */
+  label: string;
+  labelKey: MessageKey;
+  icon: IconName;
+}>;
 
 /// Billing, Hall map and Files are out of the MVP - see lib/ui/mvp-features.
 export const tabs = allTabs.filter(
@@ -517,17 +523,17 @@ export function MenuThumbnail({
 }
 
 const allPortalChecklist = [
-  ["Event date and time", true],
-  ["Guest count editor", true],
-  ["Client menu selector", true],
-  ["Live total summary", true],
-  ["Hall layout view", true],
-  ["Payment link", true],
-  ["Tablecloth options with pictures", true],
-  ["Add-ons with pictures", true],
-  ["Balance due", true],
-  ["Internal notes", false]
-] as const;
+  ["Event date and time", "events.portal.dateTime", true],
+  ["Guest count editor", "events.portal.guestCount", true],
+  ["Client menu selector", "events.portal.menuSelector", true],
+  ["Live total summary", "events.portal.liveTotal", true],
+  ["Hall layout view", "events.portal.hallLayout", true],
+  ["Payment link", "events.portal.paymentLink", true],
+  ["Tablecloth options with pictures", "events.portal.tablecloths", true],
+  ["Add-ons with pictures", "events.portal.addOns", true],
+  ["Balance due", "events.portal.balanceDue", true],
+  ["Internal notes", "events.portal.internalNotes", false]
+] as const satisfies ReadonlyArray<readonly [string, MessageKey, boolean]>;
 
 export const portalChecklist = allPortalChecklist.filter(
   ([label]) =>

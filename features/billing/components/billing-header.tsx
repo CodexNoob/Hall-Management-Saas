@@ -3,10 +3,12 @@
 import { centerMobileTab } from "@/lib/ui/center-mobile-tab";
 import {
   billingTabIcons,
+  billingTabLabels,
   LineIcon,
   tabs,
   type BillingTab
 } from "@/features/billing/components/billing-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function BillingHeader({
   activeTab,
@@ -15,6 +17,8 @@ export function BillingHeader({
   activeTab: BillingTab;
   setActiveTab: (tab: BillingTab) => void;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="shrink-0 bg-white">
       <nav className="scrollbar-none mt-2 flex min-h-12 shrink-0 flex-nowrap gap-2 overflow-x-auto border-b border-t border-[#d8dde5] px-3 [&::-webkit-scrollbar]:hidden sm:px-4 lg:mt-0 lg:border-t-0">
@@ -36,7 +40,7 @@ export function BillingHeader({
               name={billingTabIcons[tab]}
               className="h-4 w-4 text-[#516174]"
             />
-            {tab}
+            {t(billingTabLabels[tab])}
           </button>
         ))}
       </nav>

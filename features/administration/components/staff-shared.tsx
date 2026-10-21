@@ -16,6 +16,8 @@ import type { AssignmentSummary } from "@/features/access/components/access-shar
 
 export type StaffStatus = "Active" | "Inactive";
 
+export type StaffPresence = "online" | "away" | "offline";
+
 export type IconName =
   | "users"
   | "building"
@@ -42,6 +44,8 @@ export type StaffMember = {
   title: string | null;
   status: StaffStatus;
   lastLogin: string;
+  presence: StaffPresence | null;
+  lastSeenAt: string | null;
   phone: string;
   color: string;
   assignments: AssignmentSummary[];
@@ -139,6 +143,40 @@ export function StatusBadge({ status }: { status: StaffStatus }) {
       className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black ${status === "Active" ? "border-[#a9dfc9] bg-[#effaf5] text-[#147653]" : "border-[#f2b7ba] bg-[#fff2f2] text-[#d63740]"}`}
     >
       {status}
+    </span>
+  );
+}
+
+const presenceDotClass: Record<StaffPresence, string> = {
+  online: "bg-[#1f9d6b]",
+  away: "bg-[#e4a332]",
+  offline: "bg-[#b5bfcc]"
+};
+
+/**
+ * Whether somebody is on the dashboard right now - beside the account status,
+ * never instead of it. "Active" is whether the account may sign in; this is
+ * whether anybody is signed in at this moment.
+ */
+export function PresenceIndicator({
+  presence,
+  label,
+  detail
+}: {
+  presence: StaffPresence;
+  label: string;
+  detail?: string;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[9px] font-black text-[#6a7483]"
+      title={detail}
+    >
+      <span
+        aria-hidden
+        className={`h-2 w-2 shrink-0 rounded-full ${presenceDotClass[presence]}`}
+      />
+      {label}
     </span>
   );
 }

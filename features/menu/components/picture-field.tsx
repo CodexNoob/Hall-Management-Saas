@@ -8,6 +8,7 @@ import {
   PICTURE_ACCEPT_ATTRIBUTE,
   describeUnacceptablePicture
 } from "@/features/menu/lib/upload-menu-picture";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type PictureFieldProps = {
   /**
@@ -54,6 +55,7 @@ export function PictureField({
   onClearStored,
   onRestoreStored
 }: PictureFieldProps) {
+  const { t } = useAppLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
   const [rejection, setRejection] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -114,7 +116,7 @@ export function PictureField({
           visually hidden behind buttons of its own, and a label around them
           would open the picker twice on one click. */}
       <span className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-        Picture
+        {t("menu.picture")}
       </span>
       <div
         className={`mt-1 rounded-xl border-2 border-dashed p-3 transition ${
@@ -159,12 +161,12 @@ export function PictureField({
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-black normal-case tracking-normal text-[#17202a]">
-                {file ? file.name : "Current picture"}
+                {file ? file.name : t("menu.currentPicture")}
               </p>
               <p className="mt-0.5 text-xs font-medium normal-case tracking-normal text-[#6a7483]">
                 {file
                   ? `${formatFileSize(file.size)} - uploads when you save`
-                  : "Saved with this item"}
+                  : t("menu.savedWithItem")}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -173,7 +175,7 @@ export function PictureField({
                   onClick={openPicker}
                   type="button"
                 >
-                  Change
+                  {t("menu.change")}
                 </button>
                 <button
                   className="h-8 rounded-lg border border-[#efb6b6] bg-white px-3 text-xs font-black normal-case tracking-normal text-[#b42318] transition hover:bg-[#fff5f5] disabled:cursor-not-allowed disabled:opacity-60"
@@ -181,7 +183,7 @@ export function PictureField({
                   onClick={handleRemove}
                   type="button"
                 >
-                  Remove
+                  {t("common.remove")}
                 </button>
               </div>
             </div>
@@ -198,7 +200,7 @@ export function PictureField({
           >
             <LineIcon className="h-6 w-6 text-[#8a94a3]" name="upload" />
             <span className="mt-1 text-sm font-black normal-case tracking-normal text-[#17202a]">
-              Drop an image here or click to browse
+              {t("menu.dropImage")}
             </span>
             <span className="text-xs font-medium normal-case tracking-normal text-[#8a94a3]">
               Optional. {PICTURE_ACCEPTED_LABEL}, up to 5 MB.
@@ -218,14 +220,14 @@ export function PictureField({
               onClick={onRestoreStored}
               type="button"
             >
-              Undo
+              {t("menu.undo")}
             </button>
           </p>
         ) : null}
 
         <input
           accept={PICTURE_ACCEPT_ATTRIBUTE}
-          aria-label="Picture"
+          aria-label={t("menu.picture")}
           className="sr-only"
           disabled={isDisabled}
           name="picture"
@@ -246,7 +248,7 @@ export function PictureField({
         </p>
       ) : hasStoredPicture && file ? (
         <p className="mt-1 text-xs font-bold normal-case tracking-normal text-[#6a7483]">
-          Saving replaces the picture this item has now.
+          {t("menu.replacesPicture")}
         </p>
       ) : null}
     </div>

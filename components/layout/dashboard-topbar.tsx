@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 
 import {
+  useCallback,
   useId,
   useMemo,
   useRef,
@@ -15,6 +16,8 @@ import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-per
 import { DashboardTrialBadge } from "@/components/layout/dashboard-trial-pill";
 import { NewBookingDialog } from "@/features/bookings/forms/new-booking-dialog";
 import { isHiddenDashboardRoute } from "@/lib/ui/mvp-features";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 export { DashboardTopbarBrand } from "@/components/layout/dashboard-topbar-brand";
 
 type DashboardTopbarProps = {
@@ -43,7 +46,7 @@ type DashboardTopbarProps = {
 
 type SearchTarget = {
   label: string;
-  description: string;
+  descriptionKey: MessageKey;
   route: string;
   keywords: string[];
 };
@@ -51,55 +54,55 @@ type SearchTarget = {
 const allSearchTargets: SearchTarget[] = [
   {
     label: "Dashboard",
-    description: "Operating day overview",
+    descriptionKey: "nav.search.dashboard",
     route: "/dashboard",
     keywords: ["home", "overview", "schedule", "kpis"]
   },
   {
     label: "Kitchen",
-    description: "Kitchen production board",
+    descriptionKey: "nav.search.kitchen",
     route: "/dashboard/kitchen",
     keywords: ["food", "prep", "production", "items"]
   },
   {
     label: "Calendar",
-    description: "Room availability and bookings",
+    descriptionKey: "nav.search.calendar",
     route: "/dashboard/calendar",
     keywords: ["booking", "date", "month", "rooms"]
   },
   {
     label: "Events",
-    description: "Event manager workspace",
+    descriptionKey: "nav.search.events",
     route: "/dashboard/events",
     keywords: ["event", "client", "wedding", "timeline"]
   },
   {
     label: "Menu",
-    description: "Library, packages, buffet, plated, add-ons",
+    descriptionKey: "nav.search.menu",
     route: "/dashboard/menu",
     keywords: ["menu", "packages", "buffet", "plated", "addons", "add-ons"]
   },
   {
     label: "Clients",
-    description: "Client directory and event history",
+    descriptionKey: "nav.search.clients",
     route: "/dashboard/clients",
     keywords: ["client", "crm", "contacts", "history"]
   },
   {
     label: "Billing",
-    description: "Invoices, balances, transactions",
+    descriptionKey: "nav.search.billing",
     route: "/dashboard/billing",
     keywords: ["invoice", "payment", "balance", "money", "transactions"]
   },
   {
     label: "Dining Manager",
-    description: "Dining room operations",
+    descriptionKey: "nav.search.dining",
     route: "/dashboard/dining-manager",
     keywords: ["dining", "tables", "service"]
   },
   {
     label: "Hall Room Map",
-    description: "Hall layouts and room map",
+    descriptionKey: "nav.search.hallMap",
     route: "/dashboard/hall-room-map",
     keywords: ["hall", "map", "layout", "rooms"]
   }
@@ -112,14 +115,28 @@ const searchTargets: SearchTarget[] = allSearchTargets.filter(
   (target) => !isHiddenDashboardRoute(target.route)
 );
 
-const searchPlaceholders: Record<string, string> = {
-  Kitchen: "Search kitchen events and items",
-  Calendar: "Search bookings, clients and halls",
-  Menu: "Search menu items and packages",
-  Clients: "Search clients and contact details",
-  Vendors: "Search vendors and categories",
-  Staff: "Search staff, roles and departments",
-  Settings: "Search settings"
+const searchPlaceholderKeys: Record<string, MessageKey> = {
+  Kitchen: "nav.placeholder.kitchen",
+  Calendar: "nav.placeholder.calendar",
+  Menu: "nav.placeholder.menu",
+  Clients: "nav.placeholder.clients",
+  Vendors: "nav.placeholder.vendors",
+  Staff: "nav.placeholder.staff",
+  Settings: "nav.placeholder.settings"
+};
+
+const pageTranslationKeys: Record<string, MessageKey> = {
+  Dashboard: "nav.dashboard",
+  Kitchen: "nav.kitchen",
+  Calendar: "nav.calendar",
+  Events: "nav.events",
+  Menu: "nav.menu",
+  Billing: "nav.billing",
+  Staff: "nav.staff",
+  Settings: "nav.settings",
+  "Dining Manager": "nav.dining",
+  "Hall Room Map": "nav.hallMap",
+  Files: "nav.files"
 };
 
 function TopbarIcon({
@@ -188,6 +205,15 @@ export function DashboardTopbar({
   rightSlot,
   showSearch = true
 }: DashboardTopbarProps) {
+  const { t } = useAppLanguage();
+  const translatePage = useCallback(
+    (value: string) => {
+      const key = pageTranslationKeys[value];
+      return key ? t(key) : value;
+    },
+    [t]
+  );
+  const displayTitle = translatePage(title);
   const router = useRouter();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchInputId = useId();
@@ -217,13 +243,22 @@ export function DashboardTopbar({
 
     return visibleSearchTargets
       .filter((target) => {
-        const haystack = [target.label, target.description, ...target.keywords]
+        // Both the English label and its translation are in the haystack, so
+        // somebody working in Spanish can still type "kitchen" and find it.
+        const haystack = [
+          target.label,
+          translatePage(target.label),
+          t(target.descriptionKey),
+          ...target.keywords
+        ]
           .join(" ")
           .toLowerCase();
         return haystack.includes(normalizedQuery);
       })
       .slice(0, 6);
-  }, [searchQuery, visibleSearchTargets]);
+    // `t` and `translatePage` both change identity with the locale, which is
+    // exactly when the list has to be rebuilt.
+  }, [searchQuery, t, translatePage, visibleSearchTargets]);
 
   const goToSearchTarget = (target: SearchTarget) => {
     setSearchQuery("");
@@ -290,7 +325,7 @@ export function DashboardTopbar({
             <div className="order-1 flex min-h-9 min-w-0 shrink items-center pr-26 xl:order-0 xl:block xl:h-auto xl:grow xl:pr-0">
               <div className="flex min-w-0 items-center gap-2 xl:gap-3">
                 <h1 className="min-w-0 truncate text-base font-black tracking-tight text-[#17202a] sm:text-lg xl:text-2xl">
-                  {title}
+                  {displayTitle}
                 </h1>
                 <DashboardTrialBadge />
               </div>
@@ -321,8 +356,9 @@ export function DashboardTopbar({
                       ref={searchInputRef}
                       className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#17202a] outline-none placeholder:text-[#6a7483]"
                       placeholder={
-                        searchPlaceholders[title] ??
-                        `Search ${title.toLowerCase()}`
+                        searchPlaceholderKeys[title]
+                          ? t(searchPlaceholderKeys[title])
+                          : `${t("common.search")} ${displayTitle.toLocaleLowerCase()}`
                       }
                       type="search"
                       value={searchQuery}
@@ -358,10 +394,10 @@ export function DashboardTopbar({
                               </span>
                               <span className="min-w-0">
                                 <span className="block truncate text-sm font-black text-[#17202a]">
-                                  {target.label}
+                                  {translatePage(target.label)}
                                 </span>
                                 <span className="block truncate text-xs font-semibold text-[#6a7483]">
-                                  {target.description}
+                                  {t(target.descriptionKey)}
                                 </span>
                               </span>
                             </button>
@@ -369,7 +405,7 @@ export function DashboardTopbar({
                         </div>
                       ) : (
                         <div className="px-4 py-3 text-sm font-semibold text-[#6a7483]">
-                          No matches found.
+                          {t("common.noMatches")}
                         </div>
                       )}
                     </div>
@@ -387,7 +423,7 @@ export function DashboardTopbar({
                 {showSearch ? (
                   <button
                     aria-expanded={isMobileSearchExpanded}
-                    aria-label="Search"
+                    aria-label={t("common.search")}
                     className="flex h-9 w-8 items-center justify-center bg-transparent text-[#17202a] transition hover:text-[#1f4d73] xl:hidden"
                     onClick={() => {
                       const nextExpanded = !isMobileSearchExpanded;
@@ -399,7 +435,7 @@ export function DashboardTopbar({
                         );
                       }
                     }}
-                    title="Search"
+                    title={t("common.search")}
                     type="button"
                   >
                     <TopbarIcon className="h-6 w-6" name="search" />
@@ -411,10 +447,10 @@ export function DashboardTopbar({
                     <>
                       {showTodayNotesAction ? (
                         <button
-                          aria-label="Open today notes"
+                          aria-label={t("common.openTodayNotes")}
                           type="button"
                           onClick={onTodayNotes}
-                          title="Today notes"
+                          title={t("common.todayNotes")}
                           className="dashboard-topbar-icon-action revision-gradient-stroke flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#17202a] transition hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:rounded-xl xl:border xl:border-[#b9c2cf] xl:bg-white xl:px-4 xl:shadow-sm xl:hover:bg-[#eef4fa] 2xl:px-5"
                           data-needs-revision={
                             todayNotesNeedRevision || undefined
@@ -425,25 +461,27 @@ export function DashboardTopbar({
                             name="notes"
                           />
                           <span className="relative z-1 hidden xl:inline">
-                            Today notes
+                            {t("common.todayNotes")}
                           </span>
                         </button>
                       ) : null}
 
                       {showNewBookingAction ? (
                         <button
-                          aria-label="Create new booking"
+                          aria-label={t("common.createNewBooking")}
                           type="button"
                           disabled={!canCreateBooking}
                           onClick={openNewBooking}
-                          title="New booking"
+                          title={t("common.newBooking")}
                           className="flex h-9 w-8 items-center justify-center whitespace-nowrap bg-transparent p-0 text-xs font-bold text-[#1f4d73] transition hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-[#1f4d73] sm:text-sm xl:h-11 xl:w-auto xl:flex-none xl:gap-2 xl:rounded-xl xl:bg-[#1f4d73] xl:px-4 xl:text-white xl:shadow-lg xl:shadow-[#17202a]/15 xl:hover:-translate-y-0.5 xl:hover:bg-[#15344f] xl:hover:text-white disabled:xl:hover:translate-y-0 disabled:xl:hover:bg-[#1f4d73] 2xl:px-5"
                         >
                           <TopbarIcon
                             className="h-6.5 w-6.5 xl:h-4 xl:w-4"
                             name="plus"
                           />
-                          <span className="hidden xl:inline">New booking</span>
+                          <span className="hidden xl:inline">
+                            {t("common.newBooking")}
+                          </span>
                         </button>
                       ) : null}
                     </>

@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The kitchen tab's body while the event's sheet is on its way.
@@ -18,9 +19,11 @@ function StatTileSkeleton() {
 }
 
 export function EventKitchenSkeleton() {
+  const { t } = useAppLanguage();
+
   return (
     <div aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading this event&rsquo;s kitchen sheet…</span>
+      <span className="sr-only">{t("events.loadingKitchenSheet")}</span>
       <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 lg:grid-cols-4 sm:px-4">
         {Array.from({ length: 4 }).map((_, index) => (
           <StatTileSkeleton key={index} />

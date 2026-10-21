@@ -10,6 +10,7 @@ import {
   type TimelineGroup
 } from "@/components/layout/dashboard-shell-shared";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type BookedEventsSummary = {
   confirmed: number;
@@ -62,13 +63,15 @@ function TotalEventsCard({
   DashboardSummaryCardsProps,
   "annualGroups" | "annualRangeLabel" | "annualTotalEvents" | "isAnnualLoading"
 >) {
+  const { t } = useAppLanguage();
+
   return (
     <article className="overflow-hidden rounded-3xl border border-[#d8dde5] bg-white shadow-sm shadow-[#17202a]/6">
       <div className="p-5 sm:p-7">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-black text-[#07162d] sm:text-xl">
-              Total Events
+              {t("dashboard.summary.totalEvents")}
             </h2>
             <p className="mt-4 text-4xl font-black tracking-tight text-[#07162d]">
               {isAnnualLoading ? "..." : annualTotalEvents}
@@ -98,6 +101,7 @@ function BookedEventsCard({
   DashboardSummaryCardsProps,
   "bookedEvents" | "isDashboardLoading" | "nextUpcomingEvent"
 >) {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Navigation affordances use the any-of route check, so the page never hides
@@ -122,7 +126,7 @@ function BookedEventsCard({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-black text-[#07162d] sm:text-xl">
-              Booked Events
+              {t("dashboard.summary.bookedEvents")}
             </h2>
           </div>
           <CalendarKpiIcon booked />
@@ -137,7 +141,7 @@ function BookedEventsCard({
               <strong className="text-2xl font-black text-[#07162d]">
                 {isDashboardLoading ? "..." : bookedEvents.total}
               </strong>
-              <span className="text-sm font-bold text-[#607089]">Total</span>
+              <span className="text-sm font-bold text-[#607089]">{t("common.total")}</span>
             </div>
           </div>
 
@@ -151,7 +155,7 @@ function BookedEventsCard({
                 "bg-[#eaf7ee] text-[#079447]"
               ],
               [
-                "On Hold",
+                t("dashboard.onHold"),
                 bookedEvents.onHold,
                 bookedOnHoldPercent,
                 "#ffb000",
@@ -202,17 +206,18 @@ function BookedEventsCard({
 function NextUpcomingEventSummary({
   nextUpcomingEvent
 }: Pick<DashboardSummaryCardsProps, "nextUpcomingEvent">) {
+  const { t } = useAppLanguage();
   return (
     <>
       <CalendarKpiIcon booked />
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-black text-[#079447]">
-          Next upcoming event
+          {t("dashboard.summary.nextUpcoming")}
         </span>
         <span className="mt-1 block truncate text-sm font-medium text-[#607089]">
           {nextUpcomingEvent
             ? `${formatEventDate(nextUpcomingEvent.date)} • ${nextUpcomingEvent.time}`
-            : "No upcoming event scheduled"}
+            : t("dashboard.noUpcomingEvent")}
         </span>
       </span>
     </>

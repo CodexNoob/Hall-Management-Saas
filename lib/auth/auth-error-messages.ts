@@ -111,7 +111,17 @@ const REJECTION_MESSAGES_BY_REASON: Record<string, string> = {
   invitation_required:
     "No employee account was found for that email. Ask your organization administrator for an invitation, then sign in with the address they invited.",
   account_deactivated:
-    "This account has been deactivated. Ask your organization administrator to restore it."
+    "This account has been deactivated. Ask your organization administrator to restore it.",
+  /**
+   * Signed out for being idle, not refused.
+   *
+   * Worth its own message rather than an empty login form: somebody who comes
+   * back to a sign-in page they did not ask for wonders whether their account
+   * was tampered with. Saying "this is a policy your organization set" answers
+   * that in one sentence, and naming Settings says who can change it.
+   */
+  session_expired:
+    "You were signed out because this screen was idle. Your organization sets how long that takes in Settings → Security."
 };
 
 export function getAuthRejectionMessage(reason: string | null | undefined) {

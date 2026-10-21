@@ -2,6 +2,8 @@
 
 import React, { type ReactNode } from "react";
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type BillingTab =
   | "Dashboard"
   | "Transactions"
@@ -97,6 +99,18 @@ export const tabs: BillingTab[] = [
   "Reports",
   "Settings"
 ];
+/**
+ * What each tab is called on screen. `BillingTab` itself stays English because
+ * the page switches on it, so the wording lives here rather than in the union.
+ */
+export const billingTabLabels: Record<BillingTab, MessageKey> = {
+  Dashboard: "billing.tab.dashboard",
+  Transactions: "billing.tab.transactions",
+  Invoices: "billing.tab.invoices",
+  "Event Billing": "billing.tab.eventBilling",
+  Reports: "billing.tab.reports",
+  Settings: "billing.tab.settings"
+};
 export const billingTabIcons: Record<BillingTab, IconName> = {
   Dashboard: "bank",
   Transactions: "payment",

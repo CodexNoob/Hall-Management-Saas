@@ -1,3 +1,5 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type SubscriptionPlanId =
   | "free_trial"
   | "starter"
@@ -21,8 +23,12 @@ export type SubscriptionPlan = {
   name: string;
   price: string;
   billingLabel: string;
+  /** The same line, for the dashboard, which translates it. */
+  billingLabelKey: MessageKey;
   description: string;
+  descriptionKey: MessageKey;
   features: string[];
+  featureKeys: MessageKey[];
   limits: SubscriptionPlanLimits;
   popular?: boolean;
   /**
@@ -43,7 +49,9 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     name: "Starter",
     price: "$149",
     billingLabel: "Billed annually",
+    billingLabelKey: "plan.billedAnnually",
     description: "Perfect for small venues",
+    descriptionKey: "plan.starter.description",
     features: [
       "Up to 2 halls",
       "Unlimited bookings",
@@ -51,6 +59,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       "Client management",
       "Invoicing & payments",
       "Email support"
+    ],
+    featureKeys: [
+      "plan.feature.halls2",
+      "plan.feature.unlimitedBookings",
+      "plan.feature.calendarScheduling",
+      "plan.feature.clientManagement",
+      "plan.feature.invoicingPayments",
+      "plan.feature.emailSupport"
     ],
     limits: {
       activeHalls: 2,
@@ -68,7 +84,9 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     name: "Professional",
     price: "$299",
     billingLabel: "Billed annually",
+    billingLabelKey: "plan.billedAnnually",
     description: "Best for growing venues",
+    descriptionKey: "plan.professional.description",
     features: [
       "Up to 10 halls",
       "All Starter features",
@@ -76,6 +94,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       "Reports & analytics",
       "PDF contracts",
       "Priority support"
+    ],
+    featureKeys: [
+      "plan.feature.halls10",
+      "plan.feature.allStarter",
+      "plan.feature.staffManagement",
+      "plan.feature.reportsAnalytics",
+      "plan.feature.pdfContracts",
+      "plan.feature.prioritySupport"
     ],
     limits: {
       activeHalls: 10,
@@ -91,7 +117,9 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     name: "Enterprise",
     price: "$599",
     billingLabel: "Billed annually",
+    billingLabelKey: "plan.billedAnnually",
     description: "For large venues & chains",
+    descriptionKey: "plan.enterprise.description",
     features: [
       "Unlimited halls",
       "All Professional features",
@@ -99,6 +127,14 @@ export const subscriptionPlans: SubscriptionPlan[] = [
       "API access",
       "Dedicated account manager",
       "24/7 premium support"
+    ],
+    featureKeys: [
+      "plan.feature.hallsUnlimited",
+      "plan.feature.allProfessional",
+      "plan.feature.advancedAnalytics",
+      "plan.feature.apiAccess",
+      "plan.feature.accountManager",
+      "plan.feature.premiumSupport"
     ],
     limits: {
       activeHalls: null,
@@ -116,13 +152,22 @@ export const freeTrialPlan: SubscriptionPlan = {
   name: "Free Trial",
   price: "$0",
   billingLabel: "14-day trial",
+  billingLabelKey: "plan.trialLength",
   description: "Try Event Core with one active hall",
+  descriptionKey: "plan.free_trial.description",
   features: [
     "1 active hall",
     "Dashboard access",
     "Calendar & booking tools",
     "Kitchen and dining previews",
     "Upgrade anytime"
+  ],
+  featureKeys: [
+    "plan.feature.hall1",
+    "plan.feature.dashboardAccess",
+    "plan.feature.bookingTools",
+    "plan.feature.kitchenDiningPreviews",
+    "plan.feature.upgradeAnytime"
   ],
   limits: {
     activeHalls: 1,

@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AlertTriangle, ChevronDown, Headphones, MessageSquare, Send, X } from "lucide-react";
 import { useAuthenticatedQuery } from "@/features/dashboard/hooks/use-authenticated-query";
 import { useAuthenticatedMutation } from "@/features/dashboard/hooks/use-authenticated-mutation";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type TicketMessage = {
   id: string;
@@ -76,6 +77,7 @@ export function SupportCenterPanel({
   onFormClose: () => void;
   onFormOpen: () => void;
 }) {
+  const { t } = useAppLanguage();
   const query = useAuthenticatedQuery<TicketsResponse>("/api/support/tickets");
   const {
     mutate: createTicket,
@@ -143,7 +145,7 @@ export function SupportCenterPanel({
           | null;
 
         if (!response.ok) {
-          throw new Error(payload?.error ?? "Unable to load replies.");
+          throw new Error(payload?.error ?? t("support.repliesLoadFailed"));
         }
 
         setMessageStateByTicketId((state) => ({
@@ -161,13 +163,13 @@ export function SupportCenterPanel({
           [ticketId]: {
             messages: state[ticketId]?.messages ?? [],
             isLoading: false,
-            error: error instanceof Error ? error.message : "Unable to load replies.",
+            error: error instanceof Error ? error.message : t("support.repliesLoadFailed"),
             loaded: false
           }
         }));
       }
     },
-    [messageStateByTicketId]
+    [messageStateByTicketId, t]
   );
 
   useEffect(() => {
@@ -196,7 +198,7 @@ export function SupportCenterPanel({
         priority,
         pageUrl: window.location.href,
         browser: navigator.userAgent,
-        device: `${navigator.platform || "Unknown platform"}`,
+        device: `${navigator.platform || t("support.unknownPlatform")}`,
         appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? "web",
         diagnosticContext: {
           viewport: `${window.innerWidth}x${window.innerHeight}`,
@@ -229,7 +231,7 @@ export function SupportCenterPanel({
       const payload = (await response.json().catch(() => null)) as
         | { error?: string; message?: TicketMessage }
         | null;
-      if (!response.ok) throw new Error(payload?.error ?? "Unable to send reply.");
+      if (!response.ok) throw new Error(payload?.error ?? t("support.replyFailed"));
       setMessageStateByTicketId((state) => ({
         ...state,
         [ticketId]: {
@@ -244,7 +246,7 @@ export function SupportCenterPanel({
       setReply("");
       await query.refetch();
     } catch (error) {
-      setReplyError(error instanceof Error ? error.message : "Unable to send reply.");
+      setReplyError(error instanceof Error ? error.message : t("support.replyFailed"));
     } finally {
       setReplyPending(false);
     }
@@ -258,14 +260,14 @@ export function SupportCenterPanel({
             <Headphones className="h-8 w-8 text-[#1f4d73]" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-sm font-black text-[#071427]">Event Core Support</h3>
+            <h3 className="text-sm font-black text-[#071427]">{t("support.title")}</h3>
             <p className="mt-1.5 text-xs leading-5 text-[#617086]">
-              Report a bug and receive a trackable reference number.
+              {t("support.reportBlurb")}
             </p>
           </div>
         </div>
         <button className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white shadow-lg shadow-[#1f4d73]/18 transition hover:bg-[#15344f]" onClick={openForm} type="button">
-          Report a problem <Send className="h-4 w-4" />
+          {t("support.reportProblem")} <Send className="h-4 w-4" />
         </button>
         {query.data?.supportEmail ? (
           <a className="mt-2 block text-center text-xs font-bold text-[#1f4d73] hover:underline" href={`mailto:${query.data.supportEmail}`}>
@@ -277,11 +279,11 @@ export function SupportCenterPanel({
       <section className="rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-4 w-4 text-[#1f4d73]" />
-          <h3 className="text-sm font-black text-[#071427]">Support requests</h3>
+          <h3 className="text-sm font-black text-[#071427]">{t("support.requests")}</h3>
         </div>
         <div className="mt-2 grid gap-2">
-          {query.isLoading ? <p className="text-xs text-[#617086]">Loading requests…</p> : null}
-          {!query.isLoading && !query.data?.tickets.length ? <p className="text-xs leading-5 text-[#617086]">No support requests have been submitted.</p> : null}
+          {query.isLoading ? <p className="text-xs text-[#617086]">{t("support.loadingRequests")}</p> : null}
+          {!query.isLoading && !query.data?.tickets.length ? <p className="text-xs leading-5 text-[#617086]">{t("support.noRequests")}</p> : null}
           {query.data?.tickets.slice(0, 8).map((ticket) => {
             const expanded = expandedTicketId === ticket.id;
             const messageState = messageStateByTicketId[ticket.id];
@@ -309,7 +311,7 @@ export function SupportCenterPanel({
                   <div className="space-y-3 border-t border-[#d8dde5] bg-[#fbfcfd] p-3">
                     <p className="whitespace-pre-wrap text-xs leading-5 text-[#475569]">{ticket.description}</p>
                     {messageState?.isLoading ? (
-                      <p className="text-xs text-[#617086]">Loading replies...</p>
+                      <p className="text-xs text-[#617086]">{t("support.loadingReplies")}</p>
                     ) : null}
                     {messageState?.error ? (
                       <p className="rounded-lg bg-red-50 p-2.5 text-xs font-bold text-red-700">{messageState.error}</p>
@@ -322,10 +324,10 @@ export function SupportCenterPanel({
                     ))}
                     {!['RESOLVED', 'CLOSED'].includes(ticket.status) ? (
                       <div>
-                        <textarea id={`support-reply-${ticket.id}`} name="supportReply" className={`${controlClass} min-h-20 py-2`} onChange={(event) => setReply(event.target.value)} placeholder="Add more information…" value={reply} />
+                        <textarea id={`support-reply-${ticket.id}`} name="supportReply" className={`${controlClass} min-h-20 py-2`} onChange={(event) => setReply(event.target.value)} placeholder={t("support.addMoreInfo")} value={reply} />
                         {replyError ? <p className="mt-1 text-xs font-bold text-red-700">{replyError}</p> : null}
                         <button className="mt-2 rounded-lg bg-[#1f4d73] px-3 py-2 text-xs font-black text-white disabled:opacity-50" disabled={replyPending || reply.trim().length < 2} onClick={() => sendReply(ticket.id)} type="button">
-                          {replyPending ? "Sending…" : "Send reply"}
+                          {replyPending ? t("support.sending") : t("support.sendReply")}
                         </button>
                       </div>
                     ) : null}
@@ -343,29 +345,29 @@ export function SupportCenterPanel({
             <header className="flex items-start gap-3 border-b border-[#d8dde5] p-4 sm:p-5">
               <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#fff4e5] text-[#b45309]"><AlertTriangle className="h-5 w-5" /></span>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#1f4d73]">Event Core Support</p>
-                <h2 className="mt-1 text-xl font-black text-[#071427]" id="support-form-title">Report a problem</h2>
-                <p className="mt-1 text-xs leading-5 text-[#64748b]">Do not include passwords, card details, or authentication codes.</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#1f4d73]">{t("support.title")}</p>
+                <h2 className="mt-1 text-xl font-black text-[#071427]" id="support-form-title">{t("support.reportProblem")}</h2>
+                <p className="mt-1 text-xs leading-5 text-[#64748b]">{t("support.noSecrets")}</p>
               </div>
-              <button aria-label="Close report form" className="p-2" onClick={closeForm} type="button"><X className="h-5 w-5" /></button>
+              <button aria-label={t("support.closeForm")} className="p-2" onClick={closeForm} type="button"><X className="h-5 w-5" /></button>
             </header>
             {createdReference ? (
               <div className="p-6 text-center">
-                <h3 className="text-xl font-black text-[#172033]">Request submitted</h3>
-                <p className="mt-2 text-sm text-[#64748b]">Your support reference is:</p>
+                <h3 className="text-xl font-black text-[#172033]">{t("support.submitted")}</h3>
+                <p className="mt-2 text-sm text-[#64748b]">{t("support.yourReference")}</p>
                 <p className="mt-3 rounded-xl bg-[#eef4fa] p-4 text-lg font-black text-[#1f557d]">{createdReference}</p>
-                <button className="mt-5 rounded-lg bg-[#1f557d] px-5 py-2.5 text-sm font-black text-white" onClick={closeForm} type="button">Done</button>
+                <button className="mt-5 rounded-lg bg-[#1f557d] px-5 py-2.5 text-sm font-black text-white" onClick={closeForm} type="button">{t("common.done")}</button>
               </div>
             ) : (
               <form onSubmit={submit}>
                 <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-                  <label className="text-xs font-black text-[#475569] sm:col-span-2" htmlFor="support-subject">Problem title<input id="support-subject" name="subject" className={controlClass} maxLength={160} minLength={5} onChange={(event) => setSubject(event.target.value)} placeholder="Example: New booking does not save" required value={subject} /></label>
-                  <label className="text-xs font-black text-[#475569]" htmlFor="support-category">Category<select id="support-category" name="category" className={controlClass} onChange={(event) => setCategory(event.target.value as CreateTicketInput["category"])} value={category}><option value="BUG">Bug or error</option><option value="ACCOUNT">Account or login</option><option value="BILLING">Billing or subscription</option><option value="FEATURE_REQUEST">Feature request</option><option value="OTHER">Other</option></select></label>
-                  <label className="text-xs font-black text-[#475569]" htmlFor="support-priority">Priority<select id="support-priority" name="priority" className={controlClass} onChange={(event) => setPriority(event.target.value as CreateTicketInput["priority"])} value={priority}><option value="LOW">Low</option><option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="CRITICAL">Critical — service unavailable</option></select></label>
-                  <label className="text-xs font-black text-[#475569] sm:col-span-2" htmlFor="support-description">What happened?<textarea id="support-description" name="description" className={`${controlClass} min-h-40 py-3`} maxLength={5000} minLength={20} onChange={(event) => setDescription(event.target.value)} placeholder={'Please include:\n1. What you were trying to do\n2. Steps that caused the problem\n3. What you expected\n4. What happened instead'} required value={description} /></label>
+                  <label className="text-xs font-black text-[#475569] sm:col-span-2" htmlFor="support-subject">{t("support.problemTitle")}<input id="support-subject" name="subject" className={controlClass} maxLength={160} minLength={5} onChange={(event) => setSubject(event.target.value)} placeholder={t("support.problemTitleExample")} required value={subject} /></label>
+                  <label className="text-xs font-black text-[#475569]" htmlFor="support-category">{t("common.category")}<select id="support-category" name="category" className={controlClass} onChange={(event) => setCategory(event.target.value as CreateTicketInput["category"])} value={category}><option value="BUG">{t("support.categoryBug")}</option><option value="ACCOUNT">{t("support.categoryAccount")}</option><option value="BILLING">{t("support.categoryBilling")}</option><option value="FEATURE_REQUEST">{t("support.categoryFeature")}</option><option value="OTHER">{t("support.categoryOther")}</option></select></label>
+                  <label className="text-xs font-black text-[#475569]" htmlFor="support-priority">{t("support.priority")}<select id="support-priority" name="priority" className={controlClass} onChange={(event) => setPriority(event.target.value as CreateTicketInput["priority"])} value={priority}><option value="LOW">{t("support.priorityLow")}</option><option value="NORMAL">{t("support.priorityNormal")}</option><option value="HIGH">{t("support.priorityHigh")}</option><option value="CRITICAL">{t("support.priorityCritical")}</option></select></label>
+                  <label className="text-xs font-black text-[#475569] sm:col-span-2" htmlFor="support-description">{t("support.whatHappened")}<textarea id="support-description" name="description" className={`${controlClass} min-h-40 py-3`} maxLength={5000} minLength={20} onChange={(event) => setDescription(event.target.value)} placeholder={t("support.descriptionPlaceholder")} required value={description} /></label>
                   {createTicketError ? <p className="rounded-lg bg-red-50 p-3 text-xs font-bold text-red-700 sm:col-span-2">{createTicketError}</p> : null}
                 </div>
-                <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] p-4"><button className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-2.5 text-sm font-bold" onClick={closeForm} type="button">Cancel</button><button className="rounded-lg bg-[#1f557d] px-4 py-2.5 text-sm font-black text-white disabled:opacity-50" disabled={isCreatingTicket} type="submit">{isCreatingTicket ? "Submitting…" : "Submit request"}</button></footer>
+                <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] p-4"><button className="rounded-lg border border-[#cbd5e1] bg-white px-4 py-2.5 text-sm font-bold" onClick={closeForm} type="button">{t("common.cancel")}</button><button className="rounded-lg bg-[#1f557d] px-4 py-2.5 text-sm font-black text-white disabled:opacity-50" disabled={isCreatingTicket} type="submit">{isCreatingTicket ? t("support.submitting") : t("support.submitRequest")}</button></footer>
               </form>
             )}
           </section>

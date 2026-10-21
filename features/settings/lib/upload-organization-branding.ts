@@ -3,6 +3,8 @@
 import { getCachedAuthSession } from "@/lib/auth/client";
 import { ORGANIZATION_LOGO_BUCKET } from "@/lib/storage/buckets";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { ambientTranslate } from "@/lib/i18n/ambient";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * A logo is drawn at avatar size wherever it appears, so it needs less headroom
@@ -52,14 +54,19 @@ export const BRANDING_ACCEPTED_LABEL = "JPEG, PNG or WebP";
  */
 export function describeUnacceptableImage(
   file: File,
-  { subject, maxBytes }: { subject: string; maxBytes: number }
+  { subjectKey, maxBytes }: { subjectKey: MessageKey; maxBytes: number }
 ) {
+  const subject = ambientTranslate(subjectKey);
+
   if (!EXTENSION_BY_CONTENT_TYPE[file.type]) {
-    return `The ${subject} must be a JPEG, PNG or WebP image.`;
+    return ambientTranslate("files.brandingType", { subject });
   }
 
   if (file.size > maxBytes) {
-    return `The ${subject} must be ${Math.round(maxBytes / (1024 * 1024))} MB or smaller.`;
+    return ambientTranslate("files.brandingSize", {
+      mb: Math.round(maxBytes / (1024 * 1024)),
+      subject
+    });
   }
 
   return null;
@@ -67,14 +74,14 @@ export function describeUnacceptableImage(
 
 export function describeUnacceptableLogo(file: File) {
   return describeUnacceptableImage(file, {
-    subject: "logo",
+    subjectKey: "settings.subjectLogo",
     maxBytes: MAX_LOGO_BYTES
   });
 }
 
 export function describeUnacceptablePortalHeaderImage(file: File) {
   return describeUnacceptableImage(file, {
-    subject: "header image",
+    subjectKey: "settings.subjectHeaderImage",
     maxBytes: MAX_PORTAL_HEADER_BYTES
   });
 }

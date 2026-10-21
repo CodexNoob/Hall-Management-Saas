@@ -9,6 +9,7 @@ import {
 } from "@/features/dashboard/hooks/use-authenticated-query";
 import { readApiError } from "@/lib/http/api-request-error";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The list of people a dish can be assigned to.
@@ -74,6 +75,7 @@ export function ManageWorkersDialog({
   onClose: () => void;
   open: boolean;
 }) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const nameId = useId();
   const nameInputRef = useRef<HTMLSelectElement>(null);
@@ -143,7 +145,7 @@ export function ManageWorkersDialog({
       setError(
         writeError instanceof Error
           ? writeError.message
-          : "Unable to save changes."
+          : t("kitchen.saveChangesFailed")
       );
       return false;
     } finally {
@@ -186,15 +188,15 @@ export function ManageWorkersDialog({
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] px-5 py-4">
           <div>
             <h2 className="text-lg font-black text-[#17202a]" id={titleId}>
-              Kitchen workers
+              {t("kitchen.workers")}
             </h2>
             <p className="mt-1 text-sm text-[#64748b]">
-              The people a dish can be assigned to on the board.
+              {t("kitchen.workersBlurb")}
             </p>
           </div>
 
           <button
-            aria-label="Close kitchen workers"
+            aria-label={t("kitchen.closeWorkers")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -221,7 +223,7 @@ export function ManageWorkersDialog({
               <form className="mb-4" onSubmit={addWorker}>
                 <label htmlFor={nameId}>
                   <span className="block text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
-                    Add Kitchen Staff member
+                    {t("kitchen.addStaffMember")}
                   </span>
                 </label>
                 {/* Chosen from staff rather than typed. A typed name produced a
@@ -231,14 +233,14 @@ export function ManageWorkersDialog({
                 <div className="mt-1 flex gap-2">
                   <select
                     ref={nameInputRef}
-                    aria-label="Add Kitchen Staff member"
+                    aria-label={t("kitchen.addStaffMember")}
                     className={inputClass}
                     id={nameId}
                     name="workerUserId"
                     onChange={(event) => setSelectedUserId(event.target.value)}
                     value={selectedUserId}
                   >
-                    <option value="">Select a staff member</option>
+                    <option value="">{t("kitchen.selectStaffMember")}</option>
                     {availableStaff.map((staff) => (
                       <option key={staff.id} value={staff.id}>
                         {staff.name}
@@ -250,12 +252,12 @@ export function ManageWorkersDialog({
                     disabled={isSaving || !selectedUserId}
                     type="submit"
                   >
-                    Add
+                    {t("kitchen.add")}
                   </button>
                 </div>
 
                 <fieldset className="mt-2 flex items-center gap-2">
-                  <legend className="sr-only">Colour</legend>
+                  <legend className="sr-only">{t("kitchen.colour")}</legend>
                   {COLOR_CHOICES.map((choice) => (
                     <label
                       className="cursor-pointer"
@@ -282,18 +284,16 @@ export function ManageWorkersDialog({
             ) : (
               <div className="mb-4 rounded-lg border border-[#d8dde5] bg-[#fbfcfd] px-3 py-3">
                 <p className="text-xs font-black uppercase tracking-[0.04em] text-[#53627a]">
-                  Kitchen worker roster is up to date
+                  {t("kitchen.rosterUpToDate")}
                 </p>
                 <p className="mt-1 text-sm font-medium text-[#64748b]">
-                  Everyone currently designated as a kitchen worker is already
-                  on this board. Change production access from the Staff page.
+                  {t("kitchen.rosterCompleteBody")}
                 </p>
               </div>
             )
           ) : (
             <p className="mb-4 rounded-lg border border-[#f3c679] bg-[#fff9ef] px-3 py-3 text-xs font-bold text-[#80500c]">
-              You do not have permission to manage kitchen workers. Contact an
-              administrator if you need access.
+              {t("kitchen.noPermissionWorkers")}
             </p>
           )}
 
@@ -314,8 +314,8 @@ export function ManageWorkersDialog({
             />
           ) : workers.length === 0 ? (
             <AsyncState
-              emptyMessage="Add the people who cook, and they become assignable on every dish."
-              emptyTitle="No kitchen workers yet"
+              emptyMessage={t("kitchen.noWorkersBody")}
+              emptyTitle={t("kitchen.noWorkersYet")}
               isEmpty
             />
           ) : (
@@ -343,14 +343,14 @@ export function ManageWorkersDialog({
                           onClick={() => void renameWorker(worker.id)}
                           type="button"
                         >
-                          Save
+                          {t("common.save")}
                         </button>
                         <button
                           className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
                           onClick={() => setEditingId(null)}
                           type="button"
                         >
-                          Cancel
+                          {t("common.cancel")}
                         </button>
                       </>
                     ) : (
@@ -370,7 +370,7 @@ export function ManageWorkersDialog({
                               }}
                               type="button"
                             >
-                              Rename
+                              {t("kitchen.rename")}
                             </button>
                             <button
                               className="h-9 rounded-lg border border-[#f0b9b4] bg-white px-3 text-xs font-black text-[#b42318] hover:bg-[#fff5f4] disabled:opacity-40"
@@ -383,7 +383,7 @@ export function ManageWorkersDialog({
                               }
                               type="button"
                             >
-                              Retire
+                              {t("kitchen.retire")}
                             </button>
                           </>
                         ) : null}
@@ -396,7 +396,7 @@ export function ManageWorkersDialog({
               {retired.length > 0 ? (
                 <section className="mt-4">
                   <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-                    Retired
+                    {t("kitchen.retired")}
                   </h3>
                   {/* Kept rather than deleted so finished work keeps the name
                       of whoever did it. */}
@@ -421,7 +421,7 @@ export function ManageWorkersDialog({
                             }
                             type="button"
                           >
-                            Restore
+                            {t("kitchen.restore")}
                           </button>
                         ) : null}
                       </li>

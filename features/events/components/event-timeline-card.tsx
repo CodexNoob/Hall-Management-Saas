@@ -6,6 +6,7 @@ import {
   LineIcon,
   type EventFile
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type TimelineItem = {
   id: string;
@@ -160,6 +161,7 @@ export function TimelineInstructions({
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
+  const { t } = useAppLanguage();
   const [rows, setRows] = useState<TimelineItem[]>(() =>
     initialTimeline(event)
   );
@@ -210,7 +212,7 @@ export function TimelineInstructions({
       const result = (await response.json()) as { error?: string };
 
       if (!response.ok)
-        throw new Error(result.error ?? "Could not save timeline.");
+        throw new Error(result.error ?? t("events.timelineSaveFailed"));
 
       // Readiness and the confirmed chip both read the stored event, so they
       // only catch up once the saved row has been refetched.
@@ -218,13 +220,13 @@ export function TimelineInstructions({
       setMessageType("success");
       setMessage(
         confirmed
-          ? "Timeline confirmed. Staff can now follow this event schedule."
-          : "Timeline saved. Your draft changes were saved successfully."
+          ? t("events.timelineConfirmed")
+          : t("events.timelineSaved")
       );
     } catch (error) {
       setMessageType("error");
       setMessage(
-        error instanceof Error ? error.message : "Could not save timeline."
+        error instanceof Error ? error.message : t("events.timelineSaveFailed")
       );
     } finally {
       setIsSaving(false);
@@ -259,19 +261,19 @@ export function TimelineInstructions({
       const result = (await response.json()) as { error?: string };
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Could not save the package default.");
+        throw new Error(result.error ?? t("events.packageDefaultFailed"));
       }
 
       setMessageType("success");
       setMessage(
-        `Saved. ${event.packageName} now starts from this schedule when it is added to an event that has none.`
+        t("events.packageDefaultSaved", { name: event.packageName })
       );
     } catch (error) {
       setMessageType("error");
       setMessage(
         error instanceof Error
           ? error.message
-          : "Could not save the package default."
+          : t("events.packageDefaultFailed")
       );
     } finally {
       setIsSaving(false);
@@ -289,10 +291,10 @@ export function TimelineInstructions({
           <LineIcon name="clock" className="h-5 w-5 shrink-0" />
           <div className="min-w-0">
             <h2 className="min-w-0 text-sm font-black leading-tight text-[#17202a] @lg:text-base">
-              Timeline instructions
+              {t("events.timelineInstructions")}
             </h2>
             <p className="mt-0.5 text-xs font-semibold leading-4 text-[#64748b]">
-              What staff and the kitchen follow on the day.
+              {t("events.timelineBlurb")}
             </p>
           </div>
           <span
@@ -325,19 +327,19 @@ export function TimelineInstructions({
                   time:
                     current.findLast((item) => !isCueRow(item))?.time ??
                     "12:00 PM",
-                  text: "New timeline instruction",
+                  text: t("events.newTimelineInstruction"),
                   type: "Event"
                 }
               ])
             }
           >
             <LineIcon name="plus" className="h-5 w-5" />
-            Add time
+            {t("events.addTime")}
           </button>
           <button
             className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-medium hover:bg-[#eef4fa]"
             type="button"
-            title="Add an instruction that waits on something else, such as after the soup is served."
+            title={t("events.cueHint")}
             onClick={() =>
               setRows((current) => [
                 ...current,
@@ -348,14 +350,14 @@ export function TimelineInstructions({
                   // beneath.
                   time: "",
                   cue: "",
-                  text: "New timeline instruction",
+                  text: t("events.newTimelineInstruction"),
                   type: "Event"
                 }
               ])
             }
           >
             <LineIcon name="plus" className="h-5 w-5" />
-            Add cue
+            {t("events.addCue")}
           </button>
         </div>
       </header>
@@ -363,8 +365,7 @@ export function TimelineInstructions({
       <div className="space-y-3 p-3 @lg:p-4">
         {rows.length === 0 ? (
           <p className="rounded-lg border border-dashed border-[#b9c2cf] px-3 py-4 text-center text-xs font-semibold text-[#64748b]">
-            No timeline instructions yet. Add a time for something that happens
-            at a set hour, or a cue for something that waits on another step.
+            {t("events.noTimelineYet")}
           </p>
         ) : null}
         {rows.map((row) => (
@@ -379,14 +380,14 @@ export function TimelineInstructions({
               <button
                 aria-label={
                   isCueRow(row)
-                    ? `Give ${row.text} a clock time instead of a cue`
-                    : `Give ${row.text} a cue instead of a clock time`
+                    ? t("events.giveClockTime", { name: row.text })
+                    : t("events.giveCue", { name: row.text })
                 }
                 className="flex h-8 w-7 shrink-0 items-center justify-center rounded-md text-[#64748b] hover:bg-[#eef4fa] hover:text-[#17202a]"
                 title={
                   isCueRow(row)
-                    ? "Waits on something else. Switch to a clock time."
-                    : "Runs at a clock time. Switch to a cue."
+                    ? t("events.waitsOnSomething")
+                    : t("events.runsAtClockTime")
                 }
                 type="button"
                 onClick={() =>
@@ -403,11 +404,11 @@ export function TimelineInstructions({
               </button>
               {isCueRow(row) ? (
                 <input
-                  aria-label={`Timeline cue for ${row.text}`}
+                  aria-label={t("events.timelineCueFor", { name: row.text })}
                   className="min-w-0 flex-1 bg-transparent outline-none"
                   id={`timeline-${row.id}-cue`}
                   name={`timeline-${row.id}-cue`}
-                  placeholder="After the soup"
+                  placeholder={t("events.afterTheSoup")}
                   value={row.cue}
                   onChange={(changeEvent) =>
                     updateRow(row.id, { cue: changeEvent.target.value })
@@ -415,7 +416,7 @@ export function TimelineInstructions({
                 />
               ) : (
                 <input
-                  aria-label={`Timeline time for ${row.text}`}
+                  aria-label={t("events.timelineTimeFor", { name: row.text })}
                   className="min-w-0 flex-1 bg-transparent outline-none"
                   id={`timeline-${row.id}-time`}
                   name={`timeline-${row.id}-time`}
@@ -450,12 +451,12 @@ export function TimelineInstructions({
                   type: changeEvent.target.value as TimelineItem["type"]
                 })
               }
-              aria-label={`${row.text} timeline type`}
+              aria-label={t("events.timelineTypeFor", { name: row.text })}
               name={`timeline-${row.id}-type`}
             >
-              <option>Event</option>
-              <option>Kitchen</option>
-              <option>Staff</option>
+              <option value="Event">{t("common.event")}</option>
+              <option value="Kitchen">{t("events.forKitchen")}</option>
+              <option value="Staff">{t("events.forStaff")}</option>
             </select>
             <button
               className="flex h-11 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white hover:bg-[#eef4fa]"
@@ -483,7 +484,7 @@ export function TimelineInstructions({
           onClick={() => void persist(false)}
         >
           <LineIcon name="save" className="h-4 w-4" />
-          {isSaving ? "Saving..." : "Save timeline"}
+          {isSaving ? t("common.savingEllipsis") : t("events.saveTimeline")}
         </button>
         <button
           className="inline-flex h-11 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-45 @lg:text-sm"
@@ -495,15 +496,15 @@ export function TimelineInstructions({
           disabled={isSaving || isConfirmed || rows.length === 0}
           title={
             isConfirmed
-              ? "This timeline is already confirmed."
+              ? t("events.timelineAlreadyConfirmed")
               : rows.length === 0
-                ? "Add at least one timeline instruction before confirming it."
-                : "Save this schedule and confirm it for staff"
+                ? t("events.addInstructionBeforeConfirm")
+                : t("events.saveAndConfirmForStaff")
           }
           onClick={() => void persist(true)}
         >
           <LineIcon name="check" className="h-4 w-4" />
-          Confirm timeline
+          {t("events.confirmTimeline")}
         </button>
 
         {/*
@@ -519,8 +520,10 @@ export function TimelineInstructions({
             disabled={isSaving || rows.length === 0}
             title={
               rows.length === 0
-                ? "Add at least one timeline instruction first."
-                : `Make this the schedule ${event.packageName} starts from`
+                ? t("events.addInstructionFirst")
+                : t("events.makeDefaultSchedule", {
+                    package: event.packageName ?? ""
+                  })
             }
             onClick={() => {
               setMessage("");
@@ -528,7 +531,7 @@ export function TimelineInstructions({
             }}
           >
             <LineIcon name="store" className="h-4 w-4" />
-            Save as package default
+            {t("events.saveAsPackageDefault")}
           </button>
         ) : null}
 
@@ -578,9 +581,7 @@ export function TimelineInstructions({
               it, as a draft for staff to confirm.
             </p>
             <p className="mt-2 text-sm text-[#516071]">
-              An event that already has a timeline keeps its own - nothing
-              anybody has written is replaced. Any default this package already
-              carries is overwritten.
+              {t("events.packageDefaultBlurb")}
             </p>
 
             <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -589,7 +590,7 @@ export function TimelineInstructions({
                 onClick={() => setIsConfirmingDefault(false)}
                 type="button"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 className="h-9 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-45"
@@ -597,7 +598,7 @@ export function TimelineInstructions({
                 onClick={() => void saveAsPackageDefault()}
                 type="button"
               >
-                Save as default
+                {t("events.saveAsDefault")}
               </button>
             </div>
           </section>

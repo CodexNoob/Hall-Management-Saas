@@ -23,8 +23,10 @@ import {
   EVENT_FOLDER_SECTIONS,
   resolveDestinationFolder
 } from "@/features/files/lib/event-folders";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
-const ALL_FILES = "All files";
+/** Sentinel for "no folder filter". Compared against, never printed raw. */
+const ALL_FILES = "all-files";
 
 /**
  * The event's documents, read from the same StoredFile rows the Files page
@@ -44,6 +46,7 @@ export function EventFilesContent({
   clientName: string;
   eventType: string;
 }) {
+  const { t } = useAppLanguage();
   const canEdit = useDashboardPermission("file.create");
   const filesQuery = useAuthenticatedQuery<FilesResponse>("/api/files");
   const folderMutation = useAuthenticatedMutation<
@@ -124,7 +127,7 @@ export function EventFilesContent({
   async function uploadFile(values: AddFileFormValues) {
     const bucket = filesQuery.data?.bucket;
     if (!bucket) {
-      setUploadError("Storage is unavailable. Reload the page and try again.");
+      setUploadError(t("events.storageUnavailable"));
       return;
     }
 
@@ -161,7 +164,7 @@ export function EventFilesContent({
       setUploadError(
         error instanceof Error
           ? error.message
-          : "That file could not be uploaded."
+          : t("events.fileUploadFailed")
       );
     } finally {
       setIsUploading(false);
@@ -174,7 +177,7 @@ export function EventFilesContent({
       await openStoredFile(fileId);
     } catch (error) {
       setActionError(
-        error instanceof Error ? error.message : "That file could not be opened."
+        error instanceof Error ? error.message : t("events.fileOpenFailed")
       );
     }
   }
@@ -227,23 +230,22 @@ export function EventFilesContent({
             onClick={() => setIsAddFileOpen(true)}
           >
             <LineIcon name="upload" className="h-3.5 w-3.5" />
-            Upload file
+            {t("events.uploadFile")}
           </button>
         </header>
 
         {filesQuery.isLoading ? (
           <p className="p-4 text-sm font-medium text-[#6a7483]">
-            Loading files...
+            {t("events.loadingFiles")}
           </p>
         ) : visibleFiles.length === 0 ? (
           <div className="flex min-h-40 flex-col items-center justify-center px-6 text-center">
             <LineIcon name="files" className="h-8 w-8 text-[#b9c2cf]" />
             <p className="mt-3 text-sm font-black text-[#17202a]">
-              No files yet
+              {t("events.noFiles")}
             </p>
             <p className="mt-1 max-w-sm text-xs text-[#6a7483]">
-              Contracts, layouts and approvals uploaded here stay attached to
-              this event and appear in the Files page.
+              {t("events.filesBlurb")}
             </p>
           </div>
         ) : (
@@ -276,7 +278,7 @@ export function EventFilesContent({
                     onClick={() => openFile(file.id)}
                     type="button"
                   >
-                    Open
+                    {t("events.open")}
                   </button>
                 </div>
               </article>

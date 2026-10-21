@@ -1,4 +1,5 @@
 import { countSchema, parseNumericInput } from "@/lib/validation/number";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { z } from "zod";
 
 /**
@@ -179,6 +180,20 @@ export const COUNT_BASIS_LABELS: Record<CountBasis, string> = {
   Event: "event"
 };
 
+/** The same ten, as catalog keys. The map above is the English fallback. */
+export const COUNT_BASIS_KEYS: Record<CountBasis, MessageKey> = {
+  TotalGuests: "menu.basisTotalGuests",
+  Couples: "menu.basisCouples",
+  Men: "menu.basisMen",
+  Ladies: "menu.basisLadies",
+  Boys: "menu.basisBoys",
+  Girls: "menu.basisGirls",
+  Kids: "menu.basisKids",
+  Waiters: "menu.basisWaiters",
+  Tables: "menu.basisTables",
+  Event: "menu.basisEvent"
+};
+
 /**
  * `Exact` is the one that matters: you always round trays up, and you never
  * round plates at all. A kitchen sheet printing "6.23 trays" is a kitchen sheet
@@ -189,6 +204,14 @@ export const ROUNDING_MODES = ["Up", "Down", "Nearest", "Exact"] as const;
 export type RoundingMode = (typeof ROUNDING_MODES)[number];
 
 export const roundingModeSchema = z.enum(ROUNDING_MODES);
+
+/** What each mode is called in the picker. `Exact` does not round at all. */
+export const ROUNDING_MODE_KEYS: Record<RoundingMode, MessageKey> = {
+  Up: "menu.roundUp",
+  Down: "menu.roundDown",
+  Nearest: "menu.roundNearest",
+  Exact: "menu.noRounding"
+};
 
 export const DEFAULT_ROUNDING: RoundingMode = "Up";
 
@@ -265,16 +288,41 @@ export function findRuleForStyle(
   return services.find((service) => service.serviceStyle === style) ?? null;
 }
 
-export function formatServiceRule(rule: MenuItemServiceRule | null) {
-  if (!rule) return "No counting rule set";
+export type MenuTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
 
-  const basis = COUNT_BASIS_LABELS[rule.perBasis];
-  const base =
-    rule.perBasis === "Event"
+export function formatServiceRule(
+  rule: MenuItemServiceRule | null,
+  t?: MenuTranslate
+) {
+  if (!rule) {
+    return t ? t("menu.noCountingRule") : "No counting rule set";
+  }
+
+  const basis = t
+    ? t(COUNT_BASIS_KEYS[rule.perBasis])
+    : COUNT_BASIS_LABELS[rule.perBasis];
+
+  const base = t
+    ? rule.perBasis === "Event"
+      ? t("menu.rulePerEvent", { quantity: rule.quantity, unit: rule.unit })
+      : t("menu.rulePerBasis", {
+          basis,
+          per: rule.per,
+          quantity: rule.quantity,
+          unit: rule.unit
+        })
+    : rule.perBasis === "Event"
       ? `${rule.quantity} ${rule.unit} per event`
       : `${rule.quantity} ${rule.unit} per ${rule.per} ${basis}`;
 
-  return rule.minimumUnits ? `${base}, min ${rule.minimumUnits}` : base;
+  if (!rule.minimumUnits) return base;
+
+  return t
+    ? t("menu.ruleWithMinimum", { minimum: rule.minimumUnits, rule: base })
+    : `${base}, min ${rule.minimumUnits}`;
 }
 
 /**

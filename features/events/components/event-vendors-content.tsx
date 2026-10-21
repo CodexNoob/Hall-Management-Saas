@@ -4,20 +4,22 @@ import {
   Badge,
   LineIcon
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function EventVendorsContent() {
+  const { t } = useAppLanguage();
   const vendorRows = [
     {
       vendor: "Royal Linen",
-      order: "Tablecloth order",
+      order: t("events.tableclothOrder"),
       status: "Pending",
-      notes: "Need ivory count"
+      notes: t("events.needIvoryCount")
     },
     {
       vendor: "Sweet House",
-      order: "Dessert cups",
+      order: t("events.dessertCups"),
       status: "Confirmed",
-      notes: "Delivery 4:30 PM"
+      notes: t("events.deliveryTime")
     }
   ];
 
@@ -27,7 +29,7 @@ export function EventVendorsContent() {
         <div className="flex items-center gap-2">
           <LineIcon name="store" className="h-4 w-4 text-[#17202a]" />
           <h2 className="text-sm font-black text-[#17202a]">
-            Vendors for this event
+            {t("events.vendorsForEvent")}
           </h2>
         </div>
       </header>
@@ -36,10 +38,10 @@ export function EventVendorsContent() {
         <table className="w-full min-w-190 text-left text-sm">
           <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
             <tr className="border-b border-[#d8dde5]">
-              <th className="px-2 py-3">Vendor</th>
-              <th className="px-2 py-3">Order</th>
-              <th className="px-2 py-3">Status</th>
-              <th className="px-2 py-3">Notes</th>
+              <th className="px-2 py-3">{t("events.vendor")}</th>
+              <th className="px-2 py-3">{t("events.order")}</th>
+              <th className="px-2 py-3">{t("common.status")}</th>
+              <th className="px-2 py-3">{t("common.notes")}</th>
             </tr>
           </thead>
           <tbody className="text-[#17202a]">

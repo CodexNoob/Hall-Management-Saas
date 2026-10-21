@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type Folder = {
   id: string;
@@ -168,11 +169,13 @@ export function DriveSyncBadge({
 }: {
   status: DriveStatusResponse | null | undefined;
 }) {
+  const { t } = useAppLanguage();
+
   if (!status) return null;
 
   return status.configured ? (
-    <SyncBadge>Google Drive synced</SyncBadge>
+    <SyncBadge>{t("files.driveSynced")}</SyncBadge>
   ) : (
-    <SyncBadge tone="off">Drive sync not connected</SyncBadge>
+    <SyncBadge tone="off">{t("files.driveNotConnected")}</SyncBadge>
   );
 }

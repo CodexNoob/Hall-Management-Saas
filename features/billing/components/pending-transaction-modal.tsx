@@ -8,17 +8,46 @@ import {
   type IconName
 } from "@/features/billing/components/billing-shared";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const reviewFields: Array<{
   icon: IconName;
+  /** Also the row identifier this modal branches on, so it stays English. */
   label: string;
-  value: string;
+  labelKey: MessageKey;
+  valueKey: MessageKey;
 }> = [
-  { icon: "invoice", label: "Category", value: "Uncategorized" },
-  { icon: "settings", label: "Split transaction", value: "1 split line" },
-  { icon: "payment", label: "Event", value: "Unassigned" },
-  { icon: "invoice", label: "Invoice", value: "No invoice selected" },
-  { icon: "upload", label: "Attachment", value: "No file attached" }
+  {
+    icon: "invoice",
+    label: "Category",
+    labelKey: "common.category",
+    valueKey: "billing.uncategorized"
+  },
+  {
+    icon: "settings",
+    label: "Split transaction",
+    labelKey: "billing.splitTransaction",
+    valueKey: "billing.oneSplitLine"
+  },
+  {
+    icon: "payment",
+    label: "Event",
+    labelKey: "common.event",
+    valueKey: "billing.unassigned"
+  },
+  {
+    icon: "invoice",
+    label: "Invoice",
+    labelKey: "billing.invoiceLabel",
+    valueKey: "billing.noInvoiceSelected"
+  },
+  {
+    icon: "upload",
+    label: "Attachment",
+    labelKey: "billing.attachment",
+    valueKey: "billing.noFileAttached"
+  }
 ];
 
 type Transaction = BillingResponse["transactions"][number];
@@ -39,6 +68,7 @@ export function PendingTransactionModal({
   onSaved: () => Promise<unknown>;
   transaction: Transaction;
 }) {
+  const { t } = useAppLanguage();
   const [mode, setMode] = useState<"Categorize" | "Match" | "Transfer">(
     "Categorize"
   );
@@ -89,7 +119,7 @@ export function PendingTransactionModal({
             : { action, category };
       if (action === "match" && !transaction.eventId)
         throw new Error(
-          "Assign this transaction to an event before matching it."
+          t("billing.assignBeforeMatching")
         );
       const response = await authenticatedFetch(
         `/api/billing/transactions/${transaction.id}`,
@@ -97,12 +127,12 @@ export function PendingTransactionModal({
       );
       const payload = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(payload.error ?? "Unable to post transaction.");
+        throw new Error(payload.error ?? t("billing.postFailed"));
       await onSaved();
       onClose();
     } catch (cause) {
       setError(
-        cause instanceof Error ? cause.message : "Unable to post transaction."
+        cause instanceof Error ? cause.message : t("billing.postFailed")
       );
     } finally {
       setPosting(false);
@@ -146,15 +176,15 @@ export function PendingTransactionModal({
                   className="truncate text-base font-black sm:text-lg"
                   id="transaction-review-title"
                 >
-                  Review recent transaction
+                  {t("billing.reviewRecentTransaction")}
                 </h2>
                 <p className="truncate text-xs font-semibold text-white/60">
-                  Confirm how this bank activity should post in Event Core.
+                  {t("billing.confirmPosting")}
                 </p>
               </div>
             </div>
             <button
-              aria-label="Close transaction review"
+              aria-label={t("billing.closeTransactionReview")}
               className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white transition hover:bg-white/10"
               onClick={onClose}
               type="button"
@@ -171,13 +201,15 @@ export function PendingTransactionModal({
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate text-lg font-black sm:text-xl">
-                    {transaction.event?.clientName || "Unassigned transaction"}
+                    {transaction.event?.clientName || t("billing.unassignedTransaction")}
                   </h3>
-                  <Pill tone="gold">Needs review</Pill>
+                  <Pill tone="gold">{t("billing.needsReviewBadge")}</Pill>
                 </div>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-[0.04em] text-[#6a7483]">
-                  {(transaction.provider || "Manual entry").toUpperCase()} ·
-                  Bank transaction
+                  {(
+                    transaction.provider || t("billing.manualEntry")
+                  ).toUpperCase()}{" "}
+                  · {t("billing.bankTransaction")}
                 </p>
               </div>
               <div className="shrink-0 sm:text-right">
@@ -193,19 +225,19 @@ export function PendingTransactionModal({
               </div>
             </div>
             <div className="grid grid-cols-2 border-t border-[#d8dde5] bg-[#fbfcfd] text-xs sm:grid-cols-4">
-              <TransactionMeta label="Source" value="Bank feed" />
+              <TransactionMeta label={t("billing.source")} value={t("billing.bankFeed")} />
               <TransactionMeta
-                label="Method"
+                label={t("billing.method")}
                 value={transaction.provider || "Manual"}
               />
-              <TransactionMeta label="Status" value={transaction.status} />
+              <TransactionMeta label={t("common.status")} value={transaction.status} />
               <div className="min-w-0 border-[#d8dde5] px-3 py-2.5 even:border-l sm:border-l">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-[#6a7483]">
-                    Reference
+                    {t("billing.reference")}
                   </p>
                   <button
-                    aria-label="Copy full transaction reference"
+                    aria-label={t("billing.copyReference")}
                     className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black text-[#1f4d73] transition hover:bg-[#eef4fa]"
                     onClick={copyReference}
                     title={reference}
@@ -225,7 +257,7 @@ export function PendingTransactionModal({
           </article>
 
           <nav
-            aria-label="Transaction review action"
+            aria-label={t("billing.reviewAction")}
             className="mt-4 grid grid-cols-3 overflow-hidden rounded-lg border border-[#b9c2cf] bg-white"
           >
             {(["Categorize", "Match", "Transfer"] as const).map(
@@ -245,9 +277,9 @@ export function PendingTransactionModal({
 
           <section className="mt-4 overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
             <div className="border-b border-[#d8dde5] px-4 py-3">
-              <h3 className="text-sm font-black">Posting details</h3>
+              <h3 className="text-sm font-black">{t("billing.postingDetails")}</h3>
               <p className="mt-0.5 text-xs text-[#6a7483]">
-                Complete the required fields before posting this transaction.
+                {t("billing.completeRequiredFields")}
               </p>
             </div>
             <div className="divide-y divide-[#edf0f4] px-4">
@@ -261,7 +293,7 @@ export function PendingTransactionModal({
                   </span>
                   <span className="min-w-0">
                     <span className="block text-xs font-semibold text-[#6a7483]">
-                      {field.label}
+                      {t(field.labelKey)}
                       {field.label === "Category" ? " *" : ""}
                     </span>
                     <strong className="block truncate text-sm text-[#17202a]">
@@ -270,24 +302,24 @@ export function PendingTransactionModal({
                         : field.label === "Split transaction"
                           ? split
                             ? "2 split lines"
-                            : "Not split"
-                          : field.value}
+                            : t("billing.notSplit")
+                          : t(field.valueKey)}
                     </strong>
                   </span>
                   {field.label === "Category" ? (
                     <select
-                      aria-label="Transaction category"
+                      aria-label={t("billing.transactionCategory")}
                       className="h-9 rounded-lg border border-[#b9c2cf] px-2 text-xs"
                       onChange={(event) => setCategory(event.target.value)}
                       value={category}
                     >
                       {[
                         "Uncategorized",
-                        "Event Deposit",
-                        "Final Payment",
-                        "Vendor Cost",
-                        "Food Purchase",
-                        "Staff Payroll",
+                        t("billing.catEventDeposit"),
+                        t("billing.catFinalPayment"),
+                        t("billing.catVendorCost"),
+                        t("billing.catFoodPurchase"),
+                        t("billing.catStaffPayroll"),
                         "Refund"
                       ].map((value) => (
                         <option key={value}>{value}</option>
@@ -307,7 +339,7 @@ export function PendingTransactionModal({
             aria-pressed={split}
             onClick={() => setSplit((current) => !current)}
           >
-            {split ? "Remove split" : "Split"}
+            {split ? t("billing.removeSplit") : "Split"}
           </button>
           <button
             className="h-11 rounded-lg bg-[#1f4d73] px-6 text-sm font-black text-white shadow-md shadow-[#1f4d73]/15 transition hover:bg-[#173a57]"
@@ -315,7 +347,7 @@ export function PendingTransactionModal({
             onClick={() => void postTransaction()}
             type="button"
           >
-            {posting ? "Posting…" : "Post transaction"}
+            {posting ? t("billing.posting") : t("billing.postTransaction")}
           </button>
           {error ? (
             <p className="col-span-2 text-sm font-bold text-[#b42318] sm:w-full">

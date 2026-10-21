@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import { type EventFile } from "@/features/events/components/event-manager-shared";
 import {
   showBillingReadouts,
@@ -16,9 +17,11 @@ export type EventReadinessItem = {
     | "timeline"
     | "dining-plan"
     | "billing";
-  label: string;
+  labelKey: MessageKey;
   done: boolean;
-  helper: string;
+  helperKey: MessageKey;
+  /** Interpolations for `helperKey`, when it names any. */
+  helperValues?: Record<string, string | number>;
   scopes: EventReadinessScope[];
 };
 
@@ -75,74 +78,79 @@ export function getEventReadinessItems(event: EventFile): EventReadinessItem[] {
   const items: EventReadinessItem[] = [
     {
       id: "event-details",
-      label: "Event details completed",
+      labelKey: "events.ready.detailsLabel",
       done: eventDetailsDone,
-      helper: eventDetailsDone
-        ? "Client, date, time, and room are filled."
-        : "Fill client, date, time, and room.",
+      helperKey: eventDetailsDone
+        ? "events.ready.detailsDone"
+        : "events.ready.detailsTodo",
       scopes: ["event", "print"]
     },
     {
       id: "event-confirmed",
-      label: "Event confirmed",
+      labelKey: "events.ready.confirmedLabel",
       done: isConfirmed(event),
-      helper: isConfirmed(event)
-        ? "The booking is confirmed."
-        : "Confirm the event before final operations.",
+      helperKey: isConfirmed(event)
+        ? "events.ready.confirmedDone"
+        : "events.ready.confirmedTodo",
       scopes: ["event", "print"]
     },
     {
       id: "guest-count",
-      label: "Guest count filled",
+      labelKey: "events.ready.guestsLabel",
       done: hasPositiveCount(event.guests),
-      helper: hasPositiveCount(event.guests)
-        ? `${event.guests} guests are recorded.`
-        : "Add the expected guest count.",
+      helperKey: hasPositiveCount(event.guests)
+        ? "events.ready.guestsDone"
+        : "events.ready.guestsTodo",
+      helperValues: { count: event.guests },
       scopes: ["event", "print"]
     },
     {
       id: "menu",
-      label: "Menu ready",
+      labelKey: "events.ready.menuLabel",
       done: menuDone,
-      helper: menuDone
-        ? "Menu has been reviewed and confirmed."
-        : "Review and confirm the event menu.",
+      helperKey: menuDone
+        ? "events.ready.menuDone"
+        : "events.ready.menuTodo",
       scopes: ["event", "print"]
     },
     {
       id: "hall-map",
-      label: "Hall map selected",
+      labelKey: "events.ready.hallMapLabel",
       done: Boolean(event.diningHallMapPreset),
-      helper: event.diningHallMapPreset
-        ? `${event.diningHallMapPreset.name} is attached.`
-        : "Attach a hall map or dining preset.",
+      helperKey: event.diningHallMapPreset
+        ? "events.ready.hallMapDone"
+        : "events.ready.hallMapTodo",
+      helperValues: {
+        name: event.diningHallMapPreset?.name ?? ""
+      },
       scopes: ["event", "print"]
     },
     {
       id: "timeline",
-      label: "Timeline ready",
+      labelKey: "events.ready.timelineLabel",
       done: timelineDone,
-      helper: timelineDone
-        ? "Timeline has been confirmed."
-        : "Confirm the timeline instructions.",
+      helperKey: timelineDone
+        ? "events.ready.timelineDone"
+        : "events.ready.timelineTodo",
       scopes: ["event", "print"]
     },
     {
       id: "dining-plan",
-      label: "Dining plan notes ready",
+      labelKey: "events.ready.diningLabel",
       done: hasValue(event.diningManagerNotes),
-      helper: hasValue(event.diningManagerNotes)
-        ? "Dining Manager notes are available."
-        : "Save Dining Manager notes for this event.",
+      helperKey: hasValue(event.diningManagerNotes)
+        ? "events.ready.diningDone"
+        : "events.ready.diningTodo",
       scopes: ["event"]
     },
     {
       id: "billing",
-      label: "Billing reviewed",
+      labelKey: "events.ready.billingLabel",
       done: isBillingReviewed(event),
-      helper: isBillingReviewed(event)
-        ? `Payment status: ${event.paymentStatus}.`
-        : "Review invoice/payment status.",
+      helperKey: isBillingReviewed(event)
+        ? "events.ready.billingDone"
+        : "events.ready.billingTodo",
+      helperValues: { status: event.paymentStatus },
       scopes: ["event", "print"]
     }
   ];

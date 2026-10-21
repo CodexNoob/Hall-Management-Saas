@@ -1,7 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
-import { getCachedAuthSession } from "@/lib/auth/client";
+import { useMemo, useSyncExternalStore } from "react";
+import {
+  getAuthSessionServerSnapshot,
+  getAuthSessionSnapshot,
+  subscribeToAuthSession
+} from "@/lib/auth/client";
 import type { PermissionKey } from "@/lib/authz/catalog";
 import { canAccessDashboardRoute } from "@/lib/auth/dashboard-routes";
 import type { ScopeFilter } from "@/lib/authz/types";
@@ -17,7 +21,9 @@ import type { ScopeFilter } from "@/lib/authz/types";
  * hidden button is a courtesy; the 403 is the control. Nothing here may ever be
  * the last thing standing between a caller and a write.
  *
- * Resolves synchronously from the cached session, with no effect delay. Safe
+ * Resolves synchronously from the subscribed session, with no effect delay -
+ * and re-renders when that session changes, so a permission granted while
+ * somebody is looking at the screen reaches them without a sign-out. Safe
  * because every consumer mounts after app/dashboard/layout.tsx has fetched and
  * cached it, so there is no flash to guard against.
  */
@@ -37,9 +43,38 @@ export type DashboardAccess = {
   epoch: number;
 };
 
+/**
+ * The signed-in session, as a reactive value.
+ *
+ * `useSyncExternalStore` rather than state-plus-effect: the cache is written
+ * from places that are not components - the fetch wrapper's epoch check, the
+ * realtime invalidation, the session sync - and this is React's own way of
+ * reading a store like that without tearing during a concurrent render.
+ */
+export function useAuthSession() {
+  return useSyncExternalStore(
+    subscribeToAuthSession,
+    getAuthSessionSnapshot,
+    getAuthSessionServerSnapshot
+  );
+}
+
 export function useDashboardAccess(): DashboardAccess {
+  /*
+   * WAS `useMemo(..., [])`, AND THAT WAS THE BUG.
+   *
+   * An empty dependency array meant this read the cached session once at mount
+   * and never again. An administrator could grant a role, the session could
+   * refetch correctly, the new permissions could land in storage - and every
+   * component asking this hook would keep answering from what it read when it
+   * mounted. Signing out and back in was the only way to see a new permission,
+   * because only a fresh mount re-read the cache.
+   *
+   * The session is now subscribed to, so the dependency is the session itself.
+   */
+  const authSession = useAuthSession();
+
   return useMemo(() => {
-    const authSession = getCachedAuthSession();
     const permissions = authSession?.permissions ?? [];
     const held = new Set<string>(permissions);
 
@@ -56,7 +91,7 @@ export function useDashboardAccess(): DashboardAccess {
       permissions,
       epoch: authSession?.epoch ?? 0
     };
-  }, []);
+  }, [authSession]);
 }
 
 /**

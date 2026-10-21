@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { AppServiceWorkerRegistration } from "@/components/layout/service-worker-registration";
+import { AppLanguageProvider } from "@/components/providers/app-language-provider";
 import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -30,8 +31,17 @@ export default function RootLayout({
   return (
     <html className={manrope.variable} lang="en" data-scroll-behavior="smooth">
       <body>
-        <AppServiceWorkerRegistration />
-        <ToastProvider>{children}</ToastProvider>
+        {/*
+          Outermost, above the toaster and every route: the dashboard layout
+          used to mount this itself, which put its own loading and
+          access-restricted copy - and every toast - outside the only thing
+          that could translate them. It starts in English and re-syncs when the
+          session reports the organization's language.
+        */}
+        <AppLanguageProvider>
+          <AppServiceWorkerRegistration />
+          <ToastProvider>{children}</ToastProvider>
+        </AppLanguageProvider>
       </body>
     </html>
   );

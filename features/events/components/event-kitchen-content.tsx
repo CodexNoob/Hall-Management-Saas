@@ -23,6 +23,7 @@ import {
   formatOtherMeals,
   mealLabel
 } from "@/features/kitchen/components/kitchen-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * What this event's kitchen has to cook, and how far along it is.
@@ -65,6 +66,7 @@ function KitchenSheet({
   event: EventFile;
   sheet: EventKitchenSheet;
 }) {
+  const { t } = useAppLanguage();
   const { counts, summary } = sheet;
   const dishes = sheet.lines.filter((line) => line.kind === "Dish");
   const addOns = sheet.lines.filter((line) => line.kind === "AddOn");
@@ -74,24 +76,27 @@ function KitchenSheet({
     <>
       <div className="grid grid-cols-2 gap-2 border-b border-[#d8dde5] bg-[#fbfcfd] p-3 sm:gap-3 sm:px-4 lg:grid-cols-4">
         <StatTile
-          label="Portions"
+          label={t("events.portions")}
           note={`${counts.couples} couples · ${children} children${
             counts.waiters > 0 ? ` · ${counts.waiters} waiters not counted` : ""
           }`}
           value={counts.totalGuests}
         />
-        <StatTile label="Event starts" note={event.date} value={event.time} />
+        <StatTile label={t("events.eventStarts")} note={event.date} value={event.time} />
         <StatTile
-          label="Prepared"
-          note={`${summary.pending} pending · ${summary.notStarted} not started`}
+          label={t("events.prepared")}
+          note={t("events.pendingNotStarted", {
+            pending: summary.pending,
+            notStarted: summary.notStarted
+          })}
           value={`${summary.complete}/${summary.dishes}`}
         />
         <StatTile
-          label="Needs attention"
+          label={t("events.needsAttention")}
           note={
             summary.needsAttention === 0
-              ? "Every dish has a quantity"
-              : "Dishes with no quantity to cook to"
+              ? t("events.everyDishHasQuantity")
+              : t("events.dishesWithoutQuantity")
           }
           value={summary.needsAttention}
         />
@@ -112,7 +117,7 @@ function KitchenSheet({
 
       {dishes.length === 0 ? (
         <p className="px-3 py-4 text-sm text-[#6a7483] sm:px-4">
-          No dishes on this menu yet.
+          {t("events.noDishes")}
         </p>
       ) : (
         <>
@@ -130,7 +135,7 @@ function KitchenSheet({
                   <LineQuantity line={line} />
                   <span className="shrink-0 text-right text-xs text-[#6a7483]">
                     <span className="block">
-                      {line.serviceStyle ?? "No style"}
+                      {line.serviceStyle ?? t("events.noStyle")}
                     </span>
                     <span className="block">
                       {line.assignedWorkerName ?? "Unassigned"}
@@ -145,16 +150,16 @@ function KitchenSheet({
             <table className="w-full min-w-130 text-left text-sm">
               <thead className="bg-[#fbfcfd] text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
                 <tr>
-                  <th className="border-b border-[#d8dde5] px-4 py-3">Dish</th>
+                  <th className="border-b border-[#d8dde5] px-4 py-3">{t("events.dish")}</th>
                   <th className="border-b border-[#d8dde5] px-3 py-3">
-                    To cook
+                    {t("events.toCook")}
                   </th>
-                  <th className="border-b border-[#d8dde5] px-3 py-3">Style</th>
+                  <th className="border-b border-[#d8dde5] px-3 py-3">{t("events.style")}</th>
                   <th className="border-b border-[#d8dde5] px-3 py-3">
-                    Status
+                    {t("common.status")}
                   </th>
                   <th className="border-b border-[#d8dde5] px-4 py-3">
-                    Assigned
+                    {t("events.assigned")}
                   </th>
                 </tr>
               </thead>
@@ -190,7 +195,7 @@ function KitchenSheet({
       {addOns.length > 0 ? (
         <section className="border-t border-[#d8dde5] px-3 py-3 sm:px-4">
           <h3 className="text-[11px] font-black uppercase tracking-[0.08em] text-[#6a7483]">
-            Add-ons
+            {t("events.addOns")}
           </h3>
           {/* Statusless on purpose: KitchenItemStatus is keyed by menu item, so
               an add-on line has nowhere to record one. */}
@@ -218,6 +223,7 @@ function KitchenAcknowledgments({
   hasMore?: boolean;
   notifications: EventKitchenNotification[];
 }) {
+  const { t } = useAppLanguage();
   const acknowledgedNotifications = notifications.filter(
     (item) => item.acknowledged
   );
@@ -242,13 +248,13 @@ function KitchenAcknowledgments({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
-              Kitchen acknowledgments
+              {t("events.kitchenAcks")}
             </h3>
             <p className="mt-1 text-xs leading-5 text-[#526173]">
-              Kitchen has not received a change notification for this event yet.
+              {t("events.noKitchenNotification")}
             </p>
           </div>
-          <Badge tone="gold">No notifications</Badge>
+          <Badge tone="gold">{t("events.noNotifications")}</Badge>
         </div>
       </section>
     );
@@ -259,7 +265,7 @@ function KitchenAcknowledgments({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-black uppercase tracking-[0.08em] text-[#1f4d73]">
-            Kitchen acknowledgments
+            {t("events.kitchenAcks")}
           </h3>
           {/*
             "Showing the most recent" when the list is cut, rather than
@@ -269,7 +275,7 @@ function KitchenAcknowledgments({
           */}
           <p className="mt-1 text-xs leading-5 text-[#526173]">
             {hasMore
-              ? `Showing the ${notifications.length} most recent`
+              ? t("events.showingMostRecent", { count: notifications.length })
               : `${notifications.length} notification${
                   notifications.length === 1 ? "" : "s"
                 } sent`}{" "}
@@ -284,7 +290,7 @@ function KitchenAcknowledgments({
           </p>
           {hasMore ? (
             <p className="mt-1 text-xs leading-5 text-[#6a7483]">
-              Older change notifications for this event are not listed here.
+              {t("events.olderNotificationsHidden")}
             </p>
           ) : null}
         </div>
@@ -322,7 +328,7 @@ function KitchenAcknowledgments({
             <dl className="mt-3 grid gap-2 text-xs text-[#6a7483] sm:grid-cols-2">
               <div>
                 <dt className="font-black uppercase tracking-[0.06em]">
-                  Changed by
+                  {t("events.changedBy")}
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#17202a]">
                   {notification.by}
@@ -330,7 +336,7 @@ function KitchenAcknowledgments({
               </div>
               <div>
                 <dt className="font-black uppercase tracking-[0.06em]">
-                  Sent
+                  {t("events.sent")}
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#17202a]">
                   {notification.when}
@@ -338,7 +344,7 @@ function KitchenAcknowledgments({
               </div>
               <div className="sm:col-span-2">
                 <dt className="font-black uppercase tracking-[0.06em]">
-                  Kitchen response
+                  {t("events.kitchenResponse")}
                 </dt>
                 <dd className="mt-0.5 font-semibold text-[#17202a]">
                   {notification.acknowledgedBy
@@ -347,7 +353,7 @@ function KitchenAcknowledgments({
                           ? ` — ${notification.acknowledgedAt}`
                           : ""
                       }`
-                    : "Not acknowledged yet"}
+                    : t("events.notAcknowledgedYet")}
                 </dd>
               </div>
             </dl>
@@ -359,6 +365,7 @@ function KitchenAcknowledgments({
 }
 
 export function EventKitchenContent({ event }: { event: EventFile }) {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const kitchenQuery = useAuthenticatedQuery<EventKitchenResponse>(
     `/api/events/${event.id}/kitchen`
@@ -378,7 +385,7 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
           <LineIcon name="fork" />
           <div className="min-w-0">
             <h2 className="text-[13px] font-black text-[#17202a] sm:text-sm">
-              Kitchen sheet
+              {t("events.kitchenSheet")}
             </h2>
             <p className="truncate text-xs text-[#6a7483]">
               {event.room} · {event.packageName}
@@ -391,8 +398,8 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
             // ClientSubmitted as a draft; match it so the two never disagree.
             <Badge tone={sheet.menuStatus === "Confirmed" ? "green" : "gold"}>
               {sheet.menuStatus === "Confirmed"
-                ? "Menu confirmed"
-                : "Menu draft"}
+                ? t("events.menuConfirmed")
+                : t("events.menuDraft")}
             </Badge>
           ) : null}
           {canOpenKitchenBoard ? (
@@ -401,7 +408,7 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
               onClick={() => router.push("/dashboard/kitchen")}
               type="button"
             >
-              Kitchen board
+              {t("events.kitchenBoard")}
             </button>
           ) : null}
         </div>
@@ -409,16 +416,16 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
 
       {/* Above the sheet rather than inside it, because the case this exists
           for is an event whose only menu is a non-Main one - where the sheet
-          itself renders as "no menu yet" and the notice is the only thing on
+          itself renders as t("events.noMenuYet") and the notice is the only thing on
           screen telling the truth. */}
       {otherMeals.length > 0 ? (
         <p
           className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-2.5 text-xs leading-5 text-[#8a6414] sm:px-4"
           role="status"
         >
-          {formatOtherMeals(otherMeals)}{" "}
+          {formatOtherMeals(otherMeals, t)}{" "}
           {otherMeals.length === 1 ? "is" : "are"} not shown here. This sheet is
-          the {mealLabel(sheet?.meal ?? "Main")} meal only.
+          the {mealLabel(sheet?.meal ?? "Main", t)} meal only.
         </p>
       ) : null}
 
@@ -437,12 +444,14 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
             emptyMessage={
               otherMeals.length > 0
                 ? "This event's dishes are on another meal, which this sheet cannot show yet."
-                : "Add dishes on the Menu tab and this sheet fills in with what to cook."
+                : t("events.addDishesHint")
             }
             emptyTitle={
               otherMeals.length > 0
-                ? `Nothing on the ${mealLabel(sheet?.meal ?? "Main")} meal`
-                : "No menu for this event yet"
+                ? t("events.nothingOnMeal", {
+                    meal: mealLabel(sheet?.meal ?? "Main", t)
+                  })
+                : t("events.noMenuForEvent")
             }
             isEmpty
           />
@@ -459,7 +468,7 @@ export function EventKitchenContent({ event }: { event: EventFile }) {
       ) : null}
 
       <footer className="border-t border-[#d8dde5] bg-[#fbfcfd] px-3 py-2.5 text-xs text-[#6a7483] sm:px-4">
-        Read-only. Statuses and worker assignments are set on the kitchen board.
+        {t("events.kitchenReadOnly")}
       </footer>
     </section>
   );

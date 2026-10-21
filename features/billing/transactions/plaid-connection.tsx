@@ -4,6 +4,7 @@ import {
   type IconName,
   LineIcon
 } from "@/features/billing/components/billing-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export async function ensurePlaidScript() {
   if (typeof window === "undefined") return false;
@@ -41,6 +42,8 @@ export function PlaidConnectionPanel({
   onManage: () => void;
   onSync: () => void;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <section className="border-b border-[#d8dde5] bg-[#f8fbff] px-4 py-3">
       <div className="flex flex-col gap-3 rounded-xl border border-[#d8dde5] bg-white p-3 shadow-sm md:flex-row md:items-center md:justify-between md:p-4">
@@ -50,17 +53,17 @@ export function PlaidConnectionPanel({
           </span>
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.12em] text-[#6a7483]">
-              Plaid bank feed
+              {t("billing.plaidBankFeed")}
             </p>
             <h3 className="text-base font-black text-[#17202a]">
               {connected
-                ? "Business checking connected"
-                : "Connect a bank account"}
+                ? t("billing.businessCheckingConnected")
+                : t("billing.connectABank")}
             </h3>
             <p className="mt-1 text-sm text-[#526274]">
               {connected
-                ? "Event Core demo bank •••• 1909 is ready to import and review transactions."
-                : "Use Plaid to securely import bank transactions into this billing workspace."}
+                ? t("billing.demoBankReady")
+                : t("billing.usePlaidHint")}
             </p>
           </div>
         </div>
@@ -68,28 +71,28 @@ export function PlaidConnectionPanel({
         {connected ? (
           <div className="flex flex-wrap items-center gap-2 md:justify-end">
             <span className="rounded-full border border-[#9fd9b6] bg-[#e2f7eb] px-3 py-1 text-xs font-black text-[#12863d]">
-              Connected
+              {t("billing.connected")}
             </span>
             <button
               className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
               onClick={onSync}
               type="button"
             >
-              Sync now
+              {t("billing.syncNow")}
             </button>
             <button
               className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
               onClick={onManage}
               type="button"
             >
-              Manage
+              {t("billing.manage")}
             </button>
             <button
               className="h-9 rounded-lg border border-[#e3b4ad] bg-white px-3 text-sm font-black text-[#b22920] transition hover:bg-[#fff0ee]"
               onClick={onDisconnect}
               type="button"
             >
-              Disconnect
+              {t("billing.disconnect")}
             </button>
           </div>
         ) : (
@@ -99,7 +102,7 @@ export function PlaidConnectionPanel({
             type="button"
           >
             <LineIcon className="h-4 w-4" name="plus" />
-            Connect bank
+            {t("billing.connectBank")}
           </button>
         )}
       </div>
@@ -120,6 +123,8 @@ export function PlaidConnectDialog({
   open: boolean;
   busy: boolean;
 }) {
+  const { t } = useAppLanguage();
+
   if (!open) return null;
 
   return (
@@ -132,19 +137,18 @@ export function PlaidConnectDialog({
             </span>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-[#1f4d73]">
-                Plaid connection
+                {t("billing.plaidConnection")}
               </p>
               <h2 className="text-xl font-black text-[#17202a]">
-                Connect bank account
+                {t("billing.connectBankAccount")}
               </h2>
               <p className="mt-1 text-sm text-[#526274]">
-                Link a business bank account so Event Core can import, review,
-                match, and post transactions.
+                {t("billing.linkBankBlurb")}
               </p>
             </div>
           </div>
           <button
-            aria-label="Close Plaid connection"
+            aria-label={t("billing.closePlaid")}
             className="group flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[#233144] shadow-none transition hover:bg-[#e4edf5] hover:text-[#1f4d73] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1f4d73]/25"
             onClick={onClose}
             type="button"
@@ -160,17 +164,17 @@ export function PlaidConnectDialog({
           {[
             {
               title: "1. Secure login",
-              text: "The user chooses their bank and signs in through Plaid, not inside Event Core.",
+              text: t("billing.plaidStep1"),
               icon: "payment" as IconName
             },
             {
               title: "2. Choose account",
-              text: "Select the checking account to sync with the Billing transaction center.",
+              text: t("billing.plaidStep2"),
               icon: "bank" as IconName
             },
             {
               title: "3. Review feed",
-              text: "Imported transactions appear here for matching, posting, and reporting.",
+              text: t("billing.plaidStep3"),
               icon: "invoice" as IconName
             }
           ].map((step) => (
@@ -194,7 +198,7 @@ export function PlaidConnectDialog({
         <div className="border-t border-[#d8dde5] bg-[#f8fbff] px-5 py-4">
           <div className="rounded-xl border border-[#b9c2cf] bg-white p-4">
             <h3 className="font-black text-[#17202a]">
-              What we still need for live Plaid
+              {t("billing.plaidStillNeeded")}
             </h3>
             <ul className="mt-2 space-y-1 text-sm text-[#526274]">
               <li>
@@ -217,7 +221,7 @@ export function PlaidConnectDialog({
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-11 rounded-lg border border-[#1f4d73] bg-[#1f4d73] px-5 text-sm font-black text-white shadow-md shadow-[#1f4d73]/15 transition hover:bg-[#173a57] disabled:cursor-not-allowed disabled:opacity-60"
@@ -226,10 +230,10 @@ export function PlaidConnectDialog({
               type="button"
             >
               {busy
-                ? "Connecting…"
+                ? t("billing.connecting")
                 : connected
-                  ? "Reconnect bank"
-                  : "Continue to Plaid"}
+                  ? t("billing.reconnectBank")
+                  : t("billing.continueToPlaid")}
             </button>
           </div>
         </div>

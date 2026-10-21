@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   SEAT_FOOTPRINT_OVERHANG,
   getDefaultSeatingSides,
@@ -521,14 +522,14 @@ export function generateTableRows(input: TableRowsInput): MapObject[] {
 
 export const shapeOptions: Array<{
   type: ShapeType;
-  label: string;
+  labelKey: MessageKey;
 }> = [
-  { type: "round-table", label: "Round table" },
-  { type: "rect-table", label: "Rect table" },
-  { type: "kids-table", label: "Kids table" },
-  { type: "head-table", label: "Head table" },
-  { type: "buffet", label: "Buffet" },
-  { type: "drinks", label: "Drinks" },
-  { type: "box", label: "Box" },
-  { type: "circle", label: "Circle" }
+  { type: "round-table", labelKey: "hallMap.roundTable" },
+  { type: "rect-table", labelKey: "hallMap.rectTable" },
+  { type: "kids-table", labelKey: "hallMap.kidsTable" },
+  { type: "head-table", labelKey: "hallMap.headTable" },
+  { type: "buffet", labelKey: "hallMap.buffet" },
+  { type: "drinks", labelKey: "hallMap.drinks" },
+  { type: "box", labelKey: "hallMap.box" },
+  { type: "circle", labelKey: "hallMap.circle" }
 ];

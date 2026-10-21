@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -44,6 +44,7 @@ import {
   type EventMenuResponse,
   type PendingMenuWrite
 } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -115,6 +116,7 @@ function CardQuantity({
   /// both show the count without offering to change it.
   onQuantityChange?: (next: number) => void;
 }) {
+  const { t } = useAppLanguage();
   const isMultiplied = quantity > 1;
   const tone = isMultiplied
     ? "border-[#f0d9a8] bg-[#fdf8ec] text-[#8a6414]"
@@ -150,7 +152,7 @@ function CardQuantity({
           removal, and a stepper that deletes on the last press is a surprise
           nobody asked for. */}
       <button
-        aria-label={`Decrease ${name} quantity`}
+        aria-label={t("events.decreaseQuantity", { name })}
         className={stepClass}
         data-testid={`event-menu-quantity-decrease-${targetId}`}
         disabled={quantity <= LINE_MULTIPLIER_MIN}
@@ -168,7 +170,7 @@ function CardQuantity({
         ×{quantity}
       </span>
       <button
-        aria-label={`Increase ${name} quantity`}
+        aria-label={t("events.increaseQuantity", { name })}
         className={stepClass}
         data-testid={`event-menu-quantity-increase-${targetId}`}
         disabled={quantity >= LINE_MULTIPLIER_MAX}
@@ -204,11 +206,13 @@ function MenuDishCard({
   onRemove: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="dashboard-hover-card group relative flex h-28 min-w-0 flex-col overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-[0_1px_2px_rgba(23,32,42,0.04)] sm:h-40 lg:h-44">
       {!disabled ? (
         <button
-          aria-label={`Remove ${name}`}
+          aria-label={t("events.removeNamed", { name })}
           className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#e2e7ee] bg-white/90 text-[#6a7483] shadow-[0_1px_3px_rgba(23,32,42,0.12)] backdrop-blur-sm transition-colors hover:border-[#f0c4bd] hover:bg-[#fff4f2] hover:text-[#c3291b]"
           data-testid={`event-menu-remove-${targetId}`}
           onClick={onRemove}
@@ -332,6 +336,7 @@ export function EventMenuContent({
   event: EventFile;
   onEventSaved: () => Promise<unknown>;
 }) {
+  const { t } = useAppLanguage();
   const menuUrl = `/api/events/${event.id}/menu`;
   /// Applying a package is a menu write plus a change to the event's own
   /// package columns, which is why it is its own route rather than another
@@ -703,7 +708,7 @@ export function EventMenuContent({
       } | null;
 
       if (!response.ok || !payload?.menu) {
-        rollback(write, payload?.error ?? "Could not save the menu.");
+        rollback(write, payload?.error ?? t("events.menuSaveFailed"));
 
         // Somebody else's version is the real one, so pull it rather than
         // leaving the stale one on screen.
@@ -736,7 +741,7 @@ export function EventMenuContent({
 
       return true;
     } catch {
-      rollback(write, "Could not save the menu.");
+      rollback(write, t("events.menuSaveFailed"));
 
       return false;
     }
@@ -966,7 +971,7 @@ export function EventMenuContent({
             packageId: option.id
           })
         }),
-      "Could not add the package.",
+      t("events.packageAddFailed"),
       // The event row carries the package name the rest of the manager shows.
       { refreshEvent: true }
     );
@@ -977,7 +982,9 @@ export function EventMenuContent({
       ).length;
 
       say(
-        `${option.name} added - ${added} dish${added === 1 ? "" : "es"} on this menu.`
+        added === 1
+          ? t("events.packageAddedOne", { name: option.name })
+          : t("events.packageAddedMany", { name: option.name, count: added })
       );
     }
   };
@@ -997,11 +1004,11 @@ export function EventMenuContent({
           `${packageUrl}?meal=${encodeURIComponent(menu.meal)}&version=${menu.version}`,
           { method: "DELETE" }
         ),
-      "Could not remove the package.",
+      t("events.packageRemoveFailed"),
       { refreshEvent: true }
     );
 
-    if (saved) say("Package removed.");
+    if (saved) say(t("events.packageRemoved"));
   };
 
   /**
@@ -1013,7 +1020,7 @@ export function EventMenuContent({
     const current = workingMenu();
 
     if (!current) {
-      say("Menu is still loading. Try again in a moment.", true);
+      say(t("events.menuStillLoading"), true);
       return;
     }
 
@@ -1061,7 +1068,10 @@ export function EventMenuContent({
     queueEdit(
       { ...current, lines: [...current.lines, ...fresh] },
       {
-        label: `${fresh.length} item${fresh.length === 1 ? "" : "s"} added.`,
+        label:
+          fresh.length === 1
+            ? t("events.itemAddedOne")
+            : t("events.itemsAdded", { count: fresh.length }),
         lines: current.lines
       }
     );
@@ -1080,13 +1090,14 @@ export function EventMenuContent({
   const clearSection = (section: MenuSection) => {
     editLines(
       (current) => current.lines.filter((line) => !isInSection(line, section)),
-      `${
-        section === "AddOn"
-          ? "Add-ons"
-          : section === "Drink"
-            ? "Drinks"
-            : `${section} dishes`
-      } cleared.`
+      t("events.sectionCleared", {
+        section:
+          section === "AddOn"
+            ? t("events.section.addOns")
+            : section === "Drink"
+              ? t("events.section.drinks")
+              : t("events.sectionDishes", { section })
+      })
     );
   };
 
@@ -1150,7 +1161,7 @@ export function EventMenuContent({
     if (!offer || offer.url !== menuUrl || !current) return;
 
     queueEdit({ ...current, lines: offer.lines });
-    say("Change undone.");
+    say(t("events.changeUndone"));
   };
 
   const openSelector = (section: MenuSection) => {
@@ -1283,7 +1294,7 @@ export function EventMenuContent({
             version: menu.version
           })
         }),
-      confirming ? "Could not confirm menu." : "Could not reopen menu.",
+      confirming ? t("events.confirmMenuFailed") : t("events.reopenMenuFailed"),
       // The event row carries the mirrored ids and the confirmation flag, so
       // the rest of the manager has to re-read it.
       { refreshEvent: true }
@@ -1292,7 +1303,7 @@ export function EventMenuContent({
     if (!saved) return;
 
     setIsReviewOpen(false);
-    say(confirming ? "Menu confirmed." : "Menu reopened.");
+    say(confirming ? t("events.menuConfirmedToast") : t("events.menuReopened"));
   };
 
   return (
@@ -1302,7 +1313,7 @@ export function EventMenuContent({
           <div className="flex items-center gap-2">
             <LineIcon name="document" />
             <h2 className="text-[13px] font-black text-[#17202a] sm:text-sm">
-              Menu for this event
+              {t("events.menuTitle")}
             </h2>
           </div>
           <div className="flex items-center gap-2">
@@ -1310,7 +1321,7 @@ export function EventMenuContent({
               <>
                 <span className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#e7f6ed] px-3 text-xs font-black text-[#167442]">
                   <LineIcon name="check" />
-                  Confirmed
+                  {t("events.statusConfirmed")}
                 </span>
                 <button
                   className="h-8 rounded-lg border border-[#b9c2cf] bg-white px-3 text-xs font-black text-[#17202a] hover:bg-[#eef4fa] disabled:opacity-50"
@@ -1318,7 +1329,9 @@ export function EventMenuContent({
                   onClick={() => void saveConfirmationState(false)}
                   type="button"
                 >
-                  {isSaving ? "Reopening..." : "Reopen menu"}
+                  {isSaving
+                    ? t("events.reopening")
+                    : t("events.reopenMenu")}
                 </button>
               </>
             ) : (
@@ -1328,7 +1341,7 @@ export function EventMenuContent({
                 type="button"
                 onClick={() => {
                   if (lines.length === 0) {
-                    say("Add at least one menu item before confirming.", true);
+                    say(t("events.addItemBeforeConfirm"), true);
                     return;
                   }
                   say("");
@@ -1341,7 +1354,7 @@ export function EventMenuContent({
                 }}
               >
                 <LineIcon name="check" />
-                Review &amp; confirm
+                {t("events.reviewConfirm")}
               </button>
             )}
           </div>
@@ -1370,11 +1383,11 @@ export function EventMenuContent({
                   onClick={undoLastEdit}
                   type="button"
                 >
-                  Undo
+                  {t("events.undo")}
                 </button>
               </>
             ) : showSaving ? (
-              <span className="text-xs text-[#516174]">Saving...</span>
+              <span className="text-xs text-[#516174]">{t("events.saving")}</span>
             ) : null}
           </div>
         </header>
@@ -1408,11 +1421,10 @@ export function EventMenuContent({
             {unassignedLines.length > 0 ? (
               <section className="border-b border-[#f0d9a8] bg-[#fdf8ec] px-3 py-3 sm:px-4">
                 <h3 className="text-xs font-black uppercase tracking-wide text-[#8a6414]">
-                  Needs a service style
+                  {t("events.needsServiceStyle")}
                 </h3>
                 <p className="mt-1 text-xs text-[#6a7483]">
-                  These dishes are served both ways. Pick the one this event
-                  uses so the kitchen gets the right quantity.
+                  {t("events.serviceStyleHint")}
                 </p>
                 <ul className="mt-2 space-y-2">
                   {unassignedLines.map((line) => (
@@ -1477,7 +1489,7 @@ export function EventMenuContent({
                 key={section.id}
               >
                 <h3 className="px-3 pt-3 text-xs font-black uppercase tracking-wide text-[#1f4d73] sm:px-4">
-                  {section.label}
+                  {t(section.labelKey)}
                   <span className="ml-2 font-semibold normal-case text-[#6a7483]">
                     {section.lines.length}
                   </span>
@@ -1491,12 +1503,12 @@ export function EventMenuContent({
                       // or "Table" is the part the heading does not tell you.
                       badge={
                         section.id === "AddOn"
-                          ? "ADD-ON"
+                          ? t("events.addOnBadge")
                           : section.id === "Drink"
                             ? (line.serviceStyle
                                 ? serviceStyleLabel(line.serviceStyle, "Drink")
                                 : "DRINK")
-                            : section.label
+                            : t(section.labelKey)
                       }
                       name={line.name}
                       targetId={targetId(line)}
@@ -1527,8 +1539,10 @@ export function EventMenuContent({
                   <AddMenuCard
                     label={
                       section.id === "AddOn"
-                        ? "Add add-on"
-                        : `Add ${section.label.toLowerCase()} item`
+                        ? t("events.addAddOn")
+                        : t("events.addSectionItem", {
+                            section: t(section.labelKey).toLowerCase()
+                          })
                     }
                     onClick={() => openSelector(section.id)}
                     disabled={!canEditMenu}
@@ -1580,22 +1594,23 @@ export function EventMenuContent({
                 className="text-lg font-black text-[#17202a]"
                 id="menu-confirmation-title"
               >
-                Confirm event menu?
+                {t("events.confirmMenuQuestion")}
               </h2>
               <p className="mt-1 text-sm text-[#64748b]">
-                Review {lines.length} selected item
-                {lines.length === 1 ? "" : "s"}. The menu will be locked until
-                it is reopened.
+                {lines.length === 1
+                  ? t("events.confirmReviewOne")
+                  : t("events.confirmReviewMany", { count: lines.length })}
               </p>
             </header>
 
             <div className="max-h-[55vh] space-y-3 overflow-y-auto p-5">
               {unassignedLines.length > 0 ? (
                 <p className="rounded-lg border border-[#f0d9a8] bg-[#fdf8ec] p-3 text-sm text-[#8a6414]">
-                  {unassignedLines.length} dish
-                  {unassignedLines.length === 1 ? "" : "es"} still need a
-                  service style. Confirming without one leaves the kitchen no
-                  quantity rule to run.
+                  {unassignedLines.length === 1
+                    ? t("events.unassignedOne")
+                    : t("events.unassignedMany", {
+                        count: unassignedLines.length
+                      })}
                 </p>
               ) : null}
               {sections
@@ -1606,7 +1621,7 @@ export function EventMenuContent({
                     key={section.id}
                   >
                     <h3 className="text-xs font-black uppercase tracking-wide text-[#1f4d73]">
-                      {section.label}
+                      {t(section.labelKey)}
                     </h3>
                     <ul className="mt-2 space-y-1 text-sm text-[#17202a]">
                       {/* Confirming is the last chance to catch a stepper that
@@ -1634,7 +1649,7 @@ export function EventMenuContent({
                 onClick={() => setIsReviewOpen(false)}
                 type="button"
               >
-                Go back
+                {t("events.goBack")}
               </button>
               <button
                 className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white hover:bg-[#15344f] disabled:opacity-50"
@@ -1643,7 +1658,9 @@ export function EventMenuContent({
                 type="button"
               >
                 <LineIcon name="check" />
-                {isSaving ? "Confirming..." : "Confirm & lock menu"}
+                {isSaving
+                ? t("events.confirming")
+                : t("events.confirmAndLock")}
               </button>
             </footer>
           </section>

@@ -26,6 +26,7 @@ import {
   type TableSide
 } from "@/features/dining/components/dining-shared";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type DiningEvent = DiningResponse["events"][number];
 type HallMapPreset = NonNullable<DiningResponse["hallMapPresets"]>[number];
@@ -98,6 +99,7 @@ export function DiningWorkspacePanel({
   stopTableDrag: (event: ReactPointerEvent<HTMLButtonElement>) => void;
   tables: DiningTableData[];
 }) {
+  const { t } = useAppLanguage();
   const seatsRequired =
     seatRequirements.men + seatRequirements.women + seatRequirements.kids;
   const seatsProvided = seatTotals.men + seatTotals.women + seatTotals.kids;
@@ -122,7 +124,7 @@ export function DiningWorkspacePanel({
             </h2>
             <p className="mt-1 truncate text-xs text-[#617086]">
               {selectedEvent.hall.name} {"\u00b7"}{" "}
-              {eventSchedule(selectedEvent)}
+              {eventSchedule(selectedEvent, t)}
             </p>
           </div>
 
@@ -130,7 +132,7 @@ export function DiningWorkspacePanel({
               this down per side; this is the number a planner checks while
               dragging tables, without looking away from the board. */}
           <span
-            aria-label="Seats provided"
+            aria-label={t("dining.seatsProvided")}
             className={`hidden shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-black sm:inline-flex ${
               isSeatingShort
                 ? "border-[#f3b4ae] bg-[#fef2f1] text-[#b42318]"
@@ -145,8 +147,8 @@ export function DiningWorkspacePanel({
             aria-expanded={isWorkspaceExpanded}
             aria-label={
               isWorkspaceExpanded
-                ? "Collapse dining workspace"
-                : "Expand dining workspace"
+                ? t("dining.collapseWorkspace")
+                : t("dining.expandWorkspace")
             }
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-[#1f4d73] transition hover:bg-[#eef4fa] lg:hidden"
             onClick={() => setIsWorkspaceExpanded((isExpanded) => !isExpanded)}
@@ -166,7 +168,7 @@ export function DiningWorkspacePanel({
           }`}
         >
           <div className="min-w-0 flex-1">
-            <FieldLabel htmlFor="hall-map-preset">Hall map preset</FieldLabel>
+            <FieldLabel htmlFor="hall-map-preset">{t("dining.hallMapPreset")}</FieldLabel>
             <CompactSelect
               id="hall-map-preset"
               onChange={(value) => {
@@ -176,8 +178,10 @@ export function DiningWorkspacePanel({
               options={[
                 {
                   label: availableHallMapPresets.length
-                    ? "Select a preset"
-                    : `No presets assigned to ${selectedEvent.hall.name}`,
+                    ? t("dining.selectPreset")
+                    : t("dining.noPresetsFor", {
+                        hall: selectedEvent.hall.name
+                      }),
                   value: ""
                 },
                 ...availableHallMapPresets.map((preset) => ({
@@ -194,14 +198,14 @@ export function DiningWorkspacePanel({
             {isPresetModified ? (
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="rounded-md border border-[#f0d08a] bg-[#fffaeb] px-2 py-1 text-[10px] font-black text-[#93600b]">
-                  Modified - this event only
+                  {t("dining.modifiedThisEvent")}
                 </span>
                 <button
                   className="rounded-md border border-[#b9c2cf] bg-white px-2 py-1 text-[10px] font-black hover:bg-[#eef4fa]"
                   onClick={onResetToPreset}
                   type="button"
                 >
-                  Reset to preset
+                  {t("dining.resetToPreset")}
                 </button>
               </div>
             ) : null}
@@ -239,7 +243,7 @@ export function DiningWorkspacePanel({
             onClick={removeSelectedTable}
             type="button"
           >
-            Remove selected
+            {t("dining.removeSelected")}
           </button>
         </div>
       </header>
@@ -291,7 +295,7 @@ export function DiningWorkspacePanel({
               data-dining-map-control="true"
             >
               <button
-                aria-label="Zoom dining map out"
+                aria-label={t("dining.zoomOut")}
                 className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:opacity-40"
                 disabled={mapScale <= DINING_MAP_MIN_SCALE}
                 onClick={onZoomOut}
@@ -300,7 +304,7 @@ export function DiningWorkspacePanel({
                 −
               </button>
               <button
-                aria-label="Reset dining map zoom"
+                aria-label={t("dining.resetZoom")}
                 className="h-9 min-w-14 border-x border-[#d8dde5] px-2 text-[10px] font-black hover:bg-[#eef4fa]"
                 onClick={onZoomReset}
                 type="button"
@@ -308,7 +312,7 @@ export function DiningWorkspacePanel({
                 {Math.round(mapScale * 100)}%
               </button>
               <button
-                aria-label="Zoom dining map in"
+                aria-label={t("dining.zoomIn")}
                 className="h-9 w-9 text-lg font-black hover:bg-[#eef4fa] disabled:opacity-40"
                 disabled={mapScale >= DINING_MAP_MAX_SCALE}
                 onClick={onZoomIn}
@@ -321,11 +325,11 @@ export function DiningWorkspacePanel({
                 onClick={() => onFitMap()}
                 type="button"
               >
-                Fit
+                {t("dining.fit")}
               </button>
             </div>
             <div
-              aria-label="Dining map grid"
+              aria-label={t("dining.mapGrid")}
               // Fills the wrapper instead of carrying its own fixed height.
               // `contain: size` means it takes no size from its 20,000-unit
               // contents, so the inset has to supply it.
@@ -466,7 +470,7 @@ export function DiningWorkspacePanel({
                 ))}
               </div>
               <div className="mx-auto mt-8 flex h-6 max-w-96 items-center justify-center rounded bg-[#344a60] text-[10px] font-black text-white">
-                Mechitza
+                {t("dining.mechitza")}
               </div>
             </div>
           )}

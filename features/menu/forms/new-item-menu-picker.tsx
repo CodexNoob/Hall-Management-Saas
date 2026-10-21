@@ -10,6 +10,8 @@ import type {
   MenuItemKind,
   ServiceStyle
 } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * Which menu a new item is being added to.
@@ -25,8 +27,8 @@ export type NewItemMenuChoice = {
 
 type MenuOption = {
   id: string;
-  label: string;
-  description: string;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
   icon: IconName;
   choice: NewItemMenuChoice;
 };
@@ -34,7 +36,7 @@ type MenuOption = {
 /**
  * The four places a new item can land, in the order the tab strip lists them.
  *
- * "Library only" is last and reads as the deferral it is. It was the only
+ * Library only is last and reads as the deferral it is. It was the only
  * behaviour this button had before the picker existed, so it stays reachable -
  * dropping it would mean a dish could no longer be catalogued by someone who
  * has not yet decided how it is served.
@@ -42,29 +44,29 @@ type MenuOption = {
 const MENU_OPTIONS: MenuOption[] = [
   {
     id: "buffet",
-    label: "Buffet Menu",
-    description: "Served from a tray. Counted per guests.",
+    labelKey: "menu.tab.buffet",
+    descriptionKey: "menu.buffetHint",
     icon: "tray",
     choice: { kind: "Food", serviceStyle: "Buffet" }
   },
   {
     id: "plated",
-    label: "Plated Menu",
-    description: "Plated per guest and brought to the table.",
+    labelKey: "menu.tab.plated",
+    descriptionKey: "menu.platedHint",
     icon: "plate",
     choice: { kind: "Food", serviceStyle: "Plated" }
   },
   {
     id: "drink",
-    label: "Drink Menu",
-    description: "Bottles on the table, or a self-serve station.",
+    labelKey: "menu.tab.drinks",
+    descriptionKey: "menu.drinkHint",
     icon: "drink",
     choice: { kind: "Drink", serviceStyle: null }
   },
   {
     id: "library",
-    label: "Library only",
-    description: "Catalogue it now, decide how it is served later.",
+    labelKey: "menu.libraryOnly",
+    descriptionKey: "menu.libraryOnlyHint",
     icon: "document",
     choice: { kind: "Food", serviceStyle: null }
   }
@@ -91,6 +93,7 @@ export function NewItemMenuPicker({
   onClose: () => void;
   onChoose: (choice: NewItemMenuChoice) => void;
 }) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const descriptionId = useId();
 
@@ -132,14 +135,14 @@ export function NewItemMenuPicker({
               className="text-base font-black text-[#17202a]"
               id={titleId}
             >
-              Which menu?
+              {t("menu.whichMenu")}
             </h2>
             <p className="mt-1 text-xs text-[#6a7483]" id={descriptionId}>
-              Pick where this item is served. The form opens ready for it.
+              {t("menu.pickWhereServed")}
             </p>
           </div>
           <button
-            aria-label="Close menu picker"
+            aria-label={t("menu.closeMenuPicker")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -172,10 +175,10 @@ export function NewItemMenuPicker({
                 <LineIcon className="h-5 w-5" name={option.icon} />
               </span>
               <span className="text-sm font-black text-[#17202a]">
-                {option.label}
+                {t(option.labelKey)}
               </span>
               <span className="text-[11px] leading-4 text-[#6a7483]">
-                {option.description}
+                {t(option.descriptionKey)}
               </span>
             </button>
           ))}

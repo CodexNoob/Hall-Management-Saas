@@ -52,6 +52,7 @@ import {
   type CalendarBooking,
   type EventsResponse
 } from "@/features/calendar/components/calendar-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /** Hoisted out of the day loop, which builds one of these per day otherwise. */
 const availabilityDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -95,6 +96,7 @@ function calendarQueryUrlFor(month: Date, availabilityRange: DateRange) {
 }
 
 export function EventCalendarPage() {
+  const { t } = useAppLanguage();
   const settingsMutation = useAuthenticatedMutation<
     { dailyEventLimit: number },
     unknown
@@ -446,10 +448,10 @@ export function EventCalendarPage() {
   const periodLabel = calendarView === "week" ? weekRangeLabel : monthLabel;
   const calendarViewHeading =
     calendarView === "week"
-      ? "Week Calendar"
+      ? t("calendar.weekCalendar")
       : calendarView === "agenda"
         ? "Agenda"
-        : "Month Calendar";
+        : t("calendar.monthCalendar");
   const selectedDateLabel = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     month: "short",
@@ -511,8 +513,8 @@ export function EventCalendarPage() {
         booking is found. New booking stays.
       */}
       <DashboardTopbar
-        title="Calendar"
-        subtitle="Review hall availability, bookings, holds, and fully booked dates."
+        title={t("calendar.title")}
+        subtitle={t("calendar.blurb")}
         onNewBooking={
           canBookSelectedDate ? () => setIsNewBookingOpen(true) : undefined
         }
@@ -527,7 +529,7 @@ export function EventCalendarPage() {
         which "Settings" it found.
       */}
       <nav
-        aria-label="Calendar views"
+        aria-label={t("calendar.views")}
         className="mt-2 shrink-0 overflow-hidden border-b border-t border-[#d8dde5] bg-white px-0 sm:px-5 lg:mt-0 lg:border-t-0"
       >
         <div className="grid w-full min-w-0 grid-cols-3 sm:flex sm:min-w-max sm:gap-2">
@@ -540,7 +542,7 @@ export function EventCalendarPage() {
             type="button"
           >
             <CalendarIcon className="hidden h-4 w-4 sm:block" />
-            Calendar
+            {t("calendar.title")}
           </button>
 
           <button
@@ -552,7 +554,7 @@ export function EventCalendarPage() {
             type="button"
           >
             <BuildingIcon className="hidden h-4 w-4 sm:block" />
-            Availability
+            {t("calendar.availability")}
           </button>
 
           <button
@@ -564,7 +566,7 @@ export function EventCalendarPage() {
             type="button"
           >
             <SettingsIcon className="hidden h-4 w-4 sm:block" />
-            Settings
+            {t("calendar.settings")}
           </button>
         </div>
       </nav>
@@ -681,20 +683,20 @@ export function EventCalendarPage() {
 
                   <p className="mt-1 text-xs text-[#6a7483]">
                     {calendarView === "agenda"
-                      ? "Every booked day this month, in date order."
+                      ? t("calendar.everyBookedDay")
                       : clickAnywhereToAdd
-                        ? "Click any bookable day to start a booking on that date."
-                        : "Click a day to review the schedule, or + to book it."}
+                        ? t("calendar.clickBookableDay")
+                        : t("calendar.clickDayToReview")}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
-                  <StatusDot color="bg-[#178151]" label="Confirmed" />
-                  <StatusDot color="bg-[#b66b00]" label="Hold" />
-                  <StatusDot color="bg-[#5649dd]" label="School" />
-                  <StatusDot color="bg-[#aab5c3]" label="Fully booked" />
+                  <StatusDot color="bg-[#178151]" label={t("calendar.confirmed")} />
+                  <StatusDot color="bg-[#b66b00]" label={t("calendar.hold")} />
+                  <StatusDot color="bg-[#5649dd]" label={t("calendar.school")} />
+                  <StatusDot color="bg-[#aab5c3]" label={t("calendar.fullyBooked")} />
                   {showAvailability ? (
-                    <StatusDot color="bg-[#087047]" label="Open slots" />
+                    <StatusDot color="bg-[#087047]" label={t("calendar.openSlots")} />
                   ) : null}
                 </div>
               </div>
@@ -714,8 +716,8 @@ export function EventCalendarPage() {
                     <button
                       aria-label={
                         calendarView === "week"
-                          ? "Show previous week"
-                          : "Show previous month"
+                          ? t("calendar.showPreviousWeek")
+                          : t("calendar.showPreviousMonth")
                       }
                       className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#b9c2cf] text-[#516071] hover:bg-[#eef4fa]"
                       onClick={() => movePeriod(-1)}
@@ -729,14 +731,14 @@ export function EventCalendarPage() {
                       onClick={goToToday}
                       type="button"
                     >
-                      Today
+                      {t("calendar.today")}
                     </button>
 
                     <button
                       aria-label={
                         calendarView === "week"
-                          ? "Show next week"
-                          : "Show next month"
+                          ? t("calendar.showNextWeek")
+                          : t("calendar.showNextMonth")
                       }
                       className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[#b9c2cf] text-[#516071] hover:bg-[#eef4fa]"
                       onClick={() => movePeriod(1)}
@@ -754,7 +756,7 @@ export function EventCalendarPage() {
                     onChange={(event) => setHallFilter(event.target.value)}
                     value={hallFilter}
                   >
-                    <option value="all">All halls</option>
+                    <option value="all">{t("calendar.allHalls")}</option>
                     {halls.map((hall) => (
                       <option key={hall} value={hall}>
                         {hall}
@@ -768,10 +770,10 @@ export function EventCalendarPage() {
                     onChange={(event) => setStatusFilter(event.target.value)}
                     value={statusFilter}
                   >
-                    <option value="all">All statuses</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="hold">Hold</option>
-                    <option value="school">School</option>
+                    <option value="all">{t("calendar.allStatuses")}</option>
+                    <option value="confirmed">{t("calendar.confirmed")}</option>
+                    <option value="hold">{t("calendar.hold")}</option>
+                    <option value="school">{t("calendar.school")}</option>
                   </select>
 
                   <select
@@ -780,7 +782,7 @@ export function EventCalendarPage() {
                     onChange={(event) => setTypeFilter(event.target.value)}
                     value={typeFilter}
                   >
-                    <option value="all">All types</option>
+                    <option value="all">{t("calendar.allTypes")}</option>
                     {(calendarData?.eventTypes ?? []).map((eventType) => (
                       <option key={eventType.id} value={eventType.name}>
                         {eventType.name}
@@ -805,7 +807,15 @@ export function EventCalendarPage() {
               ) : calendarView === "agenda" ? (
                 <CalendarAgendaView
                   days={agendaDays}
-                  emptyMessage={`Nothing is booked in ${monthLabel}${hallFilter !== "all" || statusFilter !== "all" || typeFilter !== "all" ? " that matches the current filters" : ""}.`}
+                  emptyMessage={
+                    hallFilter !== "all" ||
+                    statusFilter !== "all" ||
+                    typeFilter !== "all"
+                      ? t("calendar.nothingBookedMatching", {
+                          period: monthLabel
+                        })
+                      : t("calendar.nothingBookedIn", { period: monthLabel })
+                  }
                   onBookDate={openBookingForDate}
                   onSelectDate={selectDate}
                   showAvailability={showAvailability}
@@ -903,12 +913,12 @@ export function EventCalendarPage() {
 
                             {calendarDay.fullyBooked ? (
                               <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#516071]">
-                                Fully booked
+                                {t("calendar.fullyBooked")}
                               </span>
                             ) : null}
                             {calendarDay.isBlocked ? (
                               <span className="pointer-events-none absolute bottom-2 right-2 z-1 text-[9px] font-black text-[#b42318]">
-                                Blocked
+                                {t("calendar.blocked")}
                               </span>
                             ) : null}
                             {showAvailability &&
@@ -937,8 +947,12 @@ export function EventCalendarPage() {
 
                   <p className="mt-1 text-xs text-[#6a7483]">
                     {isPeriodLoading
-                      ? "Counting bookings on this date…"
-                      : `${selectedBookings.length} ${selectedBookings.length === 1 ? "booking" : "bookings"} on this date`}
+                      ? t("calendar.countingBookings")
+                      : selectedBookings.length === 1
+                        ? t("calendar.oneBookingOnDate")
+                        : t("calendar.bookingsOnDate", {
+                            count: selectedBookings.length
+                          })}
                   </p>
                 </div>
 
@@ -948,7 +962,7 @@ export function EventCalendarPage() {
                     onClick={() => setIsNewBookingOpen(true)}
                     type="button"
                   >
-                    Book date
+                    {t("calendar.bookDate")}
                   </button>
                 ) : null}
               </div>
@@ -1001,7 +1015,7 @@ export function EventCalendarPage() {
 
                   <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white">
                     <div className="border-b border-[#d8dde5] px-3 py-2">
-                      <h3 className="text-sm font-black">Hall availability</h3>
+                      <h3 className="text-sm font-black">{t("calendar.hallAvailability")}</h3>
                       <p className="mt-1 text-[10px] font-medium text-[#6a7483]">
                         {selectedDateLabel}. Limits come from each hall.
                       </p>
@@ -1019,7 +1033,7 @@ export function EventCalendarPage() {
                             </p>
                             {hall.usesDefaultLimit ? (
                               <p className="mt-0.5 text-[9px] font-medium text-[#6a7483]">
-                                Uses Calendar default
+                                {t("calendar.usesDefault")}
                               </p>
                             ) : null}
                           </div>
@@ -1046,8 +1060,7 @@ export function EventCalendarPage() {
 
                       {hallAvailability.length === 0 ? (
                         <p className="px-3 py-4 text-xs font-medium text-[#6a7483]">
-                          No bookable halls are saved yet. Add halls in
-                          Settings.
+                          {t("calendar.noBookableHalls")}
                         </p>
                       ) : null}
                     </div>
@@ -1068,7 +1081,7 @@ export function EventCalendarPage() {
         }}
         onSaved={async () => {
           await eventsQuery.refetch();
-          setBookingSuccessMessage("Booking saved and added to the calendar.");
+          setBookingSuccessMessage(t("calendar.bookingSaved"));
         }}
         open={isNewBookingOpen}
         selectedDate={selectedDate}

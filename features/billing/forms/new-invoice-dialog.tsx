@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { BillingResponse } from "@/features/billing/components/billing-shared";
 import { moneySchema, parseNumericInput } from "@/lib/validation/number";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type NewInvoiceFormValues = {
   eventId: string;
@@ -35,6 +36,7 @@ function dateInputValue(date: Date) {
 }
 
 export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const firstControlRef = useRef<HTMLSelectElement>(null);
   const initialValues = useMemo<NewInvoiceFormValues>(() => {
@@ -46,10 +48,13 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
       clientName: event?.clientName ?? "",
       status: "Draft",
       dueDate: dateInputValue(dueDate),
-      firstItem: "Event package",
+      firstItem: t("billing.eventPackage"),
       amount: event?.amountDue ? String(event.amountDue) : ""
     };
-  }, [events]);
+    // `t` is a dependency because the default line-item description is drawn
+    // from the catalog: an operator working in Spanish should get a Spanish
+    // default to edit, not an English one.
+  }, [events, t]);
   const [values, setValues] = useState(initialValues);
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -82,15 +87,16 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
     event.preventDefault();
     setError("");
     if (!values.eventId)
-      return setError("Create an event before creating an invoice.");
+      return setError(t("billing.createEventFirst"));
 
     const parsedAmount = parseNumericInput(
       values.amount,
-      moneySchema({ label: "Amount" })
+      moneySchema({ label: t("common.amount"), t }),
+      t
     );
     if (parsedAmount.status === "invalid") return setError(parsedAmount.message);
     if (parsedAmount.status === "empty" || parsedAmount.value <= 0)
-      return setError("Enter an amount greater than zero.");
+      return setError(t("billing.amountGreaterThanZero"));
     setIsSaving(true);
     try {
       await onSave(values);
@@ -98,7 +104,7 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
       setError(
         saveError instanceof Error
           ? saveError.message
-          : "Unable to create invoice."
+          : t("billing.createInvoiceFailed")
       );
     } finally {
       setIsSaving(false);
@@ -121,14 +127,14 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
         <header className="flex items-center justify-between border-b border-[#d8dde5] px-4 py-3">
           <div>
             <h2 className="font-black" id={titleId}>
-              New invoice
+              {t("billing.newInvoice")}
             </h2>
             <p className="text-sm text-[#6a7483]">
-              Create an invoice from an existing event.
+              {t("billing.invoiceFromEvent")}
             </p>
           </div>
           <button
-            aria-label="Close new invoice"
+            aria-label={t("billing.closeNewInvoice")}
             className="h-10 w-10 rounded-full text-2xl hover:bg-[#eef4fa]"
             disabled={isSaving}
             onClick={onClose}
@@ -140,10 +146,12 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
         <form onSubmit={handleSubmit}>
           <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Event
+              {t("common.event")}
               <select
                 className={controlClass}
                 disabled={!events.length}
+                id="invoice-event"
+                name="eventId"
                 onChange={(event) => {
                   const selected = events.find(
                     (item) => item.id === event.target.value
@@ -162,7 +170,7 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
                 value={values.eventId}
               >
                 {!events.length ? (
-                  <option value="">No events available</option>
+                  <option value="">{t("billing.noEventsAvailable")}</option>
                 ) : null}
                 {events.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -173,31 +181,37 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
               </select>
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Client
+              {t("common.client")}
               <input
                 className={`${controlClass} bg-[#f5f6f8]`}
+                id="invoice-client-name"
+                name="clientName"
                 readOnly
                 value={values.clientName}
               />
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Status
+              {t("common.status")}
               <select
                 className={controlClass}
+                id="invoice-status"
+                name="status"
                 onChange={(event) =>
                   update("status", event.target.value as "Draft" | "Sent")
                 }
                 value={values.status}
               >
-                <option>Draft</option>
-                <option>Sent</option>
+                <option value="Draft">{t("billing.statusDraft")}</option>
+                <option value="Sent">{t("billing.statusSent")}</option>
               </select>
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Due date
+              {t("billing.dueDate")}
               <input
                 className={controlClass}
+                id="invoice-due-date"
                 min={dateInputValue(new Date())}
+                name="dueDate"
                 onChange={(event) => update("dueDate", event.target.value)}
                 required
                 type="date"
@@ -205,19 +219,23 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
               />
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Line item
+              {t("billing.lineItem")}
               <input
                 className={controlClass}
+                id="invoice-first-item"
+                name="firstItem"
                 onChange={(event) => update("firstItem", event.target.value)}
                 required
                 value={values.firstItem}
               />
             </label>
             <label className="text-xs font-black uppercase text-[#64748b]">
-              Amount
+              {t("common.amount")}
               <input
                 className={controlClass}
+                id="invoice-amount"
                 inputMode="decimal"
+                name="amount"
                 onChange={(event) => update("amount", event.target.value)}
                 required
                 type="text"
@@ -240,14 +258,14 @@ export function NewInvoiceDialog({ events, open, onClose, onSave }: Props) {
               onClick={onClose}
               type="button"
             >
-              Cancel
+              {t("common.cancel")}
             </button>
             <button
               className="h-10 rounded-lg bg-[#1f4d73] px-4 text-sm font-black text-white disabled:opacity-60"
               disabled={isSaving || !events.length}
               type="submit"
             >
-              {isSaving ? "Creating…" : "Create invoice"}
+              {isSaving ? t("billing.creating") : t("billing.createInvoice")}
             </button>
           </footer>
         </form>

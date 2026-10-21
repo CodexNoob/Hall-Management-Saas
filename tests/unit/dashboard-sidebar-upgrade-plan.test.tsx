@@ -21,7 +21,9 @@ vi.mock("next/image", () => ({
 
 vi.mock("next/dynamic", () => ({
   default: () =>
-    function DialogMock({ open }: { open?: boolean }) {
+    // Every dialog here is mounted only while it is open, so a missing `open`
+    // prop - My Account takes none - still means open.
+    function DialogMock({ open = true }: { open?: boolean }) {
       return open ? <div role="dialog">Subscription Plan</div> : null;
     }
 }));
@@ -46,6 +48,7 @@ const user: SessionUser = {
   name: "Sample",
   phone: null,
   venueName: null,
+  language: null,
   title: null,
   organizationId: "org-1"
 };
@@ -87,7 +90,7 @@ describe("DashboardSidebar profile menu", () => {
     }));
   });
 
-  it.each(["Upgrade Plan", "Profile", "Logout"])(
+  it.each(["Upgrade Plan", "My Account", "Logout"])(
     "keeps Kitchen's desktop sidebar open when opening %s",
     async (itemLabel) => {
       const { sidebar } = renderOpenKitchenSidebar();

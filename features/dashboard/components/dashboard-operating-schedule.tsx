@@ -8,6 +8,7 @@ import {
   type TimeFilter
 } from "@/components/layout/dashboard-shell-shared";
 import { useDashboardAccess } from "@/features/dashboard/hooks/use-dashboard-permission";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type DashboardOperatingScheduleProps = {
   customEndDate: string;
@@ -42,6 +43,7 @@ export function DashboardOperatingSchedule({
   onSchedulePageChange,
   onTimeFilterChange
 }: DashboardOperatingScheduleProps) {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   // Checked against the route map so the schedule can never offer a link the
@@ -55,16 +57,16 @@ export function DashboardOperatingSchedule({
       <div className="flex flex-col gap-4 border-b border-[#d8dde5] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-black text-[#17202a]">
-            Operating schedule
+            {t("dashboard.schedule.title")}
           </h2>
           <p className="mt-1 text-sm font-medium text-[#6a7483]">
-            Live work list for office, kitchen, and dining room managers.
+            {t("dashboard.schedule.blurb")}
           </p>
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end">
           <select
-            aria-label="Dashboard time filter"
+            aria-label={t("dashboard.timeFilter")}
             id="dashboard-operating-time-filter"
             name="operatingTimeFilter"
             className="h-10 rounded-xl border border-[#b9c2cf] bg-white px-3 text-sm font-black text-[#17202a] transition hover:bg-[#eef4fa]"
@@ -73,11 +75,11 @@ export function DashboardOperatingSchedule({
             }
             value={timeFilter}
           >
-            <option value="today">Today</option>
-            <option value="week">This week</option>
-            <option value="month">This month</option>
-            <option value="year">This year</option>
-            <option value="custom">Custom</option>
+            <option value="today">{t("dashboard.range.today")}</option>
+            <option value="week">{t("dashboard.range.thisWeek")}</option>
+            <option value="month">{t("dashboard.range.thisMonth")}</option>
+            <option value="year">{t("dashboard.range.thisYear")}</option>
+            <option value="custom">{t("dashboard.range.custom")}</option>
           </select>
 
           {canOpenEvents ? (
@@ -86,7 +88,7 @@ export function DashboardOperatingSchedule({
               type="button"
               onClick={() => router.push("/dashboard/events", { scroll: false })}
             >
-              Open events
+              {t("dashboard.schedule.openEvents")}
             </button>
           ) : null}
         </div>
@@ -95,7 +97,7 @@ export function DashboardOperatingSchedule({
       {timeFilter === "custom" ? (
         <div className="grid gap-3 border-b border-[#d8dde5] bg-[#fbfcfd] p-4 sm:grid-cols-2">
           <label className="text-xs font-black text-[#6a7483]" htmlFor="dashboard-custom-start-date">
-            Start date
+            {t("dashboard.startDate")}
             <input
               id="dashboard-custom-start-date"
               name="customStartDate"
@@ -107,7 +109,7 @@ export function DashboardOperatingSchedule({
           </label>
 
           <label className="text-xs font-black text-[#6a7483]" htmlFor="dashboard-custom-end-date">
-            End date
+            {t("dashboard.endDate")}
             <input
               id="dashboard-custom-end-date"
               name="customEndDate"
@@ -156,6 +158,8 @@ function MobileScheduleList({
   DashboardOperatingScheduleProps,
   "isLoading" | "scheduleRows" | "visibleScheduleRows"
 >) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="space-y-2 p-3 md:hidden">
       {isLoading ? (
@@ -179,11 +183,11 @@ function MobileScheduleList({
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div>
-                <dt className="font-black text-[#6a7483]">Owner</dt>
+                <dt className="font-black text-[#6a7483]">{t("dashboard.schedule.owner")}</dt>
                 <dd className="mt-1">{row.owner}</dd>
               </div>
               <div>
-                <dt className="font-black text-[#6a7483]">Next item</dt>
+                <dt className="font-black text-[#6a7483]">{t("dashboard.schedule.nextItem")}</dt>
                 <dd className="mt-1">{row.next}</dd>
               </div>
             </dl>
@@ -202,17 +206,18 @@ function DesktopScheduleTable({
   DashboardOperatingScheduleProps,
   "isLoading" | "scheduleRows" | "visibleScheduleRows"
 >) {
+  const { t } = useAppLanguage();
   return (
     <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-220 table-fixed text-left">
         <thead className="border-b border-[#d8dde5] bg-[#fbfcfd] text-xs font-black uppercase tracking-[0.04em] text-[#6a7483]">
           <tr>
-            <th className="w-[10%] px-4 py-4">Time</th>
-            <th className="w-[23%] px-4 py-4">Event</th>
-            <th className="w-[17%] px-4 py-4">Room</th>
-            <th className="w-[16%] px-4 py-4">Owner</th>
-            <th className="w-[15%] px-4 py-4">Status</th>
-            <th className="w-[19%] px-4 py-4">Next item</th>
+            <th className="w-[10%] px-4 py-4">{t("common.time")}</th>
+            <th className="w-[23%] px-4 py-4">{t("common.event")}</th>
+            <th className="w-[17%] px-4 py-4">{t("dashboard.schedule.room")}</th>
+            <th className="w-[16%] px-4 py-4">{t("dashboard.schedule.owner")}</th>
+            <th className="w-[15%] px-4 py-4">{t("common.status")}</th>
+            <th className="w-[19%] px-4 py-4">{t("dashboard.schedule.nextItem")}</th>
           </tr>
         </thead>
 
@@ -327,6 +332,7 @@ function DesktopScheduleSkeleton() {
 }
 
 function ScheduleEmptyState() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const { canAccessRoute } = useDashboardAccess();
   const canOpenEvents = canAccessRoute("/dashboard/events");
@@ -349,11 +355,10 @@ function ScheduleEmptyState() {
         </svg>
       </span>
       <p className="mt-3 text-sm font-black text-[#17202a]">
-        No events in this time range
+        {t("dashboard.schedule.noEvents")}
       </p>
       <p className="mt-1 text-xs font-medium text-[#6a7483]">
-        Change the filter or open Event Manager to create and review upcoming
-        bookings.
+        {t("dashboard.schedule.emptyBody")}
       </p>
       {canOpenEvents ? (
         <button
@@ -361,7 +366,7 @@ function ScheduleEmptyState() {
           onClick={() => router.push("/dashboard/events", { scroll: false })}
           type="button"
         >
-          Open Event Manager
+          {t("dashboard.schedule.openEventManager")}
         </button>
       ) : null}
     </div>
@@ -382,15 +387,17 @@ function SchedulePagination({
   | "scheduleRows"
   | "onSchedulePageChange"
 >) {
+  const { t } = useAppLanguage();
+
   if (scheduleRows.length === 0) return null;
 
   return (
     <nav
-      aria-label="Operating schedule pages"
+      aria-label={t("dashboard.schedule.pages")}
       className="flex flex-wrap items-center justify-center gap-1 border-t border-[#d8dde5] px-3 py-4"
     >
       <button
-        aria-label="Previous schedule page"
+        aria-label={t("dashboard.schedule.previousPage")}
         className="flex h-9 min-w-9 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm font-black text-[#17202a] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
         disabled={schedulePage === 1}
         onClick={() => onSchedulePageChange((current) => Math.max(1, current - 1))}
@@ -414,7 +421,7 @@ function SchedulePagination({
         </button>
       ))}
       <button
-        aria-label="Next schedule page"
+        aria-label={t("dashboard.schedule.nextPage")}
         className="flex h-9 min-w-9 items-center justify-center rounded-lg border border-[#b9c2cf] bg-white px-2 text-sm font-black text-[#17202a] enabled:hover:bg-[#eef4fa] disabled:cursor-not-allowed disabled:opacity-40"
         disabled={schedulePage === schedulePageCount}
         onClick={() =>

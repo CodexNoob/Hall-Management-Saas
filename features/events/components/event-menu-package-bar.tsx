@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The strip above the menu that says which package this event is served from.
@@ -40,6 +41,7 @@ export function EventMenuPackageBar({
   onOpenSelector: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useAppLanguage();
   const [isConfirmingRemoval, setIsConfirmingRemoval] = useState(false);
 
   return (
@@ -69,20 +71,24 @@ export function EventMenuPackageBar({
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-[#6a7483]">
-                  {packageLineCount > 0
-                    ? `${packageLineCount} dish${packageLineCount === 1 ? "" : "es"} on this menu came from the package.`
-                    : "Its dishes are no longer on this menu."}
+                  {packageLineCount === 0
+                    ? t("events.packageDishesGone")
+                    : packageLineCount === 1
+                      ? t("events.packageDishOne")
+                      : t("events.packageDishMany", {
+                          count: packageLineCount
+                        })}
                 </p>
               </>
             ) : (
               <>
                 <p className="text-[13px] font-black text-[#17202a] sm:text-sm">
-                  No package on this event
+                  {t("events.noPackageOnEvent")}
                 </p>
                 <p className="mt-0.5 text-xs text-[#6a7483]">
                   {hasPackages
-                    ? "Add one to drop its whole dish list onto this menu at once."
-                    : "Build one on the Packages tab of the menu library to use it here."}
+                    ? t("events.addPackageHint")
+                    : t("events.buildPackageHint")}
                 </p>
               </>
             )}
@@ -100,10 +106,10 @@ export function EventMenuPackageBar({
                 picked when the booking was taken, or one whose dishes were
                 removed since. "Change" would be the wrong offer there. */}
             {!appliedPackage
-              ? "Add package"
+              ? t("events.addPackageButton")
               : packageLineCount > 0
-                ? "Change package"
-                : "Add its dishes"}
+                ? t("events.changePackage")
+                : t("events.addItsDishes")}
           </button>
           {appliedPackage ? (
             <button
@@ -112,7 +118,7 @@ export function EventMenuPackageBar({
               onClick={() => setIsConfirmingRemoval(true)}
               type="button"
             >
-              Remove
+              {t("common.remove")}
             </button>
           ) : null}
         </div>
@@ -144,9 +150,13 @@ export function EventMenuPackageBar({
                   a dish added by hand survives, a dish the package brought does
                   not. */}
               <p className="mt-1 text-sm text-[#64748b]">
-                {packageLineCount > 0
-                  ? `The ${packageLineCount} dish${packageLineCount === 1 ? "" : "es"} it added come off this menu. Anything you added by hand stays.`
-                  : "The event stops naming this package. The menu itself does not change."}
+                {packageLineCount === 0
+                  ? t("events.packageStopsNaming")
+                  : packageLineCount === 1
+                    ? t("events.removePackageOne")
+                    : t("events.removePackageMany", {
+                        count: packageLineCount
+                      })}
               </p>
             </header>
             <footer className="flex justify-end gap-2 border-t border-[#d8dde5] bg-[#fbfcfd] px-5 py-4">
@@ -156,7 +166,7 @@ export function EventMenuPackageBar({
                 onClick={() => setIsConfirmingRemoval(false)}
                 type="button"
               >
-                Keep it
+                {t("events.keepIt")}
               </button>
               <button
                 className="h-9 rounded-lg bg-[#c3291b] px-4 text-xs font-black text-white hover:bg-[#a02214] disabled:opacity-50"
@@ -167,7 +177,7 @@ export function EventMenuPackageBar({
                 }}
                 type="button"
               >
-                Remove package
+                {t("events.removePackage")}
               </button>
             </footer>
           </section>

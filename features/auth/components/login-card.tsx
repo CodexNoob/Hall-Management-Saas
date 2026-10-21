@@ -24,6 +24,7 @@ import {
   createSupabaseBrowserClient,
   setAuthSessionPersistence
 } from "@/lib/supabase/browser";
+import { MfaChallengeDialog } from "@/features/auth/components/mfa-challenge-dialog";
 import { useDesktopAuthScrollLock } from "@/features/auth/components/use-desktop-auth-scroll-lock";
 import { getLoginValidationError } from "@/features/auth/validations/auth.schema";
 import { getSafeDashboardReturnPath } from "@/lib/auth/redirect";
@@ -130,6 +131,7 @@ export function LoginCard() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<AuthProvider | null>(null);
+  const [isMfaChallengeOpen, setIsMfaChallengeOpen] = useState(false);
 
   useDesktopAuthScrollLock(isDesktopApp);
 
@@ -161,8 +163,54 @@ export function LoginCard() {
     toast.error(message, { title: "Sign-in failed" });
   };
 
+  /**
+   * The last two steps after the authenticator code was accepted.
+   *
+   * The session is synced again, forced, because the one synced after the
+   * password step was `aal1` and still said a code was owed. The sync is what
+   * stamps the active-organization cookie, provisions a first-time user and -
+   * now that the factor is cleared - sends the new-device email if needed.
+   */
+  const completeSignIn = async (accessToken: string) => {
+    await fetchAuthSession(accessToken, { force: true });
+    router.replace(returnPath as Parameters<typeof router.replace>[0]);
+    router.refresh();
+  };
+
+  /**
+   * Extracted so the challenge step refuses the same way the password step
+   * does. `fetchAuthSession` throws the terminal refusals - no invitation, a
+   * deactivated account, a beta applicant - and those leave a live Supabase
+   * session behind that has to be ended, whichever step reached them.
+   */
+  const handleSignInError = async (submitError: unknown) => {
+    // Supabase accepted the credentials and we did not accept the account, so
+    // a live session is sitting behind this error message. Left in place it
+    // turns the next reload into a redirect to a dashboard that refuses them -
+    // and proxy.ts will not let them back to /login while it exists.
+    if (isTerminalAuthSessionError(submitError)) {
+      await signOutCurrentSession().catch(() => undefined);
+
+      // A beta applicant signing in early gets the page about the beta rather
+      // than a sign-in error. Their credentials were correct; there is
+      // nothing on this form for them to fix, and an error here reads as one.
+      if (isBetaAccessCode(submitError.code)) {
+        router.replace(
+          getBetaPendingPath(submitError.code) as Parameters<
+            typeof router.replace
+          >[0]
+        );
+        return;
+      }
+    }
+
+    failSignIn(getAuthErrorMessage(submitError));
+  };
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isSubmitting || isMfaChallengeOpen) return;
 
     // Validated here as well as by the browser: the native type="email" guard
     // is bypassable, and without this a malformed address reached Supabase and
@@ -192,33 +240,36 @@ export function LoginCard() {
       }
 
       if (data.session?.access_token) {
-        await fetchAuthSession(data.session.access_token, { force: true });
-      }
+        /**
+         * Does this sign-in owe the authenticator code? THE SERVER SAYS.
+         *
+         * Not Supabase's assurance level: an account with a factor is always
+         * `aal1` here, but a trusted device that already cleared the factor
+         * this trust period is not asked again - unless the organization
+         * requires 2FA. Only the session sync knows that (it reads this
+         * browser's httpOnly device cookie), and `resolveUserActor` refuses on
+         * the same rule, so this dialog and the server cannot disagree.
+         *
+         * The sync is also what provisions a first-time user and stamps the
+         * active organization, so it is needed on this path anyway.
+         */
+        const session = await fetchAuthSession(data.session.access_token, {
+          force: true
+        });
 
-      router.replace(returnPath as Parameters<typeof router.replace>[0]);
-      router.refresh();
-    } catch (submitError) {
-      // Supabase accepted the credentials and we did not accept the account, so
-      // a live session is sitting behind this error message. Left in place it
-      // turns the next reload into a redirect to a dashboard that refuses them -
-      // and proxy.ts will not let them back to /login while it exists.
-      if (isTerminalAuthSessionError(submitError)) {
-        await signOutCurrentSession().catch(() => undefined);
-
-        // A beta applicant signing in early gets the page about the beta rather
-        // than a sign-in error. Their credentials were correct; there is
-        // nothing on this form for them to fix, and an error here reads as one.
-        if (isBetaAccessCode(submitError.code)) {
-          router.replace(
-            getBetaPendingPath(submitError.code) as Parameters<
-              typeof router.replace
-            >[0]
-          );
+        if (session.mfa?.obligation === "challenge") {
+          setIsMfaChallengeOpen(true);
           return;
         }
-      }
 
-      failSignIn(getAuthErrorMessage(submitError));
+        router.replace(returnPath as Parameters<typeof router.replace>[0]);
+        router.refresh();
+      } else {
+        router.replace(returnPath as Parameters<typeof router.replace>[0]);
+        router.refresh();
+      }
+    } catch (submitError) {
+      await handleSignInError(submitError);
     } finally {
       setIsSubmitting(false);
     }
@@ -489,7 +540,7 @@ export function LoginCard() {
             <button
               className={`${isDesktopApp ? "mt-5" : "mt-6"} login-button flex w-full items-center justify-center gap-3 bg-linear-to-r from-[#1f4d73] to-[#0F172A] font-black text-white shadow-xl shadow-[#0F172A]/25 transition hover:brightness-110 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-70 ${isDesktopApp ? "h-11 text-sm" : "h-12 text-base"}`}
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || isMfaChallengeOpen}
             >
               <ArrowLoginIcon />
               {isSubmitting ? "Logging in..." : "Login"}
@@ -544,20 +595,53 @@ export function LoginCard() {
     </section>
   );
 
+  // Rendered beside the card rather than inside it: the dialog is fixed to the
+  // viewport, and both presentations below need it.
+  const challenge = isMfaChallengeOpen ? (
+    <MfaChallengeDialog
+      onCancel={async () => {
+        // The password step already minted a session. Abandoning the challenge
+        // has to end it, or the browser is left holding an `aal1` session that
+        // proxy.ts will not let back to /login and the dashboard will refuse.
+        await signOutCurrentSession().catch(() => undefined);
+        setIsMfaChallengeOpen(false);
+        setPassword("");
+      }}
+      onVerified={async (accessToken) => {
+        try {
+          await completeSignIn(accessToken);
+        } catch (challengeError) {
+          // A refusal at this point is about the ACCOUNT, not the code. Close
+          // the challenge and report it on the form where the account is.
+          setIsMfaChallengeOpen(false);
+          await handleSignInError(challengeError);
+        }
+      }}
+    />
+  ) : null;
+
   if (!isDesktopApp) {
-    return card;
+    return (
+      <>
+        {card}
+        {challenge}
+      </>
+    );
   }
 
   // The desktop shell keeps the old floating-panel presentation, so it has to
   // supply the page ground itself - the web layout is a full-bleed split now
   // and no longer centres anything for it.
   return (
-    <div className="relative flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-2 py-4 sm:px-6 sm:py-8">
-      <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
-      <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
-      <div className="relative flex w-full max-w-7xl items-center justify-center">
-        {card}
+    <>
+      <div className="relative flex min-h-dvh w-full items-center justify-center overflow-x-hidden bg-linear-to-br from-white via-[#F7F4ED] to-[#F1F5F9] px-2 py-4 sm:px-6 sm:py-8">
+        <div className="pointer-events-none absolute -left-24 top-16 h-80 w-80 rounded-full bg-[#F1F5F9] blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 bottom-14 h-96 w-96 rounded-full bg-[#E5E0D6] blur-3xl" />
+        <div className="relative flex w-full max-w-7xl items-center justify-center">
+          {card}
+        </div>
       </div>
-    </div>
+      {challenge}
+    </>
   );
 }

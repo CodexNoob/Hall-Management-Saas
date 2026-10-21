@@ -5,6 +5,7 @@ import {
   hasOpenAvailability,
   type CalendarDayMeta
 } from "@/features/calendar/components/calendar-day-model";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const headingFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "long",
@@ -36,6 +37,7 @@ export function CalendarAgendaView({
   showAvailability: boolean;
   showHebrewDate: boolean;
 }) {
+  const { t } = useAppLanguage();
   const scheduledDays = days.filter((day) => day.bookings.length > 0);
 
   if (scheduledDays.length === 0) {
@@ -66,7 +68,7 @@ export function CalendarAgendaView({
                 {headingFormatter.format(day.date)}
                 {day.isToday ? (
                   <span className="ml-2 rounded-full bg-[#eef4fa] px-2 py-0.5 text-[9px] font-black text-[#1f4d73]">
-                    Today
+                    {t("calendar.today")}
                   </span>
                 ) : null}
               </h3>
@@ -84,11 +86,11 @@ export function CalendarAgendaView({
             <div className="flex items-center gap-2">
               {day.isBlocked ? (
                 <span className="text-[9px] font-black text-[#b42318]">
-                  Blocked
+                  {t("calendar.blocked")}
                 </span>
               ) : day.fullyBooked ? (
                 <span className="text-[9px] font-black text-[#516071]">
-                  Fully booked
+                  {t("calendar.fullyBooked")}
                 </span>
               ) : showAvailability && hasOpenAvailability(day) ? (
                 <span className="text-[9px] font-black text-[#087047]">

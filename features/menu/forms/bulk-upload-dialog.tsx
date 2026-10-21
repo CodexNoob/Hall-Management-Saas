@@ -23,10 +23,11 @@ import {
 } from "@/features/menu/lib/menu-xlsx";
 import {
   COUNT_BASES,
-  COUNT_BASIS_LABELS,
+  COUNT_BASIS_KEYS,
   COUNTING_UNITS,
   DEFAULT_SEGMENT,
   ROUNDING_MODES,
+  ROUNDING_MODE_KEYS,
   serviceFormDefaults,
   toServiceRules,
   type MenuItemKind,
@@ -38,6 +39,8 @@ import {
   importMenuItems,
   type MenuItemImportInput
 } from "@/features/menu/services/menu-items";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * A file bigger than this is not a menu. Checked before reading rather than
@@ -56,10 +59,10 @@ const IMPORT_RULE_DEFAULTS = serviceFormDefaults("Food");
 
 type Step = "format" | "upload" | "review";
 
-const STEPS: Array<{ id: Step; title: string }> = [
-  { id: "format", title: "Set up your sheet" },
-  { id: "upload", title: "Choose the file" },
-  { id: "review", title: "Review and import" }
+const STEPS: Array<{ id: Step; titleKey: MessageKey }> = [
+  { id: "format", titleKey: "menu.stepSetUpSheet" },
+  { id: "upload", titleKey: "menu.stepChooseFile" },
+  { id: "review", titleKey: "menu.stepReview" }
 ];
 
 type BulkUploadDialogProps = {
@@ -190,32 +193,36 @@ const ROW_TONES: Record<MenuCsvRow["status"], string> = {
   error: "bg-[#fdeceb] text-[#b42318]"
 };
 
-const ROW_LABELS: Record<MenuCsvRow["status"], string> = {
-  ready: "Will import",
-  duplicate: "Duplicate",
-  error: "Problem"
+const ROW_LABELS: Record<MenuCsvRow["status"], MessageKey> = {
+  ready: "menu.willImport",
+  duplicate: "menu.rowDuplicate",
+  error: "menu.rowProblem"
 };
 
 function ReviewTable({ rows }: { rows: MenuCsvRow[] }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="max-h-64 overflow-auto rounded-lg border border-[#d8dde5]">
       <table className="w-full min-w-140 border-collapse text-left text-xs">
         <thead className="sticky top-0 bg-[#f5f6f8]">
           <tr>
-            {[
-              "Line",
-              "Item name",
-              "Category",
-              "Kashrut",
-              "Allergies",
-              "Status"
-            ].map((heading) => (
+            {(
+              [
+                "menu.colLine",
+                "menu.itemName",
+                "menu.colCategory",
+                "menu.colKashrut",
+                "menu.allergies",
+                "common.status"
+              ] satisfies MessageKey[]
+            ).map((heading) => (
               <th
                 className="border-b border-[#d8dde5] px-2 py-1.5 font-black text-[#64748b]"
                 key={heading}
                 scope="col"
               >
-                {heading}
+                {t(heading)}
               </th>
             ))}
           </tr>
@@ -242,7 +249,7 @@ function ReviewTable({ rows }: { rows: MenuCsvRow[] }) {
                 <span
                   className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-black ${ROW_TONES[row.status]}`}
                 >
-                  {ROW_LABELS[row.status]}
+                  {t(ROW_LABELS[row.status])}
                 </span>
                 {row.message ? (
                   <span className="ml-2 text-[11px] text-[#617086]">
@@ -275,6 +282,8 @@ function ServiceRuleFields({
   values: ServiceRuleFormValues;
   onChange: (patch: Partial<ServiceRuleFormValues>) => void;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <fieldset className="rounded-lg border border-[#d8dde5] p-2">
       <legend className="px-1 text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
@@ -282,7 +291,7 @@ function ServiceRuleFields({
       </legend>
       <div className="mt-1 flex flex-wrap items-center gap-2">
         <input
-          aria-label={`${style} quantity`}
+          aria-label={t("menu.quantityFor", { label: style })}
           className={`${controlClass} w-20`}
           inputMode="decimal"
           onChange={(event) => onChange({ quantity: event.target.value })}
@@ -290,7 +299,7 @@ function ServiceRuleFields({
           value={values.quantity}
         />
         <select
-          aria-label={`${style} unit`}
+          aria-label={t("menu.unitFor", { label: style })}
           className={`${controlClass} w-28`}
           onChange={(event) => onChange({ unit: event.target.value })}
           value={values.unit}
@@ -299,12 +308,12 @@ function ServiceRuleFields({
             <option key={unit}>{unit}</option>
           ))}
         </select>
-        <span className="text-xs font-black text-[#6a7483]">per</span>
+        <span className="text-xs font-black text-[#6a7483]">{t("menu.per")}</span>
         {/* A whole-event rule divides nothing, so the count is not asked for -
             the same branch the single-item dialog makes. */}
         {values.perBasis === "Event" ? null : (
           <input
-            aria-label={`${style} per quantity`}
+            aria-label={t("menu.perQuantity", { label: style })}
             className={`${controlClass} w-20`}
             inputMode="numeric"
             onChange={(event) => onChange({ per: event.target.value })}
@@ -313,41 +322,40 @@ function ServiceRuleFields({
           />
         )}
         <select
-          aria-label={`${style} per basis`}
+          aria-label={t("menu.perBasis", { label: style })}
           className={`${controlClass} w-32`}
           onChange={(event) => onChange({ perBasis: event.target.value })}
           value={values.perBasis}
         >
           {COUNT_BASES.map((basis) => (
             <option key={basis} value={basis}>
-              {COUNT_BASIS_LABELS[basis]}
+              {t(COUNT_BASIS_KEYS[basis])}
             </option>
           ))}
         </select>
         <select
-          aria-label={`${style} rounding`}
+          aria-label={t("menu.roundingFor", { label: style })}
           className={`${controlClass} w-32`}
           onChange={(event) => onChange({ rounding: event.target.value })}
           value={values.rounding}
         >
           {ROUNDING_MODES.map((mode) => (
             <option key={mode} value={mode}>
-              {mode === "Exact" ? "no rounding" : `round ${mode.toLowerCase()}`}
+              {t(ROUNDING_MODE_KEYS[mode])}
             </option>
           ))}
         </select>
         <input
-          aria-label={`${style} minimum`}
+          aria-label={t("menu.minimumFor", { label: style })}
           className={`${controlClass} w-28`}
           inputMode="numeric"
           onChange={(event) => onChange({ minimumUnits: event.target.value })}
-          placeholder="min (opt)"
+          placeholder={t("menu.minOpt")}
           value={values.minimumUnits}
         />
       </div>
       <p className="mt-1.5 text-[10px] font-bold text-[#6a7483]">
-        Applies to every row in the file. Adjust individual dishes afterwards
-        from their card.
+        {t("menu.ruleAppliesToAll")}
       </p>
     </fieldset>
   );
@@ -361,6 +369,7 @@ export function BulkUploadDialog({
   onImported,
   open
 }: BulkUploadDialogProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Tracks the closed -> open edge, so a parent re-render cannot throw away a
@@ -460,13 +469,14 @@ export function BulkUploadDialog({
 
     if (file.size > MAX_FILE_BYTES) {
       setError(
-        "That file is larger than 1 MB. A menu sheet should be well under it."
+        t("menu.fileTooLarge")
       );
       return;
     }
 
     try {
       const parsed = parseMenuCsv(await file.text(), {
+        t,
         defaultKind,
         existingNames
       });
@@ -475,7 +485,7 @@ export function BulkUploadDialog({
       setResult(parsed);
       setStep("review");
     } catch {
-      setError("That file could not be read. Save it again as CSV and retry.");
+      setError(t("menu.fileUnreadable"));
     }
   };
 
@@ -528,7 +538,7 @@ export function BulkUploadDialog({
       setError(
         importError instanceof Error
           ? importError.message
-          : "The items could not be imported. Please try again."
+          : t("menu.importFailed")
       );
     } finally {
       setIsImporting(false);
@@ -554,11 +564,11 @@ export function BulkUploadDialog({
           <div className="flex items-center gap-3">
             <UploadIcon />
             <h2 className="text-base font-black text-[#17202a]" id={titleId}>
-              Bulk upload menu items
+              {t("menu.bulkUploadItems")}
             </h2>
           </div>
           <button
-            aria-label="Close bulk upload"
+            aria-label={t("menu.closeBulkUpload")}
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#17202a] hover:bg-[#eef4fa]"
             onClick={closeAndReset}
             type="button"
@@ -581,7 +591,7 @@ export function BulkUploadDialog({
 
         {importedCount === null ? (
           <nav
-            aria-label="Bulk upload steps"
+            aria-label={t("menu.bulkUploadSteps")}
             className="flex shrink-0 flex-wrap gap-2 border-b border-[#d8dde5] bg-[#fbfcfd] px-4 py-2"
           >
             {STEPS.map((entry, index) => (
@@ -605,7 +615,7 @@ export function BulkUploadDialog({
                 >
                   {index + 1}
                 </span>
-                {entry.title}
+                {t(entry.titleKey)}
               </span>
             ))}
           </nav>
@@ -620,8 +630,7 @@ export function BulkUploadDialog({
                   imported
                 </p>
                 <p className="text-sm text-[#617086]">
-                  Pictures are added per item — open a card and use Edit to
-                  upload one.
+                  {t("menu.picturesPerItem")}
                 </p>
               </div>
             ) : null}
@@ -629,8 +638,7 @@ export function BulkUploadDialog({
             {importedCount === null && step === "format" ? (
               <div className="grid gap-3">
                 <p className="text-sm text-[#617086]">
-                  Each line becomes one menu item. The columns are read by
-                  position, so build your sheet in exactly this order:
+                  {t("menu.columnsByPosition")}
                 </p>
 
                 <SampleSheet />
@@ -641,28 +649,26 @@ export function BulkUploadDialog({
                       <dt className="w-32 shrink-0 font-black text-[#17202a]">
                         {column.letter} — {column.header}
                       </dt>
-                      <dd className="text-[#617086]">{column.help}</dd>
+                      <dd className="text-[#617086]">{t(column.helpKey)}</dd>
                     </div>
                   ))}
                 </dl>
 
                 <div className="rounded-lg bg-[#eef4fa] px-3 py-2">
                   <p className="text-xs font-black text-[#1f4d73]">
-                    Saving from Excel or Google Sheets
+                    {t("menu.savingFromExcel")}
                   </p>
                   <ol className="mt-1 grid list-decimal gap-0.5 pl-4 text-xs text-[#17202a]">
-                    <li>Put the headings above in row 1, one per column.</li>
-                    <li>Add one dish per row underneath.</li>
+                    <li>{t("menu.headingsInRow1")}</li>
+                    <li>{t("menu.oneDishPerRow")}</li>
                     <li>
-                      File → Save As (or Download) → <strong>CSV</strong>. Keep
-                      one sheet only.
+                      {t("menu.saveAsCsvStep")}
                     </li>
                   </ol>
                 </div>
 
                 <p className="text-xs text-[#617086]">
-                  Pictures are not part of the file — add them per item after
-                  importing. Up to {MAX_MENU_CSV_ROWS} rows per upload.
+                  {t("menu.picturesNotInFile", { max: MAX_MENU_CSV_ROWS })}
                 </p>
 
                 <div className="flex flex-wrap gap-2">
@@ -671,21 +677,19 @@ export function BulkUploadDialog({
                     onClick={downloadCsvTemplate}
                     type="button"
                   >
-                    Download template CSV
+                    {t("menu.downloadTemplateCsv")}
                   </button>
                   <button
                     className="rounded-lg border border-[#1f4d73] bg-white px-4 py-2 text-xs font-black text-[#1f4d73] hover:bg-[#eef4fa]"
                     onClick={downloadXlsxTemplate}
                     type="button"
                   >
-                    Download template xlsx
+                    {t("menu.downloadTemplateXlsx")}
                   </button>
                 </div>
 
                 <p className="text-xs text-[#617086]">
-                  The xlsx has the columns ready with dropdowns for Category,
-                  Kashrut Type and Food or Drink — fill it in, then save it as
-                  CSV to upload.
+                  {t("menu.xlsxHint")}
                 </p>
               </div>
             ) : null}
@@ -693,11 +697,10 @@ export function BulkUploadDialog({
             {importedCount === null && step === "upload" ? (
               <div className="grid gap-3">
                 <p className="text-sm text-[#617086]">
-                  Choose the CSV you just saved. Nothing is created until you
-                  review it on the next step.
+                  {t("menu.chooseSavedCsv")}
                 </p>
                 <label className="text-[11px] font-black uppercase tracking-[0.04em] text-[#64748b]">
-                  CSV file
+                  {t("menu.csvFile")}
                   <input
                     accept=".csv,text/csv"
                     className="mt-1 block h-9 w-full rounded-lg border border-[#b9c2cf] bg-white px-2 py-1 text-sm font-medium normal-case tracking-normal text-[#17202a] file:mr-2 file:rounded-sm file:border file:border-[#8a94a3] file:bg-[#f5f6f8] file:px-2 file:py-0.5"
@@ -770,8 +773,7 @@ export function BulkUploadDialog({
                   />
                 ) : (
                   <p className="text-xs text-[#617086]">
-                    These items are added to the library. Set a dish on the
-                    Buffet or Plated tab by editing it and ticking that style.
+                    {t("menu.addedToLibrary")}
                   </p>
                 )}
               </div>
@@ -798,7 +800,7 @@ export function BulkUploadDialog({
                 }}
                 type="button"
               >
-                Back
+                {t("menu.back")}
               </button>
             ) : null}
 
@@ -816,7 +818,7 @@ export function BulkUploadDialog({
                 onClick={() => setStep("upload")}
                 type="button"
               >
-                My sheet is ready
+                {t("menu.sheetReady")}
               </button>
             ) : null}
 
@@ -827,8 +829,13 @@ export function BulkUploadDialog({
                 type="submit"
               >
                 {isImporting
-                  ? "Importing…"
-                  : `Import ${importable.length} ${importable.length === 1 ? "item" : "items"}`}
+                  ? t("menu.importing")
+                  : t(
+                      importable.length === 1
+                        ? "menu.importItemCount"
+                        : "menu.importItemCountPlural",
+                      { count: importable.length }
+                    )}
               </button>
             ) : null}
           </footer>

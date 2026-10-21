@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { subscriptionPlans } from "@/lib/subscription/plans";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 type UpgradePlanDialogProps = {
   description?: string;
@@ -34,12 +35,17 @@ function CheckIcon() {
 }
 
 export function UpgradePlanDialog({
-  description = "Choose the plan that fits your hall management operation.",
+  description,
   forceSelection = false,
   open,
   onClose,
-  title = "Subscription Plan"
+  title
 }: UpgradePlanDialogProps) {
+  const { t } = useAppLanguage();
+  // Defaulted in the body rather than in the parameter list: a default there is
+  // evaluated before any hook runs, so it could only ever be English.
+  const dialogTitle = title ?? t("shell.subscriptionPlan");
+  const dialogDescription = description ?? t("shell.choosePlan");
   const titleId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [isMounted, setIsMounted] = useState(false);
@@ -64,7 +70,7 @@ export function UpgradePlanDialog({
       };
       if (!response.ok || !result.checkoutUrl) {
         throw new Error(
-          result.error ?? "Could not start subscription checkout."
+          result.error ?? t("shell.checkoutFailed")
         );
       }
       window.location.assign(result.checkoutUrl);
@@ -72,7 +78,7 @@ export function UpgradePlanDialog({
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Could not start subscription checkout."
+          : t("shell.checkoutFailed")
       );
       setPendingPlan("");
     }
@@ -119,14 +125,14 @@ export function UpgradePlanDialog({
         <header className="flex items-start justify-between gap-4 border-b border-[#d8dde5] bg-white px-5 py-4">
           <div>
             <h2 className="text-xl font-black text-[#17202a]" id={titleId}>
-              {title}
+              {dialogTitle}
             </h2>
-            <p className="mt-1 text-sm text-[#6a7483]">{description}</p>
+            <p className="mt-1 text-sm text-[#6a7483]">{dialogDescription}</p>
           </div>
 
           {forceSelection ? null : (
             <button
-              aria-label="Close subscription plans"
+              aria-label={t("shell.closePlans")}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[#233144] transition hover:bg-[#eef4fa]"
               onClick={onClose}
               ref={closeButtonRef}
@@ -163,13 +169,13 @@ export function UpgradePlanDialog({
             >
               {plan.popular ? (
                 <span className="absolute -left-px -right-px -top-4 rounded-full bg-[linear-gradient(90deg,#1f4d73_0%,#061126_100%)] px-3 py-2 text-center text-[11px] font-black uppercase tracking-[0.22em] text-white shadow-md">
-                  Available Now
+                  {t("shell.availableNow")}
                 </span>
               ) : null}
 
               {plan.comingSoon ? (
                 <span className="absolute right-5 top-5 rounded-full border border-[#1f4d73]/20 bg-[#1f4d73]/8 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-[#1f4d73]">
-                  Coming Soon
+                  {t("shell.comingSoon")}
                 </span>
               ) : null}
 
@@ -181,7 +187,7 @@ export function UpgradePlanDialog({
                 {plan.name}
               </h3>
               <p className="mt-2 text-sm font-bold text-[#6a7483]">
-                {plan.description}
+                {t(plan.descriptionKey)}
               </p>
 
               <p
@@ -193,20 +199,20 @@ export function UpgradePlanDialog({
                   {plan.price}
                 </strong>
                 <span className="ml-1 text-sm font-bold text-[#6a7483]">
-                  /month
+                  {t("shell.perMonth")}
                 </span>
               </p>
-              <p className="mt-1 text-sm text-[#6a7483]">{plan.billingLabel}</p>
+              <p className="mt-1 text-sm text-[#6a7483]">{t(plan.billingLabelKey)}</p>
 
               <ul
                 className={`mt-8 space-y-4 text-sm font-bold ${
                   plan.comingSoon ? "text-[#94a1b1]" : "text-[#17202a]"
                 }`}
               >
-                {plan.features.map((feature) => (
+                {plan.featureKeys.map((feature) => (
                   <li className="flex items-center gap-2" key={feature}>
                     <CheckIcon />
-                    {feature}
+                    {t(feature)}
                   </li>
                 ))}
               </ul>
@@ -216,7 +222,7 @@ export function UpgradePlanDialog({
                   button still invites the click that does nothing. */}
               {plan.comingSoon ? (
                 <p className="mt-auto flex h-12 items-center justify-center rounded-xl border border-dashed border-[#cbd5e1] bg-white/60 text-sm font-black text-[#94a1b1]">
-                  Coming Soon
+                  {t("shell.comingSoon")}
                 </p>
               ) : (
                 <button
@@ -229,7 +235,9 @@ export function UpgradePlanDialog({
                   disabled={Boolean(pendingPlan)}
                   onClick={() => void choosePlan(plan.id)}
                 >
-                  {pendingPlan === plan.id ? "Opening checkout…" : "Get Started"}
+                  {pendingPlan === plan.id
+                    ? t("shell.openingCheckout")
+                    : t("shell.getStarted")}
                 </button>
               )}
             </article>

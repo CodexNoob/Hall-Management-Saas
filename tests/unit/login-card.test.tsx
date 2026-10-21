@@ -7,6 +7,10 @@ import { MVP_LANDING_ROUTE } from "@/lib/ui/mvp-features";
 const replace = vi.fn();
 const refresh = vi.fn();
 const signInWithPassword = vi.fn();
+const getAuthenticatorAssuranceLevel = vi.fn();
+const listFactors = vi.fn();
+const challengeAndVerify = vi.fn();
+const getSession = vi.fn();
 const setAuthSessionPersistence = vi.fn();
 const fetchAuthSession = vi.fn();
 const signInWithOAuthProvider = vi.fn();
@@ -20,7 +24,17 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({
-  createSupabaseBrowserClient: () => ({ auth: { signInWithPassword } }),
+  createSupabaseBrowserClient: () => ({
+    auth: {
+      signInWithPassword,
+      getSession,
+      mfa: {
+        getAuthenticatorAssuranceLevel,
+        listFactors,
+        challengeAndVerify
+      }
+    }
+  }),
   setAuthSessionPersistence: (...args: unknown[]) =>
     setAuthSessionPersistence(...args)
 }));
@@ -87,6 +101,17 @@ function supabaseFailure(error: Record<string, unknown>) {
   return { data: { user: null, session: null }, error };
 }
 
+/**
+ * The slice of POST /api/auth/session the sign-in form reads: what the SERVER
+ * decided this sign-in owes. The form never asks Supabase's assurance level -
+ * a trusted device that remembers the authenticator is `aal1` and owes nothing.
+ */
+function syncedSession(obligation: "satisfied" | "challenge" | "enroll") {
+  return {
+    mfa: { enrolled: obligation !== "enroll", requiredByOrganization: false, obligation }
+  };
+}
+
 describe("LoginCard failure paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +119,7 @@ describe("LoginCard failure paths", () => {
     signInWithPassword.mockResolvedValue(
       supabaseFailure({ code: "invalid_credentials", status: 400 })
     );
-    fetchAuthSession.mockResolvedValue(undefined);
+    fetchAuthSession.mockResolvedValue(syncedSession("satisfied"));
     signOutCurrentSession.mockResolvedValue(undefined);
   });
 
@@ -407,7 +432,8 @@ describe("LoginCard success path", () => {
       data: { session: { access_token: "access-token" } },
       error: null
     });
-    fetchAuthSession.mockResolvedValue(undefined);
+    // What the server says this sign-in owes. Nothing, by default.
+    fetchAuthSession.mockResolvedValue(syncedSession("satisfied"));
   });
 
   afterEach(() => {
@@ -439,6 +465,106 @@ describe("LoginCard success path", () => {
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
     );
+  });
+
+  it("keeps the MFA challenge loading until the upgraded session is synced", async () => {
+    let resolveSessionSync: () => void = () => {};
+    // The password step's sync says a code is owed; the post-challenge sync
+    // hangs until the test releases it.
+    fetchAuthSession
+      .mockResolvedValueOnce(syncedSession("challenge"))
+      .mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          resolveSessionSync = resolve;
+        })
+      );
+    listFactors.mockResolvedValue({
+      data: { totp: [{ id: "factor-1", status: "verified" }] },
+      error: null
+    });
+    challengeAndVerify.mockResolvedValue({ error: null });
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "aal2-access-token" } }
+    });
+
+    renderLogin();
+    fill("owner@example.com", "Secret123");
+    submitForm();
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Authentication code"), {
+      target: { value: "123456" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify" }));
+
+    await waitFor(() =>
+      expect(fetchAuthSession).toHaveBeenCalledWith("aal2-access-token", {
+        force: true
+      })
+    );
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Verifying..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Login" })).toBeDisabled();
+
+    submitForm();
+    expect(signInWithPassword).toHaveBeenCalledTimes(1);
+
+    resolveSessionSync();
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
+  });
+
+  /**
+   * A trusted device that remembers the authenticator. The account HAS a
+   * factor and the session is `aal1`, yet the server says nothing is owed -
+   * so no dialog. The form follows the server, never Supabase's assurance.
+   */
+  it("does not ask for the code when the server says this device remembers it", async () => {
+    fetchAuthSession.mockResolvedValue(syncedSession("satisfied"));
+
+    renderLogin();
+    fill("owner@example.com", "Secret123");
+    submitForm();
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(getAuthenticatorAssuranceLevel).not.toHaveBeenCalled();
+  });
+
+  it("asks for the code when the server says this sign-in owes it", async () => {
+    fetchAuthSession.mockResolvedValue(syncedSession("challenge"));
+
+    renderLogin();
+    fill("owner@example.com", "Secret123");
+    submitForm();
+
+    // Found by its NAME: an unnamed dialog is unannounced to screen readers,
+    // and the e2e sign-in helper looks it up exactly this way.
+    expect(
+      await screen.findByRole("dialog", { name: "Two-factor authentication" })
+    ).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Enrolment is not a code to type at sign-in: the dashboard's gate takes the
+   * person through protected set-up, and the server refuses everything else.
+   */
+  it("leaves enrolment to the dashboard gate", async () => {
+    fetchAuthSession.mockResolvedValue(syncedSession("enroll"));
+
+    renderLogin();
+    fill("owner@example.com", "Secret123");
+    submitForm();
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith(MVP_LANDING_ROUTE)
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("only persists the session when Remember me is ticked", async () => {

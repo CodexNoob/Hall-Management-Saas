@@ -8,6 +8,7 @@ import type {
   BookingFormErrors,
   BookingFormValues
 } from "@/features/bookings/validations/booking-form.schema";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The booking form's fields, rendered once and hosted twice: the calendar's
@@ -136,6 +137,7 @@ export function BookingFormFields({
   showClientContact = true,
   values
 }: BookingFormFieldsProps) {
+  const { t } = useAppLanguage();
   const fieldId = (name: string) => `${idPrefix}-${name}`;
   const errorId = (name: string) => `${idPrefix}-${name}-error`;
 
@@ -146,7 +148,7 @@ export function BookingFormFields({
       }`}
     >
       <div>
-        <FieldLabel htmlFor={fieldId("client-name")}>Client name</FieldLabel>
+        <FieldLabel htmlFor={fieldId("client-name")}>{t("bookings.clientName")}</FieldLabel>
 
         <input
           aria-describedby={
@@ -157,7 +159,7 @@ export function BookingFormFields({
           className={bookingControlClass}
           id={fieldId("client-name")}
           onChange={(event) => onChange("clientName", event.target.value)}
-          placeholder="Client name"
+          placeholder={t("bookings.clientName")}
           required
           value={values.clientName}
         />
@@ -171,7 +173,7 @@ export function BookingFormFields({
       {showClientContact ? (
         <>
           <div>
-            <FieldLabel htmlFor={fieldId("phone")}>Phone</FieldLabel>
+            <FieldLabel htmlFor={fieldId("phone")}>{t("common.phone")}</FieldLabel>
 
             <PhoneField
               country={phoneCountry}
@@ -190,7 +192,7 @@ export function BookingFormFields({
           </div>
 
           <div>
-            <FieldLabel htmlFor={fieldId("email")}>Email</FieldLabel>
+            <FieldLabel htmlFor={fieldId("email")}>{t("common.email")}</FieldLabel>
 
             <input
               aria-describedby={errors.email ? errorId("email") : undefined}
@@ -199,7 +201,7 @@ export function BookingFormFields({
               id={fieldId("email")}
               inputMode="email"
               onChange={(event) => onChange("email", event.target.value)}
-              placeholder="Optional"
+              placeholder={t("common.optional")}
               type="email"
               value={values.email}
             />
@@ -211,7 +213,7 @@ export function BookingFormFields({
       ) : null}
 
       <div>
-        <FieldLabel htmlFor={fieldId("date")}>Date</FieldLabel>
+        <FieldLabel htmlFor={fieldId("date")}>{t("common.date")}</FieldLabel>
 
         {dateField ? (
           dateField({ id: fieldId("date") })
@@ -234,7 +236,7 @@ export function BookingFormFields({
       </div>
 
       <div>
-        <FieldLabel htmlFor={fieldId("hall")}>Hall / room</FieldLabel>
+        <FieldLabel htmlFor={fieldId("hall")}>{t("bookings.hallRoom")}</FieldLabel>
 
         <select
           aria-describedby={errors.hallId ? errorId("hall") : undefined}
@@ -246,7 +248,7 @@ export function BookingFormFields({
           value={values.hallId}
         >
           <option disabled value="">
-            Select hall
+            {t("bookings.selectHall")}
           </option>
 
           {halls.map((hall) => (
@@ -261,7 +263,7 @@ export function BookingFormFields({
       </div>
 
       <div>
-        <FieldLabel htmlFor={fieldId("event-type")}>Event type</FieldLabel>
+        <FieldLabel htmlFor={fieldId("event-type")}>{t("bookings.eventType")}</FieldLabel>
 
         <select
           aria-describedby={
@@ -275,7 +277,7 @@ export function BookingFormFields({
           value={values.eventTypeId}
         >
           <option disabled value="">
-            Select event type
+            {t("bookings.selectEventType")}
           </option>
 
           {eventTypes.map((eventType) => (
@@ -298,7 +300,7 @@ export function BookingFormFields({
       </div>
 
       <div>
-        <FieldLabel htmlFor={fieldId("count-mode")}>Count type</FieldLabel>
+        <FieldLabel htmlFor={fieldId("count-mode")}>{t("bookings.countType")}</FieldLabel>
 
         <select
           className={bookingControlClass}
@@ -306,8 +308,8 @@ export function BookingFormFields({
           onChange={(event) => onChange("countMode", event.target.value)}
           value={values.countMode}
         >
-          <option value="People">People</option>
-          <option value="Couples">Couples</option>
+          <option value="People">{t("bookings.people")}</option>
+          <option value="Couples">{t("bookings.couples")}</option>
         </select>
       </div>
 
@@ -319,7 +321,7 @@ export function BookingFormFields({
       */}
       {values.countMode === "People" ? (
         <div>
-          <FieldLabel htmlFor={fieldId("guests")}>Guests</FieldLabel>
+          <FieldLabel htmlFor={fieldId("guests")}>{t("bookings.guests")}</FieldLabel>
 
           <input
             aria-describedby={errors.guests ? errorId("guests") : undefined}
@@ -337,7 +339,7 @@ export function BookingFormFields({
         </div>
       ) : (
         <div>
-          <FieldLabel htmlFor={fieldId("couples")}>Couples</FieldLabel>
+          <FieldLabel htmlFor={fieldId("couples")}>{t("bookings.couples")}</FieldLabel>
 
           <input
             aria-describedby={errors.couples ? errorId("couples") : undefined}
@@ -356,7 +358,7 @@ export function BookingFormFields({
       )}
 
       <div>
-        <FieldLabel htmlFor={fieldId("children")}>Children</FieldLabel>
+        <FieldLabel htmlFor={fieldId("children")}>{t("bookings.children")}</FieldLabel>
 
         <input
           aria-describedby={errors.children ? errorId("children") : undefined}
@@ -374,7 +376,7 @@ export function BookingFormFields({
       </div>
 
       <div className="col-span-full">
-        <FieldLabel htmlFor={fieldId("notes")}>Notes</FieldLabel>
+        <FieldLabel htmlFor={fieldId("notes")}>{t("common.notes")}</FieldLabel>
 
         <textarea
           aria-describedby={errors.notes ? errorId("notes") : undefined}
@@ -382,7 +384,7 @@ export function BookingFormFields({
           className="min-h-13 w-full resize-y rounded-lg border border-[#b9c2cf] bg-white px-3 py-2 text-sm outline-none focus:border-[#1f4d73] focus:ring-2 focus:ring-[#1f4d73]/15"
           id={fieldId("notes")}
           onChange={(event) => onChange("notes", event.target.value)}
-          placeholder="Internal notes"
+          placeholder={t("bookings.internalNotes")}
           value={values.notes}
         />
         {errors.notes ? (

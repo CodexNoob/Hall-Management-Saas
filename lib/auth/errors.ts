@@ -30,6 +30,41 @@ export type AuthorizationErrorCode =
   | "beta_access_rejected"
   /** The actor lacks the key guarding this endpoint. */
   | "not_permitted"
+  /**
+   * The account has a verified second factor and this session never cleared it.
+   *
+   * Distinct from `unauthenticated` because the credential is perfectly valid -
+   * it is simply at `aal1`, and the fix is to enter a code rather than to sign
+   * in again. The browser branches on this to show the challenge instead of
+   * bouncing to /login, which would discard a session that is one step from
+   * being enough.
+   */
+  | "mfa_required"
+  /**
+   * The organization requires two-factor authentication and this account has
+   * not set one up yet.
+   *
+   * Its own code rather than `mfa_required`: there is no code for this person
+   * to enter, and telling them to enter one is a dead end. The browser routes
+   * this to enrolment.
+   */
+  | "mfa_enrollment_required"
+  /**
+   * The organization signs sessions out after a period of inactivity, and this
+   * one passed it.
+   *
+   * Its own code rather than `unauthenticated`, because the browser has to tell
+   * the person WHY they are back at the sign-in form. "Your session timed out"
+   * and "sign in again" are different messages, and only one of them stops
+   * somebody wondering whether their account was tampered with.
+   */
+  | "session_expired"
+  /**
+   * The password (and any second factor) are satisfied, but this browser is
+   * not a confirmed device of this person's yet. The dashboard shows the
+   * device gate; only the confirmation routes answer until it is cleared.
+   */
+  | "device_confirmation_required"
   /** The organization's plan does not include this feature. */
   | "not_entitled"
   /** The set being granted is not a subset of the actor's own (INV-6). */

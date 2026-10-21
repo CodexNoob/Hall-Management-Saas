@@ -1,6 +1,8 @@
 "use client";
 
 import { Badge } from "@/features/events/components/event-manager-shared";
+import { useKitchenRegion } from "@/features/kitchen/components/kitchen-region-context";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 import {
   formatMealsNotShown,
   formatProgress,
@@ -29,15 +31,17 @@ export function KitchenEventCard({
   event: KitchenEvent;
   onSelect: (event: KitchenEvent) => void;
 }) {
+  const regionalSettings = useKitchenRegion();
+  const { t } = useAppLanguage();
   const hold = event.statusType === "hold";
-  const serveTime = formatServeTime(event.startsAt);
-  const progress = formatProgress(event.summary);
+  const serveTime = formatServeTime(event.startsAt, regionalSettings);
+  const progress = formatProgress(event.summary, t);
   const fraction = progressFraction(event.summary);
   const needsAttention = event.summary?.needsAttention ?? 0;
   // Everything above this line describes one meal. This says how many more
   // there are, because the ratio and the bar are otherwise read as the whole
   // job when they are a fraction of it.
-  const mealsNotShown = formatMealsNotShown(event.otherMeals);
+  const mealsNotShown = formatMealsNotShown(event.otherMeals, t);
 
   if (compact) {
     return (
@@ -60,7 +64,7 @@ export function KitchenEventCard({
         <span
           className={`shrink-0 ${event.startsAt ? "tabular-nums text-[#516071]" : "font-bold text-[#94a1b1]"}`}
         >
-          {event.startsAt ? serveTime : "No time"}
+          {event.startsAt ? serveTime : t("kitchen.noTime")}
         </span>
         <span className="min-w-0 flex-1 truncate">{event.title}</span>
       </button>
@@ -93,12 +97,12 @@ export function KitchenEventCard({
             of four look-alike terms. */}
         {event.startsAt ? (
           <span className="inline-flex shrink-0 items-center rounded-lg bg-[#eef4fa] px-2 py-1 text-xs font-black tabular-nums text-[#1f4d73]">
-            <span className="sr-only">Serves at </span>
+            <span className="sr-only">{t("kitchen.servesAt")} </span>
             {serveTime}
           </span>
         ) : (
           <span className="inline-flex shrink-0 items-center rounded-lg bg-[#f1f4f8] px-2 py-1 text-xs font-black text-[#6a7483]">
-            No time
+            {t("kitchen.noTime")}
           </span>
         )}
       </div>
@@ -140,7 +144,9 @@ export function KitchenEventCard({
             nobody can start. */}
         {needsAttention > 0 ? (
           <Badge tone="red">
-            {needsAttention} need{needsAttention === 1 ? "s" : ""} a quantity
+            {needsAttention === 1
+              ? t("kitchen.needsQuantityOne")
+              : t("kitchen.needsQuantityMany", { count: needsAttention })}
           </Badge>
         ) : null}
 
@@ -151,7 +157,7 @@ export function KitchenEventCard({
         {mealsNotShown ? <Badge tone="red">{mealsNotShown}</Badge> : null}
 
         <span className="ml-auto text-[11px] font-black tabular-nums text-[#6a7483]">
-          {event.totalGuests} portions
+          {t("kitchen.portionsCount", { count: event.totalGuests })}
         </span>
       </div>
     </button>

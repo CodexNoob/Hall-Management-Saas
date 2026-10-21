@@ -4,6 +4,7 @@ import {
   PORTAL_HEADER_FALLBACK_LOGO,
   portalHeaderTone
 } from "@/lib/ui/portal-header-theme";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export type ClientPortalHeaderBackground = {
   /** A resolved hex colour - never the empty string the settings may hold. */
@@ -36,6 +37,7 @@ export function ClientPortalHeader({
   logoUrl,
   background
 }: ClientPortalHeaderProps) {
+  const { t } = useAppLanguage();
   // A photograph has no single luminance to measure, so an image header is
   // always the light treatment - and the scrim below is what makes that true
   // rather than hoped for.
@@ -68,7 +70,7 @@ export function ClientPortalHeader({
           {/* The scrim is not decoration. Nothing vets the photograph an
               operator uploads, so this is what keeps white text legible over a
               bright one. */}
-          <span aria-hidden className="absolute inset-0 bg-black/45" />
+          <span aria-hidden="true" className="absolute inset-0 bg-black/45" />
         </>
       ) : null}
 
@@ -108,7 +110,7 @@ export function ClientPortalHeader({
           logoUrl
             ? venueName
               ? `${venueName} logo`
-              : "Venue logo"
+              : t("events.venueLogo")
             : "Event Core"
         }
         className="relative order-first h-12 w-auto max-w-36 shrink-0 self-start object-contain sm:order-0 sm:h-16 sm:max-w-44 sm:self-auto"

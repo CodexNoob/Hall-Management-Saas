@@ -76,6 +76,14 @@ const tx = {
   ...Object.fromEntries(
     models.map((model) => [model, { deleteMany: deleteMany(model) }])
   ),
+  // The full-account reset opts its own transaction into deleting from
+  // `activity_logs`, which is append-only for everything else. Recorded in the
+  // same call list as the deletes so the ORDER can be asserted: the opt-in has
+  // to come before the delete it permits.
+  $queryRaw: vi.fn(async () => {
+    calls.push("activityLogPurge.allow");
+    return [{ set_config: "on" }];
+  }),
   organizationMembership: {
     deleteMany: deleteMany("organizationMembership"),
     findFirst: vi.fn(async () => ({ principalId: "principal-1" }))
@@ -174,6 +182,50 @@ describe("organization reset", () => {
     expect(tx.paymentProviderWebhookEvent.deleteMany).toHaveBeenCalledWith({
       where: { organizationId }
     });
+  });
+
+  /**
+   * `activity_logs` is append-only in Postgres - a trigger refuses every
+   * DELETE. The events reset used to issue one anyway, which raised inside the
+   * transaction wrapping the whole reset and surfaced as "An unexpected server
+   * error occurred" with nothing to act on. Three of the four scopes could not
+   * run at all on any organization that had ever recorded event activity,
+   * which is all of them.
+   *
+   * No unit test could have caught it - Prisma is mocked here, so the trigger
+   * is not in play - but the scope rule is testable and is the thing that was
+   * actually wrong: the events dialog never promised to delete the history.
+   */
+  it("leaves the activity history alone on an event reset", async () => {
+    await run("events");
+
+    expect(calls).not.toContain("activityLog");
+    // The events still go. Their log entries detach rather than vanish -
+    // `event_id` becomes NULL and the message, snapshotted when it was
+    // written, goes on reading correctly.
+    expect(calls).toContain("event");
+  });
+
+  it("purges the activity history only on a full account reset, and opts in first", async () => {
+    await run("full-account");
+
+    // The dialog for this scope is the only one that promises the history goes.
+    expect(calls).toContain("activityLog");
+    // The opt-in has to precede the delete it permits, or the trigger refuses
+    // and takes the transaction with it.
+    expect(calls.indexOf("activityLogPurge.allow")).toBeGreaterThanOrEqual(0);
+    expect(calls.indexOf("activityLogPurge.allow")).toBeLessThan(
+      calls.lastIndexOf("activityLog")
+    );
+  });
+
+  it("never opts into purging on the scopes that keep the history", async () => {
+    for (const scope of ["events", "events-and-menus", "settings"] as const) {
+      calls.length = 0;
+      await run(scope);
+
+      expect(calls).not.toContain("activityLogPurge.allow");
+    }
   });
 
   it("leaves the menu library, the venue and access alone on an event reset", async () => {

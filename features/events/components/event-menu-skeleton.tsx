@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { MENU_SECTIONS } from "@/features/events/components/menu-item-selector-drawer";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The menu tab's body while the event's menu is on its way.
@@ -41,9 +42,11 @@ function MenuCardSkeleton() {
 }
 
 export function EventMenuSkeleton() {
+  const { t } = useAppLanguage();
+
   return (
     <div aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading this event&rsquo;s menu…</span>
+      <span className="sr-only">{t("events.loadingMenu")}</span>
       {MENU_SECTIONS.map((section) => (
         <section
           className="border-b border-[#d8dde5] last:border-b-0"

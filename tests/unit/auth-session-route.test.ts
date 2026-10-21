@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * PAYLOAD CONTRACT for POST /api/auth/session.
@@ -33,7 +33,9 @@ const {
   findManyPrincipalPermissions,
   findManyBetaRequests,
   upsertBetaRequest,
-  updateBetaRequest
+  updateBetaRequest,
+  findOrganizationSetting,
+  upsertUserSession
 } = vi.hoisted(() => ({
   findManyUsers: vi.fn(),
   createUser: vi.fn(),
@@ -54,7 +56,9 @@ const {
   findManyPrincipalPermissions: vi.fn(),
   findManyBetaRequests: vi.fn(),
   upsertBetaRequest: vi.fn(),
-  updateBetaRequest: vi.fn()
+  updateBetaRequest: vi.fn(),
+  findOrganizationSetting: vi.fn(),
+  upsertUserSession: vi.fn()
 }));
 
 vi.mock("@/lib/prisma", () => {
@@ -94,7 +98,14 @@ vi.mock("@/lib/prisma", () => {
       findMany: findManyBetaRequests,
       upsert: upsertBetaRequest,
       update: updateBetaRequest
-    }
+    },
+    // The dashboard language. The route reads it on every successful sign-in,
+    // so without this double each assertion below fails on an undefined call
+    // rather than on what it is actually checking.
+    organizationSetting: { findUnique: findOrganizationSetting },
+    // The Security screen's session list is written from here and nowhere
+    // else, so this double is what proves the rows ever get created.
+    userSession: { upsert: upsertUserSession }
   };
 
   return {
@@ -121,6 +132,33 @@ vi.mock("@/lib/security/rate-limit", () => ({
 vi.mock("@/features/beta-access/server/beta-access-notifications", () => ({
   notifyBetaAccessRequested: vi.fn().mockResolvedValue(false)
 }));
+
+// Device sightings have their own suite (device-trust.test.ts). Here the
+// question is what the ROUTE does with the answer: where the secret goes, and
+// exactly when device trust may and may not touch the 2FA obligation.
+const {
+  registerDeviceSighting,
+  findCurrentDevice,
+  recordDeviceMfaVerified,
+  reconcileMfaFactors
+} = vi.hoisted(() => ({
+  registerDeviceSighting: vi.fn(),
+  findCurrentDevice: vi.fn(),
+  recordDeviceMfaVerified: vi.fn(),
+  reconcileMfaFactors: vi.fn()
+}));
+const DEVICE_SECRET = "d".repeat(43);
+
+vi.mock("@/lib/auth/device-trust", () => ({
+  registerDeviceSighting,
+  findCurrentDevice,
+  recordDeviceMfaVerified
+}));
+vi.mock("@/lib/auth/mfa-trust", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/mfa-trust")>();
+  reconcileMfaFactors.mockImplementation(actual.reconcileMfaFactors);
+  return { reconcileMfaFactors };
+});
 
 import { POST } from "@/app/api/auth/session/route";
 import { createSupabaseTokenVerifier } from "@/lib/supabase/server";
@@ -240,6 +278,28 @@ function syncRequest() {
   }) as never;
 }
 
+/**
+ * A token shaped like a real one, because the session record is keyed on the
+ * `session_id` claim inside it. `syncRequest` above deliberately is not - most
+ * of this file has no interest in the claim, and a route that started
+ * depending on it would be a change worth noticing here.
+ */
+function syncRequestFromDevice(sessionId: string) {
+  const payload = Buffer.from(
+    JSON.stringify({ sub: AUTH_ID, session_id: sessionId })
+  ).toString("base64url");
+
+  return new Request("http://localhost/api/auth/session", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer header.${payload}.signature`,
+      "user-agent":
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+      "x-forwarded-for": "203.0.113.7, 70.41.3.18"
+    }
+  }) as never;
+}
+
 describe("POST /api/auth/session", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -267,6 +327,7 @@ describe("POST /api/auth/session", () => {
         role: { rolePermissions: [{ permission: { key: "calendar.read" } }] }
       }
     ]);
+    findOrganizationSetting.mockResolvedValue(null);
     findManyPrincipalPermissions.mockResolvedValue([]);
     findManyRoles.mockResolvedValue([]);
     findManyPermissions.mockResolvedValue([]);
@@ -288,6 +349,338 @@ describe("POST /api/auth/session", () => {
     findManyBetaRequests.mockResolvedValue([betaRequest("APPROVED")]);
     upsertBetaRequest.mockResolvedValue(betaRequest("PENDING"));
     updateBetaRequest.mockResolvedValue(betaRequest("PENDING"));
+    registerDeviceSighting.mockResolvedValue({
+      device: {
+        id: "device-1",
+        known: false,
+        primary: true,
+        confirmed: false,
+        trusted: false,
+        pendingConfirmation: true
+      },
+      newSecret: DEVICE_SECRET
+    });
+    // No device row before this request unless a test says otherwise.
+    findCurrentDevice.mockResolvedValue(null);
+    recordDeviceMfaVerified.mockResolvedValue(true);
+  });
+
+  const DAY_MS = 24 * 60 * 60_000;
+  const daysFromNow = (days: number) => new Date(Date.now() + days * DAY_MS);
+
+  /** THIS browser's row as it stood before the request. */
+  function priorDevice(input: { mfaVerifiedAt: Date | null; expired?: boolean }) {
+    return {
+      id: "device-1",
+      isPrimary: true,
+      confirmedAt: daysFromNow(input.expired ? -31 : -1),
+      revokedAt: null,
+      trustExpiresAt: daysFromNow(input.expired ? -1 : 29),
+      mfaVerifiedAt: input.mfaVerifiedAt
+    };
+  }
+
+  const trustedSighting = {
+    device: {
+      id: "device-1",
+      known: true,
+      primary: true,
+      confirmed: true,
+      trusted: true,
+      pendingConfirmation: false
+    },
+    newSecret: null
+  };
+
+  /** An account whose authenticator this app trusts, enrolled ten days ago. */
+  function withAuthenticator() {
+    findManyUsers.mockResolvedValue([
+      {
+        ...storedUser,
+        mfaEnrolledAt: daysFromNow(-10),
+        memberships: [membership]
+      }
+    ]);
+    reconcileMfaFactors.mockResolvedValueOnce({
+      verified: 1,
+      trusted: true,
+      newlyTrusted: 0,
+      removedUntrusted: 0
+    });
+  }
+
+  /** The verified `aal` claim the route reads through `getClaims`. */
+  function sessionAt(aal: "aal1" | "aal2") {
+    vi.mocked(createSupabaseTokenVerifier).mockReturnValue({
+      auth: {
+        getUser,
+        getClaims: vi.fn().mockResolvedValue({
+          data: { claims: { aal } },
+          error: null
+        })
+      }
+    } as never);
+  }
+
+  describe("trusted devices", () => {
+    it("plants a new device secret only in an httpOnly cookie, never in the body", async () => {
+      const response = await POST(syncRequest());
+      const text = await response.text();
+      const cookie = response.headers.get("set-cookie") ?? "";
+
+      expect(text).not.toContain(DEVICE_SECRET);
+      expect(cookie).toContain(`event-core.device=${DEVICE_SECRET}`);
+      expect(cookie.toLowerCase()).toContain("httponly");
+      expect(cookie.toLowerCase()).toContain("samesite=lax");
+    });
+
+    it("reports only four booleans about the device - no id, no hash", async () => {
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.device).toEqual({
+        known: false,
+        trusted: false,
+        pendingConfirmation: true,
+        confirmationRequired: true
+      });
+    });
+
+    it("does not require confirmation for a trusted device", async () => {
+      registerDeviceSighting.mockResolvedValue({
+        device: {
+          id: "device-1",
+          known: true,
+          primary: true,
+          confirmed: true,
+          trusted: true,
+          pendingConfirmation: false
+        },
+        newSecret: null
+      });
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.device.confirmationRequired).toBe(false);
+    });
+
+    /** Confirmed once, but the trust period ended: gated like a new device. */
+    it("requires confirmation again for a device whose trust expired", async () => {
+      registerDeviceSighting.mockResolvedValue({
+        device: {
+          id: "device-2",
+          known: true,
+          primary: false,
+          confirmed: true,
+          trusted: false,
+          pendingConfirmation: true
+        },
+        newSecret: null
+      });
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.device).toMatchObject({
+        trusted: false,
+        confirmationRequired: true
+      });
+    });
+
+    it("does not require confirmation for a trusted secondary device", async () => {
+      registerDeviceSighting.mockResolvedValue({
+        ...trustedSighting,
+        device: { ...trustedSighting.device, id: "device-2", primary: false }
+      });
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.device).toMatchObject({
+        trusted: true,
+        confirmationRequired: false
+      });
+    });
+
+    /**
+     * Password, then 2FA, then device. While the session still owes a factor,
+     * the device is recorded but no confirmation email is allowed yet.
+     */
+    it("holds the confirmation email until the second factor is satisfied", async () => {
+      reconcileMfaFactors.mockResolvedValueOnce({
+        verified: 1,
+        trusted: true,
+        newlyTrusted: 0,
+        removedUntrusted: 0
+      });
+
+      await POST(syncRequest());
+
+      expect(registerDeviceSighting).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ notify: false })
+      );
+    });
+
+    it("allows the confirmation email once nothing is owed", async () => {
+      await POST(syncRequest());
+
+      expect(registerDeviceSighting).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ notify: true })
+      );
+    });
+
+    it("sets no cookie when the browser already has its identity", async () => {
+      registerDeviceSighting.mockResolvedValue({
+        device: {
+          id: "device-1",
+          known: true,
+          primary: true,
+          confirmed: true,
+          trusted: true,
+          pendingConfirmation: false
+        },
+        newSecret: null
+      });
+
+      const response = await POST(syncRequest());
+
+      expect(response.headers.get("set-cookie") ?? "").not.toContain(
+        "event-core.device"
+      );
+    });
+
+    /**
+     * A trusted device on which the authenticator was never entered does not
+     * skip it: trust from the email code alone is not a second factor.
+     */
+    it("does not let email trust alone skip the 2FA challenge", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockResolvedValue(priorDevice({ mfaVerifiedAt: null }));
+      withAuthenticator();
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.device.trusted).toBe(true);
+      expect(body.mfa).toMatchObject({
+        enrolled: true,
+        obligation: "challenge"
+      });
+    });
+
+    it("skips the code on a trusted device that remembers it", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockResolvedValue(
+        priorDevice({ mfaVerifiedAt: daysFromNow(-1) })
+      );
+      withAuthenticator();
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.mfa).toMatchObject({ enrolled: true, obligation: "satisfied" });
+      expect(body.device.confirmationRequired).toBe(false);
+    });
+
+    it("never skips the code where the organization requires 2FA", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockResolvedValue(
+        priorDevice({ mfaVerifiedAt: daysFromNow(-1) })
+      );
+      findOrganizationSetting.mockResolvedValue({ twoFactorRequired: true });
+      withAuthenticator();
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.mfa).toMatchObject({
+        requiredByOrganization: true,
+        obligation: "challenge"
+      });
+      // The device email waits for the factor, as on any device.
+      expect(registerDeviceSighting).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ notify: false })
+      );
+    });
+
+    it("asks for the code again once the trust period has ended", async () => {
+      findCurrentDevice.mockResolvedValue(
+        priorDevice({ mfaVerifiedAt: daysFromNow(-31), expired: true })
+      );
+      withAuthenticator();
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.mfa.obligation).toBe("challenge");
+    });
+
+    /**
+     * 2FA set up after this browser was confirmed: once the code is entered
+     * here, the device remembers it - without extending its trust period.
+     */
+    it("remembers the code entered on an already-trusted device", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockResolvedValue(priorDevice({ mfaVerifiedAt: null }));
+      withAuthenticator();
+      sessionAt("aal2");
+
+      const body = await (await POST(syncRequest())).json();
+
+      expect(body.mfa.obligation).toBe("satisfied");
+      expect(recordDeviceMfaVerified).toHaveBeenCalledWith(expect.anything(), {
+        userId: USER_ID,
+        deviceId: "device-1",
+        now: expect.any(Date)
+      });
+    });
+
+    it("does not rewrite a memory that is already current", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockResolvedValue(
+        priorDevice({ mfaVerifiedAt: daysFromNow(-1) })
+      );
+      withAuthenticator();
+      sessionAt("aal2");
+
+      await POST(syncRequest());
+
+      expect(recordDeviceMfaVerified).not.toHaveBeenCalled();
+    });
+
+    it("never remembers the code on an untrusted device", async () => {
+      // New browser: the code is remembered by `confirmDevice` instead, and
+      // only once the emailed code has been entered too.
+      withAuthenticator();
+      sessionAt("aal2");
+
+      await POST(syncRequest());
+
+      expect(recordDeviceMfaVerified).not.toHaveBeenCalled();
+    });
+
+    it("asks for the code when the device row cannot be read", async () => {
+      registerDeviceSighting.mockResolvedValue(trustedSighting);
+      findCurrentDevice.mockRejectedValue(new Error("devices table down"));
+      withAuthenticator();
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.mfa.obligation).toBe("challenge");
+    });
+
+    it("answers when recording the device fails - and still requires confirmation", async () => {
+      registerDeviceSighting.mockRejectedValue(new Error("devices table down"));
+
+      const response = await POST(syncRequest());
+      const body = await response.json();
+
+      // The sync never fails over a device row, but it does not pretend the
+      // device is fine either: the API would refuse it, so the gate shows.
+      expect(response.status).toBe(200);
+      expect(body.device).toMatchObject({
+        trusted: false,
+        confirmationRequired: true
+      });
+    });
   });
 
   it("rejects a request with no bearer token", async () => {
@@ -298,6 +691,114 @@ describe("POST /api/auth/session", () => {
     );
 
     expect(response.status).toBe(401);
+  });
+
+  /**
+   * A hall's language is a default, not a decree.
+   *
+   * It used to be the only one there was, which meant a Spanish-reading cook
+   * and an English-reading manager in the same venue could not both be served -
+   * and the person who would have had to arbitrate is the one with
+   * `settings.update`, which neither of them may hold. The session resolves the
+   * two so that nothing downstream has to.
+   */
+  it("prefers the person's own language over the organization's", async () => {
+    findOrganizationSetting.mockResolvedValue({ language: "he-IL" });
+    findManyUsers.mockResolvedValue([
+      { ...storedUser, language: "es-US", memberships: [membership] }
+    ]);
+
+    const body = await (await POST(syncRequest())).json();
+
+    expect(body.language).toBe("es-US");
+    // The raw preference travels too, so the picker can tell a chosen "es-US"
+    // apart from one inherited from the hall.
+    expect(body.user.language).toBe("es-US");
+  });
+
+  it("falls back to the organization when the person has chosen nothing", async () => {
+    findOrganizationSetting.mockResolvedValue({ language: "he-IL" });
+
+    const body = await (await POST(syncRequest())).json();
+
+    expect(body.language).toBe("he-IL");
+    expect(body.user.language).toBeNull();
+  });
+
+  it("ignores a stored language this build does not ship", async () => {
+    // Both columns are plain `String`, so a value written by a newer build - or
+    // a language since withdrawn - arrives here as ordinary text. Rendering it
+    // would mean looking up a catalog column that does not exist.
+    findOrganizationSetting.mockResolvedValue({ language: "fr-CA" });
+    findManyUsers.mockResolvedValue([
+      { ...storedUser, language: "klingon", memberships: [membership] }
+    ]);
+
+    const body = await (await POST(syncRequest())).json();
+
+    expect(body.language).toBe("en-US");
+    expect(body.user.language).toBeNull();
+  });
+
+  /**
+   * The Security screen's session list exists only because this runs. Supabase
+   * has no endpoint that enumerates sessions, so a row written here is the only
+   * record that a device was ever signed in - and nothing else in the app would
+   * notice if this stopped happening.
+   */
+  it("records the device this session is running on", async () => {
+    await POST(syncRequestFromDevice("sess-phone"));
+
+    expect(upsertUserSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { sessionId: "sess-phone" },
+        create: expect.objectContaining({
+          sessionId: "sess-phone",
+          userId: USER_ID,
+          deviceId: "device-1",
+          // The leftmost entry of `x-forwarded-for`; the rest are proxies.
+          ipAddress: "203.0.113.7"
+        })
+      })
+    );
+    expect(upsertUserSession.mock.calls[0]?.[0]).toMatchObject({
+      update: { deviceId: "device-1" }
+    });
+  });
+
+  it("updates the row it already has rather than adding a second", async () => {
+    await POST(syncRequestFromDevice("sess-phone"));
+    await POST(syncRequestFromDevice("sess-phone"));
+
+    // Two syncs, two upserts, both keyed on the same session - which is what
+    // keeps the list a list of devices rather than a log of page loads.
+    expect(upsertUserSession).toHaveBeenCalledTimes(2);
+    for (const call of vi.mocked(upsertUserSession).mock.calls) {
+      expect(call[0]).toMatchObject({ where: { sessionId: "sess-phone" } });
+    }
+  });
+
+  /**
+   * A token with no `session_id` - an older one, or a custom JWT setup. Writing
+   * a row anyway would need an invented key, and a fresh key per request turns
+   * the list into a log of every page load.
+   */
+  it("records nothing when the token carries no session id", async () => {
+    await POST(syncRequest());
+
+    expect(upsertUserSession).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The list is a display. A dashboard that will not load because a display
+   * table would not write is an outage; a stale list is cosmetic.
+   */
+  it("still signs in when the session row cannot be written", async () => {
+    upsertUserSession.mockRejectedValue(new Error("relation does not exist"));
+
+    const response = await POST(syncRequestFromDevice("sess-phone"));
+
+    expect(response.status).toBe(200);
   });
 
   it("rejects a token Supabase will not verify", async () => {
@@ -325,14 +826,53 @@ describe("POST /api/auth/session", () => {
         name: "Existing Name",
         phone: "+15551234567",
         venueName: "Main Hall",
+        // No personal preference recorded, so the organization's language is
+        // the one that applies below.
+        language: null,
         title: "Team member",
         organizationId: ORGANIZATION_ID
       },
       permissions: ["calendar.read"],
       scope: { hallIds: "all", eventTypeIds: "all" },
       epoch: 1,
+      // The dashboard's language, so the shell can render in it on the first
+      // paint rather than flipping out of English once settings load.
+      language: "en-US",
       mustSetPassword: false,
       mustCompleteOnboarding: false,
+      // What this session still owes on a second factor. This route is the
+      // only one that reports it, because it is the only one exempt from the
+      // check that refuses everything else - a person who owes a factor has to
+      // be told so by something that will still answer them.
+      mfa: {
+        enrolled: false,
+        requiredByOrganization: false,
+        obligation: "satisfied"
+      },
+      // How this organization writes a date and a time. On the session rather
+      // than behind `/api/settings`, because that endpoint needs
+      // `settings.read` and kitchen staff do not hold it - dates would have
+      // formatted one way for managers and another for cooks on the same
+      // screen. Resolved server-side for the authenticated organization; the
+      // browser never says which organization's settings it wants.
+      regional: {
+        locale: "en-US",
+        timeZone: "America/New_York",
+        dateFormat: "MMM d, yyyy",
+        timeFormat: "12-hour"
+      },
+      // The inactivity policy, for the browser's countdown - a hint, never the
+      // control. `resolveUserActor` refuses an idle session on its own
+      // authority, so a browser that never receives this is still signed out.
+      inactivity: { timeoutMinutes: 480, sharedDevice: false },
+      // This browser's standing, as two booleans - a hint for the confirm
+      // banner, never the device secret or its hash.
+      device: {
+        known: false,
+        trusted: false,
+        pendingConfirmation: true,
+        confirmationRequired: true
+      },
       activeOrganizationId: ORGANIZATION_ID,
       organizations: [
         {

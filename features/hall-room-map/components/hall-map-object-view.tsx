@@ -5,6 +5,7 @@ import {
   type PointerEvent as ReactPointerEvent
 } from "react";
 import { TableSeats } from "@/components/shared/table-seats";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 import {
   getDefaultSeatingSides,
   getRenderedObjectSize,
@@ -59,6 +60,7 @@ export function MapObjectView({
   onSelect: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   worldOrigin?: number;
 }) {
+  const { t } = useAppLanguage();
   const isTable = isTableShape(object.type);
 
   const isDashed = object.type === "buffet" || object.type === "drinks";
@@ -131,7 +133,10 @@ export function MapObjectView({
               onPointerDown={(event) => onResizeStart(event, handle.edge)}
               onPointerMove={onResizeMove}
               onPointerUp={onResizeEnd}
-              title={`Drag to resize ${object.name} from the ${handle.edge} edge`}
+              title={t("hallMap.dragToResize", {
+                shape: object.name,
+                edge: handle.edge
+              })}
             />
           ))
         : null}
@@ -145,7 +150,7 @@ export function MapObjectView({
           onPointerDown={onRotateStart}
           onPointerMove={onRotateMove}
           onPointerUp={onRotateEnd}
-          title={`Drag to rotate ${object.name}`}
+          title={t("hallMap.dragToRotate", { shape: object.name })}
         >
           ↻
           <span className="absolute top-full h-4 w-px bg-[#1f5f91]" />

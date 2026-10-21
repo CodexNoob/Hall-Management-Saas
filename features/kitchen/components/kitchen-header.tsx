@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import { requestDashboardSidebarOpenFromKitchen } from "@/components/layout/dashboard-sidebar-shared";
 import { LineIcon } from "@/features/events/components/event-manager-shared";
+import { useKitchenRegion } from "@/features/kitchen/components/kitchen-region-context";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 import {
   formatClock,
   kitchenViewInformation,
   type KitchenView
 } from "@/features/kitchen/components/kitchen-shared";
 
-const tabs: Array<{ label: string; value: KitchenView }> = [
-  { label: "Today", value: "today" },
-  { label: "This Week", value: "week" },
-  { label: "4 Weeks", value: "four-weeks" }
+const tabs: Array<{
+  labelKey: "kitchen.today" | "kitchen.thisWeek" | "kitchen.fourWeeks";
+  value: KitchenView;
+}> = [
+  { labelKey: "kitchen.today", value: "today" },
+  { labelKey: "kitchen.thisWeek", value: "week" },
+  { labelKey: "kitchen.fourWeeks", value: "four-weeks" }
 ];
 
 function NavButton({
@@ -63,7 +68,15 @@ export function KitchenHeader({
   notificationCount: number;
   today: Date;
 }) {
-  const information = kitchenViewInformation(activeView, anchorDate, today);
+  const regionalSettings = useKitchenRegion();
+  const { t } = useAppLanguage();
+  const information = kitchenViewInformation(
+    activeView,
+    anchorDate,
+    today,
+    regionalSettings,
+    t
+  );
   const [now, setNow] = useState<Date | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -127,12 +140,14 @@ export function KitchenHeader({
             >
               <LineIcon className="h-4 w-4" name="menu" />
               <span className="ml-2 truncate">
-                {isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                {isSidebarOpen
+                  ? t("kitchen.closeSidebar")
+                  : t("kitchen.openSidebar")}
               </span>
             </button>
 
             <button
-              aria-label="Open kitchen notifications"
+              aria-label={t("kitchen.notifications")}
               className="relative flex h-10 w-10 shrink-0 items-center justify-center border border-[#e4e4e4] bg-white text-[#061126] transition hover:bg-[#f7f7f7] sm:h-11 sm:w-11"
               onClick={onTodayNotes}
               type="button"
@@ -168,7 +183,7 @@ export function KitchenHeader({
           <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,auto)_auto] sm:justify-center xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:justify-normal">
             <NavButton
               direction="previous"
-              label="Show previous dates"
+              label={t("kitchen.previousDates")}
               onClick={onPrevious}
             />
 
@@ -179,10 +194,28 @@ export function KitchenHeader({
                   twice. `title` stays the unabbreviated form. */}
               <h1
                 className="truncate text-lg font-black text-[#061126] sm:text-2xl"
-                title={information.heading}
+                title={
+                  activeView === "week"
+                    ? t("kitchen.thisWeek")
+                    : activeView === "four-weeks"
+                      ? t("kitchen.fourWeeks")
+                      : information.heading
+                }
               >
-                <span className="sm:hidden">{information.compactHeading}</span>
-                <span className="hidden sm:inline">{information.heading}</span>
+                <span className="sm:hidden">
+                  {activeView === "week"
+                    ? t("kitchen.thisWeek")
+                    : activeView === "four-weeks"
+                      ? t("kitchen.fourWeeks")
+                      : information.compactHeading}
+                </span>
+                <span className="hidden sm:inline">
+                  {activeView === "week"
+                    ? t("kitchen.thisWeek")
+                    : activeView === "four-weeks"
+                      ? t("kitchen.fourWeeks")
+                      : information.heading}
+                </span>
               </h1>
               {information.rangeLabel ? (
                 <p className="mt-0.5 truncate text-center text-xs font-bold text-[#6a7483]">
@@ -193,7 +226,7 @@ export function KitchenHeader({
 
             <NavButton
               direction="next"
-              label="Show next dates"
+              label={t("kitchen.nextDates")}
               onClick={onNext}
             />
           </div>
@@ -201,12 +234,12 @@ export function KitchenHeader({
 
         <div className="grid min-w-0 gap-2 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center xl:grid-cols-[auto_auto] xl:justify-end">
           <p className="inline-flex h-10 shrink-0 items-center justify-center text-2xl font-black tabular-nums text-[#ffcc55] sm:h-11 sm:px-4 sm:text-3xl">
-            <span className="sr-only">Current time</span>
-            {now ? formatClock(now) : "--:--"}
+            <span className="sr-only">{t("kitchen.currentTime")}</span>
+            {now ? formatClock(now, regionalSettings) : "--:--"}
           </p>
 
           <nav
-            aria-label="Kitchen board range"
+            aria-label={t("kitchen.range")}
             className="grid min-w-0 grid-cols-3 gap-1"
           >
             {tabs.map((tab) => {
@@ -227,7 +260,7 @@ export function KitchenHeader({
                   }}
                   type="button"
                 >
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </button>
               );
             })}

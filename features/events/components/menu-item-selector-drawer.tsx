@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useId, useRef, useState } from "react";
 import { MenuThumbnail } from "@/features/events/components/event-manager-shared";
 import { isDrinkKind } from "@/features/menu/lib/service-style";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 /**
  * The four things an event's menu is made of.
@@ -19,12 +20,14 @@ import { isDrinkKind } from "@/features/menu/lib/service-style";
  * nothing here is ever written to that column. The CHECK behind it still only
  * admits Buffet and Plated, and this section does not change that.
  */
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export const MENU_SECTIONS = [
-  { id: "Buffet", label: "Buffet" },
-  { id: "Plated", label: "Plated" },
-  { id: "Drink", label: "Drinks" },
-  { id: "AddOn", label: "Add-ons" }
-] as const;
+  { id: "Buffet", labelKey: "events.section.buffet" },
+  { id: "Plated", labelKey: "events.section.plated" },
+  { id: "Drink", labelKey: "events.section.drinks" },
+  { id: "AddOn", labelKey: "events.section.addOns" }
+] as const satisfies ReadonlyArray<{ id: string; labelKey: MessageKey }>;
 
 export type MenuSection = (typeof MENU_SECTIONS)[number]["id"];
 
@@ -47,8 +50,20 @@ export type MenuSelectorItem = {
 /// the style it will be served in.
 export type MenuSelection = { item: MenuSelectorItem; section: MenuSection };
 
-export function sectionLabel(section: MenuSection) {
-  return MENU_SECTIONS.find((entry) => entry.id === section)?.label ?? section;
+/**
+ * What a section is called on screen.
+ *
+ * Takes the translator rather than reading it, because `MenuSection` is the
+ * service style the API speaks and this helper is called from render paths that
+ * already hold a `t`.
+ */
+export function sectionLabel(
+  section: MenuSection,
+  t: (key: MessageKey) => string
+) {
+  const entry = MENU_SECTIONS.find((item) => item.id === section);
+
+  return entry ? t(entry.labelKey) : section;
 }
 
 /**
@@ -159,6 +174,7 @@ export function MenuItemSelectorDrawer({
   onClose,
   onAdd
 }: MenuItemSelectorDrawerProps) {
+  const { t } = useAppLanguage();
   const titleId = useId();
   const [activeSection, setActiveSection] =
     useState<MenuSection>(initialSection);
@@ -263,12 +279,12 @@ export function MenuItemSelectorDrawer({
               className="min-w-0 truncate text-sm font-black text-[#17202a] sm:text-base"
               id={titleId}
             >
-              Add to {sectionLabel(activeSection)}
+              {t("events.addToSection", { section: sectionLabel(activeSection, t) })}
             </h2>
           </div>
 
           <button
-            aria-label="Close menu item selector"
+            aria-label={t("events.closeItemSelector")}
             className="flex h-9 w-9 items-center justify-center rounded-full text-3xl leading-none text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
@@ -278,7 +294,7 @@ export function MenuItemSelectorDrawer({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <nav aria-label="Menu sections" className="flex flex-wrap gap-2">
+          <nav aria-label={t("events.menuSections")} className="flex flex-wrap gap-2">
             {MENU_SECTIONS.map((section) => {
               const queuedHere = [...pending.values()].filter(
                 (value) => value === section.id
@@ -296,7 +312,7 @@ export function MenuItemSelectorDrawer({
                   onClick={() => setActiveSection(section.id)}
                   type="button"
                 >
-                  {section.label}
+                  {t(section.labelKey)}
                   {/* So a selection made on another tab is not invisible. */}
                   {queuedHere > 0 ? (
                     <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#1f4d73] px-1 text-[9px] font-black text-white">
@@ -309,7 +325,7 @@ export function MenuItemSelectorDrawer({
           </nav>
 
           <p className="mt-2 text-xs text-[#6a7483]">
-            Pick as many as you need, then add them together.
+            {t("events.pickAsMany")}
           </p>
 
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
@@ -340,21 +356,27 @@ export function MenuItemSelectorDrawer({
                     </strong>
                     <span className="mt-1 block text-xs text-[#6a7483]">
                       {isAdded
-                        ? "Already on this menu"
+                        ? t("events.alreadyOnMenu")
                         : queuedIn && queuedIn !== activeSection
-                          ? `Queued under ${sectionLabel(queuedIn)}`
+                          ? t("events.queuedUnder", {
+                              section: sectionLabel(queuedIn, t)
+                            })
                           : (price ??
                             // Flagged before the click rather than after it: a
                             // dish with no rule is offered on every tab, and
                             // adding it puts a question on the menu.
                             (item.styles.length === 0
-                              ? "Needs a counting rule"
+                              ? t("events.needsCountingRule")
                               : // A dish served both ways is being pinned to
                                 // this tab's style by the click, worth saying
                                 // out loud.
                                 item.styles.length > 1
-                                ? `Served ${item.styles.join(" and ").toLowerCase()}`
-                                : sectionLabel(activeSection)))}
+                                ? t("events.servedAs", {
+                                    styles: item.styles
+                                      .join(" and ")
+                                      .toLowerCase()
+                                  })
+                                : sectionLabel(activeSection, t)))}
                     </span>
                   </span>
                   {isQueuedHere ? (
@@ -370,8 +392,10 @@ export function MenuItemSelectorDrawer({
           {visibleItems.length === 0 ? (
             <p className="mt-3 rounded-xl border border-dashed border-[#b9c2cf] px-4 py-8 text-center text-sm font-semibold text-[#6a7483]">
               {isAddOnSection
-                ? "No add-ons have been set up yet. Create one on the Add-ons tab of the menu library."
-                : `No items are served ${sectionLabel(activeSection).toLowerCase()} yet. Open a library item and give it a ${sectionLabel(activeSection).toLowerCase()} rule.`}
+                ? t("events.noAddOnsYet")
+                : t("events.noItemsInSection", {
+                    section: sectionLabel(activeSection, t).toLowerCase()
+                  })}
             </p>
           ) : null}
         </div>
@@ -382,14 +406,16 @@ export function MenuItemSelectorDrawer({
             onClick={() => onClear(activeSection)}
             type="button"
           >
-            Clear {sectionLabel(activeSection).toLowerCase()}
+            {t("events.clearSection", {
+              section: sectionLabel(activeSection, t).toLowerCase()
+            })}
           </button>
           <button
             className="h-9 rounded-lg border border-[#b9c2cf] bg-white px-4 text-xs font-black text-[#17202a] hover:bg-[#eef4fa]"
             onClick={onClose}
             type="button"
           >
-            Close
+            {t("common.close")}
           </button>
           <button
             className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#1f4d73] px-4 text-xs font-black text-white transition hover:bg-[#15344f] disabled:cursor-not-allowed disabled:opacity-50"
@@ -398,8 +424,13 @@ export function MenuItemSelectorDrawer({
             type="button"
           >
             {pending.size === 0
-              ? "Add selected"
-              : `Add ${pending.size} item${pending.size === 1 ? "" : "s"}`}
+              ? t("events.addSelected")
+              : t(
+                  pending.size === 1
+                    ? "events.addItemCount"
+                    : "events.addItemCountPlural",
+                  { count: pending.size }
+                )}
           </button>
         </footer>
       </aside>

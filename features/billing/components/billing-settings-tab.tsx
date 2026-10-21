@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { authenticatedFetch } from "@/lib/http/authenticated-fetch";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 export function SettingsTab() {
+  const { t } = useAppLanguage();
   const [businessName, setBusinessName] = useState("Event Core Hall");
   const [paymentTerms, setPaymentTerms] = useState("Due before event");
   const [invoiceFooter, setInvoiceFooter] = useState(
-    "Thank you. Please submit payment according to the agreed terms."
+    t("billing.invoiceFooterDefault")
   );
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -24,13 +26,13 @@ export function SettingsTab() {
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok)
-        throw new Error(payload.error ?? "Unable to save billing settings.");
-      setMessage("Billing settings saved.");
+        throw new Error(payload.error ?? t("billing.settingsSaveFailed"));
+      setMessage(t("billing.settingsSaved"));
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Unable to save billing settings."
+          : t("billing.settingsSaveFailed")
       );
     } finally {
       setSaving(false);
@@ -38,32 +40,32 @@ export function SettingsTab() {
   }
   const categories = [
     "Uncategorized",
-    "Event Deposit",
-    "Final Payment",
-    "Vendor Cost",
-    "Food Purchase",
-    "Staff Payroll",
-    "Linen Rental",
-    "Equipment Rental",
+    t("billing.catEventDeposit"),
+    t("billing.catFinalPayment"),
+    t("billing.catVendorCost"),
+    t("billing.catFoodPurchase"),
+    t("billing.catStaffPayroll"),
+    t("billing.catLinenRental"),
+    t("billing.catEquipmentRental"),
     "Utilities",
     "Repairs",
     "Refund",
-    "Office Expense"
+    t("billing.catOfficeExpense")
   ];
 
   return (
     <div className="grid gap-4 p-4 xl:grid-cols-[1fr_1fr]">
       <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <div className="border-b border-[#d8dde5] p-4">
-          <h2 className="font-black">Invoice settings</h2>
+          <h2 className="font-black">{t("billing.invoiceSettings")}</h2>
           <p className="text-sm text-[#6a7483]">
-            Controls invoice PDF and email defaults.
+            {t("billing.invoiceSettingsBlurb")}
           </p>
         </div>
         <div className="space-y-4 p-4">
           <div className="grid gap-3 md:grid-cols-2">
             <label className="text-xs font-black uppercase text-[#6a7483]">
-              Business Name
+              {t("billing.businessName")}
               <input
                 className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
                 value={businessName}
@@ -72,21 +74,21 @@ export function SettingsTab() {
               />
             </label>
             <label className="text-xs font-black uppercase text-[#6a7483]">
-              Payment Terms
+              {t("billing.paymentTerms")}
               <select
                 className="mt-1 h-10 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm"
-                aria-label="Payment terms"
+                aria-label={t("billing.paymentTerms")}
                 name="paymentTerms"
                 value={paymentTerms}
                 onChange={(event) => setPaymentTerms(event.target.value)}
-                title="Payment terms"
+                title={t("billing.paymentTerms")}
               >
-                <option>Due before event</option>
+                <option value="Due before event">{t("billing.dueBeforeEvent")}</option>
               </select>
             </label>
           </div>
           <label className="text-xs font-black uppercase text-[#6a7483]">
-            Invoice Footer
+            {t("billing.invoiceFooter")}
             <textarea
               className="mt-1 h-24 w-full rounded-lg border border-[#b9c2cf] p-3 text-sm"
               value={invoiceFooter}
@@ -100,7 +102,7 @@ export function SettingsTab() {
             disabled={saving}
             onClick={() => void saveSettings()}
           >
-            {saving ? "Saving…" : "Save settings"}
+            {saving ? t("common.savingChar") : t("billing.saveSettings")}
           </button>
           {message ? (
             <p className="text-sm font-bold text-[#1f4d73]">{message}</p>
@@ -109,34 +111,30 @@ export function SettingsTab() {
       </section>
       <section className="rounded-xl border border-[#d8dde5] bg-white shadow-sm">
         <div className="border-b border-[#d8dde5] p-4">
-          <h2 className="font-black">Bank and categories</h2>
+          <h2 className="font-black">{t("billing.bankAndCategories")}</h2>
           <p className="text-sm text-[#6a7483]">
-            Company-level bank connections and transaction review rules.
+            {t("billing.bankBlurb")}
           </p>
         </div>
         <div className="m-4 rounded-lg border border-[#1f4d73] bg-[#fbfcfd] p-3 text-sm text-[#1f4d73]">
-          <p className="font-black">Plaid connection flow</p>
+          <p className="font-black">{t("billing.plaidFlow")}</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>
-              The authorized person from each organization or company (owner,
-              admin, or billing manager) can connect that company’s bank
-              account.
+              {t("billing.plaidWhoConnects")}
             </li>
             <li>
-              Plaid securely handles the bank sign-in and approval process, and
-              Event Core never stores the bank username or password.
+              {t("billing.plaidNoCredentials")}
             </li>
             <li>
-              After approval, transactions appear only in that organization’s
-              Billing module and remain separated from other companies.
+              {t("billing.plaidSeparated")}
             </li>
           </ul>
         </div>
         <table className="w-full text-left text-sm">
           <thead className="text-xs uppercase text-[#6a7483]">
             <tr>
-              <th className="border-y border-[#d8dde5] p-3">Category</th>
-              <th className="border-y border-[#d8dde5] p-3">Type</th>
+              <th className="border-y border-[#d8dde5] p-3">{t("common.category")}</th>
+              <th className="border-y border-[#d8dde5] p-3">{t("common.type")}</th>
             </tr>
           </thead>
           <tbody>
@@ -146,7 +144,7 @@ export function SettingsTab() {
                   {category}
                 </td>
                 <td className="border-b border-[#d8dde5] p-3">
-                  {index === 1 || index === 2 ? "Income" : "Expense / General"}
+                  {index === 1 || index === 2 ? "Income" : t("billing.expenseGeneral")}
                 </td>
               </tr>
             ))}

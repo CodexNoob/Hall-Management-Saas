@@ -7,6 +7,7 @@ import {
   type IconName
 } from "@/features/events/components/event-manager-shared";
 import { Field } from "@/features/events/components/event-details-panel";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 function BillingStatCard({
   label,
@@ -46,6 +47,7 @@ function BillingStatCard({
 }
 
 export function EventBillingContent() {
+  const { t } = useAppLanguage();
   const router = useRouter();
   const invoices = [
     ["INV-1028", "Open", "$48,200.00", "$18,000.00", "$30,200.00"],
@@ -53,37 +55,37 @@ export function EventBillingContent() {
   ];
 
   const transactions = [
-    ["Jun 24", "ACH Friedman", "$15,000.00", "Event Deposit"],
-    ["Jun 25", "Premium Linen Co.", "$-1,840.00", "Linen Rental"],
-    ["Jun 27", "Refund adjustment", "$-600.00", "Refund"]
+    ["Jun 24", "ACH Friedman", "$15,000.00", t("events.eventDeposit")],
+    ["Jun 25", "Premium Linen Co.", "$-1,840.00", t("events.linenRental")],
+    ["Jun 27", t("events.refundAdjustment"), "$-600.00", "Refund"]
   ];
 
   return (
     <div className="min-w-0 space-y-3 overflow-hidden">
       <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
         <BillingStatCard
-          label="Total event"
+          label={t("events.totalEvent")}
           value="$55,200.00"
-          note="Invoice total"
+          note={t("events.invoiceTotal")}
           icon="document"
         />
         <BillingStatCard
-          label="Open balance"
+          label={t("billing.openBalance")}
           value="$30,200.00"
-          note="Click to open outstanding balance"
+          note={t("events.openOutstanding")}
           icon="document"
           emphasized
         />
         <BillingStatCard
-          label="Payments"
+          label={t("billing.payments")}
           value="$25,000.00"
-          note="Recorded on event"
+          note={t("events.recordedOnEvent")}
           icon="document"
         />
         <BillingStatCard
-          label="Transactions"
+          label={t("billing.transactions")}
           value="3"
-          note="Assigned records"
+          note={t("events.assignedRecords")}
           icon="files"
         />
       </div>
@@ -94,7 +96,7 @@ export function EventBillingContent() {
             <div className="flex items-center gap-2">
               <LineIcon name="document" />
               <h2 className="text-sm font-black text-[#17202a]">
-                Invoices for this event
+                {t("events.invoicesForEvent")}
               </h2>
             </div>
             <button
@@ -103,7 +105,7 @@ export function EventBillingContent() {
               onClick={() => router.push("/dashboard/billing")}
             >
               <LineIcon name="plus" />
-              Create invoice
+              {t("billing.createInvoice")}
             </button>
           </header>
           <div className="space-y-2 p-3 md:hidden">
@@ -121,19 +123,19 @@ export function EventBillingContent() {
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
                   <div>
                     <dt className="text-[10px] font-black uppercase text-[#6a7483]">
-                      Total
+                      {t("common.total")}
                     </dt>
                     <dd className="mt-1 font-bold">{total}</dd>
                   </div>
                   <div>
                     <dt className="text-[10px] font-black uppercase text-[#6a7483]">
-                      Paid
+                      {t("billing.statusPaid")}
                     </dt>
                     <dd className="mt-1 font-bold">{paid}</dd>
                   </div>
                   <div className="text-right">
                     <dt className="text-[10px] font-black uppercase text-[#6a7483]">
-                      Balance
+                      {t("billing.balance")}
                     </dt>
                     <dd className="mt-1 font-black">{balance}</dd>
                   </div>
@@ -182,17 +184,17 @@ export function EventBillingContent() {
         <section className="min-w-0 rounded-lg border border-[#d8dde5] bg-white">
           <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
             <LineIcon name="document" />
-            <h2 className="text-sm font-black text-[#17202a]">Actions</h2>
+            <h2 className="text-sm font-black text-[#17202a]">{t("common.actions")}</h2>
           </header>
           <div className="space-y-3 p-3">
-            <Field label="Payment amount">
+            <Field label={t("events.paymentAmount")}>
               <input
                 className="mt-1 h-9 w-full rounded-lg border border-[#b9c2cf] px-3 text-sm font-medium text-[#17202a]"
                 defaultValue="5000"
                 name="paymentAmount"
               />
             </Field>
-            {["Record payment", "Client statement"].map((action) => (
+            {["Record payment", t("events.clientStatement")].map((action) => (
               <button
                 key={action}
                 className="flex h-12 w-full items-center gap-3 rounded-lg border border-[#d8dde5] bg-white px-3 text-left text-sm font-black text-[#17202a] hover:bg-[#eef4fa]"
@@ -214,7 +216,7 @@ export function EventBillingContent() {
         <header className="flex h-11 items-center gap-2 border-b border-[#d8dde5] px-4">
           <LineIcon name="files" />
           <h2 className="text-sm font-black text-[#17202a]">
-            Transaction history
+            {t("events.transactionHistory")}
           </h2>
         </header>
         <div className="space-y-2 p-3 md:hidden">

@@ -9,6 +9,7 @@ import {
   secondaryButton,
   type ControlCenterSettings
 } from "./settings-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 
 const fieldClass =
   "mt-1 h-10 w-full rounded-lg border border-[#c7d0dc] bg-white px-3 text-xs text-[#233144] disabled:cursor-not-allowed disabled:bg-[#f5f6f8] disabled:text-[#7a8492]";
@@ -44,13 +45,15 @@ export function CalendarSettingsPanel({
   value: ControlCenterSettings["calendar"];
   onChange: (value: ControlCenterSettings["calendar"]) => void;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <PanelHeader title="Calendar defaults" icon="calendar" />
+        <PanelHeader title={t("settings.calendarDefaults")} icon="calendar" />
         <div className="grid gap-4 p-4 sm:grid-cols-2">
           <label className="text-[10px] font-black">
-            Default view
+            {t("settings.defaultView")}
             <select
               className={fieldClass}
               name="calendarDefaultView"
@@ -62,13 +65,13 @@ export function CalendarSettingsPanel({
                 })
               }
             >
-              <option value="month">Month</option>
-              <option value="week">Week</option>
-              <option value="agenda">Agenda</option>
+              <option value="month">{t("settings.viewMonth")}</option>
+              <option value="week">{t("settings.viewWeek")}</option>
+              <option value="agenda">{t("settings.viewAgenda")}</option>
             </select>
           </label>
           <label className="text-[10px] font-black">
-            Week starts on
+            {t("settings.weekStartsOn")}
             <select
               className={fieldClass}
               name="calendarWeekStartsOn"
@@ -80,13 +83,13 @@ export function CalendarSettingsPanel({
                 })
               }
             >
-              <option value="sunday">Sunday</option>
-              <option value="monday">Monday</option>
-              <option value="saturday">Saturday</option>
+              <option value="sunday">{t("settings.sunday")}</option>
+              <option value="monday">{t("settings.monday")}</option>
+              <option value="saturday">{t("settings.saturday")}</option>
             </select>
           </label>
           <label className="text-[10px] font-black">
-            Hold expiration
+            {t("settings.holdExpiration")}
             <select
               className={fieldClass}
               name="calendarHoldExpirationHours"
@@ -100,14 +103,14 @@ export function CalendarSettingsPanel({
                 })
               }
             >
-              <option value="24">24 hours</option>
-              <option value="48">48 hours</option>
-              <option value="72">72 hours</option>
-              <option value="168">7 days</option>
+              <option value="24">{t("settings.hold24h")}</option>
+              <option value="48">{t("settings.hold48h")}</option>
+              <option value="72">{t("settings.hold72h")}</option>
+              <option value="168">{t("settings.days7")}</option>
             </select>
           </label>
           <label className="text-[10px] font-black">
-            Short-notice warning
+            {t("settings.shortNoticeWarning")}
             <select
               className={fieldClass}
               name="calendarShortNoticeDays"
@@ -121,44 +124,44 @@ export function CalendarSettingsPanel({
                 })
               }
             >
-              <option value="3">3 days</option>
-              <option value="7">7 days</option>
-              <option value="14">14 days</option>
-              <option value="30">30 days</option>
+              <option value="3">{t("settings.days3")}</option>
+              <option value="7">{t("settings.days7")}</option>
+              <option value="14">{t("settings.days14")}</option>
+              <option value="30">{t("settings.days30")}</option>
             </select>
           </label>
         </div>
       </section>
 
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <PanelHeader title="Calendar display" icon="eye" />
+        <PanelHeader title={t("settings.calendarDisplay")} icon="eye" />
         <div className="px-4">
           <SettingRow
             checked={value.showHebrewDate}
-            description="Display the Hebrew date beside the standard date."
+            description={t("settings.showHebrewDatesHint")}
             onChange={() =>
               onChange({ ...value, showHebrewDate: !value.showHebrewDate })
             }
-            title="Show Hebrew dates"
+            title={t("settings.showHebrewDates")}
           />
           <SettingRow
             checked={value.showAvailability}
-            description="Mark dates that still have a bookable hall available."
+            description={t("settings.showAvailableIndicatorHint")}
             onChange={() =>
               onChange({ ...value, showAvailability: !value.showAvailability })
             }
-            title="Show available-date indicator"
+            title={t("settings.showAvailableIndicator")}
           />
           <SettingRow
             checked={value.clickAnywhereToAdd}
-            description="On: clicking anywhere on a day opens the booking form, and the + button is dropped. Off: only the + button books, and clicking the day just selects it."
+            description={t("settings.clickAnywhereHint")}
             onChange={() =>
               onChange({
                 ...value,
                 clickAnywhereToAdd: !value.clickAnywhereToAdd
               })
             }
-            title="Click anywhere to add"
+            title={t("settings.clickAnywhereToAdd")}
           />
         </div>
       </section>
@@ -173,13 +176,15 @@ export function KitchenSettingsPanel({
   value: ControlCenterSettings["kitchen"];
   onChange: (value: ControlCenterSettings["kitchen"]) => void;
 }) {
+  const { t } = useAppLanguage();
+
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <PanelHeader title="Kitchen dashboard" icon="kitchen" />
+        <PanelHeader title={t("settings.kitchenDashboard")} icon="kitchen" />
         <div className="space-y-4 p-4">
           <label className="block text-[10px] font-black">
-            Default view
+            {t("settings.defaultView")}
             <select
               className={fieldClass}
               name="eventsDefaultView"
@@ -191,13 +196,13 @@ export function KitchenSettingsPanel({
                 })
               }
             >
-              <option value="today">Today</option>
-              <option value="week">This week</option>
-              <option value="four-weeks">4 weeks</option>
+              <option value="today">{t("settings.kitchenToday")}</option>
+              <option value="week">{t("settings.kitchenThisWeek")}</option>
+              <option value="four-weeks">{t("settings.kitchenFourWeeks")}</option>
             </select>
           </label>
           <label className="block text-[10px] font-black">
-            Short-notice alert threshold
+            {t("settings.shortNoticeThreshold")}
             <select
               className={fieldClass}
               name="eventsShortNoticeDays"
@@ -211,40 +216,40 @@ export function KitchenSettingsPanel({
                 })
               }
             >
-              <option value="1">1 day</option>
-              <option value="3">3 days</option>
-              <option value="7">7 days</option>
+              <option value="1">{t("settings.days1")}</option>
+              <option value="3">{t("settings.days3")}</option>
+              <option value="7">{t("settings.days7")}</option>
             </select>
           </label>
           <Link className={`${secondaryButton} w-full`} href="/dashboard/staff">
-            Manage kitchen workers
+            {t("settings.manageKitchenWorkers")}
           </Link>
         </div>
       </section>
       <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-        <PanelHeader title="Kitchen alerts" icon="mail" />
+        <PanelHeader title={t("settings.kitchenAlerts")} icon="mail" />
         <div className="px-4">
           <SettingRow
             checked={value.notificationsEnabled}
-            description="Notify kitchen staff about relevant event and menu changes."
+            description={t("settings.kitchenNotificationsHint")}
             onChange={() =>
               onChange({
                 ...value,
                 notificationsEnabled: !value.notificationsEnabled
               })
             }
-            title="Kitchen notifications"
+            title={t("settings.kitchenNotifications")}
           />
           <SettingRow
             checked={value.requireMenuAcknowledgment}
-            description="Menu changes remain open until a kitchen worker confirms them."
+            description={t("settings.requireAckHint")}
             onChange={() =>
               onChange({
                 ...value,
                 requireMenuAcknowledgment: !value.requireMenuAcknowledgment
               })
             }
-            title="Require menu-change acknowledgment"
+            title={t("settings.requireAck")}
           />
         </div>
       </section>
@@ -253,12 +258,13 @@ export function KitchenSettingsPanel({
 }
 
 export function AccessSettingsPanel() {
+  const { t } = useAppLanguage();
   /*
    * Four shortcuts onto one page, each opening the tab it names.
    *
    * Two of these pointed at `/dashboard/access`, which is now a redirect - so
    * they would still have arrived, one hop later and both on the same tab.
-   * Naming the tab directly is what makes "Permission summary" land on the
+   * Naming the tab directly is what makes t("settings.permissionSummary") land on the
    * summary rather than on whichever tab the page happened to default to.
    */
   const actions: Array<{
@@ -268,33 +274,33 @@ export function AccessSettingsPanel() {
     icon: "users" | "shield" | "access" | "mail";
   }> = [
     {
-      title: "Manage staff",
-      description: "Add, deactivate, and update team members.",
+      title: t("settings.manageStaff"),
+      description: t("settings.manageStaffHint"),
       href: "/dashboard/staff?tab=people",
       icon: "users" as const
     },
     {
-      title: "Manage roles",
-      description: "Create roles and assign permission sets.",
+      title: t("settings.manageRoles"),
+      description: t("settings.manageRolesHint"),
       href: "/dashboard/staff?tab=roles",
       icon: "shield" as const
     },
     {
-      title: "Permission summary",
-      description: "Review access across the organization.",
+      title: t("settings.permissionSummary"),
+      description: t("settings.permissionSummaryHint"),
       href: "/dashboard/staff?tab=roles",
       icon: "access" as const
     },
     {
-      title: "Invite user",
-      description: "Send a new staff member an invitation.",
+      title: t("settings.inviteUser"),
+      description: t("settings.inviteUserHint"),
       href: "/dashboard/staff?tab=invitations",
       icon: "mail" as const
     }
   ];
   return (
     <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-      <PanelHeader title="Access & roles" icon="access" />
+      <PanelHeader title={t("settings.accessRoles")} icon="access" />
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         {actions.map((action) => (
           <Link
@@ -315,10 +321,10 @@ export function AccessSettingsPanel() {
               </span>
             </span>
             <span
-              aria-hidden
+              aria-hidden="true"
               className="text-[#718096] transition group-hover:translate-x-0.5"
             >
-              →
+              &rarr;
             </span>
           </Link>
         ))}
@@ -328,33 +334,34 @@ export function AccessSettingsPanel() {
 }
 
 export function BillingBasicsPanel() {
+  const { t } = useAppLanguage();
   const [showPayBalance, setShowPayBalance] = useState(true);
   return (
     <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
-      <PanelHeader title="Billing basics" icon="billing" />
+      <PanelHeader title={t("settings.billingBasics")} icon="billing" />
       <div className="grid gap-x-4 p-4 sm:grid-cols-2">
         <label className="text-[10px] font-black">
-          Currency
+          {t("settings.currency")}
           <select className={fieldClass} defaultValue="USD" name="billingCurrency">
-            <option value="USD">USD — US Dollar</option>
-            <option value="CAD">CAD — Canadian Dollar</option>
-            <option value="ILS">ILS — Israeli New Shekel</option>
+            <option value="USD">{t("settings.currencyUsd")}</option>
+            <option value="CAD">{t("settings.currencyCad")}</option>
+            <option value="ILS">{t("settings.currencyIls")}</option>
           </select>
         </label>
         <label className="text-[10px] font-black">
-          Default deposit label
+          {t("settings.defaultDepositLabel")}
           <input className={fieldClass} defaultValue="Deposit" name="defaultDepositLabel" />
         </label>
         <label className="mt-4 text-[10px] font-black sm:col-span-2">
-          Accepted payment methods
+          {t("settings.acceptedPaymentMethods")}
           <input className={fieldClass} defaultValue="Card, ACH, Check, Cash" name="acceptedPaymentMethods" />
         </label>
         <div className="mt-3 sm:col-span-2">
           <SettingRow
             checked={showPayBalance}
-            description="Display the configured client payment link in the client portal."
+            description={t("settings.showPayBalanceHint")}
             onChange={() => setShowPayBalance((value) => !value)}
-            title="Show Pay Balance button"
+            title={t("settings.showPayBalance")}
           />
         </div>
       </div>
@@ -367,26 +374,38 @@ export function ComingSoonPanel({
 }: {
   section: "Branding" | "Integrations";
 }) {
+  const { t } = useAppLanguage();
   const isBranding = section === "Branding";
+  // Brand colour and the portal header used to be listed here too. Both ship
+  // today, under General - `LogoField` and `PortalHeaderPanel` on that section -
+  // so listing them as unbuilt told an operator who had already set them that
+  // the feature did not exist. What is left is what genuinely is not built.
   const items = isBranding
-    ? [
-        "Brand color",
-        "Client portal header",
-        "Email footer",
-        "PDF & print branding"
-      ]
+    ? [t("settings.emailFooter"), t("settings.pdfBranding")]
     : [
         "Google Calendar",
         "Gmail & Google Drive",
-        "Stripe / payment link",
-        "WhatsApp & SMS"
+        t("settings.stripeLink"),
+        t("settings.whatsappSms")
       ];
   return (
     <section className="overflow-hidden rounded-xl border border-[#d8dde5] bg-white shadow-sm">
+      {/* `section` is the identifier the page switches on, so the heading is
+          built from the catalog rather than from it - this used to render
+          "Branding · Coming soon" in English whatever the language was. */}
       <PanelHeader
-        title={`${section} · Coming soon`}
+        title={`${t(
+          isBranding
+            ? "settings.section.branding"
+            : "settings.section.integrations"
+        )} · ${t("shell.comingSoon")}`}
         icon={isBranding ? "file" : "link"}
       />
+      {isBranding ? (
+        <p className="border-b border-[#e0e5eb] bg-[#f5f8fb] px-4 py-3 text-[11px] font-semibold text-[#38485a]">
+          {t("settings.brandingLivesInGeneral")}
+        </p>
+      ) : null}
       <div className="grid gap-3 p-4 sm:grid-cols-2">
         {items.map((item) => (
           <div
@@ -395,7 +414,7 @@ export function ComingSoonPanel({
           >
             <span className="text-xs font-bold text-[#38485a]">{item}</span>
             <span className="rounded-full bg-[#edf1f5] px-2 py-1 text-[9px] font-black uppercase tracking-wide text-[#687586]">
-              Soon
+              {t("settings.soon")}
             </span>
           </div>
         ))}

@@ -49,7 +49,9 @@ import {
   type HallMapPreset,
   type TableSide
 } from "@/features/dining/components/dining-shared";
+import { useAppLanguage } from "@/components/providers/app-language-provider";
 export function DiningManagerPage() {
+  const { t } = useAppLanguage();
   const diningQuery = useAuthenticatedQuery<DiningResponse>("/api/dining");
   const diningMutation = useAuthenticatedMutation<
     DiningPlanPayload,
@@ -120,7 +122,7 @@ export function DiningManagerPage() {
       event.hall.name,
       event.packageName,
       event.eventStatus,
-      eventSchedule(event)
+      eventSchedule(event, t)
     ]
       .join(" ")
       .toLowerCase()
@@ -481,7 +483,7 @@ export function DiningManagerPage() {
       )
     );
     setCheckMessage(
-      `Tables resized to ${seats} seats. Re-run Auto layout to match the table count to the guests.`
+      t("dining.tablesResized", { seats })
     );
   }
 
@@ -496,7 +498,7 @@ export function DiningManagerPage() {
       0
     );
     if (requiredTableCount === 0) {
-      setCheckMessage("Seating is already sufficient for this event.");
+      setCheckMessage(t("dining.seatingAlreadySufficient"));
       return;
     }
     setSavedMessage("");
@@ -523,7 +525,7 @@ export function DiningManagerPage() {
       }
       return next;
     });
-    setCheckMessage("Required tables were added to the dining layout.");
+    setCheckMessage(t("dining.requiredTablesAdded"));
   }
 
   function autoLayoutTables() {
@@ -565,7 +567,11 @@ export function DiningManagerPage() {
           } - ${previousEvent.diningPlan?.adultCount ?? 0} adults, ${
             previousEvent.diningPlan?.childrenCount ?? 0
           } children, the closest match in this hall.`
-        : `Auto layout generated ${requirements.men} men, ${requirements.women} women, and ${requirements.kids} kids tables.`
+        : t("dining.autoLayoutGenerated", {
+            men: requirements.men,
+            women: requirements.women,
+            kids: requirements.kids
+          })
     );
   }
 
@@ -625,7 +631,7 @@ export function DiningManagerPage() {
     resetError();
     setTablesFromPreset(sourcePreset);
     setCheckMessage(
-      `Reset to ${sourcePreset.name}. Save the dining plan to keep it.`
+      t("dining.resetToPresetToast", { name: sourcePreset.name })
     );
   }
 
@@ -736,7 +742,7 @@ export function DiningManagerPage() {
       });
       invalidateAuthenticatedQuery("/api/events");
       await diningQuery.refetch();
-      showSavedMessage("Dining plan saved.");
+      showSavedMessage(t("dining.planSavedToast"));
     } catch {
       // Mutation errors are rendered in the details panel.
     }
@@ -905,8 +911,8 @@ export function DiningManagerPage() {
         error={diningQuery.error}
         isLoading={diningQuery.isLoading}
         onRetry={diningQuery.refetch}
-        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
-        title="Dining Manager"
+        subtitle={t("dining.blurb")}
+        title={t("dining.title")}
       />
     );
   }
@@ -914,12 +920,12 @@ export function DiningManagerPage() {
   if (!selectedEvent) {
     return (
       <DashboardPageState
-        emptyMessage="Create an event before preparing a dining plan."
-        emptyTitle="No dining events yet"
+        emptyMessage={t("dining.noEventsYetBody")}
+        emptyTitle={t("dining.noEventsYet")}
         isEmpty
         onRetry={diningQuery.refetch}
-        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
-        title="Dining Manager"
+        subtitle={t("dining.blurb")}
+        title={t("dining.title")}
       />
     );
   }
@@ -935,13 +941,13 @@ export function DiningManagerPage() {
               onClick={removeSelectedTable}
               type="button"
             >
-              Remove table
+              {t("dining.removeTable")}
             </button>
             <button
               aria-label={
                 diningMutation.isPending
-                  ? "Saving dining plan"
-                  : "Save dining plan"
+                  ? t("dining.savingPlanAria")
+                  : t("dining.savePlan")
               }
               className="flex h-9 w-9 items-center justify-center rounded-lg bg-transparent text-[#1f4d73] shadow-none transition enabled:hover:text-[#15344f] disabled:cursor-not-allowed disabled:opacity-45 lg:h-11 lg:w-auto lg:whitespace-nowrap lg:rounded-xl lg:bg-[#1f4d73] lg:px-4 lg:text-sm lg:font-bold lg:text-white lg:shadow-sm lg:enabled:hover:bg-[#15344f] lg:enabled:hover:text-white"
               disabled={diningMutation.isPending}
@@ -962,14 +968,16 @@ export function DiningManagerPage() {
                 <path d="M8 4v6h8V4M8 20v-6h8v6" />
               </svg>
               <span className="hidden lg:inline">
-                {diningMutation.isPending ? "Saving..." : "Save dining plan"}
+                {diningMutation.isPending
+                  ? t("common.savingEllipsis")
+                  : t("dining.savePlan")}
               </span>
             </button>
           </>
         }
         compactMobileActions
-        subtitle="Select an event, adjust the hall layout, and prepare the dining sheet."
-        title="Dining Manager"
+        subtitle={t("dining.blurb")}
+        title={t("dining.title")}
       />
 
       <main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-3 py-3 sm:p-3">

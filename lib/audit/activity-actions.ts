@@ -1,3 +1,5 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+
 /**
  * The activity catalog: every action an organization's history can record.
  *
@@ -220,6 +222,35 @@ const CATALOG = [
   },
   { key: "auth.password.set", label: "Password set", module: "Other" },
   {
+    // Somebody deciding their account may be compromised is exactly the moment
+    // worth being able to reconstruct later, so it is recorded like any other
+    // privileged act rather than happening silently in the browser.
+    key: "auth.sessions.revoked",
+    label: "Signed out other sessions",
+    module: "Other"
+  },
+  {
+    // Turning a second factor on or off changes what it takes to become this
+    // person, so both directions are recorded. The OFF one matters more: it is
+    // what an attacker who already has the password would do next.
+    key: "auth.mfa.enabled",
+    label: "Two-factor authentication enabled",
+    module: "Other"
+  },
+  {
+    key: "auth.mfa.disabled",
+    label: "Two-factor authentication disabled",
+    module: "Other"
+  },
+  {
+    // An authenticator appeared on the account without the email-verified
+    // enrollment grant - somebody with the password attaching their own - and
+    // was removed. The most important security entry in this catalog.
+    key: "auth.mfa.untrusted_removed",
+    label: "Unverified authenticator removed",
+    module: "Other"
+  },
+  {
     key: "organization.onboarding.completed",
     label: "Onboarding completed",
     module: "Other"
@@ -265,6 +296,27 @@ const byKey: ReadonlyMap<string, ActivityActionEntry> = new Map(
  */
 export function activityActionLabel(actionType: string): string {
   return byKey.get(actionType)?.label ?? actionType;
+}
+
+/**
+ * The same label, as a catalog key, or null for a legacy string.
+ *
+ * The API composes the English `label` for the CSV export and for clients that
+ * do nothing with it; the screen translates from the action key instead, which
+ * is what `activity_logs.action_type` actually stores. The key is derived
+ * rather than listed a second time - `activity.` plus the action - so a new
+ * action that forgets its catalog entry misses the lookup visibly instead of
+ * silently rendering the wrong wording.
+ */
+export function activityActionLabelKey(actionType: string): MessageKey | null {
+  if (!byKey.has(actionType)) return null;
+
+  return `activity.${actionType}` as MessageKey;
+}
+
+/** The module chip's wording. Every module has an entry, so this never fails. */
+export function activityModuleLabelKey(module: string): MessageKey {
+  return `activity.module.${module}` as MessageKey;
 }
 
 /** Which module an action belongs to. Anything unrecognised is "Other". */

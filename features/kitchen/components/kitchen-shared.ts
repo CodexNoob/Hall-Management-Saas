@@ -1,8 +1,24 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { EventKitchenSheet } from "@/features/events/components/event-manager-shared";
 import { SERVICE_STYLES } from "@/features/menu/lib/service-style";
 import { addDays, startOfWeek } from "@/lib/dates/calendar-date";
 
 export type KitchenView = "today" | "week" | "four-weeks";
+export type KitchenDateFormat = "MMM d, yyyy" | "MM/dd/yyyy" | "dd/MM/yyyy";
+export type KitchenTimeFormat = "12-hour" | "24-hour";
+export type KitchenRegionalSettings = {
+  language: string;
+  timeZone: string;
+  dateFormat: KitchenDateFormat;
+  timeFormat: KitchenTimeFormat;
+};
+
+export const DEFAULT_KITCHEN_REGIONAL_SETTINGS: KitchenRegionalSettings = {
+  language: "en-US",
+  timeZone: "America/New_York",
+  dateFormat: "MMM d, yyyy",
+  timeFormat: "12-hour"
+};
 
 /**
  * One row of the event's day-of schedule, as the kitchen reads it.
@@ -197,6 +213,9 @@ export type KitchenResponse = {
    */
   kitchenSettings: {
     defaultView: KitchenView;
+    language?: string;
+    dateFormat?: KitchenDateFormat;
+    timeFormat?: KitchenTimeFormat;
     /**
      * The venue's IANA zone, so the board calls the same day "Today" that the
      * write endpoints will accept. Optional because a board rendered from a
@@ -205,6 +224,20 @@ export type KitchenResponse = {
     timeZone?: string;
   };
 };
+
+export function kitchenRegionalSettings(
+  settings: KitchenResponse["kitchenSettings"] | undefined
+): KitchenRegionalSettings {
+  return {
+    language: settings?.language || DEFAULT_KITCHEN_REGIONAL_SETTINGS.language,
+    timeZone:
+      settings?.timeZone || DEFAULT_KITCHEN_REGIONAL_SETTINGS.timeZone,
+    dateFormat:
+      settings?.dateFormat || DEFAULT_KITCHEN_REGIONAL_SETTINGS.dateFormat,
+    timeFormat:
+      settings?.timeFormat || DEFAULT_KITCHEN_REGIONAL_SETTINGS.timeFormat
+  };
+}
 
 /**
  * Which way a replacement dish will be served.
@@ -234,6 +267,19 @@ export function resolveReplacementStyle(
 }
 
 export const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Shabbos"];
+
+/**
+ * The board's `t`, narrowed to what these helpers need.
+ *
+ * They are plain functions in a `.ts` module, so they cannot read the
+ * language context themselves. Callers that are components hand theirs in;
+ * the parameter is optional so the pure-function tests, and any caller
+ * outside a React tree, still get the English wording.
+ */
+export type KitchenTranslate = (
+  key: MessageKey,
+  values?: Record<string, string | number>
+) => string;
 
 /**
  * How a day is tinted across the three views.
@@ -271,20 +317,34 @@ export function kitchenDayTone(day: KitchenDay) {
 }
 
 /** "No events", "1 event", "4 events" - said the way a person would. */
-export function eventCountLabel(events: KitchenEvent[] | undefined) {
+export function eventCountLabel(
+  events: KitchenEvent[] | undefined,
+  t?: KitchenTranslate
+) {
   const count = events?.length ?? 0;
 
-  return count === 1 ? "1 event" : `${count} events`;
+  if (!t) return count === 1 ? "1 event" : `${count} events`;
+  if (count === 0) return t("kitchen.eventCountNone");
+
+  return count === 1
+    ? t("kitchen.eventCountOne")
+    : t("kitchen.eventCountMany", { count });
 }
 
 // UTC, because `startsAt` is a wall-clock time anchored to UTC rather than an
 // instant - see `formatEventTime` in components/layout/dashboard-shell-shared.
 // A pass reading "2:30 PM" for a dinner booked at 6:30 is worse than no time.
-const timeFormat = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  timeZone: "UTC"
-});
+function kitchenTimeFormatter(
+  settings: KitchenRegionalSettings,
+  timeZone: string
+) {
+  return new Intl.DateTimeFormat(settings.language, {
+    hour: "numeric",
+    hour12: settings.timeFormat === "12-hour",
+    minute: "2-digit",
+    timeZone
+  });
+}
 
 /**
  * When the food is wanted.
@@ -292,12 +352,17 @@ const timeFormat = new Intl.DateTimeFormat("en-US", {
  * An em dash rather than "TBC" or a blank: a card with no time still has to
  * hold its column, and the absence is the answer - nobody has said yet.
  */
-export function formatServeTime(startsAt: string | null) {
+export function formatServeTime(
+  startsAt: string | null,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS
+) {
   if (!startsAt) return "—";
 
   const parsed = new Date(startsAt);
 
-  return Number.isNaN(parsed.getTime()) ? "—" : timeFormat.format(parsed);
+  return Number.isNaN(parsed.getTime())
+    ? "—"
+    : kitchenTimeFormatter(settings, "UTC").format(parsed);
 }
 
 /**
@@ -317,9 +382,22 @@ export const MEAL_LABELS: Record<string, string> = {
   SeudahShlishis: "Seudah Shlishis"
 };
 
+/** The same four meals, as catalog keys. */
+const MEAL_KEYS: Record<string, MessageKey> = {
+  Main: "kitchen.mealMain",
+  FridayNight: "kitchen.mealFridayNight",
+  ShabbosDay: "kitchen.mealShabbosDay",
+  SeudahShlishis: "kitchen.mealSeudahShlishis"
+};
+
 const mealOrder = Object.keys(MEAL_LABELS);
 
-export function mealLabel(meal: string) {
+export function mealLabel(meal: string, t?: KitchenTranslate) {
+  // An unknown meal falls through to its own name either way: the board
+  // shows what the sheet says rather than blanking a meal it has not met.
+  const key = MEAL_KEYS[meal];
+  if (t && key) return t(key);
+
   return MEAL_LABELS[meal] ?? meal;
 }
 
@@ -330,15 +408,18 @@ export function mealLabel(meal: string) {
  * and look, and what they need to know - that Friday night is not on this
  * board - fits on the badge.
  */
-export function formatOtherMeals(meals: string[]) {
+export function formatOtherMeals(meals: string[], t?: KitchenTranslate) {
   const labels = [...meals]
     .sort((left, right) => mealOrder.indexOf(left) - mealOrder.indexOf(right))
-    .map(mealLabel);
+    .map((meal) => mealLabel(meal, t));
 
   if (labels.length === 0) return "";
   if (labels.length === 1) return labels[0];
 
-  return `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
+  const list = labels.slice(0, -1).join(", ");
+  const last = labels[labels.length - 1];
+
+  return t ? t("kitchen.listAnd", { list, last }) : `${list} and ${last}`;
 }
 
 /**
@@ -348,13 +429,22 @@ export function formatOtherMeals(meals: string[]) {
  * addition to what the card is already reporting, which is the whole point -
  * the ratio above it is measuring a fraction of the work.
  */
-export function formatMealsNotShown(meals: string[] | null | undefined) {
+export function formatMealsNotShown(
+  meals: string[] | null | undefined,
+  t?: KitchenTranslate
+) {
   const visibleMeals = meals ?? [];
   if (visibleMeals.length === 0) return null;
 
-  return `+${visibleMeals.length} meal${
-    visibleMeals.length === 1 ? "" : "s"
-  } not shown`;
+  if (!t) {
+    return `+${visibleMeals.length} meal${
+      visibleMeals.length === 1 ? "" : "s"
+    } not shown`;
+  }
+
+  return visibleMeals.length === 1
+    ? t("kitchen.mealNotShownOne")
+    : t("kitchen.mealsNotShownMany", { count: visibleMeals.length });
 }
 
 /**
@@ -363,11 +453,24 @@ export function formatMealsNotShown(meals: string[] | null | undefined) {
  * A menu with no dishes reads "No dishes" rather than "0/0 done", which looks
  * like a job nobody has started rather than one that does not exist yet.
  */
-export function formatProgress(summary: EventKitchenSheet["summary"] | null) {
+export function formatProgress(
+  summary: EventKitchenSheet["summary"] | null,
+  t?: KitchenTranslate
+) {
   if (!summary) return null;
-  if (summary.dishes === 0) return "No dishes";
 
-  return `${summary.complete}/${summary.dishes} done`;
+  if (!t) {
+    return summary.dishes === 0
+      ? "No dishes"
+      : `${summary.complete}/${summary.dishes} done`;
+  }
+
+  if (summary.dishes === 0) return t("kitchen.noDishes");
+
+  return t("kitchen.progressDone", {
+    complete: summary.complete,
+    dishes: summary.dishes
+  });
 }
 
 /**
@@ -391,14 +494,103 @@ export function progressFraction(summary: EventKitchenSheet["summary"] | null) {
  * minute on its own. Formatting them together is what left the board showing the
  * time it was first rendered for as long as the tab stayed open.
  */
-export function formatClock(now: Date) {
-  return timeFormat.format(now);
+export function formatClock(
+  now: Date,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS
+) {
+  return kitchenTimeFormatter(settings, settings.timeZone).format(now);
+}
+
+export function formatKitchenDate(
+  date: Date,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS,
+  includeWeekday = false,
+  weekdayStyle: "long" | "short" = "long"
+) {
+  // Grid dates are civil dates held in the browser's local frame. Rebuild the
+  // same calendar fields in UTC before formatting so a device in Manila and a
+  // wall display in New York still print the same venue date.
+  const civilDate = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+  const weekday = includeWeekday
+    ? new Intl.DateTimeFormat(settings.language, {
+        weekday: weekdayStyle,
+        timeZone: "UTC"
+      }).format(civilDate)
+    : null;
+  let formatted: string;
+
+  if (settings.dateFormat === "MM/dd/yyyy") {
+    formatted = `${String(date.getMonth() + 1).padStart(2, "0")}/${String(
+      date.getDate()
+    ).padStart(2, "0")}/${date.getFullYear()}`;
+  } else if (settings.dateFormat === "dd/MM/yyyy") {
+    formatted = `${String(date.getDate()).padStart(2, "0")}/${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}/${date.getFullYear()}`;
+  } else {
+    const month = new Intl.DateTimeFormat(settings.language, {
+      month: "short",
+      timeZone: "UTC"
+    }).format(civilDate);
+    formatted = `${month} ${date.getDate()}, ${date.getFullYear()}`;
+  }
+
+  return weekday ? `${weekday}, ${formatted}` : formatted;
+}
+
+export function formatKitchenDayLabel(
+  date: Date,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS
+) {
+  if (settings.dateFormat === "MM/dd/yyyy") {
+    return `${String(date.getMonth() + 1).padStart(2, "0")}/${String(
+      date.getDate()
+    ).padStart(2, "0")}`;
+  }
+
+  if (settings.dateFormat === "dd/MM/yyyy") {
+    return `${String(date.getDate()).padStart(2, "0")}/${String(
+      date.getMonth() + 1
+    ).padStart(2, "0")}`;
+  }
+
+  const civilDate = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+  const month = new Intl.DateTimeFormat(settings.language, {
+    month: "short",
+    timeZone: "UTC"
+  }).format(civilDate);
+
+  return `${month} ${date.getDate()}`;
+}
+
+export function formatKitchenWeekday(
+  date: Date,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS
+) {
+  const civilDate = new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  );
+
+  return new Intl.DateTimeFormat(settings.language, {
+    weekday: "short",
+    timeZone: "UTC"
+  }).format(civilDate);
 }
 
 const relativeDayNames = new Map([
   [-1, "Yesterday"],
   [0, "Today"],
   [1, "Tomorrow"]
+]);
+
+const relativeDayKeys = new Map<number, MessageKey>([
+  [-1, "kitchen.yesterday"],
+  [0, "kitchen.today"],
+  [1, "kitchen.tomorrow"]
 ]);
 
 /**
@@ -412,39 +604,24 @@ const relativeDayNames = new Map([
 export function kitchenViewInformation(
   activeView: KitchenView,
   anchorDate: Date,
-  today: Date
+  today: Date,
+  settings: KitchenRegionalSettings = DEFAULT_KITCHEN_REGIONAL_SETTINGS,
+  t?: KitchenTranslate
 ) {
-  const fullDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric"
-  });
-  // The same date with every word abbreviated, for the phone header. A 360px
-  // screen leaves the heading about 260px between the two arrows, which is not
-  // enough for "Wednesday, August 26, 2026" - it truncated to "Wednesday,
-  // August 26, ..." and dropped the year, the one part that is not obvious from
-  // context. Abbreviated it fits whole.
-  const compactDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  });
-  const shortDate = new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric"
-  });
-
   if (activeView === "today") {
     const dayOffset = Math.round(
       (anchorDate.getTime() - today.getTime()) / 86_400_000
     );
 
+    const relativeKey = relativeDayKeys.get(dayOffset);
+
     return {
-      heading: fullDate.format(anchorDate),
-      compactHeading: compactDate.format(anchorDate),
-      rangeLabel: relativeDayNames.get(dayOffset) ?? null
+      heading: formatKitchenDate(anchorDate, settings, true),
+      compactHeading: formatKitchenDate(anchorDate, settings, true, "short"),
+      rangeLabel:
+        t && relativeKey
+          ? t(relativeKey)
+          : (relativeDayNames.get(dayOffset) ?? null)
     };
   }
 
@@ -452,10 +629,29 @@ export function kitchenViewInformation(
   const rangeEnd = addDays(rangeStart, activeView === "week" ? 6 : 27);
 
   return {
-    heading: activeView === "week" ? "This Week" : "4 Weeks",
+    heading: t
+      ? t(
+          activeView === "week"
+            ? "kitchen.thisWeekHeading"
+            : "kitchen.fourWeeksHeading"
+        )
+      : activeView === "week"
+        ? "This Week"
+        : "4 Weeks",
     // Already two words; there is nothing to abbreviate, but the header reads
     // this field unconditionally so it has to be here.
-    compactHeading: activeView === "week" ? "This Week" : "4 Weeks",
-    rangeLabel: `${shortDate.format(rangeStart)} – ${shortDate.format(rangeEnd)}, ${rangeEnd.getFullYear()}`
+    compactHeading: t
+      ? t(
+          activeView === "week"
+            ? "kitchen.thisWeekHeading"
+            : "kitchen.fourWeeksHeading"
+        )
+      : activeView === "week"
+        ? "This Week"
+        : "4 Weeks",
+    rangeLabel:
+      settings.dateFormat === "MMM d, yyyy"
+        ? `${formatKitchenDayLabel(rangeStart, settings)} – ${formatKitchenDayLabel(rangeEnd, settings)}, ${rangeEnd.getFullYear()}`
+        : `${formatKitchenDate(rangeStart, settings)} – ${formatKitchenDate(rangeEnd, settings)}`
   };
 }
